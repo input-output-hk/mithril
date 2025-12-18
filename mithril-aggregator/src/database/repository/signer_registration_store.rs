@@ -164,7 +164,7 @@ mod tests {
                     .unwrap(),
                 verification_key_signature: None,
                 operational_certificate: None,
-                kes_period: None,
+                kes_evolutions: None,
                 stake: 10,
             })
             .collect()
@@ -244,7 +244,7 @@ mod tests {
                     verification_key: fake_keys::signer_verification_key()[0].try_into().unwrap(),
                     verification_key_signature: None,
                     operational_certificate: None,
-                    kes_period: None,
+                    kes_evolutions: None,
                     stake: 10,
                 },
             )
@@ -269,7 +269,7 @@ mod tests {
                     verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
                     verification_key_signature: None,
                     operational_certificate: None,
-                    kes_period: None,
+                    kes_evolutions: None,
                     stake: 10,
                 },
             )
@@ -282,7 +282,7 @@ mod tests {
                 verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
                 verification_key_signature: None,
                 operational_certificate: None,
-                kes_period: None,
+                kes_evolutions: None,
                 stake: 10,
             }),
             res,

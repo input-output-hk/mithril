@@ -25,7 +25,10 @@ pub struct SignerRegistrationRecord {
     /// Operational certificate of the stake pool operator associated to the signer
     pub operational_certificate: Option<HexEncodedOpCert>,
 
-    /// The kes period used to compute the verification key signature
+    /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
+    ///
+    /// Note: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
+    // TODO: This 'kes_period' should be renamed to 'kes_evolutions' to avoid confusion
     pub kes_period: Option<KesPeriod>,
 
     /// The stake associated to the signer
@@ -47,7 +50,7 @@ impl SignerRegistrationRecord {
             operational_certificate: other
                 .operational_certificate
                 .map(|o| o.to_json_hex().unwrap()),
-            kes_period: other.kes_period,
+            kes_period: other.kes_evolutions,
             stake: Some(other.stake),
             created_at: Utc::now(),
         }
@@ -63,7 +66,7 @@ impl From<SignerRegistrationRecord> for Signer {
                 .verification_key_signature
                 .map(|k| k.try_into().unwrap()),
             operational_certificate: other.operational_certificate.map(|o| o.try_into().unwrap()),
-            kes_period: other.kes_period,
+            kes_evolutions: other.kes_period,
         }
     }
 }
@@ -77,7 +80,7 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
                 .verification_key_signature
                 .map(|k| k.try_into().unwrap()),
             operational_certificate: other.operational_certificate.map(|o| o.try_into().unwrap()),
-            kes_period: other.kes_period,
+            kes_evolutions: other.kes_period,
             stake: other.stake.unwrap_or_default(),
         }
     }

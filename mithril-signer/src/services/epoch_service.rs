@@ -137,7 +137,7 @@ impl MithrilEpochService {
                 signer.verification_key.to_owned(),
                 signer.verification_key_signature.to_owned(),
                 signer.operational_certificate.to_owned(),
-                signer.kes_period.to_owned(),
+                signer.kes_evolutions.to_owned(),
                 *stake,
             ));
             trace!(

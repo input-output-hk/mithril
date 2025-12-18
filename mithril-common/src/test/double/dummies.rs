@@ -154,7 +154,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_period: Some(6),
+                kes_evolutions: Some(6),
                 stake: 234,
             }
         }
@@ -170,7 +170,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_period: Some(6),
+                kes_evolutions: Some(6),
             }
         }
     }
@@ -539,7 +539,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_period: Some(6),
+                kes_evolutions: Some(6),
             }
         }
     }

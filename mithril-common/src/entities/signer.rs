@@ -33,10 +33,10 @@ pub struct Signer {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<ProtocolOpCert>,
 
-    /// The kes period used to compute the verification key signature
-    // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
+    /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KesPeriod>,
+    #[serde(rename = "kes_period")]
+    pub kes_evolutions: Option<KesPeriod>,
 }
 
 impl PartialEq for Signer {
@@ -71,7 +71,7 @@ impl Signer {
             verification_key,
             verification_key_signature,
             operational_certificate,
-            kes_period,
+            kes_evolutions: kes_period,
         }
     }
 
@@ -116,7 +116,7 @@ impl Debug for Signer {
                     "operational_certificate",
                     &format_args!("{:?}", self.operational_certificate),
                 )
-                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions))
                 .finish(),
             false => debug.finish_non_exhaustive(),
         }
@@ -130,7 +130,7 @@ impl From<SignerWithStake> for Signer {
             other.verification_key,
             other.verification_key_signature,
             other.operational_certificate,
-            other.kes_period,
+            other.kes_evolutions,
         )
     }
 }
@@ -159,11 +159,9 @@ pub struct SignerWithStake {
     pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
-    ///
-    /// Note: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
-    // TODO: This 'kes_period' should be rename to 'kes_evolutions' to avoid confusion
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KesPeriod>,
+    #[serde(rename = "kes_period")]
+    pub kes_evolutions: Option<KesPeriod>,
 
     /// The signer stake
     pub stake: Stake,
@@ -202,7 +200,7 @@ impl SignerWithStake {
             verification_key,
             verification_key_signature,
             operational_certificate,
-            kes_period,
+            kes_evolutions: kes_period,
             stake,
         }
     }
@@ -214,7 +212,7 @@ impl SignerWithStake {
             verification_key: signer.verification_key,
             verification_key_signature: signer.verification_key_signature,
             operational_certificate: signer.operational_certificate,
-            kes_period: signer.kes_period,
+            kes_evolutions: signer.kes_evolutions,
             stake,
         }
     }
@@ -257,7 +255,7 @@ impl Debug for SignerWithStake {
                     "operational_certificate",
                     &format_args!("{:?}", self.operational_certificate),
                 )
-                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions))
                 .finish(),
             false => debug.finish_non_exhaustive(),
         }
