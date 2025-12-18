@@ -117,7 +117,7 @@ impl StmInitializerWrapper {
     pub fn setup<R: RngCore + CryptoRng>(
         params: Parameters,
         kes_signer: Option<Arc<dyn KesSigner>>,
-        kes_period: Option<KesPeriod>,
+        current_kes_period: Option<KesPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
@@ -125,7 +125,7 @@ impl StmInitializerWrapper {
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
-                kes_period.unwrap_or_default(),
+                current_kes_period.unwrap_or_default(),
             )?;
 
             Some(signature)
