@@ -198,18 +198,11 @@ impl Runner for SignerRunner {
             }
             _ => (None, None),
         };
-
-        let kes_period = match operational_certificate {
-            Some(operational_certificate) => Some(
-                self.services
-                    .chain_observer
-                    .get_current_kes_period()
-                    .await?
-                    .unwrap_or_default()
-                    - operational_certificate.get_start_kes_period() as KesPeriod,
-            ),
-            None => None,
-        };
+        let current_kes_period = self.services.chain_observer.get_current_kes_period().await?;
+        let kes_evolutions = operational_certificate.map(|operational_certificate| {
+            current_kes_period.unwrap_or_default()
+                - operational_certificate.get_start_kes_period() as KesPeriod
+        });
 
         let protocol_initializer = self
             .services
@@ -225,7 +218,7 @@ impl Runner for SignerRunner {
                 stake,
                 &protocol_parameters,
                 self.services.kes_signer.clone(),
-                kes_period,
+                current_kes_period,
             )?;
 
             let signer = Signer::new(
@@ -233,7 +226,7 @@ impl Runner for SignerRunner {
                 protocol_initializer.verification_key().into(),
                 protocol_initializer.verification_key_signature(),
                 protocol_operational_certificate,
-                kes_period,
+                kes_evolutions,
             );
             self.services
                 .signer_registration_publisher
