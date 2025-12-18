@@ -158,8 +158,10 @@ pub struct SignerWithStake {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<ProtocolOpCert>,
 
-    /// The kes period used to compute the verification key signature
-    // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
+    /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
+    ///
+    /// Note: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
+    // TODO: This 'kes_period' should be rename to 'kes_evolutions' to avoid confusion
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kes_period: Option<KesPeriod>,
 
