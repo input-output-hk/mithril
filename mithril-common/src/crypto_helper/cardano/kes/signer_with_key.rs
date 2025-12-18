@@ -43,17 +43,16 @@ impl KesSigner for KesSignerStandard {
         let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
             .with_context(|| "StandardKesSigner can not read operational certificate from file")?;
         let kes_period_start = operational_certificate.get_start_kes_period() as u32;
-        let kes_sk_period = kes_sk.get_period();
-        let kes_evolutions = current_kes_period.saturating_sub(kes_period_start);
-        if kes_sk_period > kes_evolutions {
+        if kes_period_start > current_kes_period {
             return Err(anyhow!(KesSignError::PeriodMismatch(
-                kes_sk_period,
-                kes_evolutions
+                kes_period_start,
+                current_kes_period
             )));
         }
+        let kes_evolutions = current_kes_period.saturating_sub(kes_period_start);
 
         // We need to perform the evolutions
-        for evolution in kes_sk_period..kes_evolutions {
+        for evolution in 0..kes_evolutions {
             kes_sk.update().map_err(|_| KesSignError::UpdateKey(evolution))?;
         }
 
@@ -74,7 +73,7 @@ mod tests {
     #[test]
     fn create_valid_signature_for_message() {
         let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let kes_evolutions = 32;
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -100,7 +99,7 @@ mod tests {
     #[test]
     fn create_invalid_signature_for_different_message() {
         let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let kes_evolutions = 32;
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -124,7 +123,35 @@ mod tests {
     }
 
     #[test]
-    fn create_invalid_signature_for_invalid_kes_evolution() {
+    fn create_invalid_signature_for_invalid_current_kes_period() {
+        let start_kes_period = 10 as KesPeriod;
+        let signing_kes_period = 5;
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as KesPartyIndexForTest,
+            start_kes_period,
+            current_function!(),
+        );
+        let message = b"Test message for KES signing";
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
+
+        let res = kes_signer
+            .sign(message, signing_kes_period)
+            .expect_err("Signing should fail");
+        assert_eq!(
+            res.downcast_ref::<KesSignError>(),
+            Some(&KesSignError::PeriodMismatch(
+                start_kes_period,
+                signing_kes_period
+            ))
+        );
+    }
+
+    #[test]
+    fn create_invalid_signature_for_invalid_kes_evolutions() {
         const MAX_KES_EVOLUTIONS: KesPeriod = 63;
         let start_kes_period = 10 as KesPeriod;
         let signing_kes_period = start_kes_period + MAX_KES_EVOLUTIONS + 1;
@@ -140,8 +167,12 @@ mod tests {
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
 
-        kes_signer
+        let res = kes_signer
             .sign(message, signing_kes_period)
             .expect_err("Signing should fail");
+        assert_eq!(
+            res.downcast_ref::<KesSignError>(),
+            Some(&KesSignError::UpdateKey(MAX_KES_EVOLUTIONS))
+        );
     }
 }
