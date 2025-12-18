@@ -889,6 +889,546 @@ sudo service netfilter-persistent save
 
 :::
 
+## Setup the DMQ node (unstable)
+
+:::danger
+
+The DMQ node setup is currently **unstable** and not suitable for production use.
+
+During the stabilization and rampup phase of the DMQ network:
+
+- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
+- This section is subject to frequent changes.
+
+:::
+
+The DMQ node supports the implementation of a **Decentralized Message Queue** (DMQ) for Mithril. The DMQ protocol allows Mithril signers to exchange signatures in a decentralized manner, enhancing the robustness and scalability of the Mithril networks. Once stabilized and deployed on a majority of SPOs on a Mithril network, the DMQ protocol will allow multiple aggregators to operate simultaneously, improving the overall availability of the Mithril protocol. The DMQ protocol is fully described in the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
+
+The DMQ node follows the same deployment model than the Mithril signer node and the Cardano node:
+
+- For **production** deployment, the **DMQ node** setup is performed on the **Cardano block producer** machine and on the **Cardano relay** machine
+- For **naive** deployment, the **DMQ node** setup is performed on the **Cardano relay** machine only. (for tests only)
+
+If you choose the **production** deployment, you will need to install and configure the DMQ node on both the **Cardano block producer** machine and the **Cardano relay** machine, following the same steps.
+
+:::caution
+
+- Here are the needed information to setup a DMQ node:
+  - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
+  - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
+  - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
+  - `**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_RELAY_PORT**`: replace with the listening port of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the block producer machine (this is a sensible information that must not be shared publicly)
+  - `**YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**`: replace with the listening port of your DMQ node on the block producer machine
+  - `**YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**`: replace with the IP address of your DMQ bootstrap peer (the address can be found in the [Mithril networks](../getting-started/network-configurations.md) table)
+  - `**YOUR_DMQ_BOOTSTRAP_PEER_PORT**`: replace with the listening port of your DMQ bootstrap peer (the value can be found in the [Mithril networks](../getting-started/network-configurations.md) table).
+
+:::
+
+:::tip
+
+Here is an **example** set of values for **pre-release-preview** that will be used in this guide in the **tip** boxes to illustrate some commands:
+
+- **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
+- **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
+- **YOUR_CARDANO_NETWORK_MAGIC**: `2`
+- **YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**: `192.168.1.30`
+- **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**: `34.14.65.160`
+- **YOUR_DMQ_NODE_RELAY_PORT**: `6161`
+- **YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS**: `192.168.1.60`
+- **YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**: `6161`
+- **YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**: `34.76.22.193`
+- **YOUR_DMQ_BOOTSTRAP_PEER_PORT**: `6161`
+
+:::
+
+### Download the pre-built binary
+
+:::tip
+
+As we are still in a testing stage, we only support the `pre-release-preview` network.
+
+You can use these parameters for the **pre-release-preview** network:
+
+- **DMQ_RELEASE_URL**: `https://github.com/input-output-hk/mithril/raw/refs/heads/jpraynaud/dmq-node-binary/mithril-test-lab/mithril-devnet/bin/dmq-node-0.2.0.0-53bf9652787dc768abd86cf3844f1206f0fd7d8c`
+
+_These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
+
+:::
+
+To download the latest released version of the DMQ node binary, run the following command:
+
+```bash
+curl --fail -sL -o dmq-node **DMQ_RELEASE_URL**
+```
+
+### Installing the service
+
+#### Make the binary executable
+
+To make the binary executable, run:
+
+```bash
+chmod +x dmq-node
+```
+
+#### Move the executable
+
+To move the executable to /opt/dmq, run:
+
+```bash
+sudo mkdir -p /opt/dmq
+sudo mv dmq-node /opt/dmq
+```
+
+#### Prepare the configuration file of the DMQ node
+
+- For a **DMQ node on the relay machine**, create a `/opt/dmq/config-relay.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/config-relay.json << EOF
+{
+  "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/config-relay.json << EOF
+{
+  "CardanoNetworkMagic": 2,
+  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::
+
+- For a **DMQ node on the block-producer machine**, create a `/opt/dmq/config-bp.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/config-bp.json << EOF
+{
+  "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/config-bp.json << EOF
+{
+  "CardanoNetworkMagic": 2,
+  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::
+
+#### Prepare the topology file for the DMQ node
+
+:::tip
+
+The topology file of the DMQ node follows a similar format than the Cardano node topology file. More information is available at [Cardano node topology](https://developers.cardano.org/docs/get-started/infrastructure/node/topology/).
+
+:::
+
+- For a **DMQ node on the relay machine**, create a `/opt/dmq/topology-relay.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-relay.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "**YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**",
+          "port": **YOUR_DMQ_BOOTSTRAP_PEER_PORT**,
+          "valency": 1
+        }
+      ],
+      "advertise": true,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-relay.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "34.76.22.193",
+          "port": 6161,
+          "valency": 1
+        }
+      ],
+      "advertise": true,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::
+
+- For a **DMQ node on the block-producer machine**, create a `/opt/dmq/topology-bp.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-bp.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**",
+          "port": **YOUR_DMQ_NODE_RELAY_PORT**,
+          "valency": 1
+        }
+      ],
+      "advertise": false,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-bp.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "192.168.1.30",
+          "port": 6161,
+          "valency": 1
+        }
+      ],
+      "advertise": false,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::
+
+#### Set up the service
+
+:::caution
+
+- `User=cardano`:
+  Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **DMQ node** must imperatively run with the same user.
+
+:::
+
+- For a **DMQ node on the relay machine**, create a `/etc/systemd/system/dmq-relay.service` description file for the service:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-relay.service << EOF
+[Unit]
+Description=DMQ relay service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-relay.json --topology-file /opt/dmq/topology-relay.json --local-socket **YOUR_DMQ_NODE_SOCKET_PATH** --host-addr **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS** --port **YOUR_DMQ_NODE_RELAY_PORT**
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-relay.service << EOF
+[Unit]
+Description=DMQ relay service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-relay.json --topology-file /opt/dmq/topology-relay.json --local-socket /dmq/ipc/node.socket --host-addr 34.14.65.160 --port 6161
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::
+
+Reload the service configuration (optional):
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Then, start the service:
+
+```bash
+sudo systemctl start dmq-relay
+```
+
+Register the service to start on boot:
+
+```bash
+sudo systemctl enable dmq-relay
+```
+
+Monitor the status of the service:
+
+```bash
+systemctl status dmq-relay.service
+```
+
+Finally, monitor the logs of the service:
+
+```bash
+tail -f /var/log/syslog | grep dmq-relay
+```
+
+- For a **DMQ node on the block-producer machine**, create a `/etc/systemd/system/dmq-bp.service` description file for the service:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-bp.service << EOF
+[Unit]
+Description=DMQ block-producer service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-bp.json --topology-file /opt/dmq/topology-bp.json --local-socket **YOUR_DMQ_NODE_SOCKET_PATH** --host-addr **YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS** --port **YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-bp.service << EOF
+[Unit]
+Description=DMQ block-producer service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-bp.json --topology-file /opt/dmq/topology-bp.json --local-socket /dmq/ipc/node.socket --host-addr 192.168.1.60 --port 6161
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::
+
+Reload the service configuration (optional):
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Then, start the service:
+
+```bash
+sudo systemctl start dmq-bp
+```
+
+Register the service to start on boot:
+
+```bash
+sudo systemctl enable dmq-bp
+```
+
+Monitor the status of the service:
+
+```bash
+systemctl status dmq-bp.service
+```
+
+Finally, monitor the logs of the service:
+
+```bash
+tail -f /var/log/syslog | grep dmq-bp
+```
+
+### Update the configuration of the Mithril signer
+
+The Mithril signer node must be configured to use the DMQ node (use the **block-producer** DMQ node socket path for the **production** deployment):
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+DMQ_NODE_SOCKET_PATH=**YOUR_DMQ_NODE_SOCKET_PATH**
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+DMQ_NODE_SOCKET_PATH=/dmq/ipc/node.socket
+EOF'
+```
+
+:::
+
+### Firewall configuration
+
+You should use a configuration which is very similar to the configuration used for your Cardano nodes:
+
+- For the **DMQ node on the relay machine**, allow incoming traffic on the listening port of your DMQ relay node from the **Cardano block producer** machine.
+- For the **DMQ node on the block-producer machine**, allow incoming traffic on the listening port of your DMQ block-producer node from the **DMQ relay** machine only.
+
+:::tip
+
+More information about the recommended firewall configuration of the Cardano node is available at [Cardano firewall configuration](https://developers.cardano.org/docs/operate-a-stake-pool/deployment-scenarios/hardening-server/#7--firewall-configuration).
+
+:::
+
 ## Verify the Mithril signer deployment
 
 :::tip
