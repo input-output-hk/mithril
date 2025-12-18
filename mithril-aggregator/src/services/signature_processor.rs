@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use slog::{Logger, error, trace, warn};
 
 use mithril_common::{
@@ -29,25 +30,31 @@ pub struct SequentialSignatureProcessor {
     consumer: Arc<dyn SignatureConsumer>,
     certifier: Arc<dyn CertifierService>,
     stop_rx: Receiver<()>,
-    logger: Logger,
     metrics_service: Arc<MetricsService>,
+    wait_delay_on_error: Duration,
+    logger: Logger,
 }
 
 impl SequentialSignatureProcessor {
+    /// Delay to wait between two signature processing attempts after an error
+    pub const DEFAULT_WAIT_DELAY_ON_ERROR: Duration = Duration::from_secs(10);
+
     /// Creates a new `SignatureProcessor` instance.
     pub fn new(
         consumer: Arc<dyn SignatureConsumer>,
         certifier: Arc<dyn CertifierService>,
         stop_rx: Receiver<()>,
-        logger: Logger,
         metrics_service: Arc<MetricsService>,
+        wait_delay_on_error_in_seconds: Duration,
+        logger: Logger,
     ) -> Self {
         Self {
             consumer,
             certifier,
             stop_rx,
-            logger: logger.new_with_component_name::<Self>(),
             metrics_service,
+            wait_delay_on_error: wait_delay_on_error_in_seconds,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -64,6 +71,7 @@ impl SignatureProcessor for SequentialSignatureProcessor {
     async fn process_signatures(&self) -> StdResult<()> {
         let origin_network = self.consumer.get_origin_tag();
 
+        let mut total_import_errors = 0;
         match self.consumer.get_signatures().await {
             Ok(signatures) => {
                 let number_of_signatures = signatures.len() as u32;
@@ -86,6 +94,7 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                                 .increment(&[&origin_network]);
                         }
                         Err(e) => {
+                            total_import_errors += 1;
                             error!(
                                 self.logger, "Error dispatching single signature";
                                 "full_payload" => #?signature, "error" => ?e
@@ -96,7 +105,19 @@ impl SignatureProcessor for SequentialSignatureProcessor {
             }
             Err(e) => {
                 error!(self.logger, "Error consuming single signatures"; "error" => ?e);
+                total_import_errors += 1;
             }
+        }
+
+        if total_import_errors > 0 {
+            error!(
+                self.logger,
+                "Total import errors while processing signatures: {}", total_import_errors
+            );
+            return Err(anyhow!(
+                "Total import errors while processing signatures: {}",
+                total_import_errors
+            ));
         }
 
         Ok(())
@@ -111,7 +132,13 @@ impl SignatureProcessor for SequentialSignatureProcessor {
 
                     return Ok(());
                 }
-                _ = self.process_signatures() => {}
+                res = self.process_signatures() => {
+                    if let Err(e) = res {
+                        error!(self.logger, "Error processing signatures"; "error" => ?e);
+                        error!(self.logger, "Sleep for {} seconds", self.wait_delay_on_error.as_secs());
+                        tokio::time::sleep(self.wait_delay_on_error).await;
+                    }
+                }
             }
         }
     }
@@ -193,8 +220,9 @@ mod tests {
             mock_consumer,
             mock_certifier,
             stop_rx,
-            logger,
             Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
+            Duration::from_millis(10),
+            logger,
         );
 
         processor
@@ -223,8 +251,9 @@ mod tests {
             Arc::new(fake_consumer),
             mock_certifier,
             stop_rx,
-            logger,
             metrics_service.clone(),
+            Duration::from_millis(10),
+            logger,
         );
 
         let initial_received_counter_value = metrics_service
@@ -269,8 +298,9 @@ mod tests {
             Arc::new(fake_consumer),
             mock_certifier,
             stop_rx,
-            logger,
             metrics_service.clone(),
+            Duration::from_millis(10),
+            logger,
         );
 
         let initial_received_counter_value = metrics_service
@@ -280,7 +310,7 @@ mod tests {
             .get_signature_registration_total_successful_since_startup()
             .get(&[&network_origin]);
 
-        processor.process_signatures().await.unwrap();
+        processor.process_signatures().await.expect_err("Should have failed");
 
         assert_eq!(
             initial_received_counter_value + 1,
@@ -297,7 +327,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn processor_run_succeeds() {
+    async fn processor_run_succeeds_even_if_processing_signatures_fails() {
         let logger = TestLogger::stdout();
         let fake_consumer = FakeSignatureConsumer::new(vec![
             Err(anyhow!("Error consuming signatures")),
@@ -324,13 +354,47 @@ mod tests {
             Arc::new(fake_consumer),
             mock_certifier,
             stop_rx,
-            logger,
             Arc::new(metrics_service),
+            Duration::from_millis(1),
+            logger,
         );
 
         select!(
             _res =  processor.run() => {},
-            _res = sleep(Duration::from_millis(10)) => {
+            _res = sleep(Duration::from_millis(500)) => {
+                println!("Stopping signature processor...");
+                stop_tx.send(()).unwrap();
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn processor_run_waits_before_resuming_if_processing_signatures_fails() {
+        let logger = TestLogger::stdout();
+        let fake_consumer = FakeSignatureConsumer::new(vec![
+            Err(anyhow!("Error consuming signatures")),
+            Ok(vec![(
+                fake_data::single_signature(vec![1, 2, 3]),
+                SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            )]),
+        ]);
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature().never();
+        });
+        let (stop_tx, stop_rx) = channel(());
+        let metrics_service = MetricsService::new(logger.clone()).unwrap();
+        let processor = SequentialSignatureProcessor::new(
+            Arc::new(fake_consumer),
+            mock_certifier,
+            stop_rx,
+            Arc::new(metrics_service),
+            Duration::from_millis(1000),
+            logger,
+        );
+
+        select!(
+            _res =  processor.run() => {},
+            _res = sleep(Duration::from_millis(500)) => {
                 println!("Stopping signature processor...");
                 stop_tx.send(()).unwrap();
             },

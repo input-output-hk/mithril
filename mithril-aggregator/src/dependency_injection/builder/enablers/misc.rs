@@ -105,8 +105,9 @@ impl DependenciesBuilder {
             self.build_signature_consumer().await?,
             self.get_certifier_service().await?,
             stop_rx,
-            self.root_logger(),
             self.get_metrics_service().await?,
+            SequentialSignatureProcessor::DEFAULT_WAIT_DELAY_ON_ERROR,
+            self.root_logger(),
         );
 
         Ok(Arc::new(signature_processor))
