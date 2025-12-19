@@ -35,8 +35,7 @@ pub struct RegisterSignerMessage {
     pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "kes_period")]
+    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
     pub kes_evolutions: Option<KesPeriod>,
 }
 
