@@ -1,12 +1,10 @@
 use mithril_stm::{
-    AggregateSignature, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-    Stake, VerificationKeyProofOfPossession,
+    AggregateSignature, Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+    Signer, SingleSignature, Stake, VerificationKeyProofOfPossession,
 };
 
-use blake2::{Blake2b, digest::consts::U32};
-
 // Protocol types alias
-type D = Blake2b<U32>;
+type D = MithrilMembershipDigest;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;

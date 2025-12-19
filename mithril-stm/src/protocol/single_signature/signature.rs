@@ -4,12 +4,11 @@ use std::{
 };
 
 use anyhow::{Context, anyhow};
-use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKey, Index, Parameters, Stake, StmResult, VerificationKey, is_lottery_won,
-    signature_scheme::BlsSignature,
+    AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
+    VerificationKey, is_lottery_won, signature_scheme::BlsSignature,
 };
 
 use super::SignatureError;
@@ -28,7 +27,7 @@ pub struct SingleSignature {
 impl SingleSignature {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify<D: Clone + Digest + FixedOutput>(
+    pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
         pk: &VerificationKey,
@@ -100,7 +99,7 @@ impl SingleSignature {
     }
 
     /// Extract a batch compatible `SingleSignature` from a byte slice.
-    pub fn from_bytes<D: Clone + Digest + FixedOutput>(bytes: &[u8]) -> StmResult<SingleSignature> {
+    pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
@@ -178,16 +177,14 @@ impl Ord for SingleSignature {
 #[cfg(test)]
 mod tests {
     mod golden {
-        use blake2::{Blake2b, digest::consts::U32};
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
         use crate::{
-            ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature,
+            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
+            SingleSignature,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
-
-        type D = Blake2b<U32>;
 
         const GOLDEN_JSON: &str = r#"
         {
@@ -215,7 +212,7 @@ mod tests {
             let mut key_reg = KeyRegistration::init();
             key_reg.register(1, pk_1).unwrap();
             key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
             let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
             signer.sign(&msg).unwrap()
         }

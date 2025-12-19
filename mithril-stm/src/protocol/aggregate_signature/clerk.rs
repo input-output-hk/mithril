@@ -1,9 +1,8 @@
 use anyhow::{Context, anyhow};
-use blake2::digest::{Digest, FixedOutput};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
+    ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake, StmResult, VerificationKey,
     proof_system::ConcatenationProof,
 };
@@ -16,12 +15,12 @@ use super::{
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
-pub struct Clerk<D: Clone + Digest> {
+pub struct Clerk<D: MembershipDigest> {
     pub(crate) closed_reg: ClosedKeyRegistration<D>,
     pub(crate) params: Parameters,
 }
 
-impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
+impl<D: MembershipDigest> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         params: &Parameters,
@@ -233,19 +232,18 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
 
 #[cfg(test)]
 mod tests {
-    use blake2::{Blake2b, digest::consts::U32};
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
     use crate::{
-        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
-        SingleSignatureWithRegisteredParty,
+        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
+        Parameters, SingleSignatureWithRegisteredParty,
     };
 
     use super::AggregationError;
 
-    type D = Blake2b<U32>;
+    type D = MithrilMembershipDigest;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]

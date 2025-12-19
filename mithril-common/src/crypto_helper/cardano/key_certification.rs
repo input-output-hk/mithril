@@ -6,18 +6,14 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::anyhow;
-use blake2::{
-    Blake2b, Digest,
-    digest::{FixedOutput, consts::U32},
-};
 use kes_summed_ed25519::kes::Sum6KesSig;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use mithril_stm::{
-    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, RegisterError, Signer, Stake,
-    VerificationKeyProofOfPossession,
+    ClosedKeyRegistration, Initializer, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
+    Parameters, RegisterError, Signer, Stake, VerificationKeyProofOfPossession,
 };
 
 use crate::{
@@ -33,7 +29,7 @@ use crate::{
 };
 
 // Protocol types alias
-type D = Blake2b<U32>;
+type D = MithrilMembershipDigest;
 
 /// The KES period that is used to check if the KES keys is expired
 pub type KesPeriod = u32;
@@ -285,7 +281,7 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
-    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyRegistration<D> {
+    pub fn close<D: MembershipDigest>(self) -> ClosedKeyRegistration<D> {
         self.stm_key_reg.close()
     }
 }

@@ -1,16 +1,15 @@
 //! This example shows how Key Registration is held. It is not held by a single central party,
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
-use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
-    Stake, VerificationKeyProofOfPossession,
+    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration,
+    MithrilMembershipDigest, Parameters, Stake, VerificationKeyProofOfPossession,
 };
 
-type H = Blake2b<U32>;
+type D = MithrilMembershipDigest;
 
 fn main() {
     let nparties = 4;
@@ -142,7 +141,7 @@ fn main() {
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> ClosedKeyRegistration<H> {
+fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> ClosedKeyRegistration<D> {
     let mut local_keyreg = KeyRegistration::init();
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {

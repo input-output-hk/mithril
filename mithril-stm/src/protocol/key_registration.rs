@@ -5,10 +5,9 @@ use std::{
 };
 
 use anyhow::anyhow;
-use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
-    RegisterError, Stake, StmResult,
+    MembershipDigest, RegisterError, Stake, StmResult,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
     signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
 };
@@ -51,7 +50,7 @@ impl KeyRegistration {
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
     pub fn close<D>(self) -> ClosedKeyRegistration<D>
     where
-        D: Digest + FixedOutput,
+        D: MembershipDigest,
     {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
@@ -79,23 +78,22 @@ impl KeyRegistration {
 /// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
 /// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyRegistration<D: Digest> {
+pub struct ClosedKeyRegistration<D: MembershipDigest> {
     /// Ordered list of registered parties.
     pub reg_parties: Vec<RegisteredParty>,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub merkle_tree: Arc<MerkleTree<D>>,
+    pub merkle_tree: Arc<MerkleTree<D::ConcatenationHash>>,
 }
 
 #[cfg(test)]
 mod tests {
-    use blake2::{Blake2b, digest::consts::U32};
     use proptest::{collection::vec, prelude::*};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::BlsSigningKey;
+    use crate::{MithrilMembershipDigest, signature_scheme::BlsSigningKey};
 
     use super::*;
 
@@ -148,7 +146,7 @@ mod tests {
                 }
             }
             if !kr.keys.is_empty() {
-                let closed = kr.close::<Blake2b<U32>>();
+                let closed = kr.close::<MithrilMembershipDigest>();
                 let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();
                 assert!(retrieved_keys == keys);
             }

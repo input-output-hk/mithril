@@ -1,7 +1,6 @@
-use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{RegisteredParty, StmResult};
+use crate::{MembershipDigest, RegisteredParty, StmResult};
 
 use super::{SignatureError, SingleSignature};
 
@@ -27,7 +26,7 @@ impl SingleSignatureWithRegisteredParty {
         out
     }
     ///Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
-    pub fn from_bytes<D: Digest + Clone + FixedOutput>(
+    pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
         let reg_party = RegisteredParty::from_bytes(
@@ -56,17 +55,14 @@ impl Serialize for SingleSignatureWithRegisteredParty {
 #[cfg(test)]
 mod tests {
     mod golden {
-        use blake2::{Blake2b, digest::consts::U32};
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
         use crate::{
-            ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
+            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
             SingleSignatureWithRegisteredParty,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
-
-        type D = Blake2b<U32>;
 
         const GOLDEN_JSON: &str = r#"
         [
@@ -108,7 +104,7 @@ mod tests {
             let mut key_reg = KeyRegistration::init();
             key_reg.register(1, pk_1).unwrap();
             key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
             let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
             let signature = signer.sign(&msg).unwrap();
             SingleSignatureWithRegisteredParty {

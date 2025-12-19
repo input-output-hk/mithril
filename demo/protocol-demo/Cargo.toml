@@ -9,7 +9,6 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-blake2 = "0.10.6"
 clap = { workspace = true }
 hex = { workspace = true }
 mithril-common = { path = "../../mithril-common" }

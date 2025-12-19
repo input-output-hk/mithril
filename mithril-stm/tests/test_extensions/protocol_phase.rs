@@ -1,26 +1,26 @@
-use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
 use rayon::prelude::*;
 
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
-    KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
+    KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake,
+    StmResult, VerificationKey,
 };
 
-type H = Blake2b<U32>;
+type D = MithrilMembershipDigest;
 
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {
-    pub signers: Vec<Signer<H>>,
+    pub signers: Vec<Signer<D>>,
     pub reg_parties: Vec<(VerificationKey, Stake)>,
     pub initializers: Vec<Initializer>,
 }
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: StmResult<AggregateSignature<H>>,
-    pub avk: AggregateVerificationKey<H>,
+    pub msig: StmResult<AggregateSignature<D>>,
+    pub avk: AggregateVerificationKey<D>,
     pub sigs: Vec<SingleSignature>,
 }
 
@@ -52,7 +52,7 @@ pub fn initialization_phase(
         .clone()
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<Signer<H>>>();
+        .collect::<Vec<Signer<D>>>();
 
     InitializationPhaseResult {
         signers,
@@ -63,7 +63,7 @@ pub fn initialization_phase(
 
 pub fn operation_phase(
     params: Parameters,
-    signers: Vec<Signer<H>>,
+    signers: Vec<Signer<D>>,
     reg_parties: Vec<(VerificationKey, Stake)>,
     msg: [u8; 32],
 ) -> OperationPhaseResult {
