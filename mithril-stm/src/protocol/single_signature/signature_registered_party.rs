@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{MembershipDigest, RegisteredParty, StmResult};
+use crate::{MembershipDigest, RegisteredParty, StmResult, membership_commitment::MerkleTreeLeaf};
 
 use super::{SignatureError, SingleSignature};
 

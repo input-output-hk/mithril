@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ClosedKeyRegistration, MembershipDigest, Stake,
-    membership_commitment::{MerkleBatchPath, MerkleTreeBatchCommitment},
+    membership_commitment::{
+        MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf,
+    },
 };
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
@@ -13,14 +15,14 @@ use crate::{
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub struct AggregateVerificationKey<D: MembershipDigest> {
-    mt_commitment: MerkleTreeBatchCommitment<D::ConcatenationHash>,
+    mt_commitment: MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf>,
     total_stake: Stake,
 }
 
 impl<D: MembershipDigest> AggregateVerificationKey<D> {
     pub(crate) fn get_merkle_tree_batch_commitment(
         &self,
-    ) -> MerkleTreeBatchCommitment<D::ConcatenationHash> {
+    ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
         self.mt_commitment.clone()
     }
 
@@ -28,7 +30,9 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
         since = "0.5.0",
         note = "Use `get_merkle_tree_batch_commitment` instead"
     )]
-    pub fn get_mt_commitment(&self) -> MerkleTreeBatchCommitment<D::ConcatenationHash> {
+    pub fn get_mt_commitment(
+        &self,
+    ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
         Self::get_merkle_tree_batch_commitment(self)
     }
 
