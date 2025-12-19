@@ -19,7 +19,7 @@ use mithril_stm::{
 use crate::{
     StdError, StdResult,
     crypto_helper::{
-        KesPeriod, ProtocolOpCert,
+        KesEvolutions, KesPeriod, ProtocolOpCert,
         cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
@@ -53,8 +53,8 @@ pub enum ProtocolRegistrationErrorWrapper {
     OpCertInvalid,
 
     /// Error raised when a KES Signature verification fails
-    #[error("KES signature verification error: CurrentKesPeriod={0}, StartKesPeriod={1}")]
-    KesSignatureInvalid(KesPeriod, KesPeriod),
+    #[error("KES signature verification error: KesEvolutions={0}, StartKesPeriod={1}")]
+    KesSignatureInvalid(KesEvolutions, KesPeriod),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -239,7 +239,7 @@ impl KeyRegWrapper {
         party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
         opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_evolutions: Option<KesPeriod>,
+        kes_evolutions: Option<KesEvolutions>,
         pk: ProtocolSignerVerificationKey,
     ) -> StdResult<ProtocolPartyId> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
@@ -359,7 +359,7 @@ mod test {
             None,
             Some(opcert1),
             initializer_1.verification_key_signature(),
-            Some(KesPeriod(0)),
+            Some(KesEvolutions(0)),
             initializer_1
                 .stm_initializer
                 .get_verification_key_proof_of_possession()
@@ -387,7 +387,7 @@ mod test {
             None,
             Some(opcert2),
             initializer_2.verification_key_signature(),
-            Some(KesPeriod(0)),
+            Some(KesEvolutions(0)),
             initializer_2
                 .stm_initializer
                 .get_verification_key_proof_of_possession()

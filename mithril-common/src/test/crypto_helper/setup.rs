@@ -6,7 +6,7 @@ use rand_core::SeedableRng;
 
 use crate::{
     crypto_helper::{
-        KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolInitializer,
+        KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolInitializer,
         ProtocolKeyRegistration, ProtocolOpCert, ProtocolParameters, ProtocolPartyId,
         ProtocolStakeDistribution, SerDeShelleyFileFormat,
     },
@@ -91,16 +91,16 @@ fn setup_signer_with_stake(
     stake: Stake,
     protocol_initializer: &ProtocolInitializer,
     operational_certificate: Option<ProtocolOpCert>,
-    kes_period: KesPeriod,
+    kes_evolutions: KesEvolutions,
 ) -> SignerWithStake {
-    let kes_period = operational_certificate.as_ref().and(Some(kes_period));
+    let kes_evolutions = operational_certificate.as_ref().and(Some(kes_evolutions));
 
     SignerWithStake::new(
         party_id.to_owned(),
         protocol_initializer.verification_key().into(),
         protocol_initializer.verification_key_signature(),
         operational_certificate,
-        kes_period,
+        kes_evolutions,
         stake,
     )
 }
@@ -127,7 +127,7 @@ pub fn setup_signers_from_stake_distribution(
     )> = vec![];
 
     for (party_id, stake) in stake_distribution {
-        let kes_evolutions = KesPeriod(0);
+        let kes_evolutions = KesEvolutions(0);
         let temp_dir = setup_temp_directory_for_signer(party_id, false);
         let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
         let operational_certificate_path = temp_dir.as_ref().map(|dir| dir.join("opcert.cert"));

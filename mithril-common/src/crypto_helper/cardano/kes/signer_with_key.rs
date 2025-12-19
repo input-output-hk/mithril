@@ -9,7 +9,7 @@ use kes_summed_ed25519::{
 use crate::{
     StdResult,
     crypto_helper::{
-        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
+        KesEvolutions, KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
         cardano::{KesSignError, KesSigner},
     },
 };
@@ -55,7 +55,7 @@ impl KesSigner for KesSignerStandard {
         for evolution in 0..*kes_evolutions {
             kes_sk
                 .update()
-                .map_err(|_| KesSignError::UpdateKey(KesPeriod(evolution)))?;
+                .map_err(|_| KesSignError::UpdateKey(KesEvolutions(evolution)))?;
         }
 
         Ok((kes_sk.sign(message), operational_certificate))
@@ -66,6 +66,7 @@ impl KesSigner for KesSignerStandard {
 mod tests {
     use super::*;
 
+    use crate::crypto_helper::KesEvolutions;
     use crate::crypto_helper::cardano::kes::{KesVerifier, KesVerifierStandard};
     use crate::current_function;
     use crate::test::crypto_helper::{
@@ -75,7 +76,7 @@ mod tests {
     #[test]
     fn create_valid_signature_for_message() {
         let start_kes_period = KesPeriod(10);
-        let kes_evolutions = KesPeriod(32);
+        let kes_evolutions = KesEvolutions(32);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -101,7 +102,7 @@ mod tests {
     #[test]
     fn create_invalid_signature_for_different_message() {
         let start_kes_period = KesPeriod(10);
-        let kes_evolutions = KesPeriod(32);
+        let kes_evolutions = KesEvolutions(32);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -154,7 +155,7 @@ mod tests {
 
     #[test]
     fn create_invalid_signature_for_invalid_kes_evolutions() {
-        const MAX_KES_EVOLUTIONS: KesPeriod = KesPeriod(63);
+        const MAX_KES_EVOLUTIONS: KesEvolutions = KesEvolutions(63);
         let start_kes_period = KesPeriod(10);
         let signing_kes_period = start_kes_period + MAX_KES_EVOLUTIONS + 1;
         let KesCryptographicMaterialForTest {
