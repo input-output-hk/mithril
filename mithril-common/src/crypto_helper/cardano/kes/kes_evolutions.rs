@@ -72,8 +72,8 @@ impl From<u64> for KesEvolutions {
     }
 }
 
-/* impl_add_to_wrapper!(KesEvolutions, u32);
-impl_sub_to_wrapper!(KesEvolutions, u32); */
+impl_add_to_wrapper!(KesEvolutions, u32);
+impl_sub_to_wrapper!(KesEvolutions, u32);
 impl_partial_eq_to_wrapper!(KesEvolutions, u32);
 
 #[cfg(test)]
@@ -99,7 +99,7 @@ mod tests {
         assert_eq!(kes_period, KesEvolutions(13224));
     }
 
-    /* #[test]
+    #[test]
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(KesEvolutions(4), KesEvolutions(1) + KesEvolutions(3));
@@ -143,7 +143,7 @@ mod tests {
     fn saturating_sub() {
         assert_eq!(KesEvolutions(0), KesEvolutions(1) - KesEvolutions(5));
         assert_eq!(KesEvolutions(0), KesEvolutions(1) - 5_u32);
-    } */
+    }
 
     #[test]
     fn test_eq() {
