@@ -42,7 +42,7 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             "" => None,
             party_id => Some(party_id.to_string()),
         };
-        let kes_period = match &signer.operational_certificate {
+        let kes_evolutions = match &signer.operational_certificate {
             Some(operational_certificate) => Some(
                 self.chain_observer
                     .get_current_kes_period()
@@ -57,12 +57,12 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
                 party_id_register.clone(),
                 signer.operational_certificate.clone(),
                 signer.verification_key_signature,
-                kes_period,
+                kes_evolutions,
                 signer.verification_key,
             )
             .with_context(|| {
                 format!(
-                    "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}', kes_period: '{kes_period:?}'"
+                    "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}', kes_evolutions: '{kes_evolutions:?}'"
                 )
             })?;
         let party_id_registered_stake = *stake_distribution

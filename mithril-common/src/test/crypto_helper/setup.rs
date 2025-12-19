@@ -127,7 +127,7 @@ pub fn setup_signers_from_stake_distribution(
     )> = vec![];
 
     for (party_id, stake) in stake_distribution {
-        let kes_period = 0;
+        let kes_evolutions = 0;
         let temp_dir = setup_temp_directory_for_signer(party_id, false);
         let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
         let operational_certificate_path = temp_dir.as_ref().map(|dir| dir.join("opcert.cert"));
@@ -144,7 +144,7 @@ pub fn setup_signers_from_stake_distribution(
             *stake,
             &protocol_initializer,
             operational_certificate.clone(),
-            kes_period,
+            kes_evolutions,
         );
 
         key_registration
@@ -152,7 +152,7 @@ pub fn setup_signers_from_stake_distribution(
                 Some(signer_with_stake.party_id.to_owned()),
                 operational_certificate,
                 protocol_initializer.verification_key_signature(),
-                Some(kes_period),
+                Some(kes_evolutions),
                 protocol_initializer.verification_key().into(),
             )
             .expect("key registration should have succeeded");

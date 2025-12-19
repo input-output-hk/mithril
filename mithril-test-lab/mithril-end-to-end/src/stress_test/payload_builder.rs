@@ -46,7 +46,7 @@ pub fn generate_register_signer_message(
             operational_certificate: signer
                 .operational_certificate
                 .map(|o| o.to_json_hex().unwrap()),
-            kes_period: signer.kes_period,
+            kes_evolutions: signer.kes_evolutions,
         })
         .collect::<Vec<_>>()
 }

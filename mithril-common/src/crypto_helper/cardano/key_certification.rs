@@ -84,7 +84,7 @@ pub enum ProtocolInitializerErrorWrapper {
     ProtocolInitializer(#[source] StdError),
 
     /// Error raised when a KES update error occurs
-    #[error("KES key cannot be updated for period {0}")]
+    #[error("KES key cannot be updated for evolution {0}")]
     KesUpdate(KesPeriod),
 
     /// Period of key file does not match with period provided by user
@@ -113,7 +113,7 @@ impl StmInitializerWrapper {
     pub fn setup<R: RngCore + CryptoRng>(
         params: Parameters,
         kes_signer: Option<Arc<dyn KesSigner>>,
-        kes_period: Option<KesPeriod>,
+        current_kes_period: Option<KesPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
@@ -121,7 +121,7 @@ impl StmInitializerWrapper {
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
-                kes_period.unwrap_or_default(),
+                current_kes_period.unwrap_or_default(),
             )?;
 
             Some(signature)
@@ -235,21 +235,23 @@ impl KeyRegWrapper {
     /// Register a new party. For a successful registration, the registrar needs to
     /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
     /// Mithril key (with its corresponding Proof of Possession).
+    ///
+    /// kes_evolutions: The number of evolutions since the start KES period of the operational certificate.
     pub fn register(
         &mut self,
         party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
         opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_period: Option<KesPeriod>,
+        kes_evolutions: Option<KesPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> StdResult<ProtocolPartyId> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
             let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-            let kes_period =
-                kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
+            let kes_evolutions =
+                kes_evolutions.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
             if self
                 .kes_verifier
-                .verify(&pk.to_bytes(), &signature, &opcert, kes_period)
+                .verify(&pk.to_bytes(), &signature, &opcert, kes_evolutions)
                 .is_ok()
             {
                 opcert
@@ -258,7 +260,7 @@ impl KeyRegWrapper {
             } else {
                 return Err(anyhow!(
                     ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                        kes_period,
+                        kes_evolutions,
                         opcert.get_start_kes_period(),
                     )
                 ));

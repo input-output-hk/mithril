@@ -15,13 +15,13 @@ pub enum KesVerifyError {
 }
 
 /// KES signature error
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum KesSignError {
     /// Error raised when a KES update error occurs
-    #[error("KES key cannot be updated for period {0}")]
+    #[error("KES key cannot be updated for evolution {0}")]
     UpdateKey(KesPeriod),
 
     /// Period of key file does not match with period provided by user
-    #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
+    #[error("Period of key file {0} does not match with period provided by user {1}")]
     PeriodMismatch(KesPeriod, KesPeriod),
 }

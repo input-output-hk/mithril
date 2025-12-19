@@ -54,7 +54,7 @@ impl SignerBuilder {
                     Some(signer.party_id.to_owned()),
                     signer.operational_certificate.clone(),
                     signer.verification_key_signature,
-                    signer.kes_period,
+                    signer.kes_evolutions,
                     signer.verification_key,
                 )
                 .with_context(|| {
@@ -101,7 +101,7 @@ impl SignerBuilder {
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_signer,
-            signer_with_stake.kes_period,
+            signer_with_stake.kes_evolutions,
             signer_with_stake.stake,
             rng,
         )

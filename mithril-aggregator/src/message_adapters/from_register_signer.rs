@@ -32,7 +32,7 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
                 }
                 _ => None,
             },
-            kes_period: register_signer_message.kes_period,
+            kes_evolutions: register_signer_message.kes_evolutions,
         })
     }
 }

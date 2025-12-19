@@ -21,7 +21,7 @@ pub(crate) struct KesCryptographicMaterialForTest {
 /// Create KES cryptographic material for testing purposes.
 pub fn create_kes_cryptographic_material(
     party_idx: KesPartyIndexForTest,
-    kes_period: KesPeriod,
+    start_kes_period: KesPeriod,
     test_directory: &str,
 ) -> KesCryptographicMaterialForTest {
     let temp_dir = std::env::temp_dir()
@@ -31,16 +31,12 @@ pub fn create_kes_cryptographic_material(
     let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
     let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
     let mut dummy_seed = [party_idx as u8; 32];
-    let (mut kes_secret_key, kes_verification_key) =
+    let (kes_secret_key, kes_verification_key) =
         Sum6Kes::keygen(&mut dummy_buffer, &mut dummy_seed);
-    for _ in 0..kes_period {
-        kes_secret_key
-            .update()
-            .expect("KES secret key update should not fail");
-    }
     let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
     kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
-    let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+    let operational_certificate =
+        OpCert::new(kes_verification_key, 0, start_kes_period as u64, keypair);
     let kes_secret_key_file = temp_dir.join(format!("kes{party_idx}.skey"));
     kes_bytes
         .to_file(&kes_secret_key_file)

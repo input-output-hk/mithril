@@ -37,7 +37,7 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
                 })?),
                 None => None,
             },
-            kes_period: signer.kes_period,
+            kes_evolutions: signer.kes_evolutions,
         };
 
         Ok(message)
