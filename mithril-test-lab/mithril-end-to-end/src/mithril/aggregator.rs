@@ -137,6 +137,7 @@ impl Aggregator {
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
             ("CUSTOM_ORIGIN_TAG_WHITE_LIST", "E2E"),
+            ("SIGNATURE_PROCESSOR_WAIT_DELAY_ON_ERROR_MS", "100"),
         ]);
         if let Some(leader_aggregator_endpoint) = aggregator_config.leader_aggregator_endpoint {
             env.insert("LEADER_AGGREGATOR_ENDPOINT", leader_aggregator_endpoint);
