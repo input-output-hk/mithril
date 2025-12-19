@@ -557,7 +557,7 @@ impl ChainObserver for CardanoCliChainObserver {
             .map_err(ChainObserverError::InvalidContent)?;
 
         if let Value::Number(slot) = &v["slot"] {
-            Ok(slot.as_u64().map(|slot| (slot / slots_per_kes_period) as KesPeriod))
+            Ok(slot.as_u64().map(|slot| (slot / slots_per_kes_period).into()))
         } else {
             Ok(None)
         }

@@ -19,7 +19,7 @@ use mithril_stm::{
 use crate::{
     StdError, StdResult,
     crypto_helper::{
-        ProtocolOpCert,
+        KesPeriod, ProtocolOpCert,
         cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
@@ -30,9 +30,6 @@ use crate::{
 
 // Protocol types alias
 type D = MithrilMembershipDigest;
-
-/// The KES period that is used to check if the KES keys is expired
-pub type KesPeriod = u32;
 
 /// New registration error
 #[derive(Error, Debug)]
@@ -57,7 +54,7 @@ pub enum ProtocolRegistrationErrorWrapper {
 
     /// Error raised when a KES Signature verification fails
     #[error("KES signature verification error: CurrentKesPeriod={0}, StartKesPeriod={1}")]
-    KesSignatureInvalid(u32, u64),
+    KesSignatureInvalid(KesPeriod, KesPeriod),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -327,7 +324,7 @@ mod test {
             kes_secret_key_file: kes_secret_key_file_1,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            0 as KesPeriod,
+            KesPeriod(0),
             "test_vector_key_reg",
         );
         let KesCryptographicMaterialForTest {
@@ -336,7 +333,7 @@ mod test {
             kes_secret_key_file: kes_secret_key_file_2,
         } = create_kes_cryptographic_material(
             2 as KesPartyIndexForTest,
-            0 as KesPeriod,
+            KesPeriod(0),
             "test_vector_key_reg",
         );
 
@@ -348,7 +345,7 @@ mod test {
                 kes_secret_key_file_1,
                 operational_certificate_file_1.clone(),
             ))),
-            Some(0),
+            Some(KesPeriod(0)),
             10,
             &mut rng,
         )
@@ -362,7 +359,7 @@ mod test {
             None,
             Some(opcert1),
             initializer_1.verification_key_signature(),
-            Some(0),
+            Some(KesPeriod(0)),
             initializer_1
                 .stm_initializer
                 .get_verification_key_proof_of_possession()
@@ -376,7 +373,7 @@ mod test {
                 kes_secret_key_file_2,
                 operational_certificate_file_2.clone(),
             ))),
-            Some(0),
+            Some(KesPeriod(0)),
             10,
             &mut rng,
         )
@@ -390,7 +387,7 @@ mod test {
             None,
             Some(opcert2),
             initializer_2.verification_key_signature(),
-            Some(0),
+            Some(KesPeriod(0)),
             initializer_2
                 .stm_initializer
                 .get_verification_key_proof_of_possession()

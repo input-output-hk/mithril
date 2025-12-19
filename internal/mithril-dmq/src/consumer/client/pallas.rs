@@ -118,7 +118,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
                 let opcert_without_verification_key = OpCertWithoutColdVerificationKey::try_new(
                     &dmq_message.operational_certificate.kes_vk,
                     dmq_message.operational_certificate.issue_number,
-                    dmq_message.operational_certificate.start_kes_period,
+                    dmq_message.operational_certificate.start_kes_period.into(),
                     &dmq_message.operational_certificate.cert_sig,
                 )
                 .with_context(|| "Failed to parse operational certificate")?;

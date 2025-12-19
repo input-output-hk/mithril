@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use semver::Version;
 
 use crate::CardanoNetwork;
-use crate::crypto_helper::{self, ProtocolMultiSignature};
+use crate::crypto_helper::{self, KesPeriod, ProtocolMultiSignature};
 use crate::entities::{
     self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
     CertificateMetadata, CertificateSignature, CompressionAlgorithm, DigestsLocations, Epoch,
@@ -60,7 +60,7 @@ pub fn protocol_initializer<S: Into<String>>(
     let protocol_parameters = protocol_parameters();
     let seed: [u8; 32] = format!("{:<032}", seed.into()).as_bytes()[..32].try_into().unwrap();
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let kes_period = Some(0);
+    let kes_period = Some(KesPeriod(0));
     crypto_helper::ProtocolInitializer::setup(
         protocol_parameters.into(),
         None,
