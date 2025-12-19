@@ -3,8 +3,13 @@ use dusk_poseidon::{Domain, Hash};
 
 use super::{BaseFieldElement, ScalarFieldElement};
 
-/// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
-const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
+/// Domain Separation Tag (DST) for the Poseidon hash used in signature contexts.
+const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
+    0x5349_474E_5F44_5354, // "SIGN_DST" (ASCII), little-endian u64
+    0,
+    0,
+    0,
+]);
 
 /// Computes a truncated Poseidon digest over the provided base field elements
 /// Returns a scalar field element as the digest

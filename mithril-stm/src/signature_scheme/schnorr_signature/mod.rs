@@ -99,7 +99,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::SerializationError)
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -134,7 +134,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::SerializationError)
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -205,7 +205,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::SerializationError)
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );

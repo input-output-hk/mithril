@@ -11,7 +11,7 @@ pub enum SchnorrSignatureError {
 
     /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]
-    SerializationError,
+    Serialization,
 
     /// This error occurs when the serialization of the scalar field bytes failed
     #[error("Invalid scalar field element bytes")]

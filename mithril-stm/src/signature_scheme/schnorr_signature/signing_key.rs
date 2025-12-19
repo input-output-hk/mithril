@@ -101,7 +101,7 @@ impl SchnorrSigningKey {
     /// The bytes must represent a Jubjub scalar or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 32 {
-            return Err(anyhow!(SchnorrSignatureError::SerializationError)).with_context(
+            return Err(anyhow!(SchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to re-construct a Schnorr signing key.",
             );
         }
@@ -113,6 +113,72 @@ impl SchnorrSigningKey {
 
 #[cfg(test)]
 mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::signature_scheme::SchnorrSigningKey;
+
+    #[test]
+    fn generate_signing_key() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        assert!(sk.is_ok(), "Signing key generation should succeed");
+    }
+
+    #[test]
+    fn generate_different_keys() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk1 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+
+        // Keys should be different
+        assert_ne!(sk1, sk2, "Different keys should be generated");
+    }
+
+    #[test]
+    fn from_bytes_not_enough_bytes() {
+        let bytes = vec![0u8; 31];
+        let result = SchnorrSigningKey::from_bytes(&bytes);
+
+        result.expect_err("Should fail with insufficient bytes");
+    }
+
+    #[test]
+    fn from_bytes_exact_size() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk_bytes = sk.to_bytes();
+
+        let sk_restored = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
+
+        assert_eq!(sk, sk_restored);
+    }
+
+    #[test]
+    fn from_bytes_extra_bytes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk_bytes = sk.to_bytes();
+
+        let mut extended_bytes = sk_bytes.to_vec();
+        extended_bytes.extend_from_slice(&[0xFF; 10]);
+
+        let sk_restored = SchnorrSigningKey::from_bytes(&extended_bytes).unwrap();
+
+        assert_eq!(sk, sk_restored);
+    }
+
+    #[test]
+    fn to_bytes_is_deterministic() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+
+        let bytes1 = sk.to_bytes();
+        let bytes2 = sk.to_bytes();
+
+        assert_eq!(bytes1, bytes2, "to_bytes should be deterministic");
+    }
 
     mod golden {
 

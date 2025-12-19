@@ -65,7 +65,7 @@ impl ProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut projective_point_bytes = [0u8; 32];
         projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::SerializationError)?);
+            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
 
         match JubjubExtended::from_bytes(&projective_point_bytes).into_option() {
             Some(projective_point) => Ok(Self(projective_point)),
@@ -145,7 +145,7 @@ impl PrimeOrderProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut prime_order_projective_point_bytes = [0u8; 32];
         prime_order_projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::SerializationError)?);
+            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
 
         match JubjubSubgroup::from_bytes(&prime_order_projective_point_bytes).into_option() {
             Some(prime_order_projective_point) => Ok(Self(prime_order_projective_point)),
@@ -177,12 +177,12 @@ impl Mul<PrimeOrderProjectivePoint> for ScalarFieldElement {
 
 #[cfg(test)]
 mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
     use super::*;
 
     mod golden {
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
-
         use super::*;
 
         const GOLDEN_JSON: &str = r#"[144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43]"#;
@@ -205,6 +205,230 @@ mod tests {
             let golden_serialized = serde_json::to_string(&golden_value())
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod projective_point_arithmetic {
+        use super::*;
+
+        #[test]
+        fn test_add() {
+            let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let p1 = scalar1 * point;
+            let p2 = scalar2 * point;
+
+            let result = p1 + p2;
+
+            let bytes = result.to_bytes();
+            let recovered = ProjectivePoint::from_bytes(&bytes).unwrap();
+            assert_eq!(result, recovered);
+        }
+
+        #[test]
+        fn test_add_identity() {
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let identity = ProjectivePoint(JubjubExtended::identity());
+
+            let result = point + identity;
+            assert_eq!(result, point);
+        }
+
+        #[test]
+        fn test_add_commutativity() {
+            let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let p1 = scalar1 * point;
+            let p2 = scalar2 * point;
+
+            assert_eq!(p1 + p2, p2 + p1);
+        }
+
+        #[test]
+        fn test_add_associativity() {
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar3 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let p1 = scalar1 * point;
+            let p2 = scalar2 * point;
+            let p3 = scalar3 * point;
+
+            assert_eq!((p1 + p2) + p3, p1 + (p2 + p3));
+        }
+
+        #[test]
+        fn test_scalar_mul() {
+            let mut rng = ChaCha20Rng::from_seed([4u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+
+            let result = scalar * point;
+
+            let bytes = result.to_bytes();
+            let recovered = ProjectivePoint::from_bytes(&bytes).unwrap();
+            assert_eq!(result, recovered);
+        }
+
+        #[test]
+        fn test_scalar_mul_distributivity_over_point_addition() {
+            let mut rng = ChaCha20Rng::from_seed([5u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let point1 = ProjectivePoint::hash_to_projective_point(b"test_point_1");
+            let point2 = ProjectivePoint::hash_to_projective_point(b"test_point_2");
+
+            let left = scalar * (point1 + point2);
+            let right = (scalar * point1) + (scalar * point2);
+
+            assert_eq!(left, right);
+        }
+
+        #[test]
+        fn test_scalar_mul_associativity() {
+            let mut rng = ChaCha20Rng::from_seed([6u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+
+            let combined_scalar = scalar1 * scalar2;
+            let left = combined_scalar * point;
+            let right = scalar1 * (scalar2 * point);
+
+            assert_eq!(left, right);
+        }
+    }
+
+    mod prime_order_projective_point_arithmetic {
+        use super::*;
+
+        #[test]
+        fn test_add() {
+            let mut rng = ChaCha20Rng::from_seed([7u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let generator = PrimeOrderProjectivePoint::create_generator();
+            let p1 = scalar1 * generator;
+            let p2 = scalar2 * generator;
+
+            let result = p1 + p2;
+
+            let bytes = result.to_bytes();
+            let recovered = PrimeOrderProjectivePoint::from_bytes(&bytes).unwrap();
+            assert_eq!(result, recovered);
+        }
+
+        #[test]
+        fn test_add_identity() {
+            let mut rng = ChaCha20Rng::from_seed([8u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let generator = PrimeOrderProjectivePoint::create_generator();
+            let point = scalar * generator;
+            let identity = PrimeOrderProjectivePoint::default();
+
+            let result = point + identity;
+            assert_eq!(result, point);
+        }
+
+        #[test]
+        fn test_add_commutativity() {
+            let mut rng = ChaCha20Rng::from_seed([9u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let generator = PrimeOrderProjectivePoint::create_generator();
+            let p1 = scalar1 * generator;
+            let p2 = scalar2 * generator;
+
+            assert_eq!(p1 + p2, p2 + p1);
+        }
+
+        #[test]
+        fn test_add_associativity() {
+            let mut rng = ChaCha20Rng::from_seed([10u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar3 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let generator = PrimeOrderProjectivePoint::create_generator();
+            let p1 = scalar1 * generator;
+            let p2 = scalar2 * generator;
+            let p3 = scalar3 * generator;
+
+            assert_eq!((p1 + p2) + p3, p1 + (p2 + p3));
+        }
+
+        #[test]
+        fn test_scalar_mul() {
+            let mut rng = ChaCha20Rng::from_seed([11u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let generator = PrimeOrderProjectivePoint::create_generator();
+
+            let result = scalar * generator;
+
+            let bytes = result.to_bytes();
+            let recovered = PrimeOrderProjectivePoint::from_bytes(&bytes).unwrap();
+            assert_eq!(result, recovered);
+        }
+
+        #[test]
+        fn test_scalar_mul_by_generator() {
+            let scalar = ScalarFieldElement(dusk_jubjub::Fr::one());
+            let generator = PrimeOrderProjectivePoint::create_generator();
+
+            let result = scalar * generator;
+            assert_eq!(result, generator);
+        }
+
+        #[test]
+        fn test_scalar_mul_distributivity_over_point_addition() {
+            let mut rng = ChaCha20Rng::from_seed([12u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let generator = PrimeOrderProjectivePoint::create_generator();
+            let point1 = scalar1 * generator;
+            let point2 = scalar2 * generator;
+
+            let left = scalar * (point1 + point2);
+            let right = (scalar * point1) + (scalar * point2);
+
+            assert_eq!(left, right);
+        }
+
+        #[test]
+        fn test_scalar_mul_associativity() {
+            let mut rng = ChaCha20Rng::from_seed([13u8; 32]);
+            let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let generator = PrimeOrderProjectivePoint::create_generator();
+
+            let combined_scalar = scalar1 * scalar2;
+            let left = combined_scalar * generator;
+            let right = scalar1 * (scalar2 * generator);
+
+            assert_eq!(left, right);
+        }
+
+        #[test]
+        fn test_point_on_curve() {
+            let mut rng = ChaCha20Rng::from_seed([14u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let generator = PrimeOrderProjectivePoint::create_generator();
+
+            let point = scalar * generator;
+
+            let result = point.is_on_curve().unwrap();
+            assert_eq!(result, point);
         }
     }
 }

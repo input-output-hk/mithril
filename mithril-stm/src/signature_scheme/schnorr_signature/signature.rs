@@ -101,14 +101,14 @@ impl SchnorrSignature {
     /// Convert bytes into a `SchnorrSignature`.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 96 {
-            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+            return Err(anyhow!(SchnorrSignatureError::Serialization))
                 .with_context(|| "Not enough bytes provided to create a signature.");
         }
 
         let commitment_point = ProjectivePoint::from_bytes(
             bytes
                 .get(0..32)
-                .ok_or(SchnorrSignatureError::SerializationError)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `commitment_point`")?,
         )
         .with_context(|| "Could not convert bytes to `commitment_point`")?;
@@ -116,7 +116,7 @@ impl SchnorrSignature {
         let response = ScalarFieldElement::from_bytes(
             bytes
                 .get(32..64)
-                .ok_or(SchnorrSignatureError::SerializationError)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `response`")?,
         )
         .with_context(|| "Could not convert the bytes to `response`")?;
@@ -124,7 +124,7 @@ impl SchnorrSignature {
         let challenge = ScalarFieldElement::from_bytes(
             bytes
                 .get(64..96)
-                .ok_or(SchnorrSignatureError::SerializationError)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `challenge`")?,
         )
         .with_context(|| "Could not convert bytes to `challenge`")?;
@@ -145,7 +145,21 @@ mod tests {
     use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
-    fn invalid_sig() {
+    fn valid_signature_verification() {
+        let msg = vec![0, 0, 0, 1];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+
+        sig.verify(&msg, &vk)
+            .expect("Valid signature should verify successfully");
+    }
+
+    #[test]
+    fn invalid_signature() {
         let msg = vec![0, 0, 0, 1];
         let msg2 = vec![0, 0, 0, 2];
         let seed = [0u8; 32];
@@ -168,26 +182,75 @@ mod tests {
     }
 
     #[test]
-    fn serialize_deserialize_signature() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    fn from_bytes_signature_not_enough_bytes() {
+        let msg = vec![0u8; 95];
+        let result = SchnorrSignature::from_bytes(&msg);
+        result.expect_err("Not enough bytes.");
+    }
 
-        let msg = vec![0, 0, 0, 1];
+    #[test]
+    fn from_bytes_signature_exact_size() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
-        let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
 
-        assert_eq!(sig, sig2);
+        let sig_restored = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+        assert_eq!(sig, sig_restored);
     }
 
     #[test]
-    fn from_bytes_signature_not_enough_bytes() {
-        let msg = vec![0u8; 95];
+    fn from_bytes_signature_extra_bytes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
-        let result = SchnorrSignature::from_bytes(&msg);
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig_bytes: [u8; 96] = sig.to_bytes();
 
-        result.expect_err("Not enough bytes.");
+        let mut extended_bytes = sig_bytes.to_vec();
+        extended_bytes.extend_from_slice(&[0xFF; 10]);
+
+        let sig_restored = SchnorrSignature::from_bytes(&extended_bytes).unwrap();
+        assert_eq!(sig, sig_restored);
+    }
+
+    #[test]
+    fn to_bytes_is_deterministic() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+
+        // Converting to bytes multiple times should give same result
+        let bytes1 = sig.to_bytes();
+        let bytes2 = sig.to_bytes();
+
+        assert_eq!(bytes1, bytes2);
+    }
+
+    #[test]
+    fn signature_roundtrip_preserves_verification() {
+        let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
+        let msg = vec![5, 6, 7, 8, 9];
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
+
+        // Create and verify original signature
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        sig.verify(&msg, &vk).expect("Original signature should verify");
+
+        // Roundtrip through bytes
+        let sig_bytes = sig.to_bytes();
+        let sig_restored = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+
+        // Restored signature should still verify
+        sig_restored
+            .verify(&msg, &vk)
+            .expect("Restored signature should verify");
     }
 
     mod golden {
@@ -200,8 +263,8 @@ mod tests {
         const GOLDEN_JSON: &str = r#"
         {
             "commitment_point": [143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102, 69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113],
-            "response": [94, 57, 200, 241, 208, 145, 251, 8, 92, 119, 163, 38, 81, 85, 54, 36, 193, 221, 254, 242, 21, 129, 110, 161, 142, 184, 107, 156, 100, 34, 190, 9],
-            "challenge": [200, 20, 178, 142, 61, 253, 193, 11, 5, 180, 97, 73, 125, 88, 162, 36, 30, 177, 225, 52, 136, 21, 138, 93, 81, 23, 19, 64, 82, 78, 229, 3]
+            "response": [5, 81, 137, 228, 235, 18, 112, 76, 71, 127, 44, 47, 60, 55, 144, 204, 254, 50, 67, 167, 67, 133, 79, 168, 10, 153, 228, 114, 147, 64, 34, 9],
+            "challenge": [12, 75, 91, 200, 29, 62, 12, 245, 185, 181, 67, 251, 210, 211, 37, 42, 204, 205, 133, 215, 235, 236, 193, 155, 2, 147, 83, 189, 148, 38, 71, 0]
         }"#;
 
         fn golden_value() -> SchnorrSignature {

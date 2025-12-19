@@ -79,7 +79,8 @@ impl ScalarFieldElement {
         false
     }
 
-    /// Generates a new random non-zero scalar field element
+    /// Tries to generate a new random non-zero scalar field element in 100 attempts
+    ///
     /// Returns an error if unable to generate a non-zero scalar after 100 attempts
     pub(crate) fn new_random_nonzero_scalar(
         rng: &mut (impl RngCore + CryptoRng),
@@ -136,12 +137,12 @@ impl Sub for ScalarFieldElement {
 
 #[cfg(test)]
 mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
     use super::*;
 
     mod golden {
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
-
         use super::*;
 
         const GOLDEN_JSON: &str = r#"[126, 191, 239, 197, 88, 151, 248, 254, 187, 143, 86, 35, 29, 62, 90, 13, 196, 71, 234, 5, 90, 124, 205, 194, 51, 192, 228, 133, 25, 140, 157, 7]"#;
@@ -162,6 +163,157 @@ mod tests {
             let golden_serialized = serde_json::to_string(&golden_value())
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod base_field_arithmetic {
+        use super::*;
+
+        #[test]
+        fn test_add() {
+            let a = BaseFieldElement(JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE);
+            let result = a + b;
+            assert_eq!(result, BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE));
+        }
+
+        #[test]
+        fn test_add_with_zero() {
+            let a = BaseFieldElement(JubjubBase::ONE);
+            let zero = BaseFieldElement(JubjubBase::zero());
+            let result = a.clone() + zero;
+            assert_eq!(result, a);
+        }
+
+        #[test]
+        fn test_sub_references() {
+            let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE);
+            let result = &a - &b;
+            assert_eq!(result, BaseFieldElement(JubjubBase::ONE));
+        }
+
+        #[test]
+        fn test_sub_same_values() {
+            let a = BaseFieldElement(JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE);
+            let result = &a - &b;
+            assert_eq!(result, BaseFieldElement(JubjubBase::zero()));
+        }
+
+        #[test]
+        fn test_mul_owned() {
+            let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
+            let result = a * b;
+            let expected = JubjubBase::ONE + JubjubBase::ONE;
+            assert_eq!(result, BaseFieldElement(expected * expected));
+        }
+
+        #[test]
+        fn test_mul_with_one() {
+            let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
+            let one = BaseFieldElement::get_one();
+            let result = a.clone() * one;
+            assert_eq!(result, a);
+        }
+
+        #[test]
+        fn test_mul_with_zero() {
+            let a = BaseFieldElement(JubjubBase::ONE);
+            let zero = BaseFieldElement(JubjubBase::zero());
+            let result = a * zero;
+            assert_eq!(result, BaseFieldElement(JubjubBase::zero()));
+        }
+
+        #[test]
+        fn test_mul_references() {
+            let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE + JubjubBase::ONE);
+            let result = &a * &b;
+            let expected = (JubjubBase::ONE + JubjubBase::ONE)
+                * (JubjubBase::ONE + JubjubBase::ONE + JubjubBase::ONE);
+            assert_eq!(result, BaseFieldElement(expected));
+        }
+
+        #[test]
+        fn test_chained_operations() {
+            let a = BaseFieldElement(JubjubBase::ONE);
+            let b = BaseFieldElement(JubjubBase::ONE);
+            let c = BaseFieldElement(JubjubBase::ONE);
+            let result = (a + b) * c;
+            assert_eq!(result, BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE));
+        }
+    }
+
+    mod scalar_field_arithmetic {
+        use super::*;
+
+        #[test]
+        fn test_mul() {
+            let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let b = ScalarFieldElement(JubjubScalar::one());
+            let result = a * b;
+            assert_eq!(result, a);
+        }
+
+        #[test]
+        fn test_mul_with_zero() {
+            let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let zero = ScalarFieldElement(JubjubScalar::zero());
+            let result = a * zero;
+            assert!(result.is_zero());
+        }
+
+        #[test]
+        fn test_mul_associativity() {
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let b = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let c = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let result1 = (a * b) * c;
+            let result2 = a * (b * c);
+            assert_eq!(result1, result2);
+        }
+
+        #[test]
+        fn test_sub() {
+            let mut rng = ChaCha20Rng::from_seed([4u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let result = a - a;
+            assert!(result.is_zero());
+        }
+
+        #[test]
+        fn test_sub_with_zero() {
+            let mut rng = ChaCha20Rng::from_seed([5u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let zero = ScalarFieldElement(JubjubScalar::zero());
+            let result = a - zero;
+            assert_eq!(result, a);
+        }
+
+        #[test]
+        fn test_sub_specific_values() {
+            let two = ScalarFieldElement(JubjubScalar::one() + JubjubScalar::one());
+            let one = ScalarFieldElement(JubjubScalar::one());
+            let result = two - one;
+            assert!(result.is_one());
+        }
+
+        #[test]
+        fn test_combined_operations() {
+            let mut rng = ChaCha20Rng::from_seed([6u8; 32]);
+            let a = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let b = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let c = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+
+            let left = a * (b - c);
+            let right = (a * b) - (a * c);
+            assert_eq!(left, right);
         }
     }
 }
