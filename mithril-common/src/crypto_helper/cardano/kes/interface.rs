@@ -4,7 +4,7 @@ use kes_summed_ed25519::kes::Sum6KesSig;
 
 use crate::{
     StdResult,
-    crypto_helper::{KesPeriod, OpCert},
+    crypto_helper::{KesEvolutions, KesPeriod, OpCert},
 };
 
 /// Trait for KES (Key Evolving Signature) signing operation.
@@ -31,6 +31,6 @@ pub trait KesVerifier: Send + Sync + Debug {
         message: &[u8],
         signature: &Sum6KesSig,
         operational_certificate: &OpCert,
-        kes_evolutions: KesPeriod,
+        kes_evolutions: KesEvolutions,
     ) -> StdResult<()>;
 }

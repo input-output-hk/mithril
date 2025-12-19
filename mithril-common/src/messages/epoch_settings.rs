@@ -37,7 +37,7 @@ pub struct EpochSettingsMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{crypto_helper::KesPeriod, entities::BlockNumber};
+    use crate::{crypto_helper::KesEvolutions, entities::BlockNumber};
 
     use super::*;
 
@@ -101,14 +101,14 @@ mod tests {
                 verification_key: "key_123".to_string(),
                 verification_key_signature: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
-                kes_evolutions: Some(KesPeriod(12)),
+                kes_evolutions: Some(KesEvolutions(12)),
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
                 verification_key: "key_456".to_string(),
                 verification_key_signature: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
-                kes_evolutions: Some(KesPeriod(45)),
+                kes_evolutions: Some(KesEvolutions(45)),
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
@@ -131,14 +131,14 @@ mod tests {
                 verification_key: "key_123".to_string(),
                 verification_key_signature: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
-                kes_evolutions: Some(KesPeriod(12)),
+                kes_evolutions: Some(KesEvolutions(12)),
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
                 verification_key: "key_456".to_string(),
                 verification_key_signature: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
-                kes_evolutions: Some(KesPeriod(45)),
+                kes_evolutions: Some(KesEvolutions(45)),
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
@@ -161,14 +161,14 @@ mod tests {
                 verification_key: "key_123".to_string(),
                 verification_key_signature: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
-                kes_evolutions: Some(KesPeriod(12)),
+                kes_evolutions: Some(KesEvolutions(12)),
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
                 verification_key: "key_456".to_string(),
                 verification_key_signature: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
-                kes_evolutions: Some(KesPeriod(45)),
+                kes_evolutions: Some(KesEvolutions(45)),
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),

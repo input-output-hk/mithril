@@ -99,7 +99,7 @@ mod messages {
 
     use mithril_stm::AggregateSignatureType;
 
-    use crate::crypto_helper::KesPeriod;
+    use crate::crypto_helper::KesEvolutions;
     use crate::entities::{
         AncillaryLocation, BlockNumber, CardanoDbBeacon, CardanoTransactionsSetProof,
         CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
@@ -155,7 +155,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_evolutions: Some(KesPeriod(6)),
+                kes_evolutions: Some(KesEvolutions(6)),
                 stake: 234,
             }
         }
@@ -171,7 +171,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_evolutions: Some(KesPeriod(6)),
+                kes_evolutions: Some(KesEvolutions(6)),
             }
         }
     }
@@ -540,7 +540,7 @@ mod messages {
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_evolutions: Some(KesPeriod(6)),
+                kes_evolutions: Some(KesEvolutions(6)),
             }
         }
     }
