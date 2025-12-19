@@ -252,7 +252,7 @@ impl Debug for SignerMessagePart {
                     "operational_certificate",
                     &format_args!("{:?}", self.operational_certificate),
                 )
-                .field("kes_period", &format_args!("{:?}", self.kes_evolutions))
+                .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions))
                 .finish(),
             false => debug.finish_non_exhaustive(),
         }

@@ -64,14 +64,14 @@ impl Signer {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_period: Option<KesPeriod>,
+        kes_evolutions: Option<KesPeriod>,
     ) -> Signer {
         Signer {
             party_id,
             verification_key,
             verification_key_signature,
             operational_certificate,
-            kes_evolutions: kes_period,
+            kes_evolutions,
         }
     }
 
@@ -191,7 +191,7 @@ impl SignerWithStake {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_period: Option<KesPeriod>,
+        kes_evolutions: Option<KesPeriod>,
         stake: Stake,
     ) -> SignerWithStake {
         SignerWithStake {
@@ -199,7 +199,7 @@ impl SignerWithStake {
             verification_key,
             verification_key_signature,
             operational_certificate,
-            kes_evolutions: kes_period,
+            kes_evolutions,
             stake,
         }
     }
