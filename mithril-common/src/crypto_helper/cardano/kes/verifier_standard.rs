@@ -44,7 +44,7 @@ impl KesVerifier for KesVerifierStandard {
 
         Err(KesVerifyError::SignatureInvalid(
             kes_evolutions,
-            operational_certificate.get_start_kes_period() as u32,
+            operational_certificate.get_start_kes_period(),
         )
         .into())
     }
@@ -62,8 +62,8 @@ mod tests {
 
     #[test]
     fn verify_valid_signature_succeeds() {
-        let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let start_kes_period = KesPeriod(10);
+        let kes_evolutions = KesPeriod(1);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -88,8 +88,8 @@ mod tests {
 
     #[test]
     fn verify_invalid_signature_fails() {
-        let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let start_kes_period = KesPeriod(10);
+        let kes_evolutions = KesPeriod(1);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,

@@ -86,7 +86,7 @@ impl DmqMessageBuilder {
         let dmq_message_payload = Self::enrich_msg_payload_with_id(DmqMsgPayload {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
-            kes_period: kes_period as u64,
+            kes_period: kes_period.into(),
             expires_at,
         });
 
@@ -108,7 +108,8 @@ impl DmqMessageBuilder {
                     .to_vec(),
                 issue_number: operational_certificate_without_cold_verification_key.issue_number(),
                 start_kes_period: operational_certificate_without_cold_verification_key
-                    .start_kes_period(),
+                    .start_kes_period()
+                    .into(),
                 cert_sig: operational_certificate_without_cold_verification_key
                     .cert_sig()
                     .to_bytes()
@@ -201,7 +202,8 @@ mod tests {
                         .issue_number(),
                     start_kes_period: operational_certificate
                         .get_opcert_without_cold_verification_key()
-                        .start_kes_period(),
+                        .start_kes_period()
+                        .into(),
                     cert_sig: operational_certificate
                         .get_opcert_without_cold_verification_key()
                         .cert_sig()

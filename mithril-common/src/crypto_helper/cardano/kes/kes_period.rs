@@ -1,0 +1,162 @@
+use std::fmt::{Display, Formatter};
+use std::num::TryFromIntError;
+use std::ops::{Deref, DerefMut};
+
+use serde::{Deserialize, Serialize};
+
+use crate::entities::arithmetic_operation_wrapper::{
+    impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
+};
+
+/// KesPeriod represents the KES period used to check if the KES keys are expired
+#[derive(
+    Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
+)]
+pub struct KesPeriod(pub u32);
+
+impl Display for KesPeriod {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for KesPeriod {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for KesPeriod {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// Useful for conversion to sqlite number (that uses i64)
+impl TryFrom<KesPeriod> for i64 {
+    type Error = TryFromIntError;
+
+    fn try_from(value: KesPeriod) -> Result<Self, Self::Error> {
+        Ok(value.0.into())
+    }
+}
+
+impl TryFrom<i64> for KesPeriod {
+    type Error = TryFromIntError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Ok(KesPeriod(u32::try_from(value)?))
+    }
+}
+
+impl From<KesPeriod> for u64 {
+    fn from(value: KesPeriod) -> Self {
+        value.0.into()
+    }
+}
+
+impl From<u32> for KesPeriod {
+    fn from(value: u32) -> Self {
+        KesPeriod(value)
+    }
+}
+
+impl From<u64> for KesPeriod {
+    fn from(value: u64) -> Self {
+        KesPeriod(value as u32)
+    }
+}
+
+impl_add_to_wrapper!(KesPeriod, u32);
+impl_sub_to_wrapper!(KesPeriod, u32);
+impl_partial_eq_to_wrapper!(KesPeriod, u32);
+
+#[cfg(test)]
+mod tests {
+    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
+
+    use super::*;
+
+    #[test]
+    fn test_display() {
+        assert_eq!(format!("{}", KesPeriod(72)), "72");
+        assert_eq!(format!("{}", &KesPeriod(13224)), "13224");
+    }
+
+    #[test]
+    fn test_serialize() {
+        assert_eq!(serde_json::to_string(&KesPeriod(72)).unwrap(), "72");
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let kes_period: KesPeriod = serde_json::from_str("13224").unwrap();
+        assert_eq!(kes_period, KesPeriod(13224));
+    }
+
+    #[test]
+    #[allow(clippy::op_ref)]
+    fn test_add() {
+        assert_eq!(KesPeriod(4), KesPeriod(1) + KesPeriod(3));
+        assert_eq!(KesPeriod(4), KesPeriod(1) + 3_u32);
+        assert_eq!(KesPeriod(4), KesPeriod(1) + &3_u32);
+
+        assert_eq!(KesPeriod(4), 3_u32 + KesPeriod(1));
+        assert_eq!(KesPeriod(4), 3_u32 + &KesPeriod(1));
+        assert_eq!(KesPeriod(4), &3_u32 + KesPeriod(1));
+        assert_eq!(KesPeriod(4), &3_u32 + &KesPeriod(1));
+
+        test_op_assign!(KesPeriod(1), +=, KesPeriod(3) => KesPeriod(4));
+        test_op_assign!(KesPeriod(1), +=, 3_u32 => KesPeriod(4));
+        test_op_assign!(KesPeriod(1), +=, &3_u32 => KesPeriod(4));
+
+        test_op_assign!(1_u32, +=, KesPeriod(3) => 4_u32);
+        test_op_assign!(1_u32, +=, &KesPeriod(3) => 4_u32);
+    }
+
+    #[test]
+    #[allow(clippy::op_ref)]
+    fn test_sub() {
+        assert_eq!(KesPeriod(8), KesPeriod(14) - KesPeriod(6));
+        assert_eq!(KesPeriod(8), KesPeriod(14) - 6_u32);
+        assert_eq!(KesPeriod(8), KesPeriod(14) - &6_u32);
+
+        assert_eq!(KesPeriod(8), 6_u32 - KesPeriod(14));
+        assert_eq!(KesPeriod(8), 6_u32 - &KesPeriod(14));
+        assert_eq!(KesPeriod(8), &6_u32 - KesPeriod(14));
+        assert_eq!(KesPeriod(8), &6_u32 - &KesPeriod(14));
+
+        test_op_assign!(KesPeriod(14), -=, KesPeriod(6) => KesPeriod(8));
+        test_op_assign!(KesPeriod(14), -=, 6_u32 => KesPeriod(8));
+        test_op_assign!(KesPeriod(14), -=, &6_u32 => KesPeriod(8));
+
+        test_op_assign!(14_u32, -=, KesPeriod(6) => 8_u32);
+        test_op_assign!(14_u32, -=, &KesPeriod(6) => 8_u32);
+    }
+
+    #[test]
+    fn saturating_sub() {
+        assert_eq!(KesPeriod(0), KesPeriod(1) - KesPeriod(5));
+        assert_eq!(KesPeriod(0), KesPeriod(1) - 5_u32);
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(KesPeriod(1), KesPeriod(1));
+        assert_eq!(KesPeriod(2), &KesPeriod(2));
+        assert_eq!(&KesPeriod(3), KesPeriod(3));
+        assert_eq!(&KesPeriod(4), &KesPeriod(4));
+
+        assert_eq!(KesPeriod(5), 5);
+        assert_eq!(KesPeriod(6), &6);
+        assert_eq!(&KesPeriod(7), 7);
+        assert_eq!(&KesPeriod(8), &8);
+
+        assert_eq!(9, KesPeriod(9));
+        assert_eq!(10, &KesPeriod(10));
+        assert_eq!(&11, KesPeriod(11));
+        assert_eq!(&12, &KesPeriod(12));
+    }
+}
