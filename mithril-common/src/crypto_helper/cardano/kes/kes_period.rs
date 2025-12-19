@@ -1,11 +1,12 @@
 use std::fmt::{Display, Formatter};
 use std::num::TryFromIntError;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Sub};
 
 use serde::{Deserialize, Serialize};
 
+use crate::crypto_helper::KesEvolutions;
 use crate::entities::arithmetic_operation_wrapper::{
-    impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
+    impl_add_to_wrapper, impl_partial_eq_to_wrapper,
 };
 
 /// KesPeriod represents the KES period used to check if the KES keys are expired
@@ -69,8 +70,23 @@ impl From<u64> for KesPeriod {
     }
 }
 
+impl Add<KesEvolutions> for KesPeriod {
+    type Output = Self;
+
+    fn add(self, rhs: KesEvolutions) -> Self::Output {
+        self + *rhs
+    }
+}
+
+impl Sub<KesPeriod> for KesPeriod {
+    type Output = KesEvolutions;
+
+    fn sub(self, rhs: KesPeriod) -> Self::Output {
+        KesEvolutions((*self).saturating_sub(*rhs))
+    }
+}
+
 impl_add_to_wrapper!(KesPeriod, u32);
-impl_sub_to_wrapper!(KesPeriod, u32);
 impl_partial_eq_to_wrapper!(KesPeriod, u32);
 
 #[cfg(test)]
@@ -114,32 +130,19 @@ mod tests {
 
         test_op_assign!(1_u32, +=, KesPeriod(3) => 4_u32);
         test_op_assign!(1_u32, +=, &KesPeriod(3) => 4_u32);
+
+        assert_eq!(KesPeriod(4), KesPeriod(1) + KesEvolutions(3));
     }
 
     #[test]
     #[allow(clippy::op_ref)]
     fn test_sub() {
-        assert_eq!(KesPeriod(8), KesPeriod(14) - KesPeriod(6));
-        assert_eq!(KesPeriod(8), KesPeriod(14) - 6_u32);
-        assert_eq!(KesPeriod(8), KesPeriod(14) - &6_u32);
-
-        assert_eq!(KesPeriod(8), 6_u32 - KesPeriod(14));
-        assert_eq!(KesPeriod(8), 6_u32 - &KesPeriod(14));
-        assert_eq!(KesPeriod(8), &6_u32 - KesPeriod(14));
-        assert_eq!(KesPeriod(8), &6_u32 - &KesPeriod(14));
-
-        test_op_assign!(KesPeriod(14), -=, KesPeriod(6) => KesPeriod(8));
-        test_op_assign!(KesPeriod(14), -=, 6_u32 => KesPeriod(8));
-        test_op_assign!(KesPeriod(14), -=, &6_u32 => KesPeriod(8));
-
-        test_op_assign!(14_u32, -=, KesPeriod(6) => 8_u32);
-        test_op_assign!(14_u32, -=, &KesPeriod(6) => 8_u32);
+        assert_eq!(KesEvolutions(8), KesPeriod(14) - KesPeriod(6));
     }
 
     #[test]
     fn saturating_sub() {
-        assert_eq!(KesPeriod(0), KesPeriod(1) - KesPeriod(5));
-        assert_eq!(KesPeriod(0), KesPeriod(1) - 5_u32);
+        assert_eq!(KesEvolutions(0), KesPeriod(1) - KesPeriod(5));
     }
 
     #[test]
