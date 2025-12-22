@@ -12,6 +12,10 @@ pub enum KesVerifyError {
     /// Error raised when a KES Signature verification fails
     #[error("KES signature verification error: KesEvolutions={0}, StartKesPeriod={1}")]
     SignatureInvalid(KesEvolutions, KesPeriod),
+
+    /// Error raised when a KES evolutions is invalid
+    #[error("invalid KES evolutions")]
+    InvalidKesEvolutions(KesEvolutions),
 }
 
 /// KES signature error

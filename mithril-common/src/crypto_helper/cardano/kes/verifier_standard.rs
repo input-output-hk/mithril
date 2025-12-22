@@ -32,7 +32,8 @@ impl KesVerifier for KesVerifierStandard {
         for kes_evolutions_try in kes_evolutions_try_min..=kes_evolutions_try_max {
             if signature
                 .verify(
-                    kes_evolutions_try,
+                    u32::try_from(kes_evolutions_try)
+                        .map_err(|_| KesVerifyError::InvalidKesEvolutions(kes_evolutions))?,
                     &operational_certificate.get_kes_verification_key(),
                     message,
                 )
@@ -151,6 +152,10 @@ mod tests {
 
         KesVerifierStandard
             .verify(message, &signature, &op_cert, kes_evolutions + 2)
+            .expect_err("Signature verification should fail");
+
+        KesVerifierStandard
+            .verify(message, &signature, &op_cert, u64::MAX.into())
             .expect_err("Signature verification should fail");
     }
 }

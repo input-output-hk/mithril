@@ -817,7 +817,7 @@ mod tests {
         let kes_period = observer.get_current_kes_period().await.unwrap().unwrap();
         assert_eq!(
             (test_expected::launch_chain_point::SLOT_NUMBER.0
-                / test_expected::launch_kes_period::SLOTS_PER_KES_PERIOD) as u32,
+                / test_expected::launch_kes_period::SLOTS_PER_KES_PERIOD),
             kes_period
         );
     }

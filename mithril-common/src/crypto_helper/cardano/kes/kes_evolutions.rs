@@ -15,7 +15,7 @@ use crate::entities::arithmetic_operation_wrapper::{
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
-pub struct KesEvolutions(pub u32);
+pub struct KesEvolutions(pub u64);
 
 impl Display for KesEvolutions {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -24,7 +24,7 @@ impl Display for KesEvolutions {
 }
 
 impl Deref for KesEvolutions {
-    type Target = u32;
+    type Target = u64;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -42,7 +42,7 @@ impl TryFrom<KesEvolutions> for i64 {
     type Error = TryFromIntError;
 
     fn try_from(value: KesEvolutions) -> Result<Self, Self::Error> {
-        Ok(value.0.into())
+        i64::try_from(value.0)
     }
 }
 
@@ -50,31 +50,31 @@ impl TryFrom<i64> for KesEvolutions {
     type Error = TryFromIntError;
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
-        Ok(KesEvolutions(u32::try_from(value)?))
+        Ok(KesEvolutions(u64::try_from(value)?))
     }
 }
 
 impl From<KesEvolutions> for u64 {
     fn from(value: KesEvolutions) -> Self {
-        value.0.into()
+        value.0
     }
 }
 
 impl From<u32> for KesEvolutions {
     fn from(value: u32) -> Self {
-        KesEvolutions(value)
+        KesEvolutions(value.into())
     }
 }
 
 impl From<u64> for KesEvolutions {
     fn from(value: u64) -> Self {
-        KesEvolutions(value as u32)
+        KesEvolutions(value)
     }
 }
 
-impl_add_to_wrapper!(KesEvolutions, u32);
-impl_sub_to_wrapper!(KesEvolutions, u32);
-impl_partial_eq_to_wrapper!(KesEvolutions, u32);
+impl_add_to_wrapper!(KesEvolutions, u64);
+impl_sub_to_wrapper!(KesEvolutions, u64);
+impl_partial_eq_to_wrapper!(KesEvolutions, u64);
 
 #[cfg(test)]
 mod tests {
@@ -103,46 +103,46 @@ mod tests {
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(KesEvolutions(4), KesEvolutions(1) + KesEvolutions(3));
-        assert_eq!(KesEvolutions(4), KesEvolutions(1) + 3_u32);
-        assert_eq!(KesEvolutions(4), KesEvolutions(1) + &3_u32);
+        assert_eq!(KesEvolutions(4), KesEvolutions(1) + 3_u64);
+        assert_eq!(KesEvolutions(4), KesEvolutions(1) + &3_u64);
 
-        assert_eq!(KesEvolutions(4), 3_u32 + KesEvolutions(1));
-        assert_eq!(KesEvolutions(4), 3_u32 + &KesEvolutions(1));
-        assert_eq!(KesEvolutions(4), &3_u32 + KesEvolutions(1));
-        assert_eq!(KesEvolutions(4), &3_u32 + &KesEvolutions(1));
+        assert_eq!(KesEvolutions(4), 3_u64 + KesEvolutions(1));
+        assert_eq!(KesEvolutions(4), 3_u64 + &KesEvolutions(1));
+        assert_eq!(KesEvolutions(4), &3_u64 + KesEvolutions(1));
+        assert_eq!(KesEvolutions(4), &3_u64 + &KesEvolutions(1));
 
         test_op_assign!(KesEvolutions(1), +=, KesEvolutions(3) => KesEvolutions(4));
-        test_op_assign!(KesEvolutions(1), +=, 3_u32 => KesEvolutions(4));
-        test_op_assign!(KesEvolutions(1), +=, &3_u32 => KesEvolutions(4));
+        test_op_assign!(KesEvolutions(1), +=, 3_u64 => KesEvolutions(4));
+        test_op_assign!(KesEvolutions(1), +=, &3_u64 => KesEvolutions(4));
 
-        test_op_assign!(1_u32, +=, KesEvolutions(3) => 4_u32);
-        test_op_assign!(1_u32, +=, &KesEvolutions(3) => 4_u32);
+        test_op_assign!(1_u64, +=, KesEvolutions(3) => 4_u64);
+        test_op_assign!(1_u64, +=, &KesEvolutions(3) => 4_u64);
     }
 
     #[test]
     #[allow(clippy::op_ref)]
     fn test_sub() {
         assert_eq!(KesEvolutions(8), KesEvolutions(14) - KesEvolutions(6));
-        assert_eq!(KesEvolutions(8), KesEvolutions(14) - 6_u32);
-        assert_eq!(KesEvolutions(8), KesEvolutions(14) - &6_u32);
+        assert_eq!(KesEvolutions(8), KesEvolutions(14) - 6_u64);
+        assert_eq!(KesEvolutions(8), KesEvolutions(14) - &6_u64);
 
-        assert_eq!(KesEvolutions(8), 6_u32 - KesEvolutions(14));
-        assert_eq!(KesEvolutions(8), 6_u32 - &KesEvolutions(14));
-        assert_eq!(KesEvolutions(8), &6_u32 - KesEvolutions(14));
-        assert_eq!(KesEvolutions(8), &6_u32 - &KesEvolutions(14));
+        assert_eq!(KesEvolutions(8), 6_u64 - KesEvolutions(14));
+        assert_eq!(KesEvolutions(8), 6_u64 - &KesEvolutions(14));
+        assert_eq!(KesEvolutions(8), &6_u64 - KesEvolutions(14));
+        assert_eq!(KesEvolutions(8), &6_u64 - &KesEvolutions(14));
 
         test_op_assign!(KesEvolutions(14), -=, KesEvolutions(6) => KesEvolutions(8));
-        test_op_assign!(KesEvolutions(14), -=, 6_u32 => KesEvolutions(8));
-        test_op_assign!(KesEvolutions(14), -=, &6_u32 => KesEvolutions(8));
+        test_op_assign!(KesEvolutions(14), -=, 6_u64 => KesEvolutions(8));
+        test_op_assign!(KesEvolutions(14), -=, &6_u64 => KesEvolutions(8));
 
-        test_op_assign!(14_u32, -=, KesEvolutions(6) => 8_u32);
-        test_op_assign!(14_u32, -=, &KesEvolutions(6) => 8_u32);
+        test_op_assign!(14_u64, -=, KesEvolutions(6) => 8_u64);
+        test_op_assign!(14_u64, -=, &KesEvolutions(6) => 8_u64);
     }
 
     #[test]
     fn saturating_sub() {
         assert_eq!(KesEvolutions(0), KesEvolutions(1) - KesEvolutions(5));
-        assert_eq!(KesEvolutions(0), KesEvolutions(1) - 5_u32);
+        assert_eq!(KesEvolutions(0), KesEvolutions(1) - 5_u64);
     }
 
     #[test]
