@@ -6,6 +6,7 @@ services:
       - DMQ_NODE_SOCKET_PATH=/ipc-dmq/dmq.socket
       - NETWORK=${NETWORK}
       - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - SIGNATURE_PROCESSOR_WAIT_DELAY_ON_ERROR_MS=30000
 
   dmq-node:
     # TODO: gather logs and send to loki
