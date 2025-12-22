@@ -121,7 +121,7 @@ impl<'de> Deserialize<'de> for OpCertWithoutColdVerificationKey {
             kes_vk: KesPublicKey::from_bytes(&raw_cert.0)
                 .map_err(|_| Error::custom("KES vk serialisation error"))?,
             issue_number: raw_cert.1,
-            start_kes_period: KesPeriod(raw_cert.2 as u32),
+            start_kes_period: KesPeriod(raw_cert.2),
             cert_sig: EdSignature::from_slice(&raw_cert.3)
                 .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
         })

@@ -13,7 +13,7 @@ use crate::entities::arithmetic_operation_wrapper::{
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
-pub struct KesPeriod(pub u32);
+pub struct KesPeriod(pub u64);
 
 impl Display for KesPeriod {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -22,7 +22,7 @@ impl Display for KesPeriod {
 }
 
 impl Deref for KesPeriod {
-    type Target = u32;
+    type Target = u64;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -40,7 +40,7 @@ impl TryFrom<KesPeriod> for i64 {
     type Error = TryFromIntError;
 
     fn try_from(value: KesPeriod) -> Result<Self, Self::Error> {
-        Ok(value.0.into())
+        i64::try_from(value.0)
     }
 }
 
@@ -48,25 +48,25 @@ impl TryFrom<i64> for KesPeriod {
     type Error = TryFromIntError;
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
-        Ok(KesPeriod(u32::try_from(value)?))
+        Ok(KesPeriod(u64::try_from(value)?))
     }
 }
 
 impl From<KesPeriod> for u64 {
     fn from(value: KesPeriod) -> Self {
-        value.0.into()
+        value.0
     }
 }
 
 impl From<u32> for KesPeriod {
     fn from(value: u32) -> Self {
-        KesPeriod(value)
+        KesPeriod(value.into())
     }
 }
 
 impl From<u64> for KesPeriod {
     fn from(value: u64) -> Self {
-        KesPeriod(value as u32)
+        KesPeriod(value)
     }
 }
 
@@ -86,8 +86,8 @@ impl Sub<KesPeriod> for KesPeriod {
     }
 }
 
-impl_add_to_wrapper!(KesPeriod, u32);
-impl_partial_eq_to_wrapper!(KesPeriod, u32);
+impl_add_to_wrapper!(KesPeriod, u64);
+impl_partial_eq_to_wrapper!(KesPeriod, u64);
 
 #[cfg(test)]
 mod tests {
@@ -116,20 +116,20 @@ mod tests {
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(KesPeriod(4), KesPeriod(1) + KesPeriod(3));
-        assert_eq!(KesPeriod(4), KesPeriod(1) + 3_u32);
-        assert_eq!(KesPeriod(4), KesPeriod(1) + &3_u32);
+        assert_eq!(KesPeriod(4), KesPeriod(1) + 3_u64);
+        assert_eq!(KesPeriod(4), KesPeriod(1) + &3_u64);
 
-        assert_eq!(KesPeriod(4), 3_u32 + KesPeriod(1));
-        assert_eq!(KesPeriod(4), 3_u32 + &KesPeriod(1));
-        assert_eq!(KesPeriod(4), &3_u32 + KesPeriod(1));
-        assert_eq!(KesPeriod(4), &3_u32 + &KesPeriod(1));
+        assert_eq!(KesPeriod(4), 3_u64 + KesPeriod(1));
+        assert_eq!(KesPeriod(4), 3_u64 + &KesPeriod(1));
+        assert_eq!(KesPeriod(4), &3_u64 + KesPeriod(1));
+        assert_eq!(KesPeriod(4), &3_u64 + &KesPeriod(1));
 
         test_op_assign!(KesPeriod(1), +=, KesPeriod(3) => KesPeriod(4));
-        test_op_assign!(KesPeriod(1), +=, 3_u32 => KesPeriod(4));
-        test_op_assign!(KesPeriod(1), +=, &3_u32 => KesPeriod(4));
+        test_op_assign!(KesPeriod(1), +=, 3_u64 => KesPeriod(4));
+        test_op_assign!(KesPeriod(1), +=, &3_u64 => KesPeriod(4));
 
-        test_op_assign!(1_u32, +=, KesPeriod(3) => 4_u32);
-        test_op_assign!(1_u32, +=, &KesPeriod(3) => 4_u32);
+        test_op_assign!(1_u64, +=, KesPeriod(3) => 4_u64);
+        test_op_assign!(1_u64, +=, &KesPeriod(3) => 4_u64);
 
         assert_eq!(KesPeriod(4), KesPeriod(1) + KesEvolutions(3));
     }
