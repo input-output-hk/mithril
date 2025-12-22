@@ -254,11 +254,38 @@ mod tests {
     }
 
     mod golden {
+        use super::*;
 
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
+        const GOLDEN_BYTES: &[u8; 96] = &[
+            143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,
+            69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113, 5, 81, 137, 228, 235,
+            18, 112, 76, 71, 127, 44, 47, 60, 55, 144, 204, 254, 50, 67, 167, 67, 133, 79, 168, 10,
+            153, 228, 114, 147, 64, 34, 9, 12, 75, 91, 200, 29, 62, 12, 245, 185, 181, 67, 251,
+            210, 211, 37, 42, 204, 205, 133, 215, 235, 236, 193, 155, 2, 147, 83, 189, 148, 38, 71,
+            0,
+        ];
 
-        use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey};
+        fn golden_value() -> SchnorrSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let msg = [0u8; 32];
+            sk.sign(&msg, &mut rng).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = SchnorrSignature::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = SchnorrSignature::to_bytes(value);
+            let golden_serialized = SchnorrSignature::to_bytes(golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
 
         const GOLDEN_JSON: &str = r#"
         {

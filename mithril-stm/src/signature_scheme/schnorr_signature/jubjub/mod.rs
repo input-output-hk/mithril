@@ -80,4 +80,3 @@ impl_serde!(
     32
 );
 impl_serde!(ProjectivePoint, ProjectivePointVisitor, 32);
-// impl_serde!(BlsSignature, SignatureVisitor, 48);
