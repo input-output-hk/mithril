@@ -16,6 +16,7 @@ pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     hasher: PhantomData<D>,
+    #[serde(skip)]
     leaf_type: PhantomData<L>,
 }
 
@@ -42,7 +43,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
     {
         let mut idx = proof.index;
 
-        let mut h = D::digest(val.to_bytes()).to_vec();
+        let mut h = D::digest(val.as_bytes_for_merkle_tree()).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
                 h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
@@ -137,7 +138,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
             root,
             nr_leaves,
             hasher: Default::default(),
-            leaf_type: Default::default(),
+            leaf_type: PhantomData,
         }
     }
 
@@ -195,7 +196,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         // First we need to hash the leave values
         let mut leaves: Vec<Vec<u8>> = batch_val
             .iter()
-            .map(|val| D::digest(val.to_bytes()).to_vec())
+            .map(|val| D::digest(val.as_bytes_for_merkle_tree()).to_vec())
             .collect();
 
         let mut values = proof.values.clone();

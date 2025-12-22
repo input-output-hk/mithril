@@ -20,7 +20,7 @@ impl SingleSignatureWithRegisteredParty {
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&self.reg_party.to_bytes());
+        out.extend_from_slice(&self.reg_party.as_bytes_for_merkle_tree());
         out.extend_from_slice(&self.sig.to_bytes());
 
         out
@@ -29,7 +29,7 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let reg_party = RegisteredParty::as_bytes_for_merkle_tree(
+        let reg_party = RegisteredParty::from_bytes(
             bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(

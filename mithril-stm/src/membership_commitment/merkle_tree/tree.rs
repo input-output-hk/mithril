@@ -40,7 +40,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         let mut nodes = vec![vec![0u8]; num_nodes];
 
         for i in 0..leaves.len() {
-            nodes[num_nodes - n + i] = D::digest(leaves[i].to_bytes()).to_vec();
+            nodes[num_nodes - n + i] = D::digest(leaves[i].as_bytes_for_merkle_tree()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
