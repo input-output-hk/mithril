@@ -127,6 +127,7 @@ pub struct MerkleTreeBatchCommitment<D: Digest, L: MerkleTreeLeaf> {
     pub root: Vec<u8>,
     nr_leaves: usize,
     hasher: PhantomData<D>,
+    #[serde(skip)]
     leaf_type: PhantomData<L>,
 }
 
@@ -155,14 +156,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         msgp.append(&mut bytes);
 
         msgp
-    }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
-    #[deprecated(since = "0.5.0", note = "Use `concatenate_with_message` instead")]
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
-        Self::concatenate_with_message(self, msg)
     }
 
     /// Check a proof of a batched opening. The indices must be ordered.
@@ -274,24 +267,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())))
     }
 
-    /// Check a proof of a batched opening. The indices must be ordered.
-    ///
-    /// # Error
-    /// Returns an error if the proof is invalid.
-    // todo: Update doc.
-    // todo: Simplify the algorithm.
-    // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `verify_leaves_membership_from_batch_path` instead"
-    )]
-    pub fn check(&self, batch_val: &[L], proof: &MerkleBatchPath<D>) -> StmResult<()>
-    where
-        D: FixedOutput + Clone,
-    {
-        Self::verify_leaves_membership_from_batch_path(self, batch_val, proof)
-    }
-
     /// Convert to bytes
     /// * Number of leaves as u64
     /// * Root of the Merkle commitment as bytes
@@ -316,7 +291,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
             root,
             nr_leaves,
             hasher: PhantomData,
-            leaf_type: PhantomData,
+            leaf_type: Default::default(),
         })
     }
 }

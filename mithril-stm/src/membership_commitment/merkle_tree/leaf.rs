@@ -6,11 +6,8 @@ use crate::{Stake, StmResult, VerificationKey, signature_scheme::BlsVerification
 
 use super::MerkleTreeError;
 
-/// Trait defining the `from/to_bytes()` functionalities of the `MerkleTreeLeaf`.
+/// Trait defining the `to_bytes()` functionality of the `MerkleTreeLeaf`.
 pub trait MerkleTreeLeaf: Clone + Send + Sync + Copy {
-    fn from_bytes(bytes: &[u8]) -> StmResult<Self>
-    where
-        Self: Sized;
     fn to_bytes(self) -> Vec<u8>;
 }
 
@@ -20,19 +17,22 @@ pub trait MerkleTreeLeaf: Clone + Send + Sync + Copy {
 pub struct MerkleTreeConcatenationLeaf(pub BlsVerificationKey, pub Stake);
 
 impl MerkleTreeLeaf for MerkleTreeConcatenationLeaf {
-    fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+    fn to_bytes(self) -> Vec<u8> {
+        let mut result = [0u8; 104];
+        result[..96].copy_from_slice(&self.0.to_bytes());
+        result[96..].copy_from_slice(&self.1.to_be_bytes());
+        result.to_vec()
+    }
+}
+
+impl MerkleTreeConcatenationLeaf {
+    pub(crate) fn as_bytes_for_merkle_tree(bytes: &[u8]) -> StmResult<Self> {
         let pk =
             VerificationKey::from_bytes(bytes).map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
         let stake = Stake::from_be_bytes(u64_bytes);
         Ok(MerkleTreeConcatenationLeaf(pk, stake))
-    }
-    fn to_bytes(self) -> Vec<u8> {
-        let mut result = [0u8; 104];
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..].copy_from_slice(&self.1.to_be_bytes());
-        result.to_vec()
     }
 }
 

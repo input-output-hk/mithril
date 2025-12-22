@@ -29,7 +29,7 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let reg_party = RegisteredParty::from_bytes(
+        let reg_party = RegisteredParty::as_bytes_for_merkle_tree(
             bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
