@@ -11,7 +11,7 @@ services:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}
       - NETWORK=${NETWORK}
-      - RUN_INTERVAL=120000
+      - RUN_INTERVAL=60000
       - DB_DIRECTORY=/mithril-aggregator/cardano/db
       - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
       - STORE_RETENTION_LIMIT=5
