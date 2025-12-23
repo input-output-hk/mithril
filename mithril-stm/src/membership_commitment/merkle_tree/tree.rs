@@ -423,4 +423,75 @@ mod tests {
             assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
         }
     }
+    mod golden {
+        use super::*;
+        const GOLDEN_BYTES: &[u8; 40] = &[
+            0, 0, 0, 0, 0, 0, 0, 4, 178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148, 224,
+            156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249,
+        ];
+
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+            let number_of_leaves = 4;
+            let pks = vec![BlsVerificationKey::default(); number_of_leaves];
+            let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+            let leaves = pks
+                .into_iter()
+                .zip(stakes)
+                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
+                .collect::<Vec<MerkleTreeLeaf>>();
+
+            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+
+            tree.to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = MerkleTreeBatchCommitment::<Blake2b<U32>>::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = MerkleTreeBatchCommitment::<Blake2b<U32>>::to_bytes(&value);
+            let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root": [178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148, 224, 156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249],
+            "nr_leaves": 4,
+            "hasher": null
+        }"#;
+
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+            let number_of_leaves = 4;
+            let pks = vec![BlsVerificationKey::default(); number_of_leaves];
+            let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+            let leaves = pks
+                .into_iter()
+                .zip(stakes)
+                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
+                .collect::<Vec<MerkleTreeLeaf>>();
+
+            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+
+            tree.to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
 }
