@@ -78,7 +78,7 @@ impl<D: MembershipDigest> Signer<D> {
 
         if !indexes.is_empty() {
             Some(SingleSignature {
-                concatenation_signature: SingleSignatureForConcatenation { sigma, indexes },
+                concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
                 signer_index: self.signer_index,
             })
         } else {

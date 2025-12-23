@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKey, proof_system::SingleSignatureForConcatenation,
+    VerificationKey, proof_system::SingleSignatureForConcatenation, signature_scheme::BlsSignature,
 };
 
 use super::SignatureError;
@@ -18,7 +18,7 @@ use super::SignatureError;
 pub struct SingleSignature {
     /// Underlying signature for concatenation proof system.
     #[serde(flatten)]
-    pub concatenation_signature: SingleSignatureForConcatenation,
+    pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
     pub signer_index: Index,
 }
@@ -34,6 +34,18 @@ impl SingleSignature {
         msg: &[u8],
     ) -> StmResult<()> {
         self.concatenation_signature.verify(params, pk, stake, avk, msg)
+    }
+
+    /// Verify that all indices of a signature are valid.
+    pub(crate) fn check_indices(
+        &self,
+        params: &Parameters,
+        stake: &Stake,
+        msg: &[u8],
+        total_stake: &Stake,
+    ) -> StmResult<()> {
+        self.concatenation_signature
+            .check_indices(params, stake, msg, total_stake)
     }
 
     /// Convert a `SingleSignature` into bytes
@@ -69,6 +81,21 @@ impl SingleSignature {
         })
     }
 
+    /// Get the indices of the underlying single signature for proof system.
+    pub fn get_indices(&self) -> Vec<Index> {
+        self.concatenation_signature.get_indices()
+    }
+
+    /// Get the underlying BLS signature.
+    pub fn get_sigma(&self) -> BlsSignature {
+        self.concatenation_signature.get_sigma()
+    }
+
+    /// Set the indices of the underlying single signature for proof system.
+    pub fn set_indices(&mut self, indices: &[Index]) {
+        self.concatenation_signature.set_indices(indices)
+    }
+
     /// Compare two `SingleSignature` by their signers' merkle tree indexes.
     fn compare_signer_index(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
@@ -83,7 +110,7 @@ impl SingleSignature {
 
 impl Hash for SingleSignature {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.concatenation_signature.sigma.to_bytes(), state)
+        Hash::hash_slice(&self.concatenation_signature.get_sigma().to_bytes(), state)
     }
 }
 
