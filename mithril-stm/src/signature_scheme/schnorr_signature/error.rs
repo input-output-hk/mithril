@@ -1,5 +1,5 @@
 #[cfg(feature = "future_snark")]
-use super::{SchnorrSignature, SchnorrVerificationKey};
+use super::{PrimeOrderProjectivePoint, SchnorrSignature};
 
 /// Error types for Schnorr signatures.
 #[cfg(feature = "future_snark")]
@@ -9,19 +9,35 @@ pub enum SchnorrSignatureError {
     #[error("Invalid Schnorr single signature")]
     SignatureInvalid(Box<SchnorrSignature>),
 
-    /// Invalid Verification key
-    #[error("Invalid Schnorr Verification key")]
-    VerificationKeyInvalid(Box<SchnorrVerificationKey>),
-
     /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]
-    SerializationError,
+    Serialization,
 
-    /// This error occurs when the signing key fails to generate
-    #[error("Failed generation of the signing key")]
-    SigningKeyGenerationError,
+    /// This error occurs when the serialization of the scalar field bytes failed
+    #[error("Invalid scalar field element bytes")]
+    ScalarFieldElementSerialization,
+
+    /// This error occurs when the serialization of the projective point bytes failed
+    #[error("Invalid projective point bytes")]
+    ProjectivePointSerialization,
+
+    /// This error occurs when the serialization of the prime order projective point bytes failed
+    #[error("Invalid prime order projective point bytes")]
+    PrimeOrderProjectivePointSerialization,
 
     /// This error occurs when the random scalar fails to generate during the signature
     #[error("Failed generation of the signature's random scalar")]
-    RandomScalarGenerationError,
+    RandomScalarGeneration,
+
+    /// This error occurs when signing key is zero or one.
+    #[error("The signing key is invalid.")]
+    InvalidSigningKey,
+
+    /// Given point is not on the curve
+    #[error("Given point is not on the curve")]
+    PointIsNotOnCurve(Box<PrimeOrderProjectivePoint>),
+
+    /// Given point is not prime order
+    #[error("Given point is not prime order")]
+    PointIsNotPrimeOrder(Box<PrimeOrderProjectivePoint>),
 }
