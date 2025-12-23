@@ -42,13 +42,13 @@ impl KesSignerFake {
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            0 as KesPeriod,
+            KesPeriod(0),
             &format!("{}-kes", test_directory),
         );
         let message = b"Test message for KES signing";
         let kes_signer =
             KesSignerStandard::new(kes_secret_key_file.clone(), operational_certificate_file);
-        let kes_signing_period = 1;
+        let kes_signing_period = KesPeriod(1);
         let (kes_signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)
             .expect("Signing should not fail");
@@ -85,12 +85,12 @@ mod tests {
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            0 as KesPeriod,
+            KesPeriod(0),
             "fake_kes_signer_returns_signature_batches_in_expected_order",
         );
         let message1 = b"Test message 1 for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = 1;
+        let kes_signing_period = KesPeriod(1);
         let (kes_signature, op_cert) = kes_signer
             .sign(message1, kes_signing_period)
             .expect("Signing should not fail");

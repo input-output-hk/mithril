@@ -397,14 +397,14 @@ pub fn insert_signer_registrations(
                         6,
                         signer_registration_record
                             .kes_period
-                            .map(|k| Value::Integer(k as i64))
+                            .map(|k| Value::Integer(k.try_into().unwrap()))
                             .unwrap_or(Value::Null),
                     ),
                     (
                         7,
                         signer_registration_record
                             .stake
-                            .map(|s| Value::Integer(s as i64))
+                            .map(|s| Value::Integer(s.try_into().unwrap()))
                             .unwrap_or(Value::Null),
                     ),
                     (8, signer_registration_record.created_at.to_rfc3339().into()),

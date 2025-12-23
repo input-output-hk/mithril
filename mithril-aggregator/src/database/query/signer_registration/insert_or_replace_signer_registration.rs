@@ -27,7 +27,7 @@ impl InsertOrReplaceSignerRegistrationRecordQuery {
                     .unwrap_or(Value::Null),
                 signer_registration_record
                     .kes_period
-                    .map(|k| Value::Integer(i64::from(k)))
+                    .map(|k| Value::Integer(i64::try_from(k).unwrap()))
                     .unwrap_or(Value::Null),
                 signer_registration_record
                     .stake
