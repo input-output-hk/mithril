@@ -1,5 +1,6 @@
 use crate::{
     ClosedKeyRegistration, MembershipDigest, Parameters, SingleSignature, Stake, is_lottery_won,
+    proof_system::SingleSignatureForConcatenation,
     signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
 };
 
@@ -50,7 +51,10 @@ impl<D: MembershipDigest> Signer<D> {
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<SingleSignature> {
-        let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
+        let closed_reg = self
+            .closed_reg
+            .as_ref()
+            .expect("Closed registration not found! Cannot produce SingleSignatures.");
         let msgp = closed_reg
             .merkle_tree
             .to_merkle_tree_batch_commitment()
@@ -61,8 +65,7 @@ impl<D: MembershipDigest> Signer<D> {
 
         if !indexes.is_empty() {
             Some(SingleSignature {
-                sigma,
-                indexes,
+                concatenation_signature: SingleSignatureForConcatenation { sigma, indexes },
                 signer_index: self.signer_index,
             })
         } else {

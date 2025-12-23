@@ -247,7 +247,7 @@ impl SignerFixture {
     pub fn sign<T: ToMessage>(&self, message: &T) -> Option<SingleSignature> {
         let message = message.to_message();
         self.protocol_signer.sign(message.as_bytes()).map(|signature| {
-            let won_indexes = signature.indexes.clone();
+            let won_indexes = signature.concatenation_signature.indexes.clone();
 
             SingleSignature::new(
                 self.signer_with_stake.party_id.to_owned(),

@@ -84,17 +84,21 @@ fn main() {
         .expect("Signers can sign all indices in this example");
 
     // Parties must have signed all indices
-    assert_eq!(party_0_sigs.indexes.len(), 10);
-    assert_eq!(party_1_sigs.indexes.len(), 10);
-    assert_eq!(party_2_sigs.indexes.len(), 10);
-    assert_eq!(party_3_sigs.indexes.len(), 10);
+    assert_eq!(party_0_sigs.concatenation_signature.indexes.len(), 10);
+    assert_eq!(party_1_sigs.concatenation_signature.indexes.len(), 10);
+    assert_eq!(party_2_sigs.concatenation_signature.indexes.len(), 10);
+    assert_eq!(party_3_sigs.concatenation_signature.indexes.len(), 10);
 
     // Different combinations of signatures. Recall that we only need 3 signatures
-    party_0_sigs.indexes = party_0_sigs.indexes[..2].to_vec();
-    party_3_sigs.indexes = party_3_sigs.indexes[..2].to_vec();
+    party_0_sigs.concatenation_signature.indexes =
+        party_0_sigs.concatenation_signature.indexes[..2].to_vec();
+    party_3_sigs.concatenation_signature.indexes =
+        party_3_sigs.concatenation_signature.indexes[..2].to_vec();
     let complete_sigs_1 = vec![party_0_sigs.clone(), party_3_sigs.clone()];
-    party_1_sigs.indexes = party_1_sigs.indexes[..5].to_vec();
-    party_2_sigs.indexes = party_2_sigs.indexes[..5].to_vec();
+    party_1_sigs.concatenation_signature.indexes =
+        party_1_sigs.concatenation_signature.indexes[..5].to_vec();
+    party_2_sigs.concatenation_signature.indexes =
+        party_2_sigs.concatenation_signature.indexes[..5].to_vec();
     let complete_sigs_2 = vec![
         party_0_sigs.clone(),
         party_1_sigs.clone(),
@@ -103,9 +107,12 @@ fn main() {
     ];
 
     // The following is incomplete. While it has more than 3, it has a lot for the same index.
-    party_1_sigs.indexes = party_1_sigs.indexes[..1].to_vec();
-    party_2_sigs.indexes = party_2_sigs.indexes[..1].to_vec();
-    party_3_sigs.indexes = party_3_sigs.indexes[..1].to_vec();
+    party_1_sigs.concatenation_signature.indexes =
+        party_1_sigs.concatenation_signature.indexes[..1].to_vec();
+    party_2_sigs.concatenation_signature.indexes =
+        party_2_sigs.concatenation_signature.indexes[..1].to_vec();
+    party_3_sigs.concatenation_signature.indexes =
+        party_3_sigs.concatenation_signature.indexes[..1].to_vec();
     let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
