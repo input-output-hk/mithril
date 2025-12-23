@@ -1,0 +1,33 @@
+services:
+  mithril-signer:
+    environment:
+      - AGGREGATOR_ENDPOINT=http://mithril-signer-relay-${SIGNER_ID}:${SIGNER_RELAY_SERVER_PORT}
+
+  mithril-signer-relay:
+    image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
+    container_name: mithril-signer-relay-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - LISTEN_PORT=${SIGNER_RELAY_LISTEN_PORT}
+      - SERVER_PORT=${SIGNER_RELAY_SERVER_PORT}
+      - AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}
+      - DIAL_TO=/dns4/mithril-aggregator-relay/tcp/${AGGREGATOR_RELAY_LISTEN_PORT}
+      - SIGNER_REGISTRATION_MODE=${SIGNER_RELAY_SIGNER_REGISTRATION_MODE}
+      - SIGNATURE_REGISTRATION_MODE=${SIGNER_RELAY_SIGNATURE_REGISTRATION_MODE}
+      - SIGNER_REPEATER_DELAY=${SIGNER_RELAY_REGISTRATION_REPEATER_DELAY}
+    ports:
+      - "${SIGNER_RELAY_LISTEN_PORT}:${SIGNER_RELAY_LISTEN_PORT}"
+      - "${SIGNER_RELAY_SERVER_PORT}:${SIGNER_RELAY_SERVER_PORT}"
+    command: ["-vvv", "signer"]
+    depends_on:
+      mithril-signer:
+        condition: service_started
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
