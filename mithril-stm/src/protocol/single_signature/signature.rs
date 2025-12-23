@@ -12,7 +12,8 @@ use crate::{
 
 use super::SignatureError;
 
-/// Signature created by a single party who has won the lottery.
+/// Single signature created by a single party who has won the lottery.
+/// Contains the underlying signature for the proof system and the registration index of the signer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleSignature {
     /// Underlying signature for concatenation proof system.
@@ -23,8 +24,7 @@ pub struct SingleSignature {
 }
 
 impl SingleSignature {
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
-    /// the indexes are in the desired range and the underlying multi signature validates.
+    /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -36,26 +36,10 @@ impl SingleSignature {
         self.concatenation_signature.verify(params, pk, stake, avk, msg)
     }
 
-    /// Verify that all indices of a signature are valid.
-    pub(crate) fn check_indices(
-        &self,
-        params: &Parameters,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> StmResult<()> {
-        self.concatenation_signature
-            .check_indices(params, stake, msg, total_stake)
-    }
-
-    /// Convert an `SingleSignature` into bytes
+    /// Convert a `SingleSignature` into bytes
     ///
     /// # Layout
-    /// * Stake
-    /// * Number of valid indexes (as u64)
-    /// * Indexes of the signature
-    /// * Public Key
-    /// * Signature
+    /// * Concatenation proof system single signature bytes.
     /// * Merkle index of the signer.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
@@ -65,7 +49,7 @@ impl SingleSignature {
         output
     }
 
-    /// Extract a batch compatible `SingleSignature` from a byte slice.
+    /// Extract a `SingleSignature` from a byte slice.
     pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let byte_length = bytes.len();
         let mut u64_bytes = [0u8; 8];

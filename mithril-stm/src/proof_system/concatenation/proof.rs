@@ -88,6 +88,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         for sig_reg in self.signatures.clone() {
             sig_reg
                 .sig
+                .concatenation_signature
                 .check_indices(
                     parameters,
                     &sig_reg.reg_party.1,
