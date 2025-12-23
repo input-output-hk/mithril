@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Golden tests added for `MerkleTreeBatchCommitment`.
 
-
 ## 0.8.1 (12-22-2025)
 
 ### Added

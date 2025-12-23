@@ -436,28 +436,34 @@ mod tests {
             156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249,
         ];
 
-        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
             let pks = vec![BlsVerificationKey::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()
                 .zip(stakes)
-                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
-                .collect::<Vec<MerkleTreeLeaf>>();
+                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
-            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+            let tree = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves);
 
             tree.to_merkle_tree_batch_commitment()
         }
 
         #[test]
         fn golden_conversions() {
-            let value = MerkleTreeBatchCommitment::<Blake2b<U32>>::from_bytes(GOLDEN_BYTES)
+            let value =
+                MerkleTreeBatchCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::from_bytes(
+                    GOLDEN_BYTES,
+                )
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = MerkleTreeBatchCommitment::<Blake2b<U32>>::to_bytes(&value);
+            let serialized =
+                MerkleTreeBatchCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::to_bytes(
+                    &value,
+                );
             let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
             assert_eq!(golden_serialized, serialized);
         }
@@ -472,17 +478,17 @@ mod tests {
             "hasher": null
         }"#;
 
-        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
             let pks = vec![BlsVerificationKey::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()
                 .zip(stakes)
-                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
-                .collect::<Vec<MerkleTreeLeaf>>();
+                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
-            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+            let tree = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves);
 
             tree.to_merkle_tree_batch_commitment()
         }
