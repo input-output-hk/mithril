@@ -13,17 +13,21 @@ use crate::{
 
 /// Single signature for the concatenation proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SingleSignatureForConcatenation {
+pub(crate) struct SingleSignatureForConcatenation {
     /// The underlying BLS signature
-    pub sigma: BlsSignature,
+    sigma: BlsSignature,
     /// The index(es) for which the signature is valid
-    pub indexes: Vec<Index>,
+    indexes: Vec<Index>,
 }
 
 impl SingleSignatureForConcatenation {
+    pub(crate) fn new(sigma: BlsSignature, indexes: Vec<Index>) -> Self {
+        Self { sigma, indexes }
+    }
+
     /// Verify a `SingleSignatureForConcatenation` by validating the underlying BLS signature and checking
     /// that the lottery was won for all indexes.
-    pub fn verify<D: MembershipDigest>(
+    pub(crate) fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
         pk: &VerificationKey,
@@ -61,13 +65,26 @@ impl SingleSignatureForConcatenation {
         }
         Ok(())
     }
+
+    pub(crate) fn get_indices(&self) -> Vec<Index> {
+        self.indexes.clone()
+    }
+
+    pub(crate) fn set_indices(&mut self, indices: &[Index]) {
+        self.indexes = indices.to_vec()
+    }
+
+    pub(crate) fn get_sigma(&self) -> BlsSignature {
+        self.sigma
+    }
+
     /// Convert a `SingleSignatureForConcatenation` into bytes
     ///
     /// # Layout
     /// * Number of valid indices (as u64)
     /// * Winning indices for the signature
     /// * BLS Signature
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
 
@@ -80,7 +97,7 @@ impl SingleSignatureForConcatenation {
     }
 
     /// Extract a `SingleSignatureForConcatenation` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> StmResult<SingleSignatureForConcatenation> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<SingleSignatureForConcatenation> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);

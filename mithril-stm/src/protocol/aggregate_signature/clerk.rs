@@ -168,17 +168,16 @@ impl<D: MembershipDigest> Clerk<D> {
             {
                 continue;
             }
-            for index in sig_reg.sig.concatenation_signature.indexes.iter() {
+            for index in sig_reg.sig.get_indices().iter() {
                 let mut insert_this_sig = false;
                 if let Some(&previous_sig) = sig_by_index.get(index) {
-                    let sig_to_remove_index = if sig_reg.sig.concatenation_signature.sigma
-                        < previous_sig.sig.concatenation_signature.sigma
-                    {
-                        insert_this_sig = true;
-                        previous_sig
-                    } else {
-                        sig_reg
-                    };
+                    let sig_to_remove_index =
+                        if sig_reg.sig.get_sigma() < previous_sig.sig.get_sigma() {
+                            insert_this_sig = true;
+                            previous_sig
+                        } else {
+                            sig_reg
+                        };
 
                     if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
                         indexes.push(*index);
@@ -204,18 +203,17 @@ impl<D: MembershipDigest> Clerk<D> {
             }
             let mut deduped_sig = sig_reg.clone();
             if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
-                deduped_sig.sig.concatenation_signature.indexes = deduped_sig
+                let indices = deduped_sig
                     .sig
-                    .concatenation_signature
-                    .indexes
+                    .get_indices()
                     .clone()
                     .into_iter()
                     .filter(|i| !indexes.contains(i))
-                    .collect();
+                    .collect::<Vec<Index>>();
+                deduped_sig.sig.set_indices(&indices);
             }
 
-            let size: Result<u64, _> =
-                deduped_sig.sig.concatenation_signature.indexes.len().try_into();
+            let size: Result<u64, _> = deduped_sig.sig.get_indices().len().try_into();
             if let Ok(size) = size {
                 if dedup_sigs.contains(&deduped_sig) {
                     panic!("Should not reach!");
