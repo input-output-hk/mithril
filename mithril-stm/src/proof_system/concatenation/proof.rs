@@ -88,7 +88,6 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         for sig_reg in self.signatures.clone() {
             sig_reg
                 .sig
-                .concatenation_signature
                 .check_indices(
                     parameters,
                     &sig_reg.reg_party.1,
@@ -96,7 +95,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
                     &avk.get_total_stake(),
                 )
                 .with_context(|| "Preliminary verification for basic verifier failed.")?;
-            for &index in &sig_reg.sig.concatenation_signature.indexes {
+            for &index in &sig_reg.sig.get_concatenation_signature_indices() {
                 unique_indices.insert(index);
                 nr_indices += 1;
             }
@@ -178,7 +177,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             let grouped_sigs: Vec<BlsSignature> = sig_group
                 .signatures
                 .iter()
-                .map(|sig_reg| sig_reg.sig.concatenation_signature.sigma)
+                .map(|sig_reg| sig_reg.sig.get_concatenation_signature_sigma())
                 .collect();
             let grouped_vks: Vec<BlsVerificationKey> = sig_group
                 .signatures
@@ -271,7 +270,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let sigs = self
             .signatures
             .iter()
-            .map(|sig_reg| sig_reg.sig.concatenation_signature.sigma)
+            .map(|sig_reg| sig_reg.sig.get_concatenation_signature_sigma())
             .collect::<Vec<BlsSignature>>();
         let vks = self
             .signatures

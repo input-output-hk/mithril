@@ -27,7 +27,7 @@ impl SingleSigner {
         let signed_message = message.to_message();
         match self.protocol_signer.sign(signed_message.as_bytes()) {
             Some(signature) => {
-                let won_indexes = signature.concatenation_signature.indexes.clone();
+                let won_indexes = signature.get_concatenation_signature_indices().clone();
 
                 Ok(Some(SingleSignature::new(
                     self.party_id.to_owned(),
