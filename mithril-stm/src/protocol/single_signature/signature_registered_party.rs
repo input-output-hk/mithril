@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{MembershipDigest, RegisteredParty, StmResult};
+use crate::{MembershipDigest, RegisteredParty, StmResult, membership_commitment::MerkleTreeLeaf};
 
 use super::{SignatureError, SingleSignature};
 
@@ -20,7 +20,7 @@ impl SingleSignatureWithRegisteredParty {
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&self.reg_party.to_bytes());
+        out.extend_from_slice(&self.reg_party.as_bytes_for_merkle_tree());
         out.extend_from_slice(&self.sig.to_bytes());
 
         out

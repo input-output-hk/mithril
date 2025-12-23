@@ -8,12 +8,12 @@ use anyhow::anyhow;
 
 use crate::{
     MembershipDigest, RegisterError, Stake, StmResult,
-    membership_commitment::{MerkleTree, MerkleTreeLeaf},
+    membership_commitment::{MerkleTree, MerkleTreeConcatenationLeaf},
     signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
 };
 
 /// Stores a registered party with its public key and the associated stake.
-pub type RegisteredParty = MerkleTreeLeaf;
+pub type RegisteredParty = MerkleTreeConcatenationLeaf;
 
 /// Struct that collects public keys and stakes of parties.
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
@@ -62,7 +62,7 @@ impl KeyRegistration {
                     panic!("Total stake overflow");
                 }
                 total_stake = res;
-                MerkleTreeLeaf(vk, stake)
+                MerkleTreeConcatenationLeaf(vk, stake)
             })
             .collect::<Vec<RegisteredParty>>();
         reg_parties.sort();
@@ -84,7 +84,7 @@ pub struct ClosedKeyRegistration<D: MembershipDigest> {
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub merkle_tree: Arc<MerkleTree<D::ConcatenationHash>>,
+    pub merkle_tree: Arc<MerkleTree<D::ConcatenationHash, MerkleTreeConcatenationLeaf>>,
 }
 
 #[cfg(test)]

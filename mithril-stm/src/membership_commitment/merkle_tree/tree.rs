@@ -12,7 +12,7 @@ use super::{
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MerkleTree<D: Digest> {
+pub struct MerkleTree<D: Digest, L: MerkleTreeLeaf> {
     /// The nodes are stored in an array heap:
     /// * `nodes[0]` is the root,
     /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
@@ -25,11 +25,13 @@ pub struct MerkleTree<D: Digest> {
     n: usize,
     /// Phantom type to link the tree with its hasher
     hasher: PhantomData<D>,
+    /// Phantom type to link the tree with its leaves
+    leaves: PhantomData<L>,
 }
 
-impl<D: Digest + FixedOutput> MerkleTree<D> {
+impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    pub(crate) fn new(leaves: &[MerkleTreeLeaf]) -> MerkleTree<D> {
+    pub(crate) fn new(leaves: &[L]) -> MerkleTree<D, L> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
@@ -38,7 +40,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         let mut nodes = vec![vec![0u8]; num_nodes];
 
         for i in 0..leaves.len() {
-            nodes[num_nodes - n + i] = D::digest(leaves[i].to_bytes()).to_vec();
+            nodes[num_nodes - n + i] = D::digest(leaves[i].as_bytes_for_merkle_tree()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
@@ -61,12 +63,13 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             n,
             leaf_off: num_nodes - n,
             hasher: PhantomData,
+            leaves: PhantomData,
         }
     }
 
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     #[deprecated(since = "0.5.0", note = "Use `new` instead")]
-    pub fn create(leaves: &[MerkleTreeLeaf]) -> MerkleTree<D> {
+    pub fn create(leaves: &[L]) -> MerkleTree<D, L> {
         Self::new(leaves)
     }
 
@@ -77,7 +80,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 
     /// Convert merkle tree to a batch compatible commitment.
     /// This function simply returns the root and the number of leaves in the tree.
-    pub(crate) fn to_merkle_tree_batch_commitment(&self) -> MerkleTreeBatchCommitment<D> {
+    pub(crate) fn to_merkle_tree_batch_commitment(&self) -> MerkleTreeBatchCommitment<D, L> {
         MerkleTreeBatchCommitment::new(self.nodes[0].clone(), self.n)
     }
 
@@ -87,7 +90,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         since = "0.5.0",
         note = "Use `to_merkle_tree_batch_commitment` instead"
     )]
-    pub fn to_commitment_batch_compat(&self) -> MerkleTreeBatchCommitment<D> {
+    pub fn to_commitment_batch_compat(&self) -> MerkleTreeBatchCommitment<D, L> {
         Self::to_merkle_tree_batch_commitment(self)
     }
 
@@ -218,17 +221,18 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             leaf_off: num_nodes - n,
             n,
             hasher: PhantomData,
+            leaves: PhantomData,
         })
     }
 
     /// Convert merkle tree to a commitment. This function simply returns the root.
-    pub(crate) fn to_merkle_tree_commitment(&self) -> MerkleTreeCommitment<D> {
+    pub(crate) fn to_merkle_tree_commitment(&self) -> MerkleTreeCommitment<D, L> {
         MerkleTreeCommitment::new(self.nodes[0].clone()) // Use private constructor
     }
 
     /// Convert merkle tree to a commitment. This function simply returns the root.
     #[deprecated(since = "0.5.0", note = "Use `to_merkle_tree_commitment` instead")]
-    pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
+    pub fn to_commitment(&self) -> MerkleTreeCommitment<D, L> {
         Self::to_merkle_tree_commitment(self)
     }
 
@@ -273,7 +277,9 @@ mod tests {
     use proptest::{collection::vec, prelude::*};
     use rand::{rng, seq::IteratorRandom};
 
-    use crate::signature_scheme::BlsVerificationKey;
+    use crate::{
+        membership_commitment::MerkleTreeConcatenationLeaf, signature_scheme::BlsVerificationKey,
+    };
 
     use super::*;
 
@@ -283,10 +289,10 @@ mod tests {
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>) {
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
             let pks = vec![BlsVerificationKey::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
-             (MerkleTree::<Blake2b<U32>>::new(&leaves), leaves)
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+             (MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
         }
     }
 
@@ -315,25 +321,25 @@ mod tests {
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_commitment().to_bytes();
-            let decoded = MerkleTreeCommitment::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
+            let decoded = MerkleTreeCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
 
-            let tree_commitment = MerkleTree::<Blake2b<U32>>::new(&values).to_merkle_tree_commitment();
+            let tree_commitment = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
         }
 
         #[test]
         fn test_bytes_tree((t, values) in arb_tree(5)) {
             let bytes = t.to_bytes();
-            let deserialised = MerkleTree::<Blake2b<U32>>::from_bytes(&bytes).unwrap();
-            let tree = MerkleTree::<Blake2b<U32>>::new(&values);
+            let deserialised = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::from_bytes(&bytes).unwrap();
+            let tree = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&values);
             assert_eq!(tree.nodes, deserialised.nodes);
         }
 
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
-            let decoded = MerkleTreeBatchCommitment::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
-            let tree_commitment = MerkleTree::<Blake2b<U32>>::new(&values).to_merkle_tree_batch_commitment();
+            let decoded = MerkleTreeBatchCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
+            let tree_commitment = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_batch_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
             assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
 
@@ -346,9 +352,9 @@ mod tests {
         fn values_with_invalid_proof(max_height: usize)
                                     (h in 1..max_height)
                                     (v in vec(any::<u64>(), 2..pow2_plus1(h)),
-                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeLeaf>, Vec<Vec<u8>>) {
+                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
             let pks = vec![BlsVerificationKey::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
             (leaves, proof)
         }
     }
@@ -359,7 +365,7 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<Blake2b<U32>>::new(&values[1..]);
+            let t = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&values[1..]);
             let index = i % (values.len() - 1);
             let path_values = proof. iter().map(|x|  Blake2b::<U32>::digest(x).to_vec()).collect();
             let path = MerklePath::new(path_values, index);
@@ -371,7 +377,7 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<Blake2b<U32>>::new(&values[1..]);
+            let t = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&values[1..]);
             let indices = vec![i % (values.len() - 1); values.len() / 2];
             let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
             let path = MerkleBatchPath{values: proof
@@ -387,22 +393,22 @@ mod tests {
 
     prop_compose! {
         fn arb_tree_arb_batch(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>, Vec<usize>) {
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
             let mut rng = rng();
             let size = v.len();
             let pks = vec![BlsVerificationKey::default(); size];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
             let indices: Vec<usize> = (0..size).collect();
             let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
             mt_list.sort_unstable();
 
-            let mut batch_values: Vec<MerkleTreeLeaf> = Vec::with_capacity(mt_list.len());
+            let mut batch_values: Vec<MerkleTreeConcatenationLeaf> = Vec::with_capacity(mt_list.len());
             for i in mt_list.iter() {
                 batch_values.push(leaves[*i]);
             }
 
-            (MerkleTree::<Blake2b<U32>>::new(&leaves), batch_values, mt_list)
+            (MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves), batch_values, mt_list)
         }
     }
 
@@ -430,28 +436,34 @@ mod tests {
             156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249,
         ];
 
-        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
             let pks = vec![BlsVerificationKey::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()
                 .zip(stakes)
-                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
-                .collect::<Vec<MerkleTreeLeaf>>();
+                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
-            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+            let tree = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves);
 
             tree.to_merkle_tree_batch_commitment()
         }
 
         #[test]
         fn golden_conversions() {
-            let value = MerkleTreeBatchCommitment::<Blake2b<U32>>::from_bytes(GOLDEN_BYTES)
+            let value =
+                MerkleTreeBatchCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::from_bytes(
+                    GOLDEN_BYTES,
+                )
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = MerkleTreeBatchCommitment::<Blake2b<U32>>::to_bytes(&value);
+            let serialized =
+                MerkleTreeBatchCommitment::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::to_bytes(
+                    &value,
+                );
             let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
             assert_eq!(golden_serialized, serialized);
         }
@@ -466,17 +478,17 @@ mod tests {
             "hasher": null
         }"#;
 
-        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>> {
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
             let pks = vec![BlsVerificationKey::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()
                 .zip(stakes)
-                .map(|(key, stake)| MerkleTreeLeaf(key, stake))
-                .collect::<Vec<MerkleTreeLeaf>>();
+                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
-            let tree = MerkleTree::<Blake2b<U32>>::new(&leaves);
+            let tree = MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves);
 
             tree.to_merkle_tree_batch_commitment()
         }

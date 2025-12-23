@@ -12,17 +12,20 @@ use super::{MerkleBatchPath, MerklePath, MerkleTreeError, MerkleTreeLeaf, parent
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest> {
+pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     hasher: PhantomData<D>,
+    #[serde(skip)]
+    leaf_type: PhantomData<L>,
 }
 
-impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
+impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
     pub(crate) fn new(root: Vec<u8>) -> Self {
         MerkleTreeCommitment {
             root,
             hasher: PhantomData,
+            leaf_type: PhantomData,
         }
     }
 
@@ -31,15 +34,16 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// If the merkle tree path is invalid, then the function fails.
     pub(crate) fn verify_leaf_membership_from_path(
         &self,
-        val: &MerkleTreeLeaf,
+        val: &L,
         proof: &MerklePath<D>,
     ) -> StmResult<()>
     where
         D: FixedOutput + Clone,
+        L: MerkleTreeLeaf,
     {
         let mut idx = proof.index;
 
-        let mut h = D::digest(val.to_bytes()).to_vec();
+        let mut h = D::digest(val.as_bytes_for_merkle_tree()).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
                 h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
@@ -62,9 +66,10 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         since = "0.5.0",
         note = "Use `verify_leaf_membership_from_path` instead"
     )]
-    pub fn check(&self, val: &MerkleTreeLeaf, proof: &MerklePath<D>) -> StmResult<()>
+    pub fn check(&self, val: &L, proof: &MerklePath<D>) -> StmResult<()>
     where
         D: FixedOutput + Clone,
+        L: MerkleTreeLeaf,
     {
         Self::verify_leaf_membership_from_path(self, val, proof)
     }
@@ -102,12 +107,13 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     }
 
     /// Extract a `MerkleTreeCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D, L>> {
         let root = bytes.to_vec();
 
         Ok(Self {
             root,
             hasher: PhantomData,
+            leaf_type: PhantomData,
         })
     }
 }
@@ -117,19 +123,22 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
 /// as well as the root of the tree.
 /// Number of leaves is required by the batch path generation/verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeBatchCommitment<D: Digest> {
+pub struct MerkleTreeBatchCommitment<D: Digest, L: MerkleTreeLeaf> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     nr_leaves: usize,
     hasher: PhantomData<D>,
+    #[serde(skip)]
+    leaf_type: PhantomData<L>,
 }
 
-impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
+impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L> {
     pub(crate) fn new(root: Vec<u8>, nr_leaves: usize) -> Self {
         Self {
             root,
             nr_leaves,
             hasher: Default::default(),
+            leaf_type: PhantomData,
         }
     }
 
@@ -167,11 +176,12 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
     // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
     pub(crate) fn verify_leaves_membership_from_batch_path(
         &self,
-        batch_val: &[MerkleTreeLeaf],
+        batch_val: &[L],
         proof: &MerkleBatchPath<D>,
     ) -> StmResult<()>
     where
         D: FixedOutput + Clone,
+        L: MerkleTreeLeaf,
     {
         if batch_val.len() != proof.indices.len() {
             return Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())));
@@ -194,7 +204,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         // First we need to hash the leave values
         let mut leaves: Vec<Vec<u8>> = batch_val
             .iter()
-            .map(|val| D::digest(val.to_bytes()).to_vec())
+            .map(|val| D::digest(val.as_bytes_for_merkle_tree()).to_vec())
             .collect();
 
         let mut values = proof.values.clone();
@@ -277,9 +287,10 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         since = "0.5.0",
         note = "Use `verify_leaves_membership_from_batch_path` instead"
     )]
-    pub fn check(&self, batch_val: &[MerkleTreeLeaf], proof: &MerkleBatchPath<D>) -> StmResult<()>
+    pub fn check(&self, batch_val: &[L], proof: &MerkleBatchPath<D>) -> StmResult<()>
     where
         D: FixedOutput + Clone,
+        L: MerkleTreeLeaf,
     {
         Self::verify_leaves_membership_from_batch_path(self, batch_val, proof)
     }
@@ -296,7 +307,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
     }
 
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D, L>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let nr_leaves = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -308,14 +319,15 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
             root,
             nr_leaves,
             hasher: PhantomData,
+            leaf_type: Default::default(),
         })
     }
 }
 
-impl<D: Digest> PartialEq for MerkleTreeBatchCommitment<D> {
+impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeBatchCommitment<D, L> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root && self.nr_leaves == other.nr_leaves
     }
 }
 
-impl<D: Digest> Eq for MerkleTreeBatchCommitment<D> {}
+impl<D: Digest, L: MerkleTreeLeaf> Eq for MerkleTreeBatchCommitment<D, L> {}
