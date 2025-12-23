@@ -36,7 +36,7 @@ impl SignatureConsumer for SignatureConsumerDmq {
                     .into_iter()
                     .map(|(message, party_id)| {
                         let signature = message.signature;
-                        let won_indexes = signature.indexes.clone();
+                        let won_indexes = signature.concatenation_signature.indexes.clone();
                         let single_signature =
                             SingleSignature::new(party_id, signature, won_indexes);
                         let signed_entity_type = message.signed_entity_type;
@@ -84,7 +84,7 @@ mod tests {
                 SingleSignature::new(
                     "pool-id-1".to_string(),
                     single_signature.clone(),
-                    single_signature.indexes.clone()
+                    single_signature.concatenation_signature.indexes.clone()
                 ),
                 signed_entity_type
             )],

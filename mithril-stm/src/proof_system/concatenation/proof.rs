@@ -95,7 +95,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
                     &avk.get_total_stake(),
                 )
                 .with_context(|| "Preliminary verification for basic verifier failed.")?;
-            for &index in &sig_reg.sig.indexes {
+            for &index in &sig_reg.sig.concatenation_signature.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
             }
@@ -174,8 +174,11 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let mut aggr_vks = Vec::with_capacity(batch_size);
         for (idx, sig_group) in stm_signatures.iter().enumerate() {
             sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<BlsSignature> =
-                sig_group.signatures.iter().map(|sig_reg| sig_reg.sig.sigma).collect();
+            let grouped_sigs: Vec<BlsSignature> = sig_group
+                .signatures
+                .iter()
+                .map(|sig_reg| sig_reg.sig.concatenation_signature.sigma)
+                .collect();
             let grouped_vks: Vec<BlsVerificationKey> = sig_group
                 .signatures
                 .iter()
@@ -267,7 +270,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let sigs = self
             .signatures
             .iter()
-            .map(|sig_reg| sig_reg.sig.sigma)
+            .map(|sig_reg| sig_reg.sig.concatenation_signature.sigma)
             .collect::<Vec<BlsSignature>>();
         let vks = self
             .signatures
