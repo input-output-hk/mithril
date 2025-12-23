@@ -11,18 +11,18 @@ use crate::{
     StmResult, VerificationKey, is_lottery_won, signature_scheme::BlsSignature,
 };
 
-/// Signature created by a single party who has won the lottery.
+/// Single signature for the concatenation proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleSignatureForConcatenation {
-    /// The signature from the underlying MSP scheme.
+    /// The underlying BLS signature
     pub sigma: BlsSignature,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
 }
 
 impl SingleSignatureForConcatenation {
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
-    /// the indexes are in the desired range and the underlying multi signature validates.
+    /// Verify a `SingleSignatureForConcatenation` by validating the underlying BLS signature and checking
+    /// that the lottery was won for all indexes.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -40,7 +40,7 @@ impl SingleSignatureForConcatenation {
         Ok(())
     }
 
-    /// Verify that all indices of a signature are valid.
+    /// Verify that all indices of single signature are valid by cehcking bounds and lottery win.
     pub(crate) fn check_indices(
         &self,
         params: &Parameters,
@@ -61,14 +61,12 @@ impl SingleSignatureForConcatenation {
         }
         Ok(())
     }
-    /// Convert an `SingleSignatureForConcatenation` into bytes
+    /// Convert a `SingleSignatureForConcatenation` into bytes
     ///
     /// # Layout
-    /// * Stake
-    /// * Number of valid indexes (as u64)
-    /// * Indexes of the signature
-    /// * Public Key
-    /// * Signature
+    /// * Number of valid indices (as u64)
+    /// * Winning indices for the signature
+    /// * BLS Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
