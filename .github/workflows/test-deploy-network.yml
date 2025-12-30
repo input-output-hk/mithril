@@ -89,7 +89,7 @@ jobs:
               {
                 "1" = {
                   type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1y0uxkqyplyx6ld25e976t0s35va3ysqcscatwvy2sd2cwcareq7",
+                  pool_id = "pool13zafxlpfgymf474uv52qt557z5k5frn9p83yr55zp267wj5mpu4",
                 },
               }
             mithril_leader_aggregator_endpoint: https://aggregator.dev-preview.api.mithril.network/aggregator

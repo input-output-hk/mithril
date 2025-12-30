@@ -1,6 +1,6 @@
 services:
   reverse-proxy:
-    image: traefik:3.3
+    image: traefik:3.6
     container_name: reverse-proxy
     restart: always
     user: "${CURRENT_UID}:${DOCKER_GID}"

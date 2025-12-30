@@ -99,10 +99,12 @@ Note that this guide works on a Linux machine only.
 :::
 
 - To operate a **Cardano node** as a **stake pool**, you need:
+
   - The pool's `operational certificate`
   - The pool's `KES secret key`
 
 - To access the file system of the **Cardano block producer** node for **production** deployment (or of the **Cardano relay** node for **naive** deployment), you will need the following permissions:
+
   - Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   - Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
@@ -546,6 +548,7 @@ sudo systemctl restart mithril-signer
 :::info
 
 - If you have already installed `Squid` via `apt` package manager, we recommend that you delete it before manually building it from source by running the following commands:
+
   - `sudo systemctl stop squid`
   - `sudo apt remove squid`
   - `sudo apt autoremove`.
@@ -888,6 +891,53 @@ sudo service netfilter-persistent save
 ```
 
 :::
+
+## Setup the DMQ node (unstable)
+
+:::caution
+
+The DMQ node setup is currently **unstable** and not suitable for production use.
+
+:::
+
+The DMQ node supports the implementation of a **Decentralized Message Queue** (DMQ) for Mithril. The DMQ protocol allows Mithril signers to exchange signatures in a decentralized manner, enhancing the robustness and scalability of the Mithril networks. Once stabilized and deployed on a majority of SPOs on a Mithril network, the DMQ protocol will allow multiple aggregators to operate simultaneously, improving the overall availability of the Mithril protocol. The DMQ protocol is fully described in the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
+
+### Download the pre-built binary
+
+:::tip
+
+You can use these parameters for the **pre-release-preview** network:
+
+- **DMQ_RELEASE_URL**: `https://github.com/input-output-hk/mithril/raw/refs/heads/jpraynaud/dmq-node-binary/mithril-test-lab/mithril-devnet/bin/dmq-node-0.2.0.0-53bf9652787dc768abd86cf3844f1206f0fd7d8c`
+
+This URL may change in the future; please refer to this page for the latest released version of the DMQ node binary.
+
+:::
+
+To download the latest released version of the DMQ node binary, run the following command:
+
+```bash
+curl --fail -sL -o dmq-node **DMQ_RELEASE_URL**
+```
+
+### Installing the service
+
+#### Make the binary executable
+
+To make the binary executable, run:
+
+```bash
+chmod +x dmq-node
+```
+
+#### Move the executable
+
+To move the executable to /opt/mithril, run:
+
+```bash
+sudo mkdir -p /opt/mithril
+sudo mv dmq-node /opt/mithril
+```
 
 ## Verify the Mithril signer deployment
 
