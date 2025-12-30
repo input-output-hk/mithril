@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use mithril_common::crypto_helper::KesPeriod;
+use mithril_common::crypto_helper::KesEvolutions;
 use mithril_common::entities::{
     Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, Signer,
     SignerWithStake, Stake,
@@ -29,7 +29,7 @@ pub struct SignerRegistrationRecord {
     ///
     /// Note: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
     // TODO: This 'kes_period' should be renamed to 'kes_evolutions' to avoid confusion
-    pub kes_period: Option<KesPeriod>,
+    pub kes_period: Option<KesEvolutions>,
 
     /// The stake associated to the signer
     pub stake: Option<Stake>,
