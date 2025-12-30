@@ -176,15 +176,63 @@ impl Ord for SingleSignature {
 
 #[cfg(test)]
 mod tests {
-    mod golden {
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
 
-        use crate::{
-            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
-            SingleSignature,
-            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
-        };
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
+        SingleSignature,
+        signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+    };
+
+    mod golden {
+        use super::*;
+
+        type D = MithrilMembershipDigest;
+
+        const GOLDEN_BYTES: &[u8; 96] = &[
+            0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
+            0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
+            61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
+            114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83, 0, 0,
+            0, 0, 0, 0, 0, 1,
+        ];
+
+        fn golden_value() -> SingleSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let msg = [0u8; 16];
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let sk_1 = BlsSigningKey::generate(&mut rng);
+            let sk_2 = BlsSigningKey::generate(&mut rng);
+            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
+            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let mut key_reg = KeyRegistration::init();
+            key_reg.register(1, pk_1).unwrap();
+            key_reg.register(1, pk_2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
+            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
+            signer.sign(&msg).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = SingleSignature::from_bytes::<D>(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = SingleSignature::to_bytes(&value);
+            let golden_serialized = SingleSignature::to_bytes(&golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
 
         const GOLDEN_JSON: &str = r#"
         {
