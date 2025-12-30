@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::anyhow;
-use slog::{Logger, error, trace, warn};
+use slog::{Logger, debug, error, trace, warn};
 
 use mithril_common::{
     StdResult,
@@ -10,7 +10,7 @@ use mithril_common::{
 };
 use tokio::{select, sync::watch::Receiver};
 
-use crate::MetricsService;
+use crate::{MetricsService, services::CertifierServiceError};
 
 use super::{CertifierService, SignatureConsumer};
 
@@ -90,13 +90,24 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                                 .get_signature_registration_total_successful_since_startup()
                                 .increment(&[&origin_network]);
                         }
-                        Err(e) => {
-                            total_import_errors += 1;
-                            error!(
-                                self.logger, "Error dispatching single signature";
-                                "full_payload" => #?signature, "error" => ?e
-                            );
-                        }
+                        Err(err) => match err.downcast_ref::<CertifierServiceError>() {
+                            Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
+                                debug!(self.logger, "process_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(CertifierServiceError::Expired(signed_entity_type)) => {
+                                debug!(self.logger, "process_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(CertifierServiceError::NotFound(signed_entity_type)) => {
+                                debug!(self.logger, "process_signatures::not_found"; "signed_entity_type" => ?signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(_) | None => {
+                                total_import_errors += 1;
+                                error!(
+                                    self.logger, "Error dispatching single signature";
+                                    "full_payload" => #?signature, "error" => ?err
+                                );
+                            }
+                        },
                     }
                 }
             }

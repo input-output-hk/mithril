@@ -27,9 +27,9 @@ impl DmqNetwork {
     /// Preprod magic ID
     pub const PREPROD_MAGIC_ID: MagicId = 1; // TODO: Update magic ids for networks
     /// Preview magic ID
-    pub const PREVIEW_MAGIC_ID: MagicId = 2; // TODO: Update magic ids for networks
+    pub const PREVIEW_MAGIC_ID: MagicId = 3141592; // TODO: Update magic ids for networks
     /// Devnet magic ID
-    pub(crate) const DEVNET_MAGIC_ID: MagicId = 3141592; // TODO: Update magic ids for networks
+    pub(crate) const DEVNET_MAGIC_ID: MagicId = 0; // TODO: Update magic ids for networks
 
     /// Instantiates a DmqNetwork from its code and magic id
     pub fn from_code(
