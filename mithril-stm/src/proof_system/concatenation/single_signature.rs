@@ -3,29 +3,31 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKey, proof_system::SingleSignatureForConcatenation, signature_scheme::BlsSignature,
+    AggregateVerificationKey, Index, MembershipDigest, Parameters, SignatureError, Stake,
+    StmResult, VerificationKey, is_lottery_won, signature_scheme::BlsSignature,
 };
 
-use super::SignatureError;
-
-/// Single signature created by a single party who has won the lottery.
-/// Contains the underlying signature for the proof system and the registration index of the signer.
+/// Single signature for the concatenation proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SingleSignature {
-    /// Underlying signature for concatenation proof system.
-    #[serde(flatten)]
-    pub(crate) concatenation_signature: SingleSignatureForConcatenation,
-    /// Merkle tree index of the signer.
-    pub signer_index: Index,
+pub(crate) struct SingleSignatureForConcatenation {
+    /// The underlying BLS signature
+    sigma: BlsSignature,
+    /// The index(es) for which the signature is valid
+    indexes: Vec<Index>,
 }
 
-impl SingleSignature {
-    /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
-    pub fn verify<D: MembershipDigest>(
+impl SingleSignatureForConcatenation {
+    pub(crate) fn new(sigma: BlsSignature, indexes: Vec<Index>) -> Self {
+        Self { sigma, indexes }
+    }
+
+    /// Verify a `SingleSignatureForConcatenation` by validating the underlying BLS signature and checking
+    /// that the lottery was won for all indexes.
+    pub(crate) fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
         pk: &VerificationKey,
@@ -33,10 +35,16 @@ impl SingleSignature {
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        self.concatenation_signature.verify(params, pk, stake, avk, msg)
+        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
+        self.sigma
+            .verify(&msgp, pk)
+            .with_context(|| "Single signature verification failed.")?;
+        self.check_indices(params, stake, &msgp, &avk.get_total_stake())
+            .with_context(|| "Single signature verification failed.")?;
+        Ok(())
     }
 
-    /// Verify that all indices of a signature are valid.
+    /// Verify that all indices of single signature are valid by cehcking bounds and lottery win.
     pub(crate) fn check_indices(
         &self,
         params: &Parameters,
@@ -44,35 +52,54 @@ impl SingleSignature {
         msg: &[u8],
         total_stake: &Stake,
     ) -> StmResult<()> {
-        self.concatenation_signature
-            .check_indices(params, stake, msg, total_stake)
+        for &index in &self.indexes {
+            if index > params.m {
+                return Err(anyhow!(SignatureError::IndexBoundFailed(index, params.m)));
+            }
+
+            let ev = self.sigma.evaluate_dense_mapping(msg, index);
+
+            if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
+                return Err(anyhow!(SignatureError::LotteryLost));
+            }
+        }
+        Ok(())
     }
 
-    /// Convert a `SingleSignature` into bytes
+    pub(crate) fn get_indices(&self) -> Vec<Index> {
+        self.indexes.clone()
+    }
+
+    pub(crate) fn set_indices(&mut self, indices: &[Index]) {
+        self.indexes = indices.to_vec()
+    }
+
+    pub(crate) fn get_sigma(&self) -> BlsSignature {
+        self.sigma
+    }
+
+    #[cfg(test)]
+    /// Convert a `SingleSignatureForConcatenation` into bytes
     ///
     /// # Layout
-    /// * Concatenation proof system single signature bytes:
-    /// *   Length of indices
-    /// *   Indices
-    /// *   Sigma
-    /// * Merkle index of the signer.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    /// * Number of valid indices (as u64)
+    /// * Winning indices for the signature
+    /// * BLS Signature
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
-        let indices = self.get_indices();
-        output.extend_from_slice(&(indices.len() as u64).to_be_bytes());
+        output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
 
-        for index in indices {
+        for index in &self.indexes {
             output.extend_from_slice(&index.to_be_bytes());
         }
 
-        output.extend_from_slice(&self.get_sigma().to_bytes());
-
-        output.extend_from_slice(&self.signer_index.to_be_bytes());
+        output.extend_from_slice(&self.sigma.to_bytes());
         output
     }
 
-    /// Extract a `SingleSignature` from a byte slice.
-    pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
+    #[cfg(test)]
+    /// Extract a `SingleSignatureForConcatenation` from a byte slice.
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<SingleSignatureForConcatenation> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
@@ -95,69 +122,33 @@ impl SingleSignature {
                 .ok_or(SignatureError::SerializationError)?,
         )?;
 
-        u64_bytes.copy_from_slice(
-            bytes
-                .get(offset + 48..offset + 56)
-                .ok_or(SignatureError::SerializationError)?,
-        );
-        let signer_index = u64::from_be_bytes(u64_bytes);
-
-        Ok(SingleSignature {
-            concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
-            signer_index,
-        })
-    }
-
-    /// Get the indices of the underlying single signature for proof system.
-    pub fn get_indices(&self) -> Vec<Index> {
-        self.concatenation_signature.get_indices()
-    }
-
-    /// Get the underlying BLS signature.
-    pub fn get_sigma(&self) -> BlsSignature {
-        self.concatenation_signature.get_sigma()
-    }
-
-    /// Set the indices of the underlying single signature for proof system.
-    pub fn set_indices(&mut self, indices: &[Index]) {
-        self.concatenation_signature.set_indices(indices)
-    }
-
-    /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    fn compare_signer_index(&self, other: &Self) -> Ordering {
-        self.signer_index.cmp(&other.signer_index)
-    }
-
-    /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    #[deprecated(since = "0.5.0", note = "This function will be removed")]
-    pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
-        Self::compare_signer_index(self, other)
+        Ok(SingleSignatureForConcatenation { sigma, indexes })
     }
 }
 
-impl Hash for SingleSignature {
+impl Hash for SingleSignatureForConcatenation {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.concatenation_signature.get_sigma().to_bytes(), state)
+        Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl PartialEq for SingleSignature {
+impl PartialEq for SingleSignatureForConcatenation {
     fn eq(&self, other: &Self) -> bool {
-        self.concatenation_signature == other.concatenation_signature
+        self.sigma == other.sigma
     }
 }
 
-impl Eq for SingleSignature {}
+impl Eq for SingleSignatureForConcatenation {}
 
-impl PartialOrd for SingleSignature {
+impl PartialOrd for SingleSignatureForConcatenation {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
-impl Ord for SingleSignature {
+impl Ord for SingleSignatureForConcatenation {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.signer_index.cmp(&other.signer_index)
+        self.sigma.cmp(&other.sigma)
     }
 }
 
@@ -169,24 +160,22 @@ mod tests {
 
     use crate::{
         ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
-        SingleSignature,
         signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
     };
+
+    use super::*;
 
     mod golden {
         use super::*;
 
-        type D = MithrilMembershipDigest;
-
-        const GOLDEN_BYTES: &[u8; 96] = &[
+        const GOLDEN_BYTES: &[u8; 88] = &[
             0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
             0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
             61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
-            114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83, 0, 0,
-            0, 0, 0, 0, 0, 1,
+            114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83,
         ];
 
-        fn golden_value() -> SingleSignature {
+        fn golden_value() -> SingleSignatureForConcatenation {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let msg = [0u8; 16];
             let params = Parameters {
@@ -203,17 +192,17 @@ mod tests {
             key_reg.register(1, pk_2).unwrap();
             let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
             let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
-            signer.sign(&msg).unwrap()
+            signer.sign(&msg).unwrap().concatenation_signature
         }
 
         #[test]
         fn golden_conversions() {
-            let value = SingleSignature::from_bytes::<D>(GOLDEN_BYTES)
+            let value = SingleSignatureForConcatenation::from_bytes(GOLDEN_BYTES)
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SingleSignature::to_bytes(&value);
-            let golden_serialized = SingleSignature::to_bytes(&golden_value());
+            let serialized = SingleSignatureForConcatenation::to_bytes(&value);
+            let golden_serialized = SingleSignatureForConcatenation::to_bytes(&golden_value());
             assert_eq!(golden_serialized, serialized);
         }
     }
@@ -228,11 +217,10 @@ mod tests {
                 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133, 114, 211,
                 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83
             ],
-            "indexes": [1, 4, 5, 8],
-            "signer_index": 1
+            "indexes": [1, 4, 5, 8]
         }"#;
 
-        fn golden_value() -> SingleSignature {
+        fn golden_value() -> SingleSignatureForConcatenation {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let msg = [0u8; 16];
             let params = Parameters {
@@ -249,7 +237,7 @@ mod tests {
             key_reg.register(1, pk_2).unwrap();
             let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
             let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
-            signer.sign(&msg).unwrap()
+            signer.sign(&msg).unwrap().concatenation_signature
         }
 
         #[test]
