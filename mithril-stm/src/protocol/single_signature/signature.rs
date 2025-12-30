@@ -51,11 +51,21 @@ impl SingleSignature {
     /// Convert a `SingleSignature` into bytes
     ///
     /// # Layout
-    /// * Concatenation proof system single signature bytes.
+    /// * Concatenation proof system single signature bytes:
+    /// *   Length of indices
+    /// *   Indices
+    /// *   Sigma
     /// * Merkle index of the signer.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
-        output.extend_from_slice(&self.concatenation_signature.to_bytes());
+        let indices = self.get_indices();
+        output.extend_from_slice(&(indices.len() as u64).to_be_bytes());
+
+        for index in indices {
+            output.extend_from_slice(&index.to_be_bytes());
+        }
+
+        output.extend_from_slice(&self.get_sigma().to_bytes());
 
         output.extend_from_slice(&self.signer_index.to_be_bytes());
         output
@@ -63,20 +73,37 @@ impl SingleSignature {
 
     /// Extract a `SingleSignature` from a byte slice.
     pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
-        let byte_length = bytes.len();
         let mut u64_bytes = [0u8; 8];
+
+        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
+        let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
+
+        let mut indexes = Vec::new();
+        for i in 0..nr_indexes {
+            u64_bytes.copy_from_slice(
+                bytes
+                    .get(8 + i * 8..16 + i * 8)
+                    .ok_or(SignatureError::SerializationError)?,
+            );
+            indexes.push(u64::from_be_bytes(u64_bytes));
+        }
+
+        let offset = 8 + nr_indexes * 8;
+        let sigma = BlsSignature::from_bytes(
+            bytes
+                .get(offset..offset + 48)
+                .ok_or(SignatureError::SerializationError)?,
+        )?;
 
         u64_bytes.copy_from_slice(
             bytes
-                .get(byte_length - 8..byte_length)
+                .get(offset + 48..offset + 56)
                 .ok_or(SignatureError::SerializationError)?,
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
-        let concatenation_signature =
-            SingleSignatureForConcatenation::from_bytes(&bytes[0..byte_length - 8])?;
 
         Ok(SingleSignature {
-            concatenation_signature,
+            concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
             signer_index,
         })
     }

@@ -78,6 +78,7 @@ impl SingleSignatureForConcatenation {
         self.sigma
     }
 
+    #[cfg(test)]
     /// Convert a `SingleSignatureForConcatenation` into bytes
     ///
     /// # Layout
@@ -96,6 +97,7 @@ impl SingleSignatureForConcatenation {
         output
     }
 
+    #[cfg(test)]
     /// Extract a `SingleSignatureForConcatenation` from a byte slice.
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<SingleSignatureForConcatenation> {
         let mut u64_bytes = [0u8; 8];
@@ -147,5 +149,108 @@ impl PartialOrd for SingleSignatureForConcatenation {
 impl Ord for SingleSignatureForConcatenation {
     fn cmp(&self, other: &Self) -> Ordering {
         self.sigma.cmp(&other.sigma)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
+        signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+    };
+
+    use super::*;
+
+    mod golden {
+        use super::*;
+
+        const GOLDEN_BYTES: &[u8; 88] = &[
+            0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
+            0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
+            61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
+            114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83,
+        ];
+
+        fn golden_value() -> SingleSignatureForConcatenation {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let msg = [0u8; 16];
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let sk_1 = BlsSigningKey::generate(&mut rng);
+            let sk_2 = BlsSigningKey::generate(&mut rng);
+            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
+            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let mut key_reg = KeyRegistration::init();
+            key_reg.register(1, pk_1).unwrap();
+            key_reg.register(1, pk_2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
+            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
+            signer.sign(&msg).unwrap().concatenation_signature
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = SingleSignatureForConcatenation::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = SingleSignatureForConcatenation::to_bytes(&value);
+            let golden_serialized = SingleSignatureForConcatenation::to_bytes(&golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "sigma": [
+                149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203, 61, 78, 77, 98, 161,
+                133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133, 114, 211,
+                153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83
+            ],
+            "indexes": [1, 4, 5, 8]
+        }"#;
+
+        fn golden_value() -> SingleSignatureForConcatenation {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let msg = [0u8; 16];
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let sk_1 = BlsSigningKey::generate(&mut rng);
+            let sk_2 = BlsSigningKey::generate(&mut rng);
+            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
+            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let mut key_reg = KeyRegistration::init();
+            key_reg.register(1, pk_1).unwrap();
+            key_reg.register(1, pk_2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
+            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
+            signer.sign(&msg).unwrap().concatenation_signature
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
     }
 }
