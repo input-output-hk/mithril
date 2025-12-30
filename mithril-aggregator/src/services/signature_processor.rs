@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::anyhow;
-use slog::{Logger, error, trace, warn};
+use slog::{Logger, debug, error, trace, warn};
 
 use mithril_common::{
     StdResult,
@@ -10,7 +10,7 @@ use mithril_common::{
 };
 use tokio::{select, sync::watch::Receiver};
 
-use crate::MetricsService;
+use crate::{MetricsService, services::CertifierServiceError};
 
 use super::{CertifierService, SignatureConsumer};
 
@@ -90,13 +90,26 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                                 .get_signature_registration_total_successful_since_startup()
                                 .increment(&[&origin_network]);
                         }
-                        Err(e) => {
-                            total_import_errors += 1;
-                            error!(
-                                self.logger, "Error dispatching single signature";
-                                "full_payload" => #?signature, "error" => ?e
-                            );
-                        }
+                        Err(err) => match err.downcast_ref::<CertifierServiceError>() {
+                            Some(CertifierServiceError::AlreadyCertified(
+                                error_signed_entity_type,
+                            )) => {
+                                debug!(self.logger, "process_signatures::open_message_already_certified"; "signed_entity_type" => ?error_signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(CertifierServiceError::Expired(error_signed_entity_type)) => {
+                                debug!(self.logger, "process_signatures::open_message_expired"; "signed_entity_type" => ?error_signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(CertifierServiceError::NotFound(error_signed_entity_type)) => {
+                                debug!(self.logger, "process_signatures::not_found"; "signed_entity_type" => ?error_signed_entity_type, "party_id" => &signature.party_id);
+                            }
+                            Some(_) | None => {
+                                total_import_errors += 1;
+                                error!(
+                                    self.logger, "Error dispatching single signature";
+                                    "full_payload" => #?signature, "error" => ?err
+                                );
+                            }
+                        },
                     }
                 }
             }
@@ -164,7 +177,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn processor_process_signatures_succeeds() {
+    async fn processor_process_signatures_succeeds_if_registration_succeeds() {
         let logger = TestLogger::stdout();
         let single_signatures = vec![
             (
@@ -225,7 +238,163 @@ mod tests {
         processor
             .process_signatures()
             .await
-            .expect("Failed to process signatures");
+            .expect("Process signatures should succeed");
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_succeeds_if_registration_fails_case_already_certified() {
+        let logger = TestLogger::stdout();
+        let single_signatures = vec![(
+            fake_data::single_signature(vec![4, 5, 6]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+        )];
+        let mock_consumer = MockBuilder::<MockSignatureConsumer>::configure(|mock| {
+            mock.expect_get_signatures()
+                .returning(move || Ok(single_signatures.clone()))
+                .times(1);
+            mock.expect_get_origin_tag()
+                .returning(|| "whatever".to_string())
+                .times(1);
+        });
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| {
+                    Err(anyhow!(CertifierServiceError::AlreadyCertified(
+                        SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+                    )))
+                })
+                .times(1);
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let processor = SequentialSignatureProcessor::new(
+            mock_consumer,
+            mock_certifier,
+            stop_rx,
+            Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
+            Duration::from_millis(10),
+            logger,
+        );
+
+        processor
+            .process_signatures()
+            .await
+            .expect("Process signatures should succeed");
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_succeeds_if_registration_fails_case_expired() {
+        let logger = TestLogger::stdout();
+        let single_signatures = vec![(
+            fake_data::single_signature(vec![4, 5, 6]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+        )];
+        let mock_consumer = MockBuilder::<MockSignatureConsumer>::configure(|mock| {
+            mock.expect_get_signatures()
+                .returning(move || Ok(single_signatures.clone()))
+                .times(1);
+            mock.expect_get_origin_tag()
+                .returning(|| "whatever".to_string())
+                .times(1);
+        });
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| {
+                    Err(anyhow!(CertifierServiceError::Expired(
+                        SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+                    )))
+                })
+                .times(1);
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let processor = SequentialSignatureProcessor::new(
+            mock_consumer,
+            mock_certifier,
+            stop_rx,
+            Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
+            Duration::from_millis(10),
+            logger,
+        );
+
+        processor
+            .process_signatures()
+            .await
+            .expect("Process signatures should succeed");
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_succeeds_if_registration_fails_case_not_found() {
+        let logger = TestLogger::stdout();
+        let single_signatures = vec![(
+            fake_data::single_signature(vec![4, 5, 6]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+        )];
+        let mock_consumer = MockBuilder::<MockSignatureConsumer>::configure(|mock| {
+            mock.expect_get_signatures()
+                .returning(move || Ok(single_signatures.clone()))
+                .times(1);
+            mock.expect_get_origin_tag()
+                .returning(|| "whatever".to_string())
+                .times(1);
+        });
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| {
+                    Err(anyhow!(CertifierServiceError::NotFound(
+                        SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+                    )))
+                })
+                .times(1);
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let processor = SequentialSignatureProcessor::new(
+            mock_consumer,
+            mock_certifier,
+            stop_rx,
+            Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
+            Duration::from_millis(10),
+            logger,
+        );
+
+        processor
+            .process_signatures()
+            .await
+            .expect("Process signatures should succeed");
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_fails_if_registration_fails_case_general_error() {
+        let logger = TestLogger::stdout();
+        let single_signatures = vec![(
+            fake_data::single_signature(vec![4, 5, 6]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+        )];
+        let mock_consumer = MockBuilder::<MockSignatureConsumer>::configure(|mock| {
+            mock.expect_get_signatures()
+                .returning(move || Ok(single_signatures.clone()))
+                .times(1);
+            mock.expect_get_origin_tag()
+                .returning(|| "whatever".to_string())
+                .times(1);
+        });
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| Err(anyhow!("Some general error occurred")))
+                .times(1);
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let processor = SequentialSignatureProcessor::new(
+            mock_consumer,
+            mock_certifier,
+            stop_rx,
+            Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
+            Duration::from_millis(10),
+            logger,
+        );
+
+        processor
+            .process_signatures()
+            .await
+            .expect_err("Process signatures should fail");
     }
 
     #[tokio::test]
