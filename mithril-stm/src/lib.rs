@@ -59,7 +59,7 @@
 //!     let p = Initializer::new(params, stake, &mut rng);
 //!     // Register keys with the KeyRegistration service
 //!     key_reg
-//!         .register(p.stake, p.verification_key())
+//!         .register(p.stake, p.get_verification_key_proof_of_possession())
 //!         .unwrap();
 //!     ps.push(p);
 //! }
@@ -71,7 +71,7 @@
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+//!     .map(|p| p.create_signer(closed_reg.clone()).unwrap())
 //!     .collect::<Vec<Signer<D>>>();
 //!
 //! /////////////////////
@@ -88,15 +88,15 @@
 //!     .collect::<Vec<SingleSignature>>();
 //!
 //! // Clerk can aggregate and verify signatures.
-//! let clerk = Clerk::from_signer(&ps[0]);
+//! let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate(&sigs, &msg);
+//! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
 //!         assert!(aggr
-//!             .verify(&msg, &clerk.compute_avk(), &params)
+//!             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
 //!             .is_ok());
 //!     }
 //!     Err(error) => assert!(
