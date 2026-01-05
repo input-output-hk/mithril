@@ -8,7 +8,7 @@ import CompiledBinaries from '../../compiled-binaries.mdx'
 
 :::danger
 
-Running multiple Mithril aggregators on a Mithril network is enabled by the DMQ protocol which is currently **unstable** and not suitable for production use.
+Running multiple Mithril aggregators on a Mithril network is enabled by the DMQ protocol, which is currently **unstable** and not suitable for production use.
 
 :::
 
@@ -24,10 +24,10 @@ For more information about the **Mithril protocol**, see the [About Mithril](../
 
 :::
 
-On a Mithril network, there exists two types of aggregator nodes:
+On a Mithril network, there exist two types of aggregator nodes:
 
-- **Leader aggregator node**: this node is managed by the entity which generates the Genesis certificates of the Mithril network (Input Output for all networks specified in the [Network configurations](../getting-started/network-configurations.md). It is responsible for collecting signers registrations (which is still a centralized process) and broadcast them to other nodes of the network. It provides also a bootstrap point for other aggregator nodes to synchronize the certificate chain.
-- **Follower aggregator node**: this node is managed by any entity willing to contribute to the Mithril network reliability or to provide additional availability guarantees to an infrastructure (e.g. for a bridge powered by Mithril). This document explains how to set up and run such a follower Mithril aggregator node.
+- **Leader aggregator node**: this node is managed by the entity that generates genesis certificates of the Mithril network (Input Output for all networks specified in the [Network configurations](../getting-started/network-configurations.md). It is responsible for collecting signer registrations (which is still a centralized process) and broadcasting them to other nodes of the network. It provides also a bootstrap point for other aggregator nodes to synchronize the certificate chain.
+- **Follower aggregator node**: this node is managed by any entity willing to contribute to the Mithril network reliability or to provide additional availability guarantees to an infrastructure (eg, for a bridge powered by Mithril). This document explains how to set up and run such a follower Mithril aggregator node.
 
 :::info
 
@@ -39,9 +39,9 @@ Every follower aggregator node is free to select the types of data it wants to s
 
 - **Cardano database v2**<sup>(\*)</sup>
 - **Cardano transactions**
-- **Cardano stake distribution**
+- **Cardano stake distribution**.
 
-_<sup>(\*)</sup>: requires an access to GCP to store Cardano database and may incur costs._
+_<sup>(\*)</sup>: requires access to GCP to store Cardano database and may incur costs._
 
 :::tip
 
@@ -53,7 +53,7 @@ For more information about the **supported data**, see the [Mithril certificatio
 
 :::info
 
-Note that this guide works on a Linux machine only.
+Note that this guide works only on a Linux machine.
 
 :::
 
@@ -70,11 +70,11 @@ Note that this guide works on a Linux machine only.
 
 - Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
-- Install a recent version of `jq` (version 1.6+) by running `apt install jq`
+- Install a recent version of `jq` (version 1.6+) by running `apt install jq`.
 
 ## Hardware
 
-Running a Mithril aggregator node requires adequate hardware resources. We recommend using a virtual machine or dedicated server with the following specifications:
+Running a Mithril aggregator node requires sufficient hardware resources. We recommend using a virtual machine or dedicated server with the following specifications:
 
 - **CPU**:
   - For test networks (`preprod`, `preview`): At least 4 vCPUs
@@ -82,11 +82,11 @@ Running a Mithril aggregator node requires adequate hardware resources. We recom
 - **RAM**:
   - For test networks (`preprod`, `preview`): 16 GB minimum, 32 GB recommended
   - For `mainnet`: 32 GB minimum, 64 GB recommended
-- **Storage**: At least 500 GB of disk space
+- **Storage**: At least 500 GB of disk space.
 
 :::info
 
-The actual resource requirements may vary depending on the signed entity types you choose to support. Supporting Cardano database snapshots and transactions certification will require more storage and processing power than supporting only stake distributions.
+The actual resource requirements may vary depending on the signed entity types you choose to support. Supporting Cardano database snapshots and transaction certification will require more storage and processing power than supporting only stake distributions.
 
 :::
 
@@ -102,7 +102,7 @@ First, check the version of your Cardano node by running the following command:
 cardano-node --version
 ```
 
-Then, refer to the minimum supported versions listed in the the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
+Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
 
 You can also fetch the minimum supported version for your network using the command below:
 
@@ -170,7 +170,7 @@ make build
 
 #### Verify the version of the binary
 
-You can check that the Mithril aggregator binary is running the correct version by running:
+You can check if the Mithril aggregator binary is running the correct version by running:
 
 ```bash
 ./mithril-aggregator -V
@@ -186,7 +186,7 @@ mithril-aggregator 0.2.0
 
 #### Verify the build
 
-Check that the Mithril aggregator binary is working correctly by running the help function:
+Check if the Mithril aggregator binary is working correctly by running the help function:
 
 ```bash
 ./mithril-aggregator -h
@@ -209,13 +209,13 @@ Commands:
 
 Options:
   -r, --run-mode <RUN_MODE>
-          Run Mode [default: dev]
+          Run mode [default: dev]
   -v, --verbose...
           Verbosity level
       --db-directory <DB_DIRECTORY>
           Directory of the Cardano node files
       --config-directory <CONFIG_DIRECTORY>
-          Directory where configuration file is located [default: ./config]
+          Directory where the configuration file is located [default: ./config]
   -h, --help
           Print help
   -V, --version
@@ -249,47 +249,47 @@ sudo mv mithril-aggregator /opt/mithril
 :::caution
 
 - `User=cardano`:
-  Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **Mithril aggregator** must run with the same user as the **Cardano node** to access the database and socket files.
+  Replace this value with the correct user. We assume that the user running the **Cardano node** is `cardano`. The **Mithril aggregator** must run with the same user as the **Cardano node** to access the database and socket files.
 
 The configuration values for the `/opt/mithril/mithril-aggregator.env` file are described below:
 
 **Base configuration** values are:
 
-- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (e.g., `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
+- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (eg, `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
 - `SERVER_PORT`: Listening server port (default: `8080`)
-- `PUBLIC_SERVER_URL`: Public URL of your aggregator (e.g., `https://aggregator.example.com/aggregator`)
+- `PUBLIC_SERVER_URL`: Public URL of your aggregator (eg, `https://aggregator.example.com/aggregator`)
 - `LEADER_AGGREGATOR_ENDPOINT`: Endpoint of the leader aggregator to synchronize with (required for follower aggregators, can be found in the [Network configurations](../getting-started/network-configurations.md))
-- `RUN_INTERVAL`: Interval between two runtime cycles in milliseconds (e.g., `60000` for 60 seconds)
+- `RUN_INTERVAL`: Interval between two runtime cycles in milliseconds (eg, `60000` for 60 seconds)
 - `AGGREGATE_SIGNATURE_TYPE`: Type of aggregate signature to use (default: `Concatenation`)
 - `STORE_RETENTION_LIMIT`: Maximum number of records to keep in internal stores. If not set, no limit is applied. A value of `5` is recommended to limit disk usage
-- `NETWORK`: Cardano network name (e.g., `mainnet`, `preprod`, or `preview`)
+- `NETWORK`: Cardano network name (eg, `mainnet`, `preprod`, or `preview`)
 - `NETWORK_MAGIC`: Cardano network magic number (required only if not using `mainnet`, `preprod` or `preview`)
 - `CARDANO_NODE_SOCKET_PATH`: Path to the IPC file of the Cardano node
-- `CARDANO_NODE_VERSION`: Version of the Cardano node running (e.g., `10.5.0`)
+- `CARDANO_NODE_VERSION`: Version of the Cardano node running (eg, `10.5.0`)
 - `CHAIN_OBSERVER_TYPE`: Type of chain observer (default: `pallas`)
 - `ERA_READER_ADAPTER_TYPE`: Type of era reader adapter to use (default: `bootstrap`, use `cardano-chain` for production networks as specified in [Network configurations](../getting-started/network-configurations.md))
 - `ERA_READER_ADAPTER_PARAMS`: JSON encoded parameters for the era reader adapter. For `cardano-chain` type, compute using: `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'` (URLs can be found in the [Network configurations](../getting-started/network-configurations.md))
 - `GENESIS_VERIFICATION_KEY`: Genesis verification key for the Mithril network. Fetch using: `wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**` (URL can be found in the [Network configurations](../getting-started/network-configurations.md))
 - `DMQ_NODE_SOCKET_PATH`: Path to the IPC file of the DMQ node
-- `CUSTOM_ORIGIN_TAG_WHITE_LIST`: Comma-separated list of custom origin tags to whitelist for client requests (default: `EXPLORER,BENCHMARK,CI,NA`)
+- `CUSTOM_ORIGIN_TAG_WHITE_LIST`: Comma-separated list of custom origin tags to whitelist for client requests (default: `EXPLORER,BENCHMARK,CI,NA`).
 
 - The **Cardano database** configuration values are (only needed if supporting Cardano database certification):
 
   - `DB_DIRECTORY`: Directory of the Cardano node database stores (same as the `--database-path` setting of the Cardano node)
-  - `DATA_STORES_DIRECTORY`: Directory where the aggregator will store its databases (e.g., `/opt/mithril/stores`)
+  - `DATA_STORES_DIRECTORY`: Directory where the aggregator will store its databases (eg, `/opt/mithril/stores`)
   - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: JSON content of the GCP service account credentials (required if using GCP for snapshot storage)
   - `GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON`: JSON content of the GCP KMS credentials for signing (optional, for using GCP KMS to sign ancillary files)
   - `SNAPSHOT_UPLOADER_TYPE`: Type of snapshot uploader (`gcp` for Google Cloud Storage or `local` for local storage)
   - `SNAPSHOT_BUCKET_NAME`: Name of the GCP bucket where snapshots are stored (required if `SNAPSHOT_UPLOADER_TYPE` is `gcp`)
   - `SNAPSHOT_USE_CDN_DOMAIN`: Set to `true` to use CDN domain for constructing snapshot URLs (default: `false`, only relevant for GCP)
   - `SNAPSHOT_COMPRESSION_ALGORITHM`: Compression algorithm for snapshot archives (default: `zstandard`, can also be `gzip`)
-  - `ZSTANDARD_PARAMETERS__LEVEL`: Zstandard compression level (e.g., `9` for maximum compression, range 1-22)
-  - `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS`: Number of worker threads for Zstandard compression (e.g., `4`)
-  - `ANCILLARY_FILES_SIGNER_CONFIG`: JSON configuration for signing ancillary files. Can be either a secret key or a GCP KMS key. Example with secret key: `{"type": "secret-key", "secret_key": "your_hex_encoded_secret_key"}`
+  - `ZSTANDARD_PARAMETERS__LEVEL`: Zstandard compression level (eg, `9` for maximum compression, range 1-22)
+  - `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS`: Number of worker threads for Zstandard compression (eg, `4`)
+  - `ANCILLARY_FILES_SIGNER_CONFIG`: JSON configuration for signing ancillary files. Can be either a secret key or a GCP KMS key. Example with secret key: `{"type": "secret-key", "secret_key": "your_hex_encoded_secret_key"}`.
 
 - The **Cardano transactions** configuration values are (only needed if supporting Cardano transactions certification):
-  - `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE`: Size of the prover cache pool (default: `10`). This configuration can have a very significant impact on the memory usage of the aggregator. in particular on `mainnet`, we recommend to not using a value higher than `10`.
-  - `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE`: Size of the database connection pool (default: `10`)
+  - `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE`: Size of the prover cache pool (default: `10`). This configuration can have a significant impact on the aggregator's memory usage. In particular, on `mainnet`, we recommend avoiding values higher than `10`.
+  - `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE`: Size of the database connection pool (default: `10`).
 
 :::
 
@@ -331,7 +331,7 @@ Here is an **example** set of values for **release-preprod** that will be used i
   - **ZSTANDARD_PARAMETERS\_\_NUMBER_OF_WORKERS**: `4`
   - **ANCILLARY_FILES_SIGNER_CONFIG**: `**YOUR_SECRET**`
 
-- **Cardano transactions configuration**:
+- **Cardano transaction configuration**:
 
   - **CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE**: `10`
   - **CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE**: `10`
@@ -382,7 +382,7 @@ ANCILLARY_FILES_SIGNER_CONFIG=**YOUR_ANCILLARY_FILES_SIGNER_CONFIG**
 EOF`
 ```
 
-If you want to support **Cardano transactions** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+If you want to support **Cardano transaction** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
@@ -418,7 +418,7 @@ CUSTOM_ORIGIN_TAG_WHITE_LIST=EXPLORER,BENCHMARK,CI,NA
 EOF'
 ```
 
-If you want to support **Cardano database** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+If you want to support the **Cardano database** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
@@ -437,7 +437,7 @@ ANCILLARY_FILES_SIGNER_CONFIG={"type": "secret-key", "secret_key": "**YOUR_SECRE
 EOF'
 ```
 
-If you want to support **Cardano transactions** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+If you want to support **Cardano transaction** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
@@ -500,19 +500,19 @@ Finally, monitor the logs of the service:
 tail -f /var/log/syslog | grep mithril-aggregator
 ```
 
-### Activate Prometheus endpoint
+### Activate a Prometheus endpoint
 
 The Mithril aggregator node can expose basic metrics on a Prometheus endpoint, which is not activated by default.
 
 | Metrics                                                                                      | Description                                                                                               |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **mithril_aggregator_certificate_detail_total_served_since_startup**                         | Number of certificate details served since startup on a Mithril aggregator node                           |
+| **mithril_aggregator_certificate_detail_total_served_since_startup**                         | Certificate details served since startup on a Mithril aggregator node                           |
 | **mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup**                 | Number of Cardano immutable files full artifact details served since startup on a Mithril aggregator node |
 | **mithril_aggregator_cardano_db_total_restoration_since_startup**                            | Number of Cardano immutable files full restorations since startup on a Mithril aggregator node            |
 | **mithril_aggregator_cardano_db_immutable_files_restored_since_startup**                     | Number of Cardano immutable files restored since startup on a Mithril aggregator node                     |
 | **mithril_aggregator_cardano_db_ancillary_files_restored_since_startup**                     | Number of Cardano ancillary files restored since startup on a Mithril aggregator node                     |
-| **mithril_aggregator_cardano_db_complete_restoration_since_startup**                         | Number of complete Cardano database restoration since startup on a Mithril aggregator node                |
-| **mithril_aggregator_cardano_db_partial_restoration_since_startup**                          | Number of partial Cardano database restoration since startup on a Mithril aggregator node                 |
+| **mithril_aggregator_cardano_db_complete_restoration_since_startup**                         | Number of complete Cardano database restorations since startup on a Mithril aggregator node                |
+| **mithril_aggregator_cardano_db_partial_restoration_since_startup**                          | Number of partial Cardano database restorations since startup on a Mithril aggregator node                 |
 | **mithril_aggregator_artifact_detail_cardano_database_total_served_since_startup**           | Number of Cardano database artifact details served since startup on a Mithril aggregator node             |
 | **mithril_aggregator_artifact_detail_mithril_stake_distribution_total_served_since_startup** | Number of Mithril stake distribution artifact details served since startup on a Mithril aggregator node   |
 | **mithril_aggregator_artifact_detail_cardano_stake_distribution_total_served_since_startup** | Number of Cardano stake distribution artifact details served since startup on a Mithril aggregator node   |
@@ -572,25 +572,25 @@ When activated, the metrics endpoint will be accessible to the `http://**YOUR_ME
 
 :::info
 
-Additionally, a **Grafana template** has been created to easily set up a dashboard for this Prometheus endpoint (ID 22165): https://grafana.com/grafana/dashboards/22165-mithril-aggregator/
+This [Grafana template](https://grafana.com/grafana/dashboards/22165-mithril-aggregator/) makes it easy to set up a dashboard for this Prometheus endpoint (ID 22165).
 
 :::
 
-## Setup the SSL certificate (Traefik)
+## Set up the SSL certificate (Traefik)
 
 An aggregator must expose a TLS/SSL endpoint to securely communicate with Mithril signers. You can use a self-signed certificate or a certificate issued by a trusted Certificate Authority (CA).
 
-We recommend using a reverse proxy such as [Traefik](https://doc.traefik.io/traefik/) which is able to support the SSL certificate generation and renewal using [Let's Encrypt](https://letsencrypt.org/) automatically and at no charge.
+We recommend using a reverse proxy such as [Traefik](https://doc.traefik.io/traefik/), which can automatically generate and renew SSL certificates using [Let's Encrypt](https://letsencrypt.org/) at no charge.
 
 :::caution
 
-Here are the needed information to setup Traefik:
+Here is the needed information to set up Traefik:
 
 - `**YOUR_TRAEFIK_HTTP_PORT**`: replace with the HTTP port for Traefik (typically `80`)
 - `**YOUR_TRAEFIK_HTTPS_PORT**`: replace with the HTTPS port for Traefik (typically `443`)
-- `**YOUR_DOMAIN_NAME**`: replace with your aggregator's domain name (e.g., `aggregator.example.com`)
+- `**YOUR_DOMAIN_NAME**`: replace with your aggregator's domain name (eg, `aggregator.example.com`)
 - `**YOUR_EMAIL**`: replace with your email address for Let's Encrypt notifications
-- `**YOUR_AGGREGATOR_PORT**`: replace with the port your Mithril aggregator listens on (from `SERVER_PORT` in the aggregator environment file)
+- `**YOUR_AGGREGATOR_PORT**`: replace with the port your Mithril aggregator listens on (from `SERVER_PORT` in the aggregator environment file).
 
 :::
 
@@ -602,7 +602,7 @@ Here is an **example** set of values that will be used in this guide in the **ti
 - **YOUR_TRAEFIK_HTTPS_PORT**: `443`
 - **YOUR_DOMAIN_NAME**: `aggregator.example.com`
 - **YOUR_EMAIL**: `admin@example.com`
-- **YOUR_AGGREGATOR_PORT**: `8080`
+- **YOUR_AGGREGATOR_PORT**: `8080`.
 
 :::
 
@@ -614,7 +614,7 @@ To download the latest released version of Traefik, first determine the latest v
 TRAEFIK_VERSION=$(curl -s https://api.github.com/repos/traefik/traefik/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
 ```
 
-Then download the binary:
+Then, download the binary:
 
 ```bash
 curl -L -o traefik.tar.gz https://github.com/traefik/traefik/releases/download/v${TRAEFIK_VERSION}/traefik_v${TRAEFIK_VERSION}_linux_amd64.tar.gz
@@ -883,13 +883,13 @@ Make sure your domain name points to your server's public IP address and that po
 
 :::
 
-## Setup the DMQ node (unstable)
+## Set up the DMQ node (unstable)
 
 :::danger
 
 The DMQ node setup is currently **unstable** and not suitable for production use.
 
-During the stabilization and rampup phase of the DMQ network:
+During the stabilization and ramp-up phase of the DMQ network:
 
 - Signatures are still sent to the central aggregator (using the DMQ node is harmless)
 - This section is subject to frequent changes.
@@ -900,7 +900,7 @@ The DMQ node supports the implementation of a **Decentralized Message Queue** (D
 
 :::caution
 
-- Here are the needed information to setup a DMQ node:
+- Here is the needed information to set up a DMQ node:
   - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
@@ -921,7 +921,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 - **YOUR_DMQ_NODE_PUBLIC_ADDRESS**: `34.14.65.160`
 - **YOUR_DMQ_NODE_PORT**: `6161`
 - **YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**: `34.76.22.193`
-- **YOUR_DMQ_BOOTSTRAP_PEER_PORT**: `11001`
+- **YOUR_DMQ_BOOTSTRAP_PEER_PORT**: `11001`.
 
 :::
 
@@ -1026,7 +1026,7 @@ EOF'
 
 :::tip
 
-The topology file of the DMQ node follows a similar format than the Cardano node topology file. More information is available at [Cardano node topology](https://developers.cardano.org/docs/get-started/infrastructure/node/topology/).
+The topology file of the DMQ node follows a similar format to the Cardano node topology file. More information is available at [Cardano node topology](https://developers.cardano.org/docs/get-started/infrastructure/node/topology/).
 
 :::
 
@@ -1101,7 +1101,7 @@ EOF'
 :::caution
 
 - `User=cardano`:
-  Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **DMQ node** must imperatively run with the same user.
+  Replace this value with the correct user. We assume that the user running the **Cardano node** is `cardano`. The **DMQ node** must imperatively run with the same user.
 
 :::
 
@@ -1206,7 +1206,7 @@ After installing and starting your Mithril aggregator node, you should verify th
 
 1. Synchronizing signer registrations with the leader aggregator
 2. Synchronizing the certificate chain with the leader aggregator
-3. Producing new certificates
+3. Producing new certificates.
 
 :::info
 
@@ -1214,7 +1214,7 @@ As a follower aggregator, your node will:
 
 - Fetch and store signer registrations from the leader aggregator
 - Synchronize the certificate chain from the leader aggregator
-- Produce its own certificates using signatures collected via the DMQ protocol (once DMQ is stable and widely deployed)
+- Produce its own certificates using signatures collected via the DMQ protocol (once DMQ is stable and widely deployed).
 
 :::
 
@@ -1238,9 +1238,9 @@ To monitor your own aggregator, replace the endpoint with your aggregator's publ
 
 **Aggregator lifecycle during epochs:**
 
-- **At installation epoch**: The aggregator will fetch the signer registrations for the next epoch from the leader aggregator
-- **At epoch + 1**: The aggregator will synchronize the certificate chain from the leader aggregator
-- **At epoch + 2 and onwards**: Once the DMQ protocol is stable and widely deployed, the aggregator will start producing its own certificates using signatures collected via DMQ
+- **At installation epoch**: the aggregator will fetch the signer registrations for the next epoch from the leader aggregator
+- **At epoch + 1**: the aggregator will synchronize the certificate chain from the leader aggregator
+- **At epoch + 2 and onwards**: once the DMQ protocol is stable and widely deployed, the aggregator will start producing its own certificates using signatures collected via DMQ.
 
 :::
 
@@ -1248,12 +1248,12 @@ To monitor your own aggregator, replace the endpoint with your aggregator's publ
 
 If you want to make your follower aggregator publicly discoverable, you should:
 
-1. **Ensure your aggregator is accessible via HTTPS** by setting up Traefik or another reverse proxy with a valid SSL certificate (as described in the [Setup the SSL certificate](#setup-the-ssl-certificate-traefik) section).
+1. **Ensure your aggregator is accessible via HTTPS** by setting up Traefik or another reverse proxy with a valid SSL certificate (as described in the [Set up the SSL certificate](#setup-the-ssl-certificate-traefik) section).
 
 2. **Register your aggregator in the networks configuration**. You can do this by:
 
    - Opening an issue in the [Mithril GitHub repository](https://github.com/input-output-hk/mithril/issues)
-   - Or by creating a pull request that modifies the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file and updates the `aggregators` field in the Cardano network you are targeting
+   - Or by creating a pull request that modifies the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file and updates the `aggregators` field in the Cardano network you are targeting.
 
    Here is an example command to add an aggregator to the `release-preprod` network configuration:
 
