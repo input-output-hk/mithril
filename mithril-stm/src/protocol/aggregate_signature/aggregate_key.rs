@@ -26,16 +26,6 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
         self.mt_commitment.clone()
     }
 
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `get_merkle_tree_batch_commitment` instead"
-    )]
-    pub fn get_mt_commitment(
-        &self,
-    ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
-        Self::get_merkle_tree_batch_commitment(self)
-    }
-
     pub fn get_total_stake(&self) -> Stake {
         self.total_stake
     }

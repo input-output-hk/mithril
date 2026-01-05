@@ -5,6 +5,7 @@ pub enum MerkleTreeError {
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
 
+    #[cfg(test)]
     /// Invalid merkle path
     #[error("Path does not verify against root")]
     PathInvalid(Vec<u8>),

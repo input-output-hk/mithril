@@ -7,6 +7,7 @@ use crate::StmResult;
 
 use super::MerkleTreeError;
 
+#[cfg(test)]
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Contains all hashes on the path, and the index of the leaf.
 /// Used to verify that signatures come from eligible signers.
@@ -17,6 +18,7 @@ pub struct MerklePath<D: Digest> {
     hasher: PhantomData<D>,
 }
 
+#[cfg(test)]
 impl<D: Digest + FixedOutput> MerklePath<D> {
     pub(crate) fn new(values: Vec<Vec<u8>>, index: usize) -> Self {
         Self {

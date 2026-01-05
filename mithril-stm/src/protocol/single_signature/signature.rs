@@ -135,17 +135,6 @@ impl SingleSignature {
             signer_index,
         })
     }
-
-    /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    fn compare_signer_index(&self, other: &Self) -> Ordering {
-        self.signer_index.cmp(&other.signer_index)
-    }
-
-    /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    #[deprecated(since = "0.5.0", note = "This function will be removed")]
-    pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
-        Self::compare_signer_index(self, other)
-    }
 }
 
 impl Hash for SingleSignature {
