@@ -6,11 +6,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 
-#[cfg(test)]
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 use super::MerklePath;
 use super::{MerkleBatchPath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
 
-#[cfg(test)]
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
@@ -23,7 +27,9 @@ pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     leaf_type: PhantomData<L>,
 }
 
-#[cfg(test)]
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
     pub(crate) fn new(root: Vec<u8>) -> Self {
         MerkleTreeCommitment {

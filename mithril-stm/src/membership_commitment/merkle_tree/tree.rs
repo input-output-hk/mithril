@@ -9,7 +9,9 @@ use super::{
     MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeError, MerkleTreeLeaf, left_child,
     parent, right_child, sibling,
 };
-#[cfg(test)]
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 use super::{MerklePath, MerkleTreeCommitment};
 
 /// Tree of hashes, providing a commitment of data and its ordering.
@@ -187,13 +189,17 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         })
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Convert merkle tree to a commitment. This function simply returns the root.
     pub(crate) fn to_merkle_tree_commitment(&self) -> MerkleTreeCommitment<D, L> {
         MerkleTreeCommitment::new(self.nodes[0].clone()) // Use private constructor
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
@@ -250,6 +256,7 @@ mod tests {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(100))]
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -258,6 +265,7 @@ mod tests {
             })
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_path((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -268,6 +276,7 @@ mod tests {
             })
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_commitment().to_bytes();
@@ -310,6 +319,7 @@ mod tests {
     }
 
     proptest! {
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_create_invalid_proof(
             i in any::<usize>(),
