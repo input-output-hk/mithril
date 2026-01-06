@@ -58,18 +58,6 @@ impl From<KesPeriod> for u64 {
     }
 }
 
-impl From<u32> for KesPeriod {
-    fn from(value: u32) -> Self {
-        KesPeriod(value.into())
-    }
-}
-
-impl From<u64> for KesPeriod {
-    fn from(value: u64) -> Self {
-        KesPeriod(value)
-    }
-}
-
 impl Add<KesEvolutions> for KesPeriod {
     type Output = Self;
 

@@ -294,7 +294,7 @@ impl<'de> Deserialize<'de> for OpCert {
                 kes_vk: KesPublicKey::from_bytes(&raw_opcert_without_vk.0)
                     .map_err(|_| Error::custom("KES vk serialisation error"))?,
                 issue_number: raw_opcert_without_vk.1,
-                start_kes_period: raw_opcert_without_vk.2.into(),
+                start_kes_period: KesPeriod(raw_opcert_without_vk.2),
                 cert_sig: EdSignature::from_slice(&raw_opcert_without_vk.3)
                     .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
             },

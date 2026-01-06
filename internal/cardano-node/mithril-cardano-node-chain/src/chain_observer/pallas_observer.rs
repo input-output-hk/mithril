@@ -266,7 +266,8 @@ impl PallasChainObserver {
         }
 
         let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
-        Ok(current_kes_period.into())
+
+        Ok(KesPeriod(current_kes_period))
     }
 
     /// Fetches the current chain point using the provided `statequery` client.
