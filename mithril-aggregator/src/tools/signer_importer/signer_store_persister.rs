@@ -25,11 +25,10 @@ mod tests {
     use mithril_common::StdResult;
     use mithril_persistence::sqlite::SqliteConnection;
 
-    use crate::SignersImporter;
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;
     use crate::test::TestLogger;
-    use crate::tools::signer_importer::MockSignersImporterRetriever;
+    use crate::tools::signer_importer::{MockSignersImporterRetriever, SignersImporter};
 
     use super::*;
 

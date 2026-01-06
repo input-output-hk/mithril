@@ -96,10 +96,10 @@ mod tests {
     use mithril_persistence::sqlite::SqliteConnection;
     use mithril_test_http_server::test_http_server;
 
-    use crate::CExplorerSignerRetriever;
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;
     use crate::test::TestLogger;
+    use crate::tools::signer_importer::CExplorerSignerRetriever;
 
     use super::*;
 

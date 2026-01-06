@@ -12,10 +12,8 @@ use crate::database::repository::{
 };
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-use crate::{
-    CExplorerSignerRetriever, ImmutableFileDigestMapper, ProtocolParametersRetriever,
-    SignersImporter, VerificationKeyStorer,
-};
+use crate::tools::signer_importer::{CExplorerSignerRetriever, SignersImporter};
+use crate::{ImmutableFileDigestMapper, ProtocolParametersRetriever, VerificationKeyStorer};
 
 impl DependenciesBuilder {
     async fn build_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
