@@ -92,84 +92,28 @@ mod tests {
     use std::sync::Arc;
     use warp::Filter;
 
-    use mithril_common::StdResult;
-    use mithril_persistence::sqlite::SqliteConnection;
     use mithril_test_http_server::test_http_server;
 
-    use crate::database::repository::{SignerGetter, SignerStore};
+    use crate::database::repository::SignerStore;
     use crate::database::test_helper::main_db_connection;
     use crate::test::TestLogger;
     use crate::tools::signer_importer::CExplorerSignerRetriever;
 
-    use super::*;
-
-    #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-    struct TestSigner {
-        pool_id: String,
-        ticker: Option<String>,
-    }
-
-    impl TestSigner {
-        fn with_ticker(pool_id: &str, ticker: &str) -> Self {
-            Self {
-                pool_id: pool_id.to_string(),
-                ticker: Some(ticker.to_string()),
-            }
-        }
-
-        fn without_ticker(pool_id: &str) -> Self {
-            Self {
-                pool_id: pool_id.to_string(),
-                ticker: None,
-            }
-        }
-    }
-
-    async fn fill_signer_db(
-        connection: Arc<SqliteConnection>,
-        test_signers: &[TestSigner],
-    ) -> StdResult<()> {
-        let store = SignerStore::new(connection);
-
-        for signer in test_signers {
-            store
-                .import_signer(signer.pool_id.clone(), signer.ticker.clone())
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    async fn get_all_signers(connection: Arc<SqliteConnection>) -> StdResult<BTreeSet<TestSigner>> {
-        let store = SignerStore::new(connection);
-
-        let signers = store
-            .get_all()
-            .await?
-            .into_iter()
-            .map(|s| TestSigner {
-                pool_id: s.signer_id,
-                ticker: s.pool_ticker,
-            })
-            .collect();
-        Ok(signers)
-    }
+    use super::{super::test_tools::*, *};
 
     #[tokio::test]
     async fn cexplorer_importer_integration_test() {
         let connection = Arc::new(main_db_connection().unwrap());
         let store = Arc::new(SignerStore::new(connection.clone()));
-        fill_signer_db(
-            connection.clone(),
-            &[
+        store
+            .fill_with_test_signers(&[
                 TestSigner::with_ticker("pool4", "[Pool4 dont change]"),
                 TestSigner::without_ticker("pool5"),
                 TestSigner::with_ticker("pool6", "[Pool6 not returned by server]"),
                 TestSigner::with_ticker("pool7", "[Pool7 ticker will be removed]"),
-            ],
-        )
-        .await
-        .unwrap();
+            ])
+            .await
+            .unwrap();
         let server = test_http_server(warp::path("list").map(|| {
             r#"{
             "data": [
@@ -197,7 +141,7 @@ mod tests {
         );
         importer.run().await.expect("running importer should not fail");
 
-        let result = get_all_signers(connection).await.unwrap();
+        let result = store.get_all_test_signers().await.unwrap();
         assert_eq!(
             result,
             BTreeSet::from([
