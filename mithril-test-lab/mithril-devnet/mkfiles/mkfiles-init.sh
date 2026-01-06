@@ -23,6 +23,12 @@ fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
 fi
+if [ -z "${DMQ_NODE_VERSION}" ]; then 
+  DMQ_NODE_VERSION="0.2.0.0-pre-4"
+fi
+if [ -z "${DMQ_NODE_BINARY_URL}" ]; then 
+  DMQ_NODE_BINARY_URL="https://github.com/IntersectMBO/dmq-node/releases/download/${DMQ_NODE_VERSION}/dmq-node-linux.tar.gz"
+fi
 if [ -z "${DMQ_NETWORK_MAGIC}" ]; then 
   DMQ_NETWORK_MAGIC=2147483690
 fi
@@ -81,6 +87,16 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   tar xzf cardano-bin.tar.gz -C "${ARTIFACTS_DIR}/" ./bin || (mkdir -p "${ARTIFACTS_DIR}/bin" && tar --strip-components=1 -C "${ARTIFACTS_DIR}/bin" -xzf cardano-bin.tar.gz)
   rm -f cardano-bin.tar.gz
 fi
+
+# Download DMQ node binary if enabled (default: yes)
+if [[ "$SKIP_DMQ_BIN_DOWNLOAD" != "true" ]]; then
+  echo ">> Downloading dmq node binary..."
+  curl -sL "${DMQ_NODE_BINARY_URL}" --output dmq-bin.tar.gz
+  echo ">> Extracting dmq-node..."
+  tar xzf dmq-bin.tar.gz --strip-components=2 -C "${ARTIFACTS_DIR}/bin" result/bin
+  rm -f dmq-bin.tar.gz
+fi
+set +x
 
 # Switch to artifacts directory
 pushd "${ARTIFACTS_DIR}" > /dev/null || exit
