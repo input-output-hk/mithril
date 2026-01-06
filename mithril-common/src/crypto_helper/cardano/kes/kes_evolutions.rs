@@ -60,18 +60,6 @@ impl From<KesEvolutions> for u64 {
     }
 }
 
-impl From<u32> for KesEvolutions {
-    fn from(value: u32) -> Self {
-        KesEvolutions(value.into())
-    }
-}
-
-impl From<u64> for KesEvolutions {
-    fn from(value: u64) -> Self {
-        KesEvolutions(value)
-    }
-}
-
 impl_add_to_wrapper!(KesEvolutions, u64);
 impl_sub_to_wrapper!(KesEvolutions, u64);
 impl_partial_eq_to_wrapper!(KesEvolutions, u64);

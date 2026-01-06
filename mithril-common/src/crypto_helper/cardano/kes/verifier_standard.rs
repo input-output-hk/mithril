@@ -155,7 +155,7 @@ mod tests {
             .expect_err("Signature verification should fail");
 
         KesVerifierStandard
-            .verify(message, &signature, &op_cert, u64::MAX.into())
+            .verify(message, &signature, &op_cert, KesEvolutions(u64::MAX))
             .expect_err("Signature verification should fail");
     }
 }
