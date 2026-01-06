@@ -5,7 +5,7 @@ use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
 use mithril_common::StdResult;
-use mithril_common::crypto_helper::{KesPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
@@ -200,8 +200,7 @@ impl Runner for SignerRunner {
         };
         let current_kes_period = self.services.chain_observer.get_current_kes_period().await?;
         let kes_evolutions = operational_certificate.map(|operational_certificate| {
-            current_kes_period.unwrap_or_default()
-                - operational_certificate.get_start_kes_period() as KesPeriod
+            current_kes_period.unwrap_or_default() - operational_certificate.get_start_kes_period()
         });
 
         let protocol_initializer = self

@@ -1,6 +1,6 @@
 use crate::{
     crypto_helper::{
-        KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKey,
+        KesEvolutions, ProtocolOpCert, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature,
     },
     entities::{PartyId, Stake},
@@ -34,9 +34,8 @@ pub struct Signer {
     pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "kes_period")]
-    pub kes_evolutions: Option<KesPeriod>,
+    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
+    pub kes_evolutions: Option<KesEvolutions>,
 }
 
 impl PartialEq for Signer {
@@ -64,7 +63,7 @@ impl Signer {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_evolutions: Option<KesPeriod>,
+        kes_evolutions: Option<KesEvolutions>,
     ) -> Signer {
         Signer {
             party_id,
@@ -160,7 +159,7 @@ pub struct SignerWithStake {
 
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
     #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
-    pub kes_evolutions: Option<KesPeriod>,
+    pub kes_evolutions: Option<KesEvolutions>,
 
     /// The signer stake
     pub stake: Stake,
@@ -191,7 +190,7 @@ impl SignerWithStake {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_evolutions: Option<KesPeriod>,
+        kes_evolutions: Option<KesEvolutions>,
         stake: Stake,
     ) -> SignerWithStake {
         SignerWithStake {

@@ -3,7 +3,7 @@ use kes_summed_ed25519::{kes::Sum6KesSig, traits::KesSig};
 use crate::{
     StdResult,
     crypto_helper::{
-        KesPeriod, OpCert,
+        KesEvolutions, OpCert,
         cardano::{KesVerifier, KesVerifyError},
     },
 };
@@ -19,7 +19,7 @@ impl KesVerifier for KesVerifierStandard {
         message: &[u8],
         signature: &Sum6KesSig,
         operational_certificate: &OpCert,
-        kes_evolutions: KesPeriod,
+        kes_evolutions: KesEvolutions,
     ) -> StdResult<()> {
         operational_certificate
             .validate()
@@ -32,7 +32,8 @@ impl KesVerifier for KesVerifierStandard {
         for kes_evolutions_try in kes_evolutions_try_min..=kes_evolutions_try_max {
             if signature
                 .verify(
-                    kes_evolutions_try,
+                    u32::try_from(kes_evolutions_try)
+                        .map_err(|_| KesVerifyError::InvalidKesEvolutions(kes_evolutions))?,
                     &operational_certificate.get_kes_verification_key(),
                     message,
                 )
@@ -44,7 +45,7 @@ impl KesVerifier for KesVerifierStandard {
 
         Err(KesVerifyError::SignatureInvalid(
             kes_evolutions,
-            operational_certificate.get_start_kes_period() as u32,
+            operational_certificate.get_start_kes_period(),
         )
         .into())
     }
@@ -52,6 +53,7 @@ impl KesVerifier for KesVerifierStandard {
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto_helper::KesPeriod;
     use crate::crypto_helper::cardano::kes::{KesSigner, KesSignerStandard};
     use crate::current_function;
     use crate::test::crypto_helper::{
@@ -62,8 +64,8 @@ mod tests {
 
     #[test]
     fn verify_valid_signature_succeeds() {
-        let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let start_kes_period = KesPeriod(10);
+        let kes_evolutions = KesEvolutions(1);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -88,8 +90,8 @@ mod tests {
 
     #[test]
     fn verify_invalid_signature_fails() {
-        let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 1;
+        let start_kes_period = KesPeriod(10);
+        let kes_evolutions = KesEvolutions(1);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -113,8 +115,8 @@ mod tests {
 
     #[test]
     fn verify_valid_signature_invalid_kes_evolutions_fails() {
-        let start_kes_period = 10 as KesPeriod;
-        let kes_evolutions = 5;
+        let start_kes_period = KesPeriod(10);
+        let kes_evolutions = KesEvolutions(5);
         let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -150,6 +152,10 @@ mod tests {
 
         KesVerifierStandard
             .verify(message, &signature, &op_cert, kes_evolutions + 2)
+            .expect_err("Signature verification should fail");
+
+        KesVerifierStandard
+            .verify(message, &signature, &op_cert, KesEvolutions(u64::MAX))
             .expect_err("Signature verification should fail");
     }
 }

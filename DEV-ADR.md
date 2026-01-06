@@ -23,6 +23,33 @@ To complete
 To complete
 -->
 
+### 6. Guidelines for arithmetic wrapper types
+
+**Date:** 2025-01-06
+**Status:** Accepted
+
+### Context
+
+Numeric values in the codebase often represent distinct domain concepts (e.g.,`BlockNumber`, `Epoch`, `SlotNumber`, `KesPeriod`, `KesEvolutions`). Using raw primitive types makes it easy to accidentally mix unrelated values, leading to subtle bugs that the compiler cannot catch.
+
+### Decision
+
+When wrapping arithmetic types, follow these guidelines:
+
+1. **Restrict direct conversions**: Do not implement `From`/`Into` traits for conversions between the wrapper and primitive types. This prevents accidental escaping from the wrapper and forces explicit usage.
+
+2. **Use constructor notation**: Prefer the `Type(value)` pattern for creating instances (e.g., `KesPeriod(42)`). This is more readable than `.into()` and makes the intent explicit.
+
+3. **Implement arithmetic traits selectively**: Only implement arithmetic operations (`Add`, `Sub`, etc.) that make semantic sense for the domain concept.
+
+4. **Exception for persistence**: Fallible conversions to `i64` (`TryFrom`) may be implemented when required by the persistence layer, as explicit wrapper usage there provides limited benefit.
+
+### Consequences
+
+- The compiler enforces type safety, preventing accidental mixing of unrelated numeric values.
+- Code is more readable with explicit `Type(value)` notation.
+- Developers must consciously decide when to escape the wrapper, making type boundaries intentional.
+
 ### 5. Guidelines for writing useful log messages, error context, or error structure
 
 **Date:** 2025-07-25

@@ -8,8 +8,9 @@ use thiserror::Error;
 use crate::{
     StdResult,
     crypto_helper::{
-        KesSigner, ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
-        ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
+        KesPeriod, KesSigner, ProtocolAggregateVerificationKey, ProtocolClerk,
+        ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
+        ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -101,7 +102,9 @@ impl SignerBuilder {
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_signer,
-            signer_with_stake.kes_evolutions,
+            signer_with_stake
+                .kes_evolutions
+                .map(|kes_evolutions| KesPeriod(0) + kes_evolutions),
             signer_with_stake.stake,
             rng,
         )

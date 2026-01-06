@@ -8,7 +8,8 @@ use tokio::sync::{Mutex, MutexGuard};
 use mithril_common::{
     StdResult,
     crypto_helper::{
-        OpCert, OpCertWithoutColdVerificationKey, TryFromBytes, ed25519::Ed25519VerificationKey,
+        KesPeriod, OpCert, OpCertWithoutColdVerificationKey, TryFromBytes,
+        ed25519::Ed25519VerificationKey,
     },
     entities::PartyId,
     logging::LoggerExtensions,
@@ -118,7 +119,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
                 let opcert_without_verification_key = OpCertWithoutColdVerificationKey::try_new(
                     &dmq_message.operational_certificate.kes_vk,
                     dmq_message.operational_certificate.issue_number,
-                    dmq_message.operational_certificate.start_kes_period,
+                    KesPeriod(dmq_message.operational_certificate.start_kes_period),
                     &dmq_message.operational_certificate.cert_sig,
                 )
                 .with_context(|| "Failed to parse operational certificate")?;

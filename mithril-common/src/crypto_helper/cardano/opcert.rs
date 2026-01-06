@@ -15,7 +15,7 @@ use thiserror::Error;
 
 use crate::StdResult;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
-use crate::crypto_helper::{ProtocolPartyId, encode_bech32};
+use crate::crypto_helper::{KesPeriod, ProtocolPartyId, encode_bech32};
 
 use super::SerDeShelleyFileFormat;
 
@@ -46,7 +46,7 @@ pub struct OpCertWithoutColdVerificationKey {
     pub(crate) kes_vk: KesPublicKey,
     pub(crate) issue_number: u64,
     /// KES period at which KES key is initalized
-    pub start_kes_period: u64,
+    pub start_kes_period: KesPeriod,
     pub(crate) cert_sig: EdSignature,
 }
 
@@ -55,7 +55,7 @@ impl OpCertWithoutColdVerificationKey {
     pub fn try_new(
         kes_vk: &[u8],
         issue_number: u64,
-        start_kes_period: u64,
+        start_kes_period: KesPeriod,
         cert_sig: &[u8],
     ) -> StdResult<Self> {
         Ok(Self {
@@ -79,7 +79,7 @@ impl OpCertWithoutColdVerificationKey {
     }
 
     /// Get the start KES period
-    pub fn start_kes_period(&self) -> u64 {
+    pub fn start_kes_period(&self) -> KesPeriod {
         self.start_kes_period
     }
 
@@ -102,7 +102,7 @@ impl Serialize for OpCertWithoutColdVerificationKey {
         let raw_cert = RawOpCertWithoutColdVerificationKey(
             self.kes_vk.as_bytes().to_vec(),
             self.issue_number,
-            self.start_kes_period,
+            self.start_kes_period.into(),
             self.cert_sig.to_bytes().to_vec(),
         );
 
@@ -121,7 +121,7 @@ impl<'de> Deserialize<'de> for OpCertWithoutColdVerificationKey {
             kes_vk: KesPublicKey::from_bytes(&raw_cert.0)
                 .map_err(|_| Error::custom("KES vk serialisation error"))?,
             issue_number: raw_cert.1,
-            start_kes_period: raw_cert.2,
+            start_kes_period: KesPeriod(raw_cert.2),
             cert_sig: EdSignature::from_slice(&raw_cert.3)
                 .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
         })
@@ -133,7 +133,7 @@ impl From<&OpCertWithoutColdVerificationKey> for RawOpCertWithoutColdVerificatio
         RawOpCertWithoutColdVerificationKey(
             opcert.kes_vk.as_bytes().to_vec(),
             opcert.issue_number,
-            opcert.start_kes_period,
+            opcert.start_kes_period.into(),
             opcert.cert_sig.to_bytes().to_vec(),
         )
     }
@@ -156,7 +156,7 @@ impl OpCert {
     pub fn new(
         kes_vk: KesPublicKey,
         issue_number: u64,
-        start_kes_period: u64,
+        start_kes_period: KesPeriod,
         cold_secret_key: EdSecretKey,
     ) -> Self {
         let cold_vk: EdVerificationKey = cold_secret_key.verifying_key();
@@ -188,7 +188,7 @@ impl OpCert {
     }
 
     /// Get the start KES period
-    pub fn get_start_kes_period(&self) -> u64 {
+    pub fn get_start_kes_period(&self) -> KesPeriod {
         self.opcert_without_vk.start_kes_period
     }
 
@@ -211,12 +211,12 @@ impl OpCert {
     pub(crate) fn compute_message_to_sign(
         kes_vk: &KesPublicKey,
         issue_number: u64,
-        start_kes_period: u64,
+        start_kes_period: KesPeriod,
     ) -> [u8; 48] {
         let mut msg = [0u8; 48];
         msg[..32].copy_from_slice(kes_vk.as_bytes());
         msg[32..40].copy_from_slice(&issue_number.to_be_bytes());
-        msg[40..48].copy_from_slice(&start_kes_period.to_be_bytes());
+        msg[40..48].copy_from_slice(&u64::from(start_kes_period).to_be_bytes());
         msg
     }
 
@@ -294,7 +294,7 @@ impl<'de> Deserialize<'de> for OpCert {
                 kes_vk: KesPublicKey::from_bytes(&raw_opcert_without_vk.0)
                     .map_err(|_| Error::custom("KES vk serialisation error"))?,
                 issue_number: raw_opcert_without_vk.1,
-                start_kes_period: raw_opcert_without_vk.2,
+                start_kes_period: KesPeriod(raw_opcert_without_vk.2),
                 cert_sig: EdSignature::from_slice(&raw_opcert_without_vk.3)
                     .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
             },
@@ -334,7 +334,7 @@ mod tests {
         let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
         let mut dummy_seed = [0u8; 32];
         let (_, kes_verification_key) = Sum6Kes::keygen(&mut dummy_key_buffer, &mut dummy_seed);
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, KesPeriod(0), keypair);
         assert!(operational_certificate.validate().is_ok());
 
         let operation_certificate_file = temp_dir.join("node.cert");

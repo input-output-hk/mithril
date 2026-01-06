@@ -203,7 +203,7 @@ impl ChainObserver for FakeChainObserver {
     }
 
     async fn get_current_kes_period(&self) -> Result<Option<KesPeriod>, ChainObserverError> {
-        Ok(Some(0))
+        Ok(Some(KesPeriod(0)))
     }
 }
 

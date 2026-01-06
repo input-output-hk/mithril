@@ -6,9 +6,9 @@ use rand_core::SeedableRng;
 
 use crate::{
     crypto_helper::{
-        KesSigner, KesSignerStandard, OpCert, ProtocolInitializer, ProtocolKeyRegistration,
-        ProtocolOpCert, ProtocolParameters, ProtocolPartyId, ProtocolStakeDistribution,
-        SerDeShelleyFileFormat,
+        KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolInitializer,
+        ProtocolKeyRegistration, ProtocolOpCert, ProtocolParameters, ProtocolPartyId,
+        ProtocolStakeDistribution, SerDeShelleyFileFormat,
     },
     entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test::{
@@ -65,7 +65,7 @@ fn setup_protocol_initializer(
     let protocol_initializer_seed: [u8; 32] =
         format!("{party_id:<032}").as_bytes()[..32].try_into().unwrap();
     let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
-    let kes_period = kes_secret_key_path.as_ref().map(|_| 0);
+    let kes_period = kes_secret_key_path.as_ref().map(|_| KesPeriod(0));
     let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
         Arc::new(KesSignerStandard::new(
             kes_secret_key_path,
@@ -91,16 +91,16 @@ fn setup_signer_with_stake(
     stake: Stake,
     protocol_initializer: &ProtocolInitializer,
     operational_certificate: Option<ProtocolOpCert>,
-    kes_period: u32,
+    kes_evolutions: KesEvolutions,
 ) -> SignerWithStake {
-    let kes_period = operational_certificate.as_ref().and(Some(kes_period));
+    let kes_evolutions = operational_certificate.as_ref().and(Some(kes_evolutions));
 
     SignerWithStake::new(
         party_id.to_owned(),
         protocol_initializer.verification_key().into(),
         protocol_initializer.verification_key_signature(),
         operational_certificate,
-        kes_period,
+        kes_evolutions,
         stake,
     )
 }
@@ -127,7 +127,7 @@ pub fn setup_signers_from_stake_distribution(
     )> = vec![];
 
     for (party_id, stake) in stake_distribution {
-        let kes_evolutions = 0;
+        let kes_evolutions = KesEvolutions(0);
         let temp_dir = setup_temp_directory_for_signer(party_id, false);
         let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
         let operational_certificate_path = temp_dir.as_ref().map(|dir| dir.join("opcert.cert"));

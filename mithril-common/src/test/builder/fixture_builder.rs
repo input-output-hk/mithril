@@ -4,7 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 
 use crate::{
     crypto_helper::{
-        ColdKeyGenerator, OpCert, ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
+        ColdKeyGenerator, KesPeriod, OpCert, ProtocolStakeDistribution, SerDeShelleyFileFormat,
+        Sum6KesBytes,
     },
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
     test::{
@@ -204,7 +205,7 @@ impl MithrilFixtureBuilder {
             ColdKeyGenerator::create_deterministic_keypair(cold_key_seed.try_into().unwrap());
         let (kes_bytes, kes_verification_key) =
             MithrilFixtureBuilder::provide_kes_key(&mut kes_key_seed);
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, KesPeriod(0), keypair);
         let party_id = operational_certificate
             .compute_protocol_party_id()
             .expect("compute protocol party id should not fail");
