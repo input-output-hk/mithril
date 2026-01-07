@@ -4168,6 +4168,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake2 0.10.6",
+ "hex",
  "mithril-cardano-node-chain",
  "mithril-common",
  "mockall",

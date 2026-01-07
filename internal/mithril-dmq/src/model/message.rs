@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder};
@@ -5,7 +6,7 @@ use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for a DMQ message which can be serialized and deserialized.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DmqMessage(DmqMsg);
 
 #[derive(Serialize, Deserialize)]
@@ -67,6 +68,24 @@ impl<'de> Deserialize<'de> for DmqMessage {
             .into();
 
         Ok(res)
+    }
+}
+
+impl Debug for DmqMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let is_pretty_printing = f.alternate();
+        let mut debug = f.debug_struct("DmqMessage");
+        debug
+            .field("id", &hex::encode(&self.msg_payload.msg_id))
+            .field("kes_period", &self.msg_payload.kes_period)
+            .field("expires_at", &self.msg_payload.expires_at);
+
+        match is_pretty_printing {
+            true => debug
+                .field("body", &format_args!("{:?}", self.msg_payload.msg_body))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
+        }
     }
 }
 
