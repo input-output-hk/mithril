@@ -5,9 +5,9 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, OutdatedClosedKeyRegistration, MithrilMembershipDigest,
-    OutdatedInitializer, OutdatedKeyRegistration, Parameters, Stake,
-    VerificationKeyProofOfPossession,
+    AggregateSignature, AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer,
+    KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Stake,
+    VerificationKeyProofOfPossessionForConcatenation,
 };
 
 type D = MithrilMembershipDigest;
@@ -38,13 +38,13 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = OutdatedInitializer::new(params, stakes[0], &mut rng);
-    let party_1_init = OutdatedInitializer::new(params, stakes[1], &mut rng);
-    let party_2_init = OutdatedInitializer::new(params, stakes[2], &mut rng);
-    let party_3_init = OutdatedInitializer::new(params, stakes[3], &mut rng);
+    let party_0_init = Initializer::new(params, stakes[0], &mut rng);
+    let party_1_init = Initializer::new(params, stakes[1], &mut rng);
+    let party_2_init = Initializer::new(params, stakes[2], &mut rng);
+    let party_3_init = Initializer::new(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
+    let parties_pks: Vec<VerificationKeyProofOfPossessionForConcatenation> = vec![
         party_0_init.get_verification_key_proof_of_possession(),
         party_1_init.get_verification_key_proof_of_possession(),
         party_2_init.get_verification_key_proof_of_possession(),
@@ -60,10 +60,10 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.create_signer(key_reg_0).unwrap();
-    let party_1 = party_1_init.create_signer(key_reg_1).unwrap();
-    let party_2 = party_2_init.create_signer(key_reg_2).unwrap();
-    let party_3 = party_3_init.create_signer(key_reg_3).unwrap();
+    let party_0 = party_0_init.try_create_signer::<D>(&key_reg_0).unwrap();
+    let party_1 = party_1_init.try_create_signer::<D>(&key_reg_1).unwrap();
+    let party_2 = party_2_init.try_create_signer::<D>(&key_reg_2).unwrap();
+    let party_3 = party_3_init.try_create_signer::<D>(&key_reg_3).unwrap();
 
     /////////////////////
     // operation phase //
@@ -72,16 +72,16 @@ fn main() {
     // Now an asynchronous phase begins. The signers no longer need to communicate among themselves
     // Given the parameters we've chosen, the signers will be eligible for all indices.
     let mut party_0_sigs = party_0
-        .sign(&msg)
+        .create_single_signature(&msg)
         .expect("Signers can sign all indices in this example");
     let mut party_1_sigs = party_1
-        .sign(&msg)
+        .create_single_signature(&msg)
         .expect("Signers can sign all indices in this example");
     let mut party_2_sigs = party_2
-        .sign(&msg)
+        .create_single_signature(&msg)
         .expect("Signers can sign all indices in this example");
     let mut party_3_sigs = party_3
-        .sign(&msg)
+        .create_single_signature(&msg)
         .expect("Signers can sign all indices in this example");
 
     // Parties must have signed all indices
@@ -129,39 +129,55 @@ fn main() {
 
     // Now we aggregate the signatures
     let aggr_sig_type = AggregateSignatureType::Concatenation;
-    let msig_1 = match clerk.aggregate_signatures_with_type(&complete_sigs_1, &msg, aggr_sig_type) {
-        Ok(s) => s,
-        Err(e) => {
-            panic!("Aggregation failed: {e:?}")
-        }
-    };
+    let msig_1: AggregateSignature<MithrilMembershipDigest> =
+        match clerk.aggregate_signatures_with_type(&complete_sigs_1, &msg, aggr_sig_type) {
+            Ok(s) => s,
+            Err(e) => {
+                panic!("Aggregation failed: {e:?}")
+            }
+        };
     assert!(
         msig_1
             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
             .is_ok()
     );
 
-    let msig_2 = match clerk.aggregate_signatures_with_type(&complete_sigs_2, &msg, aggr_sig_type) {
-        Ok(s) => s,
-        Err(e) => {
-            panic!("Aggregation failed: {e:?}")
-        }
-    };
+    let msig_2: AggregateSignature<MithrilMembershipDigest> =
+        match clerk.aggregate_signatures_with_type(&complete_sigs_2, &msg, aggr_sig_type) {
+            Ok(s) => s,
+            Err(e) => {
+                panic!("Aggregation failed: {e:?}")
+            }
+        };
     assert!(
         msig_2
             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
             .is_ok()
     );
 
-    let msig_3 = clerk.aggregate_signatures_with_type(&incomplete_sigs_3, &msg, aggr_sig_type);
+    let msig_3 = clerk.aggregate_signatures_with_type::<MithrilMembershipDigest>(
+        &incomplete_sigs_3,
+        &msg,
+        aggr_sig_type,
+    );
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> OutdatedClosedKeyRegistration<D> {
-    let mut local_keyreg = OutdatedKeyRegistration::init();
+fn local_reg(
+    ids: &[u64],
+    pks: &[VerificationKeyProofOfPossessionForConcatenation],
+) -> ClosedKeyRegistration {
+    let mut local_keyreg = KeyRegistration::initialize();
     // data, such as the public key, stake and id.
-    for (&pk, id) in pks.iter().zip(ids.iter()) {
-        local_keyreg.register(*id, pk).unwrap();
+    for (pk, _) in pks.iter().zip(ids.iter()) {
+        let entry = RegistrationEntry::new(
+            *pk,
+            #[cfg(feature = "future_snark")]
+            None,
+            1,
+        )
+        .unwrap();
+        local_keyreg.register(&entry).unwrap();
     }
-    local_keyreg.close()
+    local_keyreg.close_registration()
 }

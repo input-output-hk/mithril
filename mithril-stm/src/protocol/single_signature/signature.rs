@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKey, proof_system::SingleSignatureForConcatenation, signature_scheme::BlsSignature,
+    proof_system::SingleSignatureForConcatenation,
+    signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
 use super::SignatureError;
@@ -28,12 +29,18 @@ impl SingleSignature {
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
-        pk: &VerificationKey,
+        pk: &BlsVerificationKey,
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        self.concatenation_signature.verify(params, pk, stake, avk, msg)
+        self.concatenation_signature.verify(
+            params,
+            pk,
+            stake,
+            avk.to_concatenation_proof_key().unwrap(),
+            msg,
+        )
     }
 
     /// Verify that all indices of a signature are valid.
@@ -157,8 +164,9 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
-        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
+        KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
         SingleSignature,
+        proof_system::ConcatenationProofSigner,
         signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
     };
 
@@ -207,18 +215,24 @@ mod tests {
             registration.register(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
 
-            let initializer = Initializer {
-                stake: 1,
+            let signer: Signer<MithrilMembershipDigest> = Signer::new(
+                1,
+                ConcatenationProofSigner::new(
+                    1,
+                    2,
+                    params,
+                    sk_1,
+                    pk_1.vk,
+                    closed_key_registration
+                        .clone()
+                        .key_registration
+                        .into_merkle_tree()
+                        .unwrap(),
+                ),
+                closed_key_registration.clone(),
                 params,
-                sk: sk_1,
-                pk: pk_1,
-            };
-
-            let signer = initializer
-                .try_create_signer::<MithrilMembershipDigest>(&closed_key_registration)
-                .unwrap();
-
-            signer.create_signle_signature(&message).unwrap()
+            );
+            signer.create_single_signature(&message).unwrap()
         }
 
         #[test]
@@ -280,18 +294,24 @@ mod tests {
 
             let closed_key_registration = registration.close_registration();
 
-            let initializer = Initializer {
-                stake: 1,
+            let signer: Signer<MithrilMembershipDigest> = Signer::new(
+                1,
+                ConcatenationProofSigner::new(
+                    1,
+                    2,
+                    params,
+                    sk_1,
+                    pk_1.vk,
+                    closed_key_registration
+                        .clone()
+                        .key_registration
+                        .into_merkle_tree()
+                        .unwrap(),
+                ),
+                closed_key_registration.clone(),
                 params,
-                sk: sk_1,
-                pk: pk_1,
-            };
-
-            let signer = initializer
-                .try_create_signer::<MithrilMembershipDigest>(&closed_key_registration)
-                .unwrap();
-
-            signer.create_signle_signature(&message).unwrap()
+            );
+            signer.create_single_signature(&message).unwrap()
         }
 
         #[test]
