@@ -289,7 +289,10 @@ The configuration values for the `/opt/mithril/mithril-aggregator.env` file are 
   - `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE`: Size of the prover cache pool (default: `10`). This configuration can have a significant impact on the aggregator's memory usage. In particular, on `mainnet`, we recommend avoiding values higher than `10`.
   - `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE`: Size of the database connection pool (default: `10`).
 
-:::
+- **Optional** configuration values are (all of them can be omitted):
+  - `BLOCKFROST_PARAMETERS`: Parameters to connect to the Blockfrost API. Used to fetch the ticker and name of the registered stake pools. Example: `{"project_id_env_var":"BLOCKFROST_PROJECT_ID_ENV_VAR_NAME"}`
+  - `SIGNER_IMPORTER_RUN_INTERVAL`: Time interval at which the pools names and ticker in blockfrost will be imported (in minutes, default: `720`).
+    :::
 
 :::tip
 
@@ -330,6 +333,10 @@ Here is an **example** set of values for **release-preprod** that will be used i
 - **Cardano transaction configuration**:
   - **CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE**: `10`
   - **CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE**: `10`
+
+- **Optional configuration**:
+  - **BLOCKFROST_PARAMETERS**: `{"project_id_env_var":"BLOCKFROST_PROJECT_ID"}`
+  - **SIGNER_IMPORTER_RUN_INTERVAL**: 720
 
 :::
 
@@ -387,6 +394,16 @@ CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=**YOUR_CARDANO_TRANSACTIONS_D
 EOF`
 ```
 
+If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
+# Optional configuration
+BLOCKFROST_PARAMETERS=**YOUR_BLOCKFROST_PARAMETERS**
+SIGNER_IMPORTER_RUN_INTERVAL=**YOUR_SIGNER_IMPORTER_RUN_INTERVAL**
+EOF`
+```
+
 :::tip
 
 Here is an example of the aforementioned command created with the example set for `release-preprod`:
@@ -439,6 +456,16 @@ sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
 # Cardano transactions configuration
 CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=10
 CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=10
+EOF'
+```
+
+If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
+# Optional configuration
+BLOCKFROST_PARAMETERS={"project_id_env_var":"BLOCKFROST_PROJECT_ID"}
+SIGNER_IMPORTER_RUN_INTERVAL=720
 EOF'
 ```
 
