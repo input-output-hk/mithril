@@ -3,30 +3,28 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKey, is_lottery_won, signature_scheme::BlsSignature,
+    VerificationKey, proof_system::SingleSignatureForConcatenation, signature_scheme::BlsSignature,
 };
 
 use super::SignatureError;
 
-/// Signature created by a single party who has won the lottery.
+/// Single signature created by a single party who has won the lottery.
+/// Contains the underlying signature for the proof system and the registration index of the signer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleSignature {
-    /// The signature from the underlying MSP scheme.
-    pub sigma: BlsSignature,
-    /// The index(es) for which the signature is valid
-    pub indexes: Vec<Index>,
+    /// Underlying signature for concatenation proof system.
+    #[serde(flatten)]
+    pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
     pub signer_index: Index,
 }
 
 impl SingleSignature {
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
-    /// the indexes are in the desired range and the underlying multi signature validates.
+    /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -35,21 +33,7 @@ impl SingleSignature {
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.sigma.verify(&msgp, pk).with_context(|| {
-            format!(
-                "Single signature verification failed for signer index {}.",
-                self.signer_index
-            )
-        })?;
-        self.check_indices(params, stake, &msgp, &avk.get_total_stake())
-            .with_context(|| {
-                format!(
-                    "Single signature verification failed for signer index {}.",
-                    self.signer_index
-                )
-            })?;
-        Ok(())
+        self.concatenation_signature.verify(params, pk, stake, avk, msg)
     }
 
     /// Verify that all indices of a signature are valid.
@@ -60,45 +44,34 @@ impl SingleSignature {
         msg: &[u8],
         total_stake: &Stake,
     ) -> StmResult<()> {
-        for &index in &self.indexes {
-            if index > params.m {
-                return Err(anyhow!(SignatureError::IndexBoundFailed(index, params.m)));
-            }
-
-            let ev = self.sigma.evaluate_dense_mapping(msg, index);
-
-            if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
-                return Err(anyhow!(SignatureError::LotteryLost));
-            }
-        }
-
-        Ok(())
+        self.concatenation_signature
+            .check_indices(params, stake, msg, total_stake)
     }
 
-    /// Convert an `SingleSignature` into bytes
+    /// Convert a `SingleSignature` into bytes
     ///
     /// # Layout
-    /// * Stake
-    /// * Number of valid indexes (as u64)
-    /// * Indexes of the signature
-    /// * Public Key
-    /// * Signature
+    /// * Concatenation proof system single signature bytes:
+    /// *   Length of indices
+    /// *   Indices
+    /// *   Sigma
     /// * Merkle index of the signer.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
-        output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
+        let indices = self.get_concatenation_signature_indices();
+        output.extend_from_slice(&(indices.len() as u64).to_be_bytes());
 
-        for index in &self.indexes {
+        for index in indices {
             output.extend_from_slice(&index.to_be_bytes());
         }
 
-        output.extend_from_slice(&self.sigma.to_bytes());
+        output.extend_from_slice(&self.get_concatenation_signature_sigma().to_bytes());
 
         output.extend_from_slice(&self.signer_index.to_be_bytes());
         output
     }
 
-    /// Extract a batch compatible `SingleSignature` from a byte slice.
+    /// Extract a `SingleSignature` from a byte slice.
     pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
@@ -130,22 +103,36 @@ impl SingleSignature {
         let signer_index = u64::from_be_bytes(u64_bytes);
 
         Ok(SingleSignature {
-            sigma,
-            indexes,
+            concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
             signer_index,
         })
+    }
+
+    /// Get indices of the single signature for concatenation proof system.
+    pub fn get_concatenation_signature_indices(&self) -> Vec<Index> {
+        self.concatenation_signature.get_indices().to_vec()
+    }
+
+    /// Get underlying BLS signature of the concatenation single signature.
+    pub fn get_concatenation_signature_sigma(&self) -> BlsSignature {
+        self.concatenation_signature.get_sigma()
+    }
+
+    /// Set the indices of the underlying single signature for proof system.
+    pub fn set_concatenation_signature_indices(&mut self, indices: &[Index]) {
+        self.concatenation_signature.set_indices(indices)
     }
 }
 
 impl Hash for SingleSignature {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.sigma.to_bytes(), state)
+        Hash::hash_slice(&self.concatenation_signature.get_sigma().to_bytes(), state)
     }
 }
 
 impl PartialEq for SingleSignature {
     fn eq(&self, other: &Self) -> bool {
-        self.sigma == other.sigma
+        self.concatenation_signature == other.concatenation_signature
     }
 }
 

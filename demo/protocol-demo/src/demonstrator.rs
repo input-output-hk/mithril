@@ -129,7 +129,10 @@ impl Party {
             "Party #{}: {}",
             self.party_id,
             if let Some(sig) = &signature {
-                format!("lottery #{:?} won", sig.indexes)
+                format!(
+                    "lottery #{:?} won",
+                    sig.get_concatenation_signature_indices()
+                )
             } else {
                 "lost all lotteries".to_string()
             }
@@ -415,7 +418,7 @@ impl ProtocolDemonstrator for Demonstrator {
                     single_signature_artifacts.push(SingleSignatureArtifact {
                         party_id: party.party_id.to_owned(),
                         message: message.encode_hex::<String>(),
-                        lotteries: party_signature.indexes.clone(),
+                        lotteries: party_signature.get_concatenation_signature_indices(),
                         signature: key_encode_hex(&party_signature).unwrap(),
                     });
                     signatures.push(party_signature);

@@ -112,10 +112,12 @@ impl<D: MembershipDigest> Clerk<D> {
             {
                 continue;
             }
-            for index in sig_reg.sig.indexes.iter() {
+            for index in sig_reg.sig.get_concatenation_signature_indices().iter() {
                 let mut insert_this_sig = false;
                 if let Some(&previous_sig) = sig_by_index.get(index) {
-                    let sig_to_remove_index = if sig_reg.sig.sigma < previous_sig.sig.sigma {
+                    let sig_to_remove_index = if sig_reg.sig.get_concatenation_signature_sigma()
+                        < previous_sig.sig.get_concatenation_signature_sigma()
+                    {
                         insert_this_sig = true;
                         previous_sig
                     } else {
@@ -146,16 +148,17 @@ impl<D: MembershipDigest> Clerk<D> {
             }
             let mut deduped_sig = sig_reg.clone();
             if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
-                deduped_sig.sig.indexes = deduped_sig
+                let indices = deduped_sig
                     .sig
-                    .indexes
-                    .clone()
+                    .get_concatenation_signature_indices()
                     .into_iter()
                     .filter(|i| !indexes.contains(i))
-                    .collect();
+                    .collect::<Vec<Index>>();
+                deduped_sig.sig.set_concatenation_signature_indices(&indices);
             }
 
-            let size: Result<u64, _> = deduped_sig.sig.indexes.len().try_into();
+            let size: Result<u64, _> =
+                deduped_sig.sig.get_concatenation_signature_indices().len().try_into();
             if let Ok(size) = size {
                 if dedup_sigs.contains(&deduped_sig) {
                     panic!("Should not reach!");
