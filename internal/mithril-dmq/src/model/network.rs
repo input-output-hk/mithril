@@ -23,13 +23,13 @@ pub enum DmqNetwork {
 
 impl DmqNetwork {
     /// Mainnet magic ID
-    pub const MAINNET_MAGIC_ID: MagicId = 123; // TODO: Update magic ids for networks
+    pub const MAINNET_MAGIC_ID: MagicId = 2912307721;
     /// Preprod magic ID
-    pub const PREPROD_MAGIC_ID: MagicId = 1; // TODO: Update magic ids for networks
+    pub const PREPROD_MAGIC_ID: MagicId = 2147483649;
     /// Preview magic ID
-    pub const PREVIEW_MAGIC_ID: MagicId = 2; // TODO: Update magic ids for networks
+    pub const PREVIEW_MAGIC_ID: MagicId = 2147483650;
     /// Devnet magic ID
-    pub(crate) const DEVNET_MAGIC_ID: MagicId = 3141592; // TODO: Update magic ids for networks
+    pub(crate) const DEVNET_MAGIC_ID: MagicId = 2147483690;
 
     /// Instantiates a DmqNetwork from its code and magic id
     pub fn from_code(
