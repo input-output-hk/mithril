@@ -14,8 +14,8 @@
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use mithril_stm::{
-//!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-//!    Signer, SingleSignature, MithrilMembershipDigest,
+//!    AggregateSignatureType, AggregationError, Clerk, OutdatedInitializer, OutdatedKeyRegistration, Parameters,
+//!    OutdatedSigner, SingleSignature, MithrilMembershipDigest,
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
@@ -49,14 +49,14 @@
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyRegistration::init();
+//! let mut key_reg = OutdatedKeyRegistration::init();
 //!
 //! // For each party, crate a Initializer.
 //! // This struct can create keys for the party.
-//! let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
+//! let mut ps: Vec<OutdatedInitializer> = Vec::with_capacity(nparties);
 //! for stake in stakes {
 //!     // Create keys for this party
-//!     let p = Initializer::new(params, stake, &mut rng);
+//!     let p = OutdatedInitializer::new(params, stake, &mut rng);
 //!     // Register keys with the KeyRegistration service
 //!     key_reg
 //!         .register(p.stake, p.get_verification_key_proof_of_possession())
@@ -72,7 +72,7 @@
 //! let ps = ps
 //!     .into_par_iter()
 //!     .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<Signer<D>>>();
+//!     .collect::<Vec<OutdatedSigner<D>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -145,6 +145,9 @@ pub type Stake = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
+
+/// Index of the signer in the key registration
+pub type SignerIndex = u64;
 
 /// Mithril-stm error type
 pub type StmError = anyhow::Error;

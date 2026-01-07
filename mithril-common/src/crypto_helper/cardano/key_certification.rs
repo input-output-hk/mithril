@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use mithril_stm::{
-    ClosedKeyRegistration, Initializer, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
-    Parameters, RegisterError, Signer, Stake, VerificationKeyProofOfPossession,
+    MembershipDigest, MithrilMembershipDigest, OutdatedClosedKeyRegistration, OutdatedInitializer,
+    OutdatedKeyRegistration, OutdatedSigner, Parameters, RegisterError, Stake,
+    VerificationKeyProofOfPossession,
 };
 
 use crate::{
@@ -95,7 +96,7 @@ pub enum ProtocolInitializerErrorWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     /// The Initializer
-    stm_initializer: Initializer,
+    stm_initializer: OutdatedInitializer,
 
     /// The KES signature over the Mithril key
     ///
@@ -114,7 +115,7 @@ impl StmInitializerWrapper {
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
-        let stm_initializer = Initializer::new(params, stake, rng);
+        let stm_initializer = OutdatedInitializer::new(params, stake, rng);
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
@@ -167,7 +168,10 @@ impl StmInitializerWrapper {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer(self, closed_reg: ClosedKeyRegistration<D>) -> StdResult<Signer<D>> {
+    pub fn new_signer(
+        self,
+        closed_reg: OutdatedClosedKeyRegistration<D>,
+    ) -> StdResult<OutdatedSigner<D>> {
         self.stm_initializer.create_signer(closed_reg)
     }
 
@@ -189,8 +193,9 @@ impl StmInitializerWrapper {
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
-        let stm_initializer =
-            Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
+        let stm_initializer = OutdatedInitializer::from_bytes(
+            bytes.get(..256).ok_or(RegisterError::SerializationError)?,
+        )?;
         let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
         let kes_signature = if bytes.is_empty() {
             None
@@ -214,7 +219,7 @@ impl StmInitializerWrapper {
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
     kes_verifier: Arc<dyn KesVerifier>,
-    stm_key_reg: KeyRegistration,
+    stm_key_reg: OutdatedKeyRegistration,
     stake_distribution: HashMap<ProtocolPartyId, Stake>,
 }
 
@@ -224,7 +229,7 @@ impl KeyRegWrapper {
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
             kes_verifier: Arc::new(KesVerifierStandard),
-            stm_key_reg: KeyRegistration::init(),
+            stm_key_reg: OutdatedKeyRegistration::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
     }
@@ -280,7 +285,7 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
-    pub fn close<D: MembershipDigest>(self) -> ClosedKeyRegistration<D> {
+    pub fn close<D: MembershipDigest>(self) -> OutdatedClosedKeyRegistration<D> {
         self.stm_key_reg.close()
     }
 }

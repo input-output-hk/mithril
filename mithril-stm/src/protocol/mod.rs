@@ -1,9 +1,9 @@
 mod aggregate_signature;
 mod eligibility_check;
 mod error;
-mod key_registration;
+mod outdated_key_registration;
+mod outdated_participant;
 mod parameters;
-mod participant;
 mod single_signature;
 
 pub use aggregate_signature::{
@@ -12,7 +12,20 @@ pub use aggregate_signature::{
 };
 pub(crate) use eligibility_check::is_lottery_won;
 pub use error::RegisterError;
-pub use key_registration::{ClosedKeyRegistration, KeyRegistration, RegisteredParty};
+pub use outdated_key_registration::{
+    OutdatedClosedKeyRegistration, OutdatedKeyRegistration, RegisteredParty,
+};
+pub use outdated_participant::{
+    OutdatedInitializer, OutdatedSigner, VerificationKey, VerificationKeyProofOfPossession,
+};
 pub use parameters::Parameters;
-pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProofOfPossession};
 pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};
+
+// New Key registration imports
+mod key_registration;
+mod participant;
+
+pub use key_registration::{
+    ClosedKeyRegistration, KeyRegistration, RegistrationEntry, RegistrationEntryForConcatenation,
+};
+pub use participant::{Initializer, Signer};
