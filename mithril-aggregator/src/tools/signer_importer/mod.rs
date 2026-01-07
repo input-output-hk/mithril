@@ -1,11 +1,9 @@
 mod api;
 mod blockfrost_retriever;
-mod cexplorer_retriever;
 mod signer_store_persister;
 
 pub use api::*;
 pub use blockfrost_retriever::*;
-pub use cexplorer_retriever::*;
 
 #[cfg(test)]
 mod test_tools {

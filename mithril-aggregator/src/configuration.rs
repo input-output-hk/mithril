@@ -221,11 +221,6 @@ pub trait ConfigurationSource {
         panic!("zstandard_parameters is not implemented.");
     }
 
-    /// Url to CExplorer list of pools to import as signer in the database.
-    fn cexplorer_pools_url(&self) -> Option<String> {
-        panic!("cexplorer_pools_url is not implemented.");
-    }
-
     /// Blockfrost api configuration
     fn blockfrost_parameters(&self) -> Option<BlockfrostParameters> {
         panic!("blockfrost_parameters is not implemented.");
@@ -567,9 +562,6 @@ pub struct ServeCommandConfiguration {
     #[example = "`{ level: 9, number_of_workers: 4 }`"]
     pub zstandard_parameters: Option<ZstandardCompressionParameters>,
 
-    /// Url to CExplorer list of pools to import as signer in the database.
-    pub cexplorer_pools_url: Option<String>,
-
     /// Optional parameters to connect to the Blockfrost API. Used to fetch the ticker and name of
     /// the registered stake pools.
     ///
@@ -775,7 +767,6 @@ impl ServeCommandConfiguration {
             signed_entity_types: None,
             snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
-            cexplorer_pools_url: None,
             blockfrost_parameters: None,
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
@@ -927,10 +918,6 @@ impl ConfigurationSource for ServeCommandConfiguration {
 
     fn zstandard_parameters(&self) -> Option<ZstandardCompressionParameters> {
         self.zstandard_parameters
-    }
-
-    fn cexplorer_pools_url(&self) -> Option<String> {
-        self.cexplorer_pools_url.clone()
     }
 
     fn blockfrost_parameters(&self) -> Option<BlockfrostParameters> {

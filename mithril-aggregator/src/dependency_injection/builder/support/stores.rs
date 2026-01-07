@@ -1,6 +1,5 @@
 use anyhow::Context;
 use std::sync::Arc;
-use std::time::Duration;
 
 use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -12,9 +11,7 @@ use crate::database::repository::{
     SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, Result};
-use crate::tools::signer_importer::{
-    BlockfrostSignerRetriever, CExplorerSignerRetriever, SignersImporter,
-};
+use crate::tools::signer_importer::{BlockfrostSignerRetriever, SignersImporter};
 use crate::{
     ImmutableFileDigestMapper, ProtocolParametersRetriever, VerificationKeyStorer, get_dependency,
 };
@@ -176,25 +173,6 @@ impl DependenciesBuilder {
     /// [SignedEntityStorer] service
     pub async fn get_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
         get_dependency!(self.signed_entity_storer)
-    }
-
-    /// Create a [SignersImporter] instance.
-    pub async fn create_signer_importer(
-        &mut self,
-        cexplorer_pools_url: &str,
-    ) -> Result<SignersImporter> {
-        let retriever = CExplorerSignerRetriever::new(
-            cexplorer_pools_url,
-            Some(Duration::from_secs(30)),
-            self.root_logger(),
-        )?;
-        let persister = self.get_signer_store().await?;
-
-        Ok(SignersImporter::new(
-            Arc::new(retriever),
-            persister,
-            self.root_logger(),
-        ))
     }
 
     /// Create a signers importer instance.
