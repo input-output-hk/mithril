@@ -3,18 +3,18 @@ use rand_core::RngCore;
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
-    KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake,
-    StmResult, VerificationKey,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk,
+    MithrilMembershipDigest, OutdatedInitializer, OutdatedKeyRegistration, OutdatedSigner,
+    Parameters, SingleSignature, Stake, StmResult, VerificationKey,
 };
 
 type D = MithrilMembershipDigest;
 
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {
-    pub signers: Vec<Signer<D>>,
+    pub signers: Vec<OutdatedSigner<D>>,
     pub reg_parties: Vec<(VerificationKey, Stake)>,
-    pub initializers: Vec<Initializer>,
+    pub initializers: Vec<OutdatedInitializer>,
 }
 
 /// The result of the operation phase of the STM protocol.
@@ -31,14 +31,14 @@ pub fn initialization_phase(
 ) -> InitializationPhaseResult {
     let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = OutdatedKeyRegistration::init();
 
-    let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<OutdatedInitializer> = Vec::with_capacity(nparties);
 
     let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
-        let p = Initializer::new(params, stake, &mut rng);
+        let p = OutdatedInitializer::new(params, stake, &mut rng);
         key_reg
             .register(stake, p.get_verification_key_proof_of_possession())
             .unwrap();
@@ -52,7 +52,7 @@ pub fn initialization_phase(
         .clone()
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<Signer<D>>>();
+        .collect::<Vec<OutdatedSigner<D>>>();
 
     InitializationPhaseResult {
         signers,
@@ -63,7 +63,7 @@ pub fn initialization_phase(
 
 pub fn operation_phase(
     params: Parameters,
-    signers: Vec<Signer<D>>,
+    signers: Vec<OutdatedSigner<D>>,
     reg_parties: Vec<(VerificationKey, Stake)>,
     msg: [u8; 32],
 ) -> OperationPhaseResult {

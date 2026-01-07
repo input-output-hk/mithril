@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, Stake,
+    OutdatedClosedKeyRegistration, MembershipDigest, Stake,
     membership_commitment::{
         MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf,
     },
@@ -39,8 +39,8 @@ impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
 
 impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
 
-impl<D: MembershipDigest> From<&ClosedKeyRegistration<D>> for AggregateVerificationKey<D> {
-    fn from(reg: &ClosedKeyRegistration<D>) -> Self {
+impl<D: MembershipDigest> From<&OutdatedClosedKeyRegistration<D>> for AggregateVerificationKey<D> {
+    fn from(reg: &OutdatedClosedKeyRegistration<D>) -> Self {
         Self {
             mt_commitment: reg.merkle_tree.to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,

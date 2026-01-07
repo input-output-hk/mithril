@@ -4,7 +4,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignature, Initializer, MithrilMembershipDigest, Parameters, SingleSignature,
+    AggregateSignature, MithrilMembershipDigest, OutdatedInitializer, Parameters, SingleSignature,
     VerificationKey,
 };
 
@@ -59,9 +59,9 @@ fn test_binary_conversions() {
 
     let initializer = &initializers[0];
     let encoded = initializer.to_bytes();
-    Initializer::from_bytes(&encoded[1..])
+    OutdatedInitializer::from_bytes(&encoded[1..])
         .expect_err("Initializer decoding should fail with invalid bytes");
-    let decoded = Initializer::from_bytes(&encoded).unwrap();
+    let decoded = OutdatedInitializer::from_bytes(&encoded).unwrap();
     assert_eq!(initializer.to_bytes(), decoded.to_bytes());
 
     let OperationPhaseResult { msig, avk: _, sigs } =

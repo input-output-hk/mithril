@@ -5,8 +5,8 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, Initializer, KeyRegistration, MembershipDigest,
-    MithrilMembershipDigest, Parameters, Signer, SingleSignature,
+    AggregateSignatureType, Clerk, MembershipDigest, MithrilMembershipDigest, OutdatedInitializer,
+    OutdatedKeyRegistration, OutdatedSigner, Parameters, SingleSignature,
 };
 
 fn size<D>(k: u64, m: u64, nparties: usize, hash_name: &str)
@@ -22,12 +22,12 @@ where
 
     let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
-    let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
+    let mut ps: Vec<OutdatedInitializer> = Vec::with_capacity(nparties);
     let params = Parameters { k, m, phi_f: 0.2 };
 
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = OutdatedKeyRegistration::init();
     for stake in parties {
-        let p = Initializer::new(params, stake, &mut rng);
+        let p = OutdatedInitializer::new(params, stake, &mut rng);
         key_reg
             .register(stake, p.get_verification_key_proof_of_possession())
             .unwrap();
@@ -39,7 +39,7 @@ where
     let ps = ps
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<Signer<D>>>();
+        .collect::<Vec<OutdatedSigner<D>>>();
 
     let sigs = ps
         .par_iter()

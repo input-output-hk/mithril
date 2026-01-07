@@ -5,8 +5,9 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration,
-    MithrilMembershipDigest, Parameters, Stake, VerificationKeyProofOfPossession,
+    AggregateSignatureType, Clerk, OutdatedClosedKeyRegistration, MithrilMembershipDigest,
+    OutdatedInitializer, OutdatedKeyRegistration, Parameters, Stake,
+    VerificationKeyProofOfPossession,
 };
 
 type D = MithrilMembershipDigest;
@@ -37,10 +38,10 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = Initializer::new(params, stakes[0], &mut rng);
-    let party_1_init = Initializer::new(params, stakes[1], &mut rng);
-    let party_2_init = Initializer::new(params, stakes[2], &mut rng);
-    let party_3_init = Initializer::new(params, stakes[3], &mut rng);
+    let party_0_init = OutdatedInitializer::new(params, stakes[0], &mut rng);
+    let party_1_init = OutdatedInitializer::new(params, stakes[1], &mut rng);
+    let party_2_init = OutdatedInitializer::new(params, stakes[2], &mut rng);
+    let party_3_init = OutdatedInitializer::new(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
     let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
@@ -156,8 +157,8 @@ fn main() {
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> ClosedKeyRegistration<D> {
-    let mut local_keyreg = KeyRegistration::init();
+fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> OutdatedClosedKeyRegistration<D> {
+    let mut local_keyreg = OutdatedKeyRegistration::init();
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
         local_keyreg.register(*id, pk).unwrap();

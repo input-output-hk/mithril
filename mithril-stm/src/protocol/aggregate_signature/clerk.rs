@@ -2,7 +2,7 @@ use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer, SingleSignature,
+    OutdatedClosedKeyRegistration, Index, MembershipDigest, OutdatedSigner, Parameters, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake, StmResult, VerificationKey,
     proof_system::ConcatenationProof,
 };
@@ -16,7 +16,7 @@ use super::{
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
 pub struct Clerk<D: MembershipDigest> {
-    pub(crate) closed_reg: ClosedKeyRegistration<D>,
+    pub(crate) closed_reg: OutdatedClosedKeyRegistration<D>,
     pub(crate) params: Parameters,
 }
 
@@ -24,7 +24,7 @@ impl<D: MembershipDigest> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         params: &Parameters,
-        closed_reg: &ClosedKeyRegistration<D>,
+        closed_reg: &OutdatedClosedKeyRegistration<D>,
     ) -> Self {
         Self {
             params: *params,
@@ -33,7 +33,7 @@ impl<D: MembershipDigest> Clerk<D> {
     }
 
     /// Create a Clerk from a signer.
-    pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
+    pub fn new_clerk_from_signer(signer: &OutdatedSigner<D>) -> Self {
         let closed_reg = signer
             .get_closed_key_registration()
             .clone()
@@ -184,8 +184,8 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
 
     use crate::{
-        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
-        Parameters, SingleSignatureWithRegisteredParty,
+        Clerk, OutdatedClosedKeyRegistration, MithrilMembershipDigest, OutdatedInitializer,
+        OutdatedKeyRegistration, Parameters, SingleSignatureWithRegisteredParty,
     };
 
     use super::AggregationError;
@@ -219,17 +219,17 @@ mod tests {
                 false_msgs.push(false_msg);
             }
 
-            let mut key_registration = KeyRegistration::init();
+            let mut key_registration = OutdatedKeyRegistration::init();
             let mut initializers = Vec::new();
 
             for i in 0..nparties {
                 let stake = (i as u64 + 1) * 10;
-                let initializer = Initializer::new(params, stake, &mut rng);
+                let initializer = OutdatedInitializer::new(params, stake, &mut rng);
                 key_registration.register(initializer.stake, initializer.pk).unwrap();
                 initializers.push(initializer);
             }
 
-            let closed_registration: ClosedKeyRegistration<D> = key_registration.close();
+            let closed_registration: OutdatedClosedKeyRegistration<D> = key_registration.close();
 
             let signers: Vec<_> = initializers
                 .into_iter()

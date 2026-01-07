@@ -221,8 +221,8 @@ mod tests {
 
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
-            Clerk, ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
-            Signer,
+            Clerk, OutdatedClosedKeyRegistration, MithrilMembershipDigest, OutdatedKeyRegistration,
+            OutdatedSigner, Parameters,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
@@ -296,13 +296,14 @@ mod tests {
             let sk_2 = BlsSigningKey::generate(&mut rng);
             let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
             let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
-            let mut key_reg = KeyRegistration::init();
+            let mut key_reg = OutdatedKeyRegistration::init();
             key_reg.register(1, pk_1).unwrap();
             key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let closed_key_reg: OutdatedClosedKeyRegistration<D> = key_reg.close();
             let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_key_reg);
-            let signer_1 = Signer::set_signer(0, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
-            let signer_2 = Signer::set_signer(1, 1, params, sk_2, pk_2.vk, closed_key_reg);
+            let signer_1 =
+                OutdatedSigner::set_signer(0, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
+            let signer_2 = OutdatedSigner::set_signer(1, 1, params, sk_2, pk_2.vk, closed_key_reg);
             let signature_1 = signer_1.sign(&msg).unwrap();
             let signature_2 = signer_2.sign(&msg).unwrap();
 

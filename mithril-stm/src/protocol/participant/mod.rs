@@ -1,7 +1,5 @@
-//! Mithril-stm participant including Initializer and Signer
-
 mod initializer;
 mod signer;
 
-pub use initializer::*;
-pub use signer::*;
+pub use initializer::Initializer;
+pub use signer::Signer;
