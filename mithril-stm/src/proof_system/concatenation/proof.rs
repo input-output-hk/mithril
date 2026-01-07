@@ -3,9 +3,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::{
-    AggregateSignatureError, AggregateVerificationKey, AggregationError, Clerk, MembershipDigest,
-    Parameters, RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
+    AggregateSignatureError, AggregationError, MembershipDigest, Parameters,
+    RegistrationEntryForConcatenation, SingleSignature, SingleSignatureWithRegisteredParty,
+    StmResult,
     membership_commitment::MerkleBatchPath,
+    proof_system::{ConcatenationClerk, ConcatenationProofKey},
     signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
@@ -31,7 +33,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
     ///
     /// It returns an instance of `ConcatenationProof`.
     pub fn aggregate_signatures(
-        clerk: &Clerk<D>,
+        clerk: &ConcatenationClerk,
         sigs: &[SingleSignature],
         msg: &[u8],
     ) -> StmResult<ConcatenationProof<D>> {
@@ -39,16 +41,24 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             .iter()
             .map(|sig| SingleSignatureWithRegisteredParty {
                 sig: sig.clone(),
-                reg_party: clerk.closed_reg.reg_parties[sig.signer_index as usize],
+                reg_party: clerk
+                    .closed_reg
+                    .key_registration
+                    .get_registration_entry_for_index(&sig.signer_index)
+                    .unwrap(),
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-        let avk = clerk.compute_aggregate_verification_key();
-        let mut unique_sigs =
-            Clerk::select_valid_signatures_for_k_indices(&clerk.params, msg, &sig_reg_list, &avk)
-                .with_context(
-                || "Failed to aggregate unique signatures during selection for the k indices.",
-            )?;
+        let avk: ConcatenationProofKey<D> = clerk.compute_aggregate_verification_key();
+        let mut unique_sigs = ConcatenationClerk::select_valid_signatures_for_k_indices(
+            &clerk.parameters,
+            msg,
+            &sig_reg_list,
+            &avk,
+        )
+        .with_context(
+            || "Failed to aggregate unique signatures during selection for the k indices.",
+        )?;
 
         unique_sigs.sort_unstable();
 
@@ -59,7 +69,10 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
 
         let batch_proof = clerk
             .closed_reg
-            .merkle_tree
+            .key_registration
+            .clone()
+            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+            .unwrap()
             .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(Self {
@@ -77,7 +90,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
     fn preliminary_verify(
         &self,
         msg: &[u8],
-        avk: &AggregateVerificationKey<D>,
+        avk: &ConcatenationProofKey<D>,
         parameters: &Parameters,
     ) -> StmResult<(Vec<BlsSignature>, Vec<BlsVerificationKey>)> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
@@ -90,7 +103,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
                 .sig
                 .check_indices(
                     parameters,
-                    &sig_reg.reg_party.1,
+                    &sig_reg.reg_party.get_stake(),
                     &msgp,
                     &avk.get_total_stake(),
                 )
@@ -114,8 +127,8 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let leaves = self
             .signatures
             .iter()
-            .map(|r| r.reg_party)
-            .collect::<Vec<RegisteredParty>>();
+            .map(|r| r.reg_party.into())
+            .collect::<Vec<RegistrationEntryForConcatenation>>();
 
         avk.get_merkle_tree_batch_commitment()
             .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)
@@ -133,7 +146,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
     pub fn verify(
         &self,
         msg: &[u8],
-        avk: &AggregateVerificationKey<D>,
+        avk: &ConcatenationProofKey<D>,
         parameters: &Parameters,
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
@@ -150,7 +163,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
-        avks: &[AggregateVerificationKey<D>],
+        avks: &[ConcatenationProofKey<D>],
         parameters: &[Parameters],
     ) -> StmResult<()> {
         let batch_size = stm_signatures.len();
@@ -182,7 +195,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             let grouped_vks: Vec<BlsVerificationKey> = sig_group
                 .signatures
                 .iter()
-                .map(|sig_reg| sig_reg.reg_party.0)
+                .map(|sig_reg| sig_reg.reg_party.get_bls_verification_key())
                 .collect();
 
             let (aggr_vk, aggr_sig) = BlsSignature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
@@ -275,7 +288,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let vks = self
             .signatures
             .iter()
-            .map(|sig_reg| sig_reg.reg_party.0)
+            .map(|sig_reg| sig_reg.reg_party.get_bls_verification_key())
             .collect::<Vec<BlsVerificationKey>>();
 
         (sigs, vks)

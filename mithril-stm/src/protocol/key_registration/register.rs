@@ -77,6 +77,17 @@ impl KeyRegistration {
             total_stake,
         }
     }
+
+    pub fn get_registration_entry_for_index(
+        &self,
+        signer_index: &SignerIndex,
+    ) -> StmResult<RegistrationEntry> {
+        self.registration_entries
+            .iter()
+            .nth(*signer_index as usize)
+            .cloned()
+            .ok_or_else(|| anyhow!(RegisterError::UnregisteredIndex))
+    }
 }
 
 /// Closed Key Registration
@@ -84,4 +95,83 @@ impl KeyRegistration {
 pub struct ClosedKeyRegistration {
     pub key_registration: KeyRegistration,
     pub total_stake: Stake,
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::{collection::vec, prelude::*};
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        VerificationKeyProofOfPossessionForConcatenation, signature_scheme::BlsSigningKey,
+    };
+
+    use super::*;
+
+    proptest! {
+        #[test]
+        fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
+                       nkeys in 2..10_usize,
+                       fake_it in 0..4usize,
+                       seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let mut kr = KeyRegistration::initialize();
+
+            let gen_keys = (1..nkeys).map(|_| {
+                let sk = BlsSigningKey::generate(&mut rng);
+                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
+            }).collect::<Vec<_>>();
+
+            let fake_key = {
+                let sk = BlsSigningKey::generate(&mut rng);
+                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
+            };
+
+            // Record successful registrations
+            let mut keys = BTreeSet::new();
+
+            for (i, &stake) in stake.iter().enumerate() {
+                let mut pk = gen_keys[i % gen_keys.len()];
+
+                if fake_it == 0 {
+                    pk.pop = fake_key.pop;
+                }
+
+                let entry_result = RegistrationEntry::new(pk.clone(), #[cfg(feature = "future_snark")] None, stake);
+
+                match entry_result {
+                    Ok(entry) => {
+                        let reg = kr.register(&entry);
+                        match reg {
+                            Ok(_) => {
+                                assert!(keys.insert(entry));
+                            },
+                            Err(error) => match error.downcast_ref::<RegisterError>(){
+                                Some(RegisterError::EntryRegistered(e1)) => {
+                                    assert!(e1.as_ref() == &entry);
+                                    assert!(keys.contains(&entry));
+                                },
+                                _ => {panic!("Unexpected error: {error}")}
+                            }
+                        }
+                    },
+                    Err(error) =>  match error.downcast_ref::<RegisterError>(){
+                        Some(RegisterError::KeyInvalid(a)) => {
+                            assert_eq!(fake_it, 0);
+                            assert!(pk.verify_proof_of_possession().is_err());
+                            assert!(a.as_ref() == &pk.vk);
+                        },
+                        _ => {panic!("Unexpected error: {error}")}
+                    }
+                }
+            }
+
+            if !kr.registration_entries.is_empty() {
+                let closed = kr.close_registration();
+                let retrieved_keys = closed.key_registration.registration_entries;
+                assert!(retrieved_keys == keys);
+            }
+        }
+    }
 }

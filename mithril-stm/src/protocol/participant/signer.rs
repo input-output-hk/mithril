@@ -1,6 +1,6 @@
 use crate::{
     ClosedKeyRegistration, MembershipDigest, Parameters, SignerIndex, SingleSignature, StmResult,
-    proof_system::ConcatenationProofSigner,
+    proof_system::ConcatenationProofSigner, signature_scheme::BlsVerificationKey,
 };
 
 /// Single signature generator. Contains the signer's registration index and the signature
@@ -32,12 +32,16 @@ impl<D: MembershipDigest> Signer<D> {
     }
 
     /// Creates and returns a single signature for the given message.
-    pub fn create_signle_signature(&self, message: &[u8]) -> StmResult<SingleSignature> {
+    pub fn create_single_signature(&self, message: &[u8]) -> StmResult<SingleSignature> {
         let concatenation_signature =
-            self.concatenation_proof_signer.create_signle_signature(message)?;
+            self.concatenation_proof_signer.create_single_signature(message)?;
         Ok(SingleSignature {
             concatenation_signature,
             signer_index: self.signer_index,
         })
+    }
+
+    pub fn get_bls_verification_key(&self) -> BlsVerificationKey {
+        self.concatenation_proof_signer.get_verification_key()
     }
 }

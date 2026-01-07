@@ -14,8 +14,8 @@
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use mithril_stm::{
-//!    AggregateSignatureType, AggregationError, Clerk, OutdatedInitializer, OutdatedKeyRegistration, Parameters,
-//!    OutdatedSigner, SingleSignature, MithrilMembershipDigest,
+//!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
+//!    RegistrationEntry, Signer, SingleSignature, MithrilMembershipDigest,
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
@@ -49,30 +49,35 @@
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = OutdatedKeyRegistration::init();
+//! let mut key_reg = KeyRegistration::initialize();
 //!
 //! // For each party, crate a Initializer.
 //! // This struct can create keys for the party.
-//! let mut ps: Vec<OutdatedInitializer> = Vec::with_capacity(nparties);
+//! let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
 //! for stake in stakes {
 //!     // Create keys for this party
-//!     let p = OutdatedInitializer::new(params, stake, &mut rng);
+//!     let p = Initializer::new(params, stake, &mut rng);
 //!     // Register keys with the KeyRegistration service
-//!     key_reg
-//!         .register(p.stake, p.get_verification_key_proof_of_possession())
-//!         .unwrap();
+//!     let entry = RegistrationEntry::new(
+//!         p.get_verification_key_proof_of_possession(),
+//!         #[cfg(feature = "future_snark")]
+//!         None,
+//!         p.stake,
+//!     )
+//!     .unwrap();
+//!     key_reg.register(&entry).unwrap();
 //!     ps.push(p);
 //! }
 //!
 //! // Close the key registration.
-//! let closed_reg = key_reg.close();
+//! let closed_reg = key_reg.close_registration();
 //!
 //! // Finalize the Initializer and turn it into a Signer, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<OutdatedSigner<D>>>();
+//!     .map(|p| p.try_create_signer(&closed_reg).unwrap())
+//!     .collect::<Vec<Signer<D>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -82,16 +87,14 @@
 //! // We collect the successful signatures into a vec.
 //! let sigs = ps
 //!     .par_iter()
-//!     .filter_map(|p| {
-//!         return p.sign(&msg);
-//!     })
+//!     .filter_map(|p| p.create_single_signature(&msg).ok())
 //!     .collect::<Vec<SingleSignature>>();
 //!
 //! // Clerk can aggregate and verify signatures.
 //! let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
+//! let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, AggregateSignatureType::Concatenation);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");

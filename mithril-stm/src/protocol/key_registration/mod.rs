@@ -4,7 +4,10 @@ mod registration_entry;
 
 pub use concatenation_registration_entry::RegistrationEntryForConcatenation;
 pub use register::{ClosedKeyRegistration, KeyRegistration};
-pub use registration_entry::RegistrationEntry;
+pub use registration_entry::{
+    RegistrationEntry, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
+};
 
 #[cfg(test)]
 mod tests {
@@ -43,7 +46,7 @@ mod tests {
             .expect("Signer should be created!");
 
         let signature1 = signer1
-            .create_signle_signature(&message)
+            .create_single_signature(&message)
             .expect("signature should be created");
 
         println!("{:?}", signature1);

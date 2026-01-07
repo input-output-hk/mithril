@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, MembershipDigest, MithrilMembershipDigest,
-    OutdatedInitializer, OutdatedKeyRegistration, OutdatedSigner, Parameters,
+    AggregateSignature, AggregateSignatureType, Clerk, Initializer, KeyRegistration,
+    MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
 };
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -33,44 +33,44 @@ fn stm_benches<D: MembershipDigest>(
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut initializers: Vec<OutdatedInitializer> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
     for stake in stakes {
-        initializers.push(OutdatedInitializer::new(params, stake, &mut rng));
+        initializers.push(Initializer::new(params, stake, &mut rng));
     }
-    let mut key_reg = OutdatedKeyRegistration::init();
+    let mut key_reg = KeyRegistration::initialize();
 
     group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
         b.iter(|| {
             // We need to initialise the key_reg at each iteration
-            key_reg = OutdatedKeyRegistration::init();
+            key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg
-                    .register(p.stake, p.get_verification_key_proof_of_possession())
-                    .unwrap();
+                key_reg.register(&p.clone().into()).unwrap();
             }
         })
     });
 
-    let closed_reg = key_reg.close();
+    let closed_reg = key_reg.close_registration();
 
-    let signers: Vec<OutdatedSigner<D>> = initializers
+    let signers: Vec<Signer<D>> = initializers
         .into_par_iter()
-        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.try_create_signer(&closed_reg).unwrap())
         .collect();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
-            signers[0].sign(&msg);
+            signers[0].create_single_signature(&msg).unwrap();
         })
     });
 
-    let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
-
+    let sigs = signers
+        .par_iter()
+        .filter_map(|p| p.create_single_signature(&msg).ok())
+        .collect::<Vec<_>>();
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);
     let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type))
+        b.iter(|| clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggregate_signature_type))
     });
 }
 
@@ -96,7 +96,7 @@ fn batch_benches<D>(
 
         let mut batch_msgs = Vec::with_capacity(nr_batches);
         let mut batch_params = Vec::with_capacity(nr_batches);
-        let mut batch_stms = Vec::with_capacity(nr_batches);
+        let mut batch_stms: Vec<AggregateSignature<D>> = Vec::with_capacity(nr_batches);
         let mut batch_avks = Vec::with_capacity(nr_batches);
 
         for _ in 0..nr_batches {
@@ -109,25 +109,26 @@ fn batch_benches<D>(
                 .map(|_| 1 + (rng.next_u64() % 9999))
                 .collect::<Vec<_>>();
 
-            let mut initializers: Vec<OutdatedInitializer> = Vec::with_capacity(nr_parties);
+            let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
             for stake in stakes {
-                initializers.push(OutdatedInitializer::new(params, stake, &mut rng));
+                initializers.push(Initializer::new(params, stake, &mut rng));
             }
-            let mut key_reg = OutdatedKeyRegistration::init();
+            let mut key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg
-                    .register(p.stake, p.get_verification_key_proof_of_possession())
-                    .unwrap();
+                key_reg.register(&p.clone().into()).unwrap();
             }
 
-            let closed_reg = key_reg.close();
+            let closed_reg = key_reg.close_registration();
 
             let signers = initializers
                 .into_par_iter()
-                .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-                .collect::<Vec<OutdatedSigner<D>>>();
+                .map(|p| p.try_create_signer(&closed_reg).unwrap())
+                .collect::<Vec<Signer<D>>>();
 
-            let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
+            let sigs = signers
+                .par_iter()
+                .filter_map(|p| p.create_single_signature(&msg).ok())
+                .collect::<Vec<_>>();
 
             let clerk = Clerk::new_clerk_from_signer(&signers[0]);
             let aggregate_signature_type = AggregateSignatureType::Concatenation;

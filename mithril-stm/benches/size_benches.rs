@@ -5,8 +5,8 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, MembershipDigest, MithrilMembershipDigest, OutdatedInitializer,
-    OutdatedKeyRegistration, OutdatedSigner, Parameters, SingleSignature,
+    AggregateSignatureType, Clerk, Initializer, KeyRegistration, MembershipDigest,
+    MithrilMembershipDigest, Parameters, Signer, SingleSignature,
 };
 
 fn size<D>(k: u64, m: u64, nparties: usize, hash_name: &str)
@@ -22,35 +22,33 @@ where
 
     let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
-    let mut ps: Vec<OutdatedInitializer> = Vec::with_capacity(nparties);
+    let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
     let params = Parameters { k, m, phi_f: 0.2 };
 
-    let mut key_reg = OutdatedKeyRegistration::init();
+    let mut key_reg = KeyRegistration::initialize();
     for stake in parties {
-        let p = OutdatedInitializer::new(params, stake, &mut rng);
-        key_reg
-            .register(stake, p.get_verification_key_proof_of_possession())
-            .unwrap();
+        let p = Initializer::new(params, stake, &mut rng);
+        key_reg.register(&p.clone().into()).unwrap();
         ps.push(p);
     }
 
-    let closed_reg = key_reg.close::<D>();
+    let closed_reg = key_reg.close_registration();
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<OutdatedSigner<D>>>();
+        .map(|p| p.try_create_signer(&closed_reg).unwrap())
+        .collect::<Vec<Signer<D>>>();
 
     let sigs = ps
         .par_iter()
-        .filter_map(|p| p.sign(&msg))
+        .filter_map(|p| p.create_single_signature(&msg).ok())
         .collect::<Vec<SingleSignature>>();
     let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 
     // Aggregate with random parties
     let aggr_sig_type = AggregateSignatureType::Concatenation;
     let aggr = clerk
-        .aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type)
+        .aggregate_signatures_with_type::<D>(&sigs, &msg, aggr_sig_type)
         .unwrap();
 
     println!(

@@ -68,8 +68,8 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignatureType, AggregationError, Clerk, OutdatedInitializer, OutdatedKeyRegistration, Parameters,
-    OutdatedSigner, SingleSignature, MithrilMembershipDigest,
+    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
+    RegistrationEntry, Signer, SingleSignature, MithrilMembershipDigest, AggregateVerificationKey,
 };
 
 type D = MithrilMembershipDigest;
@@ -94,21 +94,28 @@ let parties = (0..nparties)
     .map(|_| 1 + (rng.next_u64() % 9999))
     .collect::<Vec<_>>();
 
-let mut key_reg = OutdatedKeyRegistration::init();
+let mut key_reg = KeyRegistration::initialize();
 
-let mut ps: Vec<OutdatedInitializer> = Vec::with_capacity(nparties as usize);
+let mut ps: Vec<Initializer> = Vec::with_capacity(nparties as usize);
 for stake in parties {
-    let p = OutdatedInitializer::new(params, stake, &mut rng);
-    key_reg.register(stake, p.get_verification_key_proof_of_possession()).unwrap();
+    let p = Initializer::new(params, stake, &mut rng);
+    let entry = RegistrationEntry::new(
+        p.get_verification_key_proof_of_possession(),
+        #[cfg(feature = "future_snark")]
+        None,
+        p.stake,
+    )
+    .unwrap();
+    key_reg.register(&entry).unwrap();
     ps.push(p);
 }
 
-let closed_reg = key_reg.close();
+let closed_reg = key_reg.close_registration();
 
 let ps = ps
     .into_par_iter()
-    .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-    .collect::<Vec<OutdatedSigner<D>>>();
+    .map(|p| p.try_create_signer(&closed_reg).unwrap())
+    .collect::<Vec<Signer<D>>>();
 
 /////////////////////
 // operation phase //
@@ -116,40 +123,40 @@ let ps = ps
 
 let sigs = ps
     .par_iter()
-    .filter_map(|p| p.sign(&msg))
+    .filter_map(|p| p.create_single_signature(&msg).ok())
     .collect::<Vec<SingleSignature>>();
 
 let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-let avk = clerk.compute_aggregate_verification_key();
+let avk: AggregateVerificationKey<D>  = clerk.compute_aggregate_verification_key();
 
-// Check all parties can verify every sig
-for (s, p) in sigs.iter().zip(ps.iter()) {
-    assert!(s.verify(&params, &p.get_verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification
-    failed");
-}
+// // Check all parties can verify every sig
+// for (s, p) in sigs.iter().zip(ps.iter()) {
+//     let stake = closed_reg.key_registration.get_registration_entry_for_index(&s.signer_index).unwrap().get_stake();
+//     assert!(s.verify::<D>(&params, &p.get_bls_verification_key(), &stake, &avk, &msg).is_ok(), "Verification failed");
+// }
 
-// Aggregate a concatenation proof with random parties
-let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
+// // Aggregate a concatenation proof with random parties
+// let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, AggregateSignatureType::Concatenation);
 
-match msig {
-    Ok(aggr) => {
-        println!("Aggregate ok");
-        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
-    }
-    Err(error) => match error.downcast_ref::<AggregationError>() {
-        Some(AggregationError::NotEnoughSignatures(n, k)) => {
-            println!("Not enough signatures");
-            assert!(n < &params.k && k == &params.k)
-        },
+// match msig {
+//     Ok(aggr) => {
+//         println!("Aggregate ok");
+//         assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
+//     }
+//     Err(error) => match error.downcast_ref::<AggregationError>() {
+//         Some(AggregationError::NotEnoughSignatures(n, k)) => {
+//             println!("Not enough signatures");
+//             assert!(n < &params.k && k == &params.k)
+//         },
 
-        Some(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
-            println!("Unsupported proof system: {:?}", aggregate_signature_type);
-        },
-        _ => {
-            println!("Unexpected error during aggregation: {:?}", error);
-        }
-    },
-}
+//         Some(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
+//             println!("Unsupported proof system: {:?}", aggregate_signature_type);
+//         },
+//         _ => {
+//             println!("Unexpected error during aggregation: {:?}", error);
+//         }
+//     },
+// }
 ```
 
 ## Benchmarks

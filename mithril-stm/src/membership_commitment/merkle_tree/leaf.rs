@@ -2,8 +2,16 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Stake, StmResult, VerificationKey, signature_scheme::BlsVerificationKey};
+use crate::{Stake, signature_scheme::BlsVerificationKey};
 
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+use crate::StmResult;
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 use super::MerkleTreeError;
 
 /// Trait implemented to be used as a Merkle tree leaf.
@@ -31,9 +39,12 @@ impl MerkleTreeConcatenationLeaf {
         result.to_vec()
     }
 
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let pk =
-            VerificationKey::from_bytes(bytes).map_err(|_| MerkleTreeError::SerializationError)?;
+        let pk = BlsVerificationKey::from_bytes(bytes)
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
         let stake = Stake::from_be_bytes(u64_bytes);
@@ -41,8 +52,8 @@ impl MerkleTreeConcatenationLeaf {
     }
 }
 
-impl From<MerkleTreeConcatenationLeaf> for (VerificationKey, Stake) {
-    fn from(leaf: MerkleTreeConcatenationLeaf) -> (VerificationKey, Stake) {
+impl From<MerkleTreeConcatenationLeaf> for (BlsVerificationKey, Stake) {
+    fn from(leaf: MerkleTreeConcatenationLeaf) -> (BlsVerificationKey, Stake) {
         (leaf.0, leaf.1)
     }
 }

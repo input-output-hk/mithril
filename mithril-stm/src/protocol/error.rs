@@ -1,7 +1,4 @@
-use crate::{
-    RegistrationEntry,
-    signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
-};
+use crate::{RegistrationEntry, signature_scheme::BlsVerificationKey};
 
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
@@ -24,7 +21,7 @@ pub enum RegisterError {
 
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    KeyInvalid(Box<BlsVerificationKeyProofOfPossession>),
+    KeyInvalid(Box<BlsVerificationKey>),
 
     /// Serialization error
     #[error("Serialization error")]
@@ -33,4 +30,8 @@ pub enum RegisterError {
     /// UnregisteredInitializer error
     #[error("Initializer not registered. Cannot participate as a signer.")]
     UnregisteredInitializer,
+
+    /// No registration found for the given index.
+    #[error("No registration found for the given index.")]
+    UnregisteredIndex,
 }

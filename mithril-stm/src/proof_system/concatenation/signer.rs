@@ -4,7 +4,7 @@ use crate::{
     MembershipDigest, Parameters, RegistrationEntryForConcatenation, SignatureError, Stake,
     StmResult, is_lottery_won,
     membership_commitment::MerkleTree,
-    signature_scheme::{BlsSignature, BlsSigningKey},
+    signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
 };
 
 use super::SingleSignatureForConcatenation;
@@ -15,10 +15,11 @@ use super::SingleSignatureForConcatenation;
 /// proof.
 #[derive(Debug, Clone)]
 pub(crate) struct ConcatenationProofSigner<D: MembershipDigest> {
-    stake: Stake,
+    pub(crate) stake: Stake,
     total_stake: Stake,
     parameters: Parameters,
     signing_key: BlsSigningKey,
+    verification_key: BlsVerificationKey,
     key_registration_commitment:
         MerkleTree<D::ConcatenationHash, RegistrationEntryForConcatenation>,
 }
@@ -30,6 +31,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
         total_stake: Stake,
         parameters: Parameters,
         signing_key: BlsSigningKey,
+        verification_key: BlsVerificationKey,
         key_registration_commitment: MerkleTree<
             D::ConcatenationHash,
             RegistrationEntryForConcatenation,
@@ -40,6 +42,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
             total_stake,
             parameters,
             signing_key,
+            verification_key,
             key_registration_commitment,
         }
     }
@@ -49,7 +52,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
     /// signature for the `message_with_commitment`. Checks the lottery and collects the winning
     /// indices. If there is no winning indices, returns an error. Otherwise, returns
     /// `SingleSignatureForConcatenation`.
-    pub fn create_signle_signature(
+    pub fn create_single_signature(
         &self,
         message: &[u8],
     ) -> StmResult<SingleSignatureForConcatenation> {
@@ -83,5 +86,9 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
             }
         }
         indices
+    }
+
+    pub fn get_verification_key(&self) -> BlsVerificationKey {
+        self.verification_key
     }
 }
