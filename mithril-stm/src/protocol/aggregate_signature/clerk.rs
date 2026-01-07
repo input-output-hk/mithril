@@ -32,15 +32,6 @@ impl<D: MembershipDigest> Clerk<D> {
         }
     }
 
-    /// Create a new `Clerk` from a closed registration instance.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `new_clerk_from_closed_key_registration` instead"
-    )]
-    pub fn from_registration(params: &Parameters, closed_reg: &ClosedKeyRegistration<D>) -> Self {
-        Self::new_clerk_from_closed_key_registration(params, closed_reg)
-    }
-
     /// Create a Clerk from a signer.
     pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
         let closed_reg = signer
@@ -53,22 +44,6 @@ impl<D: MembershipDigest> Clerk<D> {
             params: signer.get_parameters(),
             closed_reg,
         }
-    }
-
-    /// Create a Clerk from a signer.
-    #[deprecated(since = "0.5.0", note = "Use `new_clerk_from_signer` instead")]
-    pub fn from_signer(signer: &Signer<D>) -> Self {
-        Self::new_clerk_from_signer(signer)
-    }
-
-    /// Aggregate a set of signatures.
-    #[deprecated(since = "0.5.3", note = "Use `aggregate_signatures_with_type` instead")]
-    pub fn aggregate_signatures(
-        &self,
-        sigs: &[SingleSignature],
-        msg: &[u8],
-    ) -> StmResult<AggregateSignature<D>> {
-        self.aggregate_signatures_with_type(sigs, msg, AggregateSignatureType::default())
     }
 
     /// Aggregate a set of signatures with a given proof type.
@@ -94,34 +69,9 @@ impl<D: MembershipDigest> Clerk<D> {
         }
     }
 
-    /// Aggregate a set of signatures for their corresponding indices.
-    ///
-    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
-    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
-    ///
-    /// It returns an instance of `AggregateSignature`.
-    #[deprecated(since = "0.5.0", note = "Use `aggregate_signatures` instead")]
-    #[allow(deprecated)]
-    pub fn aggregate(
-        &self,
-        sigs: &[SingleSignature],
-        msg: &[u8],
-    ) -> StmResult<AggregateSignature<D>> {
-        Self::aggregate_signatures(self, sigs, msg)
-    }
-
     /// Compute the `AggregateVerificationKey` related to the used registration.
     pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::from(&self.closed_reg)
-    }
-
-    /// Compute the `AggregateVerificationKey` related to the used registration.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `compute_aggregate_verification_key` instead"
-    )]
-    pub fn compute_avk(&self) -> AggregateVerificationKey<D> {
-        Self::compute_aggregate_verification_key(self)
     }
 
     /// Get the (VK, stake) of a party given its index.
@@ -133,12 +83,6 @@ impl<D: MembershipDigest> Clerk<D> {
             .reg_parties
             .get(*party_index as usize)
             .map(|&r| r.into())
-    }
-
-    /// Get the (VK, stake) of a party given its index.
-    #[deprecated(since = "0.5.0", note = "Use `get_registered_party_for_index` instead")]
-    pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
-        Self::get_registered_party_for_index(self, party_index)
     }
 
     /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.

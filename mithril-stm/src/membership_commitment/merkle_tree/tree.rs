@@ -6,9 +6,13 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeError,
-    MerkleTreeLeaf, left_child, parent, right_child, sibling,
+    MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeError, MerkleTreeLeaf, left_child,
+    parent, right_child, sibling,
 };
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+use super::{MerklePath, MerkleTreeCommitment};
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,12 +71,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         }
     }
 
-    /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    #[deprecated(since = "0.5.0", note = "Use `new` instead")]
-    pub fn create(leaves: &[L]) -> MerkleTree<D, L> {
-        Self::new(leaves)
-    }
-
     /// Return the index of the leaf.
     fn get_leaf_index(&self, i: usize) -> usize {
         self.leaf_off + i
@@ -82,16 +80,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// This function simply returns the root and the number of leaves in the tree.
     pub(crate) fn to_merkle_tree_batch_commitment(&self) -> MerkleTreeBatchCommitment<D, L> {
         MerkleTreeBatchCommitment::new(self.nodes[0].clone(), self.n)
-    }
-
-    /// Convert merkle tree to a batch compatible commitment.
-    /// This function simply returns the root and the number of leaves in the tree.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `to_merkle_tree_batch_commitment` instead"
-    )]
-    pub fn to_commitment_batch_compat(&self) -> MerkleTreeBatchCommitment<D, L> {
-        Self::to_merkle_tree_batch_commitment(self)
     }
 
     /// Get a path for a batch of leaves. The indices must be ordered. We use the Octopus algorithm to
@@ -157,30 +145,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         MerkleBatchPath::new(proof, indices)
     }
 
-    /// Get a path for a batch of leaves. The indices must be ordered. We use the Octopus algorithm to
-    /// avoid redundancy with nodes in the path. Let `x1, . . . , xk` be the indices of elements we
-    /// want to produce an opening for. The algorithm takes as input `x1, . . ., xk`, and  proceeds as follows:
-    /// 1. Initialise the proof vector, `proof = []`.
-    /// 2. Given an input vector `v = v1, . . .,vl`, if `v.len() == 1`, return `proof`, else, continue.
-    /// 3. Map each `vi` to the corresponding number of the leaf (by adding the offset).
-    /// 4. Initialise a new empty vector `p = []`. Next, iterate over each element `vi`
-    ///    a. Append the parent of `vi` to `p`
-    ///    b. Compute the sibling, `si` of `vi`
-    ///    c. If `si == v(i+1)` then do nothing, and skip step four for `v(i+1)`. Else append `si` to `proof`
-    /// 5. Iterate from step 2 with input vector `p`
-    ///
-    /// # Panics
-    /// If the indices provided are out of bounds (higher than the number of elements
-    /// committed in the `MerkleTree`) or are not ordered, the function fails.
-    // todo: Update doc.
-    #[deprecated(since = "0.5.0", note = "Use `compute_merkle_tree_batch_path` instead")]
-    pub fn get_batched_path(&self, indices: Vec<usize>) -> MerkleBatchPath<D>
-    where
-        D: FixedOutput,
-    {
-        Self::compute_merkle_tree_batch_path(self, indices)
-    }
-
     /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ bytes where $n$ is the
     /// number of nodes and $S$ the output size of the hash function.
     /// # Layout
@@ -225,17 +189,17 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         })
     }
 
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Convert merkle tree to a commitment. This function simply returns the root.
     pub(crate) fn to_merkle_tree_commitment(&self) -> MerkleTreeCommitment<D, L> {
         MerkleTreeCommitment::new(self.nodes[0].clone()) // Use private constructor
     }
 
-    /// Convert merkle tree to a commitment. This function simply returns the root.
-    #[deprecated(since = "0.5.0", note = "Use `to_merkle_tree_commitment` instead")]
-    pub fn to_commitment(&self) -> MerkleTreeCommitment<D, L> {
-        Self::to_merkle_tree_commitment(self)
-    }
-
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
@@ -260,14 +224,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         }
 
         MerklePath::new(proof, i)
-    }
-
-    /// Get a path (hashes of siblings of the path to the root node)
-    /// for the `i`th value stored in the tree.
-    /// Requires `i < self.n`
-    #[deprecated(since = "0.5.0", note = "Use `compute_merkle_tree_path` instead")]
-    pub fn get_path(&self, i: usize) -> MerklePath<D> {
-        Self::compute_merkle_tree_path(self, i)
     }
 }
 
@@ -300,6 +256,7 @@ mod tests {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(100))]
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -308,6 +265,7 @@ mod tests {
             })
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_path((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -318,6 +276,7 @@ mod tests {
             })
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_commitment().to_bytes();
@@ -335,6 +294,7 @@ mod tests {
             assert_eq!(tree.nodes, deserialised.nodes);
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
@@ -360,6 +320,7 @@ mod tests {
     }
 
     proptest! {
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_create_invalid_proof(
             i in any::<usize>(),
@@ -429,6 +390,7 @@ mod tests {
             assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
         }
     }
+    #[cfg(feature = "future_snark")]
     mod golden {
         use super::*;
         const GOLDEN_BYTES: &[u8; 40] = &[
@@ -469,6 +431,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     mod golden_json {
         use super::*;
         const GOLDEN_JSON: &str = r#"

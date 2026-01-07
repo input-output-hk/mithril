@@ -161,20 +161,6 @@ impl BlsVerificationKeyProofOfPossession {
         }
     }
 
-    /// if `e(k1,g2) = e(H_G1("PoP" || mvk),mvk)` and `e(g1,mvk) = e(k2,g2)`
-    /// are both true, return 1. The first part is a signature verification
-    /// of message "PoP", while the second we need to compute the pairing
-    /// manually.
-    // If we are really looking for performance improvements, we can combine the
-    // two final exponentiations (for verifying k1 and k2) into a single one.
-    #[deprecated(
-        since = "0.5.0",
-        note = "The verification of the proof of possession is not part of the public API any more"
-    )]
-    pub fn check(&self) -> StmResult<()> {
-        Self::verify_proof_of_possession(self)
-    }
-
     /// Convert to a 144 byte string.
     ///
     /// # Layout

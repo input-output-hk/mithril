@@ -6,8 +6,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 
-use super::{MerkleBatchPath, MerklePath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+use super::MerklePath;
+use super::{MerkleBatchPath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
 
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
@@ -20,6 +27,9 @@ pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     leaf_type: PhantomData<L>,
 }
 
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
     pub(crate) fn new(root: Vec<u8>) -> Self {
         MerkleTreeCommitment {
@@ -57,44 +67,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
             return Ok(());
         }
         Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
-    }
-
-    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
-    /// # Error
-    /// If the merkle tree path is invalid, then the function fails.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `verify_leaf_membership_from_path` instead"
-    )]
-    pub fn check(&self, val: &L, proof: &MerklePath<D>) -> StmResult<()>
-    where
-        D: FixedOutput + Clone,
-        L: MerkleTreeLeaf,
-    {
-        Self::verify_leaf_membership_from_path(self, val, proof)
-    }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    fn concatenate_with_message(&self, msg: &[u8]) -> Vec<u8>
-    where
-        D: Digest,
-    {
-        let mut msgp = msg.to_vec();
-        let mut bytes = self.root.clone();
-        msgp.append(&mut bytes);
-
-        msgp
-    }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    #[deprecated(since = "0.5.0", note = "Use `concatenate_with_message` instead")]
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-    where
-        D: Digest,
-    {
-        Self::concatenate_with_message(self, msg)
     }
 
     /// Convert to bytes
@@ -142,7 +114,9 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         }
     }
 
-    #[cfg(test)]
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Used in property test of `tree`: `test_bytes_tree_commitment_batch_compat`
     pub(crate) fn get_number_of_leaves(&self) -> usize {
         self.nr_leaves
@@ -157,14 +131,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         msgp.append(&mut bytes);
 
         msgp
-    }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
-    #[deprecated(since = "0.5.0", note = "Use `concatenate_with_message` instead")]
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
-        Self::concatenate_with_message(self, msg)
     }
 
     /// Check a proof of a batched opening. The indices must be ordered.
@@ -276,25 +242,9 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())))
     }
 
-    /// Check a proof of a batched opening. The indices must be ordered.
-    ///
-    /// # Error
-    /// Returns an error if the proof is invalid.
-    // todo: Update doc.
-    // todo: Simplify the algorithm.
-    // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use `verify_leaves_membership_from_batch_path` instead"
-    )]
-    pub fn check(&self, batch_val: &[L], proof: &MerkleBatchPath<D>) -> StmResult<()>
-    where
-        D: FixedOutput + Clone,
-        L: MerkleTreeLeaf,
-    {
-        Self::verify_leaves_membership_from_batch_path(self, batch_val, proof)
-    }
-
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Convert to bytes
     /// * Number of leaves as u64
     /// * Root of the Merkle commitment as bytes
@@ -306,6 +256,9 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         output
     }
 
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D, L>> {
         let mut u64_bytes = [0u8; 8];

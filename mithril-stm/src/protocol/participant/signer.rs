@@ -43,19 +43,6 @@ impl<D: MembershipDigest> Signer<D> {
         }
     }
 
-    /// Create a Signer for given input
-    #[deprecated(since = "0.5.0", note = "Use `set_signer` instead")]
-    pub fn set_stm_signer(
-        signer_index: u64,
-        stake: Stake,
-        params: Parameters,
-        sk: BlsSigningKey,
-        vk: VerificationKey,
-        closed_reg: ClosedKeyRegistration<D>,
-    ) -> Signer<D> {
-        Self::set_signer(signer_index, stake, params, sk, vk, closed_reg)
-    }
-
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -88,12 +75,6 @@ impl<D: MembershipDigest> Signer<D> {
         self.vk
     }
 
-    /// Extract the verification key.
-    #[deprecated(since = "0.5.0", note = "Use `get_verification_key` instead")]
-    pub fn verification_key(&self) -> VerificationKey {
-        Self::get_verification_key(self)
-    }
-
     /// Extract stake from the signer.
     pub fn get_stake(&self) -> Stake {
         self.stake
@@ -120,20 +101,8 @@ impl<D: MembershipDigest> Signer<D> {
         self.params
     }
 
-    /// Get Parameters
-    #[deprecated(since = "0.5.0", note = "Use `get_parameters` instead")]
-    pub fn get_params(&self) -> Parameters {
-        Self::get_parameters(self)
-    }
-
     /// Get closed key registration
     pub(crate) fn get_closed_key_registration(&self) -> Option<ClosedKeyRegistration<D>> {
         self.closed_reg.clone()
-    }
-
-    /// Get closed key registration
-    #[deprecated(since = "0.5.0", note = "Use `get_closed_key_registration` instead")]
-    pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
-        Self::get_closed_key_registration(self)
     }
 }
