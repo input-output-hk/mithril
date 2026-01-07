@@ -23,6 +23,9 @@ fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
 fi
+if [ -z "${DMQ_NETWORK_MAGIC}" ]; then 
+  DMQ_NETWORK_MAGIC=2147483690
+fi
 if [ -z "${HARD_FORK_BABBAGE_AT_EPOCH}" ]; then 
   HARD_FORK_BABBAGE_AT_EPOCH=0
 fi
