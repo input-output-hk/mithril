@@ -294,6 +294,7 @@ mod tests {
             assert_eq!(tree.nodes, deserialised.nodes);
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
             let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
@@ -389,6 +390,7 @@ mod tests {
             assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
         }
     }
+    #[cfg(feature = "future_snark")]
     mod golden {
         use super::*;
         const GOLDEN_BYTES: &[u8; 40] = &[
@@ -429,6 +431,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     mod golden_json {
         use super::*;
         const GOLDEN_JSON: &str = r#"
