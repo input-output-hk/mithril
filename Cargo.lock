@@ -4037,7 +4037,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4079,7 +4079,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.113"
+version = "0.4.114"
 dependencies = [
  "anyhow",
  "async-recursion",
