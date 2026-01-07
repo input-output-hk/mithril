@@ -157,7 +157,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
-        ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
+        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
         SingleSignature,
         signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
     };
@@ -177,7 +177,7 @@ mod tests {
 
         fn golden_value() -> SingleSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let msg = [0u8; 16];
+            let message = [0u8; 16];
             let params = Parameters {
                 m: 10,
                 k: 5,
@@ -187,12 +187,38 @@ mod tests {
             let sk_2 = BlsSigningKey::generate(&mut rng);
             let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
             let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
-            let mut key_reg = KeyRegistration::init();
-            key_reg.register(1, pk_1).unwrap();
-            key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
-            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
-            signer.sign(&msg).unwrap()
+
+            let mut registration = KeyRegistration::initialize();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                #[cfg(feature = "future_snark")]
+                None,
+                1,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                #[cfg(feature = "future_snark")]
+                None,
+                1,
+            )
+            .unwrap();
+            registration.register(&entry1).unwrap();
+            registration.register(&entry2).unwrap();
+            let closed_key_registration = registration.close_registration();
+
+            let initializer = Initializer {
+                stake: 1,
+                params,
+                sk: sk_1,
+                pk: pk_1,
+            };
+
+            let signer = initializer
+                .try_create_signer::<MithrilMembershipDigest>(&closed_key_registration)
+                .unwrap();
+
+            signer.create_signle_signature(&message).unwrap()
         }
 
         #[test]
@@ -223,7 +249,7 @@ mod tests {
 
         fn golden_value() -> SingleSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let msg = [0u8; 16];
+            let message = [0u8; 16];
             let params = Parameters {
                 m: 10,
                 k: 5,
@@ -233,12 +259,39 @@ mod tests {
             let sk_2 = BlsSigningKey::generate(&mut rng);
             let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
             let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
-            let mut key_reg = KeyRegistration::init();
-            key_reg.register(1, pk_1).unwrap();
-            key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
-            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
-            signer.sign(&msg).unwrap()
+
+            let mut registration = KeyRegistration::initialize();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                #[cfg(feature = "future_snark")]
+                None,
+                1,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                #[cfg(feature = "future_snark")]
+                None,
+                1,
+            )
+            .unwrap();
+            registration.register(&entry1).unwrap();
+            registration.register(&entry2).unwrap();
+
+            let closed_key_registration = registration.close_registration();
+
+            let initializer = Initializer {
+                stake: 1,
+                params,
+                sk: sk_1,
+                pk: pk_1,
+            };
+
+            let signer = initializer
+                .try_create_signer::<MithrilMembershipDigest>(&closed_key_registration)
+                .unwrap();
+
+            signer.create_signle_signature(&message).unwrap()
         }
 
         #[test]

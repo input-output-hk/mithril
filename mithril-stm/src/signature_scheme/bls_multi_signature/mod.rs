@@ -98,7 +98,7 @@ mod tests {
 
     use super::error::BlsSignatureError;
     use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::{KeyRegistration, RegisterError};
+    use crate::{OutdatedKeyRegistration, RegisterError};
 
     use super::*;
 
@@ -183,7 +183,7 @@ mod tests {
         #[test]
         fn test_keyreg_with_infinity_vk(num_sigs in 2..16usize, seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyRegistration::init();
+            let mut kr = OutdatedKeyRegistration::init();
 
             let sk = BlsSigningKey::generate(&mut rng);
             let pop = BlsProofOfPossession::from(&sk);

@@ -31,7 +31,7 @@ pub trait TryFromBytes: Sized {
 mod binary_mithril_stm {
     use anyhow::anyhow;
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, Initializer, MithrilMembershipDigest,
+        AggregateSignature, AggregateVerificationKey, MithrilMembershipDigest, OutdatedInitializer,
         Parameters, SingleSignature, SingleSignatureWithRegisteredParty, VerificationKey,
         VerificationKeyProofOfPossession,
     };
@@ -131,13 +131,13 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for Initializer {
+    impl TryToBytes for OutdatedInitializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for Initializer {
+    impl TryFromBytes for OutdatedInitializer {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }

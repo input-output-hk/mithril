@@ -4,8 +4,8 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, Clerk, ClosedKeyRegistration, Index, MithrilMembershipDigest, Parameters,
-    Signer, Stake,
+    AggregationError, Clerk, OutdatedClosedKeyRegistration, Index, MithrilMembershipDigest, OutdatedSigner,
+    Parameters, Stake,
 };
 
 /// A protocol version
@@ -30,7 +30,7 @@ pub type ProtocolParameters = Parameters;
 pub type ProtocolLotteryIndex = Index;
 
 /// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
-pub type ProtocolSigner = Signer<D>;
+pub type ProtocolSigner = OutdatedSigner<D>;
 
 /// Alias of a wrapper of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
@@ -42,7 +42,7 @@ pub type ProtocolClerk = Clerk<D>;
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of a wrapper of [MithrilStm:ClosedKeyRegistration](struct@mithril_stm::ClosedKeyRegistration).
-pub type ProtocolClosedKeyRegistration = ClosedKeyRegistration<D>;
+pub type ProtocolClosedKeyRegistration = OutdatedClosedKeyRegistration<D>;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

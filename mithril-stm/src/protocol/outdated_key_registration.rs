@@ -19,11 +19,11 @@ pub type RegisteredParty = MerkleTreeConcatenationLeaf;
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
 // todo: replace with KeyReg
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct KeyRegistration {
+pub struct OutdatedKeyRegistration {
     keys: HashMap<BlsVerificationKey, Stake>,
 }
 
-impl KeyRegistration {
+impl OutdatedKeyRegistration {
     /// Initialize an empty `KeyRegistration`.
     pub fn init() -> Self {
         Self::default()
@@ -48,7 +48,7 @@ impl KeyRegistration {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
-    pub fn close<D>(self) -> ClosedKeyRegistration<D>
+    pub fn close<D>(self) -> OutdatedClosedKeyRegistration<D>
     where
         D: MembershipDigest,
     {
@@ -67,7 +67,7 @@ impl KeyRegistration {
             .collect::<Vec<RegisteredParty>>();
         reg_parties.sort();
 
-        ClosedKeyRegistration {
+        OutdatedClosedKeyRegistration {
             merkle_tree: Arc::new(MerkleTree::new(&reg_parties)),
             reg_parties,
             total_stake,
@@ -78,7 +78,7 @@ impl KeyRegistration {
 /// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
 /// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyRegistration<D: MembershipDigest> {
+pub struct OutdatedClosedKeyRegistration<D: MembershipDigest> {
     /// Ordered list of registered parties.
     pub reg_parties: Vec<RegisteredParty>,
     /// Total stake of the registered parties.
@@ -104,7 +104,7 @@ mod tests {
                        fake_it in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyRegistration::init();
+            let mut kr = OutdatedKeyRegistration::init();
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = BlsSigningKey::generate(&mut rng);

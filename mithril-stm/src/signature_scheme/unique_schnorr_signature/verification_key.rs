@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +59,35 @@ impl SchnorrVerificationKey {
             .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
         Ok(SchnorrVerificationKey(prime_order_projective_point))
+    }
+
+    /// Compare two `SchnorrVerificationKey`. Used for PartialOrd impl, used to order verification keys.
+    /// The comparison function can be anything, as long as it is consistent.
+    fn compare_verification_keys(&self, other: &SchnorrVerificationKey) -> Ordering {
+        let self_bytes = self.to_bytes();
+        let other_bytes = other.to_bytes();
+        let mut result = Ordering::Equal;
+
+        for (i, j) in self_bytes.iter().zip(other_bytes.iter()) {
+            result = i.cmp(j);
+            if result != Ordering::Equal {
+                return result;
+            }
+        }
+
+        result
+    }
+}
+
+impl PartialOrd for SchnorrVerificationKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(std::cmp::Ord::cmp(self, other))
+    }
+}
+
+impl Ord for SchnorrVerificationKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.compare_verification_keys(other)
     }
 }
 

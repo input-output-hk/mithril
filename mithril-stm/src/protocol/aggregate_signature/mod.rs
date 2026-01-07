@@ -20,8 +20,8 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{
-        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature,
-        Stake, StmResult, membership_commitment::MerkleBatchPath,
+        MithrilMembershipDigest, OutdatedInitializer, OutdatedKeyRegistration, OutdatedSigner,
+        Parameters, SingleSignature, Stake, StmResult, membership_commitment::MerkleBatchPath,
     };
 
     use super::{AggregateSignature, AggregateSignatureType, AggregationError, Clerk};
@@ -29,13 +29,13 @@ mod tests {
     type Sig = AggregateSignature<D>;
     type D = MithrilMembershipDigest;
 
-    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
+    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<OutdatedSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<Signer<D>> {
-        let mut kr = KeyRegistration::init();
+    fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<OutdatedSigner<D>> {
+        let mut kr = OutdatedKeyRegistration::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.random());
 
@@ -43,7 +43,7 @@ mod tests {
         let ps = stake
             .into_iter()
             .map(|stake| {
-                let p = Initializer::new(params, stake, &mut rng);
+                let p = OutdatedInitializer::new(params, stake, &mut rng);
                 kr.register(stake, p.pk).unwrap();
                 p
             })
@@ -114,7 +114,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[Signer<D>], is: &[usize]) -> Vec<SingleSignature> {
+    fn find_signatures(msg: &[u8], ps: &[OutdatedSigner<D>], is: &[usize]) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -321,10 +321,10 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let stake = rng.next_u64();
-            let initializer = Initializer::new(params, stake, &mut rng);
+            let initializer = OutdatedInitializer::new(params, stake, &mut rng);
 
             let bytes = initializer.to_bytes();
-            assert!(Initializer::from_bytes(&bytes).is_ok());
+            assert!(OutdatedInitializer::from_bytes(&bytes).is_ok());
         }
 
         #[test]

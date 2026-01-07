@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, Initializer, KeyRegistration,
-    MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
+    AggregateSignature, AggregateSignatureType, Clerk, MembershipDigest, MithrilMembershipDigest,
+    OutdatedInitializer, OutdatedKeyRegistration, OutdatedSigner, Parameters,
 };
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -33,16 +33,16 @@ fn stm_benches<D: MembershipDigest>(
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<OutdatedInitializer> = Vec::with_capacity(nr_parties);
     for stake in stakes {
-        initializers.push(Initializer::new(params, stake, &mut rng));
+        initializers.push(OutdatedInitializer::new(params, stake, &mut rng));
     }
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = OutdatedKeyRegistration::init();
 
     group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
         b.iter(|| {
             // We need to initialise the key_reg at each iteration
-            key_reg = KeyRegistration::init();
+            key_reg = OutdatedKeyRegistration::init();
             for p in initializers.iter() {
                 key_reg
                     .register(p.stake, p.get_verification_key_proof_of_possession())
@@ -53,7 +53,7 @@ fn stm_benches<D: MembershipDigest>(
 
     let closed_reg = key_reg.close();
 
-    let signers: Vec<Signer<D>> = initializers
+    let signers: Vec<OutdatedSigner<D>> = initializers
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect();
@@ -109,11 +109,11 @@ fn batch_benches<D>(
                 .map(|_| 1 + (rng.next_u64() % 9999))
                 .collect::<Vec<_>>();
 
-            let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
+            let mut initializers: Vec<OutdatedInitializer> = Vec::with_capacity(nr_parties);
             for stake in stakes {
-                initializers.push(Initializer::new(params, stake, &mut rng));
+                initializers.push(OutdatedInitializer::new(params, stake, &mut rng));
             }
-            let mut key_reg = KeyRegistration::init();
+            let mut key_reg = OutdatedKeyRegistration::init();
             for p in initializers.iter() {
                 key_reg
                     .register(p.stake, p.get_verification_key_proof_of_possession())
@@ -125,7 +125,7 @@ fn batch_benches<D>(
             let signers = initializers
                 .into_par_iter()
                 .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-                .collect::<Vec<Signer<D>>>();
+                .collect::<Vec<OutdatedSigner<D>>>();
 
             let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
