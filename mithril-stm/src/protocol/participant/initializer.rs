@@ -61,7 +61,7 @@ impl Initializer {
             .key_registration
             .get_signer_index_for_registration(&registration_entry)
         {
-            Some(index) => index + 1,
+            Some(index) => index,
             None => return Err(anyhow!(RegisterError::UnregisteredInitializer)),
         };
 
@@ -77,6 +77,7 @@ impl Initializer {
             closed_key_registration.total_stake,
             self.params,
             self.sk,
+            self.pk.vk,
             key_registration_commitment,
         );
 

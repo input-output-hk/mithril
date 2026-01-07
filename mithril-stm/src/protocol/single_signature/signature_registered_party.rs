@@ -20,7 +20,7 @@ impl SingleSignatureWithRegisteredParty {
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&&self.reg_party.to_bytes());
+        out.extend_from_slice(&(self.reg_party.to_bytes()));
         out.extend_from_slice(&self.sig.to_bytes());
 
         out
@@ -131,12 +131,13 @@ mod tests {
                     2,
                     params,
                     sk_1,
+                    pk_1.vk,
                     closed_key_reg.clone().key_registration.into_merkle_tree().unwrap(),
                 ),
                 closed_key_reg.clone(),
                 params,
             );
-            let signature = signer.create_signle_signature(&msg).unwrap();
+            let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {
                 sig: signature,
                 reg_party: entry1,

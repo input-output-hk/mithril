@@ -1,49 +1,35 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    OutdatedClosedKeyRegistration, MembershipDigest, Stake,
-    membership_commitment::{
-        MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf,
-    },
+    MembershipDigest, membership_commitment::MerkleBatchPath, proof_system::ConcatenationProofKey,
 };
 
-/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
-/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
+/// An STM aggregate signature.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "MerkleBatchPath<D::ConcatenationHash>: Serialize",
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
-pub struct AggregateVerificationKey<D: MembershipDigest> {
-    mt_commitment: MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf>,
-    total_stake: Stake,
+pub enum AggregateVerificationKey<D: MembershipDigest> {
+    /// A future proof system.
+    #[cfg(feature = "future_snark")]
+    Future,
+
+    /// Concatenation proof system.
+    // The 'untagged' attribute is required for backward compatibility.
+    // It implies that this variant is placed at the end of the enum.
+    // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
+    #[serde(untagged)]
+    Concatenation(ConcatenationProofKey<D>),
 }
 
 impl<D: MembershipDigest> AggregateVerificationKey<D> {
-    pub(crate) fn get_merkle_tree_batch_commitment(
-        &self,
-    ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
-        self.mt_commitment.clone()
-    }
-
-    pub fn get_total_stake(&self) -> Stake {
-        self.total_stake
-    }
-}
-
-impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
-    }
-}
-
-impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
-
-impl<D: MembershipDigest> From<&OutdatedClosedKeyRegistration<D>> for AggregateVerificationKey<D> {
-    fn from(reg: &OutdatedClosedKeyRegistration<D>) -> Self {
-        Self {
-            mt_commitment: reg.merkle_tree.to_merkle_tree_batch_commitment(),
-            total_stake: reg.total_stake,
+    /// If the aggregate signature is a concatenation proof, return it.
+    pub fn to_concatenation_proof_key(&self) -> Option<&ConcatenationProofKey<D>> {
+        match self {
+            AggregateVerificationKey::Concatenation(key) => Some(key),
+            #[cfg(feature = "future_snark")]
+            AggregateVerificationKey::Future => None,
         }
     }
 }

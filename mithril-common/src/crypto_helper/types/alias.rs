@@ -4,8 +4,8 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, Clerk, OutdatedClosedKeyRegistration, Index, MithrilMembershipDigest, OutdatedSigner,
-    Parameters, Stake,
+    AggregationError, Clerk, Index, MithrilMembershipDigest, OutdatedClosedKeyRegistration,
+    OutdatedSigner, Parameters, Stake,
 };
 
 /// A protocol version

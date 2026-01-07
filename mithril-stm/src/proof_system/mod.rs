@@ -1,4 +1,4 @@
 mod concatenation;
 
-pub use concatenation::ConcatenationProof;
+pub use concatenation::{ConcatenationClerk, ConcatenationProof, ConcatenationProofKey};
 pub(crate) use concatenation::{ConcatenationProofSigner, SingleSignatureForConcatenation};
