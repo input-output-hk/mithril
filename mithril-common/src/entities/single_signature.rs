@@ -98,7 +98,7 @@ mod tests {
         let signature = SingleSignature::new(
             signer.signer_with_stake.party_id.to_owned(),
             protocol_sigs.clone().into(),
-            protocol_sigs.get_concatenation_signature_indices().clone(),
+            protocol_sigs.get_concatenation_signature_indices(),
         );
 
         assert_eq!(protocol_sigs, signature.to_protocol_signature());
