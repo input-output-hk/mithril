@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use dusk_jubjub::{Fq as JubjubBase, Fr as JubjubScalar};
 use ff::Field;
+use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
 use std::ops::{Add, Mul, Sub};
 
@@ -115,6 +115,15 @@ impl ScalarFieldElement {
             )),
         }
     }
+
+    /// Tries to convert a base field element to a scalar
+    /// TODO: Doing the conversion like this can fail if the element from the
+    /// base field is greater than the scalar field modulus,
+    /// we need to use from_raw since it performs the modulus reduction
+    pub(crate) fn from_base_field(base_element: &BaseFieldElement) -> StmResult<Self> {
+        let base_element_bytes = base_element.0.to_bytes_le();
+        ScalarFieldElement::from_bytes(&base_element_bytes)
+    }
 }
 
 impl Mul for ScalarFieldElement {
@@ -180,7 +189,7 @@ mod tests {
         #[test]
         fn test_add_with_zero() {
             let a = BaseFieldElement(JubjubBase::ONE);
-            let zero = BaseFieldElement(JubjubBase::zero());
+            let zero = BaseFieldElement(JubjubBase::ZERO);
             let result = a.clone() + zero;
             assert_eq!(result, a);
         }
@@ -198,7 +207,7 @@ mod tests {
             let a = BaseFieldElement(JubjubBase::ONE);
             let b = BaseFieldElement(JubjubBase::ONE);
             let result = &a - &b;
-            assert_eq!(result, BaseFieldElement(JubjubBase::zero()));
+            assert_eq!(result, BaseFieldElement(JubjubBase::ZERO));
         }
 
         #[test]
@@ -221,9 +230,9 @@ mod tests {
         #[test]
         fn test_mul_with_zero() {
             let a = BaseFieldElement(JubjubBase::ONE);
-            let zero = BaseFieldElement(JubjubBase::zero());
+            let zero = BaseFieldElement(JubjubBase::ZERO);
             let result = a * zero;
-            assert_eq!(result, BaseFieldElement(JubjubBase::zero()));
+            assert_eq!(result, BaseFieldElement(JubjubBase::ZERO));
         }
 
         #[test]

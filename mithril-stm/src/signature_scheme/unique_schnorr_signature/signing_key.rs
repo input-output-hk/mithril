@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
     SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
-    compute_truncated_digest,
+    compute_poseidon_digest,
 };
 use crate::StmResult;
 
@@ -54,7 +54,7 @@ impl SchnorrSigningKey {
             .with_context(|| "Could not generate verification key from signing key.")?;
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg);
+        let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;
 
         let commitment_point = self.0 * msg_hash_point;
 
@@ -81,14 +81,15 @@ impl SchnorrSigningKey {
         })
         .collect();
 
-        let challenge = compute_truncated_digest(&points_coordinates);
-        let challenge_times_sk = challenge * self.0;
+        let challenge = compute_poseidon_digest(&points_coordinates);
+        let challenge_as_scalar = ScalarFieldElement::from_base_field(&challenge)?;
+        let challenge_times_sk = challenge_as_scalar * self.0;
         let response = random_scalar - challenge_times_sk;
 
         Ok(UniqueSchnorrSignature {
             commitment_point,
             response,
-            challenge,
+            challenge: challenge_as_scalar,
         })
     }
 

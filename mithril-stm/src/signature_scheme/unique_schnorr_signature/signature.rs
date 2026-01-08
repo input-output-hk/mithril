@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-    SchnorrVerificationKey, UniqueSchnorrSignatureError, compute_truncated_digest,
+    SchnorrVerificationKey, UniqueSchnorrSignatureError, compute_poseidon_digest,
 };
 use crate::StmResult;
 
@@ -19,6 +19,7 @@ pub struct UniqueSchnorrSignature {
     /// Part of the Unique Schnorr signature depending on the signing key
     pub(crate) response: ScalarFieldElement,
     /// Part of the Unique Schnorr signature NOT depending on the signing key
+    /// TODO: Change to BaseFieldElement
     pub(crate) challenge: ScalarFieldElement,
 }
 
@@ -51,9 +52,10 @@ impl UniqueSchnorrSignature {
         let prime_order_generator_point = PrimeOrderProjectivePoint::create_generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg);
+        let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;
 
         // Computing random_point_1_recomputed = response *  H(msg) + challenge * commitment_point
+        // let challenge_scalar = ScalarFieldElement::from_base_field(&self.challenge);
         let random_point_1_recomputed =
             self.response * msg_hash_point + self.challenge * self.commitment_point;
 
@@ -77,7 +79,9 @@ impl UniqueSchnorrSignature {
         })
         .collect();
 
-        let challenge_recomputed = compute_truncated_digest(&points_coordinates);
+        let challenge_recomputed = compute_poseidon_digest(&points_coordinates);
+        let challenge_recomputed_scalar =
+            ScalarFieldElement::from_base_field(&challenge_recomputed)?;
 
         if challenge_recomputed != self.challenge {
             return Err(anyhow!(UniqueSchnorrSignatureError::SignatureInvalid(

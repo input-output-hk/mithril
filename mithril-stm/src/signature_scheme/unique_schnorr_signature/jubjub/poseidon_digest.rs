@@ -1,7 +1,6 @@
-use dusk_jubjub::Fq as JubjubBase;
-use dusk_poseidon::{Domain, Hash};
-
-use super::{BaseFieldElement, ScalarFieldElement};
+use super::BaseFieldElement;
+use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
+use midnight_curves::Fq as JubjubBase;
 
 /// Domain Separation Tag (DST) for the Poseidon hash used in signature contexts.
 const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
@@ -11,11 +10,11 @@ const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
     0,
 ]);
 
-/// Computes a truncated Poseidon digest over the provided base field elements
+/// Computes a Poseidon digest over the provided base field elements
 /// Returns a scalar field element as the digest
-pub(crate) fn compute_truncated_digest(input: &[BaseFieldElement]) -> ScalarFieldElement {
+pub(crate) fn compute_poseidon_digest(input: &[BaseFieldElement]) -> BaseFieldElement {
     let mut poseidon_input = vec![DST_SIGNATURE];
     poseidon_input.extend(input.iter().map(|i| i.0).collect::<Vec<JubjubBase>>());
 
-    ScalarFieldElement(Hash::digest_truncated(Domain::Other, &poseidon_input)[0])
+    BaseFieldElement(PoseidonChip::<JubjubBase>::hash(&poseidon_input))
 }

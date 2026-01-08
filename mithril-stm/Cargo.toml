@@ -22,8 +22,8 @@ future_snark = [
     "dep:ff",
     "dep:group",
     "dep:num-traits",
-    "dep:dusk-poseidon",
-    "dep:dusk-jubjub",
+    "dep:midnight-circuits",
+    "dep:midnight-curves",
 ] # For activating snark features
 
 [dependencies]
@@ -32,14 +32,15 @@ blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.16", features = ["portable"] }
 digest = { workspace = true }
-dusk-jubjub = { version = "0.15.1", optional = true }
-dusk-poseidon = { version = "0.41.0", optional = true }
 ff = { version = "0.13.1", optional = true }
 group = { version = "0.13.0", optional = true }
+midnight-circuits = { version = "6.0.0", optional = true }
+midnight-curves = { version = "0.2.0", optional = true }
 num-traits = { version = "0.2.19", optional = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
+sha2 = "0.10.9"
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]

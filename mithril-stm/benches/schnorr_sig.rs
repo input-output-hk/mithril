@@ -1,33 +1,39 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use dusk_jubjub::Fq as JubjubBase;
-use dusk_poseidon::{Domain, Hash};
+use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
+use midnight_curves::Fq as JubjubBase;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
 
-fn dusk_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
+fn midnight_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     let mut group = c.benchmark_group("Schnorr".to_string());
 
     const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
     let input = vec![JubjubBase::from_raw([1u64, 0, 0, 0]); 10];
     let mut poseidon_input = vec![DST_SIGNATURE];
-    poseidon_input.extend(input);
-
-    group.bench_function(BenchmarkId::new("Dusk Poseidon 1 scalar", nr_sigs), |b| {
-        b.iter(|| {
-            for _ in 0..nr_sigs {
-                let _hash = Hash::digest_truncated(Domain::Other, &[DST_SIGNATURE])[0];
-            }
-        })
-    });
 
     group.bench_function(
-        BenchmarkId::new("Dusk Poseidon 11 scalars (similar to signature)", nr_sigs),
+        BenchmarkId::new("Midnight Poseidon 1 scalar", nr_sigs),
         |b| {
             b.iter(|| {
                 for _ in 0..nr_sigs {
-                    let _hash = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
+                    let _hash = PoseidonChip::<JubjubBase>::hash(&poseidon_input);
+                }
+            })
+        },
+    );
+
+    poseidon_input.extend(input);
+    group.bench_function(
+        BenchmarkId::new(
+            "Midnight Poseidon 11 scalars (similar to signature)",
+            nr_sigs,
+        ),
+        |b| {
+            b.iter(|| {
+                for _ in 0..nr_sigs {
+                    let _hash = PoseidonChip::<JubjubBase>::hash(&poseidon_input);
                 }
             })
         },
@@ -72,7 +78,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
 
 fn schnorr_benches(c: &mut Criterion) {
     sign_and_verify(c, 1000);
-    dusk_poseidon_hash(c, 1000);
+    midnight_poseidon_hash(c, 1000);
 }
 
 criterion_group!(name = benches;

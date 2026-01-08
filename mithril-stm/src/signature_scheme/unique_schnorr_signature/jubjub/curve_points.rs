@@ -1,13 +1,28 @@
 use anyhow::anyhow;
-use dusk_jubjub::{
-    AffinePoint as JubjubAffinePoint, EDWARDS_D, ExtendedPoint as JubjubExtended,
-    SubgroupPoint as JubjubSubgroup,
-};
 use group::{Group, GroupEncoding};
+use midnight_circuits::instructions::HashToCurveCPU;
+use midnight_circuits::{
+    ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
+    hash::poseidon::PoseidonChip,
+    types::AssignedNative,
+};
+use midnight_curves::{
+    EDWARDS_D, Fq as JubjubBase, JubjubAffine as JubjubAffinePoint, JubjubExtended, JubjubSubgroup,
+};
+use sha2::{Digest, Sha256};
 use std::ops::{Add, Mul};
 
 use super::{BaseFieldElement, ScalarFieldElement};
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
+
+/// Defining a type for the CPU hash to curve gadget
+pub(crate) type JubjubHashToCurve = HashToCurveGadget<
+    JubjubBase,
+    JubjubExtended,
+    AssignedNative<JubjubBase>,
+    PoseidonChip<JubjubBase>,
+    EccChip<JubjubExtended>,
+>;
 
 /// Represents a point in affine coordinates on the Jubjub curve
 #[derive(Clone)]
@@ -45,8 +60,23 @@ pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 
 impl ProjectivePoint {
     /// Hashes input bytes to a projective point on the Jubjub curve
-    pub(crate) fn hash_to_projective_point(input: &[u8]) -> Self {
-        ProjectivePoint(JubjubExtended::hash_to_point(input))
+    /// TODO: Move the sha256 hashing somewhere else? and check if the
+    /// conversion to jubjubBase is correct
+    pub(crate) fn hash_to_projective_point(input: &[u8]) -> StmResult<Self> {
+        let mut hash = Sha256::new();
+        hash.update(input);
+        let mut hashed_input = [0u8; 32];
+        hashed_input.copy_from_slice(&hash.finalize());
+        let scalar_input = match JubjubBase::from_bytes_le(&hashed_input).into_option() {
+            Some(scalar) => scalar,
+            None => {
+                return Err(anyhow!(
+                    SchnorrSignatureError::ScalarFieldElementSerialization
+                ));
+            }
+        };
+        let point = JubjubHashToCurve::hash_to_curve(&[scalar_input]);
+        Ok(ProjectivePoint(JubjubExtended::from(point)))
     }
 
     /// Retrieves the (u, v) coordinates of the projective point in affine representation
@@ -219,7 +249,7 @@ mod tests {
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
 
@@ -232,7 +262,7 @@ mod tests {
 
         #[test]
         fn test_add_identity() {
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let identity = ProjectivePoint(JubjubExtended::identity());
 
             let result = point + identity;
@@ -245,7 +275,7 @@ mod tests {
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
 
@@ -259,7 +289,7 @@ mod tests {
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar3 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
             let p3 = scalar3 * point;
@@ -271,7 +301,7 @@ mod tests {
         fn test_scalar_mul() {
             let mut rng = ChaCha20Rng::from_seed([4u8; 32]);
             let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
 
             let result = scalar * point;
 
@@ -284,8 +314,8 @@ mod tests {
         fn test_scalar_mul_distributivity_over_point_addition() {
             let mut rng = ChaCha20Rng::from_seed([5u8; 32]);
             let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point1 = ProjectivePoint::hash_to_projective_point(b"test_point_1");
-            let point2 = ProjectivePoint::hash_to_projective_point(b"test_point_2");
+            let point1 = ProjectivePoint::hash_to_projective_point(b"test_point_1").unwrap();
+            let point2 = ProjectivePoint::hash_to_projective_point(b"test_point_2").unwrap();
 
             let left = scalar * (point1 + point2);
             let right = (scalar * point1) + (scalar * point2);
@@ -298,7 +328,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([6u8; 32]);
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point");
+            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
 
             let combined_scalar = scalar1 * scalar2;
             let left = combined_scalar * point;
@@ -383,7 +413,7 @@ mod tests {
 
         #[test]
         fn test_scalar_mul_by_generator() {
-            let scalar = ScalarFieldElement(dusk_jubjub::Fr::one());
+            let scalar = ScalarFieldElement(midnight_curves::Fr::one());
             let generator = PrimeOrderProjectivePoint::create_generator();
 
             let result = scalar * generator;
