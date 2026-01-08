@@ -87,8 +87,8 @@ cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": $
 rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 
-# Setup dmq node topology for signer peers
-SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_port))}"
+# Setup dmq node topology for signer relay peers
+SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
 for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
   cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
   rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
