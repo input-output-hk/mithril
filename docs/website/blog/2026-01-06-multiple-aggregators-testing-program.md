@@ -7,26 +7,26 @@ tags: [DMQ, decentralization, testing program, aggregator, follower]
 
 ### Multiple aggregators testing program
 
-The Mithril team is launching a testing program for running **multiple aggregators** on the `pre-release-preview` network. This initiative will help us collect valuable feedback, uncover potential issues, and validate the architecture ahead of its broader deployment.
+The Mithril team is launching a testing program for running **multiple aggregators** on the `pre-release-preview` network: running multiple aggregators will help increase decentralization and resilience of the Mithril network. This initiative will help collect valuable feedback, identify potential issues, and validate Mithril architecture before broader deployment.
 
 #### Leader/follower architecture
 
-This feature introduces a **leader/follower architecture** for aggregators. In this initial phase, only the signature diffusion is decentralized thanks to the [DMQ protocol (CIP-0137)](https://cips.cardano.org/cip/CIP-0137). IOG will continue operating the **leader aggregator**, while anyone will be able to run a **follower aggregator**.
+We have introduced a **leader/follower architecture** for aggregators. In this initial phase, only the signature diffusion is decentralized thanks to the [DMQ protocol (CIP-0137)](https://cips.cardano.org/cip/CIP-0137). IOG will continue operating the **leader aggregator**, while anyone will be able to run a **follower aggregator**.
 
-The leader aggregator serves as the **seed for the certificate chain and the signer registration**. When a follower aggregator joins the Mithril network, it fetches the existing certificate chain from the leader to bootstrap its operations, and also relies on the leader aggregator to broadcast the signer registrations.
+The leader aggregator serves as the **seed for the certificate chain and the signer registration**. When a follower aggregator joins the Mithril network, it fetches the existing certificate chain from the leader to bootstrap its operations and also relies on the leader aggregator to broadcast the signer registrations.
 
 #### Public and private aggregators
 
 Aggregators can be either **public** or **private**:
 
 - **Public aggregators** are accessible to anyone and contribute to the overall resilience of the network
-- **Private aggregators** can be operated for internal use cases or specific communities
+- **Private aggregators** can be operated for internal use cases or specific communities.
 
 A **discovery mechanism** is also being tested to allow new public aggregators to be easily found and accessible by clients across the network.
 
 #### Call for participation
 
-We invite **SPOs and everyone in the Cardano ecosystem** to join this testing program! Whether you want to run a public aggregator to strengthen the network or a private one for your own needs, your participation will help validate and improve this feature.
+We invite **SPOs and everyone in the Cardano ecosystem** to join this testing program! Whether you want to run a public aggregator to strengthen the network or a private one for your own needs, your participation will help validate and improve the follower aggregator.
 
 :::tip
 
@@ -34,7 +34,7 @@ Running a follower aggregator does not require being an SPO: only a Cardano full
 
 :::
 
-If you want to participate, please reach out to us on the Mithril Discord channel.
+If you want to participate, please reach out to the team on the Mithril Discord channel.
 
 #### Important requirement
 
@@ -48,7 +48,7 @@ The Mithril team will provide dedicated support and guidance to help participant
 
 #### Rollout plan
 
-The roll-out plan of the DMQ network is the following:
+The rollout plan of the DMQ network is the following:
 
 - [ ] **Distribution +1**: `unstable` on the `pre-release-preview` network
   - [ ] Activation of the feature on the `pre-release-preview` network
@@ -59,4 +59,4 @@ The roll-out plan of the DMQ network is the following:
   - [ ] Release of an updated guide for setting up a follower aggregator
   - [ ] Monitoring and support for operators running follower aggregators.
 
-For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
