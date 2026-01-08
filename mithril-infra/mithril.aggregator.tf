@@ -23,7 +23,7 @@ resource "null_resource" "mithril_aggregator" {
     mithril_aggregator_cardano_transactions_database_connection_pool_size     = var.mithril_aggregator_cardano_transactions_database_connection_pool_size,
     mithril_aggregator_cardano_transactions_signing_config_security_parameter = var.mithril_aggregator_cardano_transactions_signing_config_security_parameter,
     mithril_aggregator_cardano_transactions_signing_config_step               = var.mithril_aggregator_cardano_transactions_signing_config_step,
-    mithril_aggregator_cexplorer_pools_url                                    = var.mithril_aggregator_cexplorer_pools_url,
+    mithril_aggregator_blockfrost_parameters                                  = var.mithril_aggregator_blockfrost_parameters,
   }
 
   connection {
@@ -113,7 +113,7 @@ if [ "$ANCILLARY_FILES_SIGNER_TYPE" = "gcp-kms" ]; then
 fi
 EOT
       ,
-      "export CEXPLORER_POOLS_URL='${var.mithril_aggregator_cexplorer_pools_url}'",
+      "export BLOCKFROST_PARAMETERS='${var.mithril_aggregator_blockfrost_parameters}'",
       "export ALLOW_UNPARSABLE_BLOCK=${var.mithril_aggregator_allow_unparsable_block}",
       "export CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_prover_cache_pool_size}",
       "export CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_database_connection_pool_size}",
