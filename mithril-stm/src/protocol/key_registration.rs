@@ -152,4 +152,54 @@ mod tests {
             }
         }
     }
+
+    mod golden {
+        use blake2::{Blake2b, digest::consts::U32};
+
+        use crate::{
+            Initializer, MithrilMembershipDigest, Parameters,
+            membership_commitment::MerkleTreeBatchCommitment,
+        };
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root":[4,3,108,183,145,65,166,69,250,202,51,64,90,232,45,103,56,138,102,63,209,245,81,22,120,16,6,96,140,204,210,55],
+            "nr_leaves":4,
+            "hasher":null
+        }"#;
+
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let number_of_parties = 4;
+
+            let mut key_reg = KeyRegistration::init();
+            for stake in 0..number_of_parties {
+                let initializer = Initializer::new(params, stake, &mut rng);
+                key_reg.register(initializer.stake, initializer.pk).unwrap();
+            }
+
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
+            closed_key_reg.merkle_tree.to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
 }
