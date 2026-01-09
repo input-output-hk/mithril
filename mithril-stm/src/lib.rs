@@ -126,7 +126,7 @@ pub use signature_scheme::{
 };
 
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
-pub use signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
 #[cfg(feature = "future_snark")]
 use blake2::digest::consts::U64;

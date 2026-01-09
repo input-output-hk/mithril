@@ -4,7 +4,7 @@ use ff::Field;
 use rand_core::{CryptoRng, RngCore};
 use std::ops::{Add, Mul, Sub};
 
-use crate::{StmResult, signature_scheme::SchnorrSignatureError};
+use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,7 +91,7 @@ impl ScalarFieldElement {
                 return Ok(random_scalar);
             }
         }
-        Err(anyhow!(SchnorrSignatureError::RandomScalarGeneration))
+        Err(anyhow!(UniqueSchnorrSignatureError::RandomScalarGeneration))
     }
 
     /// Converts the scalar field element to its byte representation
@@ -105,13 +105,13 @@ impl ScalarFieldElement {
         scalar_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
+                .ok_or(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)?,
         );
 
         match JubjubScalar::from_bytes(&scalar_bytes).into_option() {
             Some(scalar_field_element) => Ok(Self(scalar_field_element)),
             None => Err(anyhow!(
-                SchnorrSignatureError::ScalarFieldElementSerialization
+                UniqueSchnorrSignatureError::ScalarFieldElementSerialization
             )),
         }
     }

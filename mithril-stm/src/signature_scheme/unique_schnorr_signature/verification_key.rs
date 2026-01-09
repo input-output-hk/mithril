@@ -1,7 +1,9 @@
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
-use super::{PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSignatureError, SchnorrSigningKey};
+use super::{
+    PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
+};
 use crate::StmResult;
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
@@ -16,7 +18,7 @@ impl SchnorrVerificationKey {
     /// of the subgroup and sk is the schnorr secret key
     pub fn new_from_signing_key(signing_key: SchnorrSigningKey) -> StmResult<Self> {
         if signing_key.0.is_zero() | signing_key.0.is_one() {
-            return Err(anyhow!(SchnorrSignatureError::InvalidSigningKey))
+            return Err(anyhow!(UniqueSchnorrSignatureError::InvalidSigningKey))
                 .with_context(|| "Verification key generation failed.");
         }
         let generator = PrimeOrderProjectivePoint::create_generator();
@@ -27,7 +29,7 @@ impl SchnorrVerificationKey {
     pub fn is_valid(&self) -> StmResult<Self> {
         let projective_point = ProjectivePoint::from(self.0);
         if !projective_point.is_prime_order() {
-            return Err(anyhow!(SchnorrSignatureError::PointIsNotPrimeOrder(
+            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotPrimeOrder(
                 Box::new(self.0)
             )));
         }
@@ -46,7 +48,7 @@ impl SchnorrVerificationKey {
     /// The bytes must represent a Jubjub Subgroup point or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 32 {
-            return Err(anyhow!(SchnorrSignatureError::Serialization)).with_context(
+            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to construct a Schnorr verification key.",
             );
         }
