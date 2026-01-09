@@ -28,7 +28,7 @@ where
     let mut key_reg = KeyRegistration::initialize();
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg.register(&p.clone().into()).unwrap();
+        key_reg.register_by_entry(&p.clone().into()).unwrap();
         ps.push(p);
     }
 
@@ -48,7 +48,7 @@ where
     // Aggregate with random parties
     let aggr_sig_type = AggregateSignatureType::Concatenation;
     let aggr = clerk
-        .aggregate_signatures_with_type::<D>(&sigs, &msg, aggr_sig_type)
+        .aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type)
         .unwrap();
 
     println!(

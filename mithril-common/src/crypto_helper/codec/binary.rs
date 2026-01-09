@@ -31,9 +31,9 @@ pub trait TryFromBytes: Sized {
 mod binary_mithril_stm {
     use anyhow::anyhow;
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, MithrilMembershipDigest, OutdatedInitializer,
-        Parameters, SingleSignature, SingleSignatureWithRegisteredParty, VerificationKey,
-        VerificationKeyProofOfPossession,
+        AggregateSignature, AggregateVerificationKey, Initializer, MithrilMembershipDigest,
+        Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
+        VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
     };
 
     use super::*;
@@ -89,25 +89,25 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for VerificationKey {
+    impl TryToBytes for VerificationKeyForConcatenation {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for VerificationKey {
+    impl TryFromBytes for VerificationKeyForConcatenation {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }
     }
 
-    impl TryToBytes for VerificationKeyProofOfPossession {
+    impl TryToBytes for VerificationKeyProofOfPossessionForConcatenation {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for VerificationKeyProofOfPossession {
+    impl TryFromBytes for VerificationKeyProofOfPossessionForConcatenation {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }
@@ -131,13 +131,13 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for OutdatedInitializer {
+    impl TryToBytes for Initializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for OutdatedInitializer {
+    impl TryFromBytes for Initializer {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }

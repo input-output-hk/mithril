@@ -60,12 +60,10 @@
 //!     // Register keys with the KeyRegistration service
 //!     let entry = RegistrationEntry::new(
 //!         p.get_verification_key_proof_of_possession(),
-//!         #[cfg(feature = "future_snark")]
-//!         None,
 //!         p.stake,
 //!     )
 //!     .unwrap();
-//!     key_reg.register(&entry).unwrap();
+//!     key_reg.register_by_entry(&entry).unwrap();
 //!     ps.push(p);
 //! }
 //!
@@ -94,7 +92,7 @@
 //! let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, AggregateSignatureType::Concatenation);
+//! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
@@ -119,7 +117,13 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
-pub use protocol::*;
+pub use protocol::{
+    AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
+    AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
+    RegisterError, RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
+};
 pub use signature_scheme::BlsSignatureError;
 
 #[cfg(feature = "benchmark-internals")]
@@ -142,7 +146,7 @@ pub type Stake = u64;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
-pub type Index = u64;
+pub type LotteryIndex = u64;
 
 /// Index of the signer in the key registration
 pub type SignerIndex = u64;

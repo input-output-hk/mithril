@@ -2,58 +2,46 @@ use anyhow::anyhow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    AggregationError, ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer,
-    SingleSignatureWithRegisteredParty, Stake, StmResult, proof_system::ConcatenationProofKey,
-    signature_scheme::BlsVerificationKey,
+    AggregationError, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters, Signer,
+    SingleSignatureWithRegisteredParty, StmResult,
+    proof_system::AggregateVerificationKeyForConcatenation,
 };
 
-/// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
-/// Clerks can only be generated with the registration closed.
-/// This avoids that a Merkle Tree is computed before all parties have registered.
+/// The `ConcatenationClerk` is responsible for managing the proof system related to
+/// concatenation signatures.
 #[derive(Debug, Clone)]
 pub struct ConcatenationClerk {
-    pub(crate) closed_reg: ClosedKeyRegistration,
+    /// The closed key registration associated with this clerk.
+    pub(crate) closed_key_registration: ClosedKeyRegistration,
+    /// Protocol parameters
     pub(crate) parameters: Parameters,
 }
 
 impl ConcatenationClerk {
-    /// Create a new `Clerk` from a closed registration instance.
+    /// Create a new `ConcatenationClerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         parameters: &Parameters,
-        closed_reg: &ClosedKeyRegistration,
+        closed_key_registration: &ClosedKeyRegistration,
     ) -> Self {
         Self {
             parameters: *parameters,
-            closed_reg: closed_reg.clone(),
+            closed_key_registration: closed_key_registration.clone(),
         }
     }
 
-    /// Create a Clerk from a signer.
+    /// Create a `ConcatenationClerk` from a signer.
     pub fn new_clerk_from_signer<D: MembershipDigest>(signer: &Signer<D>) -> Self {
         Self {
             parameters: signer.parameters,
-            closed_reg: signer.closed_key_registration.clone(),
+            closed_key_registration: signer.closed_key_registration.clone(),
         }
     }
 
-    /// Compute the `AggregateVerificationKey` related to the used registration.
-    pub fn compute_aggregate_verification_key<D: MembershipDigest>(
+    /// Compute the `ConcatenationProofKey` related to the used registration.
+    pub fn compute_concatenation_proof_key<D: MembershipDigest>(
         &self,
-    ) -> ConcatenationProofKey<D> {
-        ConcatenationProofKey::from(&self.closed_reg)
-    }
-
-    /// Get the (VK, stake) of a party given its index.
-    pub fn get_registered_party_for_index(
-        &self,
-        party_index: &Index,
-    ) -> StmResult<(BlsVerificationKey, Stake)> {
-        let entry = self
-            .closed_reg
-            .key_registration
-            .clone()
-            .get_registration_entry_for_index(party_index)?;
-        Ok((entry.get_bls_verification_key(), entry.get_stake()))
+    ) -> AggregateVerificationKeyForConcatenation<D> {
+        AggregateVerificationKeyForConcatenation::from(&self.closed_key_registration)
     }
 
     #[cfg(test)]
@@ -78,11 +66,11 @@ impl ConcatenationClerk {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-        avk: &ConcatenationProofKey<D>,
+        avk: &AggregateVerificationKeyForConcatenation<D>,
     ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
-        let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
+        let mut sig_by_index: BTreeMap<LotteryIndex, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
+        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<LotteryIndex>> =
             HashMap::new();
 
         for sig_reg in sigs.iter() {
@@ -141,7 +129,7 @@ impl ConcatenationClerk {
                     .get_concatenation_signature_indices()
                     .into_iter()
                     .filter(|i| !indexes.contains(i))
-                    .collect::<Vec<Index>>();
+                    .collect::<Vec<LotteryIndex>>();
                 deduped_sig.sig.set_concatenation_signature_indices(&indices);
             }
 
@@ -149,7 +137,9 @@ impl ConcatenationClerk {
                 deduped_sig.sig.get_concatenation_signature_indices().len().try_into();
             if let Ok(size) = size {
                 if dedup_sigs.contains(&deduped_sig) {
-                    panic!("Should not reach!");
+                    panic!(
+                        "Invariant violation: duplicate signature encountered in deduplication set, which should not be possible."
+                    );
                 }
                 dedup_sigs.insert(deduped_sig);
                 count += size;
@@ -165,120 +155,120 @@ impl ConcatenationClerk {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use proptest::prelude::*;
-//     use rand_chacha::ChaCha20Rng;
-//     use rand_core::{RngCore, SeedableRng};
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::{RngCore, SeedableRng};
 
-//     use crate::{
-//         ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
-//         SingleSignatureWithRegisteredParty, proof_system::ConcatenationClerk,
-//     };
+    use crate::{
+        ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+        SingleSignatureWithRegisteredParty, proof_system::ConcatenationClerk,
+    };
 
-//     use super::AggregationError;
+    use super::AggregationError;
 
-//     type D = MithrilMembershipDigest;
+    type D = MithrilMembershipDigest;
 
-//     proptest! {
-//         #![proptest_config(ProptestConfig::with_cases(1))]
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
 
-//         #[test]
-//         fn test_dedup(
-//             seed in any::<[u8; 32]>(),
-//             msg in any::<[u8;16]>(),
-//             nparties in 1_usize..10,
-//             m in 1_u64..20,
-//             k in 1_u64..10,
-//             phi_f in 0.1_f64..1.0,
-//             num_invalid_sigs_per_party in 0_usize..3,
-//         ) {
-//             let params = Parameters { m, k, phi_f };
-//             let mut rng = ChaCha20Rng::from_seed(seed);
+        #[test]
+        fn test_dedup(
+            seed in any::<[u8; 32]>(),
+            msg in any::<[u8;16]>(),
+            nparties in 1_usize..10,
+            m in 1_u64..20,
+            k in 1_u64..10,
+            phi_f in 0.1_f64..1.0,
+            num_invalid_sigs_per_party in 0_usize..3,
+        ) {
+            let params = Parameters { m, k, phi_f };
+            let mut rng = ChaCha20Rng::from_seed(seed);
 
-//             // False messages
-//             let mut false_msgs = Vec::new();
-//             for _ in 0..num_invalid_sigs_per_party {
-//                 let mut false_msg = vec![0u8; 32];
-//                 rng.fill_bytes(&mut false_msg);
-//                 if false_msg == msg {
-//                     false_msg[0] = msg[0].wrapping_add(1);
-//                 }
-//                 false_msgs.push(false_msg);
-//             }
+            // False messages
+            let mut false_msgs = Vec::new();
+            for _ in 0..num_invalid_sigs_per_party {
+                let mut false_msg = vec![0u8; 32];
+                rng.fill_bytes(&mut false_msg);
+                if false_msg == msg {
+                    false_msg[0] = msg[0].wrapping_add(1);
+                }
+                false_msgs.push(false_msg);
+            }
 
-//             let mut key_registration = KeyRegistration::initialize();
-//             let mut initializers = Vec::new();
+            let mut key_registration = KeyRegistration::initialize();
+            let mut initializers = Vec::new();
 
-//             for i in 0..nparties {
-//                 let stake = (i as u64 + 1) * 10;
-//                 let initializer = Initializer::new(params, stake, &mut rng);
-//                 key_registration.register(&initializer.clone().into()).unwrap();
-//                 initializers.push(initializer);
-//             }
+            for i in 0..nparties {
+                let stake = (i as u64 + 1) * 10;
+                let initializer = Initializer::new(params, stake, &mut rng);
+                key_registration.register_by_entry(&initializer.clone().into()).unwrap();
+                initializers.push(initializer);
+            }
 
-//             let closed_registration: ClosedKeyRegistration = key_registration.close_registration();
+            let closed_registration: ClosedKeyRegistration = key_registration.close_registration();
 
-//             let signers: Vec<_> = initializers
-//                 .into_iter()
-//                 .map(|init| init.try_create_signer::<MithrilMembershipDigest>(&closed_registration).unwrap())
-//                 .collect();
+            let signers: Vec<_> = initializers
+                .into_iter()
+                .map(|init| init.try_create_signer::<MithrilMembershipDigest>(&closed_registration).unwrap())
+                .collect();
 
-//             let clerk = ConcatenationClerk::new_clerk_from_signer(&signers[0]);
-//             let avk = clerk.compute_aggregate_verification_key::<D>();
+            let clerk = ConcatenationClerk::new_clerk_from_signer(&signers[0]);
+            let avk = clerk.compute_concatenation_proof_key::<D>();
 
-//             let mut all_sigs = Vec::new();
-//             for signer in &signers {
-//                 // Add invalid signatures
-//                 for false_msg in &false_msgs {
-//                     if let Ok(sig) = signer.create_single_signature(false_msg) {
-//                         all_sigs.push(sig);
-//                     }
-//                 }
+            let mut all_sigs = Vec::new();
+            for signer in &signers {
+                // Add invalid signatures
+                for false_msg in &false_msgs {
+                    if let Ok(sig) = signer.create_single_signature(false_msg) {
+                        all_sigs.push(sig);
+                    }
+                }
 
-//                 // Add valid signatures
-//                 if let Ok(sig) = signer.create_single_signature(&msg) {
-//                     all_sigs.push(sig);
-//                 }
-//             }
+                // Add valid signatures
+                if let Ok(sig) = signer.create_single_signature(&msg) {
+                    all_sigs.push(sig);
+                }
+            }
 
-//             let sig_reg_list = all_sigs
-//                 .iter()
-//                 .map(|sig| SingleSignatureWithRegisteredParty {
-//                     sig: sig.clone(),
-//                     reg_party: clerk.closed_reg.key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap().clone(),
-//                 })
-//                 .collect::<Vec<SingleSignatureWithRegisteredParty>>();
+            let sig_reg_list = all_sigs
+                .iter()
+                .map(|sig| SingleSignatureWithRegisteredParty {
+                    sig: sig.clone(),
+                    reg_party: clerk.closed_key_registration.key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap(),
+                })
+                .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-//             let dedup_result =
-//                 ConcatenationClerk::select_valid_signatures_for_k_indices(&params, &msg, &sig_reg_list, &avk);
+            let dedup_result =
+                ConcatenationClerk::select_valid_signatures_for_k_indices(&params, &msg, &sig_reg_list, &avk);
 
-//             match dedup_result {
-//                 Ok(valid_sigs) => {
-//                     assert!(!valid_sigs.is_empty(), "Should have at least one valid signature");
+            match dedup_result {
+                Ok(valid_sigs) => {
+                    assert!(!valid_sigs.is_empty(), "Should have at least one valid signature");
 
-//                     for passed_sigs in valid_sigs {
-//                         let signer = &signers[passed_sigs.sig.signer_index as usize];
-//                         let verify_result = passed_sigs.sig.concatenation_signature.verify(
-//                             &params,
-//                             &signer.get_bls_verification_key(),
-//                             &signer.concatenation_proof_signer.stake,
-//                             &avk,
-//                             &msg,
-//                         );
-//                         assert!(verify_result.is_ok(), "All returned signatures should verify: {:?}", verify_result);
-//                     }
-//                 }
-//                 Err(error) => {
-//                     assert!(
-//                         matches!(
-//                             error.downcast_ref::<AggregationError>(),
-//                             Some(AggregationError::NotEnoughSignatures(..))
-//                         ),
-//                         "Expected NotEnoughSignatures, got: {:?}", error
-//                     );
-//                 }
-//             }
-//         }
-//     }
-// }
+                    for passed_sigs in valid_sigs {
+                        let signer = &signers[passed_sigs.sig.signer_index as usize];
+                        let verify_result = passed_sigs.sig.concatenation_signature.verify(
+                            &params,
+                            &signer.get_bls_verification_key(),
+                            &passed_sigs.reg_party.get_stake(),
+                            &avk,
+                            &msg,
+                        );
+                        assert!(verify_result.is_ok(), "All returned signatures should verify: {:?}", verify_result);
+                    }
+                }
+                Err(error) => {
+                    assert!(
+                        matches!(
+                            error.downcast_ref::<AggregationError>(),
+                            Some(AggregationError::NotEnoughSignatures(..))
+                        ),
+                        "Expected NotEnoughSignatures, got: {:?}", error
+                    );
+                }
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-use crate::{RegistrationEntry, signature_scheme::BlsVerificationKey};
+use crate::signature_scheme::BlsVerificationKey;
 
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
@@ -6,10 +6,6 @@ pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<BlsVerificationKey>),
-
-    /// This entry has already been registered by a participant
-    #[error("This entry has already been registered.")]
-    EntryRegistered(Box<RegistrationEntry>),
 
     /// Cannot register if the registration is closed.
     #[error("Cannot register if the registration is closed.")]

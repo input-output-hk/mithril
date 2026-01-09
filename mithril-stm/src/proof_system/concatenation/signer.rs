@@ -2,9 +2,10 @@ use anyhow::anyhow;
 
 use crate::{
     MembershipDigest, Parameters, RegistrationEntryForConcatenation, SignatureError, Stake,
-    StmResult, is_lottery_won,
+    StmResult, VerificationKeyForConcatenation,
     membership_commitment::MerkleTree,
-    signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
+    protocol::is_lottery_won,
+    signature_scheme::{BlsSignature, BlsSigningKey},
 };
 
 use super::SingleSignatureForConcatenation;
@@ -19,7 +20,7 @@ pub(crate) struct ConcatenationProofSigner<D: MembershipDigest> {
     total_stake: Stake,
     parameters: Parameters,
     signing_key: BlsSigningKey,
-    verification_key: BlsVerificationKey,
+    verification_key: VerificationKeyForConcatenation,
     key_registration_commitment:
         MerkleTree<D::ConcatenationHash, RegistrationEntryForConcatenation>,
 }
@@ -31,7 +32,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
         total_stake: Stake,
         parameters: Parameters,
         signing_key: BlsSigningKey,
-        verification_key: BlsVerificationKey,
+        verification_key: VerificationKeyForConcatenation,
         key_registration_commitment: MerkleTree<
             D::ConcatenationHash,
             RegistrationEntryForConcatenation,
@@ -88,7 +89,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
         indices
     }
 
-    pub fn get_verification_key(&self) -> BlsVerificationKey {
+    pub fn get_verification_key(&self) -> VerificationKeyForConcatenation {
         self.verification_key
     }
 }

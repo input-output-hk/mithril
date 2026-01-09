@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ClosedKeyRegistration, MembershipDigest, Parameters, RegisterError, RegistrationEntry,
     RegistrationEntryForConcatenation, Stake, StmResult,
-    proof_system::ConcatenationProofSigner,
-    signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+    VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+    signature_scheme::BlsSigningKey,
 };
 
 use super::Signer;
@@ -17,14 +17,14 @@ pub struct Initializer {
     /// Stake of the participant
     pub stake: Stake,
     /// Protocol parameters.
-    /// TODO: Rename as `parameters`
-    pub params: Parameters,
+    #[serde(rename = "params")]
+    pub parameters: Parameters,
     /// Signing key for concatenation proof system.
-    /// TODO: Rename as `bls_signing_key`
-    pub sk: BlsSigningKey,
+    #[serde(rename = "sk")]
+    pub bls_signing_key: BlsSigningKey,
     /// Verification key for concatenation proof system.
-    /// TODO: Rename as `bls_verification_key_proof_of_possession`
-    pub pk: BlsVerificationKeyProofOfPossession,
+    #[serde(rename = "pk")]
+    pub bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
 }
 
 impl Initializer {
@@ -32,12 +32,12 @@ impl Initializer {
     pub fn new<R: RngCore + CryptoRng>(parameters: Parameters, stake: Stake, rng: &mut R) -> Self {
         let bls_signing_key = BlsSigningKey::generate(rng);
         let bls_verification_key_proof_of_possession =
-            BlsVerificationKeyProofOfPossession::from(&bls_signing_key);
+            VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
         Self {
             stake,
-            params: parameters,
-            sk: bls_signing_key,
-            pk: bls_verification_key_proof_of_possession,
+            parameters,
+            bls_signing_key,
+            bls_verification_key_proof_of_possession,
         }
     }
 
@@ -50,12 +50,8 @@ impl Initializer {
         self,
         closed_key_registration: &ClosedKeyRegistration,
     ) -> StmResult<Signer<D>> {
-        let registration_entry = RegistrationEntry::new(
-            self.pk,
-            #[cfg(feature = "future_snark")]
-            None,
-            self.stake,
-        )?;
+        let registration_entry =
+            RegistrationEntry::new(self.bls_verification_key_proof_of_possession, self.stake)?;
 
         let signer_index = match closed_key_registration
             .key_registration
@@ -75,9 +71,9 @@ impl Initializer {
         let concatenation_proof_signer = ConcatenationProofSigner::new(
             registration_entry.get_stake(),
             closed_key_registration.total_stake,
-            self.params,
-            self.sk,
-            self.pk.vk,
+            self.parameters,
+            self.bls_signing_key,
+            self.bls_verification_key_proof_of_possession.vk,
             key_registration_commitment,
         );
 
@@ -86,13 +82,16 @@ impl Initializer {
             signer_index,
             concatenation_proof_signer,
             closed_key_registration.clone(),
-            self.params,
+            self.parameters,
+            registration_entry.get_stake(),
         ))
     }
 
     /// Extract the verification key with proof of possession.
-    pub fn get_verification_key_proof_of_possession(&self) -> BlsVerificationKeyProofOfPossession {
-        self.pk
+    pub fn get_verification_key_proof_of_possession(
+        &self,
+    ) -> VerificationKeyProofOfPossessionForConcatenation {
+        self.bls_verification_key_proof_of_possession
     }
 
     /// Convert to bytes
@@ -104,9 +103,9 @@ impl Initializer {
     pub fn to_bytes(&self) -> [u8; 256] {
         let mut out = [0u8; 256];
         out[..8].copy_from_slice(&self.stake.to_be_bytes());
-        out[8..32].copy_from_slice(&self.params.to_bytes());
-        out[32..64].copy_from_slice(&self.sk.to_bytes());
-        out[64..].copy_from_slice(&self.pk.to_bytes());
+        out[8..32].copy_from_slice(&self.parameters.to_bytes());
+        out[32..64].copy_from_slice(&self.bls_signing_key.to_bytes());
+        out[64..].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
         out
     }
 
@@ -121,15 +120,15 @@ impl Initializer {
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
         let sk =
             BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = BlsVerificationKeyProofOfPossession::from_bytes(
+        let pk = VerificationKeyProofOfPossessionForConcatenation::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
 
         Ok(Self {
             stake,
-            params,
-            sk,
-            pk,
+            parameters: params,
+            bls_signing_key: sk,
+            bls_verification_key_proof_of_possession: pk,
         })
     }
 }
@@ -137,8 +136,8 @@ impl Initializer {
 impl PartialEq for Initializer {
     fn eq(&self, other: &Self) -> bool {
         self.stake == other.stake
-            && self.params == other.params
-            && self.sk.to_bytes() == other.sk.to_bytes()
+            && self.parameters == other.parameters
+            && self.bls_signing_key.to_bytes() == other.bls_signing_key.to_bytes()
             && self.get_verification_key_proof_of_possession()
                 == other.get_verification_key_proof_of_possession()
     }
@@ -175,16 +174,16 @@ mod tests {
         fn golden_value() -> Initializer {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = BlsSigningKey::generate(&mut rng);
-            let pk = BlsVerificationKeyProofOfPossession::from(&sk);
+            let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
             Initializer {
                 stake: 1,
-                params: Parameters {
+                parameters: Parameters {
                     m: 20973,
                     k: 2422,
                     phi_f: 0.2,
                 },
-                sk,
-                pk,
+                bls_signing_key: sk,
+                bls_verification_key_proof_of_possession: pk,
             }
         }
 

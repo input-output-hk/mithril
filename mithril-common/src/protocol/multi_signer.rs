@@ -62,7 +62,7 @@ impl MultiSigner {
         // party, and we can ignore the request.
         let (vk, stake) = self
             .protocol_clerk
-            .get_registered_party_for_index(&protocol_signature.signer_index)
+            .get_concatenation_registered_party_for_index(&protocol_signature.signer_index)
             .with_context(|| format!("Unregistered party: '{}'", single_signature.party_id))?;
 
         protocol_signature
