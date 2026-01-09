@@ -4,8 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: SHA of the commit on which the aggregator binary should be obtained.
-        required: true
+        description: |
+          SHA of the commit on which the aggregator binary should be obtained.
+
+          If missing, the latest binary from the `main` main will be used instead.
         type: string
       num_signers:
         description: Number of concurrent signers
@@ -46,7 +48,7 @@ jobs:
         shell: bash
         run: |
           if [[ -n "${{ inputs.commit_sha }}" ]]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+            echo "commit_sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
           else
             echo "branch=main" >> $GITHUB_OUTPUT
           fi
@@ -64,8 +66,8 @@ jobs:
         with:
           name: mithril-distribution-Linux-X64
           path: ./bin
-          commit: ${{ inputs.commit_sha }}
-          branch: ${{ inputs.branch }}
+          commit: ${{ steps.prepare.outputs.commit_sha }}
+          branch: ${{ steps.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
 
