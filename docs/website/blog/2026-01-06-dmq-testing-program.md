@@ -29,14 +29,14 @@ The Mithril team will provide dedicated support and guidance to help SPOs set up
 
 #### Rollout plan
 
-The roll-out plan of the DMQ network is the following:
+The rollout plan of the DMQ network is the following:
 
 - [ ] **Distribution +1**: `unstable` on the `pre-release-preview` network
-  - [ ] Activation of DMQ on the `pre-release-preview` network
+  - [ ] DMQ activation on the `pre-release-preview` network
   - [ ] Release of a guide for setting up a DMQ node in the SPO infrastructure
   - [ ] 4-6 weeks testing program with selected SPOs
 - [ ] **Distribution +2**: `stable` on the `release-preprod` and `release-mainnet` networks with fallback
-  - [ ] Activation of DMQ on the `release-preprod` and `release-mainnet` networks
+  - [ ] DMQ activation on the `release-preprod` and `release-mainnet` networks
   - [ ] Activation of the fallback to the legacy signature registration mechanism for all SPOs
   - [ ] Release of an updated guide for setting up a DMQ node in the SPO infrastructure
   - [ ] Monitoring and support for SPOs running DMQ nodes
@@ -44,4 +44,4 @@ The roll-out plan of the DMQ network is the following:
   - [ ] Deactivation of the fallback to the legacy signature registration mechanism for all SPOs
   - [ ] Monitoring and support for SPOs running DMQ nodes.
 
-For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
