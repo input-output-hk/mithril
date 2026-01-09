@@ -4,8 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: SHA of the commit on which the aggregator binary should be obtained.
-        required: true
+        description: |
+          SHA of the commit on which the aggregator binary should be obtained.
+
+          If missing, the latest binary from the `main` main will be used instead.
         type: string
       num_signers:
         description: Number of concurrent signers
