@@ -177,7 +177,7 @@ fn local_reg(
             1,
         )
         .unwrap();
-        local_keyreg.register(&entry).unwrap();
+        local_keyreg.register_by_entry(&entry).unwrap();
     }
     local_keyreg.close_registration()
 }

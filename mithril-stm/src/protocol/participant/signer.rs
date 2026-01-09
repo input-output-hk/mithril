@@ -1,6 +1,6 @@
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, Parameters, SignerIndex, SingleSignature, StmResult,
-    proof_system::ConcatenationProofSigner, signature_scheme::BlsVerificationKey,
+    ClosedKeyRegistration, MembershipDigest, Parameters, SignerIndex, SingleSignature, Stake,
+    StmResult, VerificationKeyForConcatenation, proof_system::ConcatenationProofSigner,
 };
 
 /// Single signature generator. Contains the signer's registration index and the signature
@@ -11,6 +11,7 @@ pub struct Signer<D: MembershipDigest> {
     pub signer_index: SignerIndex,
     /// Single signature generation of concatenation proof system
     pub(crate) concatenation_proof_signer: ConcatenationProofSigner<D>,
+    stake: Stake,
     pub closed_key_registration: ClosedKeyRegistration,
     pub parameters: Parameters,
 }
@@ -22,10 +23,12 @@ impl<D: MembershipDigest> Signer<D> {
         concatenation_proof_signer: ConcatenationProofSigner<D>,
         closed_key_registration: ClosedKeyRegistration,
         parameters: Parameters,
+        stake: Stake,
     ) -> Self {
         Self {
             signer_index,
             concatenation_proof_signer,
+            stake,
             closed_key_registration,
             parameters,
         }
@@ -41,7 +44,19 @@ impl<D: MembershipDigest> Signer<D> {
         })
     }
 
-    pub fn get_bls_verification_key(&self) -> BlsVerificationKey {
+    /// Signing function that returns an Option type.
+    pub fn sign(&self, message: &[u8]) -> Option<SingleSignature> {
+        let result = self.create_single_signature(message);
+        result.ok()
+    }
+
+    /// Gets the BLS verification key.
+    pub fn get_bls_verification_key(&self) -> VerificationKeyForConcatenation {
         self.concatenation_proof_signer.get_verification_key()
+    }
+
+    /// Gets the stake associated with the signer.
+    pub fn get_stake(&self) -> Stake {
+        self.stake
     }
 }

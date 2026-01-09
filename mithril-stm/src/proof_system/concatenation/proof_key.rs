@@ -7,8 +7,7 @@ use crate::{
     },
 };
 
-/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
-/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
+/// Aggregate verification key of the concatenation proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "MerkleBatchPath<D::ConcatenationHash>: Serialize",
@@ -20,12 +19,13 @@ pub struct ConcatenationProofKey<D: MembershipDigest> {
 }
 
 impl<D: MembershipDigest> ConcatenationProofKey<D> {
+    /// Get the Merkle tree batch commitment.
     pub(crate) fn get_merkle_tree_batch_commitment(
         &self,
     ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
         self.mt_commitment.clone()
     }
-
+    /// Get the total stake.
     pub fn get_total_stake(&self) -> Stake {
         self.total_stake
     }

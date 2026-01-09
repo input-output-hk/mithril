@@ -7,9 +7,9 @@ use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Index, MembershipDigest, Parameters, SignatureError, Stake, StmResult, is_lottery_won,
-    proof_system::ConcatenationProofKey,
-    signature_scheme::{BlsSignature, BlsVerificationKey},
+    Index, MembershipDigest, Parameters, SignatureError, Stake, StmResult,
+    VerificationKeyForConcatenation, is_lottery_won, proof_system::ConcatenationProofKey,
+    signature_scheme::BlsSignature,
 };
 
 /// Single signature for the concatenation proof system.
@@ -33,7 +33,7 @@ impl SingleSignatureForConcatenation {
     pub(crate) fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
-        pk: &BlsVerificationKey,
+        pk: &VerificationKeyForConcatenation,
         stake: &Stake,
         avk: &ConcatenationProofKey<D>,
         msg: &[u8],

@@ -3,13 +3,13 @@ use digest::{Digest, FixedOutput};
 use std::collections::BTreeSet;
 
 use crate::{
-    RegisterError, SignerIndex, Stake, StmResult,
+    RegisterError, SignerIndex, Stake, StmResult, VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
 };
 
 use super::RegistrationEntry;
 
-/// The type used for registering signer keys
+/// Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct KeyRegistration {
     registration_entries: BTreeSet<RegistrationEntry>,
@@ -26,14 +26,32 @@ impl KeyRegistration {
     /// Check whether the given `RegistrationEntry` is already registered.
     /// Insert the new entry if all checks pass.
     /// # Error
-    /// The function fails when the either of the verification keys is invalid or when the entry
-    /// is already registered.
-    pub fn register(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
+    /// The function fails when the entry is already registered.
+    pub fn register_by_entry(&mut self, entry: &RegistrationEntry) -> StmResult<()> {
         if !self.registration_entries.contains(entry) {
             self.registration_entries.insert(*entry);
             return Ok(());
         }
-        Err(anyhow!(RegisterError::EntryRegistered(Box::new(*entry))))
+        Err(anyhow!(RegisterError::KeyRegistered(Box::new(
+            entry.get_bls_verification_key()
+        ))))
+    }
+
+    /// Registers a new signer with the given verification key proof of possession and stake.
+    /// This function only works for concatenation proof system.
+    /// The purpose of this function is to simplify the process for the rest of the codebase.
+    pub fn register(
+        &mut self,
+        stake: Stake,
+        vk_pop: &VerificationKeyProofOfPossessionForConcatenation,
+    ) -> StmResult<()> {
+        let entry = RegistrationEntry::new(
+            *vk_pop,
+            #[cfg(feature = "future_snark")]
+            None,
+            stake,
+        )?;
+        self.register_by_entry(&entry)
     }
 
     /// Gets the index of a signer registration entry
@@ -63,7 +81,7 @@ impl KeyRegistration {
         ))
     }
 
-    /// Closes the registration by computing the total stake registered so far.
+    /// Closes the registration by computing the total stake registered.
     pub fn close_registration(self) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
@@ -78,6 +96,7 @@ impl KeyRegistration {
         }
     }
 
+    /// Get the registration entry for a given signer index.
     pub fn get_registration_entry_for_index(
         &self,
         signer_index: &SignerIndex,
@@ -93,7 +112,10 @@ impl KeyRegistration {
 /// Closed Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
+    /// The key registration entries
     pub key_registration: KeyRegistration,
+
+    /// The total stake registered
     pub total_stake: Stake,
 }
 
@@ -138,11 +160,11 @@ mod tests {
                     pk.pop = fake_key.pop;
                 }
 
-                let entry_result = RegistrationEntry::new(pk.clone(), #[cfg(feature = "future_snark")] None, stake);
+                let entry_result = RegistrationEntry::new(pk, #[cfg(feature = "future_snark")] None, stake);
 
                 match entry_result {
                     Ok(entry) => {
-                        let reg = kr.register(&entry);
+                        let reg = kr.register_by_entry(&entry);
                         match reg {
                             Ok(_) => {
                                 assert!(keys.insert(entry));
@@ -172,6 +194,60 @@ mod tests {
                 let retrieved_keys = closed.key_registration.registration_entries;
                 assert!(retrieved_keys == keys);
             }
+        }
+    }
+
+    mod golden {
+        use blake2::{Blake2b, digest::consts::U32};
+
+        use crate::{
+            Initializer, Parameters,
+            membership_commitment::{MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf},
+        };
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root":[4,3,108,183,145,65,166,69,250,202,51,64,90,232,45,103,56,138,102,63,209,245,81,22,120,16,6,96,140,204,210,55],
+            "nr_leaves":4,
+            "hasher":null
+        }"#;
+
+        fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let number_of_parties = 4;
+
+            let mut key_reg = KeyRegistration::initialize();
+            for stake in 0..number_of_parties {
+                let initializer = Initializer::new(params, stake, &mut rng);
+                key_reg.register_by_entry(&initializer.clone().into()).unwrap();
+            }
+
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            closed_key_reg
+                .key_registration
+                .into_merkle_tree()
+                .unwrap()
+                .to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
         }
     }
 }

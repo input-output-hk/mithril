@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ClosedKeyRegistration, MembershipDigest, Parameters, RegisterError, RegistrationEntry,
     RegistrationEntryForConcatenation, Stake, StmResult,
-    proof_system::ConcatenationProofSigner,
-    signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+    VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+    signature_scheme::BlsSigningKey,
 };
 
 use super::Signer;
@@ -24,7 +24,7 @@ pub struct Initializer {
     pub sk: BlsSigningKey,
     /// Verification key for concatenation proof system.
     /// TODO: Rename as `bls_verification_key_proof_of_possession`
-    pub pk: BlsVerificationKeyProofOfPossession,
+    pub pk: VerificationKeyProofOfPossessionForConcatenation,
 }
 
 impl Initializer {
@@ -32,7 +32,7 @@ impl Initializer {
     pub fn new<R: RngCore + CryptoRng>(parameters: Parameters, stake: Stake, rng: &mut R) -> Self {
         let bls_signing_key = BlsSigningKey::generate(rng);
         let bls_verification_key_proof_of_possession =
-            BlsVerificationKeyProofOfPossession::from(&bls_signing_key);
+            VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
         Self {
             stake,
             params: parameters,
@@ -87,11 +87,14 @@ impl Initializer {
             concatenation_proof_signer,
             closed_key_registration.clone(),
             self.params,
+            registration_entry.get_stake(),
         ))
     }
 
     /// Extract the verification key with proof of possession.
-    pub fn get_verification_key_proof_of_possession(&self) -> BlsVerificationKeyProofOfPossession {
+    pub fn get_verification_key_proof_of_possession(
+        &self,
+    ) -> VerificationKeyProofOfPossessionForConcatenation {
         self.pk
     }
 
@@ -121,7 +124,7 @@ impl Initializer {
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
         let sk =
             BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = BlsVerificationKeyProofOfPossession::from_bytes(
+        let pk = VerificationKeyProofOfPossessionForConcatenation::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
 
@@ -175,7 +178,7 @@ mod tests {
         fn golden_value() -> Initializer {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = BlsSigningKey::generate(&mut rng);
-            let pk = BlsVerificationKeyProofOfPossession::from(&sk);
+            let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
             Initializer {
                 stake: 1,
                 params: Parameters {

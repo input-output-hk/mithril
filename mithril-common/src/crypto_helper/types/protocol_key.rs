@@ -294,19 +294,19 @@ mod test {
         crypto_helper::ProtocolKey,
         test::{TempDir, double::fake_keys},
     };
-    use mithril_stm::VerificationKeyProofOfPossession;
+    use mithril_stm::VerificationKeyProofOfPossessionForConcatenation;
     use serde::{Deserialize, Serialize};
 
     static VERIFICATION_KEY_JSON_HEX: &str = fake_keys::signer_verification_key()[0];
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     struct Container {
-        protocol_key: ProtocolKey<VerificationKeyProofOfPossession>,
+        protocol_key: ProtocolKey<VerificationKeyProofOfPossessionForConcatenation>,
     }
 
     #[test]
     fn serializing_directly_does_not_change_the_string() {
-        let key: ProtocolKey<VerificationKeyProofOfPossession> =
+        let key: ProtocolKey<VerificationKeyProofOfPossessionForConcatenation> =
             VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let serialized = serde_json::to_string(&key).expect("Serialization should not fail");
 
@@ -350,7 +350,7 @@ mod test {
 
     #[test]
     fn can_deserialize_a_struct_containing_a_bytes_hex_verification_key() {
-        let verification_key: ProtocolKey<VerificationKeyProofOfPossession> =
+        let verification_key: ProtocolKey<VerificationKeyProofOfPossessionForConcatenation> =
             VERIFICATION_KEY_JSON_HEX
                 .try_into()
                 .expect("Failed to convert verification key");
@@ -369,7 +369,7 @@ mod test {
 
     #[test]
     fn can_read_and_write_to_file_a_verification_key() {
-        let expected_key: ProtocolKey<VerificationKeyProofOfPossession> =
+        let expected_key: ProtocolKey<VerificationKeyProofOfPossessionForConcatenation> =
             VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let key_path = TempDir::create(
             "protocol_key",
@@ -381,7 +381,7 @@ mod test {
             .write_json_hex_to_file(&key_path)
             .expect("Writing to file should not fail");
         let read_key =
-            ProtocolKey::<VerificationKeyProofOfPossession>::read_json_hex_from_file(&key_path)
+            ProtocolKey::<VerificationKeyProofOfPossessionForConcatenation>::read_json_hex_from_file(&key_path)
                 .expect("Reading from file should not fail");
 
         assert_eq!(expected_key, read_key);

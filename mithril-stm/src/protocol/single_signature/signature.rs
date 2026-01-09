@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    proof_system::SingleSignatureForConcatenation,
-    signature_scheme::{BlsSignature, BlsVerificationKey},
+    VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
+    signature_scheme::BlsSignature,
 };
 
 use super::SignatureError;
@@ -29,7 +29,7 @@ impl SingleSignature {
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
-        pk: &BlsVerificationKey,
+        pk: &VerificationKeyForConcatenation,
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
@@ -165,9 +165,8 @@ mod tests {
 
     use crate::{
         KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-        SingleSignature,
-        proof_system::ConcatenationProofSigner,
-        signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+        SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
+        proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
     };
 
     mod golden {
@@ -193,8 +192,8 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
             let entry1 = RegistrationEntry::new(
@@ -211,8 +210,8 @@ mod tests {
                 1,
             )
             .unwrap();
-            registration.register(&entry1).unwrap();
-            registration.register(&entry2).unwrap();
+            registration.register_by_entry(&entry1).unwrap();
+            registration.register_by_entry(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
 
             let signer: Signer<MithrilMembershipDigest> = Signer::new(
@@ -231,6 +230,7 @@ mod tests {
                 ),
                 closed_key_registration.clone(),
                 params,
+                1,
             );
             signer.create_single_signature(&message).unwrap()
         }
@@ -271,8 +271,8 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
             let entry1 = RegistrationEntry::new(
@@ -289,8 +289,8 @@ mod tests {
                 1,
             )
             .unwrap();
-            registration.register(&entry1).unwrap();
-            registration.register(&entry2).unwrap();
+            registration.register_by_entry(&entry1).unwrap();
+            registration.register_by_entry(&entry2).unwrap();
 
             let closed_key_registration = registration.close_registration();
 
@@ -310,6 +310,7 @@ mod tests {
                 ),
                 closed_key_registration.clone(),
                 params,
+                1,
             );
             signer.create_single_signature(&message).unwrap()
         }

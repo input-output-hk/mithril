@@ -20,6 +20,5 @@ mod participant;
 
 pub use key_registration::{
     ClosedKeyRegistration, KeyRegistration, RegistrationEntry, RegistrationEntryForConcatenation,
-    VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
 };
 pub use participant::{Initializer, Signer};

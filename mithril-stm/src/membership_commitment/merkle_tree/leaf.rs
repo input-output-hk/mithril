@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Stake, signature_scheme::BlsVerificationKey};
+use crate::{Stake, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -23,7 +23,7 @@ pub trait MerkleTreeLeaf: Clone + Send + Sync + Copy {
 /// The values that are committed in the Merkle Tree for `ConcatenationProof`.
 /// Namely, a verified `BlsVerificationKey` and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct MerkleTreeConcatenationLeaf(pub BlsVerificationKey, pub Stake);
+pub struct MerkleTreeConcatenationLeaf(pub VerificationKeyForConcatenation, pub Stake);
 
 impl MerkleTreeLeaf for MerkleTreeConcatenationLeaf {
     fn as_bytes_for_merkle_tree(&self) -> Vec<u8> {
@@ -43,7 +43,7 @@ impl MerkleTreeConcatenationLeaf {
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let pk = BlsVerificationKey::from_bytes(bytes)
+        let pk = VerificationKeyForConcatenation::from_bytes(bytes)
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
@@ -52,8 +52,8 @@ impl MerkleTreeConcatenationLeaf {
     }
 }
 
-impl From<MerkleTreeConcatenationLeaf> for (BlsVerificationKey, Stake) {
-    fn from(leaf: MerkleTreeConcatenationLeaf) -> (BlsVerificationKey, Stake) {
+impl From<MerkleTreeConcatenationLeaf> for (VerificationKeyForConcatenation, Stake) {
+    fn from(leaf: MerkleTreeConcatenationLeaf) -> (VerificationKeyForConcatenation, Stake) {
         (leaf.0, leaf.1)
     }
 }

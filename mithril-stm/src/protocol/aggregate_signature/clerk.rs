@@ -4,8 +4,8 @@ use anyhow::Context;
 use anyhow::anyhow;
 
 use crate::{
-    AggregateVerificationKey, ClosedKeyRegistration, MembershipDigest, Parameters, Signer,
-    SingleSignature, StmResult,
+    AggregateVerificationKey, ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer,
+    SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
     proof_system::{ConcatenationClerk, ConcatenationProof},
 };
 
@@ -14,9 +14,7 @@ use super::{AggregateSignature, AggregateSignatureType};
 #[cfg(feature = "future_snark")]
 use super::AggregationError;
 
-/// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
-/// Clerks can only be generated with the registration closed.
-/// This avoids that a Merkle Tree is computed before all parties have registered.
+/// Clerk for aggregate signatures.
 #[derive(Debug, Clone)]
 pub struct Clerk {
     concatenation_proof_clerk: ConcatenationClerk,
@@ -30,6 +28,7 @@ impl Clerk {
         }
     }
 
+    /// Create a Clerk from a closed key registration.
     pub fn new_clerk_from_closed_key_registration(
         parameters: &Parameters,
         closed_reg: &ClosedKeyRegistration,
@@ -63,17 +62,36 @@ impl Clerk {
             )),
         }
     }
+
+    /// Get the concatenation clerk.
     pub fn to_concatenation_clerk(&self) -> &ConcatenationClerk {
         &self.concatenation_proof_clerk
     }
 
+    /// Compute the aggregate verification key.
+    /// It computes only the concatenation aggregate verification key for now.
     pub fn compute_aggregate_verification_key<D: MembershipDigest>(
         &self,
     ) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::Concatenation(
-            self.concatenation_proof_clerk.compute_aggregate_verification_key(),
+            self.concatenation_proof_clerk.compute_concatenation_proof_key(),
         )
     }
+
+    /// Get the concatenation registered party for a given index.
+    pub fn get_concatenation_registered_party_for_index(
+        &self,
+        party_index: &Index,
+    ) -> StmResult<(VerificationKeyForConcatenation, Stake)> {
+        let entry = self
+            .to_concatenation_clerk()
+            .closed_key_registration
+            .key_registration
+            .clone()
+            .get_registration_entry_for_index(party_index)?;
+        Ok((entry.get_bls_verification_key(), entry.get_stake()))
+    }
+
     #[cfg(test)]
     pub fn update_k(&mut self, k: u64) {
         self.concatenation_proof_clerk.update_k(k);

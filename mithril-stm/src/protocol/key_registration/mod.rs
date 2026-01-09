@@ -4,10 +4,7 @@ mod registration_entry;
 
 pub use concatenation_registration_entry::RegistrationEntryForConcatenation;
 pub use register::{ClosedKeyRegistration, KeyRegistration};
-pub use registration_entry::{
-    RegistrationEntry, VerificationKeyForConcatenation,
-    VerificationKeyProofOfPossessionForConcatenation,
-};
+pub use registration_entry::RegistrationEntry;
 
 #[cfg(test)]
 mod tests {
@@ -33,10 +30,10 @@ mod tests {
         let mut registration = KeyRegistration::initialize();
 
         registration
-            .register(&initializer1.clone().into())
+            .register_by_entry(&initializer1.clone().into())
             .expect("Registration should succeed");
         registration
-            .register(&initializer2.into())
+            .register_by_entry(&initializer2.into())
             .expect("Registration should succeed");
 
         let closed_key_registration = registration.close_registration();

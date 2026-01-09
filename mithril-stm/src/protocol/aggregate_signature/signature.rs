@@ -228,8 +228,8 @@ mod tests {
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
             Clerk, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-            proof_system::ConcatenationProofSigner,
-            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+            VerificationKeyProofOfPossessionForConcatenation,
+            proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
 
         type D = MithrilMembershipDigest;
@@ -300,8 +300,8 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut key_reg = KeyRegistration::initialize();
             let entry1 = RegistrationEntry::new(
@@ -319,8 +319,8 @@ mod tests {
             )
             .unwrap();
 
-            key_reg.register(&entry1).unwrap();
-            key_reg.register(&entry2).unwrap();
+            key_reg.register_by_entry(&entry1).unwrap();
+            key_reg.register_by_entry(&entry2).unwrap();
             let closed_key_reg = key_reg.close_registration();
 
             let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_key_reg);
@@ -337,6 +337,7 @@ mod tests {
                 ),
                 closed_key_reg.clone(),
                 params,
+                1,
             );
 
             let signer_2: Signer<D> = Signer::new(
@@ -351,6 +352,7 @@ mod tests {
                 ),
                 closed_key_reg.clone(),
                 params,
+                1,
             );
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();

@@ -106,7 +106,7 @@ for stake in parties {
         p.stake,
     )
     .unwrap();
-    key_reg.register(&entry).unwrap();
+    key_reg.register_by_entry(&entry).unwrap();
     ps.push(p);
 }
 

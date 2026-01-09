@@ -1,23 +1,18 @@
+use std::cmp::Ordering;
 use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Initializer, RegisterError, Stake, StmResult,
-    signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
+    Initializer, RegisterError, Stake, StmResult, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
 };
 
 #[cfg(feature = "future_snark")]
 use crate::signature_scheme::SchnorrVerificationKey;
 
-/// Wrapper of the Concatenation proof Verification key with proof of possession
-pub type VerificationKeyProofOfPossessionForConcatenation = BlsVerificationKeyProofOfPossession;
-
-/// Wrapper of the MultiSignature Verification key
-pub type VerificationKeyForConcatenation = BlsVerificationKey;
-
 /// Represents a signer registration entry
-#[derive(PartialEq, Eq, Clone, PartialOrd, Ord, Debug, Copy, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
 pub struct RegistrationEntry(
     VerificationKeyForConcatenation,
     Stake,
@@ -27,6 +22,8 @@ pub struct RegistrationEntry(
 );
 
 impl RegistrationEntry {
+    /// Creates a new registration entry. Verifies the proof of possession before creating the
+    /// entry. Fails if the proof of possession is invalid.
     pub fn new(
         bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
         #[cfg(feature = "future_snark")] schnorr_verification_key: Option<SchnorrVerificationKey>,
@@ -45,14 +42,19 @@ impl RegistrationEntry {
         ))
     }
 
+    /// Gets the BLS verification key.
     pub fn get_bls_verification_key(&self) -> VerificationKeyForConcatenation {
         self.0
     }
 
+    /// Gets the stake associated with the registration entry.
     pub fn get_stake(&self) -> Stake {
         self.1
     }
 
+    /// Converts the registration entry to bytes.
+    /// Uses 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
+    /// The order is backward compatible with previous implementations.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut result = [0u8; 104];
         result[..96].copy_from_slice(&self.0.to_bytes());
@@ -60,6 +62,9 @@ impl RegistrationEntry {
         result.to_vec()
     }
 
+    /// Creates a registration entry from bytes.
+    /// Expects 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
+    /// The order is backward compatible with previous implementations.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let bls_verification_key = VerificationKeyForConcatenation::from_bytes(bytes)?;
         let mut u64_bytes = [0u8; 8];
@@ -98,5 +103,17 @@ impl Hash for RegistrationEntry {
         for piece in data {
             piece.hash(state)
         }
+    }
+}
+
+impl PartialOrd for RegistrationEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(std::cmp::Ord::cmp(self, other))
+    }
+}
+
+impl Ord for RegistrationEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }
 }

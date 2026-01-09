@@ -48,7 +48,7 @@ mod tests {
             .map(|stake| {
                 let p = Initializer::new(params, stake, &mut rng);
                 let entry: RegistrationEntry = p.clone().into();
-                kr.register(&entry).unwrap();
+                kr.register_by_entry(&entry).unwrap();
                 p
             })
             .collect::<Vec<_>>();
