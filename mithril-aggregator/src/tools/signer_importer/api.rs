@@ -85,3 +85,60 @@ pub trait SignersImporterPersister: Sync + Send {
     /// Persist the given list of signers.
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()>;
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
+
+    use mithril_common::test::mock_extensions::MockBuilder;
+
+    use crate::database::repository::SignerStore;
+    use crate::database::test_helper::main_db_connection;
+    use crate::test::TestLogger;
+    use crate::tools::signer_importer::MockSignersImporterRetriever;
+
+    use super::{super::test_tools::*, *};
+
+    #[tokio::test]
+    async fn importer_integration_test() {
+        let connection = Arc::new(main_db_connection().unwrap());
+        let store = Arc::new(SignerStore::new(connection.clone()));
+        store
+            .fill_with_test_signers(&[
+                TestSigner::with_ticker("pool3", "[Pool3 dont change]"),
+                TestSigner::without_ticker("pool4"),
+                TestSigner::with_ticker("pool5", "[Pool5 not returned by server]"),
+                TestSigner::with_ticker("pool6", "[Pool6 ticker will be removed]"),
+            ])
+            .await
+            .unwrap();
+        let retriever = MockBuilder::<MockSignersImporterRetriever>::configure(|mock| {
+            mock.expect_retrieve().returning(|| {
+                Ok(HashMap::from([
+                    ("pool1".to_string(), None),
+                    ("pool2".to_string(), Some("[Pool2 added]".to_string())),
+                    ("pool3".to_string(), Some("[Pool3 dont change]".to_string())),
+                    ("pool4".to_string(), Some("[Pool4 add ticker]".to_string())),
+                    ("pool6".to_string(), None),
+                ]))
+            });
+        });
+
+        let importer = SignersImporter::new(retriever, store.clone(), TestLogger::stdout());
+        importer.run().await.expect("running importer should not fail");
+
+        let result = store.get_all_test_signers().await.unwrap();
+        assert_eq!(
+            result,
+            BTreeSet::from([
+                TestSigner::without_ticker("pool1"),
+                TestSigner::with_ticker("pool2", "[Pool2 added]",),
+                TestSigner::with_ticker("pool3", "[Pool3 dont change]",),
+                TestSigner::with_ticker("pool4", "[Pool4 add ticker]",),
+                TestSigner::with_ticker("pool5", "[Pool5 not returned by server]",),
+                TestSigner::without_ticker("pool6"),
+            ])
+        );
+    }
+}

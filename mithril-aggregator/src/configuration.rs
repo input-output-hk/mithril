@@ -566,7 +566,11 @@ pub struct ServeCommandConfiguration {
     /// the registered stake pools.
     ///
     /// `base_url` (optional) allows you to override the default URL, which is otherwise automatically determined from the project ID.
-    #[example = "`{ \"project_id_env_var\": \"BLOCKFROST_PROJECT_ID\", \"base_url\": \"https://your-custom-blockfrost-server.io/api/v0/\" }`"]
+    // TODO: update the BlockfrostParameters structure to hold the project_id directly but wrapped in a new `Secret` type
+    #[example = "\
+    `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\" }`<br/>\
+    or `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\", \"base_url\": \"https://your-custom-blockfrost-server.io/api/v0/\" }`\
+    "]
     #[serde(
         default,
         deserialize_with = "serde_deserialization::string_or_struct_optional"
@@ -667,6 +671,7 @@ impl Default for ZstandardCompressionParameters {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockfrostParameters {
     /// Environment variable containing the Blockfrost project ID.
+    // TODO: update to hold the project_id directly but wrapped in a new `Secret` type
     pub project_id_env_var: String,
 
     /// Optional base URL for Blockfrost API, if not provided, the default URL will be determined

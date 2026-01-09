@@ -272,6 +272,10 @@ The configuration values for the `/opt/mithril/mithril-aggregator.env` file are 
 - `DMQ_NODE_SOCKET_PATH`: Path to the IPC file of the DMQ node
 - `CUSTOM_ORIGIN_TAG_WHITE_LIST`: Comma-separated list of custom origin tags to whitelist for client requests (default: `EXPLORER,BENCHMARK,CI,NA`).
 
+- **Base configuration** **optional** values are:
+  - `BLOCKFROST_PARAMETERS`: Parameters to connect to the Blockfrost API. Used to fetch the ticker and name of the registered stake pools. Example: `{"project_id":"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ"}`
+  - `SIGNER_IMPORTER_RUN_INTERVAL`: Time interval at which the pools names and ticker in blockfrost will be imported (in minutes, default: `720`).
+
 - The **Cardano database** configuration values are (only needed if supporting Cardano database certification):
   - `DB_DIRECTORY`: Directory of the Cardano node database stores (same as the `--database-path` setting of the Cardano node)
   - `DATA_STORES_DIRECTORY`: Directory where the aggregator will store its databases (eg, `/opt/mithril/stores`)
@@ -289,10 +293,7 @@ The configuration values for the `/opt/mithril/mithril-aggregator.env` file are 
   - `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE`: Size of the prover cache pool (default: `10`). This configuration can have a significant impact on the aggregator's memory usage. In particular, on `mainnet`, we recommend avoiding values higher than `10`.
   - `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE`: Size of the database connection pool (default: `10`).
 
-- **Optional** configuration values are (all of them can be omitted):
-  - `BLOCKFROST_PARAMETERS`: Parameters to connect to the Blockfrost API. Used to fetch the ticker and name of the registered stake pools. Example: `{"project_id_env_var":"BLOCKFROST_PROJECT_ID_ENV_VAR_NAME"}`
-  - `SIGNER_IMPORTER_RUN_INTERVAL`: Time interval at which the pools names and ticker in blockfrost will be imported (in minutes, default: `720`).
-    :::
+:::
 
 :::tip
 
@@ -317,6 +318,10 @@ Here is an **example** set of values for **release-preprod** that will be used i
   - **DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
   - **CUSTOM_ORIGIN_TAG_WHITE_LIST**: `EXPLORER,BENCHMARK,CI,NA`
 
+- **Optional configuration**:
+  - **BLOCKFROST_PARAMETERS**: `{"project_id":"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ"}`
+  - **SIGNER_IMPORTER_RUN_INTERVAL**: 720
+
 - **Cardano database configuration**:
   - **DB_DIRECTORY**: `/cardano/db`
   - **DATA_STORES_DIRECTORY**: `/opt/mithril/stores`
@@ -333,10 +338,6 @@ Here is an **example** set of values for **release-preprod** that will be used i
 - **Cardano transaction configuration**:
   - **CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE**: `10`
   - **CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE**: `10`
-
-- **Optional configuration**:
-  - **BLOCKFROST_PARAMETERS**: `{"project_id_env_var":"BLOCKFROST_PROJECT_ID"}`
-  - **SIGNER_IMPORTER_RUN_INTERVAL**: 720
 
 :::
 
@@ -363,6 +364,16 @@ GENESIS_VERIFICATION_KEY=**YOUR_GENESIS_VERIFICATION_KEY**
 DMQ_NODE_SOCKET_PATH=**YOUR_DMQ_NODE_SOCKET_PATH**
 CUSTOM_ORIGIN_TAG_WHITE_LIST=**YOUR_CUSTOM_ORIGIN_TAG_WHITE_LIST**
 EOF'
+```
+
+If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
+# Optional configuration
+BLOCKFROST_PARAMETERS=**YOUR_BLOCKFROST_PARAMETERS**
+SIGNER_IMPORTER_RUN_INTERVAL=**YOUR_SIGNER_IMPORTER_RUN_INTERVAL**
+EOF`
 ```
 
 If you want to support **Cardano database v2** certification, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
@@ -394,16 +405,6 @@ CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=**YOUR_CARDANO_TRANSACTIONS_D
 EOF`
 ```
 
-If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
-
-```bash
-sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
-# Optional configuration
-BLOCKFROST_PARAMETERS=**YOUR_BLOCKFROST_PARAMETERS**
-SIGNER_IMPORTER_RUN_INTERVAL=**YOUR_SIGNER_IMPORTER_RUN_INTERVAL**
-EOF`
-```
-
 :::tip
 
 Here is an example of the aforementioned command created with the example set for `release-preprod`:
@@ -427,6 +428,16 @@ ERA_READER_ADAPTER_TYPE=cardano-chain
 ERA_READER_ADAPTER_PARAMS={"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
 DMQ_NODE_SOCKET_PATH=/dmq/ipc/node.socket
 CUSTOM_ORIGIN_TAG_WHITE_LIST=EXPLORER,BENCHMARK,CI,NA
+EOF'
+```
+
+If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
+# Optional configuration
+BLOCKFROST_PARAMETERS={"project_id":"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ"}
+SIGNER_IMPORTER_RUN_INTERVAL=720
 EOF'
 ```
 
@@ -456,16 +467,6 @@ sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
 # Cardano transactions configuration
 CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=10
 CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=10
-EOF'
-```
-
-If you want to configure **Optional** parameters, append the following variables to the `/opt/mithril/mithril-aggregator.env` file:
-
-```bash
-sudo bash -c 'cat >> /opt/mithril/mithril-aggregator.env << EOF
-# Optional configuration
-BLOCKFROST_PARAMETERS={"project_id_env_var":"BLOCKFROST_PROJECT_ID"}
-SIGNER_IMPORTER_RUN_INTERVAL=720
 EOF'
 ```
 
