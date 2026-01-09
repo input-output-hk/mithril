@@ -232,14 +232,29 @@ impl CardanoDbVerifyCommand {
 
     fn print_immutables_verification_error(lists: &ImmutableVerificationResult, json_output: bool) {
         let utc_now = Utc::now();
-        let json_file_path = write_json_file_error(utc_now, lists);
+
+        // Try to write the file once. Never crash if we can't write it.
+        // Also keep JSON output clean (stdout only), log warnings to stderr.
+        let report_path: Option<PathBuf> = match write_json_file_error(utc_now, lists) {
+            Ok(path) => Some(path),
+            Err(err) => {
+                eprintln!("WARN: Could not save error report file: {:#}", err);
+                None
+            }
+        };
+
         let error_message = "Verifying immutables files has failed";
         if json_output {
+            // Use a JSON-friendly string, and allow null when no report was written.
+            let report_path_str: Option<String> = report_path
+                .as_ref()
+                .map(|p| p.as_path().to_string_lossy().to_string());
+
             let json = serde_json::json!({
                 "timestamp": utc_now.to_rfc3339(),
                 "verify_error" : {
                     "message": error_message,
-                    "immutables_verification_error_file": json_file_path,
+                    "immutables_verification_error_file": report_path_str,
                     "immutables_dir": lists.immutables_dir,
                     "missing_files_count": lists.missing.len(),
                     "tampered_files_count": lists.tampered.len(),
@@ -250,10 +265,14 @@ impl CardanoDbVerifyCommand {
             println!("{json}");
         } else {
             println!("{error_message}");
-            println!(
-                "See the lists of all missing, tampered and non verifiable files in {}",
-                json_file_path.display()
-            );
+            if let Some(path) = &report_path {
+                println!(
+                    "See the lists of all missing, tampered and non verifiable files in {}",
+                    path.display()
+                );
+            } else {
+                println!("(Detailed error report could not be saved to disk)");
+            }
             if !lists.missing.is_empty() {
                 println!("Number of missing immutable files: {}", lists.missing.len());
             }
@@ -273,24 +292,28 @@ impl CardanoDbVerifyCommand {
     }
 }
 
-fn write_json_file_error(date: DateTime<Utc>, lists: &ImmutableVerificationResult) -> PathBuf {
+fn write_json_file_error(
+    date: DateTime<Utc>,
+    lists: &ImmutableVerificationResult,
+) -> anyhow::Result<PathBuf> {
     let file_path = PathBuf::from(format!(
         "immutables_verification_error-{}.json",
         date.timestamp()
     ));
-    std::fs::write(
-        &file_path,
-        serde_json::to_string_pretty(&serde_json::json!({
+
+    let json_content = serde_json::to_string_pretty(&serde_json::json!({
         "timestamp": date.to_rfc3339(),
         "immutables_dir": lists.immutables_dir,
         "missing-files": lists.missing,
         "tampered-files": lists.tampered,
         "non-verifiable-files": lists.non_verifiable,
-        }))
-        .unwrap(),
-    )
-    .expect("Could not write immutables verification error to file");
-    file_path
+    }))
+    .context("Failed to serialize verification error report to JSON")?;
+
+    std::fs::write(&file_path, json_content)
+        .with_context(|| format!("Failed to write error report to file: {:?}", file_path))?;
+
+    Ok(file_path)
 }
 
 fn print_immutables_range_to_verify(
