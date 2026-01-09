@@ -83,8 +83,7 @@ impl SchnorrSigningKey {
         .collect();
 
         let challenge = compute_poseidon_digest(&points_coordinates);
-        let challenge_as_scalar = ScalarFieldElement::from_base_field(&challenge)?;
-        let challenge_times_sk = challenge_as_scalar * self.0;
+        let challenge_times_sk = ScalarFieldElement::from_base_field(&challenge)? * self.0;
         let response = random_scalar - challenge_times_sk;
 
         Ok(UniqueSchnorrSignature {

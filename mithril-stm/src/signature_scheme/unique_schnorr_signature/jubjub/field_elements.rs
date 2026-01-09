@@ -28,13 +28,13 @@ impl BaseFieldElement {
         base_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(SchnorrSignatureError::BaseFieldElementSerialization)?,
+                .ok_or(UniqueSchnorrSignatureError::BaseFieldElementSerialization)?,
         );
 
         match JubjubBase::from_bytes_le(&base_bytes).into_option() {
             Some(base_field_element) => Ok(Self(base_field_element)),
             None => Err(anyhow!(
-                SchnorrSignatureError::ScalarFieldElementSerialization
+                UniqueSchnorrSignatureError::ScalarFieldElementSerialization
             )),
         }
     }
@@ -146,14 +146,14 @@ impl ScalarFieldElement {
         scalar_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
+                .ok_or(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)?,
         );
 
         let mut bytes64 = [0u64; 4];
         for i in 0..4 {
             bytes64[i] =
                 u64::from_le_bytes(bytes[8 * i..8 * (i + 1)].try_into().with_context(|| {
-                    anyhow!(SchnorrSignatureError::ScalarFieldElementSerialization)
+                    anyhow!(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)
                 })?)
         }
 
