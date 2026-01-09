@@ -144,6 +144,10 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "haskell")]
     dmq_node_flavor: Option<DmqNodeFlavor>,
 
+    /// Haskell DMQ node version
+    #[clap(long)]
+    dmq_node_version: Option<String>,
+
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
@@ -390,6 +394,7 @@ impl App {
             cardano_slot_length: args.cardano_slot_length,
             cardano_epoch_length: args.cardano_epoch_length,
             cardano_node_version: args.cardano_node_version.to_owned(),
+            dmq_node_version: args.dmq_node_version.clone(),
             cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
             skip_cardano_bin_download: args.skip_cardano_bin_download,
         })
