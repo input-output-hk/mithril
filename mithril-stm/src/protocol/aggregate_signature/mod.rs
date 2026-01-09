@@ -3,10 +3,10 @@ mod clerk;
 mod error;
 mod signature;
 
-pub use aggregate_key::*;
-pub use clerk::*;
-pub use error::*;
-pub use signature::*;
+pub use aggregate_key::AggregateVerificationKey;
+pub use clerk::Clerk;
+pub use error::{AggregateSignatureError, AggregationError};
+pub use signature::{AggregateSignature, AggregateSignatureType};
 
 #[cfg(test)]
 mod tests {
@@ -48,7 +48,7 @@ mod tests {
             .map(|stake| {
                 let p = Initializer::new(params, stake, &mut rng);
                 let entry: RegistrationEntry = p.clone().into();
-                kr.register(&entry).unwrap();
+                kr.register_by_entry(&entry).unwrap();
                 p
             })
             .collect::<Vec<_>>();
@@ -148,7 +148,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         msig: StmResult<Sig>,
-        clerk: Clerk,
+        clerk: Clerk<D>,
         msg: [u8; 16],
     }
     /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
@@ -176,7 +176,7 @@ mod tests {
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
     where
-        F: Fn(&mut Sig, &mut Clerk, &mut [u8; 16]),
+        F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
@@ -211,7 +211,7 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggr_sig_type);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
 
             match msig {
                 Ok(aggr) => {
@@ -355,7 +355,7 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggr_sig_type);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
@@ -394,7 +394,7 @@ mod tests {
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
             let aggr_sig_type = AggregateSignatureType::Concatenation;
 
-            let error = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
+            let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
             assert!(
                 matches!(
                     error.downcast_ref::<AggregationError>(),

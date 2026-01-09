@@ -1,36 +1,53 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MembershipDigest, membership_commitment::MerkleBatchPath, proof_system::ConcatenationProofKey,
+    ClosedKeyRegistration, MembershipDigest, membership_commitment::MerkleBatchPath,
+    proof_system::AggregateVerificationKeyForConcatenation,
 };
 
-/// An STM aggregate signature.
+/// Aggregate verification key
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "MerkleBatchPath<D::ConcatenationHash>: Serialize",
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub enum AggregateVerificationKey<D: MembershipDigest> {
-    /// A future proof system.
+    /// A future aggregate verification key.
     #[cfg(feature = "future_snark")]
     Future,
 
-    /// Concatenation proof system.
+    /// Concatenation aggregate verification key.
     // The 'untagged' attribute is required for backward compatibility.
     // It implies that this variant is placed at the end of the enum.
     // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
     #[serde(untagged)]
-    Concatenation(ConcatenationProofKey<D>),
+    Concatenation(AggregateVerificationKeyForConcatenation<D>),
 }
 
 impl<D: MembershipDigest> AggregateVerificationKey<D> {
-    /// If the aggregate signature is a concatenation proof, return it.
-    pub fn to_concatenation_proof_key(&self) -> Option<&ConcatenationProofKey<D>> {
+    /// If the aggregate verification key is a concatenation aggregate verification key, return it.
+    pub fn to_concatenation_proof_key(
+        &self,
+    ) -> Option<&AggregateVerificationKeyForConcatenation<D>> {
         match self {
             AggregateVerificationKey::Concatenation(key) => Some(key),
             #[cfg(feature = "future_snark")]
             AggregateVerificationKey::Future => None,
         }
+    }
+}
+
+impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_concatenation_proof_key() == other.to_concatenation_proof_key()
+    }
+}
+
+impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
+
+impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKey<D> {
+    fn from(reg: &ClosedKeyRegistration) -> Self {
+        AggregateVerificationKey::Concatenation(AggregateVerificationKeyForConcatenation::from(reg))
     }
 }
 
@@ -43,7 +60,10 @@ mod tests {
 
     mod golden {
 
-        use crate::{Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters};
+        use crate::{
+            Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
+            Parameters, Signer,
+        };
 
         use super::*;
 
@@ -65,14 +85,23 @@ mod tests {
                 phi_f: 0.8,
             };
             let number_of_parties = 4;
-            let mut key_reg = KeyRegistration::init();
-            for stake in 0..number_of_parties {
-                let initializer = Initializer::new(params, stake, &mut rng);
-                key_reg.register(initializer.stake, initializer.pk).unwrap();
+            let mut key_reg = KeyRegistration::initialize();
+            let initializers: Vec<Initializer> = (0..number_of_parties)
+                .map(|stake| Initializer::new(params, stake, &mut rng))
+                .collect();
+            for initializer in &initializers {
+                key_reg
+                    .register(
+                        initializer.clone().stake,
+                        &initializer.bls_verification_key_proof_of_possession,
+                    )
+                    .unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
-            let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_key_reg);
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let signer: Signer<MithrilMembershipDigest> =
+                initializers[0].clone().try_create_signer(&closed_key_reg).unwrap();
+            let clerk = Clerk::new_clerk_from_signer(&signer);
             clerk.compute_aggregate_verification_key()
         }
 

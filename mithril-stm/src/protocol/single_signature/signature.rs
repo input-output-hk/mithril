@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -6,9 +7,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
-    proof_system::SingleSignatureForConcatenation,
-    signature_scheme::{BlsSignature, BlsVerificationKey},
+    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, Stake, StmResult,
+    VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
+    signature_scheme::BlsSignature,
 };
 
 use super::SignatureError;
@@ -21,26 +22,26 @@ pub struct SingleSignature {
     #[serde(flatten)]
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
-    pub signer_index: Index,
+    pub signer_index: LotteryIndex,
 }
 
 impl SingleSignature {
     /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
+    /// It only works for concatenation proof system.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
-        pk: &BlsVerificationKey,
+        pk: &VerificationKeyForConcatenation,
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        self.concatenation_signature.verify(
-            params,
-            pk,
-            stake,
-            avk.to_concatenation_proof_key().unwrap(),
-            msg,
-        )
+        if let Some(concatenation_proof_key) = avk.to_concatenation_proof_key() {
+            self.concatenation_signature
+                .verify(params, pk, stake, concatenation_proof_key, msg)
+        } else {
+            Err(anyhow!(SignatureError::UnsupportedAggregateVerificationKey))
+        }
     }
 
     /// Verify that all indices of a signature are valid.
@@ -116,7 +117,7 @@ impl SingleSignature {
     }
 
     /// Get indices of the single signature for concatenation proof system.
-    pub fn get_concatenation_signature_indices(&self) -> Vec<Index> {
+    pub fn get_concatenation_signature_indices(&self) -> Vec<LotteryIndex> {
         self.concatenation_signature.get_indices().to_vec()
     }
 
@@ -126,7 +127,7 @@ impl SingleSignature {
     }
 
     /// Set the indices of the underlying single signature for proof system.
-    pub fn set_concatenation_signature_indices(&mut self, indices: &[Index]) {
+    pub fn set_concatenation_signature_indices(&mut self, indices: &[LotteryIndex]) {
         self.concatenation_signature.set_indices(indices)
     }
 }
@@ -165,9 +166,8 @@ mod tests {
 
     use crate::{
         KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-        SingleSignature,
-        proof_system::ConcatenationProofSigner,
-        signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+        SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
+        proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
     };
 
     mod golden {
@@ -193,26 +193,14 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(
-                pk_1,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            let entry2 = RegistrationEntry::new(
-                pk_2,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            registration.register(&entry1).unwrap();
-            registration.register(&entry2).unwrap();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            registration.register_by_entry(&entry1).unwrap();
+            registration.register_by_entry(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
 
             let signer: Signer<MithrilMembershipDigest> = Signer::new(
@@ -229,8 +217,9 @@ mod tests {
                         .into_merkle_tree()
                         .unwrap(),
                 ),
-                closed_key_registration.clone(),
+                closed_key_registration,
                 params,
+                1,
             );
             signer.create_single_signature(&message).unwrap()
         }
@@ -271,26 +260,14 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(
-                pk_1,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            let entry2 = RegistrationEntry::new(
-                pk_2,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            registration.register(&entry1).unwrap();
-            registration.register(&entry2).unwrap();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            registration.register_by_entry(&entry1).unwrap();
+            registration.register_by_entry(&entry2).unwrap();
 
             let closed_key_registration = registration.close_registration();
 
@@ -310,6 +287,7 @@ mod tests {
                 ),
                 closed_key_registration.clone(),
                 params,
+                1,
             );
             signer.create_single_signature(&message).unwrap()
         }

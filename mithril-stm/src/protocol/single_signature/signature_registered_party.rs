@@ -61,8 +61,8 @@ mod tests {
         use crate::{
             ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
             RegistrationEntry, Signer, SingleSignatureWithRegisteredParty,
-            proof_system::ConcatenationProofSigner,
-            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+            VerificationKeyProofOfPossessionForConcatenation,
+            proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
 
         const GOLDEN_JSON: &str = r#"
@@ -100,28 +100,15 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
             let mut key_reg = KeyRegistration::initialize();
 
-            let entry1 = RegistrationEntry::new(
-                pk_1,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
 
-            let entry2 = RegistrationEntry::new(
-                pk_2,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-
-            key_reg.register(&entry1).unwrap();
-            key_reg.register(&entry2).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            key_reg.register_by_entry(&entry1).unwrap();
+            key_reg.register_by_entry(&entry2).unwrap();
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
 
             let signer: Signer<MithrilMembershipDigest> = Signer::new(
@@ -136,6 +123,7 @@ mod tests {
                 ),
                 closed_key_reg.clone(),
                 params,
+                1,
             );
             let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {

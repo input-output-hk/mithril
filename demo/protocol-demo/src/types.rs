@@ -1,7 +1,6 @@
 use mithril_stm::{
-    AggregateSignature, Clerk, MithrilMembershipDigest, OutdatedInitializer,
-    OutdatedKeyRegistration, OutdatedSigner, Parameters, SingleSignature, Stake,
-    VerificationKeyProofOfPossession,
+    AggregateSignature, Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+    Signer, SingleSignature, Stake, VerificationKeyProofOfPossessionForConcatenation,
 };
 
 // Protocol types alias
@@ -17,16 +16,16 @@ pub type ProtocolStake = Stake;
 pub type ProtocolParameters = Parameters;
 
 /// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
-pub type ProtocolSigner = OutdatedSigner<D>;
+pub type ProtocolSigner = Signer<D>;
 
 /// Alias of [MithrilStm:Clerk](struct@mithril_stm::Clerk).
 pub type ProtocolClerk = Clerk<D>;
 
 /// Alias of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
-pub type ProtocolInitializerNotCertified = OutdatedInitializer;
+pub type ProtocolInitializerNotCertified = Initializer;
 
 /// Alias of [MithrilStm:KeyRegistration](struct@mithril_stm::KeyRegistration). (Test only)
-pub type ProtocolKeyRegistrationNotCertified = OutdatedKeyRegistration;
+pub type ProtocolKeyRegistrationNotCertified = KeyRegistration;
 
 /// Alias of [MithrilStm:SingleSignature](struct@mithril_stm::SingleSignature).
 pub type ProtocolSingleSignature = SingleSignature;
@@ -34,5 +33,5 @@ pub type ProtocolSingleSignature = SingleSignature;
 /// Alias of [MithrilStm:AggregateSignature](enum@mithril_stm::AggregateSignature).
 pub type ProtocolMultiSignature = AggregateSignature<D>;
 
-/// Alias of [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession).
-pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossession;
+/// Alias of [MithrilStm:VerificationKeyProofOfPossessionForConcatenation](type@mithril_stm::VerificationKeyProofOfPossessionForConcatenation).
+pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossessionForConcatenation;

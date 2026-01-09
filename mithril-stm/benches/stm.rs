@@ -44,7 +44,7 @@ fn stm_benches<D: MembershipDigest>(
             // We need to initialise the key_reg at each iteration
             key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg.register(&p.clone().into()).unwrap();
+                key_reg.register_by_entry(&p.clone().into()).unwrap();
             }
         })
     });
@@ -70,7 +70,7 @@ fn stm_benches<D: MembershipDigest>(
     let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggregate_signature_type))
+        b.iter(|| clerk.aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type))
     });
 }
 
@@ -115,7 +115,7 @@ fn batch_benches<D>(
             }
             let mut key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg.register(&p.clone().into()).unwrap();
+                key_reg.register_by_entry(&p.clone().into()).unwrap();
             }
 
             let closed_reg = key_reg.close_registration();

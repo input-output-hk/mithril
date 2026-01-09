@@ -7,9 +7,9 @@ use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Index, MembershipDigest, Parameters, SignatureError, Stake, StmResult, is_lottery_won,
-    proof_system::ConcatenationProofKey,
-    signature_scheme::{BlsSignature, BlsVerificationKey},
+    LotteryIndex, MembershipDigest, Parameters, SignatureError, Stake, StmResult,
+    VerificationKeyForConcatenation, proof_system::AggregateVerificationKeyForConcatenation,
+    protocol::is_lottery_won, signature_scheme::BlsSignature,
 };
 
 /// Single signature for the concatenation proof system.
@@ -18,13 +18,13 @@ pub(crate) struct SingleSignatureForConcatenation {
     /// The underlying BLS signature
     sigma: BlsSignature,
     /// The index(es) for which the signature is valid
-    indexes: Vec<Index>,
+    indexes: Vec<LotteryIndex>,
 }
 
 impl SingleSignatureForConcatenation {
     /// Create and return a new instance of `SingleSignatureForConcatenation` for given `sigma` and
     /// `indexes`.
-    pub(crate) fn new(sigma: BlsSignature, indexes: Vec<Index>) -> Self {
+    pub(crate) fn new(sigma: BlsSignature, indexes: Vec<LotteryIndex>) -> Self {
         Self { sigma, indexes }
     }
 
@@ -33,9 +33,9 @@ impl SingleSignatureForConcatenation {
     pub(crate) fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
-        pk: &BlsVerificationKey,
+        pk: &VerificationKeyForConcatenation,
         stake: &Stake,
-        avk: &ConcatenationProofKey<D>,
+        avk: &AggregateVerificationKeyForConcatenation<D>,
         msg: &[u8],
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
@@ -76,12 +76,12 @@ impl SingleSignatureForConcatenation {
     }
 
     /// Return `indices` of the single signature
-    pub(crate) fn get_indices(&self) -> &[Index] {
+    pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
         &self.indexes
     }
 
     /// Set `indexes` of single signature to given `indices`
-    pub(crate) fn set_indices(&mut self, indices: &[Index]) {
+    pub(crate) fn set_indices(&mut self, indices: &[LotteryIndex]) {
         self.indexes = indices.to_vec()
     }
 

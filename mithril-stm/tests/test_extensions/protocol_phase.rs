@@ -40,7 +40,7 @@ pub fn initialization_phase(
 
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg.register(&p.clone().into()).unwrap();
+        key_reg.register_by_entry(&p.clone().into()).unwrap();
         reg_parties.push((p.get_verification_key_proof_of_possession().vk, stake));
         initializers.push(p);
     }
@@ -68,7 +68,7 @@ pub fn operation_phase(
 ) -> OperationPhaseResult {
     let sigs = signers
         .par_iter()
-        .filter_map(|p| Some(p.create_single_signature(&msg).unwrap()))
+        .filter_map(|p| p.create_single_signature(&msg).ok())
         .collect::<Vec<SingleSignature>>();
 
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);

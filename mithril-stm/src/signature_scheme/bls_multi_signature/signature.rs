@@ -9,7 +9,7 @@ use blst::{
 };
 use digest::consts::U16;
 
-use crate::{Index, StmResult};
+use crate::{LotteryIndex, StmResult};
 
 use super::{
     BlsSignatureError, BlsVerificationKey, blst_error_to_stm_error,
@@ -40,7 +40,7 @@ impl BlsSignature {
     /// We hash the signature to produce a 64 bytes integer.
     /// The return value of this function refers to
     /// `ev = H("map" || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
-    pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> [u8; 64] {
+    pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: LotteryIndex) -> [u8; 64] {
         let hasher = Blake2b512::new()
             .chain_update(b"map")
             .chain_update(msg)

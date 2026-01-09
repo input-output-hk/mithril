@@ -194,13 +194,10 @@ mod tests {
             for _ in 0..num_sigs {
                 let sk = BlsSigningKey::generate(&mut rng);
                 let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
-                let entry = RegistrationEntry::new(vkpop.clone(), #[cfg(feature = "future_snark")]
-                None, 1).expect("Registration entry should be created");
-                let _ = kr.register(&entry).expect("Valid VK pop should be registered");
+                let entry = RegistrationEntry::new(vkpop, 1).expect("Registration entry should be created");
+                kr.register_by_entry(&entry).expect("Valid VK pop should be registered");
             }
-            let error = RegistrationEntry::new(vkpop_infinity.clone(), #[cfg(feature = "future_snark")]
-                None, 1).expect_err("Registration entry with VK pop infinity should not be created");
-
+            let error = RegistrationEntry::new(vkpop_infinity, 1).expect_err("Registration entry with VK pop infinity should not be created");
             assert!(
                 matches!(
                     error.downcast_ref::<RegisterError>(),

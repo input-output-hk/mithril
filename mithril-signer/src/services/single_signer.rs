@@ -230,7 +230,7 @@ mod tests {
             decoded_sig
                 .verify(
                     &fixture.protocol_parameters().into(),
-                    &current_signer.protocol_signer.get_verification_key(),
+                    &current_signer.protocol_signer.get_bls_verification_key(),
                     &current_signer.protocol_signer.get_stake(),
                     &avk,
                     &expected_message
