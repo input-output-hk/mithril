@@ -14,7 +14,7 @@ use mithril_client::{
     },
     common::{ImmutableFileNumber, SignedEntityTypeDiscriminants},
 };
-
+use crate::utils::print_simple_warning;
 use crate::{
     CommandContext,
     commands::{
@@ -235,33 +235,35 @@ impl CardanoDbVerifyCommand {
 
         // Try to write the file once. Never crash if we can't write it.
         // Also keep JSON output clean (stdout only), log warnings to stderr.
-        let report_path: Option<PathBuf> = match write_json_file_error(utc_now, lists) {
-            Ok(path) => Some(path),
-            Err(err) => {
-                eprintln!("WARN: Could not save error report file: {:#}", err);
-                None
-            }
-        };
+        let report_path: Option<PathBuf> = write_json_file_error(utc_now, lists)
+        .inspect_err(|err| {
+            print_simple_warning(
+                &format!("Could not save error report file: {err:?}"),
+                json_output,
+            );
+        })
+        .ok();
 
         let error_message = "Verifying immutables files has failed";
         if json_output {
-            // Use a JSON-friendly string, and allow null when no report was written.
-            let report_path_str: Option<String> = report_path
-                .as_ref()
-                .map(|p| p.as_path().to_string_lossy().to_string());
-
+            // Prepare the path value explicitly for serde
+            let report_path_value = match &report_path {
+                Some(path) => serde_json::Value::String(path.display().to_string()),
+                None => serde_json::Value::Null,
+            };
+    
             let json = serde_json::json!({
                 "timestamp": utc_now.to_rfc3339(),
                 "verify_error" : {
                     "message": error_message,
-                    "immutables_verification_error_file": report_path_str,
+                    "immutables_verification_error_file": report_path_value, 
                     "immutables_dir": lists.immutables_dir,
                     "missing_files_count": lists.missing.len(),
                     "tampered_files_count": lists.tampered.len(),
                     "non_verifiable_files_count": lists.non_verifiable.len(),
                 }
             });
-
+    
             println!("{json}");
         } else {
             println!("{error_message}");
@@ -295,7 +297,7 @@ impl CardanoDbVerifyCommand {
 fn write_json_file_error(
     date: DateTime<Utc>,
     lists: &ImmutableVerificationResult,
-) -> anyhow::Result<PathBuf> {
+) -> MithrilResult<PathBuf> {
     let file_path = PathBuf::from(format!(
         "immutables_verification_error-{}.json",
         date.timestamp()
@@ -311,7 +313,7 @@ fn write_json_file_error(
     .context("Failed to serialize verification error report to JSON")?;
 
     std::fs::write(&file_path, json_content)
-        .with_context(|| format!("Failed to write error report to file: {:?}", file_path))?;
+        .with_context(|| format!("Failed to write error report to file: {}", file_path.display()))?;
 
     Ok(file_path)
 }
