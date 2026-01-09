@@ -5,7 +5,7 @@
       "accessPoints": [],
       "advertise": false,
       "trustable": false,
-      "valency": 3
+      "valency": 1
     }
   ],
   "peerSnapshotFile": null,

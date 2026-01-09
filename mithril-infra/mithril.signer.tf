@@ -138,6 +138,11 @@ if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
     mv $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json
   done
 fi
+
+# Update dmq node topology valency
+cat $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json.new
+rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json
+mv $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/config/topology.json
 EOT
     ]
   }

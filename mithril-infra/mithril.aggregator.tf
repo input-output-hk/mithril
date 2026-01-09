@@ -106,6 +106,11 @@ if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
   done
 fi
+
+# Update dmq node topology valency
+cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
 EOT
     ]
   }
