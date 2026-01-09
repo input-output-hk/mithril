@@ -1,10 +1,11 @@
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
+
 use super::{
     PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
 };
-use crate::StmResult;
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator

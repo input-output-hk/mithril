@@ -2,12 +2,13 @@ use anyhow::{Context, anyhow};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
+
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
     SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
     compute_poseidon_digest,
 };
-use crate::StmResult;
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -89,7 +90,7 @@ impl SchnorrSigningKey {
         Ok(UniqueSchnorrSignature {
             commitment_point,
             response,
-            challenge: challenge_as_scalar,
+            challenge,
         })
     }
 

@@ -1,11 +1,12 @@
 use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
+
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
     SchnorrVerificationKey, UniqueSchnorrSignatureError, compute_poseidon_digest,
 };
-use crate::StmResult;
 
 /// Structure of the Unique Schnorr signature to use with the SNARK
 ///
@@ -20,7 +21,7 @@ pub struct UniqueSchnorrSignature {
     pub(crate) response: ScalarFieldElement,
     /// Part of the Unique Schnorr signature NOT depending on the signing key
     /// TODO: Change to BaseFieldElement
-    pub(crate) challenge: ScalarFieldElement,
+    pub(crate) challenge: BaseFieldElement,
 }
 
 impl UniqueSchnorrSignature {
@@ -55,13 +56,13 @@ impl UniqueSchnorrSignature {
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;
 
         // Computing random_point_1_recomputed = response *  H(msg) + challenge * commitment_point
-        // let challenge_scalar = ScalarFieldElement::from_base_field(&self.challenge);
+        let challenge_scalar = ScalarFieldElement::from_base_field(&self.challenge)?;
         let random_point_1_recomputed =
-            self.response * msg_hash_point + self.challenge * self.commitment_point;
+            self.response * msg_hash_point + challenge_scalar * self.commitment_point;
 
         // Computing random_point_2_recomputed = response * prime_order_generator_point + challenge * vk
         let random_point_2_recomputed =
-            self.response * prime_order_generator_point + self.challenge * verification_key.0;
+            self.response * prime_order_generator_point + challenge_scalar * verification_key.0;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
@@ -80,8 +81,6 @@ impl UniqueSchnorrSignature {
         .collect();
 
         let challenge_recomputed = compute_poseidon_digest(&points_coordinates);
-        let challenge_recomputed_scalar =
-            ScalarFieldElement::from_base_field(&challenge_recomputed)?;
 
         if challenge_recomputed != self.challenge {
             return Err(anyhow!(UniqueSchnorrSignatureError::SignatureInvalid(
@@ -125,7 +124,7 @@ impl UniqueSchnorrSignature {
         )
         .with_context(|| "Could not convert the bytes to `response`")?;
 
-        let challenge = ScalarFieldElement::from_bytes(
+        let challenge = BaseFieldElement::from_bytes(
             bytes
                 .get(64..96)
                 .ok_or(UniqueSchnorrSignatureError::Serialization)
@@ -263,12 +262,12 @@ mod tests {
         use super::*;
 
         const GOLDEN_BYTES: &[u8; 96] = &[
-            143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,
-            69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113, 5, 81, 137, 228, 235,
-            18, 112, 76, 71, 127, 44, 47, 60, 55, 144, 204, 254, 50, 67, 167, 67, 133, 79, 168, 10,
-            153, 228, 114, 147, 64, 34, 9, 12, 75, 91, 200, 29, 62, 12, 245, 185, 181, 67, 251,
-            210, 211, 37, 42, 204, 205, 133, 215, 235, 236, 193, 155, 2, 147, 83, 189, 148, 38, 71,
-            0,
+            39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173,
+            108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148, 230, 175, 77, 63, 232,
+            229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109,
+            208, 226, 177, 140, 55, 79, 174, 10, 121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110,
+            106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194,
+            239, 173, 14,
         ];
 
         fn golden_value() -> UniqueSchnorrSignature {
@@ -295,9 +294,9 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "commitment_point": [143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102, 69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113],
-            "response": [5, 81, 137, 228, 235, 18, 112, 76, 71, 127, 44, 47, 60, 55, 144, 204, 254, 50, 67, 167, 67, 133, 79, 168, 10, 153, 228, 114, 147, 64, 34, 9],
-            "challenge": [12, 75, 91, 200, 29, 62, 12, 245, 185, 181, 67, 251, 210, 211, 37, 42, 204, 205, 133, 215, 235, 236, 193, 155, 2, 147, 83, 189, 148, 38, 71, 0]
+            "commitment_point": [39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173, 108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148],
+            "response": [230, 175, 77, 63, 232, 229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109, 208, 226, 177, 140, 55, 79, 174, 10],
+            "challenge": [121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110, 106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194, 239, 173, 14]
         }"#;
 
         fn golden_value() -> UniqueSchnorrSignature {
