@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           if [[ -n "${{ inputs.commit_sha }}" ]]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+            echo "commit_sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
           else
             echo "branch=main" >> $GITHUB_OUTPUT
           fi
