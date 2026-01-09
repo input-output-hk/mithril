@@ -248,7 +248,7 @@ impl CardanoDbVerifyCommand {
         if json_output {
             // Prepare the path value explicitly for serde
             let report_path_value = match &report_path {
-                Some(path) => serde_json::Value::String(path.display().to_string()),
+                Some(path) => serde_json::Value::String(path.to_string_lossy().to_string()),
                 None => serde_json::Value::Null,
             };
     
