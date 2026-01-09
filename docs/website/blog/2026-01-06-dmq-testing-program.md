@@ -19,6 +19,12 @@ We invite interested SPOs to join the testing program! The only requirement is t
 
 #### Important note on adoption
 
+:::info
+
+Once the DMQ adoption has reached the required threshold, running multiple aggregators will be unlocked on the corresponding Mithril network. More information about the testing program for running multiple aggregators is available in this [post](https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program).
+
+:::
+
 For the DMQ protocol to operate effectively, a **minimum adoption of 60% of stake** among SPOs is required. During the ramp-up phase, the legacy signature registration mechanism will remain active to ensure continuity and avoid any disruption. Once the vast majority of SPOs have adopted DMQ, the legacy mechanism will be deactivated.
 
 :::tip

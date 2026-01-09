@@ -38,6 +38,12 @@ If you want to participate, please reach out to the team on the Mithril Discord 
 
 #### Important requirement
 
+:::info
+
+More information about the testing program for the DMQ network is available in this [post](https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program).
+
+:::
+
 A **healthy DMQ network operated by at least 60% of the stake** is mandatory for this feature to work. The DMQ protocol enables the decentralized diffusion of signatures, which must occur before any follower aggregator can proceed with the aggregation phase. During the ramp-up phase for the DMQ network, follower aggregators may not be able to produce valid certificates if the DMQ adoption is insufficient.
 
 :::tip
