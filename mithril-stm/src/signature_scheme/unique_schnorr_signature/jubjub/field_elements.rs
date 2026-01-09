@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
@@ -7,13 +7,36 @@ use std::ops::{Add, Mul, Sub};
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BaseFieldElement(pub(crate) JubjubBase);
 
 impl BaseFieldElement {
     /// Retrieves the multiplicative identity element of the base field
     pub(crate) fn get_one() -> Self {
         BaseFieldElement(JubjubBase::ONE)
+    }
+
+    /// Converts the base field element to its byte representation in
+    /// little endian form
+    pub(crate) fn to_bytes(self) -> [u8; 32] {
+        self.0.to_bytes_le()
+    }
+
+    /// Constructs a base field element from its byte representation
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let mut base_bytes = [0u8; 32];
+        base_bytes.copy_from_slice(
+            bytes
+                .get(..32)
+                .ok_or(SchnorrSignatureError::BaseFieldElementSerialization)?,
+        );
+
+        match JubjubBase::from_bytes_le(&base_bytes).into_option() {
+            Some(base_field_element) => Ok(Self(base_field_element)),
+            None => Err(anyhow!(
+                SchnorrSignatureError::ScalarFieldElementSerialization
+            )),
+        }
     }
 }
 
@@ -116,13 +139,31 @@ impl ScalarFieldElement {
         }
     }
 
-    /// Tries to convert a base field element to a scalar
-    /// TODO: Doing the conversion like this can fail if the element from the
-    /// base field is greater than the scalar field modulus,
-    /// we need to use from_raw since it performs the modulus reduction
+    /// Constructs a scalar field element from its byte representation
+    /// while reducing modulo the scalar field modulus if necessary
+    pub(crate) fn from_raw(bytes: &[u8]) -> StmResult<Self> {
+        let mut scalar_bytes = [0u8; 32];
+        scalar_bytes.copy_from_slice(
+            bytes
+                .get(..32)
+                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
+        );
+
+        let mut bytes64 = [0u64; 4];
+        for i in 0..4 {
+            bytes64[i] =
+                u64::from_le_bytes(bytes[8 * i..8 * (i + 1)].try_into().with_context(|| {
+                    anyhow!(SchnorrSignatureError::ScalarFieldElementSerialization)
+                })?)
+        }
+
+        Ok(Self(JubjubScalar::from_raw(bytes64)))
+    }
+
+    /// Convert a base field element to a scalar
     pub(crate) fn from_base_field(base_element: &BaseFieldElement) -> StmResult<Self> {
         let base_element_bytes = base_element.0.to_bytes_le();
-        ScalarFieldElement::from_bytes(&base_element_bytes)
+        ScalarFieldElement::from_raw(&base_element_bytes)
     }
 }
 
@@ -175,6 +216,21 @@ mod tests {
         }
     }
 
+    mod bytes_conversion {
+        use super::*;
+
+        #[test]
+        fn from_bytes_fails_if_value_too_high() {
+            let bytes = [255; 32];
+
+            let value = BaseFieldElement::from_bytes(&bytes);
+            value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+
+            let value = ScalarFieldElement::from_bytes(&bytes);
+            value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+        }
+    }
+
     mod base_field_arithmetic {
         use super::*;
 
@@ -190,7 +246,7 @@ mod tests {
         fn test_add_with_zero() {
             let a = BaseFieldElement(JubjubBase::ONE);
             let zero = BaseFieldElement(JubjubBase::ZERO);
-            let result = a.clone() + zero;
+            let result = a + zero;
             assert_eq!(result, a);
         }
 
@@ -223,7 +279,7 @@ mod tests {
         fn test_mul_with_one() {
             let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
             let one = BaseFieldElement::get_one();
-            let result = a.clone() * one;
+            let result = a * one;
             assert_eq!(result, a);
         }
 
@@ -239,7 +295,7 @@ mod tests {
         fn test_mul_references() {
             let a = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE);
             let b = BaseFieldElement(JubjubBase::ONE + JubjubBase::ONE + JubjubBase::ONE);
-            let result = &a * &b;
+            let result = a * b;
             let expected = (JubjubBase::ONE + JubjubBase::ONE)
                 * (JubjubBase::ONE + JubjubBase::ONE + JubjubBase::ONE);
             assert_eq!(result, BaseFieldElement(expected));

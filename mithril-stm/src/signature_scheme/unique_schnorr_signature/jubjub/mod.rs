@@ -74,6 +74,7 @@ macro_rules! impl_serde {
     };
 }
 impl_serde!(ScalarFieldElement, ScalarFieldElementVisitor, 32);
+impl_serde!(BaseFieldElement, BaseFieldElementVisitor, 32);
 impl_serde!(
     PrimeOrderProjectivePoint,
     PrimeOrderProjectivePointVisitor,

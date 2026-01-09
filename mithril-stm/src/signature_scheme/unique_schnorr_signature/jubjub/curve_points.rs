@@ -12,11 +12,12 @@ use midnight_curves::{
 use sha2::{Digest, Sha256};
 use std::ops::{Add, Mul};
 
-use super::{BaseFieldElement, ScalarFieldElement};
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
+use super::{BaseFieldElement, ScalarFieldElement};
+
 /// Defining a type for the CPU hash to curve gadget
-pub(crate) type JubjubHashToCurve = HashToCurveGadget<
+pub(crate) type JubjubHashToCurveGadget = HashToCurveGadget<
     JubjubBase,
     JubjubExtended,
     AssignedNative<JubjubBase>,
@@ -67,15 +68,13 @@ impl ProjectivePoint {
         hash.update(input);
         let mut hashed_input = [0u8; 32];
         hashed_input.copy_from_slice(&hash.finalize());
-        let scalar_input = match JubjubBase::from_bytes_le(&hashed_input).into_option() {
-            Some(scalar) => scalar,
-            None => {
-                return Err(anyhow!(
-                    SchnorrSignatureError::ScalarFieldElementSerialization
-                ));
-            }
-        };
-        let point = JubjubHashToCurve::hash_to_curve(&[scalar_input]);
+        let scalar_input = JubjubBase::from_raw([
+            u64::from_le_bytes(hashed_input[0..8].try_into()?),
+            u64::from_le_bytes(hashed_input[8..16].try_into()?),
+            u64::from_le_bytes(hashed_input[16..24].try_into()?),
+            u64::from_le_bytes(hashed_input[24..32].try_into()?),
+        ]);
+        let point = JubjubHashToCurveGadget::hash_to_curve(&[scalar_input]);
         Ok(ProjectivePoint(JubjubExtended::from(point)))
     }
 
@@ -154,8 +153,8 @@ impl PrimeOrderProjectivePoint {
             point_affine_representation.get_u(),
             point_affine_representation.get_v(),
         );
-        let x_square = &x * &x;
-        let y_square = &y * &y;
+        let x_square = x * x;
+        let y_square = y * y;
 
         let lhs = &y_square - &x_square;
         let rhs = (x_square * y_square) * BaseFieldElement(EDWARDS_D) + BaseFieldElement::get_one();
@@ -237,6 +236,27 @@ mod tests {
             let golden_serialized = serde_json::to_string(&golden_value())
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_hash {
+        use super::*;
+
+        const GOLDEN_BYTES: &[u8] = &[
+            15, 44, 110, 49, 102, 14, 172, 174, 230, 224, 30, 24, 129, 48, 80, 106, 88, 47, 98,
+            132, 180, 50, 8, 88, 48, 33, 149, 193, 129, 151, 209, 239,
+        ];
+
+        fn golden_value() -> ProjectivePoint {
+            let msg = [255u8; 32];
+            ProjectivePoint::hash_to_projective_point(&msg).unwrap()
+        }
+
+        #[test]
+        fn golden_hash() {
+            let value =
+                ProjectivePoint::from_bytes(GOLDEN_BYTES).expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
         }
     }
 
