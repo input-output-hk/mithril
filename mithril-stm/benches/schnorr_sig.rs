@@ -14,7 +14,7 @@ fn midnight_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     let mut poseidon_input = vec![DST_SIGNATURE];
 
     group.bench_function(
-        BenchmarkId::new("Midnight Poseidon 1 scalar", nr_sigs),
+        BenchmarkId::new("Midnight Poseidon 1 base field element", nr_sigs),
         |b| {
             b.iter(|| {
                 for _ in 0..nr_sigs {
@@ -27,7 +27,7 @@ fn midnight_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     poseidon_input.extend(input);
     group.bench_function(
         BenchmarkId::new(
-            "Midnight Poseidon 11 scalars (similar to signature)",
+            "Midnight Poseidon 11 base field elements (similar to signature)",
             nr_sigs,
         ),
         |b| {

@@ -20,7 +20,6 @@ pub struct UniqueSchnorrSignature {
     /// Part of the Unique Schnorr signature depending on the signing key
     pub(crate) response: ScalarFieldElement,
     /// Part of the Unique Schnorr signature NOT depending on the signing key
-    /// TODO: Change to BaseFieldElement
     pub(crate) challenge: BaseFieldElement,
 }
 
@@ -56,13 +55,13 @@ impl UniqueSchnorrSignature {
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;
 
         // Computing random_point_1_recomputed = response *  H(msg) + challenge * commitment_point
-        let challenge_scalar = ScalarFieldElement::from_base_field(&self.challenge)?;
+        let challenge_as_scalar = ScalarFieldElement::from_base_field(&self.challenge)?;
         let random_point_1_recomputed =
-            self.response * msg_hash_point + challenge_scalar * self.commitment_point;
+            self.response * msg_hash_point + challenge_as_scalar * self.commitment_point;
 
         // Computing random_point_2_recomputed = response * prime_order_generator_point + challenge * vk
         let random_point_2_recomputed =
-            self.response * prime_order_generator_point + challenge_scalar * verification_key.0;
+            self.response * prime_order_generator_point + challenge_as_scalar * verification_key.0;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates

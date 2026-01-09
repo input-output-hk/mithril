@@ -61,8 +61,8 @@ pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 
 impl ProjectivePoint {
     /// Hashes input bytes to a projective point on the Jubjub curve
-    /// TODO: Move the sha256 hashing somewhere else? and check if the
-    /// conversion to jubjubBase is correct
+    /// For now we leave the SHA call in the function since the SHA
+    /// function is not used anywhere else. This might change in the future.
     pub(crate) fn hash_to_projective_point(input: &[u8]) -> StmResult<Self> {
         let mut hash = Sha256::new();
         hash.update(input);
