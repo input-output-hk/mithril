@@ -7,7 +7,7 @@ tags: [DMQ, decentralization, testing program]
 
 ### DMQ testing program with SPOs
 
-We are excited to announce the launch of a testing program for the **Decentralized Message Queue (DMQ)** feature with a group of Stake Pool Operators (SPOs). This program will take place on the `pre-release-preview` network and aims to gather feedback, identify potential issues, and ensure the robustness of the DMQ implementation before its wider release.
+We are excited to announce the launch of a testing program for the **Decentralized Message Queue (DMQ)** feature with a group of stake pool operators (SPOs). This program will take place on the `pre-release-preview` network and aims to gather feedback, identify potential issues, and ensure the robustness of the DMQ implementation before its wider release.
 
 #### What is DMQ?
 
@@ -19,7 +19,7 @@ We invite interested SPOs to join the testing program! The only requirement is t
 
 #### Important note on adoption
 
-For the DMQ protocol to function effectively, a **minimum adoption of 60% of the stake** among SPOs is required. During the ramp-up phase, the legacy signature registration mechanism will remain active to ensure continuity and avoid any disruption. Once the vast majority of SPOs have adopted DMQ, the legacy mechanism will be deactivated.
+For the DMQ protocol to operate effectively, a **minimum adoption of 60% of stake** among SPOs is required. During the ramp-up phase, the legacy signature registration mechanism will remain active to ensure continuity and avoid any disruption. Once the vast majority of SPOs have adopted DMQ, the legacy mechanism will be deactivated.
 
 :::tip
 
