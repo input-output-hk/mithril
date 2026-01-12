@@ -388,20 +388,36 @@ jobs:
         next_era: [""]
         cardano_node_version: ["10.4.1", "10.5.1"]
         hard_fork_latest_era_at_epoch: [0]
-        run_id: ["#1", "#2", "#3"]
+        run_id: ["#1"]
         extra_args: ["--aggregate-signature-type=Concatenation"]
 
         include:
+          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with Haskell DMQ node (without fallback signature delayer)
+          - mode: "leader-follower-dmq-haskell-skip-delayer"
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
+            next_era: [""]
+            cardano_node_version: "10.5.1"
+            hard_fork_latest_era_at_epoch: 0
+            run_id: "#1"
+            extra_args: "--skip-signature-delayer --number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-4"
+          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with Haskell DMQ node (with fallback signature delayer)
+          - mode: "leader-follower-dmq-haskell-with-delayer"
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
+            next_era: [""]
+            cardano_node_version: "10.5.1"
+            hard_fork_latest_era_at_epoch: 0
+            run_id: "#1"
+            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-4"
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with fake DMQ node
-          - mode: "leader-follower"
+          - mode: "leader-follower-dmq-fake"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: [""]
             cardano_node_version: "10.5.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
             extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=fake"
-          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
-          - mode: "leader-follower"
+          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with Mithril relay
+          - mode: "leader-follower-relay"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: [""]
             cardano_node_version: "10.4.1"
@@ -417,7 +433,7 @@ jobs:
             run_id: "#1"
             extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=p2p --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation"
           # Include a test for the era switch without regenesis
-          - mode: "std"
+          - mode: "std-era-switch-no-genesis"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[1] }}
             cardano_node_version: "10.4.1"
@@ -425,7 +441,7 @@ jobs:
             run_id: "#1"
             extra_args: "--aggregate-signature-type=Concatenation"
           # Include a test for the era switch with regenesis
-          - mode: "std"
+          - mode: "std-era-genesis"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[1] }}
             cardano_node_version: "10.4.1"

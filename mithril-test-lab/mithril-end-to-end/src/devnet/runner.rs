@@ -72,6 +72,7 @@ pub struct DevnetBootstrapArgs {
     pub cardano_slot_length: f64,
     pub cardano_epoch_length: f64,
     pub cardano_node_version: semver::Version,
+    pub dmq_node_version: Option<String>,
     pub cardano_hard_fork_latest_era_at_epoch: u16,
     pub skip_cardano_bin_download: bool,
 }
@@ -120,6 +121,12 @@ impl Devnet {
             "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
             bootstrap_args.cardano_hard_fork_latest_era_at_epoch.to_string(),
         );
+
+        if let Some(dmq_node_version) = &bootstrap_args.dmq_node_version {
+            bootstrap_command.env("DMQ_NODE_VERSION", dmq_node_version);
+        } else {
+            bootstrap_command.env("SKIP_DMQ_BIN_DOWNLOAD", "true");
+        }
 
         bootstrap_command
             .current_dir(&bootstrap_args.devnet_scripts_dir)
