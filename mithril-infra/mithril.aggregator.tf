@@ -14,6 +14,8 @@ resource "null_resource" "mithril_aggregator" {
     cardano_image_id                                                          = var.cardano_image_id,
     cardano_image_registry                                                    = var.cardano_image_registry,
     image_id                                                                  = var.mithril_image_id,
+    dmq_image_id                                                              = var.dmq_image_id,
+    dmq_image_registry                                                        = var.dmq_image_registry,
     mithril_aggregator_auth_username                                          = var.mithril_aggregator_auth_username,
     mithril_aggregator_auth_password                                          = var.mithril_aggregator_auth_password
     mithril_aggregator_signed_entity_types                                    = var.mithril_aggregator_signed_entity_types,
@@ -123,6 +125,8 @@ EOT
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export DMQ_IMAGE_ID='${var.dmq_image_id}'",
+      "export DMQ_IMAGE_REGISTRY=${var.dmq_image_registry}",
       "export AGGREGATOR_HOST=${local.mithril_aggregator_host}",
       "export GOOGLE_APPLICATION_CREDENTIALS_JSON='${local.google_cloud_storage_credentials_json}'",
       "export SIGNED_ENTITY_TYPES='${var.mithril_aggregator_signed_entity_types}'",
@@ -178,7 +182,6 @@ EOT
       "export AGGREGATOR_DMQ_ADDR='0.0.0.0'",
       "export AGGREGATOR_DMQ_PORT='${local.mithril_aggregator_dmq_port}'",
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
-      "export DMQ_NODE_BINARY_URL='${var.mithril_p2p_dmq_node_binary_url}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
       "export METRICS_SERVER_PORT=9090",
@@ -207,7 +210,7 @@ if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-follower-override.yaml"
 fi
 # Support for DMQ protocol
-if [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
   if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
     DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-dmq-real-node-override.yaml"
   else

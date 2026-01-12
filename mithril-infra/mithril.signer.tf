@@ -20,6 +20,8 @@ resource "null_resource" "mithril_signer" {
     vm_instance            = google_compute_instance.vm_instance.id,
     cardano_image_id       = var.cardano_image_id,
     cardano_image_registry = var.cardano_image_registry,
+    dmq_image_id           = var.dmq_image_id,
+    dmq_image_registry     = var.dmq_image_registry,
     image_id               = var.mithril_image_id,
   }
 
@@ -177,6 +179,8 @@ EOT
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export DMQ_IMAGE_ID='${var.dmq_image_id}'",
+      "export DMQ_IMAGE_REGISTRY=${var.dmq_image_registry}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
       "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
       "export SIGNER_CARDANO_RELAY_ADDR=0.0.0.0",
@@ -208,7 +212,6 @@ fi
 EOT
       ,
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
-      "export DMQ_NODE_BINARY_URL='${var.mithril_p2p_dmq_node_binary_url}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
       "export METRICS_SERVER_PORT=9090",
@@ -251,7 +254,7 @@ if [ "${each.value.type}" = "unverified-cardano-shared-norelay" ]; then
 fi
 # Support for signer P2P network
 if [ "${var.mithril_use_p2p_network}" = "true" ]; then
-  if [ "${var.mithril_p2p_use_real_dmq_node}" != "true" ]; then
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
     # Bootstrap peers configuration is done through topology files for the real DMQ node
     echo "Bootstrap peers configuration is done through topology files for the real DMQ node"
   else

@@ -216,11 +216,16 @@ variable "mithril_p2p_use_real_dmq_node" {
   default     = false
 }
 
-
-variable "mithril_p2p_dmq_node_binary_url" {
+variable "dmq_image_id" {
   type        = string
-  description = "The url to download the DMQ node binary (experimental, for test only)"
-  default     = ""
+  description = "The DMQ image tag of service to deploy"
+  default     = "0.2.0.0-pre-4"
+}
+
+variable "dmq_image_registry" {
+  type        = string
+  description = "The DMQ image repository of service to deploy"
+  default     = "ghcr.io/intersectmbo/dmq-node"
 }
 
 variable "mithril_p2p_network_bootstrap_peer" {

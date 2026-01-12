@@ -12,19 +12,13 @@ services:
         condition: service_started
 
   dmq-node-block-producer:
-    image: dmq-node-${MITHRIL_IMAGE_ID}
+    image: ${DMQ_IMAGE_REGISTRY}:${DMQ_IMAGE_ID}
     container_name: dmq-node-block-producer-signer-${SIGNER_ID}
     restart: always
     user: ${CURRENT_UID}
     profiles:
       - dmq
       - all
-    build:
-      context: .
-      dockerfile: Dockerfile.dmq
-      args:
-        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
-        MITHRIL_IMAGE_ID: ${MITHRIL_IMAGE_ID}
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/config:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/ipc:/ipc
@@ -44,23 +38,17 @@ services:
         "--host-addr",
         "${SIGNER_DMQ_BLOCK_PRODUCER_ADDR}",
         "--port",
-        "${SIGNER_DMQ_BLOCK_PRODUCER_PORT}",
+        "${SIGNER_DMQ_BLOCK_PRODUCER_PORT}"
       ]
 
   dmq-node-relay:
-    image: dmq-node-${MITHRIL_IMAGE_ID}
+    image: ${DMQ_IMAGE_REGISTRY}:${DMQ_IMAGE_ID}
     container_name: dmq-node-relay-signer-${SIGNER_ID}
     restart: always
     user: ${CURRENT_UID}
     profiles:
       - dmq
       - all
-    build:
-      context: .
-      dockerfile: Dockerfile.dmq
-      args:
-        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
-        MITHRIL_IMAGE_ID: ${MITHRIL_IMAGE_ID}
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/config:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/ipc:/ipc
@@ -82,7 +70,7 @@ services:
         "--host-addr",
         "${SIGNER_DMQ_RELAY_ADDR}",
         "--port",
-        "${SIGNER_DMQ_RELAY_PORT}",
+        "${SIGNER_DMQ_RELAY_PORT}"
       ]
 
 networks:
