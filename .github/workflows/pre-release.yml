@@ -193,6 +193,9 @@ jobs:
           - environment: pre-release-preview
             environment_prefix: pre-release
             cardano_network: preview
+            mithril_use_p2p_network: false
+            mithril_p2p_use_dmq_protocol: true
+            mithril_p2p_use_real_dmq_node: true
             mithril_api_domain: api.mithril.network
             mithril_protocol_parameters: |
               {
@@ -239,6 +242,8 @@ jobs:
           cardano_network: ${{ matrix.cardano_network }}
           cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
           cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
+          dmq_node_version: ${{ vars.DMQ_NODE_VERSION }}
+          dmq_node_docker_registry: ${{ vars.DMQ_NODE_DOCKER_REGISTRY }}
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
@@ -249,6 +254,9 @@ jobs:
           google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
           google_compute_instance_ssh_keys_environment: testing
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
+          mithril_p2p_use_dmq_protocol: ${{ matrix.mithril_p2p_use_dmq_protocol }}
+          mithril_p2p_use_real_dmq_node: ${{ matrix.mithril_p2p_use_real_dmq_node }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
           mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
