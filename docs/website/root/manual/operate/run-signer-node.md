@@ -99,10 +99,12 @@ Note that this guide works only on a Linux machine.
 :::
 
 - To operate a **Cardano node** as a **stake pool**, you need:
+
   - The pool's `operational certificate`
   - The pool's `KES secret key`
 
 - To access the file system of the **Cardano block-producing** node for **production** deployment (or of the **Cardano relay** node for **naive** deployment), you will need the following permissions:
+
   - Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   - Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
@@ -546,6 +548,7 @@ sudo systemctl restart mithril-signer
 :::info
 
 - If you have already installed `Squid` via the `apt` package manager, we recommend that you delete it before manually building it from source by running the following commands:
+
   - `sudo systemctl stop squid`
   - `sudo apt remove squid`
   - `sudo apt autoremove`
@@ -952,7 +955,7 @@ As we are still in a testing stage, we only support the `pre-release-preview` ne
 
 You can use these parameters for the **pre-release-preview** network:
 
-- **DMQ_RELEASE_URL**: `https://github.com/input-output-hk/mithril/raw/refs/heads/jpraynaud/dmq-node-binary/mithril-test-lab/mithril-devnet/bin/dmq-node-0.2.0.0-53bf9652787dc768abd86cf3844f1206f0fd7d8c`
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.2.0.0-pre-4/dmq-node-linux.tar.gz`
 
 _These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
 
@@ -961,18 +964,28 @@ _These URLs may change in the future; please refer to this page for the latest r
 To download the latest released version of the DMQ node binary, run the following command:
 
 ```bash
-curl --fail -sL -o dmq-node **DMQ_RELEASE_URL**
+curl --fail -sL -o dmq-node.tar.gz **DMQ_RELEASE_URL**
+```
+
+Then, extract the archive:
+
+```bash
+tar -xzf dmq-node.tar.gz --strip-components=2 result/bin
+```
+
+And test that the binary works:
+
+```bash
+./dmq-node --version
+```
+
+You should see something like:
+
+```bash
+dmq-node version: 0.2.0.0
 ```
 
 ### Installing the service
-
-#### Make the binary executable
-
-To make the binary executable, run:
-
-```bash
-chmod +x dmq-node
-```
 
 #### Move the executable
 
