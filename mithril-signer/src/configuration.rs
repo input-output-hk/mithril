@@ -2,7 +2,7 @@ use anyhow::Context;
 use config::{ConfigError, Map, Source, Value};
 use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
@@ -16,7 +16,7 @@ use mithril_era::{
     adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct SignaturePublisherConfig {
     /// Number of retry attempts when publishing the signature
     pub retry_attempts: u8,
@@ -32,7 +32,7 @@ pub struct SignaturePublisherConfig {
 }
 
 /// Client configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct Configuration {
     /// Cardano CLI tool path
     #[example = "`cardano-cli`"]

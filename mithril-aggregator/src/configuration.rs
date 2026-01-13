@@ -4,13 +4,13 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
 use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
 use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+    BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm, ConfigSecret,
     HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants,
 };
@@ -26,7 +26,7 @@ use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// Different kinds of execution environments
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub enum ExecutionEnvironment {
     /// Test environment, maximum logging, memory stores etc.
     Test,
@@ -433,7 +433,7 @@ pub trait ConfigurationSource {
 }
 
 /// Serve command configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct ServeCommandConfiguration {
     /// What kind of runtime environment the configuration is meant to.
     pub environment: ExecutionEnvironment,
@@ -566,7 +566,6 @@ pub struct ServeCommandConfiguration {
     /// the registered stake pools.
     ///
     /// `base_url` (optional) allows you to override the default URL, which is otherwise automatically determined from the project ID.
-    // TODO: update the BlockfrostParameters structure to hold the project_id directly but wrapped in a new `Secret` type
     #[example = "\
     `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\" }`<br/>\
     or `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\", \"base_url\": \"https://your-custom-blockfrost-server.io/api/v0/\" }`\
@@ -637,7 +636,7 @@ pub struct ServeCommandConfiguration {
 }
 
 /// Uploader needed to copy the snapshot once computed.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SnapshotUploaderType {
     /// Uploader to GCP storage.
@@ -647,7 +646,7 @@ pub enum SnapshotUploaderType {
 }
 
 /// [Zstandard][CompressionAlgorithm::Zstandard] specific parameters
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct ZstandardCompressionParameters {
     /// Level of compression, default to 9.
     pub level: i32,
@@ -668,11 +667,10 @@ impl Default for ZstandardCompressionParameters {
 /// Configuration to connect to the Blockfrost API.
 ///
 /// Currently only used to fetch the ticker and name for registered pools.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct BlockfrostParameters {
-    /// Environment variable containing the Blockfrost project ID.
-    // TODO: update to hold the project_id directly but wrapped in a new `Secret` type
-    pub project_id_env_var: String,
+    /// Project ID of the Blockfrost project.
+    pub project_id: ConfigSecret<String>,
 
     /// Optional base URL for Blockfrost API, if not provided, the default URL will be determined
     /// automatically from the project ID.
@@ -690,7 +688,7 @@ impl FromStr for BlockfrostParameters {
 /// Configuration of the ancillary files signer
 ///
 /// **IMPORTANT**: The cryptographic scheme used is ED25519
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum AncillaryFilesSignerConfig {
     /// Sign with a secret key
@@ -1381,23 +1379,23 @@ mod test {
     #[test]
     fn deserializing_blockfrost_parameters() {
         let deserialized_without_base_url: BlockfrostParameters =
-            serde_json::from_str(r#"{ "project_id_env_var": "env_var" }"#).unwrap();
+            serde_json::from_str(r#"{ "project_id": "preprodWuV1ICdtOWfZYf" }"#).unwrap();
         assert_eq!(
             deserialized_without_base_url,
             BlockfrostParameters {
-                project_id_env_var: "env_var".to_string(),
+                project_id: ConfigSecret::new("preprodWuV1ICdtOWfZYf".to_string()),
                 base_url: None,
             }
         );
 
         let deserialized_with_base_url: BlockfrostParameters = serde_json::from_str(
-            r#"{ "project_id_env_var": "env_var", "base_url": "https://test.foo.bar" }"#,
+            r#"{ "project_id": "preprodWuV1ICdtOWfZYf", "base_url": "https://test.foo.bar" }"#,
         )
         .unwrap();
         assert_eq!(
             deserialized_with_base_url,
             BlockfrostParameters {
-                project_id_env_var: "env_var".to_string(),
+                project_id: ConfigSecret::new("preprodWuV1ICdtOWfZYf".to_string()),
                 base_url: Some("https://test.foo.bar".to_string()),
             }
         );

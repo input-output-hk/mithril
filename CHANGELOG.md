@@ -34,6 +34,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for new `Lagrange` Mithril era.
 
+- Aggregator:
+  - Superseded CExplorer with Blockfrost for Pool names and tickers discovery mechanism.
+  - Removed optional `cexplorer_pools_url` configuration parameter.
+  - Added optional `blockfrost_parameters` (see documentation for details)
+
 - **UNSTABLE**:
   - Support for aggregator discovery mechanism in the client library and CLI.
 
