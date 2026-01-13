@@ -14,6 +14,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 futures = "0.3.31"
-indicatif = "0.18.0"
+indicatif = "0.18.3"
 mithril-client = { path = "../../mithril-client", features = ["fs"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

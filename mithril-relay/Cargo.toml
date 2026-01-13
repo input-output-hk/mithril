@@ -59,6 +59,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 warp = { workspace = true }
 
 [dev-dependencies]
-httpmock = "0.8.1"
+httpmock = "0.8.2"
 slog-scope = "4.4.0"
 slog-term = { workspace = true }
