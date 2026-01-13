@@ -180,16 +180,10 @@ impl DependenciesBuilder {
         &mut self,
         parameters: &BlockfrostParameters,
     ) -> Result<SignersImporter> {
-        let blockfrost_project_id = std::env::var(&parameters.project_id_env_var)
-            .with_context(|| {
-                format!(
-                    "Environment variable `{}` must be set",
-                    parameters.project_id_env_var
-                )
-            })
-            .with_context(|| "Failed to create Blockfrost signer importer")?;
-        let retriever =
-            BlockfrostSignerRetriever::new(&blockfrost_project_id, parameters.base_url.clone());
+        let retriever = BlockfrostSignerRetriever::new(
+            parameters.project_id.expose_secret(),
+            parameters.base_url.clone(),
+        );
         let persister = self.get_signer_store().await?;
 
         Ok(SignersImporter::new(
