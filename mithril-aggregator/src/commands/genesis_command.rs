@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{ConfigBuilder, Map, Value, builder::DefaultState};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use slog::{Logger, debug};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
@@ -21,7 +21,7 @@ use crate::{
     extract_all, tools::GenesisTools,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct GenesisCommandConfiguration {
     /// Cardano CLI tool path
     #[example = "`cardano-cli`"]

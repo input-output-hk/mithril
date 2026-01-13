@@ -1,7 +1,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{ConfigBuilder, Map, Value, builder::DefaultState};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use slog::{Logger, debug};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -17,7 +17,7 @@ use crate::{
     tools::CertificatesHashMigrator,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct ToolsCommandConfiguration {
     /// Directory to store aggregator databases
     #[example = "`./mithril-aggregator/stores`"]

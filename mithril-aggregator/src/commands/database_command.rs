@@ -4,7 +4,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{ConfigBuilder, Map, Value, builder::DefaultState};
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnection};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use slog::{Logger, debug};
 
 use mithril_common::StdResult;
@@ -15,7 +15,7 @@ use crate::{
     extract_all,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct DatabaseCommandConfiguration {
     #[example = "`./mithril-aggregator/stores`"]
     pub data_stores_directory: PathBuf,

@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
@@ -26,7 +26,7 @@ use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// Different kinds of execution environments
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub enum ExecutionEnvironment {
     /// Test environment, maximum logging, memory stores etc.
     Test,
@@ -433,7 +433,7 @@ pub trait ConfigurationSource {
 }
 
 /// Serve command configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+#[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct ServeCommandConfiguration {
     /// What kind of runtime environment the configuration is meant to.
     pub environment: ExecutionEnvironment,
@@ -637,7 +637,7 @@ pub struct ServeCommandConfiguration {
 }
 
 /// Uploader needed to copy the snapshot once computed.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SnapshotUploaderType {
     /// Uploader to GCP storage.
@@ -647,7 +647,7 @@ pub enum SnapshotUploaderType {
 }
 
 /// [Zstandard][CompressionAlgorithm::Zstandard] specific parameters
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct ZstandardCompressionParameters {
     /// Level of compression, default to 9.
     pub level: i32,
@@ -668,7 +668,7 @@ impl Default for ZstandardCompressionParameters {
 /// Configuration to connect to the Blockfrost API.
 ///
 /// Currently only used to fetch the ticker and name for registered pools.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct BlockfrostParameters {
     /// Environment variable containing the Blockfrost project ID.
     // TODO: update to hold the project_id directly but wrapped in a new `Secret` type
@@ -690,7 +690,7 @@ impl FromStr for BlockfrostParameters {
 /// Configuration of the ancillary files signer
 ///
 /// **IMPORTANT**: The cryptographic scheme used is ED25519
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum AncillaryFilesSignerConfig {
     /// Sign with a secret key
