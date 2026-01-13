@@ -68,7 +68,7 @@ pub fn operation_phase(
 ) -> OperationPhaseResult {
     let sigs = signers
         .par_iter()
-        .filter_map(|p| Some(p.create_single_signature(&msg).unwrap()))
+        .filter_map(|p| p.create_single_signature(&msg).ok())
         .collect::<Vec<SingleSignature>>();
 
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);

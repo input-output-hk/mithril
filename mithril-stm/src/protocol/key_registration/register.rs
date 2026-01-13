@@ -86,12 +86,16 @@ impl KeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
             if overflow {
-                panic!("Total stake overflow");
+                panic!(
+                    "Total stake overflow accumulated stake: {}, adding stake: {}",
+                    acc,
+                    entry.get_stake()
+                );
             }
             res
         });
         ClosedKeyRegistration {
-            key_registration: self.clone(),
+            key_registration: self,
             total_stake,
         }
     }
@@ -170,8 +174,8 @@ mod tests {
                                 assert!(keys.insert(entry));
                             },
                             Err(error) => match error.downcast_ref::<RegisterError>(){
-                                Some(RegisterError::EntryRegistered(e1)) => {
-                                    assert!(e1.as_ref() == &entry);
+                                Some(RegisterError::KeyRegistered(e1)) => {
+                                    assert!(e1.as_ref() == &entry.get_bls_verification_key());
                                     assert!(keys.contains(&entry));
                                 },
                                 _ => {panic!("Unexpected error: {error}")}

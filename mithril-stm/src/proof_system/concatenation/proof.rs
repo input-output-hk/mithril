@@ -37,17 +37,17 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         sigs: &[SingleSignature],
         msg: &[u8],
     ) -> StmResult<ConcatenationProof<D>> {
-        let sig_reg_list = sigs
-            .iter()
-            .map(|sig| SingleSignatureWithRegisteredParty {
+        let mut sig_reg_list: Vec<SingleSignatureWithRegisteredParty> = Vec::new();
+        for sig in sigs {
+            let reg_party = clerk
+                .closed_key_registration
+                .key_registration
+                .get_registration_entry_for_index(&sig.signer_index)?;
+            sig_reg_list.push(SingleSignatureWithRegisteredParty {
                 sig: sig.clone(),
-                reg_party: clerk
-                    .closed_key_registration
-                    .key_registration
-                    .get_registration_entry_for_index(&sig.signer_index)
-                    .unwrap(),
-            })
-            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
+                reg_party,
+            });
+        }
 
         let avk: ConcatenationProofKey<D> = clerk.compute_concatenation_proof_key();
         let mut unique_sigs = ConcatenationClerk::select_valid_signatures_for_k_indices(
@@ -71,8 +71,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             .closed_key_registration
             .key_registration
             .clone()
-            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
-            .unwrap()
+            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()?
             .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(Self {

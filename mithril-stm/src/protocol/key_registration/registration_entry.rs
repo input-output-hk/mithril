@@ -91,6 +91,8 @@ impl From<Initializer> for RegistrationEntry {
 }
 
 impl Hash for RegistrationEntry {
+    /// Hashes the registration entry by hashing the stake first, then the verification key.
+    /// The order is backward compatible with previous implementations.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.1.hash(state);
         self.0.hash(state);
@@ -113,6 +115,8 @@ impl PartialOrd for RegistrationEntry {
 }
 
 impl Ord for RegistrationEntry {
+    /// Compares the registration entries by comparing the stake first, then the verification key.
+    /// The order is backward compatible with previous implementations.
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }

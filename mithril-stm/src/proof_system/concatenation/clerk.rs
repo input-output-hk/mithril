@@ -134,7 +134,9 @@ impl ConcatenationClerk {
                 deduped_sig.sig.get_concatenation_signature_indices().len().try_into();
             if let Ok(size) = size {
                 if dedup_sigs.contains(&deduped_sig) {
-                    panic!("Should not reach!");
+                    panic!(
+                        "Invariant violation: duplicate signature encountered in deduplication set, which should not be possible."
+                    );
                 }
                 dedup_sigs.insert(deduped_sig);
                 count += size;

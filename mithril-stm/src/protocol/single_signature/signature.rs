@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -26,6 +27,9 @@ pub struct SingleSignature {
 
 impl SingleSignature {
     /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
+    /// It only works for concatenation proof system.
+    /// TODO: support snark proof single signature verification and do not use `anyhow!` for error
+    /// handling.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -34,13 +38,14 @@ impl SingleSignature {
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        self.concatenation_signature.verify(
-            params,
-            pk,
-            stake,
-            avk.to_concatenation_proof_key().unwrap(),
-            msg,
-        )
+        if let Some(concatenation_proof_key) = avk.to_concatenation_proof_key() {
+            self.concatenation_signature
+                .verify(params, pk, stake, concatenation_proof_key, msg)
+        } else {
+            Err(anyhow!(
+                "Aggregate verification key does not contain concatenation proof key"
+            ))
+        }
     }
 
     /// Verify that all indices of a signature are valid.
@@ -228,7 +233,7 @@ mod tests {
                         .into_merkle_tree()
                         .unwrap(),
                 ),
-                closed_key_registration.clone(),
+                closed_key_registration,
                 params,
                 1,
             );
