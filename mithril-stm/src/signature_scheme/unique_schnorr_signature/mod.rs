@@ -1,3 +1,12 @@
+//! Unique Schnorr Signature module
+//!
+//! This module implements a variant of the classical Schnorr signature algorithm.
+//! The classical Schnorr signature uses random values to generate the signature which is
+//! then also random and thus not unique for a given pair (message, signing key).
+//! In this variant, we compute a unique value from the secret key and the message
+//! and happen it to the signature to be able to identify easily which signatures
+//! were made by whom.
+
 mod error;
 mod jubjub;
 mod signature;
