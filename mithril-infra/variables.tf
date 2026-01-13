@@ -308,9 +308,9 @@ variable "mithril_aggregator_auth_password" {
   default     = ""
 }
 
-variable "mithril_aggregator_cexplorer_pools_url" {
+variable "mithril_aggregator_blockfrost_parameters" {
   type        = string
-  description = "The CExplorer url of the list of pools that is used by the mithril aggregator"
+  description = "Optional parameters to connect to the Blockfrost API. Used to fetch the ticker and name of the registered stake pools."
   default     = ""
 }
 

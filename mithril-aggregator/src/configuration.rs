@@ -221,12 +221,12 @@ pub trait ConfigurationSource {
         panic!("zstandard_parameters is not implemented.");
     }
 
-    /// Url to CExplorer list of pools to import as signer in the database.
-    fn cexplorer_pools_url(&self) -> Option<String> {
-        panic!("cexplorer_pools_url is not implemented.");
+    /// Blockfrost api configuration
+    fn blockfrost_parameters(&self) -> Option<BlockfrostParameters> {
+        panic!("blockfrost_parameters is not implemented.");
     }
 
-    /// Time interval at which the signers in `cexplorer_pools_url` will be imported (in minutes).
+    /// Time interval at which the pools names and ticker in blockfrost will be imported (in minutes).
     fn signer_importer_run_interval(&self) -> u64 {
         panic!("signer_importer_run_interval is not implemented.");
     }
@@ -562,10 +562,22 @@ pub struct ServeCommandConfiguration {
     #[example = "`{ level: 9, number_of_workers: 4 }`"]
     pub zstandard_parameters: Option<ZstandardCompressionParameters>,
 
-    /// Url to CExplorer list of pools to import as signer in the database.
-    pub cexplorer_pools_url: Option<String>,
+    /// Optional parameters to connect to the Blockfrost API. Used to fetch the ticker and name of
+    /// the registered stake pools.
+    ///
+    /// `base_url` (optional) allows you to override the default URL, which is otherwise automatically determined from the project ID.
+    // TODO: update the BlockfrostParameters structure to hold the project_id directly but wrapped in a new `Secret` type
+    #[example = "\
+    `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\" }`<br/>\
+    or `{ \"project_id\": \"preprodWuV1ICdtOWfZYfdcxpZ0tsS1N9rVZomQ\", \"base_url\": \"https://your-custom-blockfrost-server.io/api/v0/\" }`\
+    "]
+    #[serde(
+        default,
+        deserialize_with = "serde_deserialization::string_or_struct_optional"
+    )]
+    pub blockfrost_parameters: Option<BlockfrostParameters>,
 
-    /// Time interval at which the signers in [Self::cexplorer_pools_url] will be imported (in minutes).
+    /// Time interval at which the pools names and ticker in blockfrost will be imported (in minutes).
     pub signer_importer_run_interval: u64,
 
     /// If set no error is returned in case of unparsable block and an error log is written instead.
@@ -650,6 +662,28 @@ impl Default for ZstandardCompressionParameters {
             level: 9,
             number_of_workers: 4,
         }
+    }
+}
+
+/// Configuration to connect to the Blockfrost API.
+///
+/// Currently only used to fetch the ticker and name for registered pools.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BlockfrostParameters {
+    /// Environment variable containing the Blockfrost project ID.
+    // TODO: update to hold the project_id directly but wrapped in a new `Secret` type
+    pub project_id_env_var: String,
+
+    /// Optional base URL for Blockfrost API, if not provided, the default URL will be determined
+    /// automatically from the project ID.
+    pub base_url: Option<String>,
+}
+
+impl FromStr for BlockfrostParameters {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
     }
 }
 
@@ -738,7 +772,7 @@ impl ServeCommandConfiguration {
             signed_entity_types: None,
             snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
-            cexplorer_pools_url: None,
+            blockfrost_parameters: None,
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
             cardano_transactions_prover_cache_pool_size: 3,
@@ -891,8 +925,8 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.zstandard_parameters
     }
 
-    fn cexplorer_pools_url(&self) -> Option<String> {
-        self.cexplorer_pools_url.clone()
+    fn blockfrost_parameters(&self) -> Option<BlockfrostParameters> {
+        self.blockfrost_parameters.clone()
     }
 
     fn signer_importer_run_interval(&self) -> u64 {
@@ -1342,6 +1376,31 @@ mod test {
         };
 
         assert!(!config.is_follower_aggregator());
+    }
+
+    #[test]
+    fn deserializing_blockfrost_parameters() {
+        let deserialized_without_base_url: BlockfrostParameters =
+            serde_json::from_str(r#"{ "project_id_env_var": "env_var" }"#).unwrap();
+        assert_eq!(
+            deserialized_without_base_url,
+            BlockfrostParameters {
+                project_id_env_var: "env_var".to_string(),
+                base_url: None,
+            }
+        );
+
+        let deserialized_with_base_url: BlockfrostParameters = serde_json::from_str(
+            r#"{ "project_id_env_var": "env_var", "base_url": "https://test.foo.bar" }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            deserialized_with_base_url,
+            BlockfrostParameters {
+                project_id_env_var: "env_var".to_string(),
+                base_url: Some("https://test.foo.bar".to_string()),
+            }
+        );
     }
 
     mod get_leader_aggregator_epoch_settings_configuration {

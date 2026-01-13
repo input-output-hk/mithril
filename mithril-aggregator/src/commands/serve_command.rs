@@ -208,10 +208,10 @@ impl ServeCommand {
             Ok(())
         });
 
-        // Create a SignersImporter only if the `cexplorer_pools_url` is provided in the config.
-        if let Some(cexplorer_pools_url) = config.cexplorer_pools_url {
+        // Create a SignersImporter only if the blockfrost parameters are provided in the config.
+        if let Some(blockfrost_params) = config.blockfrost_parameters {
             match dependencies_builder
-                .create_signer_importer(&cexplorer_pools_url)
+                .create_blockfrost_signer_importer(&blockfrost_params)
                 .await
             {
                 Ok(service) => {
@@ -221,7 +221,7 @@ impl ServeCommand {
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         service
                             .run_forever(Duration::from_secs(
-                                // Import interval are in minutes
+                                // Import interval is in minutes
                                 config.signer_importer_run_interval * 60,
                             ))
                             .await;
@@ -231,8 +231,7 @@ impl ServeCommand {
                 Err(error) => {
                     warn!(
                         root_logger, "Failed to build the `SignersImporter`";
-                        "url_to_import" => cexplorer_pools_url,
-                        "error" => ?error
+                        "blockfrost_parameters" => ?blockfrost_params, "error" => ?error
                     );
                 }
             }

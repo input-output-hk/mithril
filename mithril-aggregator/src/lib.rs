@@ -52,10 +52,7 @@ pub use services::{
     SignerSynchronizer,
 };
 pub use store::{EpochSettingsStorer, ProtocolParametersRetriever, VerificationKeyStorer};
-pub use tools::{
-    CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
-    SingleSignatureAuthenticator,
-};
+pub use tools::SingleSignatureAuthenticator;
 
 pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
 

@@ -134,8 +134,8 @@ inputs:
   mithril_aggregator_zstandard_parameters_workers:
     description: Mithril aggregator snapshot zstandard number of workers.
     required: false
-  mithril_aggregator_cexplorer_pools_url:
-    description: CExplorer url of the list of pools that is used by the mithril aggregator.
+  mithril_aggregator_blockfrost_parameters:
+    description: Optional parameters to connect to the Blockfrost API. Used to fetch the ticker and name of the registered stake pools.
     required: false
   mithril_aggregator_allow_unparsable_block:
     description: If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks.
@@ -276,7 +276,7 @@ runs:
           mithril_aggregator_snapshot_compression_algorithm                         = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
           mithril_aggregator_zstandard_parameters_level                             = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
           mithril_aggregator_zstandard_parameters_workers                           = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
-          mithril_aggregator_cexplorer_pools_url                                    = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
+          mithril_aggregator_blockfrost_parameters                                  = "${{ inputs.mithril_aggregator_blockfrost_parameters }}"
           mithril_aggregator_allow_unparsable_block                                 = "${{ inputs.mithril_aggregator_allow_unparsable_block }}"
           mithril_aggregator_cardano_transactions_prover_cache_pool_size            = "${{ inputs.mithril_aggregator_cardano_transactions_prover_cache_pool_size }}"
           mithril_aggregator_cardano_transactions_database_connection_pool_size     = "${{ inputs.mithril_aggregator_cardano_transactions_database_connection_pool_size }}"

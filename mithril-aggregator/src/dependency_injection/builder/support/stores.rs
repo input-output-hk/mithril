@@ -1,20 +1,19 @@
 use anyhow::Context;
 use std::sync::Arc;
-use std::time::Duration;
 
 use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
+use crate::configuration::BlockfrostParameters;
 use crate::database::repository::{
     CertificateRepository, EpochSettingsStore, ImmutableFileDigestRepository,
     OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
     SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, Result};
-use crate::get_dependency;
+use crate::tools::signer_importer::{BlockfrostSignerRetriever, SignersImporter};
 use crate::{
-    CExplorerSignerRetriever, ImmutableFileDigestMapper, ProtocolParametersRetriever,
-    SignersImporter, VerificationKeyStorer,
+    ImmutableFileDigestMapper, ProtocolParametersRetriever, VerificationKeyStorer, get_dependency,
 };
 
 impl DependenciesBuilder {
@@ -176,16 +175,21 @@ impl DependenciesBuilder {
         get_dependency!(self.signed_entity_storer)
     }
 
-    /// Create a [SignersImporter] instance.
-    pub async fn create_signer_importer(
+    /// Create a signers importer instance.
+    pub async fn create_blockfrost_signer_importer(
         &mut self,
-        cexplorer_pools_url: &str,
+        parameters: &BlockfrostParameters,
     ) -> Result<SignersImporter> {
-        let retriever = CExplorerSignerRetriever::new(
-            cexplorer_pools_url,
-            Some(Duration::from_secs(30)),
-            self.root_logger(),
-        )?;
+        let blockfrost_project_id = std::env::var(&parameters.project_id_env_var)
+            .with_context(|| {
+                format!(
+                    "Environment variable `{}` must be set",
+                    parameters.project_id_env_var
+                )
+            })
+            .with_context(|| "Failed to create Blockfrost signer importer")?;
+        let retriever =
+            BlockfrostSignerRetriever::new(&blockfrost_project_id, parameters.base_url.clone());
         let persister = self.get_signer_store().await?;
 
         Ok(SignersImporter::new(

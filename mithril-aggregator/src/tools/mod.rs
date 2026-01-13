@@ -4,7 +4,7 @@ mod era;
 pub mod file_archiver;
 pub mod file_size;
 mod genesis;
-mod signer_importer;
+pub mod signer_importer;
 mod single_signature_authenticator;
 pub mod url_sanitizer;
 mod vacuum_tracker;
@@ -13,9 +13,6 @@ pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
 pub use era::EraTools;
 pub use genesis::GenesisTools;
-pub use signer_importer::{
-    CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
-};
 pub use single_signature_authenticator::*;
 pub use vacuum_tracker::VacuumTracker;
 
