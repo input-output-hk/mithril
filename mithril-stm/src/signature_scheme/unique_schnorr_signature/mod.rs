@@ -3,9 +3,10 @@
 //! This module implements a variant of the classical Schnorr signature algorithm.
 //! The classical Schnorr signature uses random values to generate the signature which is
 //! then also random and thus not unique for a given pair (message, signing key).
-//! In this variant, we compute a unique value from the secret key and the message
-//! and happen it to the signature to be able to identify easily which signatures
-//! were made by whom.
+//! In this variant, we compute an additional unique value compared to the regular scheme
+//! that is based only on the pair (secret key, message). This new part of the signature
+//! is not based on randomness and is thus deterministic and adds a unique identification
+//! tag to each signature.
 
 mod error;
 mod jubjub;
