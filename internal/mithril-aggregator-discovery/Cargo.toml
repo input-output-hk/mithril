@@ -22,7 +22,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
 
 [dev-dependencies]
-httpmock = "0.8.1"
+httpmock = "0.8.2"
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

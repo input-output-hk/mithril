@@ -62,11 +62,11 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.6.0", optional = true }
+tikv-jemallocator = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
-criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
-httpmock = "0.8.1"
+criterion = { version = "0.8.1", features = ["html_reports", "async_tokio"] }
+httpmock = "0.8.2"
 mockall = { workspace = true }
 prometheus-parse = "0.2.5"
 slog-scope = "4.4.0"

@@ -33,8 +33,8 @@ allow_skip_signer_certification = []
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bech32 = "0.11.0"
-bincode = { version = "2.0.1", features = ["serde"] }
+bech32 = "0.11.1"
+bincode = { version = "=2.0.1", features = ["serde"] }
 blake2 = "0.10.6"
 chrono = { workspace = true }
 ciborium = "0.2.2"
@@ -56,7 +56,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.19"
 serde_json = { workspace = true }
-serde_with = "3.15.0"
+serde_with = "3.16.1"
 sha2 = "0.10.9"
 slog = { workspace = true }
 strum = { workspace = true }
@@ -66,13 +66,13 @@ typetag = "0.2.21"
 walkdir = "2.5.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen = "0.2.104"
+wasm-bindgen = "0.2.106"
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
 
 [dev-dependencies]
-criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
+criterion = { version = "0.8.1", features = ["html_reports", "async_tokio"] }
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

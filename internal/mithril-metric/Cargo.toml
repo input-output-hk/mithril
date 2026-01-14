@@ -10,7 +10,7 @@ repository = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-axum = "0.8.6"
+axum = "0.8.8"
 mithril-common = { path = "../../mithril-common" }
 paste = "1.0.15"
 prometheus = "0.14.0"
