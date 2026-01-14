@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ClosedKeyRegistration, MembershipDigest, membership_commitment::MerkleBatchPath,
-    proof_system::ConcatenationProofKey,
+    proof_system::AggregateVerificationKeyForConcatenation,
 };
 
 /// Aggregate verification key
@@ -21,12 +21,14 @@ pub enum AggregateVerificationKey<D: MembershipDigest> {
     // It implies that this variant is placed at the end of the enum.
     // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
     #[serde(untagged)]
-    Concatenation(ConcatenationProofKey<D>),
+    Concatenation(AggregateVerificationKeyForConcatenation<D>),
 }
 
 impl<D: MembershipDigest> AggregateVerificationKey<D> {
     /// If the aggregate verification key is a concatenation aggregate verification key, return it.
-    pub fn to_concatenation_proof_key(&self) -> Option<&ConcatenationProofKey<D>> {
+    pub fn to_concatenation_proof_key(
+        &self,
+    ) -> Option<&AggregateVerificationKeyForConcatenation<D>> {
         match self {
             AggregateVerificationKey::Concatenation(key) => Some(key),
             #[cfg(feature = "future_snark")]
@@ -45,7 +47,7 @@ impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
 
 impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKey<D> {
     fn from(reg: &ClosedKeyRegistration) -> Self {
-        AggregateVerificationKey::Concatenation(ConcatenationProofKey::from(reg))
+        AggregateVerificationKey::Concatenation(AggregateVerificationKeyForConcatenation::from(reg))
     }
 }
 
@@ -88,7 +90,12 @@ mod tests {
                 .map(|stake| Initializer::new(params, stake, &mut rng))
                 .collect();
             for initializer in &initializers {
-                key_reg.register(initializer.clone().stake, &initializer.pk).unwrap();
+                key_reg
+                    .register(
+                        initializer.clone().stake,
+                        &initializer.bls_verification_key_proof_of_possession,
+                    )
+                    .unwrap();
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();

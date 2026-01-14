@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
     AggregationError, ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer,
-    SingleSignatureWithRegisteredParty, StmResult, proof_system::ConcatenationProofKey,
+    SingleSignatureWithRegisteredParty, StmResult,
+    proof_system::AggregateVerificationKeyForConcatenation,
 };
 
 /// The `ConcatenationClerk` is responsible for managing the proof system related to
@@ -37,8 +38,10 @@ impl ConcatenationClerk {
     }
 
     /// Compute the `ConcatenationProofKey` related to the used registration.
-    pub fn compute_concatenation_proof_key<D: MembershipDigest>(&self) -> ConcatenationProofKey<D> {
-        ConcatenationProofKey::from(&self.closed_key_registration)
+    pub fn compute_concatenation_proof_key<D: MembershipDigest>(
+        &self,
+    ) -> AggregateVerificationKeyForConcatenation<D> {
+        AggregateVerificationKeyForConcatenation::from(&self.closed_key_registration)
     }
 
     #[cfg(test)]
@@ -63,7 +66,7 @@ impl ConcatenationClerk {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-        avk: &ConcatenationProofKey<D>,
+        avk: &AggregateVerificationKeyForConcatenation<D>,
     ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
         let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();

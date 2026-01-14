@@ -147,7 +147,7 @@ impl StmInitializerWrapper {
 
     /// Extract the protocol parameters of the initializer
     pub fn get_protocol_parameters(&self) -> ProtocolParameters {
-        self.stm_initializer.params
+        self.stm_initializer.parameters
     }
 
     /// Extract the stake of the party
@@ -292,7 +292,7 @@ mod test_extensions {
 
     impl ProtocolInitializerTestExtension for StmInitializerWrapper {
         fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
-            self.stm_initializer.params = protocol_parameters.to_owned();
+            self.stm_initializer.parameters = protocol_parameters.to_owned();
         }
     }
 }

@@ -17,14 +17,11 @@ pub struct Initializer {
     /// Stake of the participant
     pub stake: Stake,
     /// Protocol parameters.
-    /// TODO: Rename as `parameters`
-    pub params: Parameters,
+    pub parameters: Parameters,
     /// Signing key for concatenation proof system.
-    /// TODO: Rename as `bls_signing_key`
-    pub sk: BlsSigningKey,
+    pub bls_signing_key: BlsSigningKey,
     /// Verification key for concatenation proof system.
-    /// TODO: Rename as `bls_verification_key_proof_of_possession`
-    pub pk: VerificationKeyProofOfPossessionForConcatenation,
+    pub bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
 }
 
 impl Initializer {
@@ -35,9 +32,9 @@ impl Initializer {
             VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
         Self {
             stake,
-            params: parameters,
-            sk: bls_signing_key,
-            pk: bls_verification_key_proof_of_possession,
+            parameters,
+            bls_signing_key,
+            bls_verification_key_proof_of_possession,
         }
     }
 
@@ -51,7 +48,7 @@ impl Initializer {
         closed_key_registration: &ClosedKeyRegistration,
     ) -> StmResult<Signer<D>> {
         let registration_entry = RegistrationEntry::new(
-            self.pk,
+            self.bls_verification_key_proof_of_possession,
             #[cfg(feature = "future_snark")]
             None,
             self.stake,
@@ -75,9 +72,9 @@ impl Initializer {
         let concatenation_proof_signer = ConcatenationProofSigner::new(
             registration_entry.get_stake(),
             closed_key_registration.total_stake,
-            self.params,
-            self.sk,
-            self.pk.vk,
+            self.parameters,
+            self.bls_signing_key,
+            self.bls_verification_key_proof_of_possession.vk,
             key_registration_commitment,
         );
 
@@ -86,7 +83,7 @@ impl Initializer {
             signer_index,
             concatenation_proof_signer,
             closed_key_registration.clone(),
-            self.params,
+            self.parameters,
             registration_entry.get_stake(),
         ))
     }
@@ -95,7 +92,7 @@ impl Initializer {
     pub fn get_verification_key_proof_of_possession(
         &self,
     ) -> VerificationKeyProofOfPossessionForConcatenation {
-        self.pk
+        self.bls_verification_key_proof_of_possession
     }
 
     /// Convert to bytes
@@ -107,9 +104,9 @@ impl Initializer {
     pub fn to_bytes(&self) -> [u8; 256] {
         let mut out = [0u8; 256];
         out[..8].copy_from_slice(&self.stake.to_be_bytes());
-        out[8..32].copy_from_slice(&self.params.to_bytes());
-        out[32..64].copy_from_slice(&self.sk.to_bytes());
-        out[64..].copy_from_slice(&self.pk.to_bytes());
+        out[8..32].copy_from_slice(&self.parameters.to_bytes());
+        out[32..64].copy_from_slice(&self.bls_signing_key.to_bytes());
+        out[64..].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
         out
     }
 
@@ -130,9 +127,9 @@ impl Initializer {
 
         Ok(Self {
             stake,
-            params,
-            sk,
-            pk,
+            parameters: params,
+            bls_signing_key: sk,
+            bls_verification_key_proof_of_possession: pk,
         })
     }
 }
@@ -140,8 +137,8 @@ impl Initializer {
 impl PartialEq for Initializer {
     fn eq(&self, other: &Self) -> bool {
         self.stake == other.stake
-            && self.params == other.params
-            && self.sk.to_bytes() == other.sk.to_bytes()
+            && self.parameters == other.parameters
+            && self.bls_signing_key.to_bytes() == other.bls_signing_key.to_bytes()
             && self.get_verification_key_proof_of_possession()
                 == other.get_verification_key_proof_of_possession()
     }
@@ -181,13 +178,13 @@ mod tests {
             let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
             Initializer {
                 stake: 1,
-                params: Parameters {
+                parameters: Parameters {
                     m: 20973,
                     k: 2422,
                     phi_f: 0.2,
                 },
-                sk,
-                pk,
+                bls_signing_key: sk,
+                bls_verification_key_proof_of_possession: pk,
             }
         }
 

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Index, MembershipDigest, Parameters, SignatureError, Stake, StmResult,
-    VerificationKeyForConcatenation, proof_system::ConcatenationProofKey, protocol::is_lottery_won,
+    VerificationKeyForConcatenation, proof_system::AggregateVerificationKeyForConcatenation, protocol::is_lottery_won,
     signature_scheme::BlsSignature,
 };
 
@@ -35,7 +35,7 @@ impl SingleSignatureForConcatenation {
         params: &Parameters,
         pk: &VerificationKeyForConcatenation,
         stake: &Stake,
-        avk: &ConcatenationProofKey<D>,
+        avk: &AggregateVerificationKeyForConcatenation<D>,
         msg: &[u8],
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);

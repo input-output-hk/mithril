@@ -82,7 +82,7 @@ impl RegistrationEntry {
 impl From<Initializer> for RegistrationEntry {
     fn from(initializer: Initializer) -> Self {
         Self(
-            initializer.pk.vk,
+            initializer.bls_verification_key_proof_of_possession.vk,
             initializer.stake,
             #[cfg(feature = "future_snark")]
             None,

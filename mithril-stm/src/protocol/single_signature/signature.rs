@@ -28,8 +28,6 @@ pub struct SingleSignature {
 impl SingleSignature {
     /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
     /// It only works for concatenation proof system.
-    /// TODO: support snark proof single signature verification and do not use `anyhow!` for error
-    /// handling.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -42,9 +40,7 @@ impl SingleSignature {
             self.concatenation_signature
                 .verify(params, pk, stake, concatenation_proof_key, msg)
         } else {
-            Err(anyhow!(
-                "Aggregate verification key does not contain concatenation proof key"
-            ))
+            Err(anyhow!(SignatureError::UnsupportedAggregateVerificationKey))
         }
     }
 
