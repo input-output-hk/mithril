@@ -8,25 +8,15 @@ use crate::{
     VerificationKeyProofOfPossessionForConcatenation,
 };
 
-#[cfg(feature = "future_snark")]
-use crate::signature_scheme::SchnorrVerificationKey;
-
 /// Represents a signer registration entry
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
-pub struct RegistrationEntry(
-    VerificationKeyForConcatenation,
-    Stake,
-    #[cfg(feature = "future_snark")]
-    #[serde(skip)]
-    Option<SchnorrVerificationKey>,
-);
+pub struct RegistrationEntry(VerificationKeyForConcatenation, Stake);
 
 impl RegistrationEntry {
     /// Creates a new registration entry. Verifies the proof of possession before creating the
     /// entry. Fails if the proof of possession is invalid.
     pub fn new(
         bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
-        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<SchnorrVerificationKey>,
         stake: Stake,
     ) -> StmResult<Self> {
         bls_verification_key_proof_of_possession
@@ -37,8 +27,6 @@ impl RegistrationEntry {
         Ok(RegistrationEntry(
             bls_verification_key_proof_of_possession.vk,
             stake,
-            #[cfg(feature = "future_snark")]
-            schnorr_verification_key,
         ))
     }
 
@@ -70,12 +58,7 @@ impl RegistrationEntry {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
         let stake = Stake::from_be_bytes(u64_bytes);
-        Ok(RegistrationEntry(
-            bls_verification_key,
-            stake,
-            #[cfg(feature = "future_snark")]
-            None,
-        ))
+        Ok(RegistrationEntry(bls_verification_key, stake))
     }
 }
 
@@ -84,8 +67,6 @@ impl From<Initializer> for RegistrationEntry {
         Self(
             initializer.bls_verification_key_proof_of_possession.vk,
             initializer.stake,
-            #[cfg(feature = "future_snark")]
-            None,
         )
     }
 }
@@ -119,5 +100,48 @@ impl Ord for RegistrationEntry {
     /// The order is backward compatible with previous implementations.
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+    use std::cmp::Ordering;
+
+    use crate::{
+        VerificationKeyProofOfPossessionForConcatenation, signature_scheme::BlsSigningKey,
+    };
+
+    use super::*;
+
+    fn create_registration_entry(rng: &mut ChaCha20Rng, stake: Stake) -> RegistrationEntry {
+        let sk = BlsSigningKey::generate(rng);
+        let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
+        RegistrationEntry::new(pk, stake).unwrap()
+    }
+
+    #[test]
+    fn test_ord_different_stakes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+        let entry_low_stake = create_registration_entry(&mut rng, 100);
+        let entry_high_stake = create_registration_entry(&mut rng, 200);
+
+        assert_eq!(entry_low_stake.cmp(&entry_high_stake), Ordering::Less);
+        assert_eq!(entry_high_stake.cmp(&entry_low_stake), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_ord_same_stake_different_keys() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+        let entry1 = create_registration_entry(&mut rng, 100);
+        let entry2 = create_registration_entry(&mut rng, 100);
+
+        let cmp_result = entry1.cmp(&entry2);
+        assert!(cmp_result == Ordering::Less || cmp_result == Ordering::Greater);
+
+        assert_eq!(entry2.cmp(&entry1), cmp_result.reverse());
     }
 }

@@ -45,12 +45,7 @@ impl KeyRegistration {
         stake: Stake,
         vk_pop: &VerificationKeyProofOfPossessionForConcatenation,
     ) -> StmResult<()> {
-        let entry = RegistrationEntry::new(
-            *vk_pop,
-            #[cfg(feature = "future_snark")]
-            None,
-            stake,
-        )?;
+        let entry = RegistrationEntry::new(*vk_pop, stake)?;
         self.register_by_entry(&entry)
     }
 
@@ -63,6 +58,18 @@ impl KeyRegistration {
             .iter()
             .position(|r| r == entry)
             .map(|s| s as u64)
+    }
+
+    /// Get the registration entry for a given signer index.
+    pub fn get_registration_entry_for_index(
+        &self,
+        signer_index: &SignerIndex,
+    ) -> StmResult<RegistrationEntry> {
+        self.registration_entries
+            .iter()
+            .nth(*signer_index as usize)
+            .cloned()
+            .ok_or_else(|| anyhow!(RegisterError::UnregisteredIndex))
     }
 
     /// Converts the KeyRegistration into a Merkle tree
@@ -98,18 +105,6 @@ impl KeyRegistration {
             key_registration: self,
             total_stake,
         }
-    }
-
-    /// Get the registration entry for a given signer index.
-    pub fn get_registration_entry_for_index(
-        &self,
-        signer_index: &SignerIndex,
-    ) -> StmResult<RegistrationEntry> {
-        self.registration_entries
-            .iter()
-            .nth(*signer_index as usize)
-            .cloned()
-            .ok_or_else(|| anyhow!(RegisterError::UnregisteredIndex))
     }
 }
 
@@ -164,7 +159,7 @@ mod tests {
                     pk.pop = fake_key.pop;
                 }
 
-                let entry_result = RegistrationEntry::new(pk, #[cfg(feature = "future_snark")] None, stake);
+                let entry_result = RegistrationEntry::new(pk, stake);
 
                 match entry_result {
                     Ok(entry) => {

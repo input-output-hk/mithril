@@ -7,7 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKey, Index, MembershipDigest, Parameters, Stake, StmResult,
+    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, Stake, StmResult,
     VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
     signature_scheme::BlsSignature,
 };
@@ -22,7 +22,7 @@ pub struct SingleSignature {
     #[serde(flatten)]
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
-    pub signer_index: Index,
+    pub signer_index: LotteryIndex,
 }
 
 impl SingleSignature {
@@ -117,7 +117,7 @@ impl SingleSignature {
     }
 
     /// Get indices of the single signature for concatenation proof system.
-    pub fn get_concatenation_signature_indices(&self) -> Vec<Index> {
+    pub fn get_concatenation_signature_indices(&self) -> Vec<LotteryIndex> {
         self.concatenation_signature.get_indices().to_vec()
     }
 
@@ -127,7 +127,7 @@ impl SingleSignature {
     }
 
     /// Set the indices of the underlying single signature for proof system.
-    pub fn set_concatenation_signature_indices(&mut self, indices: &[Index]) {
+    pub fn set_concatenation_signature_indices(&mut self, indices: &[LotteryIndex]) {
         self.concatenation_signature.set_indices(indices)
     }
 }
@@ -197,20 +197,8 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(
-                pk_1,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            let entry2 = RegistrationEntry::new(
-                pk_2,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
@@ -276,20 +264,8 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(
-                pk_1,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
-            let entry2 = RegistrationEntry::new(
-                pk_2,
-                #[cfg(feature = "future_snark")]
-                None,
-                1,
-            )
-            .unwrap();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
 

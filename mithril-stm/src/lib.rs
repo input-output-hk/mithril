@@ -60,8 +60,6 @@
 //!     // Register keys with the KeyRegistration service
 //!     let entry = RegistrationEntry::new(
 //!         p.get_verification_key_proof_of_possession(),
-//!         #[cfg(feature = "future_snark")]
-//!         None,
 //!         p.stake,
 //!     )
 //!     .unwrap();
@@ -148,7 +146,7 @@ pub type Stake = u64;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
-pub type Index = u64;
+pub type LotteryIndex = u64;
 
 /// Index of the signer in the key registration
 pub type SignerIndex = u64;

@@ -101,8 +101,6 @@ for stake in parties {
     let p = Initializer::new(params, stake, &mut rng);
     let entry = RegistrationEntry::new(
         p.get_verification_key_proof_of_possession(),
-        #[cfg(feature = "future_snark")]
-        None,
         p.stake,
     )
     .unwrap();

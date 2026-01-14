@@ -166,13 +166,7 @@ fn local_reg(
     let mut local_keyreg = KeyRegistration::initialize();
     // data, such as the public key, stake and id.
     for (pk, _) in pks.iter().zip(ids.iter()) {
-        let entry = RegistrationEntry::new(
-            *pk,
-            #[cfg(feature = "future_snark")]
-            None,
-            1,
-        )
-        .unwrap();
+        let entry = RegistrationEntry::new(*pk, 1).unwrap();
         local_keyreg.register_by_entry(&entry).unwrap();
     }
     local_keyreg.close_registration()

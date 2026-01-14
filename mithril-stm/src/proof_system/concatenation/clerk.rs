@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    AggregationError, ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer,
+    AggregationError, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters, Signer,
     SingleSignatureWithRegisteredParty, StmResult,
     proof_system::AggregateVerificationKeyForConcatenation,
 };
@@ -68,9 +68,9 @@ impl ConcatenationClerk {
         sigs: &[SingleSignatureWithRegisteredParty],
         avk: &AggregateVerificationKeyForConcatenation<D>,
     ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
-        let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
+        let mut sig_by_index: BTreeMap<LotteryIndex, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
+        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<LotteryIndex>> =
             HashMap::new();
 
         for sig_reg in sigs.iter() {
@@ -129,7 +129,7 @@ impl ConcatenationClerk {
                     .get_concatenation_signature_indices()
                     .into_iter()
                     .filter(|i| !indexes.contains(i))
-                    .collect::<Vec<Index>>();
+                    .collect::<Vec<LotteryIndex>>();
                 deduped_sig.sig.set_concatenation_signature_indices(&indices);
             }
 

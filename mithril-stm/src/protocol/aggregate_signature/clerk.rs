@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use anyhow::anyhow;
 
 use crate::{
-    AggregateVerificationKey, ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer,
-    SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
+    AggregateVerificationKey, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
+    Signer, SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
     proof_system::{ConcatenationClerk, ConcatenationProof},
 };
 
@@ -83,7 +83,7 @@ impl<D: MembershipDigest> Clerk<D> {
     /// Get the concatenation registered party for a given index.
     pub fn get_concatenation_registered_party_for_index(
         &self,
-        party_index: &Index,
+        party_index: &LotteryIndex,
     ) -> StmResult<(VerificationKeyForConcatenation, Stake)> {
         let entry = self
             .to_concatenation_clerk()

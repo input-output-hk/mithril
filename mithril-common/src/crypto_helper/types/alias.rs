@@ -4,8 +4,8 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, Clerk, ClosedKeyRegistration, Index, MithrilMembershipDigest, Parameters,
-    Signer, Stake,
+    AggregationError, Clerk, ClosedKeyRegistration, LotteryIndex, MithrilMembershipDigest,
+    Parameters, Signer, Stake,
 };
 
 /// A protocol version
@@ -27,7 +27,7 @@ pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 pub type ProtocolParameters = Parameters;
 
 /// Alias of [MithrilStm::Index](type@mithril_stm::Index).
-pub type ProtocolLotteryIndex = Index;
+pub type ProtocolLotteryIndex = LotteryIndex;
 
 /// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
 pub type ProtocolSigner = Signer<ProtocolMembershipDigest>;
