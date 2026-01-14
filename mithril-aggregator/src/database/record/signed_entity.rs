@@ -113,6 +113,9 @@ impl SignedEntityRecord {
                 let artifact = fake_data::cardano_transactions_snapshot(block_number);
                 get_id_and_artifact(&artifact)
             }
+            SignedEntityType::CardanoBlocksTransactions(_epoch, _block_number) => {
+                panic!("Cardano blocks transactions is not supported yet")
+            }
         };
 
         SignedEntityRecord {

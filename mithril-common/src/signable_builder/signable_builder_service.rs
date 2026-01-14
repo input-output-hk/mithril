@@ -118,6 +118,8 @@ impl MithrilSignableBuilderService {
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
+            SignedEntityType::CardanoBlocksTransactions(_, _block_number) =>
+                anyhow::bail!("Cardano blocks transactions is not supported yet"),
             SignedEntityType::CardanoDatabase(beacon) =>
                 self
                 .cardano_database_signable_builder

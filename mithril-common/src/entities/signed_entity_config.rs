@@ -74,10 +74,13 @@ impl SignedEntityConfig {
                     ),
                     None => {
                         anyhow::bail!(
-                            "Can't derive a CardanoTransactions signed entity type from a time point without a `CardanoTransactionsSigningConfig`"
+                            "Can't derive a `CardanoTransactions` signed entity type from a time point without a `CardanoTransactionsSigningConfig`"
                         )
                     }
                 }
+            }
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
+                anyhow::bail!("Cardano blocks transactions is not supported yet")
             }
             SignedEntityTypeDiscriminants::CardanoDatabase => SignedEntityType::CardanoDatabase(
                 CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number),
@@ -254,7 +257,7 @@ mod tests {
             )
             .unwrap_err();
 
-        let expected_error = "Can't derive a CardanoTransactions signed entity type from a time point without a `CardanoTransactionsSigningConfig`";
+        let expected_error = "Can't derive a `CardanoTransactions` signed entity type from a time point without a `CardanoTransactionsSigningConfig`";
         assert!(
             error.to_string().contains(expected_error),
             "Error message: {error:?}\nshould contains: {expected_error}\n"

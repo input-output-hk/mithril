@@ -295,6 +295,9 @@ mod test {
                     SignedEntityType::CardanoTransactions(epoch, block_number) => {
                         format!("cardano-transactions-{epoch}-{block_number}",)
                     }
+                    SignedEntityType::CardanoBlocksTransactions(epoch, block_number) => {
+                        format!("cardano-blocks-transactions-{epoch}-{block_number}",)
+                    }
                     SignedEntityType::CardanoDatabase(beacon) => {
                         format!(
                             "cardano-database-{}-{}",

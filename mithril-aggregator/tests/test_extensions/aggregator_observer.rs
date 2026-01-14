@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use std::sync::Arc;
 
 use mithril_aggregator::{
@@ -113,35 +113,40 @@ impl AggregatorObserver {
         signed_entity_type_expected: &SignedEntityType,
     ) -> StdResult<bool> {
         match signed_entity_type_expected {
-            SignedEntityType::CardanoImmutableFilesFull(_) => Ok(Some(signed_entity_type_expected)
-                == self
-                    .signed_entity_service
-                    .get_last_signed_snapshots(1)
-                    .await?
-                    .first()
-                    .map(|s| &s.signed_entity_type)),
-            SignedEntityType::MithrilStakeDistribution(_) => Ok(Some(signed_entity_type_expected)
+            SignedEntityType::CardanoImmutableFilesFull(..) => {
+                Ok(Some(signed_entity_type_expected)
+                    == self
+                        .signed_entity_service
+                        .get_last_signed_snapshots(1)
+                        .await?
+                        .first()
+                        .map(|s| &s.signed_entity_type))
+            }
+            SignedEntityType::MithrilStakeDistribution(..) => Ok(Some(signed_entity_type_expected)
                 == self
                     .signed_entity_service
                     .get_last_signed_mithril_stake_distributions(1)
                     .await?
                     .first()
                     .map(|s| &s.signed_entity_type)),
-            SignedEntityType::CardanoTransactions(_, _) => Ok(Some(signed_entity_type_expected)
+            SignedEntityType::CardanoTransactions(..) => Ok(Some(signed_entity_type_expected)
                 == self
                     .signed_entity_service
                     .get_last_cardano_transaction_snapshot()
                     .await?
                     .map(|s| s.signed_entity_type)
                     .as_ref()),
-            SignedEntityType::CardanoStakeDistribution(_) => Ok(Some(signed_entity_type_expected)
+            SignedEntityType::CardanoBlocksTransactions(..) => {
+                Err(anyhow!("Cardano blocks transactions is not supported yet"))
+            }
+            SignedEntityType::CardanoStakeDistribution(..) => Ok(Some(signed_entity_type_expected)
                 == self
                     .signed_entity_service
                     .get_last_signed_cardano_stake_distributions(1)
                     .await?
                     .first()
                     .map(|s| &s.signed_entity_type)),
-            SignedEntityType::CardanoDatabase(_) => Ok(Some(signed_entity_type_expected)
+            SignedEntityType::CardanoDatabase(..) => Ok(Some(signed_entity_type_expected)
                 == self
                     .signed_entity_service
                     .get_last_signed_cardano_database_snapshots(1)
