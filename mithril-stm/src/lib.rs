@@ -94,7 +94,7 @@
 //! let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, AggregateSignatureType::Concatenation);
+//! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");

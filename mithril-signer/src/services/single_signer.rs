@@ -173,7 +173,7 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::services::MithrilEpochService;
     use crate::test_tools::TestLogger;
-    use mithril_common::crypto_helper::{ProtocolClerk, ProtocolDigest};
+    use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::store::StakeStorer;
@@ -186,7 +186,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_signer = &fixture.signers_fixture()[0];
         let clerk = ProtocolClerk::new_clerk_from_signer(&current_signer.protocol_signer);
-        let avk = clerk.compute_aggregate_verification_key::<ProtocolDigest>();
+        let avk = clerk.compute_aggregate_verification_key();
         let logger = TestLogger::stdout();
         let connection = Arc::new(main_db_connection().unwrap());
         let stake_store = {

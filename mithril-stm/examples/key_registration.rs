@@ -155,11 +155,7 @@ fn main() {
             .is_ok()
     );
 
-    let msig_3 = clerk.aggregate_signatures_with_type::<MithrilMembershipDigest>(
-        &incomplete_sigs_3,
-        &msg,
-        aggr_sig_type,
-    );
+    let msig_3 = clerk.aggregate_signatures_with_type(&incomplete_sigs_3, &msg, aggr_sig_type);
     assert!(msig_3.is_err());
 }
 

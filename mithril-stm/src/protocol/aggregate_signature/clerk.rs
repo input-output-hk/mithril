@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::marker::PhantomData;
 
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
@@ -16,15 +17,17 @@ use super::AggregationError;
 
 /// Clerk for aggregate signatures.
 #[derive(Debug, Clone)]
-pub struct Clerk {
+pub struct Clerk<D: MembershipDigest> {
     concatenation_proof_clerk: ConcatenationClerk,
+    phantom_data: PhantomData<D>,
 }
 
-impl Clerk {
+impl<D: MembershipDigest> Clerk<D> {
     /// Create a Clerk from a signer.
-    pub fn new_clerk_from_signer<D: MembershipDigest>(signer: &Signer<D>) -> Self {
+    pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
         Self {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_signer(signer),
+            phantom_data: PhantomData,
         }
     }
 
@@ -37,10 +40,11 @@ impl Clerk {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_closed_key_registration(
                 parameters, closed_reg,
             ),
+            phantom_data: PhantomData,
         }
     }
     /// Aggregate a set of signatures with a given proof type.
-    pub fn aggregate_signatures_with_type<D: MembershipDigest>(
+    pub fn aggregate_signatures_with_type(
         &self,
         sigs: &[SingleSignature],
         msg: &[u8],
@@ -70,9 +74,7 @@ impl Clerk {
 
     /// Compute the aggregate verification key.
     /// It computes only the concatenation aggregate verification key for now.
-    pub fn compute_aggregate_verification_key<D: MembershipDigest>(
-        &self,
-    ) -> AggregateVerificationKey<D> {
+    pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::Concatenation(
             self.concatenation_proof_clerk.compute_concatenation_proof_key(),
         )

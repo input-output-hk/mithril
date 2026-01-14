@@ -4,7 +4,7 @@ use mithril_stm::{
     VerificationKeyProofOfPossessionForConcatenation,
 };
 
-use crate::crypto_helper::{D, MKMapProof, MKProof, OpCert, ProtocolKey};
+use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, ProtocolMembershipDigest};
 use crate::entities::BlockRange;
 
 /// Wrapper of [MithrilStm:VerificationKeyProofOfPossessionForConcatenation](type@VerificationKeyProofOfPossessionForConcatenation) to add serialization
@@ -20,19 +20,20 @@ pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;
 
 /// Wrapper of [MithrilStm:AggregateSignature](enum@AggregateSignature) to add serialization utilities.
-pub type ProtocolMultiSignature = ProtocolKey<AggregateSignature<D>>;
+pub type ProtocolMultiSignature = ProtocolKey<AggregateSignature<ProtocolMembershipDigest>>;
 
 /// Wrapper of [OpCert] to add serialization utilities.
 pub type ProtocolOpCert = ProtocolKey<OpCert>;
 
 /// Wrapper of [MithrilStm:AggregateVerificationKey](enum@AggregateVerificationKey).
-pub type ProtocolAggregateVerificationKey = ProtocolKey<AggregateVerificationKey<D>>;
+pub type ProtocolAggregateVerificationKey =
+    ProtocolKey<AggregateVerificationKey<ProtocolMembershipDigest>>;
 
 /// Wrapper of [MKProof] to add serialization utilities.
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => AggregateSignature<D>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKey<D>,
+    json_hex_codec => AggregateSignature<ProtocolMembershipDigest>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKey<ProtocolMembershipDigest>,
         MKProof, VerificationKeyProofOfPossessionForConcatenation, Sum6KesSig, OpCert, SingleSignature
 );
 

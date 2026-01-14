@@ -70,7 +70,7 @@ fn stm_benches<D: MembershipDigest>(
     let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, aggregate_signature_type))
+        b.iter(|| clerk.aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type))
     });
 }
 

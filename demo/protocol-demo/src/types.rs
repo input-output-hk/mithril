@@ -19,7 +19,7 @@ pub type ProtocolParameters = Parameters;
 pub type ProtocolSigner = Signer<D>;
 
 /// Alias of [MithrilStm:Clerk](struct@mithril_stm::Clerk).
-pub type ProtocolClerk = Clerk;
+pub type ProtocolClerk = Clerk<D>;
 
 /// Alias of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
 pub type ProtocolInitializerNotCertified = Initializer;

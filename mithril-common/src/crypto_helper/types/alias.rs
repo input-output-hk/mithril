@@ -11,8 +11,8 @@ use mithril_stm::{
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
 
-// Protocol types alias
-pub(crate) type D = MithrilMembershipDigest;
+/// Alias of [MithrilStm:MithrilMembershipDigest](struct@mithril_stm::MithrilMembershipDigest).
+pub type ProtocolMembershipDigest = MithrilMembershipDigest;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;
@@ -30,13 +30,13 @@ pub type ProtocolParameters = Parameters;
 pub type ProtocolLotteryIndex = Index;
 
 /// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
-pub type ProtocolSigner = Signer<D>;
+pub type ProtocolSigner = Signer<ProtocolMembershipDigest>;
 
 /// Alias of a wrapper of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
 /// Alias of [MithrilStm:Clerk](struct@mithril_stm::Clerk).
-pub type ProtocolClerk = Clerk;
+pub type ProtocolClerk = Clerk<ProtocolMembershipDigest>;
 
 /// Alias of a wrapper of [MithrilStm:KeyRegistration](struct@mithril_stm::KeyRegistration).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
@@ -53,6 +53,3 @@ pub type ProtocolInitializerError = ProtocolInitializerErrorWrapper;
 
 /// Alias of [MithrilStm:AggregationError](enum@mithril_stm::AggregationError).
 pub type ProtocolAggregationError = AggregationError;
-
-/// Alias of [MithrilStm:MithrilMembershipDigest](struct@mithril_stm::MithrilMembershipDigest).
-pub type ProtocolDigest = MithrilMembershipDigest;

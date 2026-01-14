@@ -136,7 +136,7 @@ for (s, p) in sigs.iter().zip(ps.iter()) {
 }
 
 // Aggregate a concatenation proof with random parties
-let msig = clerk.aggregate_signatures_with_type::<D>(&sigs, &msg, AggregateSignatureType::Concatenation);
+let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
 
 match msig {
     Ok(aggr) => {

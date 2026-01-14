@@ -400,8 +400,8 @@ mod test {
     use std::any::type_name;
 
     use crate::crypto_helper::{
-        D, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
-        TryFromBytes, TryToBytes, key_decode_hex,
+        ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
+        ProtocolMembershipDigest, TryFromBytes, TryToBytes, key_decode_hex,
     };
 
     fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {
@@ -462,9 +462,13 @@ mod test {
 
     #[test]
     fn assert_encoded_multi_signatures_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<AggregateSignature<D>>(&multi_signature());
+        assert_can_deserialize_using_key_decode_hex::<AggregateSignature<ProtocolMembershipDigest>>(
+            &multi_signature(),
+        );
 
-        assert_can_convert_to_protocol_key::<AggregateSignature<D>>(&multi_signature());
+        assert_can_convert_to_protocol_key::<AggregateSignature<ProtocolMembershipDigest>>(
+            &multi_signature(),
+        );
     }
 
     #[test]
@@ -524,8 +528,8 @@ mod test {
 
     #[test]
     fn assert_encoded_aggregate_verification_key_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<AggregateVerificationKey<D>>(
-            &aggregate_verification_key(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<
+            AggregateVerificationKey<ProtocolMembershipDigest>,
+        >(&aggregate_verification_key());
     }
 }
