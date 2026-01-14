@@ -26,7 +26,7 @@ pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 /// Alias of [MithrilStm::Parameters](struct@mithril_stm::Parameters).
 pub type ProtocolParameters = Parameters;
 
-/// Alias of [MithrilStm::Index](type@mithril_stm::Index).
+/// Alias of [MithrilStm::LotteryIndex](type@mithril_stm::LotteryIndex).
 pub type ProtocolLotteryIndex = LotteryIndex;
 
 /// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
