@@ -3,10 +3,10 @@ mod clerk;
 mod error;
 mod signature;
 
-pub use aggregate_key::*;
-pub use clerk::*;
-pub use error::*;
-pub use signature::*;
+pub use aggregate_key::AggregateVerificationKey;
+pub use clerk::Clerk;
+pub use error::{AggregateSignatureError, AggregationError};
+pub use signature::{AggregateSignature, AggregateSignatureType};
 
 #[cfg(test)]
 mod tests {

@@ -119,7 +119,13 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
-pub use protocol::*;
+pub use protocol::{
+    AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
+    AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
+    RegisterError, RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
+};
 pub use signature_scheme::BlsSignatureError;
 
 #[cfg(feature = "benchmark-internals")]
@@ -152,13 +158,6 @@ pub type StmError = anyhow::Error;
 
 /// Mithril-stm result type
 pub type StmResult<T> = anyhow::Result<T, StmError>;
-
-/// Wrapper of the Concatenation proof Verification key with proof of possession
-pub type VerificationKeyProofOfPossessionForConcatenation =
-    signature_scheme::BlsVerificationKeyProofOfPossession;
-
-/// Wrapper of the MultiSignature Verification key
-pub type VerificationKeyForConcatenation = signature_scheme::BlsVerificationKey;
 
 /// Trait defining the different hash types for different proof systems.
 pub trait MembershipDigest: Clone {

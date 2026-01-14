@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Index, MembershipDigest, Parameters, SignatureError, Stake, StmResult,
-    VerificationKeyForConcatenation, is_lottery_won, proof_system::ConcatenationProofKey,
+    VerificationKeyForConcatenation, proof_system::ConcatenationProofKey, protocol::is_lottery_won,
     signature_scheme::BlsSignature,
 };
 

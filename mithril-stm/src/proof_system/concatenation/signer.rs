@@ -2,8 +2,9 @@ use anyhow::anyhow;
 
 use crate::{
     MembershipDigest, Parameters, RegistrationEntryForConcatenation, SignatureError, Stake,
-    StmResult, VerificationKeyForConcatenation, is_lottery_won,
+    StmResult, VerificationKeyForConcatenation,
     membership_commitment::MerkleTree,
+    protocol::is_lottery_won,
     signature_scheme::{BlsSignature, BlsSigningKey},
 };
 
