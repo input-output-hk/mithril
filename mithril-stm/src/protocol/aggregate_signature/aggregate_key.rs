@@ -1,9 +1,12 @@
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, membership_commitment::MerkleBatchPath,
+    ClosedKeyRegistration, MembershipDigest, StmResult, membership_commitment::MerkleBatchPath,
     proof_system::AggregateVerificationKeyForConcatenation,
 };
+
+use super::AggregateSignatureError;
 
 /// Aggregate verification key
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +38,35 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
             AggregateVerificationKey::Future => None,
         }
     }
+
+    /// Convert an aggregate verification key to bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut aggregate_verification_key_bytes = Vec::new();
+        let mut key_bytes = Vec::new();
+        if let Some(conc) = self.to_concatenation_proof_key() {
+            aggregate_verification_key_bytes.extend_from_slice(&[0u8]);
+            key_bytes = conc.to_bytes();
+        } else {
+            aggregate_verification_key_bytes.extend_from_slice(&[255u8]);
+        }
+        aggregate_verification_key_bytes.append(&mut key_bytes);
+        aggregate_verification_key_bytes
+    }
+
+    /// Extract an aggregate verification key from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let key_type_byte = bytes.first().ok_or(AggregateSignatureError::SerializationError)?;
+        let key_bytes = &bytes[1..];
+
+        match key_type_byte {
+            0 => Ok(AggregateVerificationKey::Concatenation(
+                AggregateVerificationKeyForConcatenation::from_bytes(key_bytes)?,
+            )),
+            #[cfg(feature = "future_snark")]
+            255 => Ok(AggregateVerificationKey::Future),
+            _ => Err(anyhow!(AggregateSignatureError::SerializationError)),
+        }
+    }
 }
 
 impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
@@ -56,15 +88,65 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    use crate::{
+        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
+        Parameters, Signer,
+    };
+
     use super::*;
 
     mod golden {
+        use super::*;
 
-        use crate::{
-            Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
-            Parameters, Signer,
-        };
+        const GOLDEN_BYTES: &[u8; 49] = &[
+            0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 3, 108, 183, 145, 65, 166, 69, 250, 202, 51, 64, 90, 232,
+            45, 103, 56, 138, 102, 63, 209, 245, 81, 22, 120, 16, 6, 96, 140, 204, 210, 55, 0, 0,
+            0, 0, 0, 0, 0, 6,
+        ];
 
+        fn golden_value() -> AggregateVerificationKey<MithrilMembershipDigest> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let number_of_parties = 4;
+            let mut key_reg = KeyRegistration::initialize();
+            let initializers: Vec<Initializer> = (0..number_of_parties)
+                .map(|stake| Initializer::new(params, stake, &mut rng))
+                .collect();
+            for initializer in &initializers {
+                key_reg
+                    .register(
+                        initializer.clone().stake,
+                        &initializer.bls_verification_key_proof_of_possession,
+                    )
+                    .unwrap();
+            }
+
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let signer: Signer<MithrilMembershipDigest> =
+                initializers[0].clone().try_create_signer(&closed_key_reg).unwrap();
+            let clerk = Clerk::new_clerk_from_signer(&signer);
+            clerk.compute_aggregate_verification_key()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value =
+                AggregateVerificationKey::<MithrilMembershipDigest>::from_bytes(GOLDEN_BYTES)
+                    .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = AggregateVerificationKey::<MithrilMembershipDigest>::to_bytes(&value);
+            let golden_serialized =
+                AggregateVerificationKey::<MithrilMembershipDigest>::to_bytes(&golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
         use super::*;
 
         const GOLDEN_JSON: &str = r#"
