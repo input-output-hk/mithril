@@ -1,13 +1,13 @@
 #[cfg(feature = "future_snark")]
-use super::{PrimeOrderProjectivePoint, SchnorrSignature};
+use super::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
 
-/// Error types for Schnorr signatures.
+/// Error types for the Unique Schnorr signatures.
 #[cfg(feature = "future_snark")]
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
-pub enum SchnorrSignatureError {
+pub enum UniqueSchnorrSignatureError {
     /// Invalid Single signature
-    #[error("Invalid Schnorr single signature")]
-    SignatureInvalid(Box<SchnorrSignature>),
+    #[error("Invalid Unique Schnorr single signature")]
+    SignatureInvalid(Box<UniqueSchnorrSignature>),
 
     /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]

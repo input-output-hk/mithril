@@ -3,33 +3,33 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-    SchnorrSignatureError, SchnorrVerificationKey, compute_truncated_digest,
+    SchnorrVerificationKey, UniqueSchnorrSignatureError, compute_truncated_digest,
 };
 use crate::StmResult;
 
-/// Structure of the Schnorr signature to use with the SNARK
+/// Structure of the Unique Schnorr signature to use with the SNARK
 ///
 /// This signature includes a value `commitment_point` which depends only on
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SchnorrSignature {
-    /// Deterministic value depending on the message and secret key
+pub struct UniqueSchnorrSignature {
+    /// Deterministic value depending on the message and signing key
     pub(crate) commitment_point: ProjectivePoint,
-    /// Part of the Schnorr signature depending on the secret key
+    /// Part of the Unique Schnorr signature depending on the signing key
     pub(crate) response: ScalarFieldElement,
-    /// Part of the Schnorr signature NOT depending on the secret key
+    /// Part of the Unique Schnorr signature NOT depending on the signing key
     pub(crate) challenge: ScalarFieldElement,
 }
 
-impl SchnorrSignature {
-    /// This function performs the verification of a Schnorr signature given the signature, the signed message
-    /// and a verification key derived from the secret key used to sign.
+impl UniqueSchnorrSignature {
+    /// This function performs the verification of a Unique Schnorr signature given the signature, the signed message
+    /// and a verification key derived from the signing key used to sign.
     ///
     /// Input:
-    ///     - a Schnorr signature
+    ///     - a Unique Schnorr signature
     ///     - a message: some bytes
-    ///     - a verification key: a value depending on the secret key
+    ///     - a verification key: a value depending on the signing key
     /// Output:
     ///     - Ok(()) if the signature verifies and an error if not
     ///
@@ -80,15 +80,15 @@ impl SchnorrSignature {
         let challenge_recomputed = compute_truncated_digest(&points_coordinates);
 
         if challenge_recomputed != self.challenge {
-            return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(
-                *self
-            ))));
+            return Err(anyhow!(UniqueSchnorrSignatureError::SignatureInvalid(
+                Box::new(*self)
+            )));
         }
 
         Ok(())
     }
 
-    /// Convert a `SchnorrSignature` into bytes.
+    /// Convert a `UniqueSchnorrSignature` into bytes.
     pub fn to_bytes(self) -> [u8; 96] {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.commitment_point.to_bytes());
@@ -98,17 +98,17 @@ impl SchnorrSignature {
         out
     }
 
-    /// Convert bytes into a `SchnorrSignature`.
+    /// Convert bytes into a `UniqueSchnorrSignature`.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 96 {
-            return Err(anyhow!(SchnorrSignatureError::Serialization))
+            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization))
                 .with_context(|| "Not enough bytes provided to create a signature.");
         }
 
         let commitment_point = ProjectivePoint::from_bytes(
             bytes
                 .get(0..32)
-                .ok_or(SchnorrSignatureError::Serialization)
+                .ok_or(UniqueSchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `commitment_point`")?,
         )
         .with_context(|| "Could not convert bytes to `commitment_point`")?;
@@ -116,7 +116,7 @@ impl SchnorrSignature {
         let response = ScalarFieldElement::from_bytes(
             bytes
                 .get(32..64)
-                .ok_or(SchnorrSignatureError::Serialization)
+                .ok_or(UniqueSchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `response`")?,
         )
         .with_context(|| "Could not convert the bytes to `response`")?;
@@ -124,7 +124,7 @@ impl SchnorrSignature {
         let challenge = ScalarFieldElement::from_bytes(
             bytes
                 .get(64..96)
-                .ok_or(SchnorrSignatureError::Serialization)
+                .ok_or(UniqueSchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `challenge`")?,
         )
         .with_context(|| "Could not convert bytes to `challenge`")?;
@@ -142,7 +142,9 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+    use crate::signature_scheme::{
+        SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
+    };
 
     #[test]
     fn valid_signature_verification() {
@@ -184,7 +186,7 @@ mod tests {
     #[test]
     fn from_bytes_signature_not_enough_bytes() {
         let msg = vec![0u8; 95];
-        let result = SchnorrSignature::from_bytes(&msg);
+        let result = UniqueSchnorrSignature::from_bytes(&msg);
         result.expect_err("Not enough bytes.");
     }
 
@@ -197,7 +199,7 @@ mod tests {
         let sig = sk.sign(&msg, &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
 
-        let sig_restored = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+        let sig_restored = UniqueSchnorrSignature::from_bytes(&sig_bytes).unwrap();
         assert_eq!(sig, sig_restored);
     }
 
@@ -213,7 +215,7 @@ mod tests {
         let mut extended_bytes = sig_bytes.to_vec();
         extended_bytes.extend_from_slice(&[0xFF; 10]);
 
-        let sig_restored = SchnorrSignature::from_bytes(&extended_bytes).unwrap();
+        let sig_restored = UniqueSchnorrSignature::from_bytes(&extended_bytes).unwrap();
         assert_eq!(sig, sig_restored);
     }
 
@@ -245,7 +247,7 @@ mod tests {
 
         // Roundtrip through bytes
         let sig_bytes = sig.to_bytes();
-        let sig_restored = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+        let sig_restored = UniqueSchnorrSignature::from_bytes(&sig_bytes).unwrap();
 
         // Restored signature should still verify
         sig_restored
@@ -265,7 +267,7 @@ mod tests {
             0,
         ];
 
-        fn golden_value() -> SchnorrSignature {
+        fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];
@@ -274,12 +276,12 @@ mod tests {
 
         #[test]
         fn golden_conversions() {
-            let value = SchnorrSignature::from_bytes(GOLDEN_BYTES)
+            let value = UniqueSchnorrSignature::from_bytes(GOLDEN_BYTES)
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SchnorrSignature::to_bytes(value);
-            let golden_serialized = SchnorrSignature::to_bytes(golden_value());
+            let serialized = UniqueSchnorrSignature::to_bytes(value);
+            let golden_serialized = UniqueSchnorrSignature::to_bytes(golden_value());
             assert_eq!(golden_serialized, serialized);
         }
     }
@@ -294,7 +296,7 @@ mod tests {
             "challenge": [12, 75, 91, 200, 29, 62, 12, 245, 185, 181, 67, 251, 210, 211, 37, 42, 204, 205, 133, 215, 235, 236, 193, 155, 2, 147, 83, 189, 148, 38, 71, 0]
         }"#;
 
-        fn golden_value() -> SchnorrSignature {
+        fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];

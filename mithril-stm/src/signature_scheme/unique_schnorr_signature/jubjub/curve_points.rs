@@ -7,7 +7,7 @@ use group::{Group, GroupEncoding};
 use std::ops::{Add, Mul};
 
 use super::{BaseFieldElement, ScalarFieldElement};
-use crate::{StmResult, signature_scheme::SchnorrSignatureError};
+use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents a point in affine coordinates on the Jubjub curve
 #[derive(Clone)]
@@ -65,11 +65,13 @@ impl ProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut projective_point_bytes = [0u8; 32];
         projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
+            .copy_from_slice(bytes.get(..32).ok_or(UniqueSchnorrSignatureError::Serialization)?);
 
         match JubjubExtended::from_bytes(&projective_point_bytes).into_option() {
             Some(projective_point) => Ok(Self(projective_point)),
-            None => Err(anyhow!(SchnorrSignatureError::ProjectivePointSerialization)),
+            None => Err(anyhow!(
+                UniqueSchnorrSignatureError::ProjectivePointSerialization
+            )),
         }
     }
 
@@ -129,9 +131,9 @@ impl PrimeOrderProjectivePoint {
         let rhs = (x_square * y_square) * BaseFieldElement(EDWARDS_D) + BaseFieldElement::get_one();
 
         if lhs != rhs {
-            return Err(anyhow!(SchnorrSignatureError::PointIsNotOnCurve(Box::new(
-                *self
-            ))));
+            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotOnCurve(
+                Box::new(*self)
+            )));
         }
         Ok(*self)
     }
@@ -145,12 +147,12 @@ impl PrimeOrderProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut prime_order_projective_point_bytes = [0u8; 32];
         prime_order_projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
+            .copy_from_slice(bytes.get(..32).ok_or(UniqueSchnorrSignatureError::Serialization)?);
 
         match JubjubSubgroup::from_bytes(&prime_order_projective_point_bytes).into_option() {
             Some(prime_order_projective_point) => Ok(Self(prime_order_projective_point)),
             None => Err(anyhow!(
-                SchnorrSignatureError::PrimeOrderProjectivePointSerialization
+                UniqueSchnorrSignatureError::PrimeOrderProjectivePointSerialization
             )),
         }
     }

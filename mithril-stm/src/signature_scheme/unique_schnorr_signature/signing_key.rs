@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-    SchnorrSignature, SchnorrSignatureError, SchnorrVerificationKey, compute_truncated_digest,
+    SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+    compute_truncated_digest,
 };
 use crate::StmResult;
 
@@ -26,27 +27,27 @@ impl SchnorrSigningKey {
     ///
     /// Input:
     ///     - a message: some bytes
-    ///     - a secret key: an element of the scalar field of the Jubjub curve
+    ///     - a signing key: an element of the scalar field of the Jubjub curve
     /// Output:
-    ///     - a signature of the form (commitment_point, response, challenge):
-    ///         - commitment_point is deterministic depending only on the message and secret key
+    ///     - a unique signature of the form (commitment_point, response, challenge):
+    ///         - commitment_point is deterministic depending only on the message and signing key
     ///         - the response and challenge depends on a random value generated during the signature
     ///
     /// The protocol computes:
-    ///     - commitment_point = secret_key * H(Sha256(msg))
+    ///     - commitment_point = signing_key * H(Sha256(msg))
     ///     - random_scalar, a random value
     ///     - random_point_1 = random_scalar * H(Sha256(msg))
     ///     - random_point_2 = random_scalar * prime_order_generator_point, where generator is a generator of the prime-order subgroup of Jubjub
     ///     - challenge = Poseidon(DST || H(Sha256(msg)) || verification_key || commitment_point || random_point_1 || random_point_2)
     ///     - response = random_scalar - challenge * signing_key
     ///
-    /// Output the signature (commitment_point, response, challenge)
+    /// Output the signature (`commitment_point`, `response`, `challenge`)
     ///
     pub fn sign<R: RngCore + CryptoRng>(
         &self,
         msg: &[u8],
         rng: &mut R,
-    ) -> StmResult<SchnorrSignature> {
+    ) -> StmResult<UniqueSchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let prime_order_generator_point = PrimeOrderProjectivePoint::create_generator();
         let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone())
@@ -84,7 +85,7 @@ impl SchnorrSigningKey {
         let challenge_times_sk = challenge * self.0;
         let response = random_scalar - challenge_times_sk;
 
-        Ok(SchnorrSignature {
+        Ok(UniqueSchnorrSignature {
             commitment_point,
             response,
             challenge,
@@ -101,7 +102,7 @@ impl SchnorrSigningKey {
     /// The bytes must represent a Jubjub scalar or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 32 {
-            return Err(anyhow!(SchnorrSignatureError::Serialization)).with_context(
+            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to re-construct a Schnorr signing key.",
             );
         }
