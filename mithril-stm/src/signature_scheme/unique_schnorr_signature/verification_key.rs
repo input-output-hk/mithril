@@ -12,10 +12,10 @@ use crate::StmResult;
 pub struct SchnorrVerificationKey(pub(crate) PrimeOrderProjectivePoint);
 
 impl SchnorrVerificationKey {
-    /// Convert a Schnorr secret key into a verification key
+    /// Convert a Schnorr signing key into a verification key
     ///
     /// This is done by computing `vk = g * sk` where g is the generator
-    /// of the subgroup and sk is the schnorr secret key
+    /// of the subgroup and sk is the schnorr signing key
     pub fn new_from_signing_key(signing_key: SchnorrSigningKey) -> StmResult<Self> {
         if signing_key.0.is_zero() | signing_key.0.is_one() {
             return Err(anyhow!(UniqueSchnorrSignatureError::InvalidSigningKey))

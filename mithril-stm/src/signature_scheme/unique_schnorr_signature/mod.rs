@@ -1,12 +1,10 @@
 //! Unique Schnorr Signature module
 //!
-//! This module implements a variant of the classical Schnorr signature algorithm.
-//! The classical Schnorr signature uses random values to generate the signature which is
-//! then also random and thus not unique for a given pair (message, signing key).
-//! In this variant, we compute an additional unique value compared to the regular scheme
-//! that is based only on the pair (secret key, message). This new part of the signature
-//! is not based on randomness and is thus deterministic and adds a unique identification
-//! tag to each signature.
+//! This module implements a variant of the Schnorr signature algorithm.
+//! Specifically, it extends the classic scheme by appending a deterministic
+//! value derived solely from the message and the signing key. This ungrindable
+//! value produces a unique, reproducible identification tag for each signature,
+//! which can be leveraged in lottery-based schemes such as Mithril multi-signatures.
 
 mod error;
 mod jubjub;
@@ -60,7 +58,7 @@ mod tests {
             seed in any::<[u8;32]>(),
         ) {
             let sk_result = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
-            assert!(sk_result.is_ok(), "Secret ket generation failed");
+            assert!(sk_result.is_ok(), "Signing key generation failed");
             let sk = sk_result.unwrap();
 
             let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();

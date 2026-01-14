@@ -14,22 +14,22 @@ use crate::StmResult;
 /// This value is used in the lottery process to determine the correct indices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UniqueSchnorrSignature {
-    /// Deterministic value depending on the message and secret key
+    /// Deterministic value depending on the message and signing key
     pub(crate) commitment_point: ProjectivePoint,
-    /// Part of the Unique Schnorr signature depending on the secret key
+    /// Part of the Unique Schnorr signature depending on the signing key
     pub(crate) response: ScalarFieldElement,
-    /// Part of the Unique Schnorr signature NOT depending on the secret key
+    /// Part of the Unique Schnorr signature NOT depending on the signing key
     pub(crate) challenge: ScalarFieldElement,
 }
 
 impl UniqueSchnorrSignature {
     /// This function performs the verification of a Unique Schnorr signature given the signature, the signed message
-    /// and a verification key derived from the secret key used to sign.
+    /// and a verification key derived from the signing key used to sign.
     ///
     /// Input:
     ///     - a Unique Schnorr signature
     ///     - a message: some bytes
-    ///     - a verification key: a value depending on the secret key
+    ///     - a verification key: a value depending on the signing key
     /// Output:
     ///     - Ok(()) if the signature verifies and an error if not
     ///
