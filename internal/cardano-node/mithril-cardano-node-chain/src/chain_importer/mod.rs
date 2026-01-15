@@ -458,8 +458,6 @@ mod tests {
 
     #[tokio::test]
     async fn if_half_transactions_are_already_stored_the_other_half_is_parsed_and_stored() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         let highest_stored_chain_point = ChainPoint::new(
             SlotNumber(134),
             BlockNumber(10),
@@ -477,17 +475,19 @@ mod tests {
             SlotNumber(229),
             vec!["tx_hash-3", "tx_hash-4"],
         );
+        let existing_transactions = stored_block.clone().into_transactions();
         let expected_transactions: Vec<CardanoTransaction> = [
-            stored_block.clone().into_transactions(),
+            existing_transactions.clone(),
             to_store_block.clone().into_transactions(),
         ]
         .concat();
         let up_to_block_number = BlockNumber(22);
 
-        repository
-            .store_transactions(stored_block.clone().into_transactions())
-            .await
-            .unwrap();
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(&existing_transactions)
+                .build(),
+        );
 
         let importer = {
             let scanned_blocks = vec![to_store_block.clone()];
@@ -507,9 +507,6 @@ mod tests {
             CardanoChainDataImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
-        let stored_transactions = repository.get_all_transactions().await;
-        assert_eq!(stored_block.into_transactions(), stored_transactions);
-
         importer
             .import_transactions(up_to_block_number)
             .await
@@ -521,25 +518,24 @@ mod tests {
 
     #[tokio::test]
     async fn if_half_block_ranges_are_stored_the_other_half_is_computed_and_stored() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         let up_to_block_number = BlockRange::LENGTH * 4;
         let blocks = build_blocks(BlockNumber(0), up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
-        repository.store_transactions(transactions).await.unwrap();
-        repository
-            .store_block_range_roots(vec![
-                (
-                    BlockRange::from_block_number(BlockNumber(0)),
-                    MKTreeNode::from_hex("AAAA").unwrap(),
-                ),
-                (
-                    BlockRange::from_block_number(BlockRange::LENGTH),
-                    MKTreeNode::from_hex("BBBB").unwrap(),
-                ),
-            ])
-            .await
-            .unwrap();
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(&transactions)
+                .with_block_range_roots(&[
+                    (
+                        BlockRange::from_block_number(BlockNumber(0)),
+                        MKTreeNode::from_hex("AAAA").unwrap(),
+                    ),
+                    (
+                        BlockRange::from_block_number(BlockRange::LENGTH),
+                        MKTreeNode::from_hex("BBBB").unwrap(),
+                    ),
+                ])
+                .build(),
+        );
 
         let importer = CardanoChainDataImporter::new_for_test(
             Arc::new(MockBlockScannerImpl::new()),
@@ -564,12 +560,14 @@ mod tests {
 
     #[tokio::test]
     async fn can_compute_block_ranges_up_to_the_strict_end_of_a_block_range() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         // Transactions for all blocks in the (15..=29) interval
         let blocks = build_blocks(BlockRange::LENGTH, BlockRange::LENGTH - 1);
         let transactions = into_transactions(&blocks);
-        repository.store_transactions(transactions).await.unwrap();
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(&transactions)
+                .build(),
+        );
 
         let importer = CardanoChainDataImporter::new_for_test(
             Arc::new(MockBlockScannerImpl::new()),
@@ -589,12 +587,14 @@ mod tests {
 
     #[tokio::test]
     async fn can_compute_block_ranges_even_if_last_blocks_in_range_dont_have_transactions() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         // For the block range (15..=29) we only have transactions in the 10 first blocks (15..=24)
         let blocks = build_blocks(BlockRange::LENGTH, BlockNumber(10));
         let transactions = into_transactions(&blocks);
-        repository.store_transactions(transactions).await.unwrap();
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(&transactions)
+                .build(),
+        );
 
         let importer = CardanoChainDataImporter::new_for_test(
             Arc::new(MockBlockScannerImpl::new()),
@@ -658,8 +658,6 @@ mod tests {
 
     #[tokio::test]
     async fn compute_block_range_merkle_root() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
         let up_to_block_number = BlockRange::LENGTH * 2;
         let blocks = build_blocks(BlockNumber(0), up_to_block_number + 1);
@@ -677,7 +675,11 @@ mod tests {
             ),
         ];
 
-        repository.store_transactions(transactions).await.unwrap();
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(&transactions)
+                .build(),
+        );
 
         let importer = CardanoChainDataImporter::new_for_test(
             Arc::new(MockBlockScannerImpl::new()),
@@ -905,8 +907,6 @@ mod tests {
 
     #[tokio::test]
     async fn when_rollbackward_should_remove_transactions() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         let expected_remaining_transactions = ScannedBlock::new(
             "block_hash-130",
             BlockNumber(130),
@@ -914,22 +914,23 @@ mod tests {
             vec!["tx_hash-6", "tx_hash-7"],
         )
         .into_transactions();
-        repository
-            .store_transactions(expected_remaining_transactions.clone())
-            .await
-            .unwrap();
-        repository
-            .store_transactions(
-                ScannedBlock::new(
-                    "block_hash-131",
-                    BlockNumber(131),
-                    SlotNumber(10),
-                    vec!["tx_hash-8", "tx_hash-9", "tx_hash-10"],
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_transactions(
+                    &[
+                        expected_remaining_transactions.clone(),
+                        ScannedBlock::new(
+                            "block_hash-131",
+                            BlockNumber(131),
+                            SlotNumber(10),
+                            vec!["tx_hash-8", "tx_hash-9", "tx_hash-10"],
+                        )
+                        .into_transactions(),
+                    ]
+                    .concat(),
                 )
-                .into_transactions(),
-            )
-            .await
-            .unwrap();
+                .build(),
+        );
 
         let chain_point = ChainPoint::new(SlotNumber(5), BlockNumber(130), "block_hash-130");
         let scanner = DumbBlockScanner::new().backward(chain_point);
@@ -948,48 +949,39 @@ mod tests {
 
     #[tokio::test]
     async fn when_rollbackward_should_remove_block_ranges() {
-        let repository = Arc::new(InMemoryChainDataStore::default());
-
         let expected_remaining_block_ranges = vec![
             BlockRange::from_block_number(BlockNumber(0)),
             BlockRange::from_block_number(BlockRange::LENGTH),
             BlockRange::from_block_number(BlockRange::LENGTH * 2),
         ];
 
-        repository
-            .store_block_range_roots(
-                expected_remaining_block_ranges
-                    .iter()
-                    .map(|b| (b.clone(), MKTreeNode::from_hex("AAAA").unwrap()))
-                    .collect(),
-            )
-            .await
-            .unwrap();
-        repository
-            .store_block_range_roots(
-                [
-                    BlockRange::from_block_number(BlockRange::LENGTH * 3),
-                    BlockRange::from_block_number(BlockRange::LENGTH * 4),
-                    BlockRange::from_block_number(BlockRange::LENGTH * 5),
-                ]
-                .iter()
-                .map(|b| (b.clone(), MKTreeNode::from_hex("AAAA").unwrap()))
-                .collect(),
-            )
-            .await
-            .unwrap();
-        repository
-            .store_transactions(
-                ScannedBlock::new(
-                    "block_hash-131",
-                    BlockRange::from_block_number(BlockRange::LENGTH * 3).start,
-                    SlotNumber(1),
-                    vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
+        let repository = Arc::new(
+            InMemoryChainDataStore::builder()
+                .with_block_range_roots(
+                    &[
+                        expected_remaining_block_ranges.clone(),
+                        vec![
+                            BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                            BlockRange::from_block_number(BlockRange::LENGTH * 4),
+                            BlockRange::from_block_number(BlockRange::LENGTH * 5),
+                        ],
+                    ]
+                    .concat()
+                    .into_iter()
+                    .map(|b| (b, MKTreeNode::from_hex("AAAA").unwrap()))
+                    .collect::<Vec<_>>(),
                 )
-                .into_transactions(),
-            )
-            .await
-            .unwrap();
+                .with_transactions(
+                    &ScannedBlock::new(
+                        "block_hash-131",
+                        BlockRange::from_block_number(BlockRange::LENGTH * 3).start,
+                        SlotNumber(1),
+                        vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
+                    )
+                    .into_transactions(),
+                )
+                .build(),
+        );
 
         let block_range_roots = repository.get_all_block_range_root().await;
         assert_eq!(6, block_range_roots.len());
