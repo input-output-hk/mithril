@@ -116,6 +116,13 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             .0
             .into_iter()
             .map(|dmq_message| {
+                debug!(
+                    self.logger,
+                    "Received DMQ message";
+                    "msg_id" => hex::encode(&dmq_message.msg_payload.msg_id),
+                    "kes_period" => dmq_message.msg_payload.kes_period,
+                    "expires_at" => dmq_message.msg_payload.expires_at,
+                );
                 let opcert_without_verification_key = OpCertWithoutColdVerificationKey::try_new(
                     &dmq_message.operational_certificate.kes_vk,
                     dmq_message.operational_certificate.issue_number,
