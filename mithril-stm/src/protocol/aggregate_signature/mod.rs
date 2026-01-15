@@ -5,7 +5,7 @@ mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
 pub use clerk::Clerk;
-pub use error::{AggregateSignatureError, AggregationError};
+pub use error::{AggregateSignatureError, AggregateVerificationKeyError, AggregationError};
 pub use signature::{AggregateSignature, AggregateSignatureType};
 
 #[cfg(test)]
