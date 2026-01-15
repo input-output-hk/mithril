@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Changed backend for jubjub and poseidon to MidnightZK.
+- Changed backend for Jubjub and Poseidon to Midnight ZK in `unique_schnorr_signature`.
 
 ## 0.9.4 (01-14-2026)
 
