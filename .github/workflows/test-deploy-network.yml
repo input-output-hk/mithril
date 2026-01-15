@@ -104,8 +104,8 @@ jobs:
             mithril_era_reader_adapter_type: bootstrap
             mithril_protocol_parameters: |
               {
-                k     = 2422
-                m     = 20973
+                k     = 1944
+                m     = 16948
                 phi_f = 0.20
               }
             mithril_signers: |
