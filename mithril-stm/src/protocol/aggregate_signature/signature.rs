@@ -182,6 +182,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         let proof_bytes = &bytes[1..];
         let proof_type = AggregateSignatureType::from_byte_encoding_prefix(*proof_type_byte)
             .ok_or(AggregateSignatureError::SerializationError)?;
+
         match proof_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
                 ConcatenationProof::from_bytes(proof_bytes)?,
