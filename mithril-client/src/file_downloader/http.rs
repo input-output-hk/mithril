@@ -1,5 +1,5 @@
 use std::{
-    io::{BufReader, Read, Write},
+    io::{self, BufReader, Write},
     path::Path,
 };
 
@@ -177,10 +177,8 @@ impl HttpFileDownloader {
                     std::fs::remove_file(file_path.clone())?;
                 }
                 let mut file = std::fs::File::create(file_path)?;
-                let input_buffered = BufReader::new(input);
-                for byte in input_buffered.bytes() {
-                    file.write_all(&[byte?])?;
-                }
+                let mut input_buffered = BufReader::new(input);
+                io::copy(&mut input_buffered, &mut file)?;
                 file.flush()?;
             }
         };
