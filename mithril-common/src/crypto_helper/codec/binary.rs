@@ -29,7 +29,6 @@ pub trait TryFromBytes: Sized {
 }
 
 mod binary_mithril_stm {
-    use anyhow::anyhow;
     use mithril_stm::{
         AggregateSignature, AggregateVerificationKey, Initializer, MithrilMembershipDigest,
         Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
@@ -115,19 +114,13 @@ mod binary_mithril_stm {
 
     impl TryToBytes for AggregateVerificationKey<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+            Ok(self.to_bytes().to_vec())
         }
     }
 
     impl TryFromBytes for AggregateVerificationKey<D> {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            let (res, _) = bincode::serde::decode_from_slice::<AggregateVerificationKey<D>, _>(
-                bytes,
-                bincode::config::standard(),
-            )
-            .map_err(|e| anyhow!(e))?;
-
-            Ok(res)
+            Self::from_bytes(bytes)
         }
     }
 

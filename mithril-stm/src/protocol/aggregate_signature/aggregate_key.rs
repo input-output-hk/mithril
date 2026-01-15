@@ -1,12 +1,11 @@
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, StmResult, membership_commitment::MerkleBatchPath,
-    proof_system::AggregateVerificationKeyForConcatenation,
+    AggregateSignatureType, ClosedKeyRegistration, MembershipDigest, StmResult,
+    membership_commitment::MerkleBatchPath, proof_system::AggregateVerificationKeyForConcatenation,
 };
 
-use super::AggregateSignatureError;
+use super::AggregateVerificationKeyError;
 
 /// Aggregate verification key
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,29 +41,40 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
     /// Convert an aggregate verification key to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut aggregate_verification_key_bytes = Vec::new();
-        let mut key_bytes = Vec::new();
-        if let Some(conc) = self.to_concatenation_proof_key() {
-            aggregate_verification_key_bytes.extend_from_slice(&[0u8]);
-            key_bytes = conc.to_bytes();
-        } else {
-            aggregate_verification_key_bytes.extend_from_slice(&[255u8]);
-        }
-        aggregate_verification_key_bytes.append(&mut key_bytes);
+        let aggregate_signature_type: AggregateSignatureType = self.into();
+        aggregate_verification_key_bytes
+            .extend_from_slice(&[aggregate_signature_type.get_byte_encoding_prefix()]);
+
+        let mut aggregate_verification_key_inner_bytes = match self {
+            AggregateVerificationKey::Concatenation(concatenation_aggregate_verification_key) => {
+                concatenation_aggregate_verification_key.to_bytes()
+            }
+            #[cfg(feature = "future_snark")]
+            AggregateVerificationKey::Future => vec![],
+        };
+        aggregate_verification_key_bytes.append(&mut aggregate_verification_key_inner_bytes);
+
         aggregate_verification_key_bytes
     }
 
     /// Extract an aggregate verification key from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let key_type_byte = bytes.first().ok_or(AggregateSignatureError::SerializationError)?;
-        let key_bytes = &bytes[1..];
+        let aggregate_signature_type_byte = bytes
+            .first()
+            .ok_or(AggregateVerificationKeyError::SerializationError)?;
+        let aggregate_verification_key_bytes = &bytes[1..];
+        let aggregate_signature_type =
+            AggregateSignatureType::from_byte_encoding_prefix(*aggregate_signature_type_byte)
+                .ok_or(AggregateVerificationKeyError::SerializationError)?;
 
-        match key_type_byte {
-            0 => Ok(AggregateVerificationKey::Concatenation(
-                AggregateVerificationKeyForConcatenation::from_bytes(key_bytes)?,
+        match aggregate_signature_type {
+            AggregateSignatureType::Concatenation => Ok(AggregateVerificationKey::Concatenation(
+                AggregateVerificationKeyForConcatenation::from_bytes(
+                    aggregate_verification_key_bytes,
+                )?,
             )),
             #[cfg(feature = "future_snark")]
-            255 => Ok(AggregateVerificationKey::Future),
-            _ => Err(anyhow!(AggregateSignatureError::SerializationError)),
+            AggregateSignatureType::Future => Ok(AggregateVerificationKey::Future),
         }
     }
 }
@@ -80,6 +90,16 @@ impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
 impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKey<D> {
     fn from(reg: &ClosedKeyRegistration) -> Self {
         AggregateVerificationKey::Concatenation(AggregateVerificationKeyForConcatenation::from(reg))
+    }
+}
+
+impl<D: MembershipDigest> From<&AggregateVerificationKey<D>> for AggregateSignatureType {
+    fn from(aggregate_verification_key: &AggregateVerificationKey<D>) -> Self {
+        match aggregate_verification_key {
+            AggregateVerificationKey::Concatenation(_) => AggregateSignatureType::Concatenation,
+            #[cfg(feature = "future_snark")]
+            AggregateVerificationKey::Future => AggregateSignatureType::Future,
+        }
     }
 }
 
