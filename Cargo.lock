@@ -4162,12 +4162,13 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
  "blake2 0.10.6",
+ "hex",
  "mithril-cardano-node-chain",
  "mithril-common",
  "mockall",
