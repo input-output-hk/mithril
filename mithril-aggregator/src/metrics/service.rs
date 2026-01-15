@@ -123,6 +123,10 @@ build_metrics_service!(
         "mithril_aggregator_artifact_cardano_transaction_total_produced_since_startup",
         "Number of Cardano transaction artifacts produced since startup on a Mithril aggregator node"
     ),
+    artifact_cardano_blocks_transactions_total_produced_since_startup:MetricCounter(
+        "mithril_aggregator_artifact_cardano_blocks_transactions_total_produced_since_startup",
+        "Number of Cardano blocks transactions artifacts produced since startup on a Mithril aggregator node"
+    ),
     runtime_cycle_success_since_startup:MetricCounter(
         "mithril_aggregator_runtime_cycle_success_since_startup",
         "Number of successful runtime cycles since startup on a Mithril aggregator"

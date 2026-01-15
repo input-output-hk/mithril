@@ -128,5 +128,14 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (4, 'Cardano Database');
 "#,
         ),
+        // Migration 8
+        // Add the `signed_entity_type` record for 'CardanoBlocksTransactions'
+        SqlMigration::new(
+            8,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name)
+    values  (5, 'Cardano Blocks and Transactions');
+        "#,
+        ),
     ]
 }

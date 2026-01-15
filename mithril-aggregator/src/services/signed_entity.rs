@@ -265,6 +265,8 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
+            SignedEntityType::CardanoBlocksTransactions(_epoch, _block_number) =>
+                Err(anyhow!("Cardano blocks transactions is not supported yet")),
             SignedEntityType::CardanoDatabase(beacon) => Ok(Arc::new(
                 self.cardano_database_artifact_builder
                     .compute_artifact(beacon, certificate)
@@ -299,19 +301,22 @@ impl MithrilSignedEntityService {
     ) {
         let metrics = self.metrics_service.clone();
         let metric_counter = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(_) => {
+            SignedEntityType::MithrilStakeDistribution(..) => {
                 metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
             }
-            SignedEntityType::CardanoImmutableFilesFull(_) => {
+            SignedEntityType::CardanoImmutableFilesFull(..) => {
                 metrics.get_artifact_cardano_immutable_files_full_total_produced_since_startup()
             }
-            SignedEntityType::CardanoStakeDistribution(_) => {
+            SignedEntityType::CardanoStakeDistribution(..) => {
                 metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
             }
-            SignedEntityType::CardanoTransactions(_, _) => {
+            SignedEntityType::CardanoTransactions(..) => {
                 metrics.get_artifact_cardano_transaction_total_produced_since_startup()
             }
-            SignedEntityType::CardanoDatabase(_) => {
+            SignedEntityType::CardanoBlocksTransactions(..) => {
+                metrics.get_artifact_cardano_blocks_transactions_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoDatabase(..) => {
                 metrics.get_artifact_cardano_database_total_produced_since_startup()
             }
         };
@@ -697,19 +702,22 @@ mod tests {
         signed_entity_type: &SignedEntityType,
     ) -> CounterValue {
         match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(_) => metrics_service
+            SignedEntityType::MithrilStakeDistribution(..) => metrics_service
                 .get_artifact_mithril_stake_distribution_total_produced_since_startup()
                 .get(),
-            SignedEntityType::CardanoImmutableFilesFull(_) => metrics_service
+            SignedEntityType::CardanoImmutableFilesFull(..) => metrics_service
                 .get_artifact_cardano_immutable_files_full_total_produced_since_startup()
                 .get(),
-            SignedEntityType::CardanoStakeDistribution(_) => metrics_service
+            SignedEntityType::CardanoStakeDistribution(..) => metrics_service
                 .get_artifact_cardano_stake_distribution_total_produced_since_startup()
                 .get(),
-            SignedEntityType::CardanoTransactions(_, _) => metrics_service
+            SignedEntityType::CardanoTransactions(..) => metrics_service
                 .get_artifact_cardano_transaction_total_produced_since_startup()
                 .get(),
-            SignedEntityType::CardanoDatabase(_) => metrics_service
+            SignedEntityType::CardanoBlocksTransactions(..) => metrics_service
+                .get_artifact_cardano_blocks_transactions_total_produced_since_startup()
+                .get(),
+            SignedEntityType::CardanoDatabase(..) => metrics_service
                 .get_artifact_cardano_database_total_produced_since_startup()
                 .get(),
         }

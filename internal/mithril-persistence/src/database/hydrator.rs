@@ -85,6 +85,21 @@ impl Hydrator {
                     })?;
                 SignedEntityType::CardanoTransactions(beacon.epoch, beacon.block_number)
             }
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
+                #[derive(Deserialize)]
+                struct CardanoBlocksTransactionsBeacon {
+                    epoch: Epoch,
+                    block_number: BlockNumber,
+                }
+
+                let beacon: CardanoBlocksTransactionsBeacon = serde_json::from_str(beacon_str)
+                    .map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                        ))
+                    })?;
+                SignedEntityType::CardanoBlocksTransactions(beacon.epoch, beacon.block_number)
+            }
             SignedEntityTypeDiscriminants::CardanoDatabase => {
                 let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
                     HydrationError::InvalidData(format!(
@@ -104,10 +119,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hydrate_cardano_transaction_signed_entity_type() {
+    fn hydrate_cardano_transactions_signed_entity_type() {
         let expected = SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77));
         let signed_entity = Hydrator::hydrate_signed_entity_type(
             SignedEntityTypeDiscriminants::CardanoTransactions.index(),
+            &expected.get_json_beacon().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(expected, signed_entity);
+    }
+
+    #[test]
+    fn hydrate_cardano_blocks_transactions_signed_entity_type() {
+        let expected = SignedEntityType::CardanoBlocksTransactions(Epoch(37), BlockNumber(79));
+        let signed_entity = Hydrator::hydrate_signed_entity_type(
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions.index(),
             &expected.get_json_beacon().unwrap(),
         )
         .unwrap();
