@@ -58,7 +58,7 @@ mod tests {
     use mithril_common::test::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

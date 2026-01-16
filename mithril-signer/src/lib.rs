@@ -16,6 +16,8 @@ pub mod metrics;
 mod runtime;
 pub mod services;
 pub mod store;
+#[doc(hidden)]
+pub mod test;
 
 pub use commands::*;
 pub use configuration::{Configuration, DefaultConfiguration};
@@ -38,11 +40,6 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
-
-#[cfg(test)]
-pub(crate) mod test_tools {
-    mithril_common::define_test_logger!();
-}
 
 #[cfg(test)]
 mod tests {

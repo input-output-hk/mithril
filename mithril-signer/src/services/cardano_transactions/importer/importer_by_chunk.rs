@@ -69,7 +69,7 @@ mod tests {
     use mockall::predicate::eq;
     use mockall::{Sequence, mock};
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

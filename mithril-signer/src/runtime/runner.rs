@@ -414,7 +414,7 @@ mod tests {
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SpySignerRegistrationPublisher,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 
