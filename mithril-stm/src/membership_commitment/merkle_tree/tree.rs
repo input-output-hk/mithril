@@ -234,7 +234,7 @@ mod tests {
     use rand::{rng, seq::IteratorRandom};
 
     use crate::{
-        membership_commitment::MerkleTreeConcatenationLeaf, signature_scheme::BlsVerificationKey,
+        VerificationKeyForConcatenation, membership_commitment::MerkleTreeConcatenationLeaf,
     };
 
     use super::*;
@@ -246,7 +246,7 @@ mod tests {
     prop_compose! {
         fn arb_tree(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
-            let pks = vec![BlsVerificationKey::default(); v.len()];
+            let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
              (MerkleTree::<Blake2b<U32>, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
         }
@@ -313,7 +313,7 @@ mod tests {
                                     (h in 1..max_height)
                                     (v in vec(any::<u64>(), 2..pow2_plus1(h)),
                                      proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
-            let pks = vec![BlsVerificationKey::default(); v.len()];
+            let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
             (leaves, proof)
         }
@@ -357,7 +357,7 @@ mod tests {
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
             let mut rng = rng();
             let size = v.len();
-            let pks = vec![BlsVerificationKey::default(); size];
+            let pks = vec![VerificationKeyForConcatenation::default(); size];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
             let indices: Vec<usize> = (0..size).collect();
@@ -400,7 +400,7 @@ mod tests {
 
         fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
-            let pks = vec![BlsVerificationKey::default(); number_of_leaves];
+            let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()
@@ -443,7 +443,7 @@ mod tests {
 
         fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let number_of_leaves = 4;
-            let pks = vec![BlsVerificationKey::default(); number_of_leaves];
+            let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
             let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
             let leaves = pks
                 .into_iter()

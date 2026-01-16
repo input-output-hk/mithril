@@ -37,35 +37,35 @@ fn stm_benches<D: MembershipDigest>(
     for stake in stakes {
         initializers.push(Initializer::new(params, stake, &mut rng));
     }
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = KeyRegistration::initialize();
 
     group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
         b.iter(|| {
             // We need to initialise the key_reg at each iteration
-            key_reg = KeyRegistration::init();
+            key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg
-                    .register(p.stake, p.get_verification_key_proof_of_possession())
-                    .unwrap();
+                key_reg.register_by_entry(&p.clone().into()).unwrap();
             }
         })
     });
 
-    let closed_reg = key_reg.close();
+    let closed_reg = key_reg.close_registration();
 
     let signers: Vec<Signer<D>> = initializers
         .into_par_iter()
-        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.try_create_signer(&closed_reg).unwrap())
         .collect();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
-            signers[0].sign(&msg);
+            signers[0].create_single_signature(&msg).unwrap();
         })
     });
 
-    let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
-
+    let sigs = signers
+        .par_iter()
+        .filter_map(|p| p.create_single_signature(&msg).ok())
+        .collect::<Vec<_>>();
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);
     let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
@@ -96,7 +96,7 @@ fn batch_benches<D>(
 
         let mut batch_msgs = Vec::with_capacity(nr_batches);
         let mut batch_params = Vec::with_capacity(nr_batches);
-        let mut batch_stms = Vec::with_capacity(nr_batches);
+        let mut batch_stms: Vec<AggregateSignature<D>> = Vec::with_capacity(nr_batches);
         let mut batch_avks = Vec::with_capacity(nr_batches);
 
         for _ in 0..nr_batches {
@@ -113,21 +113,22 @@ fn batch_benches<D>(
             for stake in stakes {
                 initializers.push(Initializer::new(params, stake, &mut rng));
             }
-            let mut key_reg = KeyRegistration::init();
+            let mut key_reg = KeyRegistration::initialize();
             for p in initializers.iter() {
-                key_reg
-                    .register(p.stake, p.get_verification_key_proof_of_possession())
-                    .unwrap();
+                key_reg.register_by_entry(&p.clone().into()).unwrap();
             }
 
-            let closed_reg = key_reg.close();
+            let closed_reg = key_reg.close_registration();
 
             let signers = initializers
                 .into_par_iter()
-                .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+                .map(|p| p.try_create_signer(&closed_reg).unwrap())
                 .collect::<Vec<Signer<D>>>();
 
-            let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
+            let sigs = signers
+                .par_iter()
+                .filter_map(|p| p.create_single_signature(&msg).ok())
+                .collect::<Vec<_>>();
 
             let clerk = Clerk::new_clerk_from_signer(&signers[0]);
             let aggregate_signature_type = AggregateSignatureType::Concatenation;

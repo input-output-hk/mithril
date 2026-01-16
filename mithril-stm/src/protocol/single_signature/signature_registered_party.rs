@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{MembershipDigest, RegisteredParty, StmResult, membership_commitment::MerkleTreeLeaf};
+use crate::{MembershipDigest, RegistrationEntry, StmResult};
 
 use super::{SignatureError, SingleSignature};
 
@@ -10,7 +10,7 @@ pub struct SingleSignatureWithRegisteredParty {
     /// Stm signature
     pub sig: SingleSignature,
     /// Registered party
-    pub reg_party: RegisteredParty,
+    pub reg_party: RegistrationEntry,
 }
 
 impl SingleSignatureWithRegisteredParty {
@@ -20,7 +20,7 @@ impl SingleSignatureWithRegisteredParty {
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&self.reg_party.as_bytes_for_merkle_tree());
+        out.extend_from_slice(&(self.reg_party.to_bytes()));
         out.extend_from_slice(&self.sig.to_bytes());
 
         out
@@ -29,7 +29,7 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let reg_party = RegisteredParty::from_bytes(
+        let reg_party = RegistrationEntry::from_bytes(
             bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
@@ -59,9 +59,10 @@ mod tests {
         use rand_core::SeedableRng;
 
         use crate::{
-            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
-            SingleSignatureWithRegisteredParty,
-            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
+            RegistrationEntry, Signer, SingleSignatureWithRegisteredParty,
+            VerificationKeyProofOfPossessionForConcatenation,
+            proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
 
         const GOLDEN_JSON: &str = r#"
@@ -99,17 +100,35 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
-            let mut key_reg = KeyRegistration::init();
-            key_reg.register(1, pk_1).unwrap();
-            key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
-            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
-            let signature = signer.sign(&msg).unwrap();
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
+            let mut key_reg = KeyRegistration::initialize();
+
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            key_reg.register_by_entry(&entry1).unwrap();
+            key_reg.register_by_entry(&entry2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+
+            let signer: Signer<MithrilMembershipDigest> = Signer::new(
+                1,
+                ConcatenationProofSigner::new(
+                    1,
+                    2,
+                    params,
+                    sk_1,
+                    pk_1.vk,
+                    closed_key_reg.clone().key_registration.into_merkle_tree().unwrap(),
+                ),
+                closed_key_reg.clone(),
+                params,
+                1,
+            );
+            let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {
                 sig: signature,
-                reg_party: closed_key_reg.reg_parties[0],
+                reg_party: entry1,
             }
         }
 

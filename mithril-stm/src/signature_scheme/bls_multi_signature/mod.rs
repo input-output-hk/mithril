@@ -98,7 +98,7 @@ mod tests {
 
     use super::error::BlsSignatureError;
     use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::{KeyRegistration, RegisterError};
+    use crate::{KeyRegistration, RegisterError, RegistrationEntry};
 
     use super::*;
 
@@ -183,7 +183,7 @@ mod tests {
         #[test]
         fn test_keyreg_with_infinity_vk(num_sigs in 2..16usize, seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyRegistration::init();
+            let mut kr = KeyRegistration::initialize();
 
             let sk = BlsSigningKey::generate(&mut rng);
             let pop = BlsProofOfPossession::from(&sk);
@@ -194,11 +194,10 @@ mod tests {
             for _ in 0..num_sigs {
                 let sk = BlsSigningKey::generate(&mut rng);
                 let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
-                let _ = kr.register(1, vkpop);
+                let entry = RegistrationEntry::new(vkpop, 1).expect("Registration entry should be created");
+                kr.register_by_entry(&entry).expect("Valid VK pop should be registered");
             }
-
-            let error = kr.register(1, vkpop_infinity).expect_err("VK pop infinity should not be registered");
-
+            let error = RegistrationEntry::new(vkpop_infinity, 1).expect_err("Registration entry with VK pop infinity should not be created");
             assert!(
                 matches!(
                     error.downcast_ref::<RegisterError>(),

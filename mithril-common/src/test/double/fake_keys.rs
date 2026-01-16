@@ -158,7 +158,7 @@ pub const fn signable_manifest_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession)
+/// A list of pre json hex encoded [MithrilStm:VerificationKeyProofOfPossessionForConcatenation](type@mithril_stm::VerificationKeyProofOfPossessionForConcatenation)
 pub const fn signer_verification_key<'a>() -> [&'a str; 4] {
     [
         "7b22766b223a5b3134352c32332c3135382c31322c3138332c3230392c33322c3134302c33372c3132342c3136\
@@ -366,7 +366,7 @@ pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:AggregateVerificationKey](struct@mithril_stm::AggregateVerificationKey)
+/// A list of pre json hex encoded [MithrilStm:AggregateVerificationKey](enum@mithril_stm::AggregateVerificationKey)
 pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
     [
         "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c\
@@ -394,14 +394,14 @@ mod test {
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::{
         AggregateSignature, AggregateVerificationKey, SingleSignature,
-        VerificationKeyProofOfPossession,
+        VerificationKeyProofOfPossessionForConcatenation,
     };
     use serde::{Serialize, de::DeserializeOwned};
     use std::any::type_name;
 
     use crate::crypto_helper::{
-        D, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
-        TryFromBytes, TryToBytes, key_decode_hex,
+        ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
+        ProtocolMembershipDigest, TryFromBytes, TryToBytes, key_decode_hex,
     };
 
     fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {
@@ -462,9 +462,13 @@ mod test {
 
     #[test]
     fn assert_encoded_multi_signatures_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<AggregateSignature<D>>(&multi_signature());
+        assert_can_deserialize_using_key_decode_hex::<AggregateSignature<ProtocolMembershipDigest>>(
+            &multi_signature(),
+        );
 
-        assert_can_convert_to_protocol_key::<AggregateSignature<D>>(&multi_signature());
+        assert_can_convert_to_protocol_key::<AggregateSignature<ProtocolMembershipDigest>>(
+            &multi_signature(),
+        );
     }
 
     #[test]
@@ -491,11 +495,11 @@ mod test {
 
     #[test]
     fn assert_encoded_signer_verification_key_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<VerificationKeyProofOfPossession>(
-            &signer_verification_key(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<
+            VerificationKeyProofOfPossessionForConcatenation,
+        >(&signer_verification_key());
 
-        assert_can_convert_to_protocol_key::<VerificationKeyProofOfPossession>(
+        assert_can_convert_to_protocol_key::<VerificationKeyProofOfPossessionForConcatenation>(
             &signer_verification_key(),
         );
     }
@@ -524,8 +528,8 @@ mod test {
 
     #[test]
     fn assert_encoded_aggregate_verification_key_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<AggregateVerificationKey<D>>(
-            &aggregate_verification_key(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<
+            AggregateVerificationKey<ProtocolMembershipDigest>,
+        >(&aggregate_verification_key());
     }
 }

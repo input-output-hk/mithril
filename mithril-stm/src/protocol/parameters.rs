@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::RegisterError;
+use super::RegisterError;
 
 /// Used to set protocol parameters.
 // todo: this is the criteria to consider parameters valid:
