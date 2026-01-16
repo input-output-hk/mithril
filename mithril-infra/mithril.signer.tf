@@ -266,7 +266,7 @@ if [ "${var.mithril_use_p2p_network}" = "true" ]; then
   fi
 fi
 # Support for DMQ protocol
-if [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
   if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
     DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-real-node-override.yaml"
   else
