@@ -8,6 +8,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
+    chain_importer::{
+        CardanoChainDataImporter, ChainDataImporterByChunk, ChainDataImporterWithPruner,
+    },
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
     chain_scanner::CardanoBlockScanner,
@@ -37,7 +40,6 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::{MithrilTickerService, TickerService};
 
-use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
@@ -45,23 +47,22 @@ use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
 
 use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
 
+use crate::database::repository::{
+    ProtocolInitializerRepository, SignedBeaconRepository, SignerCardanoChainDataRepository,
+    StakePoolStore,
+};
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::services::SignaturePublisherDmq;
 use crate::services::{
-    CardanoTransactionsImporter, CardanoTransactionsPreloaderActivationSigner, MithrilEpochService,
-    MithrilSingleSigner, SignaturePublishRetryPolicy, SignaturePublisherDelayer,
-    SignaturePublisherNoop, SignaturePublisherRetrier, SignerCertifierService,
-    SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
-    TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    CardanoTransactionsPreloaderActivationSigner, ChainDataImporterWithVacuum, MithrilEpochService,
+    MithrilSingleSigner, SignaturePublishRetryPolicy, SignaturePublisher,
+    SignaturePublisherDelayer, SignaturePublisherDmq, SignaturePublisherNoop,
+    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
+    SignerSignedEntityConfigProvider, SignerUpkeepService,
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
     Configuration, HTTP_REQUEST_TIMEOUT_DURATION, MetricsService, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
-};
-use crate::{
-    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
-    services::SignaturePublisher,
 };
 
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
@@ -283,7 +284,7 @@ impl<'a> DependenciesBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+        let chain_data_store = Arc::new(SignerCardanoChainDataRepository::new(
             sqlite_connection_cardano_transaction_pool.clone(),
         ));
         let chain_block_reader = PallasChainReader::new(
@@ -297,41 +298,41 @@ impl<'a> DependenciesBuilder<'a> {
                 .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
             self.root_logger(),
         ));
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
+        let chain_data_importer = Arc::new(CardanoChainDataImporter::new(
             block_scanner,
-            transaction_store.clone(),
+            chain_data_store.clone(),
             self.root_logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
-        let transactions_importer = Arc::new(TransactionsImporterWithPruner::new(
+        let chain_data_importer = Arc::new(ChainDataImporterWithPruner::new(
             self.config
                 .enable_transaction_pruning
                 .then_some(self.config.network_security_parameter),
-            transaction_store.clone(),
-            transactions_importer,
+            chain_data_store.clone(),
+            chain_data_importer,
             self.root_logger(),
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
-        let state_machine_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
-            transaction_store.clone(),
-            transactions_importer.clone(),
+        let state_machine_transactions_importer = Arc::new(ChainDataImporterByChunk::new(
+            chain_data_store.clone(),
+            chain_data_importer.clone(),
             self.config.transactions_import_block_chunk_size,
             self.root_logger(),
         ));
         // For the preloader, we want to vacuum the database after each chunk, to reclaim disk space
         // earlier than with just auto_vacuum (that execute only after the end of all import).
-        let preloader_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
-            transaction_store.clone(),
-            Arc::new(TransactionsImporterWithVacuum::new(
+        let preloader_chain_data_importer = Arc::new(ChainDataImporterByChunk::new(
+            chain_data_store.clone(),
+            Arc::new(ChainDataImporterWithVacuum::new(
                 sqlite_connection_cardano_transaction_pool.clone(),
-                transactions_importer.clone(),
+                chain_data_importer.clone(),
                 self.root_logger(),
             )),
             self.config.transactions_import_block_chunk_size,
             self.root_logger(),
         ));
-        let block_range_root_retriever = transaction_store.clone();
+        let block_range_root_retriever = chain_data_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreSqlite,
         >::new(
@@ -382,7 +383,7 @@ impl<'a> DependenciesBuilder<'a> {
         );
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
-            preloader_transactions_importer,
+            preloader_chain_data_importer,
             self.config.preload_security_parameter,
             chain_observer.clone(),
             self.root_logger(),

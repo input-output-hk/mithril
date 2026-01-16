@@ -3,24 +3,24 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use slog::{Logger, debug};
 
-use mithril_cardano_node_chain::chain_importer::ChainDataImporter;
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
+use mithril_common::signable_builder::TransactionsImporter;
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnectionPool};
 
-/// A decorator of [ChainDataImporter] that vacuums the database after running the import.
-pub struct ChainDataImporterWithVacuum {
+/// A decorator of [TransactionsImporter] that vacuums the database after running the import.
+pub struct TransactionsImporterWithVacuum {
     connection_pool: Arc<SqliteConnectionPool>,
-    wrapped_importer: Arc<dyn ChainDataImporter>,
+    wrapped_importer: Arc<dyn TransactionsImporter>,
     logger: Logger,
 }
 
-impl ChainDataImporterWithVacuum {
-    /// Create a new instance of [ChainDataImporterWithVacuum].
+impl TransactionsImporterWithVacuum {
+    /// Create a new instance of [TransactionsImporterWithVacuum].
     pub fn new(
         connection_pool: Arc<SqliteConnectionPool>,
-        wrapped_importer: Arc<dyn ChainDataImporter>,
+        wrapped_importer: Arc<dyn TransactionsImporter>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -32,13 +32,13 @@ impl ChainDataImporterWithVacuum {
 }
 
 #[async_trait]
-impl ChainDataImporter for ChainDataImporterWithVacuum {
+impl TransactionsImporter for TransactionsImporterWithVacuum {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
         self.wrapped_importer.import(up_to_beacon).await?;
 
         debug!(
             self.logger,
-            "Chain data Import finished - Vacuuming database to reclaim disk space"
+            "Transaction Import finished - Vacuuming database to reclaim disk space"
         );
         let connection = self.connection_pool.connection()?;
 
@@ -50,45 +50,40 @@ impl ChainDataImporter for ChainDataImporterWithVacuum {
     }
 }
 
-mithril_cardano_node_chain::impl_signable_builder_importers_for_chain_data_importer!(
-    ChainDataImporterWithVacuum
-);
-
 #[cfg(test)]
 mod tests {
+    use mithril_common::temp_dir_create;
+    use mithril_persistence::sqlite::SqliteConnection;
     use mockall::mock;
     use sqlite::Connection;
-
-    use mithril_common::test::TempDir;
-    use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::test::TestLogger;
 
     use super::*;
 
     mock! {
-        pub ChainDataImporter {}
+        pub TransactionImporterImpl {}
 
         #[async_trait]
-        impl ChainDataImporter for ChainDataImporter {
+        impl TransactionsImporter for TransactionImporterImpl {
             async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
         }
     }
 
-    impl ChainDataImporterWithVacuum {
+    impl TransactionsImporterWithVacuum {
         pub(crate) fn new_with_mock<I>(
             connection_pool: Arc<SqliteConnectionPool>,
             importer_mock_config: I,
         ) -> Self
         where
-            I: FnOnce(&mut MockChainDataImporter),
+            I: FnOnce(&mut MockTransactionImporterImpl),
         {
-            let mut chain_data_importer = MockChainDataImporter::new();
-            importer_mock_config(&mut chain_data_importer);
+            let mut transaction_importer = MockTransactionImporterImpl::new();
+            importer_mock_config(&mut transaction_importer);
 
             Self::new(
                 connection_pool,
-                Arc::new(chain_data_importer),
+                Arc::new(transaction_importer),
                 TestLogger::stdout(),
             )
         }
@@ -113,12 +108,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_database_size_shrink_after_import() {
-        let db_path = TempDir::create("mithril-persistence", "test_vacuum").join("test.db");
+        let db_path = temp_dir_create!().join("test.db");
         let connection = Connection::open_thread_safe(&db_path).unwrap();
         // make the database size grow
         mangle_db(&connection);
 
-        let importer = ChainDataImporterWithVacuum::new_with_mock(
+        let importer = TransactionsImporterWithVacuum::new_with_mock(
             Arc::new(SqliteConnectionPool::build_from_connection(connection)),
             |mock| {
                 mock.expect_import().once().returning(|_| Ok(()));
