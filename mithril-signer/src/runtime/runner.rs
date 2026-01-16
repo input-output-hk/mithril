@@ -409,12 +409,12 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
-        CardanoTransactionsImporter, DumbSignersRegistrationRetriever, MithrilEpochService,
-        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignaturePublisherNoop,
-        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SpySignerRegistrationPublisher,
+        CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
+        MockTransactionStore, MockUpkeepService, SignaturePublisherNoop, SignerCertifierService,
+        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
+    use crate::test::double::{DumbSignersRegistrationRetriever, SpySignerRegistrationPublisher};
 
     use super::*;
 

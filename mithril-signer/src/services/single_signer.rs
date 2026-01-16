@@ -172,7 +172,7 @@ mod tests {
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
     use crate::services::MithrilEpochService;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test::builder::MithrilFixtureBuilder;

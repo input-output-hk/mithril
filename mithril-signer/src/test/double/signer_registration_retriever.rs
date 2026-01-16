@@ -4,7 +4,7 @@ use mithril_common::StdResult;
 use mithril_common::test::double::Dummy;
 
 use crate::RegisteredSigners;
-use crate::services::signer_registration::retriever::interface::SignersRegistrationRetriever;
+use crate::services::SignersRegistrationRetriever;
 
 /// Dumb `SignersRegistrationRetriever` implementation for testing
 pub struct DumbSignersRegistrationRetriever {

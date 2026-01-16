@@ -149,7 +149,7 @@ mod tests {
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
         main_db_file_connection,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 
