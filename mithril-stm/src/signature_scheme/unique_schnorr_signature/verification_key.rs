@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+};
 
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
@@ -59,6 +62,12 @@ impl SchnorrVerificationKey {
             .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
         Ok(SchnorrVerificationKey(prime_order_projective_point))
+    }
+}
+
+impl Hash for SchnorrVerificationKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.to_bytes(), state)
     }
 }
 
