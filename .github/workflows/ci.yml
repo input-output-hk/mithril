@@ -865,6 +865,7 @@ jobs:
           mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
           mithril_p2p_use_dmq_protocol: ${{ matrix.mithril_p2p_use_dmq_protocol }}
           mithril_p2p_use_real_dmq_node: ${{ matrix.mithril_p2p_use_real_dmq_node }}
+          mithril_p2p_network_bootstrap_peer: ${{ vars.MITHRIL_P2P_NETWORK_BOOTSTRAP_PEER }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
           mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
