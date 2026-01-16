@@ -68,10 +68,11 @@ impl Debug for SingleSignature {
         let mut debug = f.debug_struct("SingleSignatures");
         debug
             .field("party_id", &self.party_id)
-            .field("won_indexes", &format_args!("{:?}", self.won_indexes));
+            .field("total_indexes", &self.won_indexes.len());
 
         match is_pretty_printing {
             true => debug
+                .field("won_indexes", &format_args!("{:?}", self.won_indexes))
                 .field("signature", &format_args!("{:?}", self.signature))
                 .finish(),
             false => debug.finish_non_exhaustive(),

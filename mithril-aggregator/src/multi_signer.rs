@@ -69,16 +69,15 @@ impl MultiSignerImpl {
     ) -> StdResult<()> {
         debug!(
             self.logger,
-            "Verify single signature from {} at indexes {:?} for message {:?}",
-            single_signature.party_id,
-            single_signature.won_indexes,
-            message
+            "Verify single signature";
+            "message" => ?message,
+            "single_signature" => ?single_signature,
         );
 
         protocol_multi_signer
             .verify_single_signature(&message, single_signature)
             .with_context(|| {
-                format!("Multi Signer can not verify single signature for message '{message:?}'")
+                format!("Multi Signer can not verify single signature for message '{message:?}' and single signature {single_signature:#?}")
             })
     }
 }
