@@ -35,7 +35,6 @@ jobs:
             cardano_network: preview
             mithril_use_p2p_network: true
             mithril_p2p_use_dmq_protocol: true
-            mithril_p2p_use_real_dmq_node: false
             mithril_p2p_signer_relay_signer_registration_mode: passthrough
             mithril_p2p_signer_relay_signature_registration_mode: p2p
             mithril_api_domain: api.mithril.network
@@ -49,16 +48,16 @@ jobs:
             mithril_signers: |
               {
                 "1" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
+                  type    = "verified",
+                  pool_id = "",
                 },
                 "2" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1t9uuagsat8hlr0n0ga4wzge0jxlyjuhl6mugrm8atc285vzkf2e",
+                  type    = "verified",
+                  pool_id = "",
                 },
                 "3" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
+                  type    = "verified",
+                  pool_id = "",
                 },
               }
             mithril_leader_aggregator_endpoint: ""
@@ -75,19 +74,19 @@ jobs:
             cardano_network: preview
             mithril_use_p2p_network: true
             mithril_p2p_use_dmq_protocol: true
-            mithril_p2p_use_real_dmq_node: false
             mithril_p2p_network_bootstrap_peer: "/dns4/aggregator.dev-preview.api.mithril.network/tcp/6060"
             mithril_p2p_signer_relay_signer_registration_mode: passthrough
             mithril_p2p_signer_relay_signature_registration_mode: p2p
             mithril_api_domain: api.mithril.network
             mithril_era_reader_adapter_type: cardano-chain
-            mithril_signers: |
+            mithril_protocol_parameters: |
               {
-                "1" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool13zafxlpfgymf474uv52qt557z5k5frn9p83yr55zp267wj5mpu4",
-                },
+                k     = 1
+                m     = 1
+                phi_f = 0.0
               }
+            mithril_signers: |
+              {}
             mithril_leader_aggregator_endpoint: https://aggregator.dev-preview.api.mithril.network/aggregator
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
@@ -102,7 +101,6 @@ jobs:
             cardano_network: mainnet
             mithril_use_p2p_network: false
             mithril_p2p_use_dmq_protocol: false
-            mithril_p2p_use_real_dmq_node: false
             mithril_api_domain: api.mithril.network
             mithril_era_reader_adapter_type: bootstrap
             mithril_protocol_parameters: |
@@ -161,7 +159,6 @@ jobs:
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
           mithril_p2p_use_dmq_protocol: ${{ matrix.mithril_p2p_use_dmq_protocol }}
-          mithril_p2p_use_real_dmq_node: ${{ matrix.mithril_p2p_use_real_dmq_node }}
           mithril_p2p_network_bootstrap_peer: ${{ matrix.mithril_p2p_network_bootstrap_peer }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ inputs.mithril_image_id }}
