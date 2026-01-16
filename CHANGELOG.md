@@ -7,40 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX] - UNRELEASED
+## Mithril Distribution [2603.0] - UNRELEASED
 
-- Client library, CLI and WASM:
-  - Support for stable cardano database v2 methods in the client WASM library.
+- **BREAKING** changes in Mithril client CLI:
+  - Progress bars and spinners are now outputted to stderr instead of stdout.
 
-  - **DEPRECATED**: The `cardano_db` function has been deprecated and the `snapshot` function was removed in the `Client` struct of the library, there WASM counterparts were deprecated too.
+- **DEPRECATED** in Mithril client library, CLI and WASM:
+  - The `cardano_db` function in the `Client` struct of the library and its WASM counterpart
+  - The `snapshot` function has been removed from the `Client` struct of the library
+  - The `--backend v1` flag of the `cardano-db` command in the CLI; use `--backend v2` instead.
 
-  - **DEPRECATED**: The flag `--backend v1` of the `cardano-db` command has been deprecated CLI, use the `--backend v2` instead.
+- **Client library, CLI and WASM**:
+  - Support for stable Cardano database v2 methods in the client WASM library.
 
   - Reworked the client CLI `snapshot-converter` command outputs:
-    - Print all progress messages to stderr instead of stdout.
+    - Print all progress messages to stderr instead of stdout
     - Add support for `--json` parameter
-    - Add a docker run command in the final output that can be used to start the Cardano node with the converted ledger
+    - Add a Docker run command in the final output to start the Cardano node with the converted ledger.
 
-  - **BREAKING**: Progress bars and spinners of the client CLI are now outputted to stderr instead of stdout.
+- **Aggregator**:
+  - Superseded **CExplorer** API with **Blockfrost** API for pool names and tickers discovery mechanism
+  - Removed optional `cexplorer_pools_url` configuration parameter
+  - Added optional `blockfrost_parameters` configuration parameter (see documentation for details).
 
-- Support for DMQ protocol in the signer, aggregator and relay.
+- Support for future **decentralization** of the configuration parameters of Mithril networks:
+  - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch
+  - Refactored signer and aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
+  - Support for reading network configurations from the leader aggregator for follower aggregators
 
-- Support for removal of `cardano_transactions_signing_config` from the diffused mithril network configuration.
+- Support for new **Lagrange** Mithril era.
 
-- Decentralization of the configuration parameters of Mithril networks:
-  - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch, `{epoch}` must be a number.
-  - Refactor Signer and Aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
-  - Support for reading network configurations from its leader aggregator for the follower aggregators.
-
-- Support for new `Lagrange` Mithril era.
-
-- Aggregator:
-  - Superseded CExplorer with Blockfrost for Pool names and tickers discovery mechanism.
-  - Removed optional `cexplorer_pools_url` configuration parameter.
-  - Added optional `blockfrost_parameters` (see documentation for details)
+- Support for removal of `cardano_transactions_signing_config` from the diffused Mithril network configuration.
 
 - **UNSTABLE**:
-  - Support for aggregator discovery mechanism in the client library and CLI.
+  - Support for **DMQ protocol** in the signer, aggregator and relay.
+  - Support for **aggregator discovery mechanism** in the client library and CLI.
 
 - Crates versions:
 
