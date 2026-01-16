@@ -6,9 +6,9 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::configuration::BlockfrostParameters;
 use crate::database::repository::{
-    CertificateRepository, EpochSettingsStore, ImmutableFileDigestRepository,
-    OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
-    SignerStore, StakePoolStore,
+    AggregatorCardanoChainDataRepository, CertificateRepository, EpochSettingsStore,
+    ImmutableFileDigestRepository, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
+    SignerRegistrationStore, SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::tools::signer_importer::{BlockfrostSignerRetriever, SignersImporter};
@@ -135,6 +135,23 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<CardanoTransactionRepository>> {
         get_dependency!(self.transaction_repository)
+    }
+
+    async fn build_chain_data_repository(
+        &mut self,
+    ) -> Result<Arc<AggregatorCardanoChainDataRepository>> {
+        let chain_data_repository = AggregatorCardanoChainDataRepository::new(
+            self.get_sqlite_connection_cardano_transaction_pool().await?,
+        );
+
+        Ok(Arc::new(chain_data_repository))
+    }
+
+    /// Transaction repository.
+    pub async fn get_chain_data_repository(
+        &mut self,
+    ) -> Result<Arc<AggregatorCardanoChainDataRepository>> {
+        get_dependency!(self.chain_data_repository)
     }
 
     async fn build_immutable_file_digest_mapper(
