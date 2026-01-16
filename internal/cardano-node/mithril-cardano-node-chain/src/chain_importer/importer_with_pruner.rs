@@ -63,6 +63,8 @@ impl ChainDataImporter for ChainDataImporterWithPruner {
     }
 }
 
+crate::impl_signable_builder_importers_for_chain_data_importer!(ChainDataImporterWithPruner);
+
 #[cfg(test)]
 mod tests {
     use mockall::predicate::eq;
