@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
-use slog::{Logger, debug, error};
+use slog::{Logger, debug, error, trace};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
@@ -110,7 +110,8 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             .recv_next_reply()
             .await
             .with_context(|| "Failed to receive notifications from DMQ server")?;
-        debug!(self.logger, "Received single signatures from DMQ"; "messages" => ?reply);
+        debug!(self.logger, "Received single signatures from DMQ"; "total_messages" => reply.0.len());
+        trace!(self.logger, "Received single signatures from DMQ"; "messages" => ?reply);
 
         reply
             .0
