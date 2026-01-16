@@ -1,9 +1,12 @@
 use std::cmp::Ordering;
 
+#[cfg(feature = "future_snark")]
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
-use crate::{EligibilityValue, Stake, VerificationKeyForConcatenation, VerificationKeyForSnark};
+#[cfg(feature = "future_snark")]
+use crate::{EligibilityValue, VerificationKeyForSnark};
+use crate::{Stake, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -77,17 +80,20 @@ impl Ord for MerkleTreeConcatenationLeaf {
     }
 }
 
+#[cfg(feature = "future_snark")]
 /// The values that are committed in the Merkle Tree for `ConcatenationProof`.
 /// Namely, a verified `BlsVerificationKey` and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct MerkleTreeSnarkLeaf(pub VerificationKeyForSnark, pub EligibilityValue);
 
+#[cfg(feature = "future_snark")]
 impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
     fn as_bytes_for_merkle_tree(&self) -> Vec<u8> {
         self.to_bytes()
     }
 }
 
+#[cfg(feature = "future_snark")]
 impl MerkleTreeSnarkLeaf {
     fn to_bytes(self) -> Vec<u8> {
         let mut result = [0u8; 40];
@@ -96,7 +102,6 @@ impl MerkleTreeSnarkLeaf {
         result.to_vec()
     }
 
-    #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {

@@ -26,5 +26,6 @@ pub type VerificationKeyProofOfPossessionForConcatenation =
 /// Wrapper of the MultiSignature Verification key
 pub type VerificationKeyForConcatenation = crate::signature_scheme::BlsVerificationKey;
 
+#[cfg(feature = "future_snark")]
 /// Wrapper of the MultiSignature Verification key
 pub type VerificationKeyForSnark = crate::signature_scheme::SchnorrVerificationKey;

@@ -117,12 +117,14 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
+#[cfg(feature = "future_snark")]
+pub use protocol::VerificationKeyForSnark;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
     RegisterError, RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer,
     SingleSignature, SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
-    VerificationKeyForSnark, VerificationKeyProofOfPossessionForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
 };
 pub use signature_scheme::BlsSignatureError;
 
@@ -144,6 +146,7 @@ use std::fmt::Debug;
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
 
+#[cfg(feature = "future_snark")]
 /// The value to reach to validate a schnorr signature represented as a `u64`.
 /// It is computed based on the stake of the party and the total stake of the
 /// registered parties.
