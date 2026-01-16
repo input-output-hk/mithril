@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 
+use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
-use crate::{Stake, VerificationKeyForConcatenation};
+use crate::{EligibilityValue, Stake, VerificationKeyForConcatenation, VerificationKeyForSnark};
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -73,5 +74,45 @@ impl PartialOrd for MerkleTreeConcatenationLeaf {
 impl Ord for MerkleTreeConcatenationLeaf {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+/// The values that are committed in the Merkle Tree for `ConcatenationProof`.
+/// Namely, a verified `BlsVerificationKey` and its corresponding stake.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct MerkleTreeSnarkLeaf(pub VerificationKeyForSnark, pub EligibilityValue);
+
+impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
+    fn as_bytes_for_merkle_tree(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+}
+
+impl MerkleTreeSnarkLeaf {
+    fn to_bytes(self) -> Vec<u8> {
+        let mut result = [0u8; 40];
+        result[..32].copy_from_slice(&self.0.to_bytes());
+        result[32..].copy_from_slice(&self.1.to_be_bytes());
+        result.to_vec()
+    }
+
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if bytes.len() < 32 {
+            return Err(anyhow!(MerkleTreeError::SerializationError)).with_context(
+                || "Not enough bytes provided to construct a Merkle tree leaf for Snark.",
+            );
+        }
+        let schnorr_verification_key = VerificationKeyForSnark::from_bytes(&bytes[..32])
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[32..]);
+        let eligibility_value = EligibilityValue::from_be_bytes(u64_bytes);
+        Ok(MerkleTreeSnarkLeaf(
+            schnorr_verification_key,
+            eligibility_value,
+        ))
     }
 }
