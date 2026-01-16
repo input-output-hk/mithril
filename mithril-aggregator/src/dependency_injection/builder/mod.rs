@@ -17,6 +17,7 @@ use warp::Filter;
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
+    chain_importer::ChainDataImporter,
     chain_observer::{CardanoCliRunner, ChainObserver},
     chain_reader::ChainBlockReader,
     chain_scanner::BlockScanner,
@@ -40,10 +41,6 @@ use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
 
-use super::{
-    DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,
-    GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
-};
 use crate::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, EpochSettingsStorer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
@@ -52,8 +49,8 @@ use crate::{
     VerificationKeyStorer,
     configuration::ConfigurationSource,
     database::repository::{
-        CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
-        SignerStore, StakePoolStore,
+        AggregatorCardanoChainDataRepository, CertificateRepository, EpochSettingsStore,
+        OpenMessageRepository, SignedEntityStorer, SignerStore, StakePoolStore,
     },
     event_store::{EventMessage, TransmitterService},
     file_uploaders::FileUploader,
@@ -64,6 +61,11 @@ use crate::{
         Snapshotter, StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
+};
+
+use super::{
+    DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,
+    GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 
 /// Retrieve attribute stored in the builder.
@@ -160,6 +162,9 @@ pub struct DependenciesBuilder {
 
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
+
+    /// Cardano chain data repository.
+    pub chain_data_repository: Option<Arc<AggregatorCardanoChainDataRepository>>,
 
     /// Cardano block scanner.
     pub block_scanner: Option<Arc<dyn BlockScanner>>,
@@ -273,6 +278,9 @@ pub struct DependenciesBuilder {
     /// Signed Entity Type Lock
     pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
 
+    /// Chain Data Importer
+    pub chain_data_importer: Option<Arc<dyn ChainDataImporter>>,
+
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
 
@@ -351,6 +359,7 @@ impl DependenciesBuilder {
             message_service: None,
             prover_service: None,
             signed_entity_type_lock: None,
+            chain_data_importer: None,
             transactions_importer: None,
             upkeep_service: None,
             single_signature_authenticator: None,
@@ -358,6 +367,7 @@ impl DependenciesBuilder {
             leader_aggregator_client: None,
             protocol_parameters_retriever: None,
             stop_signal_channel: None,
+            chain_data_repository: None,
         }
     }
 

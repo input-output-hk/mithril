@@ -7,6 +7,7 @@ use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
 };
+use mithril_common::signable_builder::TransactionsImporter;
 
 /// Cardano chain data importer
 #[cfg_attr(test, mockall::automock)]
@@ -14,6 +15,13 @@ use mithril_common::entities::{
 pub trait ChainDataImporter: Send + Sync {
     /// Import data stored on the chain up to the given beacon into the system
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
+}
+
+#[async_trait]
+impl TransactionsImporter for dyn ChainDataImporter {
+    async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
+        self.import(up_to_beacon).await
+    }
 }
 
 /// Macro to generates the boilerplate code to bridge Signable builder importers (currently `TransactionsImporter`)

@@ -12,6 +12,7 @@ mod single_signature_repository;
 mod stake_pool_store;
 
 pub use buffered_single_signature_repository::*;
+pub use cardano_transaction_repository::*;
 pub use certificate_repository::*;
 pub use epoch_settings_store::*;
 pub use immutable_file_digest_repository::*;
