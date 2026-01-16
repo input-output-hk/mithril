@@ -5,6 +5,8 @@ locals {
   mithril_signers_relay_server_port           = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 7070 }
   mithril_signers_relay_cardano_port          = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 9090 }
   mithril_signers_block_producer_cardano_port = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 10000 }
+  mithril_signers_dmq_relay_port              = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 11000 }
+  mithril_signers_dmq_block_producer_port     = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 12000 }
 }
 
 resource "null_resource" "mithril_signer" {
@@ -18,6 +20,8 @@ resource "null_resource" "mithril_signer" {
     vm_instance            = google_compute_instance.vm_instance.id,
     cardano_image_id       = var.cardano_image_id,
     cardano_image_registry = var.cardano_image_registry,
+    dmq_image_id           = var.dmq_image_id,
+    dmq_image_registry     = var.dmq_image_registry,
     image_id               = var.mithril_image_id,
   }
 
@@ -41,6 +45,10 @@ resource "null_resource" "mithril_signer" {
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/www",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/mithril/stores",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/mithril/snapshots",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/config",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/ipc",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/block-producer/config",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/block-producer/ipc",
       "echo -n ${local.mithril_signers_relay_cardano_port[each.key]} > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/port",
       <<-EOT
 set -e
@@ -76,7 +84,7 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
 
       # Setup cardano node relay topology
       cat /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/topology.json > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
-
+      
       # Copy peer snapshot file (if exists)
       if [ -f "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/peer-snapshot.json" ]; then
         cp /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/peer-snapshot.json /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/peer-snapshot.json
@@ -94,6 +102,70 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
 done
 
 EOT
+      ,
+      <<-EOT
+set -e
+# Setup DMQ node configuration
+SIGNER__TYPES="relay block-producer"
+for SIGNER__TYPE in $SIGNER__TYPES; do
+  # Copy the DMQ node configuration files to the signer
+  SIGNER__TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/$SIGNER__TYPE/config
+  rm -rf $SIGNER__TYPE_CONFIG_DIRECTORY
+  mkdir -p $SIGNER__TYPE_CONFIG_DIRECTORY
+  cp -R /home/curry/docker/dmq/config/* $SIGNER__TYPE_CONFIG_DIRECTORY/
+
+  # Setup config.json with network magic and type-specific settings
+  if [ "$SIGNER__TYPE" = "block-producer" ]; then
+    # Block-producer: disable PeerSharing
+    cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "PeerSharing": false}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+  else
+    # Relay: keep default PeerSharing
+    cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+  fi
+  rm -f $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
+  mv $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
+done
+
+# Setup DMQ block-producer topology (connects ONLY to local relay via external IP)
+DMQ_BP_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/block-producer/config
+cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].accessPoints = [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_dmq_relay_port[each.key]}}]' | jq '.localRoots[0].advertise = false' | jq '.localRoots[0].trustable = true' | jq '.localRoots[0].valency = 1' > $DMQ_BP_CONFIG_DIRECTORY/topology.json
+
+# Setup DMQ relay topology (connects to aggregator + other signer relays + bootstrap peers)
+DMQ_RELAY_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/config
+cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_aggregator_dmq_port}}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+
+# Add signer relay peers to DMQ relay topology
+SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+  if [ "$SIGNER_PEER_PORT" != "${local.mithril_signers_dmq_relay_port[each.key]}" ]; then
+    cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+    rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+    mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+  fi
+done
+
+# Add bootstrap peers to DMQ relay topology
+if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+  BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
+  for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
+    BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
+    BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
+    cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+    rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+    mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+  done
+fi
+
+# Update DMQ relay topology valency
+cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+
+# Update DMQ block-producer topology valency
+cat $DMQ_BP_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_BP_CONFIG_DIRECTORY/topology.json.new
+rm -f $DMQ_BP_CONFIG_DIRECTORY/topology.json
+mv $DMQ_BP_CONFIG_DIRECTORY/topology.json.new $DMQ_BP_CONFIG_DIRECTORY/topology.json
+EOT
     ]
   }
 
@@ -107,12 +179,18 @@ EOT
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export DMQ_IMAGE_ID='${var.dmq_image_id}'",
+      "export DMQ_IMAGE_REGISTRY=${var.dmq_image_registry}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
       "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
       "export SIGNER_CARDANO_RELAY_ADDR=0.0.0.0",
       "export SIGNER_CARDANO_RELAY_PORT=${local.mithril_signers_relay_cardano_port[each.key]}",
       "export SIGNER_CARDANO_BLOCK_PRODUCER_ADDR=0.0.0.0",
       "export SIGNER_CARDANO_BLOCK_PRODUCER_PORT=${local.mithril_signers_block_producer_cardano_port[each.key]}",
+      "export SIGNER_DMQ_RELAY_ADDR='0.0.0.0'",
+      "export SIGNER_DMQ_RELAY_PORT=${local.mithril_signers_dmq_relay_port[each.key]}",
+      "export SIGNER_DMQ_BLOCK_PRODUCER_ADDR='0.0.0.0'",
+      "export SIGNER_DMQ_BLOCK_PRODUCER_PORT=${local.mithril_signers_dmq_block_producer_port[each.key]}",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       <<-EOT
 ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{"address": $address, "verification_key": $verification_key}')
@@ -176,15 +254,24 @@ if [ "${each.value.type}" = "unverified-cardano-shared-norelay" ]; then
 fi
 # Support for signer P2P network
 if [ "${var.mithril_use_p2p_network}" = "true" ]; then
-  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-base-override.yaml"
-  
-  if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
-    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-bootstrap-override.yaml"
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
+    # Bootstrap peers configuration is done through topology files for the real DMQ node
+    echo "Bootstrap peers configuration is done through topology files for the real DMQ node"
+  else
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-base-no-dmq-override.yaml"
+
+    if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+      DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-bootstrap-no-dmq-override.yaml"
+    fi
   fi
 fi
 # Support for DMQ protocol
 if [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
- DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-override.yaml"
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-real-node-override.yaml"
+  else
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-fake-node-override.yaml"
+  fi
 fi
 EOT
       ,

@@ -1,0 +1,79 @@
+services:
+  mithril-signer:
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/ipc:/ipc-dmq
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc-dmq/dmq.socket
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+    depends_on:
+      dmq-node-block-producer:
+        condition: service_started
+      dmq-node-relay:
+        condition: service_started
+
+  dmq-node-block-producer:
+    image: ${DMQ_IMAGE_REGISTRY}:${DMQ_IMAGE_ID}
+    container_name: dmq-node-block-producer-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - dmq
+      - all
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/config:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc-cardano
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${SIGNER_DMQ_BLOCK_PRODUCER_ADDR}",
+        "--port",
+        "${SIGNER_DMQ_BLOCK_PRODUCER_PORT}"
+      ]
+
+  dmq-node-relay:
+    image: ${DMQ_IMAGE_REGISTRY}:${DMQ_IMAGE_ID}
+    container_name: dmq-node-relay-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - dmq
+      - all
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/config:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc-cardano
+    ports:
+      - "${SIGNER_DMQ_RELAY_PORT}:${SIGNER_DMQ_RELAY_PORT}"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${SIGNER_DMQ_RELAY_ADDR}",
+        "--port",
+        "${SIGNER_DMQ_RELAY_PORT}"
+      ]
+
+networks:
+  default:
+    name: mithril_network
+    external: true

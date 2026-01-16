@@ -12,6 +12,8 @@ resource "null_resource" "mithril_bootstrap" {
     image_id                         = var.mithril_image_id,
     cardano_image_id                 = var.cardano_image_id,
     cardano_image_registry           = var.cardano_image_registry,
+    dmq_image_id                     = var.dmq_image_id,
+    dmq_image_registry               = var.dmq_image_registry,
     mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
     mithril_aggregator_auth_password = var.mithril_aggregator_auth_password,
   }

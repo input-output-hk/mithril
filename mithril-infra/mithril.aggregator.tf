@@ -1,5 +1,6 @@
 locals {
   mithril_aggregator_relay_mithril_listen_port            = 6060
+  mithril_aggregator_dmq_port                             = 6161
   mithril_aggregator_ancillary_signer_gcp_kms_credentials = base64decode(var.mithril_aggregator_ancillary_signer_gcp_kms_credentials)
 }
 
@@ -13,6 +14,8 @@ resource "null_resource" "mithril_aggregator" {
     cardano_image_id                                                          = var.cardano_image_id,
     cardano_image_registry                                                    = var.cardano_image_registry,
     image_id                                                                  = var.mithril_image_id,
+    dmq_image_id                                                              = var.dmq_image_id,
+    dmq_image_registry                                                        = var.dmq_image_registry,
     mithril_aggregator_auth_username                                          = var.mithril_aggregator_auth_username,
     mithril_aggregator_auth_password                                          = var.mithril_aggregator_auth_password
     mithril_aggregator_signed_entity_types                                    = var.mithril_aggregator_signed_entity_types,
@@ -69,6 +72,48 @@ if [ "$FOUND_CONFIGURATION" = "false" ]; then
   exit 1
 fi
 EOT
+      ,
+      <<-EOT
+set -e
+# Setup dmq node configuration
+AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/dmq
+rm -rf $AGGREGATOR_CONFIG_DIRECTORY
+mkdir -p $AGGREGATOR_CONFIG_DIRECTORY
+cp -R /home/curry/docker/dmq/config/ $AGGREGATOR_CONFIG_DIRECTORY
+
+# Setup dmq node ipc folder (to avoid permission issues)
+mkdir -p $AGGREGATOR_CONFIG_DIRECTORY/ipc
+
+# Setup dmq node config
+cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
+rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
+mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
+
+# Setup dmq node topology for signer relay peers
+SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+  cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+  rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+  mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+done
+
+# Setup dmq node topology for bootstrap peer
+if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+  BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
+  for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
+    BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
+    BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
+    cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+    rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+    mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+  done
+fi
+
+# Update dmq node topology valency
+cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+EOT
     ]
   }
 
@@ -80,6 +125,8 @@ EOT
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export DMQ_IMAGE_ID='${var.dmq_image_id}'",
+      "export DMQ_IMAGE_REGISTRY=${var.dmq_image_registry}",
       "export AGGREGATOR_HOST=${local.mithril_aggregator_host}",
       "export GOOGLE_APPLICATION_CREDENTIALS_JSON='${local.google_cloud_storage_credentials_json}'",
       "export SIGNED_ENTITY_TYPES='${var.mithril_aggregator_signed_entity_types}'",
@@ -132,6 +179,8 @@ EOT
       ,
       "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
       "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
+      "export AGGREGATOR_DMQ_ADDR='0.0.0.0'",
+      "export AGGREGATOR_DMQ_PORT='${local.mithril_aggregator_dmq_port}'",
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
@@ -147,8 +196,9 @@ DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-aggregator-base.yaml"
 if [ "${local.mithril_aggregator_use_authentication}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-auth-override.yaml"
 fi
-# Support for aggregator P2P network
-if [ "${var.mithril_use_p2p_network}" = "true" ]; then
+# Support for aggregator P2P network (without real DMQ node)
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_real_dmq_node}" = "false" ]; then
+  
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-base-override.yaml"
 
   if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
@@ -160,8 +210,12 @@ if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-follower-override.yaml"
 fi
 # Support for DMQ protocol
-if [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
- DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-dmq-override.yaml"
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-dmq-real-node-override.yaml"
+  else
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-dmq-fake-node-override.yaml"
+  fi
 fi
 EOT
       ,

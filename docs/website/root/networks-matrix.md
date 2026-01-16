@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 Here is an updated list of all **Mithril networks**, including their configurations and current statuses:
 
-> Last update: 09/17/2025
+> Last update: 01/12/2026
 
 <Tabs>
   <TabItem value="mainnet" label="Mainnet" default>
@@ -64,6 +64,10 @@ Here is an updated list of all **Mithril networks**, including their configurati
 | **Cardano network**             | `preview`                                                                                                                                                                                                                                                                            |
 | **Cardano magic Id**            | `2`                                                                                                                                                                                                                                                                                  |
 | **Cardano node versions**       | `10.4`, `10.5`                                                                                                                                                                                                                                                                       |
+| **DMQ magic Id**                | `2147483650`                                                                                                                                                                                                                                                                         |
+| **DMQ node versions**           | `0.2.0.0-pre-4`                                                                                                                                                                                                                                                                      |
+| **DMQ bootstrap peers**         | `34.76.22.193:6161`,`34.76.22.193:11002`                                                                                                                                                                                                                                             |
+| **DMQ status**                  | Unstable 🔴                                                                                                                                                                                                                                                                          |
 | **Supported**                   | Yes :heavy_check_mark:                                                                                                                                                                                                                                                               |
 | **Status**                      | Pre-release 🟠                                                                                                                                                                                                                                                                       |
 | **Aggregator endpoint**         | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.pre-release-preview.api.mithril.network/aggregator)                                                                                                                 |
@@ -78,7 +82,11 @@ Here is an updated list of all **Mithril networks**, including their configurati
 
 ## `testing-preview`
 
-> :warning: For developers only
+:::danger
+
+This network is only for the developers of the Mithril Core team.
+
+:::
 
 | Information                     | -                                                                                                                                                                                                                                                                            |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,6 +94,10 @@ Here is an updated list of all **Mithril networks**, including their configurati
 | **Cardano network**             | `preview`                                                                                                                                                                                                                                                                    |
 | **Cardano magic Id**            | `2`                                                                                                                                                                                                                                                                          |
 | **Cardano node versions**       | `10.4`, `10.5`                                                                                                                                                                                                                                                               |
+| **DMQ magic Id**                | `2147483650`                                                                                                                                                                                                                                                                 |
+| **DMQ node versions**           | `0.2.0.0-pre-4`                                                                                                                                                                                                                                                              |
+| **DMQ bootstrap peers**         | `34.38.152.55:6161`,`34.38.152.55:11001`,`34.38.152.55:11002`,`34.38.152.55:11003`                                                                                                                                                                                           |
+| **DMQ status**                  | Unstable 🔴                                                                                                                                                                                                                                                                  |
 | **Supported**                   | Yes :heavy_check_mark:                                                                                                                                                                                                                                                       |
 | **Status**                      | Unstable 🔴                                                                                                                                                                                                                                                                  |
 | **Aggregator endpoint**         | `https://aggregator.testing-preview.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.testing-preview.api.mithril.network/aggregator)                                                                                                                 |

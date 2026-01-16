@@ -1,0 +1,20 @@
+{
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "SigSubmissionClientProtocolTracer": true,
+  "SigSubmissionServerProtocolTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": false,
+  "DebugPeerSelectionTracer": true,
+  "ValidationTracer": true
+}

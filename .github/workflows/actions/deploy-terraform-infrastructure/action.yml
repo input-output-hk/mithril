@@ -24,6 +24,13 @@ inputs:
     description: Cardano node Docker image registry.
     required: false
     default: "ghcr.io/intersectmbo/cardano-node"
+  dmq_node_version:
+    description: DMQ node version.
+    required: true
+  dmq_node_docker_registry:
+    description: DMQ node Docker image registry.
+    required: false
+    default: "ghcr.io/intersectmbo/dmq-node"
   google_region:
     description: Google Cloud region name.
     required: true
@@ -65,6 +72,10 @@ inputs:
     default: "false"
   mithril_p2p_use_dmq_protocol:
     description: Mithril P2P network use DMQ protocol (experimental, for test only).
+    required: false
+    default: "false"
+  mithril_p2p_use_real_dmq_node:
+    description: Use the real Decentralized Message Queue (DMQ) node (experimental, for test only).
     required: false
     default: "false"
   mithril_p2p_network_bootstrap_peer:
@@ -243,6 +254,8 @@ runs:
           cardano_network                                                           = "${{ inputs.cardano_network }}"
           cardano_image_id                                                          = "${{ inputs.cardano_node_version }}"
           cardano_image_registry                                                    = "${{ inputs.cardano_node_docker_registry }}"
+          dmq_image_id                                                              = "${{ inputs.dmq_node_version }}"
+          dmq_image_registry                                                        = "${{ inputs.dmq_node_docker_registry }}"
           google_region                                                             = "${{ inputs.google_region }}"
           google_zone                                                               = "${{ inputs.google_zone }}"
           google_machine_type                                                       = "${{ inputs.google_machine_type }}"
@@ -256,6 +269,7 @@ runs:
           google_service_credentials_json_file                                      = "./google-application-credentials.json"
           mithril_use_p2p_network                                                   = "${{ inputs.mithril_use_p2p_network }}"
           mithril_p2p_use_dmq_protocol                                              = "${{ inputs.mithril_p2p_use_dmq_protocol }}"
+          mithril_p2p_use_real_dmq_node                                             = "${{ inputs.mithril_p2p_use_real_dmq_node }}"
           mithril_p2p_network_bootstrap_peer                                        = "${{ inputs.mithril_p2p_network_bootstrap_peer }}"
           mithril_p2p_signer_relay_signer_registration_mode                         = "${{ inputs.mithril_p2p_signer_relay_signer_registration_mode }}"
           mithril_p2p_signer_relay_signature_registration_mode                      = "${{ inputs.mithril_p2p_signer_relay_signature_registration_mode }}"
