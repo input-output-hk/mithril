@@ -49,16 +49,16 @@ jobs:
             mithril_signers: |
               {
                 "1" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
+                  type    = "verified",
+                  pool_id = "",
                 },
                 "2" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1t9uuagsat8hlr0n0ga4wzge0jxlyjuhl6mugrm8atc285vzkf2e",
+                  type    = "verified",
+                  pool_id = "",
                 },
                 "3" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
+                  type    = "verified",
+                  pool_id = "",
                 },
               }
             mithril_leader_aggregator_endpoint: ""
@@ -83,10 +83,6 @@ jobs:
             mithril_era_reader_adapter_type: cardano-chain
             mithril_signers: |
               {
-                "1" = {
-                  type    = "unverified-cardano-passive-norelay",
-                  pool_id = "pool13zafxlpfgymf474uv52qt557z5k5frn9p83yr55zp267wj5mpu4",
-                },
               }
             mithril_leader_aggregator_endpoint: https://aggregator.dev-preview.api.mithril.network/aggregator
             terraform_backend_bucket: hydra-terraform-admin
