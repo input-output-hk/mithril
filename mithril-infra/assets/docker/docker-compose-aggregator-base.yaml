@@ -105,8 +105,10 @@ services:
       - "traefik.http.routers.mithril-aggregator.tls=true"
       - "traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt"
       - "traefik.http.routers.mithril-aggregator.middlewares=test-compress"
+      - "traefik.http.routers.mithril-aggregator.middlewares=limit-body"
       - "traefik.http.middlewares.test-compress.compress=true"
       - "traefik.http.middlewares.test-compress.compress.encodings=gzip"
+      - "traefik.http.middlewares.limit-body.buffering.maxRequestBodyBytes=266144"
 
 networks:
   default:
