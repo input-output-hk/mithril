@@ -662,54 +662,6 @@ mod tests {
         );
     }
 
-    // TODO: move this tests to the signer and aggregator (to keep using a real db)
-    // #[tokio::test]
-    // async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order()
-    //  {
-    //     let blocks = vec![
-    //         ScannedBlock::new(
-    //             "block_hash-1",
-    //             BlockNumber(10),
-    //             SlotNumber(15),
-    //             vec!["tx_hash-1", "tx_hash-2"],
-    //         ),
-    //         ScannedBlock::new(
-    //             "block_hash-2",
-    //             BlockNumber(20),
-    //             SlotNumber(25),
-    //             vec!["tx_hash-3", "tx_hash-4"],
-    //         ),
-    //     ];
-    //     let up_to_block_number = BlockNumber(1000);
-    //     let transactions = into_transactions(&blocks);
-    //
-    //     let (importer, repository) = {
-    //         let connection = cardano_tx_db_connection().unwrap();
-    //         let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
-    //         let repository = Arc::new(CardanoTransactionRepository::new(connection_pool));
-    //         let importer = CardanoChainDataImporter::new_for_test(
-    //             Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),
-    //             repository.clone(),
-    //         );
-    //         (importer, repository)
-    //     };
-    //
-    //     importer
-    //         .import(up_to_block_number)
-    //         .await
-    //         .expect("Transactions Importer should succeed");
-    //     let cold_imported_transactions = repository.get_all_transactions().await;
-    //
-    //     importer
-    //         .import(up_to_block_number)
-    //         .await
-    //         .expect("Transactions Importer should succeed");
-    //     let warm_imported_transactions = repository.get_all_transactions().await;
-    //
-    //     assert_eq!(transactions, cold_imported_transactions);
-    //     assert_eq!(cold_imported_transactions, warm_imported_transactions);
-    // }
-
     mod transactions_import_start_point {
         use super::*;
 

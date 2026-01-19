@@ -8,14 +8,12 @@ use mithril_common::crypto_helper::MKTreeStoreInMemory;
 use mithril_common::signable_builder::{
     CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
-    SignableBuilderServiceDependencies, SignableSeedBuilder, TransactionsImporter,
+    SignableBuilderServiceDependencies, SignableSeedBuilder,
 };
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-use crate::services::{
-    AggregatorChainDataImporter, AggregatorSignableSeedBuilder, CardanoTransactionsImporter,
-};
+use crate::services::{AggregatorChainDataImporter, AggregatorSignableSeedBuilder};
 
 impl DependenciesBuilder {
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
@@ -28,7 +26,7 @@ impl DependenciesBuilder {
             self.root_logger(),
         ));
         let transaction_importer = self.get_chain_data_importer().await?;
-        let block_range_root_retriever = self.get_transaction_repository().await?;
+        let block_range_root_retriever = self.get_chain_data_repository().await?;
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreInMemory,
         >::new(
@@ -77,21 +75,6 @@ impl DependenciesBuilder {
     /// [SignableSeedBuilder] service
     pub async fn get_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
         get_dependency!(self.signable_seed_builder)
-    }
-
-    async fn build_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            self.get_block_scanner().await?,
-            self.get_transaction_repository().await?,
-            self.root_logger(),
-        ));
-
-        Ok(transactions_importer)
-    }
-
-    /// Get the [TransactionsImporter] instance
-    pub async fn get_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
-        get_dependency!(self.transactions_importer)
     }
 
     async fn build_chain_data_importer(&mut self) -> Result<Arc<AggregatorChainDataImporter>> {

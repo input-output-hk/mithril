@@ -29,13 +29,10 @@ use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
     crypto_helper::ProtocolGenesisVerifier,
-    signable_builder::{SignableBuilderService, SignableSeedBuilder, TransactionsImporter},
+    signable_builder::{SignableBuilderService, SignableSeedBuilder},
 };
 use mithril_era::{EraChecker, EraReader, EraReaderAdapter};
-use mithril_persistence::{
-    database::repository::CardanoTransactionRepository,
-    sqlite::{SqliteConnection, SqliteConnectionPool},
-};
+use mithril_persistence::sqlite::{SqliteConnection, SqliteConnectionPool};
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
@@ -159,9 +156,6 @@ pub struct DependenciesBuilder {
     /// Chain block reader
     pub chain_block_reader: Option<Arc<Mutex<dyn ChainBlockReader>>>,
 
-    /// Cardano transactions repository.
-    pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
-
     /// Cardano chain data repository.
     pub chain_data_repository: Option<Arc<AggregatorCardanoChainDataRepository>>,
 
@@ -280,9 +274,6 @@ pub struct DependenciesBuilder {
     /// Chain Data Importer
     pub chain_data_importer: Option<Arc<AggregatorChainDataImporter>>,
 
-    /// Transactions Importer
-    pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
-
     /// Upkeep service
     pub upkeep_service: Option<Arc<dyn UpkeepService>>,
 
@@ -322,7 +313,6 @@ impl DependenciesBuilder {
             chain_observer: None,
             chain_block_reader: None,
             block_scanner: None,
-            transaction_repository: None,
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
@@ -359,7 +349,6 @@ impl DependenciesBuilder {
             prover_service: None,
             signed_entity_type_lock: None,
             chain_data_importer: None,
-            transactions_importer: None,
             upkeep_service: None,
             single_signature_authenticator: None,
             metrics_service: None,

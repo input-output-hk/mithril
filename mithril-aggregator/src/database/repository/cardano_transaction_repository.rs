@@ -11,7 +11,7 @@ use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
-use crate::services::{TransactionStore, TransactionsRetriever};
+use crate::services::TransactionsRetriever;
 
 /// Wrapper around [CardanoTransactionRepository] to allow traits implementations
 pub struct AggregatorCardanoChainDataRepository {
@@ -117,51 +117,6 @@ impl TransactionsRetriever for AggregatorCardanoChainDataRepository {
                     .map(|record| record.into())
                     .collect::<Vec<CardanoTransaction>>()
             })
-    }
-}
-
-#[async_trait::async_trait]
-impl TransactionStore for CardanoTransactionRepository {
-    async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
-        self.get_transaction_highest_chain_point().await
-    }
-
-    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
-        let record = self.retrieve_highest_block_range_root().await?;
-        Ok(record.map(|record| record.range))
-    }
-
-    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
-        self.store_transactions(transactions).await
-    }
-
-    async fn get_transactions_in_range(
-        &self,
-        range: Range<BlockNumber>,
-    ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_in_range_blocks(range).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
-    }
-
-    async fn store_block_range_roots(
-        &self,
-        block_ranges: Vec<(BlockRange, MKTreeNode)>,
-    ) -> StdResult<()> {
-        if !block_ranges.is_empty() {
-            self.create_block_range_roots(block_ranges).await?;
-        }
-        Ok(())
-    }
-
-    async fn remove_rolled_back_transactions_and_block_range(
-        &self,
-        slot_number: SlotNumber,
-    ) -> StdResult<()> {
-        self.remove_rolled_back_transactions_and_block_range_by_slot_number(slot_number)
-            .await
     }
 }
 

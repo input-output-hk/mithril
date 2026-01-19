@@ -2,7 +2,6 @@ use anyhow::Context;
 use std::sync::Arc;
 
 use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
-use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::configuration::BlockfrostParameters;
 use crate::database::repository::{
@@ -120,21 +119,6 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
         get_dependency!(self.immutable_cache_provider)
-    }
-
-    async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
-        let transaction_store = CardanoTransactionRepository::new(
-            self.get_sqlite_connection_cardano_transaction_pool().await?,
-        );
-
-        Ok(Arc::new(transaction_store))
-    }
-
-    /// Transaction repository.
-    pub async fn get_transaction_repository(
-        &mut self,
-    ) -> Result<Arc<CardanoTransactionRepository>> {
-        get_dependency!(self.transaction_repository)
     }
 
     async fn build_chain_data_repository(
