@@ -26,6 +26,8 @@ resource "null_resource" "mithril_reverse_proxy" {
   provisioner "remote-exec" {
     inline = [
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
+      "export LOGGING_MAX_SIZE='${var.mithril_container_logging_max_size}'",
+      "export LOGGING_MAX_FILE='${var.mithril_container_logging_max_file}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       "docker compose -f /home/curry/docker/docker-compose-reverse-proxy.yaml --profile all up -d",

@@ -17,6 +17,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     volumes:
       - ../data/${NETWORK}/mithril-aggregator/cardano/config/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
@@ -99,6 +101,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)"
