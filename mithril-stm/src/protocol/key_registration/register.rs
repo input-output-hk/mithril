@@ -77,7 +77,7 @@ impl KeyRegistration {
         D: Digest + FixedOutput,
         L: From<RegistrationEntry> + MerkleTreeLeaf,
     >(
-        self,
+        &self,
     ) -> StmResult<MerkleTree<D, L>> {
         Ok(MerkleTree::new(
             &self

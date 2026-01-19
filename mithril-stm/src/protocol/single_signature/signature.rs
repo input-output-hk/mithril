@@ -27,6 +27,7 @@ pub struct SingleSignature {
 
 impl SingleSignature {
     /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
+    ///
     /// It only works for concatenation proof system.
     pub fn verify<D: MembershipDigest>(
         &self,

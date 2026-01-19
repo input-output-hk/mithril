@@ -38,7 +38,7 @@ impl ConcatenationClerk {
     }
 
     /// Compute the `ConcatenationProofKey` related to the used registration.
-    pub fn compute_concatenation_proof_key<D: MembershipDigest>(
+    pub fn compute_aggregate_verification_key_for_concatenation<D: MembershipDigest>(
         &self,
     ) -> AggregateVerificationKeyForConcatenation<D> {
         AggregateVerificationKeyForConcatenation::from(&self.closed_key_registration)
@@ -157,6 +157,8 @@ impl ConcatenationClerk {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
@@ -215,7 +217,7 @@ mod tests {
                 .collect();
 
             let clerk = ConcatenationClerk::new_clerk_from_signer(&signers[0]);
-            let avk = clerk.compute_concatenation_proof_key::<D>();
+            let avk = clerk.compute_aggregate_verification_key_for_concatenation::<D>();
 
             let mut all_sigs = Vec::new();
             for signer in &signers {
@@ -246,8 +248,7 @@ mod tests {
             match dedup_result {
                 Ok(valid_sigs) => {
                     assert!(!valid_sigs.is_empty(), "Should have at least one valid signature");
-
-                    for passed_sigs in valid_sigs {
+                    for passed_sigs in &valid_sigs {
                         let signer = &signers[passed_sigs.sig.signer_index as usize];
                         let verify_result = passed_sigs.sig.concatenation_signature.verify(
                             &params,
@@ -258,6 +259,18 @@ mod tests {
                         );
                         assert!(verify_result.is_ok(), "All returned signatures should verify: {:?}", verify_result);
                     }
+                    // If all signatures are valid, check that indices are unique and at least k
+                    // unique indices are collected across all signatures
+                    let mut unique_indices = HashSet::new();
+                    let mut count: u64 = 0;
+                    for sig in valid_sigs.iter() {
+                        for index in sig.sig.get_concatenation_signature_indices().iter() {
+                            count += 1;
+                            unique_indices.insert(*index);
+                        }
+                    }
+                    assert_eq!(unique_indices.len() as u64, count, "Indices should be unique");
+                    assert!(count >= k, "Should have at least k unique indices");
                 }
                 Err(error) => {
                     assert!(

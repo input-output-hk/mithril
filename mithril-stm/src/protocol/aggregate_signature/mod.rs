@@ -185,7 +185,7 @@ mod tests {
                     aggr.verify(
                         &tc.msg,
                         &tc.clerk.compute_aggregate_verification_key(),
-                        &tc.clerk.to_concatenation_clerk().parameters
+                        &tc.clerk.get_concatenation_clerk().parameters
                     )
                     .is_err()
                 )
@@ -412,7 +412,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_quorum(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |_aggr, clerk, _msg| {
-                clerk.update_k(clerk.to_concatenation_clerk().parameters.k + 7);
+                clerk.update_k(clerk.get_concatenation_clerk().parameters.k + 7);
             })
         }
         // todo: fn test_invalid_proof_individual_sig
@@ -430,7 +430,7 @@ mod tests {
                 for sig_reg in concatenation_proof.signatures.iter_mut() {
                     let mut new_indices = sig_reg.sig.get_concatenation_signature_indices();
                     for index in new_indices.iter_mut() {
-                        *index %= clerk.to_concatenation_clerk().parameters.k - 1
+                        *index %= clerk.get_concatenation_clerk().parameters.k - 1
                     }
                     sig_reg.sig.set_concatenation_signature_indices(&new_indices);
                 }

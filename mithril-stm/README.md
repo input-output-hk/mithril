@@ -100,7 +100,7 @@ let mut ps: Vec<Initializer> = Vec::with_capacity(nparties as usize);
 for stake in parties {
     let p = Initializer::new(params, stake, &mut rng);
     let entry = RegistrationEntry::new(
-        p.get_verification_key_proof_of_possession(),
+        p.get_verification_key_proof_of_possession_for_concatenation(),
         p.stake,
     )
     .unwrap();

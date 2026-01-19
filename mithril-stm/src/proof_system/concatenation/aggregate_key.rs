@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ClosedKeyRegistration, MembershipDigest, RegistrationEntryForConcatenation, Stake, StmResult,
     membership_commitment::{
-        MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf,
+        MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf, MerkleTreeError,
     },
 };
 
@@ -46,7 +46,9 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
 
         u64_bytes.copy_from_slice(&bytes[size - 8..]);
         let stake = u64::from_be_bytes(u64_bytes);
-        let mt_commitment = MerkleTreeBatchCommitment::from_bytes(&bytes[0..size - 8])?;
+        let mt_commitment = MerkleTreeBatchCommitment::from_bytes(
+            bytes.get(..size - 8).ok_or(MerkleTreeError::SerializationError)?,
+        )?;
         Ok(Self {
             mt_commitment,
             total_stake: stake,
@@ -125,7 +127,7 @@ mod tests {
                 &closed_key_reg,
             );
 
-            clerk.compute_concatenation_proof_key()
+            clerk.compute_aggregate_verification_key_for_concatenation()
         }
 
         #[test]
@@ -180,7 +182,7 @@ mod tests {
                 &closed_key_reg,
             );
 
-            clerk.compute_concatenation_proof_key()
+            clerk.compute_aggregate_verification_key_for_concatenation()
         }
 
         #[test]

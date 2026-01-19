@@ -52,7 +52,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             .collect::<Result<Vec<_>, _>>()?;
 
         let avk: AggregateVerificationKeyForConcatenation<D> =
-            clerk.compute_concatenation_proof_key();
+            clerk.compute_aggregate_verification_key_for_concatenation();
         let mut unique_sigs = ConcatenationClerk::select_valid_signatures_for_k_indices(
             &clerk.parameters,
             msg,
@@ -73,7 +73,6 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let batch_proof = clerk
             .closed_key_registration
             .key_registration
-            .clone()
             .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()?
             .compute_merkle_tree_batch_path(mt_index_list);
 
@@ -85,7 +84,8 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
 
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `BasicVerifier::preliminary_verify` with `msgp`.
+    /// Checks that each signature contains only valid indices, the lottery is indeed won by each
+    /// one of them. Validates whether all collected indices are unique and at least `k` are present.
     /// It collects leaves from signatures and checks the batch proof.
     /// After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
