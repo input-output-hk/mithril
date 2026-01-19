@@ -16,10 +16,9 @@ use super::AggregateVerificationKeyError;
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub enum AggregateVerificationKey<D: MembershipDigest> {
-    #[cfg(feature = "future_snark")]
-    /// A future aggregate verification key.
-    Future,
-
+    // #[cfg(feature = "future_snark")]
+    // /// A future aggregate verification key.
+    // Future,
     #[cfg(feature = "future_snark")]
     Snark(AggregateVerificationKeyForSnark<D>),
 
@@ -40,8 +39,6 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
             AggregateVerificationKey::Concatenation(key) => Some(key),
             #[cfg(feature = "future_snark")]
             AggregateVerificationKey::Snark(_) => None,
-            #[cfg(feature = "future_snark")]
-            AggregateVerificationKey::Future => None,
         }
     }
 
@@ -56,8 +53,6 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
             AggregateVerificationKey::Concatenation(concatenation_aggregate_verification_key) => {
                 concatenation_aggregate_verification_key.to_bytes()
             }
-            #[cfg(feature = "future_snark")]
-            AggregateVerificationKey::Future => vec![],
             #[cfg(feature = "future_snark")]
             AggregateVerificationKey::Snark(_) => vec![],
         };
@@ -83,7 +78,9 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
                 )?,
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => Ok(AggregateVerificationKey::Future),
+            AggregateSignatureType::Future => Ok(AggregateVerificationKey::Snark(
+                AggregateVerificationKeyForSnark::from_bytes(aggregate_verification_key_bytes)?,
+            )),
         }
     }
 }
@@ -106,8 +103,6 @@ impl<D: MembershipDigest> From<&AggregateVerificationKey<D>> for AggregateSignat
     fn from(aggregate_verification_key: &AggregateVerificationKey<D>) -> Self {
         match aggregate_verification_key {
             AggregateVerificationKey::Concatenation(_) => AggregateSignatureType::Concatenation,
-            #[cfg(feature = "future_snark")]
-            AggregateVerificationKey::Future => AggregateSignatureType::Future,
             #[cfg(feature = "future_snark")]
             AggregateVerificationKey::Snark(_) => AggregateSignatureType::Future,
         }
