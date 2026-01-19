@@ -1,7 +1,8 @@
+use serde::de::DeserializeOwned;
 use slog::{Logger, debug};
 use std::convert::Infallible;
 use std::sync::Arc;
-use warp::Filter;
+use warp::{Filter, Rejection};
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
@@ -16,8 +17,15 @@ use crate::{
     MetricsService, SignerRegisterer, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
+/// Extract a value from the body with a maximum length limit
+pub(crate) fn json_with_max_length<T: DeserializeOwned + Send>(
+    max_length: u64,
+) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+    warp::body::content_length_limit(max_length).and(warp::body::json())
+}
+
 /// Extract a value from the configuration
-pub fn extract_config<D: Clone + Send>(
+pub(crate) fn extract_config<D: Clone + Send>(
     state: &RouterState,
     extract: fn(&RouterConfig) -> D,
 ) -> impl Filter<Extract = (D,), Error = Infallible> + Clone + use<D> {
@@ -358,6 +366,77 @@ mod tests {
 
             let response: Response<Bytes> = request_with_client_type("UNKNOWN").await;
             assert_eq!(Some("NA".to_string()), get_body(response));
+        }
+    }
+
+    mod json_with_max_length {
+        use warp::test::RequestBuilder;
+
+        use super::*;
+
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+        struct TestPayload {
+            d: String,
+        }
+
+        impl TestPayload {
+            fn new(payload: &str) -> Self {
+                TestPayload {
+                    d: payload.to_string(),
+                }
+            }
+
+            fn json_bytes_len(&self) -> usize {
+                serde_json::to_string(self).unwrap().len()
+            }
+        }
+
+        fn route_with_json_limit(
+            max_length: u64,
+        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+            warp::path!("json-route")
+                .and(warp::post())
+                .and(json_with_max_length(max_length))
+                .then(|json: TestPayload| async move { reply::json(&json, StatusCode::OK) })
+        }
+
+        fn test_request(json: &TestPayload) -> RequestBuilder {
+            // Note: `.json` set both `content-type` and `content-length` headers
+            request().method(Method::POST.as_str()).json(json).path("/json-route")
+        }
+
+        #[tokio::test]
+        async fn test_accepts_request_with_content_length_just_below_threshold() {
+            let payload = TestPayload::new("test");
+            let threshold = payload.json_bytes_len();
+            let response = test_request(&payload)
+                .reply(&route_with_json_limit(threshold as u64))
+                .await;
+
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+
+        #[tokio::test]
+        async fn test_rejects_request_with_content_length_too_large() {
+            let payload = TestPayload::new("test");
+            let threshold = payload.json_bytes_len() - 1;
+            let response = test_request(&payload)
+                .reply(&route_with_json_limit(threshold as u64))
+                .await;
+
+            assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        }
+
+        #[tokio::test]
+        async fn test_rejects_request_missing_content_length_header() {
+            let payload = TestPayload::new("test");
+            let response = test_request(&payload)
+                // Unset content-length header
+                .header("content-length", "")
+                .reply(&route_with_json_limit(100))
+                .await;
+
+            assert_eq!(response.status(), StatusCode::LENGTH_REQUIRED);
         }
     }
 }

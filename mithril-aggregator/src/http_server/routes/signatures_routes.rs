@@ -1,6 +1,7 @@
-use crate::http_server::routes::middlewares;
-use crate::http_server::routes::router::RouterState;
 use warp::Filter;
+
+use crate::http_server::routes::router::RouterState;
+use crate::http_server::routes::{MAX_CONTENT_LENGTH, middlewares};
 
 pub fn routes(
     router_state: &RouterState,
@@ -14,7 +15,7 @@ fn register_signatures(
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("register-signatures")
         .and(warp::post())
-        .and(warp::body::json())
+        .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_certifier_service(router_state))
         .and(middlewares::with_single_signature_authenticator(

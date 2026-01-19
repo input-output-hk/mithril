@@ -2,8 +2,8 @@ use slog::warn;
 use warp::Filter;
 
 use crate::dependency_injection::EpochServiceWrapper;
-use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
+use crate::http_server::routes::{MAX_CONTENT_LENGTH, middlewares};
 
 const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
@@ -25,7 +25,7 @@ fn register_signer(
         .and(warp::header::optional::<String>(
             MITHRIL_SIGNER_VERSION_HEADER,
         ))
-        .and(warp::body::json())
+        .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signer_registerer(router_state))
         .and(middlewares::with_event_transmitter(router_state))

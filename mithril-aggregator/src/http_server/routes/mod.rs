@@ -12,6 +12,9 @@ mod signer_routes;
 mod statistics_routes;
 mod status;
 
+/// Shared maximum content length for payloads of 256kb
+const MAX_CONTENT_LENGTH: u64 = 1024 * 256;
+
 /// Match the given result and do an early return with an internal server error (500)
 /// if it was an Error. Else return the unwrapped value.
 #[macro_export]
