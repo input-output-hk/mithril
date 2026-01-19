@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mithril_cardano_node_chain::chain_importer::{CardanoChainDataImporter, ChainDataImporter};
+use mithril_cardano_node_chain::chain_importer::CardanoChainDataImporter;
 use mithril_cardano_node_internal_database::signable_builder::{
     CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
 };
@@ -13,7 +13,9 @@ use mithril_common::signable_builder::{
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-use crate::services::{AggregatorSignableSeedBuilder, CardanoTransactionsImporter};
+use crate::services::{
+    AggregatorChainDataImporter, AggregatorSignableSeedBuilder, CardanoTransactionsImporter,
+};
 
 impl DependenciesBuilder {
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
@@ -25,7 +27,7 @@ impl DependenciesBuilder {
             &self.configuration.db_directory(),
             self.root_logger(),
         ));
-        let transaction_importer = self.get_transactions_importer().await?;
+        let transaction_importer = self.get_chain_data_importer().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreInMemory,
@@ -92,18 +94,20 @@ impl DependenciesBuilder {
         get_dependency!(self.transactions_importer)
     }
 
-    async fn build_chain_data_importer(&mut self) -> Result<Arc<dyn ChainDataImporter>> {
+    async fn build_chain_data_importer(&mut self) -> Result<Arc<AggregatorChainDataImporter>> {
         let chain_data_importer = Arc::new(CardanoChainDataImporter::new(
             self.get_block_scanner().await?,
             self.get_chain_data_repository().await?,
             self.root_logger(),
         ));
 
-        Ok(chain_data_importer)
+        Ok(Arc::new(AggregatorChainDataImporter::new(
+            chain_data_importer,
+        )))
     }
 
-    /// Get the [ChainDataImporter] instance
-    pub async fn get_chain_data_importer(&mut self) -> Result<Arc<dyn ChainDataImporter>> {
+    /// Get the [AggregatorChainDataImporter] instance
+    pub async fn get_chain_data_importer(&mut self) -> Result<Arc<AggregatorChainDataImporter>> {
         get_dependency!(self.chain_data_importer)
     }
 }

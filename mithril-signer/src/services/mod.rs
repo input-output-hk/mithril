@@ -9,8 +9,8 @@
 //!
 //! Each service is defined by a public API (a trait) that is used in the controllers (runtimes).
 
-mod cardano_transactions;
 mod certifier;
+mod chain_data;
 mod epoch_service;
 mod signable_builder;
 mod signature_publisher;
@@ -18,8 +18,8 @@ mod signer_registration;
 mod single_signer;
 mod upkeep_service;
 
-pub use cardano_transactions::*;
 pub use certifier::*;
+pub use chain_data::*;
 pub use epoch_service::*;
 pub use signable_builder::*;
 pub use signature_publisher::*;

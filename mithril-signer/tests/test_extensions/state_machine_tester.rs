@@ -61,7 +61,7 @@ use mithril_signer::{
     },
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
-        MithrilEpochService, MithrilSingleSigner, SignerCertifierService,
+        MithrilEpochService, MithrilSingleSigner, SignerCertifierService, SignerChainDataImporter,
         SignerRegistrationPublisher, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SignerUpkeepService,
     },
@@ -235,11 +235,13 @@ impl StateMachineTester {
             1..=*initial_time_point.chain_point.block_number,
         )]);
 
-        let transactions_importer = Arc::new(CardanoChainDataImporter::new(
-            block_scanner.clone(),
-            chain_data_store.clone(),
-            logger.clone(),
-        ));
+        let transactions_importer = Arc::new(SignerChainDataImporter::new(Arc::new(
+            CardanoChainDataImporter::new(
+                block_scanner.clone(),
+                chain_data_store.clone(),
+                logger.clone(),
+            ),
+        )));
         let block_range_root_retriever = chain_data_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreSqlite,

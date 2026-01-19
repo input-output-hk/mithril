@@ -50,10 +50,6 @@ impl ChainDataImporter for ChainDataImporterWithVacuum {
     }
 }
 
-mithril_cardano_node_chain::impl_signable_builder_importers_for_chain_data_importer!(
-    ChainDataImporterWithVacuum
-);
-
 #[cfg(test)]
 mod tests {
     use mockall::mock;

@@ -65,8 +65,6 @@ impl ChainDataImporter for ChainDataImporterByChunk {
     }
 }
 
-crate::impl_signable_builder_importers_for_chain_data_importer!(ChainDataImporterByChunk);
-
 #[cfg(test)]
 mod tests {
     use mockall::Sequence;

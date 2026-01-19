@@ -56,8 +56,8 @@ use crate::services::{
     CardanoTransactionsPreloaderActivationSigner, ChainDataImporterWithVacuum, MithrilEpochService,
     MithrilSingleSigner, SignaturePublishRetryPolicy, SignaturePublisher,
     SignaturePublisherDelayer, SignaturePublisherDmq, SignaturePublisherNoop,
-    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
-    SignerSignedEntityConfigProvider, SignerUpkeepService,
+    SignaturePublisherRetrier, SignerCertifierService, SignerChainDataImporter,
+    SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
@@ -314,24 +314,28 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
-        let state_machine_transactions_importer = Arc::new(ChainDataImporterByChunk::new(
-            chain_data_store.clone(),
-            chain_data_importer.clone(),
-            self.config.transactions_import_block_chunk_size,
-            self.root_logger(),
-        ));
+        let state_machine_transactions_importer = Arc::new(SignerChainDataImporter::new(Arc::new(
+            ChainDataImporterByChunk::new(
+                chain_data_store.clone(),
+                chain_data_importer.clone(),
+                self.config.transactions_import_block_chunk_size,
+                self.root_logger(),
+            ),
+        )));
         // For the preloader, we want to vacuum the database after each chunk, to reclaim disk space
         // earlier than with just auto_vacuum (that execute only after the end of all import).
-        let preloader_chain_data_importer = Arc::new(ChainDataImporterByChunk::new(
-            chain_data_store.clone(),
-            Arc::new(ChainDataImporterWithVacuum::new(
-                sqlite_connection_cardano_transaction_pool.clone(),
-                chain_data_importer.clone(),
+        let preloader_chain_data_importer = Arc::new(SignerChainDataImporter::new(Arc::new(
+            ChainDataImporterByChunk::new(
+                chain_data_store.clone(),
+                Arc::new(ChainDataImporterWithVacuum::new(
+                    sqlite_connection_cardano_transaction_pool.clone(),
+                    chain_data_importer.clone(),
+                    self.root_logger(),
+                )),
+                self.config.transactions_import_block_chunk_size,
                 self.root_logger(),
-            )),
-            self.config.transactions_import_block_chunk_size,
-            self.root_logger(),
-        ));
+            ),
+        )));
         let block_range_root_retriever = chain_data_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreSqlite,

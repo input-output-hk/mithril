@@ -177,8 +177,6 @@ impl ChainDataImporter for CardanoChainDataImporter {
     }
 }
 
-crate::impl_signable_builder_importers_for_chain_data_importer!(CardanoChainDataImporter);
-
 #[cfg(test)]
 mod tests {
     use std::ops::Range;

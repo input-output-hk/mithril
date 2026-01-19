@@ -17,7 +17,6 @@ use warp::Filter;
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
-    chain_importer::ChainDataImporter,
     chain_observer::{CardanoCliRunner, ChainObserver},
     chain_reader::ChainBlockReader,
     chain_scanner::BlockScanner,
@@ -56,9 +55,9 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        CertificateChainSynchronizer, CertifierService, MessageService,
-        MithrilSignerRegistrationFollower, ProverService, SignedEntityService, SignerSynchronizer,
-        Snapshotter, StakeDistributionService, UpkeepService,
+        AggregatorChainDataImporter, CertificateChainSynchronizer, CertifierService,
+        MessageService, MithrilSignerRegistrationFollower, ProverService, SignedEntityService,
+        SignerSynchronizer, Snapshotter, StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
 };
@@ -279,7 +278,7 @@ pub struct DependenciesBuilder {
     pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
 
     /// Chain Data Importer
-    pub chain_data_importer: Option<Arc<dyn ChainDataImporter>>,
+    pub chain_data_importer: Option<Arc<AggregatorChainDataImporter>>,
 
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
