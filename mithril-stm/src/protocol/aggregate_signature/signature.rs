@@ -16,7 +16,8 @@ pub enum AggregateSignatureType {
     /// Concatenation proof system.
     #[default]
     Concatenation,
-    /// Snark proof system. NOT IMPLEMENTED YET
+    /// Snark proof system.
+    /// TODO: Implement this variant everywhere
     #[cfg(feature = "future_snark")]
     Snark,
 }
@@ -51,7 +52,7 @@ impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureTyp
         match aggr_sig {
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => AggregateSignatureType::Snark,
+            AggregateSignature::Snark => AggregateSignatureType::Snark,
         }
     }
 }
@@ -86,9 +87,10 @@ impl Display for AggregateSignatureType {
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub enum AggregateSignature<D: MembershipDigest> {
-    /// A future proof system.
+    /// Snark proof system.
+    /// TODO: Implement this variant everywhere
     #[cfg(feature = "future_snark")]
-    Future,
+    Snark,
 
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
@@ -113,7 +115,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 parameters,
             ),
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => Err(anyhow!(
+            AggregateSignature::Snark => Err(anyhow!(
                 AggregateSignatureError::UnsupportedProofSystem(self.into())
             )),
         }
@@ -169,7 +171,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 concatenation_proof.to_bytes()
             }
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => vec![],
+            AggregateSignature::Snark => vec![],
         };
         aggregate_signature_bytes.append(&mut proof_bytes);
 
@@ -188,7 +190,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 ConcatenationProof::from_bytes(proof_bytes)?,
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Snark => Ok(AggregateSignature::Future),
+            AggregateSignatureType::Snark => Ok(AggregateSignature::Snark),
         }
     }
 
@@ -197,7 +199,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         match self {
             AggregateSignature::Concatenation(proof) => Some(proof),
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => None,
+            AggregateSignature::Snark => None,
         }
     }
 }

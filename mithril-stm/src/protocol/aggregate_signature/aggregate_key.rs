@@ -16,9 +16,6 @@ use super::AggregateVerificationKeyError;
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub enum AggregateVerificationKey<D: MembershipDigest> {
-    // #[cfg(feature = "future_snark")]
-    // /// A future aggregate verification key.
-    // Future,
     #[cfg(feature = "future_snark")]
     Snark(AggregateVerificationKeyForSnark<D>),
 
