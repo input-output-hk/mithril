@@ -45,10 +45,10 @@ fn main() {
 
     // The public keys are broadcast. All participants will have the same keys.
     let parties_pks: Vec<VerificationKeyProofOfPossessionForConcatenation> = vec![
-        party_0_init.get_verification_key_proof_of_possession(),
-        party_1_init.get_verification_key_proof_of_possession(),
-        party_2_init.get_verification_key_proof_of_possession(),
-        party_3_init.get_verification_key_proof_of_possession(),
+        party_0_init.get_verification_key_proof_of_possession_for_concatenation(),
+        party_1_init.get_verification_key_proof_of_possession_for_concatenation(),
+        party_2_init.get_verification_key_proof_of_possession_for_concatenation(),
+        party_3_init.get_verification_key_proof_of_possession_for_concatenation(),
     ];
 
     // Now, each party generates their own KeyReg instance, and registers all other participating

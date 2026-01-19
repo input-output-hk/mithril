@@ -379,7 +379,8 @@ impl ProtocolDemonstrator for Demonstrator {
                 party_id: party.clone().party_id,
                 stake: party.stake,
                 verification_key: key_encode_hex(
-                    protocol_initializer.get_verification_key_proof_of_possession(),
+                    protocol_initializer
+                        .get_verification_key_proof_of_possession_for_concatenation(),
                 )
                 .unwrap(),
                 initializer: key_encode_hex(protocol_initializer.clone()).unwrap(),

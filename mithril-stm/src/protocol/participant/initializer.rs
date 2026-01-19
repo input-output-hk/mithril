@@ -41,11 +41,18 @@ impl Initializer {
         }
     }
 
-    /// Tries to generate a new signer. First, checks whether the registration is closed by the
-    /// total stake of the registration. Fails if the registration is not closed. Then, it checks
-    /// whether the initializer is registered and gets the signer index. If not, returns an error.
-    /// Sets up the merkle tree commitment and creates the signer of each system (for now, only the
-    /// concatenation proof system signer), then it creates and returns the signer.
+    /// Attempts to generate a new signer from the current registration state.
+    ///
+    /// # Process
+    /// 1. Verifies that registration is closed (determined by total stake threshold)
+    /// 2. Confirms the initializer is registered and retrieves its signer index
+    /// 3. Constructs the Merkle tree commitment
+    /// 4. Creates the underlying proof system signer (currently only the concatenation proof system)
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Registration is not yet closed
+    /// - The initializer is not registered
     pub fn try_create_signer<D: MembershipDigest>(
         self,
         closed_key_registration: &ClosedKeyRegistration,
@@ -63,7 +70,6 @@ impl Initializer {
 
         let key_registration_commitment = closed_key_registration
             .key_registration
-            .clone()
             .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
         )?;
 
@@ -88,7 +94,7 @@ impl Initializer {
     }
 
     /// Extract the verification key with proof of possession.
-    pub fn get_verification_key_proof_of_possession(
+    pub fn get_verification_key_proof_of_possession_for_concatenation(
         &self,
     ) -> VerificationKeyProofOfPossessionForConcatenation {
         self.bls_verification_key_proof_of_possession
@@ -138,8 +144,8 @@ impl PartialEq for Initializer {
         self.stake == other.stake
             && self.parameters == other.parameters
             && self.bls_signing_key.to_bytes() == other.bls_signing_key.to_bytes()
-            && self.get_verification_key_proof_of_possession()
-                == other.get_verification_key_proof_of_possession()
+            && self.get_verification_key_proof_of_possession_for_concatenation()
+                == other.get_verification_key_proof_of_possession_for_concatenation()
     }
 }
 

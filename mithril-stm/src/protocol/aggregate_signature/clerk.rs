@@ -52,7 +52,7 @@ impl<D: MembershipDigest> Clerk<D> {
     ) -> StmResult<AggregateSignature<D>> {
         match aggregate_signature_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::aggregate_signatures(self.to_concatenation_clerk(), sigs, msg)
+                ConcatenationProof::aggregate_signatures(self.get_concatenation_clerk(), sigs, msg)
                     .with_context(|| {
                         format!(
                             "Signatures failed to aggregate for type {}",
@@ -68,15 +68,17 @@ impl<D: MembershipDigest> Clerk<D> {
     }
 
     /// Get the concatenation clerk.
-    pub fn to_concatenation_clerk(&self) -> &ConcatenationClerk {
+    pub fn get_concatenation_clerk(&self) -> &ConcatenationClerk {
         &self.concatenation_proof_clerk
     }
 
     /// Compute the aggregate verification key.
     /// It computes only the concatenation aggregate verification key for now.
+    /// Needs to be revised when implementing SNARK pre-aggregation primitives
     pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::Concatenation(
-            self.concatenation_proof_clerk.compute_concatenation_proof_key(),
+            self.concatenation_proof_clerk
+                .compute_aggregate_verification_key_for_concatenation(),
         )
     }
 
@@ -86,7 +88,7 @@ impl<D: MembershipDigest> Clerk<D> {
         party_index: &LotteryIndex,
     ) -> StmResult<(VerificationKeyForConcatenation, Stake)> {
         let entry = self
-            .to_concatenation_clerk()
+            .get_concatenation_clerk()
             .closed_key_registration
             .key_registration
             .get_registration_entry_for_index(party_index)?;

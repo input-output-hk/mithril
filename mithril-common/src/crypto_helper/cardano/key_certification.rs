@@ -117,7 +117,9 @@ impl StmInitializerWrapper {
         let stm_initializer = Initializer::new(params, stake, rng);
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
-                &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
+                &stm_initializer
+                    .get_verification_key_proof_of_possession_for_concatenation()
+                    .to_bytes(),
                 current_kes_period.unwrap_or_default(),
             )?;
 
@@ -137,7 +139,8 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key.
     pub fn verification_key(&self) -> VerificationKeyProofOfPossessionForConcatenation {
-        self.stm_initializer.get_verification_key_proof_of_possession()
+        self.stm_initializer
+            .get_verification_key_proof_of_possession_for_concatenation()
     }
 
     /// Extract the verification key signature.
@@ -362,7 +365,7 @@ mod test {
             Some(KesEvolutions(0)),
             initializer_1
                 .stm_initializer
-                .get_verification_key_proof_of_possession()
+                .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
         );
         assert!(key_registration_1.is_ok());
@@ -390,7 +393,7 @@ mod test {
             Some(KesEvolutions(0)),
             initializer_2
                 .stm_initializer
-                .get_verification_key_proof_of_possession()
+                .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
         );
         assert!(key_registration_2.is_ok())

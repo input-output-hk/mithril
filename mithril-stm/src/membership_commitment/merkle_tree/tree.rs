@@ -402,7 +402,7 @@ mod tests {
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
-                let pks = vec![BlsVerificationKey::default(); v.len()];
+                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
                  (MerkleTree::<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
             }
@@ -470,7 +470,7 @@ mod tests {
                                         (h in 1..max_height)
                                         (v in vec(any::<u64>(), 2..pow2_plus1(h)),
                                          proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
-                let pks = vec![BlsVerificationKey::default(); v.len()];
+                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
                 (leaves, proof)
             }
@@ -515,7 +515,7 @@ mod tests {
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
                 let mut rng = rng();
                 let size = v.len();
-                let pks = vec![BlsVerificationKey::default(); size];
+                let pks = vec![VerificationKeyForConcatenation::default(); size];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
                 let indices: Vec<usize> = (0..size).collect();
