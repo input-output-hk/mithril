@@ -17,6 +17,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/relay/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
@@ -58,6 +60,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/block-producer/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db

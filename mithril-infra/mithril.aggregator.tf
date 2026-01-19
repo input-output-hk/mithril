@@ -186,6 +186,8 @@ EOT
       "export METRICS_SERVER_IP=0.0.0.0",
       "export METRICS_SERVER_PORT=9090",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
+      "export LOGGING_MAX_SIZE='${var.mithril_container_logging_max_size}'",
+      "export LOGGING_MAX_FILE='${var.mithril_container_logging_max_file}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       <<-EOT

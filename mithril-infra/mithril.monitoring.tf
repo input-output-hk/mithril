@@ -104,6 +104,8 @@ EOT
     inline = [
       "export NETWORK=${var.cardano_network}",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
+      "export LOGGING_MAX_SIZE='${var.mithril_container_logging_max_size}'",
+      "export LOGGING_MAX_FILE='${var.mithril_container_logging_max_file}'",
       "export PROMETHEUS_HOST=${local.prometheus_host}",
       "export PROMETHEUS_AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
       "export LOKI_HOST=${local.loki_host}",

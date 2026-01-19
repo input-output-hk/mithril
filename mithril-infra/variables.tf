@@ -198,6 +198,18 @@ variable "mithril_container_logging_driver" {
   default     = "json-file"
 }
 
+variable "mithril_container_logging_max_size" {
+  type        = string
+  description = "The maximum size of the log file before it is rotated"
+  default     = "1g"
+}
+
+variable "mithril_container_logging_max_file" {
+  type        = string
+  description = "The maximum number of log files to keep"
+  default     = "2"
+}
+
 variable "mithril_use_p2p_network" {
   type        = bool
   description = "Use the P2P network layer (experimental, for test only)"

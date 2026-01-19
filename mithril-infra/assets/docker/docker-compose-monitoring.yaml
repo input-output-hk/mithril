@@ -21,6 +21,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)"
@@ -50,6 +52,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
 
   process-exporter:
     image: ncabatoff/process-exporter:latest
@@ -71,6 +75,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
 
   disk-usage-exporter:
     container_name: disk-usage-exporter
@@ -107,6 +113,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.loki.rule=Host(`${LOKI_HOST}`)"
@@ -132,6 +140,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
 
 networks:
   default:

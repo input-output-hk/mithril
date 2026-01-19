@@ -2,6 +2,7 @@
   "PeerSharing": true,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
+  "LocalStateQueryTracer": true,
   "ConnectionManagerTracer": true,
   "DiffusionTracer": true,
   "InboundGovernorTracer": true,

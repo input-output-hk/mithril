@@ -24,6 +24,8 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+        max-size: "${LOGGING_MAX_SIZE}"
+        max-file: "${LOGGING_MAX_FILE}"
     command:
       [
         "--configuration-file",
