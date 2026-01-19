@@ -1,3 +1,6 @@
+use digest::generic_array::typenum::U32;
+use digest::{FixedOutput, HashMarker, Output, OutputSizeUser, Reset, Update};
+// use midnight_circuits::hash::poseidon::{NativeSpec, PoseidonNative};
 use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
 use midnight_curves::Fq as JubjubBase;
 
@@ -19,6 +22,62 @@ pub(crate) fn compute_poseidon_digest(input: &[BaseFieldElement]) -> BaseFieldEl
 
     BaseFieldElement(PoseidonChip::<JubjubBase>::hash(&poseidon_input))
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct MidnightPoseidonDigest {
+    buffer: Vec<u8>,
+}
+
+impl MidnightPoseidonDigest {
+    pub fn new() -> Self {
+        Self { buffer: Vec::new() }
+    }
+}
+
+impl Update for MidnightPoseidonDigest {
+    fn update(&mut self, data: &[u8]) {
+        // Collect bytes. In a production version, you'd chunk these
+        // into 31-byte or 32-byte field elements immediately.
+        self.buffer.extend_from_slice(data);
+    }
+}
+
+impl OutputSizeUser for MidnightPoseidonDigest {
+    type OutputSize = U32;
+}
+
+impl FixedOutput for MidnightPoseidonDigest {
+    fn finalize_into(self, out: &mut Output<Self>) {
+        // 1. Convert buffered bytes to Scalar elements
+        // This is where you follow Midnight's specific padding/chunking
+        let poseidon_input = self
+            .buffer
+            .chunks_exact(32)
+            .map(|c| {
+                JubjubBase::from_raw([
+                    u64::from_le_bytes(c[0..8].try_into().unwrap()),
+                    u64::from_le_bytes(c[8..16].try_into().unwrap()),
+                    u64::from_le_bytes(c[16..24].try_into().unwrap()),
+                    u64::from_le_bytes(c[24..32].try_into().unwrap()),
+                ])
+            })
+            .collect::<Vec<JubjubBase>>();
+        // let poseidon_chip = PoseidonChip::from(self.chip_config);
+        let result: JubjubBase = PoseidonChip::<JubjubBase>::hash(&poseidon_input);
+
+        // 4. Output as bytes
+        out.copy_from_slice(&result.to_bytes_le());
+    }
+}
+
+impl Reset for MidnightPoseidonDigest {
+    fn reset(&mut self) {
+        self.buffer.clear();
+        // If your sponge has internal state, reset that here too.
+    }
+}
+
+impl HashMarker for MidnightPoseidonDigest {}
 
 #[cfg(test)]
 mod test {
