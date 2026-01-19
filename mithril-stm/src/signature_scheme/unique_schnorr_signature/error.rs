@@ -17,6 +17,10 @@ pub enum UniqueSchnorrSignatureError {
     #[error("Invalid scalar field element bytes")]
     ScalarFieldElementSerialization,
 
+    /// This error occurs when the serialization of the base field bytes failed
+    #[error("Invalid base field element bytes")]
+    BaseFieldElementSerialization,
+
     /// This error occurs when the serialization of the projective point bytes failed
     #[error("Invalid projective point bytes")]
     ProjectivePointSerialization,
