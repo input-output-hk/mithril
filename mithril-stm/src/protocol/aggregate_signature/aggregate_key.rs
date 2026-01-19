@@ -78,7 +78,7 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
                 )?,
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => Ok(AggregateVerificationKey::Snark(
+            AggregateSignatureType::Snark => Ok(AggregateVerificationKey::Snark(
                 AggregateVerificationKeyForSnark::from_bytes(aggregate_verification_key_bytes)?,
             )),
         }
@@ -104,7 +104,7 @@ impl<D: MembershipDigest> From<&AggregateVerificationKey<D>> for AggregateSignat
         match aggregate_verification_key {
             AggregateVerificationKey::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_snark")]
-            AggregateVerificationKey::Snark(_) => AggregateSignatureType::Future,
+            AggregateVerificationKey::Snark(_) => AggregateSignatureType::Snark,
         }
     }
 }

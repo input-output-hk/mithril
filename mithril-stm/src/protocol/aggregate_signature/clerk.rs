@@ -61,7 +61,7 @@ impl<D: MembershipDigest> Clerk<D> {
                     })?,
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => Err(anyhow!(
+            AggregateSignatureType::Snark => Err(anyhow!(
                 AggregationError::UnsupportedProofSystem(aggregate_signature_type)
             )),
         }
