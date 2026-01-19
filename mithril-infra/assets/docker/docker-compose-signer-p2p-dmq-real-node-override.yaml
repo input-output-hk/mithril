@@ -4,7 +4,6 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/ipc:/ipc-dmq
     environment:
       - DMQ_NODE_SOCKET_PATH=/ipc-dmq/dmq.socket
-      - NETWORK_MAGIC=${NETWORK_MAGIC}
     depends_on:
       dmq-node-block-producer:
         condition: service_started
