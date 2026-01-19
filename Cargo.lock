@@ -3879,7 +3879,6 @@ dependencies = [
  "flate2",
  "gcloud-kms",
  "gcloud-storage",
- "hex",
  "http",
  "httpmock",
  "mithril-aggregator-client",
