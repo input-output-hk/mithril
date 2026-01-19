@@ -1,7 +1,7 @@
 use warp::Filter;
 
-use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
+use crate::http_server::routes::{MAX_CONTENT_LENGTH, middlewares};
 
 pub fn routes(
     router_state: &RouterState,
@@ -20,7 +20,7 @@ fn post_statistics(
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
-        .and(warp::body::json())
+        .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -34,7 +34,7 @@ fn post_cardano_database_immutable_files_restored(
     warp::path!("statistics" / "cardano-database" / "immutable-files-restored")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
-        .and(warp::body::json())
+        .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_immutable_files_restored)
