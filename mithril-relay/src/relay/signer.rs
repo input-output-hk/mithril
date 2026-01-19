@@ -21,6 +21,7 @@ use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_addr
 
 use crate::{
     p2p::{Peer, PeerEvent},
+    relay::MAX_CONTENT_LENGTH,
     repeater::MessageRepeater,
 };
 
@@ -182,7 +183,7 @@ impl SignerRelay {
                 .and_then(handlers::aggregator_features_handler)
                 .or(warp::path("register-signatures")
                     .and(warp::post())
-                    .and(warp::body::json())
+                    .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
                     .and(middlewares::with_signer_relay_mode(
                         configuration.signature_registration_mode.clone(),
                     ))
@@ -196,7 +197,7 @@ impl SignerRelay {
                     .and_then(handlers::register_signatures_handler))
                 .or(warp::path("register-signer")
                     .and(warp::post())
-                    .and(warp::body::json())
+                    .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
                     .and(middlewares::with_signer_relay_mode(
                         configuration.signer_registration_mode.clone(),
                     ))
@@ -327,13 +328,21 @@ impl SignerRelay {
 }
 
 mod middlewares {
+    use serde::de::DeserializeOwned;
     use std::{convert::Infallible, fmt::Debug, sync::Arc};
     use tokio::sync::mpsc::UnboundedSender;
-    use warp::Filter;
+    use warp::{Filter, Rejection};
 
     use crate::repeater::MessageRepeater;
 
     use super::SignerRelayMode;
+
+    /// Extract a value from the body with a maximum length limit
+    pub fn json_with_max_length<T: DeserializeOwned + Send>(
+        max_length: u64,
+    ) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+        warp::body::content_length_limit(max_length).and(warp::body::json())
+    }
 
     pub fn with_logger(
         logger: &slog::Logger,
