@@ -105,66 +105,70 @@ EOT
       ,
       <<-EOT
 set -e
-# Setup DMQ node configuration
-SIGNER__TYPES="relay block-producer"
-for SIGNER__TYPE in $SIGNER__TYPES; do
-  # Copy the DMQ node configuration files to the signer
-  SIGNER__TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/$SIGNER__TYPE/config
-  rm -rf $SIGNER__TYPE_CONFIG_DIRECTORY
-  mkdir -p $SIGNER__TYPE_CONFIG_DIRECTORY
-  cp -R /home/curry/docker/dmq/config/* $SIGNER__TYPE_CONFIG_DIRECTORY/
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
+    # Setup DMQ node configuration
+    SIGNER__TYPES="relay block-producer"
+    for SIGNER__TYPE in $SIGNER__TYPES; do
+      # Copy the DMQ node configuration files to the signer
+      SIGNER__TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/$SIGNER__TYPE/config
+      rm -rf $SIGNER__TYPE_CONFIG_DIRECTORY
+      mkdir -p $SIGNER__TYPE_CONFIG_DIRECTORY
+      cp -R /home/curry/docker/dmq/config/* $SIGNER__TYPE_CONFIG_DIRECTORY/
 
-  # Setup config.json with network magic and type-specific settings
-  if [ "$SIGNER__TYPE" = "block-producer" ]; then
-    # Block-producer: disable PeerSharing
-    cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "PeerSharing": false}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
-  else
-    # Relay: keep default PeerSharing
-    cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
-  fi
-  rm -f $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
-  mv $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
-done
+      # Setup config.json with network magic and type-specific settings
+      if [ "$SIGNER__TYPE" = "block-producer" ]; then
+        # Block-producer: disable PeerSharing
+        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "PeerSharing": false}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+      else
+        # Relay: keep default PeerSharing
+        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+      fi
+      rm -f $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
+      mv $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
+    done
 
-# Setup DMQ block-producer topology (connects ONLY to local relay via external IP)
-DMQ_BP_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/block-producer/config
-cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].accessPoints = [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_dmq_relay_port[each.key]}}]' | jq '.localRoots[0].advertise = false' | jq '.localRoots[0].trustable = true' | jq '.localRoots[0].valency = 1' > $DMQ_BP_CONFIG_DIRECTORY/topology.json
+    # Setup DMQ block-producer topology (connects ONLY to local relay via external IP)
+    DMQ_BP_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/block-producer/config
+    cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].accessPoints = [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_dmq_relay_port[each.key]}}]' | jq '.localRoots[0].advertise = false' | jq '.localRoots[0].trustable = true' | jq '.localRoots[0].valency = 1' > $DMQ_BP_CONFIG_DIRECTORY/topology.json
 
-# Setup DMQ relay topology (connects to aggregator + other signer relays + bootstrap peers)
-DMQ_RELAY_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/config
-cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_aggregator_dmq_port}}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+    # Setup DMQ relay topology (connects to aggregator + other signer relays + bootstrap peers)
+    DMQ_RELAY_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/config
+    cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_aggregator_dmq_port}}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
 
-# Add signer relay peers to DMQ relay topology
-SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
-for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
-  if [ "$SIGNER_PEER_PORT" != "${local.mithril_signers_dmq_relay_port[each.key]}" ]; then
-    cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+    # Add signer relay peers to DMQ relay topology
+    SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+    for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+      if [ "$SIGNER_PEER_PORT" != "${local.mithril_signers_dmq_relay_port[each.key]}" ]; then
+        cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+        rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+        mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+      fi
+    done
+
+    # Add bootstrap peers to DMQ relay topology
+    if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+      BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
+      for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
+        BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
+        BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
+        cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+        rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+        mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+      done
+    fi
+
+    # Update DMQ relay topology valency
+    cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
     rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
     mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-  fi
-done
 
-# Add bootstrap peers to DMQ relay topology
-if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
-  BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
-  for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
-    BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
-    BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
-    cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
-    rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-    mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-  done
+    # Update DMQ block-producer topology valency
+    cat $DMQ_BP_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_BP_CONFIG_DIRECTORY/topology.json.new
+    rm -f $DMQ_BP_CONFIG_DIRECTORY/topology.json
+    mv $DMQ_BP_CONFIG_DIRECTORY/topology.json.new $DMQ_BP_CONFIG_DIRECTORY/topology.json
+  fi
 fi
-
-# Update DMQ relay topology valency
-cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
-rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-
-# Update DMQ block-producer topology valency
-cat $DMQ_BP_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_BP_CONFIG_DIRECTORY/topology.json.new
-rm -f $DMQ_BP_CONFIG_DIRECTORY/topology.json
-mv $DMQ_BP_CONFIG_DIRECTORY/topology.json.new $DMQ_BP_CONFIG_DIRECTORY/topology.json
 EOT
     ]
   }
