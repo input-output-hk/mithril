@@ -17,62 +17,7 @@ use mithril_common::{
 
 use crate::entities::{ImmutableFile, ImmutableFileListingError};
 
-/// A digester than can compute the digest used for mithril signatures
-///
-/// If you want to mock it using mockall:
-/// ```
-/// mod test {
-///     use anyhow::anyhow;
-///     use async_trait::async_trait;
-///     use mockall::mock;
-///     use std::ops::RangeInclusive;
-///     use std::path::Path;
-///
-///     use mithril_cardano_node_internal_database::digesters::{ComputedImmutablesDigests, ImmutableDigester, ImmutableDigesterError};
-///     use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
-///     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
-///
-///     mock! {
-///         pub ImmutableDigesterImpl { }
-///
-///         #[async_trait]
-///         impl ImmutableDigester for ImmutableDigesterImpl {
-///             async fn compute_digest(
-///               &self,
-///               dirpath: &Path,
-///               beacon: &CardanoDbBeacon,
-///             ) -> Result<String, ImmutableDigesterError>;
-///
-///             async fn compute_digests_for_range(
-///               &self,
-///               dirpath: &Path,
-///               range: &RangeInclusive<ImmutableFileNumber>,
-///             ) -> Result<ComputedImmutablesDigests, ImmutableDigesterError>;
-///
-///            async fn compute_merkle_tree(
-///               &self,
-///              dirpath: &Path,
-///              beacon: &CardanoDbBeacon,
-///           ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError>;
-///         }
-///     }
-///
-///     #[test]
-///     fn test_mock() {
-///         let mut mock = MockDigesterImpl::new();
-///         mock.expect_compute_digest().return_once(|_, _| {
-///             Err(ImmutableDigesterError::NotEnoughImmutable {
-///                 expected_number: 3,
-///                 found_number: None,
-///                 db_dir: PathBuff::new(),
-///             })
-///         });
-///         mock.expect_compute_merkle_tree().return_once(|_, _| {
-///            Err(ImmutableDigesterError::MerkleTreeComputationError(anyhow!("Error")))
-///         });
-///     }
-/// }
-/// ```
+/// A digester that can compute the digest used for mithril signatures
 #[async_trait]
 pub trait ImmutableDigester: Sync + Send {
     /// Compute the digest
