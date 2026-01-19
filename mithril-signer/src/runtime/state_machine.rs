@@ -498,7 +498,7 @@ mod tests {
 
     use crate::RegisteredSigners;
     use crate::runtime::runner::MockSignerRunner;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

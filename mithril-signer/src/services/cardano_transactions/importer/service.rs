@@ -230,7 +230,7 @@ mod tests {
     use mithril_persistence::sqlite::SqliteConnectionPool;
 
     use crate::database::test_helper::cardano_tx_db_connection;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

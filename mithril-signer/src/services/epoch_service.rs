@@ -326,7 +326,7 @@ impl MithrilEpochService {
     pub fn new_with_dumb_dependencies() -> Self {
         use crate::database::repository::StakePoolStore;
         use crate::database::test_helper::main_db_connection;
-        use crate::test_tools::TestLogger;
+        use crate::test::TestLogger;
 
         let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
@@ -440,7 +440,7 @@ mod tests {
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
     use crate::services::MithrilProtocolInitializerBuilder;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

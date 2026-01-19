@@ -494,7 +494,7 @@ mod tests {
         use std::collections::BTreeSet;
         use tokio::sync::RwLock;
 
-        use crate::test_tools::TestLogger;
+        use crate::test::TestLogger;
 
         use super::*;
 
