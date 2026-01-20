@@ -26,7 +26,7 @@ pub struct ChainDataImporterByChunk {
 }
 
 impl ChainDataImporterByChunk {
-    /// Create a new instance of `TransactionsImporterByChunk`.
+    /// Create a new instance of `ChainDataImporterByChunk`.
     pub fn new(
         highest_transaction_block_number_getter: Arc<dyn HighestStoredBlockNumberGetter>,
         wrapped_importer: Arc<dyn ChainDataImporter>,
