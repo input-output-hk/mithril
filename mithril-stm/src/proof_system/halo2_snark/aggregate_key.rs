@@ -2,19 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     MembershipDigest, StmResult,
-    membership_commitment::{MerkleTreeBatchCommitment, MerkleTreeSnarkLeaf},
+    membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AggregateVerificationKeyForSnark<D: MembershipDigest> {
-    merkle_tree_commitment: MerkleTreeBatchCommitment<D::SnarkHash, MerkleTreeSnarkLeaf>,
+    merkle_tree_commitment: MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf>,
 }
 
 impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
     /// Get the Merkle tree batch commitment.
-    pub(crate) fn get_merkle_tree_batch_commitment(
+    pub(crate) fn get_merkle_tree_commitment(
         &self,
-    ) -> MerkleTreeBatchCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
+    ) -> MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
         self.merkle_tree_commitment.clone()
     }
 
@@ -28,7 +28,7 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
 
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let size = bytes.len();
-        let merkle_tree_commitment = MerkleTreeBatchCommitment::from_bytes(&bytes[0..size])?;
+        let merkle_tree_commitment = MerkleTreeCommitment::from_bytes(&bytes[0..size])?;
         Ok(Self {
             merkle_tree_commitment,
         })

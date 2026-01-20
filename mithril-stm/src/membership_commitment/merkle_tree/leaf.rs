@@ -96,9 +96,9 @@ impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
 #[cfg(feature = "future_snark")]
 impl MerkleTreeSnarkLeaf {
     fn to_bytes(self) -> Vec<u8> {
-        let mut result = [0u8; 40];
+        let mut result = [0u8; 64];
         result[..32].copy_from_slice(&self.0.to_bytes());
-        result[32..].copy_from_slice(&self.1.to_be_bytes());
+        result[32..].copy_from_slice(&self.1.to_bytes_le());
         result.to_vec()
     }
 
@@ -112,9 +112,12 @@ impl MerkleTreeSnarkLeaf {
         }
         let schnorr_verification_key = VerificationKeyForSnark::from_bytes(&bytes[..32])
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut u64_bytes = [0u8; 8];
+        let mut u64_bytes = [0u8; 32];
         u64_bytes.copy_from_slice(&bytes[32..]);
-        let eligibility_value = EligibilityValue::from_be_bytes(u64_bytes);
+        let eligibility_value = match EligibilityValue::from_bytes_le(&u64_bytes).into_option() {
+            Some(base_field_element) => Ok(base_field_element),
+            None => Err(anyhow!(MerkleTreeError::SerializationError)),
+        }?;
         Ok(MerkleTreeSnarkLeaf(
             schnorr_verification_key,
             eligibility_value,

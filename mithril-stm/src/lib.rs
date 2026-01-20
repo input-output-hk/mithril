@@ -141,16 +141,18 @@ pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchn
 use blake2::digest::consts::U64;
 use blake2::{Blake2b, digest::consts::U32};
 use digest::{Digest, FixedOutput};
+#[cfg(feature = "future_snark")]
+use midnight_curves::Fq as JubjubBase;
 use std::fmt::Debug;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
 
 #[cfg(feature = "future_snark")]
-/// The value to reach to validate a schnorr signature represented as a `u64`.
+/// The value to reach to validate a schnorr signature represented as a `JubjubBase` element.
 /// It is computed based on the stake of the party and the total stake of the
 /// registered parties.
-pub type EligibilityValue = u64;
+pub type EligibilityValue = JubjubBase;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
