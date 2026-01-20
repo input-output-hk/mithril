@@ -75,44 +75,48 @@ EOT
       ,
       <<-EOT
 set -e
-# Setup dmq node configuration
-AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/dmq
-rm -rf $AGGREGATOR_CONFIG_DIRECTORY
-mkdir -p $AGGREGATOR_CONFIG_DIRECTORY
-cp -R /home/curry/docker/dmq/config/ $AGGREGATOR_CONFIG_DIRECTORY
+if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+  if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
+    # Setup dmq node configuration
+    AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/dmq
+    rm -rf $AGGREGATOR_CONFIG_DIRECTORY
+    mkdir -p $AGGREGATOR_CONFIG_DIRECTORY
+    cp -R /home/curry/docker/dmq/config/ $AGGREGATOR_CONFIG_DIRECTORY
 
-# Setup dmq node ipc folder (to avoid permission issues)
-mkdir -p $AGGREGATOR_CONFIG_DIRECTORY/ipc
+    # Setup dmq node ipc folder (to avoid permission issues)
+    mkdir -p $AGGREGATOR_CONFIG_DIRECTORY/ipc
 
-# Setup dmq node config
-cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
-rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
-mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
+    # Setup dmq node config
+    cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
+    rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
+    mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 
-# Setup dmq node topology for signer relay peers
-SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
-for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
-  cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
-  rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-  mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-done
+    # Setup dmq node topology for signer relay peers
+    SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+    for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+      cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+      rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+      mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+    done
 
-# Setup dmq node topology for bootstrap peer
-if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
-  BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
-  for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
-    BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
-    BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
-    cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+    # Setup dmq node topology for bootstrap peer
+    if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+      BOOTSTRAP_PEERS=$(echo "${var.mithril_p2p_network_bootstrap_peer}" | tr "," " ")
+      for BOOTSTRAP_PEER in $BOOTSTRAP_PEERS; do
+        BOOTSTRAP_PEER_ADDRESS=$(echo $BOOTSTRAP_PEER | cut -d: -f1)
+        BOOTSTRAP_PEER_PORT=$(echo $BOOTSTRAP_PEER | cut -d: -f2)
+        cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "'"$BOOTSTRAP_PEER_ADDRESS"'", "port": '"$BOOTSTRAP_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+        rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+        mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+      done
+    fi
+
+    # Update dmq node topology valency
+    cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
     rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-  done
+  fi
 fi
-
-# Update dmq node topology valency
-cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
-rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
 EOT
     ]
   }
