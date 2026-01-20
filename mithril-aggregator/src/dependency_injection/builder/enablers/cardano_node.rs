@@ -133,7 +133,7 @@ impl DependenciesBuilder {
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_type_lock().await?,
-            self.get_transactions_importer().await?,
+            self.get_chain_data_importer().await?,
             self.configuration.preload_security_parameter(),
             self.get_chain_observer().await?,
             self.root_logger(),

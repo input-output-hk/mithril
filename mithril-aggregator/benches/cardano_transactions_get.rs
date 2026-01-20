@@ -3,10 +3,10 @@ use std::sync::Arc;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use sqlite::ConnectionThreadSafe;
 
-use mithril_aggregator::services::TransactionStore;
+use mithril_aggregator::database::repository::AggregatorCardanoChainDataRepository;
+use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
 use mithril_common::test::TempDir;
-use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
@@ -41,11 +41,11 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
         .collect()
 }
 
-async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
+async fn init_db(nb_transaction_in_db: usize) -> AggregatorCardanoChainDataRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
     let transactions = generate_transactions(nb_transaction_in_db);
     let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
-    let repository = CardanoTransactionRepository::new(Arc::new(
+    let repository = AggregatorCardanoChainDataRepository::new(Arc::new(
         SqliteConnectionPool::build_from_connection(connection),
     ));
     repository.store_transactions(transactions).await.unwrap();

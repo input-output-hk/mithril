@@ -2,13 +2,12 @@ use anyhow::Context;
 use std::sync::Arc;
 
 use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
-use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::configuration::BlockfrostParameters;
 use crate::database::repository::{
-    CertificateRepository, EpochSettingsStore, ImmutableFileDigestRepository,
-    OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
-    SignerStore, StakePoolStore,
+    AggregatorCardanoChainDataRepository, CertificateRepository, EpochSettingsStore,
+    ImmutableFileDigestRepository, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
+    SignerRegistrationStore, SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::tools::signer_importer::{BlockfrostSignerRetriever, SignersImporter};
@@ -122,19 +121,21 @@ impl DependenciesBuilder {
         get_dependency!(self.immutable_cache_provider)
     }
 
-    async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
-        let transaction_store = CardanoTransactionRepository::new(
+    async fn build_chain_data_repository(
+        &mut self,
+    ) -> Result<Arc<AggregatorCardanoChainDataRepository>> {
+        let chain_data_repository = AggregatorCardanoChainDataRepository::new(
             self.get_sqlite_connection_cardano_transaction_pool().await?,
         );
 
-        Ok(Arc::new(transaction_store))
+        Ok(Arc::new(chain_data_repository))
     }
 
     /// Transaction repository.
-    pub async fn get_transaction_repository(
+    pub async fn get_chain_data_repository(
         &mut self,
-    ) -> Result<Arc<CardanoTransactionRepository>> {
-        get_dependency!(self.transaction_repository)
+    ) -> Result<Arc<AggregatorCardanoChainDataRepository>> {
+        get_dependency!(self.chain_data_repository)
     }
 
     async fn build_immutable_file_digest_mapper(

@@ -3,24 +3,24 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use slog::{Logger, debug};
 
+use mithril_cardano_node_chain::chain_importer::ChainDataImporter;
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::signable_builder::TransactionsImporter;
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnectionPool};
 
-/// A decorator of [TransactionsImporter] that vacuums the database after running the import.
-pub struct TransactionsImporterWithVacuum {
+/// A decorator of [ChainDataImporter] that vacuums the database after running the import.
+pub struct ChainDataImporterWithVacuum {
     connection_pool: Arc<SqliteConnectionPool>,
-    wrapped_importer: Arc<dyn TransactionsImporter>,
+    wrapped_importer: Arc<dyn ChainDataImporter>,
     logger: Logger,
 }
 
-impl TransactionsImporterWithVacuum {
-    /// Create a new instance of [TransactionsImporterWithVacuum].
+impl ChainDataImporterWithVacuum {
+    /// Create a new instance of [ChainDataImporterWithVacuum].
     pub fn new(
         connection_pool: Arc<SqliteConnectionPool>,
-        wrapped_importer: Arc<dyn TransactionsImporter>,
+        wrapped_importer: Arc<dyn ChainDataImporter>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -32,13 +32,13 @@ impl TransactionsImporterWithVacuum {
 }
 
 #[async_trait]
-impl TransactionsImporter for TransactionsImporterWithVacuum {
+impl ChainDataImporter for ChainDataImporterWithVacuum {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
         self.wrapped_importer.import(up_to_beacon).await?;
 
         debug!(
             self.logger,
-            "Transaction Import finished - Vacuuming database to reclaim disk space"
+            "Chain data Import finished - Vacuuming database to reclaim disk space"
         );
         let connection = self.connection_pool.connection()?;
 
@@ -63,28 +63,28 @@ mod tests {
     use super::*;
 
     mock! {
-        pub TransactionImporterImpl {}
+        pub ChainDataImporter {}
 
         #[async_trait]
-        impl TransactionsImporter for TransactionImporterImpl {
+        impl ChainDataImporter for ChainDataImporter {
             async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
         }
     }
 
-    impl TransactionsImporterWithVacuum {
+    impl ChainDataImporterWithVacuum {
         pub(crate) fn new_with_mock<I>(
             connection_pool: Arc<SqliteConnectionPool>,
             importer_mock_config: I,
         ) -> Self
         where
-            I: FnOnce(&mut MockTransactionImporterImpl),
+            I: FnOnce(&mut MockChainDataImporter),
         {
-            let mut transaction_importer = MockTransactionImporterImpl::new();
-            importer_mock_config(&mut transaction_importer);
+            let mut chain_data_importer = MockChainDataImporter::new();
+            importer_mock_config(&mut chain_data_importer);
 
             Self::new(
                 connection_pool,
-                Arc::new(transaction_importer),
+                Arc::new(chain_data_importer),
                 TestLogger::stdout(),
             )
         }
@@ -114,7 +114,7 @@ mod tests {
         // make the database size grow
         mangle_db(&connection);
 
-        let importer = TransactionsImporterWithVacuum::new_with_mock(
+        let importer = ChainDataImporterWithVacuum::new_with_mock(
             Arc::new(SqliteConnectionPool::build_from_connection(connection)),
             |mock| {
                 mock.expect_import().once().returning(|_| Ok(()));

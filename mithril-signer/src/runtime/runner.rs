@@ -367,14 +367,17 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_protocol_config::model::MithrilNetworkConfigurationForEpoch;
-    use mockall::mock;
-    use mockall::predicate::eq;
     use std::collections::BTreeSet;
     use std::{path::Path, sync::Arc};
+
+    use mockall::mock;
+    use mockall::predicate::eq;
     use tokio::sync::RwLock;
 
-    use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeChainObserver};
+    use mithril_cardano_node_chain::chain_importer::CardanoChainDataImporter;
+    use mithril_cardano_node_chain::test::double::{
+        DumbBlockScanner, FakeChainObserver, InMemoryChainDataStore,
+    };
     use mithril_cardano_node_internal_database::{
         signable_builder::{
             CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
@@ -396,6 +399,7 @@ mod tests {
         },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
+    use mithril_protocol_config::model::MithrilNetworkConfigurationForEpoch;
     use mithril_protocol_config::test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
@@ -409,9 +413,9 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
-        CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        MockTransactionStore, MockUpkeepService, SignaturePublisherNoop, SignerCertifierService,
-        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        MithrilEpochService, MithrilSingleSigner, MockUpkeepService, SignaturePublisherNoop,
+        SignerCertifierService, SignerChainDataImporter, SignerSignableSeedBuilder,
+        SignerSignedEntityConfigProvider,
     };
     use crate::test::TestLogger;
     use crate::test::double::{DumbSignersRegistrationRetriever, SpySignerRegistrationPublisher};
@@ -479,12 +483,14 @@ mod tests {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbBlockScanner::new());
-        let transaction_store = Arc::new(MockTransactionStore::new());
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            transaction_parser.clone(),
-            transaction_store.clone(),
-            logger.clone(),
-        ));
+        let transaction_store = Arc::new(InMemoryChainDataStore::default());
+        let transactions_importer = Arc::new(SignerChainDataImporter::new(Arc::new(
+            CardanoChainDataImporter::new(
+                transaction_parser.clone(),
+                transaction_store.clone(),
+                logger.clone(),
+            ),
+        )));
         let block_range_root_retriever =
             Arc::new(MockBlockRangeRootRetrieverImpl::<MKTreeStoreInMemory>::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(

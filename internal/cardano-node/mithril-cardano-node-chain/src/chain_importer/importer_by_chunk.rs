@@ -6,34 +6,35 @@ use slog::{Logger, debug};
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::signable_builder::TransactionsImporter;
 
-/// Trait to get the highest transaction block number
+use crate::chain_importer::ChainDataImporter;
+
+/// Trait to get the highest stored chain data block number
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait HighestTransactionBlockNumberGetter: Send + Sync {
+pub trait HighestStoredBlockNumberGetter: Send + Sync {
     /// Get the highest known transaction block number
     async fn get(&self) -> StdResult<Option<BlockNumber>>;
 }
 
-/// A decorator of [TransactionsImporter] that does the import by chunks
-pub struct TransactionsImporterByChunk {
-    highest_transaction_block_number_getter: Arc<dyn HighestTransactionBlockNumberGetter>,
-    wrapped_importer: Arc<dyn TransactionsImporter>,
+/// A decorator of [ChainDataImporter] that does the import by chunks
+pub struct ChainDataImporterByChunk {
+    highest_stored_block_number_getter: Arc<dyn HighestStoredBlockNumberGetter>,
+    wrapped_importer: Arc<dyn ChainDataImporter>,
     chunk_size: BlockNumber,
     logger: Logger,
 }
 
-impl TransactionsImporterByChunk {
+impl ChainDataImporterByChunk {
     /// Create a new instance of `TransactionsImporterByChunk`.
     pub fn new(
-        highest_transaction_block_number_getter: Arc<dyn HighestTransactionBlockNumberGetter>,
-        wrapped_importer: Arc<dyn TransactionsImporter>,
+        highest_transaction_block_number_getter: Arc<dyn HighestStoredBlockNumberGetter>,
+        wrapped_importer: Arc<dyn ChainDataImporter>,
         chunk_size: BlockNumber,
         logger: Logger,
     ) -> Self {
         Self {
-            highest_transaction_block_number_getter,
+            highest_stored_block_number_getter: highest_transaction_block_number_getter,
             wrapped_importer,
             chunk_size,
             logger: logger.new_with_component_name::<Self>(),
@@ -42,10 +43,10 @@ impl TransactionsImporterByChunk {
 }
 
 #[async_trait]
-impl TransactionsImporter for TransactionsImporterByChunk {
+impl ChainDataImporter for ChainDataImporterByChunk {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
         let mut intermediate_up_to = self
-            .highest_transaction_block_number_getter
+            .highest_stored_block_number_getter
             .get()
             .await?
             .unwrap_or(BlockNumber(0));
@@ -66,37 +67,27 @@ impl TransactionsImporter for TransactionsImporterByChunk {
 
 #[cfg(test)]
 mod tests {
+    use mockall::Sequence;
     use mockall::predicate::eq;
-    use mockall::{Sequence, mock};
 
+    use crate::chain_importer::MockChainDataImporter;
     use crate::test::TestLogger;
 
     use super::*;
 
-    mock! {
-        pub TransactionImporterImpl {}
-
-        #[async_trait]
-        impl TransactionsImporter for TransactionImporterImpl {
-            async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
-        }
-    }
-
-    fn create_highest_transaction_block_number_getter_mock(
+    fn create_highest_stored_block_number_getter_mock(
         highest_block_number: BlockNumber,
-    ) -> Arc<dyn HighestTransactionBlockNumberGetter> {
+    ) -> Arc<dyn HighestStoredBlockNumberGetter> {
         Arc::new({
-            let mut mock = MockHighestTransactionBlockNumberGetter::new();
+            let mut mock = MockHighestStoredBlockNumberGetter::new();
             mock.expect_get().returning(move || Ok(Some(highest_block_number)));
             mock
         })
     }
 
-    fn create_transaction_importer_mock(
-        expected_values: Vec<BlockNumber>,
-    ) -> MockTransactionImporterImpl {
+    fn create_chain_data_importer_mock(expected_values: Vec<BlockNumber>) -> MockChainDataImporter {
         let mut seq = Sequence::new();
-        let mut wrapped_importer = MockTransactionImporterImpl::new();
+        let mut wrapped_importer = MockChainDataImporter::new();
         for expected_value in expected_values {
             wrapped_importer
                 .expect_import()
@@ -114,11 +105,11 @@ mod tests {
         let chunk_size = BlockNumber(5);
 
         let highest_transaction_block_number_getter =
-            create_highest_transaction_block_number_getter_mock(highest_block_number);
-        let mut wrapped_importer = MockTransactionImporterImpl::new();
+            create_highest_stored_block_number_getter_mock(highest_block_number);
+        let mut wrapped_importer = MockChainDataImporter::new();
         wrapped_importer.expect_import().never();
 
-        let importer = TransactionsImporterByChunk::new(
+        let importer = ChainDataImporterByChunk::new(
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
@@ -139,13 +130,13 @@ mod tests {
         let up_to_beacon = chunk_size - 1;
 
         let highest_transaction_block_number_getter = Arc::new({
-            let mut mock = MockHighestTransactionBlockNumberGetter::new();
+            let mut mock = MockHighestStoredBlockNumberGetter::new();
             mock.expect_get().returning(move || Ok(highest_block_number));
             mock
         });
-        let wrapped_importer = create_transaction_importer_mock(vec![up_to_beacon]);
+        let wrapped_importer = create_chain_data_importer_mock(vec![up_to_beacon]);
 
-        let importer = TransactionsImporterByChunk::new(
+        let importer = ChainDataImporterByChunk::new(
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
@@ -162,10 +153,10 @@ mod tests {
         let up_to_beacon = highest_block_number + chunk_size - 1;
 
         let highest_transaction_block_number_getter =
-            create_highest_transaction_block_number_getter_mock(highest_block_number);
-        let wrapped_importer = create_transaction_importer_mock(vec![up_to_beacon]);
+            create_highest_stored_block_number_getter_mock(highest_block_number);
+        let wrapped_importer = create_chain_data_importer_mock(vec![up_to_beacon]);
 
-        let importer = TransactionsImporterByChunk::new(
+        let importer = ChainDataImporterByChunk::new(
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
@@ -182,14 +173,14 @@ mod tests {
         let up_to_beacon = highest_block_number + chunk_size * 2 + 1;
 
         let highest_transaction_block_number_getter =
-            create_highest_transaction_block_number_getter_mock(highest_block_number);
-        let wrapped_importer = create_transaction_importer_mock(vec![
+            create_highest_stored_block_number_getter_mock(highest_block_number);
+        let wrapped_importer = create_chain_data_importer_mock(vec![
             highest_block_number + chunk_size,
             highest_block_number + chunk_size * 2,
             up_to_beacon,
         ]);
 
-        let importer = TransactionsImporterByChunk::new(
+        let importer = ChainDataImporterByChunk::new(
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
@@ -206,13 +197,13 @@ mod tests {
         let up_to_beacon = highest_block_number + chunk_size * 2;
 
         let highest_transaction_block_number_getter =
-            create_highest_transaction_block_number_getter_mock(highest_block_number);
-        let wrapped_importer = create_transaction_importer_mock(vec![
+            create_highest_stored_block_number_getter_mock(highest_block_number);
+        let wrapped_importer = create_chain_data_importer_mock(vec![
             highest_block_number + chunk_size,
             highest_block_number + chunk_size * 2,
         ]);
 
-        let importer = TransactionsImporterByChunk::new(
+        let importer = ChainDataImporterByChunk::new(
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,

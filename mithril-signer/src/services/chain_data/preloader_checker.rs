@@ -7,6 +7,7 @@ use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloaderChecker;
 use mithril_ticker::TickerService;
+
 /// CardanoTransactionsPreloaderActivationSigner
 pub struct CardanoTransactionsPreloaderActivationSigner {
     network_configuration_provider: Arc<dyn MithrilNetworkConfigurationProvider>,

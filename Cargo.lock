@@ -3865,7 +3865,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.12"
+version = "0.8.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3879,7 +3879,6 @@ dependencies = [
  "flate2",
  "gcloud-kms",
  "gcloud-storage",
- "hex",
  "http",
  "httpmock",
  "mithril-aggregator-client",
@@ -4011,7 +4010,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-chain"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4397,7 +4396,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "async-trait",

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.8.12"
+version = "0.8.13"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -25,7 +25,6 @@ config = { workspace = true }
 flate2 = "1.1.8"
 gcloud-kms = { version = "1.4.0", features = ["auth"] }
 gcloud-storage = { version = "1.2.0", features = ["auth"] }
-hex = { workspace = true }
 mithril-aggregator-client = { path = "../internal/mithril-aggregator-client" }
 mithril-cardano-node-chain = { path = "../internal/cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database" }

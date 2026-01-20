@@ -20,6 +20,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_cardano_node_chain::{
+    chain_importer::CardanoChainDataImporter,
     chain_observer::ChainObserver,
     entities::ScannedBlock,
     test::double::{DumbBlockScanner, FakeChainObserver},
@@ -45,10 +46,7 @@ use mithril_common::{
     test::double::{Dummy, fake_data},
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
-use mithril_persistence::{
-    database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
-    store::StakeStorer,
-};
+use mithril_persistence::{sqlite::SqliteConnectionPool, store::StakeStorer};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
@@ -57,12 +55,15 @@ use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::{
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
-    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
+    database::repository::{
+        ProtocolInitializerRepository, SignedBeaconRepository, SignerCardanoChainDataRepository,
+        StakePoolStore,
+    },
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
-        CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        SignerCertifierService, SignerRegistrationPublisher, SignerSignableSeedBuilder,
-        SignerSignedEntityConfigProvider, SignerUpkeepService,
+        MithrilEpochService, MithrilSingleSigner, SignerCertifierService, SignerChainDataImporter,
+        SignerRegistrationPublisher, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
 };
@@ -225,7 +226,7 @@ impl StateMachineTester {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let block_scanner = Arc::new(DumbBlockScanner::new());
-        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+        let chain_data_store = Arc::new(SignerCardanoChainDataRepository::new(
             sqlite_connection_cardano_transaction_pool.clone(),
         ));
         // Add some blocks to the scanner, else first signing of CardanoTransactions will fail because
@@ -234,12 +235,14 @@ impl StateMachineTester {
             1..=*initial_time_point.chain_point.block_number,
         )]);
 
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            block_scanner.clone(),
-            transaction_store.clone(),
-            logger.clone(),
-        ));
-        let block_range_root_retriever = transaction_store.clone();
+        let transactions_importer = Arc::new(SignerChainDataImporter::new(Arc::new(
+            CardanoChainDataImporter::new(
+                block_scanner.clone(),
+                chain_data_store.clone(),
+                logger.clone(),
+            ),
+        )));
+        let block_range_root_retriever = chain_data_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreSqlite,
         >::new(
