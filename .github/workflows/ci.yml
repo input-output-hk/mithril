@@ -180,11 +180,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
-
         include:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
+          - os: ubuntu-24.04
+            test-args: --features future_snark -p mithril-stm
+            artifact-suffix: -future-snark
           - os: ubuntu-24.04-arm
             test-args: --features full,unstable --workspace
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
@@ -237,13 +238,13 @@ jobs:
         shell: bash
         if: success() || failure()
         run: |
-          mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
+          mv target/nextest/ci/tests-result.junit.xml test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}.xml
 
       - name: Upload Tests Results
         uses: actions/upload-artifact@v5
         if: success() || failure()
         with:
-          name: test-results-${{ runner.os }}-${{ runner.arch }}
+          name: test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}
           path: ./test-results-*.xml
 
   check:
