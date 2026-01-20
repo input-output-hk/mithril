@@ -130,7 +130,6 @@ pub use signature_scheme::{
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
 pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
-#[cfg(feature = "future_snark")]
 use blake2::{Blake2b, digest::consts::U32};
 use digest::{Digest, FixedOutput};
 use std::fmt::Debug;

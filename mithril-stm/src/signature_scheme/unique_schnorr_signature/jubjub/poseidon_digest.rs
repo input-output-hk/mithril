@@ -55,6 +55,7 @@ impl FixedOutput for MidnightPoseidonDigest {
     fn finalize_into(self, out: &mut Output<Self>) {
         // The data is padded during the call to the update function
         // so there should always be a multiple of 32 bytes in the buffer
+        // We are taking chuncks of 32 u8 so it should be fine to unwrap
         let poseidon_input = self
             .buffer
             .chunks_exact(32)
@@ -67,9 +68,7 @@ impl FixedOutput for MidnightPoseidonDigest {
                 ])
             })
             .collect::<Vec<JubjubBase>>();
-        // Is calling the PoseidonChip directly here the best way to do this?
         let result: JubjubBase = PoseidonChip::<JubjubBase>::hash(&poseidon_input);
-
         out.copy_from_slice(&result.to_bytes_le());
     }
 }
@@ -127,13 +126,13 @@ mod test {
             u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
         ]);
 
-        let res = MidnightPoseidonDigest::digest(&bytes).to_vec();
-        let mut res_bytes = [0u8; 32];
-        res_bytes.copy_from_slice(&res);
-        let res_elem = JubjubBase::from_bytes_le(&res_bytes).unwrap();
-        let res = PoseidonChip::<Fq>::hash(&[elem]);
+        let digest_result = MidnightPoseidonDigest::digest(bytes).to_vec();
+        let mut digest_result_bytes = [0u8; 32];
+        digest_result_bytes.copy_from_slice(&digest_result);
+        let digest_result_elem = JubjubBase::from_bytes_le(&digest_result_bytes).unwrap();
+        let digest_result_poseidon = PoseidonChip::<Fq>::hash(&[elem]);
 
-        assert_eq!(res_elem, res);
+        assert_eq!(digest_result_elem, digest_result_poseidon);
     }
 
     #[test]
@@ -146,17 +145,17 @@ mod test {
             u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
         ]);
 
-        let res_chain = MidnightPoseidonDigest::new()
+        let digest_result = MidnightPoseidonDigest::new()
             .chain_update(bytes)
             .chain_update(bytes)
             .finalize()
             .to_vec();
-        let mut res_chain_bytes = [0u8; 32];
-        res_chain_bytes.copy_from_slice(&res_chain);
-        let res_chain_elem = JubjubBase::from_bytes_le(&res_chain_bytes).unwrap();
-        let res_chain_poseidon = PoseidonChip::<Fq>::hash(&[elem, elem]);
+        let mut digest_result_bytes = [0u8; 32];
+        digest_result_bytes.copy_from_slice(&digest_result);
+        let digest_result_elem = JubjubBase::from_bytes_le(&digest_result_bytes).unwrap();
+        let digest_result_poseidon = PoseidonChip::<Fq>::hash(&[elem, elem]);
 
-        assert_eq!(res_chain_elem, res_chain_poseidon);
+        assert_eq!(digest_result_elem, digest_result_poseidon);
     }
 
     #[test]
@@ -164,7 +163,7 @@ mod test {
         let byte = 2u8;
         let elem = JubjubBase::from(byte as u64);
 
-        let digest_result = MidnightPoseidonDigest::digest(&[byte]).to_vec();
+        let digest_result = MidnightPoseidonDigest::digest([byte]).to_vec();
         let mut digest_result_bytes = [0u8; 32];
         digest_result_bytes.copy_from_slice(&digest_result);
         let digest_result_elem = JubjubBase::from_bytes_le(&digest_result_bytes).unwrap();
@@ -192,7 +191,7 @@ mod test {
             u64::from_le_bytes(zero_bytes[8..16].try_into().unwrap()),
         ]);
 
-        let digest_result = MidnightPoseidonDigest::digest(&bytes).to_vec();
+        let digest_result = MidnightPoseidonDigest::digest(bytes).to_vec();
         let mut digest_result_bytes = [0u8; 32];
         digest_result_bytes.copy_from_slice(&digest_result);
         let digest_result_elem = JubjubBase::from_bytes_le(&digest_result_bytes).unwrap();
@@ -208,9 +207,9 @@ mod test {
         let three = JubjubBase::from(3u64);
 
         let digest_result = MidnightPoseidonDigest::new()
-            .chain_update(&[1u8])
-            .chain_update(&[3u8])
-            .chain_update(&[2u8])
+            .chain_update([1u8])
+            .chain_update([3u8])
+            .chain_update([2u8])
             .finalize()
             .to_vec();
         let mut digest_result_bytes = [0u8; 32];
