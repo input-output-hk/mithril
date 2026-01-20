@@ -115,6 +115,8 @@ mod membership_commitment;
 mod proof_system;
 mod protocol;
 mod signature_scheme;
+#[cfg(feature = "future_snark")]
+pub mod circuits;
 
 pub use protocol::*;
 pub use signature_scheme::BlsSignatureError;
