@@ -13,18 +13,30 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[[bin]]
+name = "setup"
+path = "src/circuits/halo2/bin/setup.rs"
+required-features = ["future_snark"]
+
 [features]
 default = ["rug-backend"]
-rug-backend = ["rug/default"]
-num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 benchmark-internals = [] # For benchmarking
 future_snark = [
+    "dep:dusk-jubjub",
+    "dep:dusk-poseidon",
     "dep:ff",
     "dep:group",
-    "dep:num-traits",
     "dep:midnight-circuits",
     "dep:midnight-curves",
+    "dep:midnight-proofs",
+    "dep:midnight-zk-stdlib",
+    "dep:num-integer",
+    "dep:num-traits",
+    "dep:rand",
+    "dep:subtle",
 ] # For activating snark features
+num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
+rug-backend = ["rug/default"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -32,15 +44,23 @@ blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.16", features = ["portable"] }
 digest = { workspace = true }
+dusk-jubjub = { version = "0.15.1", optional = true }
+dusk-poseidon = { version = "0.41.0", optional = true }
 ff = { version = "0.13.1", optional = true }
 group = { version = "0.13.0", optional = true }
 midnight-circuits = { version = "6.0.0", optional = true }
 midnight-curves = { version = "0.2.0", optional = true }
+midnight-proofs = { version = "0.7.0", optional = true }
+midnight-zk-stdlib = { version = "1.0.0", optional = true }
+num-bigint = "0.4.6"
+num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2.19", optional = true }
-rand_core = { workspace = true }
+rand = { version = "0.9.2", optional = true }
+rand_core = { version = "0.6", features = ["std"] }
 rayon = { workspace = true }
 serde = { workspace = true }
 sha2 = "0.10.9"
+subtle = { version = "2.5.0", optional = true }
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
@@ -57,6 +77,7 @@ num-traits = { version = "0.2.19", optional = true }
 rug = { version = "1.28.0", optional = true }
 
 [dev-dependencies]
+blake2b_simd = "1"
 criterion = { version = "0.8.1", features = ["html_reports"] }
 num-bigint = "0.4.6"
 num-rational = "0.4.2"

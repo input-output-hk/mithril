@@ -1,2 +1,5 @@
 /target
 .tags
+
+# Halo2 prototype assets (generated SRS / params)
+/src/circuits/halo2/assets/
