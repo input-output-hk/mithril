@@ -79,7 +79,7 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
   if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
     # Setup dmq node configuration
     AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/dmq
-    rm -rf $AGGREGATOR_CONFIG_DIRECTORY
+    rm -rf $AGGREGATOR_CONFIG_DIRECTORY/config
     mkdir -p $AGGREGATOR_CONFIG_DIRECTORY
     cp -R /home/curry/docker/dmq/config/ $AGGREGATOR_CONFIG_DIRECTORY
 
