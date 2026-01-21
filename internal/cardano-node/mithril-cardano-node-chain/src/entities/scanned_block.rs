@@ -2,7 +2,8 @@ use pallas_traverse::MultiEraBlock;
 use std::fmt::{Debug, Formatter};
 
 use mithril_common::entities::{
-    BlockNumber, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
+    BlockHash, BlockNumber, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
+    SlotNumber, TransactionHash,
 };
 
 /// A block scanned from a Cardano database
@@ -53,11 +54,16 @@ impl ScannedBlock {
         self.transactions_hashes.len()
     }
 
+    /// Returns the block hash as a hex string.
+    pub fn block_hash_hex(&self) -> BlockHash {
+        hex::encode(&self.block_hash)
+    }
+
     /// Convert the scanned block into a list of Cardano transactions.
     ///
     /// Consume the block.
     pub fn into_transactions(self) -> Vec<CardanoTransaction> {
-        let block_hash = hex::encode(&self.block_hash);
+        let block_hash = self.block_hash_hex();
         self.transactions_hashes
             .into_iter()
             .map(|transaction_hash| {
@@ -76,7 +82,7 @@ impl Debug for ScannedBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut debug = f.debug_struct("ScannedBlock");
         debug
-            .field("block_hash", &hex::encode(&self.block_hash))
+            .field("block_hash", &self.block_hash_hex())
             .field("block_number", &self.block_number)
             .field("slot_number", &self.slot_number)
             .field("transactions_hashes", &self.transactions_hashes)
@@ -89,7 +95,34 @@ impl From<&ScannedBlock> for ChainPoint {
         ChainPoint::new(
             scanned_block.slot_number,
             scanned_block.block_number,
-            hex::encode(&scanned_block.block_hash),
+            scanned_block.block_hash_hex(),
         )
+    }
+}
+
+impl From<ScannedBlock> for CardanoBlockWithTransactions {
+    fn from(value: ScannedBlock) -> Self {
+        CardanoBlockWithTransactions::new(
+            value.block_hash_hex(),
+            value.block_number,
+            value.slot_number,
+            value.transactions_hashes,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_hash_hex() {
+        let block = ScannedBlock::new(
+            vec![1, 2, 3],
+            BlockNumber(10),
+            SlotNumber(50),
+            vec!["tx_hash"],
+        );
+        assert_eq!("010203", block.block_hash_hex());
     }
 }
