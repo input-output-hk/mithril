@@ -64,7 +64,7 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
     if [ -d "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}" ]; then 
       # Copy the configuration files to the signer
       SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
-      rm -rf $SIGNER_TYPE_CONFIG_DIRECTORY
+      rm -rf $SIGNER_TYPE_CONFIG_DIRECTORY/config
       mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
       cp -R /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network} $SIGNER_TYPE_CONFIG_DIRECTORY
       echo $CARDANO_NODE_VERSION > $SIGNER_TYPE_CONFIG_DIRECTORY/config.version
