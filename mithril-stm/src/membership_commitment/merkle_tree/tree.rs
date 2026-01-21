@@ -234,7 +234,7 @@ mod tests {
     use rand::{rng, seq::IteratorRandom};
 
     #[cfg(feature = "future_snark")]
-    use crate::signature_scheme::MidnightPoseidonDigest;
+    use crate::hash::poseidon::MidnightPoseidonDigest;
     use crate::{
         membership_commitment::MerkleTreeConcatenationLeaf, signature_scheme::BlsVerificationKey,
     };
@@ -440,6 +440,7 @@ mod tests {
                 assert_eq!(tree_commitment.root, decoded.root);
             }
 
+            #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_tree((t, values) in arb_tree_poseidon(5)) {
                 let bytes = t.to_bytes();
@@ -487,6 +488,7 @@ mod tests {
                 assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
             }
 
+            #[cfg(feature = "future_snark")]
             #[test]
             fn test_create_invalid_batch_proof(
                 i in any::<usize>(),
@@ -529,12 +531,14 @@ mod tests {
 
         proptest! {
             #![proptest_config(ProptestConfig::with_cases(100))]
+            #[cfg(feature = "future_snark")]
             #[test]
             fn test_create_batch_proof((t, batch_values, indices) in arb_tree_arb_batch(30)) {
                 let batch_proof = t.compute_merkle_tree_batch_path(indices);
                 assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &batch_proof).is_ok());
             }
 
+            #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
                 let bp = t.compute_merkle_tree_batch_path(indices);

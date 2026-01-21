@@ -113,6 +113,8 @@
 
 #[cfg(feature = "future_snark")]
 pub mod circuits;
+#[cfg(feature = "future_snark")]
+mod hash;
 mod membership_commitment;
 mod proof_system;
 mod protocol;
@@ -135,7 +137,7 @@ use digest::{Digest, FixedOutput};
 use std::fmt::Debug;
 
 #[cfg(feature = "future_snark")]
-use crate::signature_scheme::MidnightPoseidonDigest;
+use crate::hash::poseidon::MidnightPoseidonDigest;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
