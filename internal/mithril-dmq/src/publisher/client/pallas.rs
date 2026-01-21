@@ -69,6 +69,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
         if let Err(e) = client.msg_submission().terminate_gracefully().await {
             error!(self.logger, "Failed to send Done"; "error" => ?e);
         }
+        client.abort().await;
 
         if response != Response::Accepted {
             anyhow::bail!("Failed to publish DMQ message: {:?}", response);

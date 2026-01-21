@@ -400,7 +400,7 @@ jobs:
             cardano_node_version: "10.5.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: "--skip-signature-delayer --number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-4"
+            extra_args: "--skip-signature-delayer --number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-6"
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with Haskell DMQ node (with fallback signature delayer)
           - mode: "leader-follower-dmq-haskell-with-delayer"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
@@ -408,7 +408,7 @@ jobs:
             cardano_node_version: "10.5.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-4"
+            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=haskell --dmq-node-version 0.2.0.0-pre-6"
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with fake DMQ node
           - mode: "leader-follower-dmq-fake"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
