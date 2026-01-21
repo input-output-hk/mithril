@@ -10,6 +10,9 @@ description = "A Rust implementation of Mithril Stake-based Threshold Multisigna
 categories = ["cryptography"]
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
+[package.metadata.cargo-machete]
+ignored = ["dusk-jubjub", "dusk-poseidon"]
+
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
