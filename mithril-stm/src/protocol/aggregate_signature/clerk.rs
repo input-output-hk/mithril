@@ -76,7 +76,7 @@ impl<D: MembershipDigest> Clerk<D> {
     /// It computes only the concatenation aggregate verification key for now.
     /// Needs to be revised when implementing SNARK pre-aggregation primitives
     pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
-        AggregateVerificationKey::Concatenation(
+        AggregateVerificationKey::new(
             self.concatenation_proof_clerk
                 .compute_aggregate_verification_key_for_concatenation(),
         )

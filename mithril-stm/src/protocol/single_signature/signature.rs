@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -37,12 +36,13 @@ impl SingleSignature {
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> StmResult<()> {
-        if let Some(concatenation_proof_key) = avk.to_concatenation_proof_key() {
-            self.concatenation_signature
-                .verify(params, pk, stake, concatenation_proof_key, msg)
-        } else {
-            Err(anyhow!(SignatureError::UnsupportedAggregateVerificationKey))
-        }
+        self.concatenation_signature.verify(
+            params,
+            pk,
+            stake,
+            avk.to_concatenation_aggregate_verification_key(),
+            msg,
+        )
     }
 
     /// Verify that all indices of a signature are valid.

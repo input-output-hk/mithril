@@ -109,7 +109,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
                 msg,
-                avk.to_concatenation_proof_key().unwrap(),
+                avk.to_concatenation_aggregate_verification_key(),
                 parameters,
             ),
             #[cfg(feature = "future_snark")]
@@ -144,7 +144,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     }
                     let avks = avks
                         .iter()
-                        .filter_map(|avk| avk.to_concatenation_proof_key())
+                        .map(|avk| avk.to_concatenation_aggregate_verification_key())
                         .cloned()
                         .collect::<Vec<_>>();
                     ConcatenationProof::batch_verify(&concatenation_proofs, msgs, &avks, parameters)

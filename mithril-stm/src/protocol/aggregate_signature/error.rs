@@ -30,11 +30,3 @@ pub enum AggregateSignatureError {
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
 }
-
-/// Errors which can be output by Mithril aggregate verification key.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregateVerificationKeyError {
-    /// This error occurs when the serialization of the raw bytes failed
-    #[error("Invalid bytes")]
-    SerializationError,
-}
