@@ -9,7 +9,7 @@ use crate::{
     StdResult,
     crypto_helper::{
         PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
-        ProtocolGenesisSigner,
+        ProtocolGenesisSigner, ProtocolKey,
     },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
@@ -44,7 +44,9 @@ impl CertificateGenesisProducer {
         genesis_avk: &ProtocolAggregateVerificationKey,
         genesis_epoch: &Epoch,
     ) -> StdResult<ProtocolMessage> {
-        let genesis_avk = genesis_avk.to_json_hex()?;
+        let genesis_aggregate_verification_key_for_concatenation =
+            ProtocolKey::new(genesis_avk.to_concatenation_aggregate_verification_key().to_owned());
+        let genesis_avk = genesis_aggregate_verification_key_for_concatenation.to_json_hex()?;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -117,7 +119,7 @@ mod tests {
     fn test_create_genesis_protocol_message_has_expected_keys_and_values() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let genesis_protocol_parameters = fixture.protocol_parameters();
-        let genesis_avk = fixture.compute_avk();
+        let genesis_avk = fixture.compute_aggregate_verification_key();
         let genesis_epoch = Epoch(123);
         let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &genesis_protocol_parameters,
@@ -126,7 +128,8 @@ mod tests {
         )
         .unwrap();
 
-        let expected_genesis_avk_value = fixture.compute_and_encode_avk();
+        let expected_genesis_avk_value =
+            fixture.compute_and_encode_concatenation_aggregate_verification_key();
         assert_eq!(
             protocol_message
                 .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey),

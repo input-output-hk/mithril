@@ -1,5 +1,6 @@
 use crate::crypto_helper::{
-    ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
+    ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
+    ProtocolGenesisSignature, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 use std::fmt::{Debug, Formatter};
@@ -50,7 +51,7 @@ pub struct Certificate {
     /// Aggregate verification key
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
-    pub aggregate_verification_key: ProtocolAggregateVerificationKey,
+    pub aggregate_verification_key: ProtocolAggregateVerificationKeyForConcatenation,
 
     /// Certificate signature
     pub signature: CertificateSignature,
@@ -74,7 +75,10 @@ impl Certificate {
             metadata,
             protocol_message,
             signed_message,
-            aggregate_verification_key,
+            aggregate_verification_key: aggregate_verification_key
+                .to_concatenation_aggregate_verification_key()
+                .to_owned()
+                .into(),
             signature,
         };
         certificate.hash = certificate.compute_hash();
@@ -124,6 +128,12 @@ impl Certificate {
             CertificateSignature::GenesisSignature(_) => SignedEntityType::genesis(self.epoch),
             CertificateSignature::MultiSignature(entity_type, _) => entity_type.clone(),
         }
+    }
+
+    /// Create the aggregate verification key from the certificate.
+    pub fn create_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
+        let aggregate_verification_key = &self.aggregate_verification_key;
+        ProtocolAggregateVerificationKey::new(aggregate_verification_key.to_owned().into())
     }
 }
 
@@ -197,7 +207,7 @@ mod tests {
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            fake_keys::aggregate_verification_key()[1].to_owned(),
+            fake_keys::aggregate_verification_key_for_concatenation()[1].to_owned(),
         );
 
         protocol_message
@@ -226,7 +236,13 @@ mod tests {
                 get_parties(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[0].try_into().unwrap(),
+            ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[0],
+                )
+                .unwrap()
+                .into(),
+            ),
             CertificateSignature::MultiSignature(
                 signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
@@ -272,7 +288,7 @@ mod tests {
                     let mut protocol_message_modified = certificate.protocol_message.clone();
                     protocol_message_modified.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
-                        fake_keys::aggregate_verification_key()[2].into(),
+                        fake_keys::aggregate_verification_key_for_concatenation()[2].into(),
                     );
 
                     protocol_message_modified
@@ -285,9 +301,10 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                aggregate_verification_key: fake_keys::aggregate_verification_key()[2]
-                    .try_into()
-                    .unwrap(),
+                aggregate_verification_key:
+                    fake_keys::aggregate_verification_key_for_concatenation()[2]
+                        .try_into()
+                        .unwrap(),
                 ..certificate.clone()
             }
             .compute_hash(),
@@ -340,7 +357,13 @@ mod tests {
                 get_parties(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[1].try_into().unwrap(),
+            ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[1],
+                )
+                .unwrap()
+                .into(),
+            ),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),

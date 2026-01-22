@@ -114,7 +114,8 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
     );
 
     // Protocol message
-    let next_aggregate_verification_key = fake_keys::aggregate_verification_key()[2].to_owned();
+    let next_aggregate_verification_key =
+        fake_keys::aggregate_verification_key_for_concatenation()[2].to_owned();
     let mut protocol_message = ProtocolMessage::new();
     let snapshot_digest = format!("{:0>20}", beacon.immutable_file_number);
     protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
@@ -125,7 +126,9 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
 
     // Certificate
     let previous_hash = format!("{hash}0");
-    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1].try_into().unwrap();
+    let aggregate_verification_key = fake_keys::aggregate_verification_key_for_concatenation()[1]
+        .try_into()
+        .unwrap();
     let multi_signature: ProtocolMultiSignature =
         fake_keys::multi_signature()[0].try_into().unwrap();
 

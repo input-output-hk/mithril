@@ -366,8 +366,8 @@ pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:AggregateVerificationKey](enum@mithril_stm::AggregateVerificationKey)
-pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
+/// A list of pre json hex encoded [MithrilStm:AggregateVerificationKeyForConcatenation](struct@mithril_stm::AggregateVerificationKeyForConcatenation)
+pub const fn aggregate_verification_key_for_concatenation<'a>() -> [&'a str; 3] {
     [
         "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c\
         372c38362c3232372c34372c31392c3138302c3132372c3139362c3130382c3137312c3135382c3134302c37372\
@@ -393,7 +393,7 @@ mod test {
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, SingleSignature,
+        AggregateSignature, AggregateVerificationKeyForConcatenation, SingleSignature,
         VerificationKeyProofOfPossessionForConcatenation,
     };
     use serde::{Serialize, de::DeserializeOwned};
@@ -529,7 +529,7 @@ mod test {
     #[test]
     fn assert_encoded_aggregate_verification_key_are_still_matching_concrete_type() {
         assert_can_deserialize_using_key_decode_hex::<
-            AggregateVerificationKey<ProtocolMembershipDigest>,
-        >(&aggregate_verification_key());
+            AggregateVerificationKeyForConcatenation<ProtocolMembershipDigest>,
+        >(&aggregate_verification_key_for_concatenation());
     }
 }

@@ -10,9 +10,10 @@ use crate::{
     StdResult,
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolClosedKeyRegistration, ProtocolGenesisSigner,
-        ProtocolInitializer, ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
-        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+        ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
+        ProtocolClosedKeyRegistration, ProtocolGenesisSigner, ProtocolInitializer, ProtocolOpCert,
+        ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
+        ProtocolStakeDistribution,
     },
     entities::{
         Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
@@ -176,16 +177,28 @@ impl MithrilFixture {
     }
 
     /// Compute the Aggregate Verification Key for this fixture.
-    pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
+    pub fn compute_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
         SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
             .unwrap()
             .compute_aggregate_verification_key()
     }
 
-    /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAggregateVerificationKey].
-    pub fn compute_and_encode_avk(&self) -> HexEncodedAggregateVerificationKey {
-        let avk = self.compute_avk();
-        avk.to_json_hex().unwrap()
+    /// Compute the Aggregate Verification Key for concatenation for this fixture.
+    pub fn compute_concatenation_aggregate_verification_key(
+        &self,
+    ) -> ProtocolAggregateVerificationKeyForConcatenation {
+        self.compute_aggregate_verification_key()
+            .to_concatenation_aggregate_verification_key()
+            .to_owned()
+            .into()
+    }
+
+    /// Compute the Aggregate Verification Key for concatenation for this fixture and returns it has a [HexEncodedAggregateVerificationKey].
+    pub fn compute_and_encode_concatenation_aggregate_verification_key(
+        &self,
+    ) -> HexEncodedAggregateVerificationKey {
+        let aggregate_verification_key = self.compute_concatenation_aggregate_verification_key();
+        aggregate_verification_key.to_json_hex().unwrap()
     }
 
     /// Create a genesis certificate using the fixture signers for the given beacon
@@ -194,7 +207,7 @@ impl MithrilFixture {
         network: T,
         epoch: Epoch,
     ) -> Certificate {
-        let genesis_avk = self.compute_avk();
+        let genesis_avk = self.compute_aggregate_verification_key();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(

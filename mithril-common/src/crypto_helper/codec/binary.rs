@@ -30,8 +30,8 @@ pub trait TryFromBytes: Sized {
 
 mod binary_mithril_stm {
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, Initializer, MithrilMembershipDigest,
-        Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
+        AggregateSignature, AggregateVerificationKeyForConcatenation, Initializer,
+        MithrilMembershipDigest, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
         VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
     };
 
@@ -112,13 +112,13 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for AggregateVerificationKey<D> {
+    impl TryToBytes for AggregateVerificationKeyForConcatenation<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for AggregateVerificationKey<D> {
+    impl TryFromBytes for AggregateVerificationKeyForConcatenation<D> {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }

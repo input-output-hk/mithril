@@ -367,7 +367,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
             multi_signature,
-            &certificate.aggregate_verification_key,
+            &certificate.create_aggregate_verification_key(),
             &certificate.metadata.protocol_parameters,
         )?;
         self.verify_epoch_matches_protocol_message(certificate)?;
@@ -486,7 +486,7 @@ mod tests {
 
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
-        let aggregate_verification_key = clerk.compute_aggregate_verification_key().into();
+        let aggregate_verification_key = clerk.compute_aggregate_verification_key();
         let multi_signature = clerk
             .aggregate_signatures_with_type(
                 &single_signatures,

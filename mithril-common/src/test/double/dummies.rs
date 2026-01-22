@@ -383,7 +383,7 @@ mod messages {
             );
             protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
-                fake_keys::aggregate_verification_key()[1].to_owned(),
+                fake_keys::aggregate_verification_key_for_concatenation()[1].to_owned(),
             );
             let epoch = Epoch(10);
 
@@ -395,7 +395,8 @@ mod messages {
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
-                aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
+                aggregate_verification_key:
+                    fake_keys::aggregate_verification_key_for_concatenation()[0].to_owned(),
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
             }

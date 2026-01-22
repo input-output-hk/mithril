@@ -45,7 +45,7 @@ impl MultiSigner {
 
     /// Compute aggregate verification key from stake distribution
     pub fn compute_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
-        self.protocol_clerk.compute_aggregate_verification_key().into()
+        self.protocol_clerk.compute_aggregate_verification_key()
     }
 
     /// Verify a single signature
