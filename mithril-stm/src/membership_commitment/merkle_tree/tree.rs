@@ -393,6 +393,8 @@ mod tests {
         }
     }
 
+    // Those tests are incomplete for now as we are missing the MerkleTreeSnarkLeaf
+    // They will be updated as soon as the snark leaf version is available
     #[cfg(feature = "future_snark")]
     mod poseidon_digest {
         use super::*;
@@ -400,7 +402,7 @@ mod tests {
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
-                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
+                let pks = vec![BlsVerificationKey::default(); v.len()];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
                  (MerkleTree::<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
             }
@@ -468,7 +470,7 @@ mod tests {
                                         (h in 1..max_height)
                                         (v in vec(any::<u64>(), 2..pow2_plus1(h)),
                                          proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
-                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
+                let pks = vec![BlsVerificationKey::default(); v.len()];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
                 (leaves, proof)
             }
@@ -483,7 +485,7 @@ mod tests {
             ) {
                 let t = MerkleTree::<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>::new(&values[1..]);
                 let index = i % (values.len() - 1);
-                let path_values = proof. iter().map(|x|  Blake2b::<U32>::digest(x).to_vec()).collect();
+                let path_values = proof.iter().map(|x| MidnightPoseidonDigest::digest(x).to_vec()).collect();
                 let path = MerklePath::new(path_values, index);
                 assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
             }
@@ -499,7 +501,7 @@ mod tests {
                 let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
                 let path = MerkleBatchPath{values: proof
                                 .iter()
-                                .map(|x|  Blake2b::<U32>::digest(x).to_vec())
+                                .map(|x| MidnightPoseidonDigest::digest(x).to_vec())
                                 .collect(),
                     indices,
                     hasher: PhantomData::<MidnightPoseidonDigest>
@@ -513,7 +515,7 @@ mod tests {
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<MidnightPoseidonDigest, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
                 let mut rng = rng();
                 let size = v.len();
-                let pks = vec![VerificationKeyForConcatenation::default(); size];
+                let pks = vec![BlsVerificationKey::default(); size];
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
                 let indices: Vec<usize> = (0..size).collect();

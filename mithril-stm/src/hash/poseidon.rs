@@ -6,6 +6,7 @@ use midnight_curves::Fq as JubjubBase;
 /// Wrapper to implement the Digest trait for the Poseidon hash function
 /// We need this implementation to keep the merkle tree implementation
 /// generic over the Digest used.
+///
 /// This implementation differs from the usual behavior of the digest
 /// update as documented in the update implementation.
 #[derive(Debug, Clone, Default)]
@@ -20,20 +21,20 @@ impl MidnightPoseidonDigest {
 }
 
 impl Update for MidnightPoseidonDigest {
-    /// The finalize function uses the from_raw method from JubjubBase
-    /// but this function converts a value of exactly 256 bits to a value of 255 bits
-    /// which means we can loose one bit of the input if not careful.
-    /// This is why we need to make sure that the update function input
-    /// always represent an element of JubjubBase before calling it.
-    /// A potential way to make sure we don't loose a bit of information
-    /// could be to only allow the update function to take a maximum of 32 bytes
-    /// at a time. It would be a sort of check that makes sure we're not calling
-    /// this function on "wrong" inputs somewhere in the code
-    ///
-    /// The function is also using a padding which deviates from the tradition usage
-    /// of the digest in which update([1]).update([2]) gives the same result as
-    /// update([1, 2]). We leave this functionality as is for now since this
-    /// function is only used for the merkle tree and we prefer this behavior
+    // The finalize function uses the from_raw method from JubjubBase
+    // but this function converts a value of exactly 256 bits to a value of 255 bits
+    // which means we can loose one bit of the input if not careful.
+    // This is why we need to make sure that the update function input
+    // always represent an element of JubjubBase before calling it.
+    // A potential way to make sure we don't loose a bit of information
+    // could be to only allow the update function to take a maximum of 32 bytes
+    // at a time. It would be a sort of check that makes sure we're not calling
+    // this function on "wrong" inputs somewhere in the code
+    //
+    // The function is also using a padding which deviates from the tradition usage
+    // of the digest in which update([1]).update([2]) gives the same result as
+    // update([1, 2]). We leave this functionality as is for now since this
+    // function is only used for the merkle tree and we prefer this behavior
     fn update(&mut self, data: &[u8]) {
         // Computes the next multiple of 32 as target length
         let target_len = (data.len() + 31) & !31;
@@ -203,5 +204,62 @@ mod tests {
         let poseidon_result = PoseidonChip::<JubjubBase>::hash(&[one, three, two]);
 
         assert_eq!(digest_result_elem, poseidon_result);
+    }
+
+    #[test]
+    fn test_collision_for_large_values() {
+        let mut value = [0; 32];
+        value[0] = 1;
+        let modulus_plus_one = [
+            2, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5, 216, 161, 9, 8,
+            216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115,
+        ];
+
+        let digest_result = MidnightPoseidonDigest::new().chain_update(value).finalize().to_vec();
+        let mut digest_result_bytes = [0u8; 32];
+        digest_result_bytes.copy_from_slice(&digest_result);
+        let digest_result_elem = JubjubBase::from_bytes_le(&digest_result_bytes).unwrap();
+        let digest_result_mod = MidnightPoseidonDigest::new()
+            .chain_update(modulus_plus_one)
+            .finalize()
+            .to_vec();
+        let mut digest_result_bytes_mod = [0u8; 32];
+        digest_result_bytes_mod.copy_from_slice(&digest_result_mod);
+        let digest_result_elem_mod = JubjubBase::from_bytes_le(&digest_result_bytes_mod).unwrap();
+
+        assert!(
+            digest_result_elem == digest_result_elem_mod,
+            "The hash of 1 and modulus + 1 give the same result!"
+        );
+    }
+
+    #[cfg(test)]
+    mod golden_tests {
+        use super::*;
+
+        const GOLDEN_BYTES: [u8; 32] = [
+            110, 103, 7, 180, 60, 102, 100, 65, 91, 212, 214, 109, 138, 43, 27, 222, 2, 206, 234,
+            218, 176, 114, 103, 100, 18, 121, 123, 177, 36, 188, 37, 95,
+        ];
+
+        fn golden_value() -> JubjubBase {
+            let digest_result = MidnightPoseidonDigest::new()
+                .chain_update([1u8])
+                .chain_update([3u8])
+                .chain_update([2u8])
+                .finalize()
+                .to_vec();
+            let mut digest_result_bytes = [0u8; 32];
+            digest_result_bytes.copy_from_slice(&digest_result);
+
+            JubjubBase::from_bytes_le(&digest_result_bytes).unwrap()
+        }
+
+        #[test]
+        fn golden_test_chain_update() {
+            let value = JubjubBase::from_bytes_le(&GOLDEN_BYTES).unwrap();
+
+            assert_eq!(golden_value(), value);
+        }
     }
 }
