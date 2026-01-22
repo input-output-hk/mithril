@@ -1,11 +1,11 @@
 use slog::warn;
 use warp::Filter;
 
+use mithril_common::MITHRIL_SIGNER_VERSION_HEADER;
+
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::router::RouterState;
 use crate::http_server::routes::{MAX_CONTENT_LENGTH, middlewares};
-
-const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
 pub fn routes(
     router_state: &RouterState,

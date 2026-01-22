@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +24,6 @@ use mithril_cardano_node_internal_database::{
     },
     signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
 };
-use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{
     KesSigner, KesSignerStandard, OpCert, ProtocolPartyId, SerDeShelleyFileFormat,
@@ -34,6 +34,7 @@ use mithril_common::signable_builder::{
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
 };
+use mithril_common::{MITHRIL_SIGNER_VERSION_HEADER, StdResult};
 
 use mithril_era::{EraChecker, EraReader};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
@@ -201,6 +202,23 @@ impl<'a> DependenciesBuilder<'a> {
         Ok(connection)
     }
 
+    fn build_aggregator_client(
+        &self,
+        api_version_provider: &Arc<APIVersionProvider>,
+    ) -> StdResult<Arc<AggregatorHttpClient>> {
+        let client = AggregatorHttpClient::builder(self.config.aggregator_endpoint.clone())
+            .with_headers(HashMap::from([(
+                MITHRIL_SIGNER_VERSION_HEADER.to_string(),
+                env!("CARGO_PKG_VERSION").to_string(),
+            )]))
+            .with_relay_endpoint(self.config.relay_endpoint.clone())
+            .with_api_version_provider(api_version_provider.clone())
+            .with_timeout(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION))
+            .with_logger(self.root_logger())
+            .build()?;
+        Ok(Arc::new(client))
+    }
+
     /// Build dependencies for the Production environment.
     pub async fn build(&self) -> StdResult<SignerDependencyContainer> {
         if !self.config.data_stores_directory.exists() {
@@ -267,14 +285,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let aggregator_client = Arc::new(
-            AggregatorHttpClient::builder(self.config.aggregator_endpoint.clone())
-                .with_relay_endpoint(self.config.relay_endpoint.clone())
-                .with_api_version_provider(api_version_provider.clone())
-                .with_timeout(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION))
-                .with_logger(self.root_logger())
-                .build()?,
-        );
+        let aggregator_client = self.build_aggregator_client(&api_version_provider)?;
 
         let cardano_immutable_snapshot_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
@@ -514,10 +525,14 @@ impl<'a> DependenciesBuilder<'a> {
 mod tests {
     use std::path::PathBuf;
 
+    use mithril_aggregator_client::query::GetAggregatorFeaturesQuery;
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
-    use mithril_common::test::double::Dummy;
-    use mithril_common::{entities::TimePoint, test::TempDir};
+    use mithril_common::{
+        entities::TimePoint,
+        messages::AggregatorFeaturesMessage,
+        test::{TempDir, api_version_extensions::ApiVersionProviderTestExtension, double::Dummy},
+    };
 
     use crate::test::TestLogger;
 
@@ -552,5 +567,34 @@ mod tests {
             .await
             .expect("service builder build should not fail");
         assert!(stores_dir.exists());
+    }
+
+    #[tokio::test]
+    async fn set_signer_version_header_to_built_aggregator_client() {
+        let server = httpmock::MockServer::start();
+        server.mock(|when, then| {
+            when.is_true(|req| {
+                req.headers()
+                    .get(MITHRIL_SIGNER_VERSION_HEADER)
+                    .is_some_and(|header| header == env!("CARGO_PKG_VERSION"))
+            });
+            then.status(200)
+                .json_body(serde_json::json!(AggregatorFeaturesMessage::dummy()));
+        });
+
+        let config = Configuration {
+            aggregator_endpoint: server.base_url(),
+            ..Configuration::new_sample("party-123456")
+        };
+        let dependencies_builder = DependenciesBuilder::new(&config, TestLogger::stdout());
+        let aggregator_client = dependencies_builder
+            // Note: api version doesn't matter for this test
+            .build_aggregator_client(&Arc::new(APIVersionProvider::new_failing()))
+            .unwrap();
+
+        aggregator_client
+            .send(GetAggregatorFeaturesQuery::current())
+            .await
+            .unwrap();
     }
 }
