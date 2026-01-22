@@ -65,7 +65,8 @@ pub async fn compute_mithril_stake_distribution_signatures(
                     let mut message = ProtocolMessage::new();
                     message.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
-                        signers_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
+                        signers_fixture
+                            .compute_and_encode_concatenation_aggregate_verification_key(),
                     );
                     message.set_message_part(
                         ProtocolMessagePartKey::NextProtocolParameters,
@@ -135,7 +136,8 @@ pub async fn compute_immutable_files_signatures(
                     );
                     message.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
-                        signers_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
+                        signers_fixture
+                            .compute_and_encode_concatenation_aggregate_verification_key(),
                     );
                     message.set_message_part(
                         ProtocolMessagePartKey::NextProtocolParameters,

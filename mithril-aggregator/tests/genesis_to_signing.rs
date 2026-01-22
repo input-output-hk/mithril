@@ -44,7 +44,10 @@ async fn genesis_to_signing() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_concatenation_aggregate_verification_key())
+        ExpectedCertificate::new_genesis(
+            Epoch(1),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key()
+        )
     );
 
     comment!("Increase immutable number");

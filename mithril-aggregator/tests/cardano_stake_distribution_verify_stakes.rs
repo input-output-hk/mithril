@@ -53,7 +53,10 @@ async fn cardano_stake_distribution_verify_stakes() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(2), fixture.compute_and_encode_concatenation_aggregate_verification_key())
+        ExpectedCertificate::new_genesis(
+            Epoch(2),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key()
+        )
     );
 
     comment!("Start the runtime state machine and register signers");

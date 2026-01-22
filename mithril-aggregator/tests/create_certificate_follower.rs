@@ -205,7 +205,10 @@ async fn create_certificate_follower() {
         leader_tester,
         ExpectedCertificate::new_genesis(
             Epoch(2),
-            epoch_fixture.next_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key()
+            epoch_fixture
+                .next_signing
+                .unwrap()
+                .compute_and_encode_concatenation_aggregate_verification_key()
         )
     );
 
@@ -263,7 +266,10 @@ async fn create_certificate_follower() {
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
         )
         .as_slice(),
-        epoch_fixture.current_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key(),
+        epoch_fixture
+            .current_signing
+            .unwrap()
+            .compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::MithrilStakeDistribution(Epoch(3)),
         ExpectedCertificate::genesis_identifier(Epoch(2)),
     );
@@ -364,7 +370,10 @@ async fn create_certificate_follower() {
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
         )
         .as_slice(),
-        epoch_fixture.current_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key(),
+        epoch_fixture
+            .current_signing
+            .unwrap()
+            .compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::MithrilStakeDistribution(Epoch(4)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
     );
@@ -389,7 +398,10 @@ async fn create_certificate_follower() {
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
         )
         .as_slice(),
-        epoch_fixture.current_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key(),
+        epoch_fixture
+            .current_signing
+            .unwrap()
+            .compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::MithrilStakeDistribution(Epoch(4)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
     );
@@ -466,7 +478,10 @@ async fn create_certificate_follower() {
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
         )
         .as_slice(),
-        epoch_fixture.current_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key(),
+        epoch_fixture
+            .current_signing
+            .unwrap()
+            .compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::MithrilStakeDistribution(Epoch(5)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
     );
@@ -480,7 +495,10 @@ async fn create_certificate_follower() {
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
         )
         .as_slice(),
-        epoch_fixture.current_signing.unwrap().compute_and_encode_concatenation_aggregate_verification_key(),
+        epoch_fixture
+            .current_signing
+            .unwrap()
+            .compute_and_encode_concatenation_aggregate_verification_key(),
         SignedEntityType::MithrilStakeDistribution(Epoch(5)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
     );
