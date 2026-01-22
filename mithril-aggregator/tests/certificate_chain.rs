@@ -52,7 +52,7 @@ async fn certificate_chain() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), initial_fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), initial_fixture.compute_and_encode_concatenation_aggregate_verification_key())
     );
 
     comment!("Increase immutable number");
@@ -78,7 +78,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
-            initial_fixture.compute_and_encode_avk(),
+            initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -98,7 +98,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
-            initial_fixture.compute_and_encode_avk(),
+            initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -121,7 +121,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
-            initial_fixture.compute_and_encode_avk(),
+            initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 4)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -185,7 +185,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(2),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
-            initial_fixture.compute_and_encode_avk(),
+            initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -216,7 +216,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(3),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
-            initial_fixture.compute_and_encode_avk(),
+            initial_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(3)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
         )
@@ -247,7 +247,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(4),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
-            next_fixture.compute_and_encode_avk(),
+            next_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
         )
@@ -278,7 +278,7 @@ async fn certificate_chain() {
         ExpectedCertificate::new(
             Epoch(4),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
-            next_fixture.compute_and_encode_avk(),
+            next_fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(4, 7)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )

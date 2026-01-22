@@ -62,7 +62,7 @@ async fn prove_transactions() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_concatenation_aggregate_verification_key())
     );
 
     // Lock all signed entity types except CardanoTransactions to limit the scope of the test
@@ -101,7 +101,7 @@ async fn prove_transactions() {
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )

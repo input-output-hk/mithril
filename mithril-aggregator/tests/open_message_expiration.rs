@@ -51,7 +51,7 @@ async fn open_message_expiration() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_concatenation_aggregate_verification_key())
     );
 
     comment!("Increase immutable number");
@@ -91,7 +91,7 @@ async fn open_message_expiration() {
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_concatenation_aggregate_verification_key())
     );
 
     comment!("Increase the immutable file number");
@@ -118,7 +118,7 @@ async fn open_message_expiration() {
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )

@@ -1200,8 +1200,10 @@ mod tests {
         assert_eq!(
             data,
             ExpectedComputedEpochData {
-                aggregate_verification_key: current_epoch_fixture.compute_avk(),
-                next_aggregate_verification_key: next_epoch_fixture.compute_avk(),
+                aggregate_verification_key: current_epoch_fixture
+                    .compute_aggregate_verification_key(),
+                next_aggregate_verification_key: next_epoch_fixture
+                    .compute_aggregate_verification_key(),
             }
         );
     }
@@ -1209,7 +1211,7 @@ mod tests {
     #[tokio::test]
     async fn inform_epoch_reset_computed_data() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let avk = fixture.compute_avk();
+        let avk = fixture.compute_aggregate_verification_key();
         let epoch = Epoch(4);
         let mut service = EpochServiceBuilder::new(epoch, fixture.clone()).build().await;
         let signer_builder = SignerBuilder::new(
@@ -1236,7 +1238,7 @@ mod tests {
     async fn update_next_signers_with_stake_succeeds() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let next_avk = next_fixture.compute_avk();
+        let next_avk = next_fixture.compute_aggregate_verification_key();
         let epoch = Epoch(4);
         let mut service = EpochServiceBuilder {
             next_signers_with_stake: next_fixture.signers_with_stake().clone(),

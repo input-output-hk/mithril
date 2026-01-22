@@ -64,7 +64,7 @@ async fn create_certificate() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_concatenation_aggregate_verification_key())
     );
 
     comment!("Increase immutable number");
@@ -94,7 +94,7 @@ async fn create_certificate() {
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -124,7 +124,7 @@ async fn create_certificate() {
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -158,7 +158,7 @@ async fn create_certificate() {
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
@@ -192,7 +192,7 @@ async fn create_certificate() {
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(119)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
