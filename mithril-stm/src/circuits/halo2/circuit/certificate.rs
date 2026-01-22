@@ -220,6 +220,7 @@ mod tests {
     use super::*;
     use crate::circuits::halo2::off_circuit::merkle_tree::MerkleTree;
     use crate::circuits::halo2::off_circuit::unique_signature::{SigningKey, VerificationKey};
+    use crate::circuits::halo2::tools::setup::{generate_params, load_params};
     use crate::circuits::halo2::types::Bls12;
     use ff::Field;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
@@ -227,20 +228,19 @@ mod tests {
     use midnight_zk_stdlib as zk;
     use midnight_zk_stdlib::MidnightCircuit;
     use rand_core::OsRng;
-    use std::fs::{File, create_dir_all};
-    use std::io::{BufReader, BufWriter, Cursor};
+    use std::fs::create_dir_all;
+    use std::io::Cursor;
     use std::path::PathBuf;
     use std::time::Instant;
 
     fn create_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
-        //  let mut rng = ChaCha20Rng::seed_from_u64(1234);
         let mut rng = OsRng;
 
         let mut sks = Vec::new();
         let mut leaves = Vec::new();
         for _ in 0..n {
             let sk = SigningKey::generate(&mut rng);
-            let vk = VerificationKey::from(&sk); // Replace this with actual initialization if provided
+            let vk = VerificationKey::from(&sk);
             leaves.push(MTLeaf(vk, -F::ONE));
             sks.push(sk);
         }
@@ -255,23 +255,11 @@ mod tests {
         let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
 
         if path.exists() {
-            let file = File::open(&path).unwrap_or_else(|e| {
-                panic!("failed to open KZG params at '{}': {e}", path.display())
-            });
-            let mut reader = BufReader::new(file);
-            return ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked).unwrap();
+            return load_params(path.to_string_lossy().as_ref());
         }
 
         create_dir_all(&assets_dir).unwrap();
-        let params: ParamsKZG<Bls12> = ParamsKZG::unsafe_setup(k, OsRng);
-        let file = File::create(&path)
-            .unwrap_or_else(|e| panic!("failed to create KZG params at '{}': {e}", path.display()));
-        let mut writer = BufWriter::new(file);
-        params
-            .write_custom(&mut writer, SerdeFormat::RawBytesUnchecked)
-            .unwrap();
-
-        params
+        generate_params(k, path.to_string_lossy().as_ref())
     }
 
     fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {

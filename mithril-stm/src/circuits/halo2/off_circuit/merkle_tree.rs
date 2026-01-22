@@ -255,7 +255,7 @@ mod tests {
     fn create_leaf(value: F) -> MTLeaf {
         let mut rng = OsRng;
         let sk = SigningKey::generate(&mut rng);
-        let vk = VerificationKey::from(&sk); // Replace this with actual initialization if provided
+        let vk = VerificationKey::from(&sk);
         MTLeaf(vk, value)
     }
 
@@ -311,7 +311,6 @@ mod tests {
 
         for (i, _leaf) in leaves.iter().enumerate() {
             let path = tree.get_path(i);
-            println!("{:?}", path.get_siblings().len());
             let computed_root = path.compute_root(leaves[i]);
             assert_eq!(
                 tree.root(),
