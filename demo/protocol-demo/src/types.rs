@@ -1,6 +1,6 @@
 use mithril_stm::{
     AggregateSignature, Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
-    Signer, SingleSignature, Stake, VerificationKeyProofOfPossession,
+    Signer, SingleSignature, Stake, VerificationKeyProofOfPossessionForConcatenation,
 };
 
 // Protocol types alias
@@ -33,5 +33,5 @@ pub type ProtocolSingleSignature = SingleSignature;
 /// Alias of [MithrilStm:AggregateSignature](enum@mithril_stm::AggregateSignature).
 pub type ProtocolMultiSignature = AggregateSignature<D>;
 
-/// Alias of [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession).
-pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossession;
+/// Alias of [MithrilStm:VerificationKeyProofOfPossessionForConcatenation](type@mithril_stm::VerificationKeyProofOfPossessionForConcatenation).
+pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossessionForConcatenation;

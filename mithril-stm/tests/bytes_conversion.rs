@@ -5,7 +5,7 @@ use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
     AggregateSignature, Initializer, MithrilMembershipDigest, Parameters, SingleSignature,
-    VerificationKey,
+    VerificationKeyForConcatenation,
 };
 
 use test_extensions::protocol_phase::{
@@ -52,9 +52,9 @@ fn test_binary_conversions() {
 
     let verification_key = reg_parties[0].0;
     let encoded = verification_key.to_bytes();
-    VerificationKey::from_bytes(&encoded[1..])
+    VerificationKeyForConcatenation::from_bytes(&encoded[1..])
         .expect_err("VerificationKey decoding should fail with invalid bytes");
-    let decoded = VerificationKey::from_bytes(&encoded).unwrap();
+    let decoded = VerificationKeyForConcatenation::from_bytes(&encoded).unwrap();
     assert_eq!(verification_key, decoded);
 
     let initializer = &initializers[0];

@@ -103,13 +103,18 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
         for (_party_id, stake, verification_key) in players_with_keys {
-            key_reg.register(*stake, *verification_key).unwrap();
+            key_reg.register(*stake, verification_key).unwrap();
         }
-        let closed_reg = key_reg.close();
+        let closed_reg = key_reg.close_registration();
 
-        let signer = self.initializer.clone().unwrap().create_signer(closed_reg).unwrap();
+        let signer = self
+            .initializer
+            .clone()
+            .unwrap()
+            .try_create_signer(&closed_reg)
+            .unwrap();
         self.signer = Some(signer);
         self.clerk = Some(ProtocolClerk::new_clerk_from_signer(
             self.signer.as_ref().unwrap(),
@@ -250,11 +255,11 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {players:?}");
 
-        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
         for (_party_id, stake, verification_key) in players_with_keys {
-            key_reg.register(*stake, *verification_key).unwrap();
+            key_reg.register(*stake, verification_key).unwrap();
         }
-        let closed_reg = key_reg.close();
+        let closed_reg = key_reg.close_registration();
 
         self.clerk = Some(ProtocolClerk::new_clerk_from_closed_key_registration(
             &self.params.unwrap(),
@@ -374,7 +379,8 @@ impl ProtocolDemonstrator for Demonstrator {
                 party_id: party.clone().party_id,
                 stake: party.stake,
                 verification_key: key_encode_hex(
-                    protocol_initializer.get_verification_key_proof_of_possession(),
+                    protocol_initializer
+                        .get_verification_key_proof_of_possession_for_concatenation(),
                 )
                 .unwrap(),
                 initializer: key_encode_hex(protocol_initializer.clone()).unwrap(),

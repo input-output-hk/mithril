@@ -15,7 +15,7 @@
 //!
 //! use mithril_stm::{
 //!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-//!    Signer, SingleSignature, MithrilMembershipDigest,
+//!    RegistrationEntry, Signer, SingleSignature, MithrilMembershipDigest,
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
@@ -49,7 +49,7 @@
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyRegistration::init();
+//! let mut key_reg = KeyRegistration::initialize();
 //!
 //! // For each party, crate a Initializer.
 //! // This struct can create keys for the party.
@@ -58,20 +58,23 @@
 //!     // Create keys for this party
 //!     let p = Initializer::new(params, stake, &mut rng);
 //!     // Register keys with the KeyRegistration service
-//!     key_reg
-//!         .register(p.stake, p.get_verification_key_proof_of_possession())
-//!         .unwrap();
+//!     let entry = RegistrationEntry::new(
+//!         p.get_verification_key_proof_of_possession_for_concatenation(),
+//!         p.stake,
+//!     )
+//!     .unwrap();
+//!     key_reg.register_by_entry(&entry).unwrap();
 //!     ps.push(p);
 //! }
 //!
 //! // Close the key registration.
-//! let closed_reg = key_reg.close();
+//! let closed_reg = key_reg.close_registration();
 //!
 //! // Finalize the Initializer and turn it into a Signer, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+//!     .map(|p| p.try_create_signer(&closed_reg).unwrap())
 //!     .collect::<Vec<Signer<D>>>();
 //!
 //! /////////////////////
@@ -82,9 +85,7 @@
 //! // We collect the successful signatures into a vec.
 //! let sigs = ps
 //!     .par_iter()
-//!     .filter_map(|p| {
-//!         return p.sign(&msg);
-//!     })
+//!     .filter_map(|p| p.create_single_signature(&msg).ok())
 //!     .collect::<Vec<SingleSignature>>();
 //!
 //! // Clerk can aggregate and verify signatures.
@@ -120,7 +121,13 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
-pub use protocol::*;
+pub use protocol::{
+    AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
+    AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
+    RegisterError, RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+    VerificationKeyProofOfPossessionForConcatenation,
+};
 pub use signature_scheme::BlsSignatureError;
 
 #[cfg(feature = "benchmark-internals")]
@@ -144,7 +151,10 @@ pub type Stake = u64;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
-pub type Index = u64;
+pub type LotteryIndex = u64;
+
+/// Index of the signer in the key registration
+pub type SignerIndex = u64;
 
 /// Mithril-stm error type
 pub type StmError = anyhow::Error;

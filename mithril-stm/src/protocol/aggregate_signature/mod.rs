@@ -3,10 +3,10 @@ mod clerk;
 mod error;
 mod signature;
 
-pub use aggregate_key::*;
-pub use clerk::*;
-pub use error::*;
-pub use signature::*;
+pub use aggregate_key::AggregateVerificationKey;
+pub use clerk::Clerk;
+pub use error::{AggregateSignatureError, AggregateVerificationKeyError, AggregationError};
+pub use signature::{AggregateSignature, AggregateSignatureType};
 
 #[cfg(test)]
 mod tests {
@@ -20,11 +20,14 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{
-        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature,
-        Stake, StmResult, membership_commitment::MerkleBatchPath,
+        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
+        Signer, SingleSignature, Stake, StmResult, membership_commitment::MerkleBatchPath,
     };
 
-    use super::{AggregateSignature, AggregateSignatureType, AggregationError, Clerk};
+    use super::{
+        AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
+        Clerk,
+    };
 
     type Sig = AggregateSignature<D>;
     type D = MithrilMembershipDigest;
@@ -35,7 +38,7 @@ mod tests {
     }
 
     fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<Signer<D>> {
-        let mut kr = KeyRegistration::init();
+        let mut kr = KeyRegistration::initialize();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.random());
 
@@ -44,13 +47,14 @@ mod tests {
             .into_iter()
             .map(|stake| {
                 let p = Initializer::new(params, stake, &mut rng);
-                kr.register(stake, p.pk).unwrap();
+                let entry: RegistrationEntry = p.clone().into();
+                kr.register_by_entry(&entry).unwrap();
                 p
             })
             .collect::<Vec<_>>();
-        let closed_reg = kr.close();
+        let closed_reg = kr.close_registration();
         ps.into_iter()
-            .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+            .map(|p| p.try_create_signer(&closed_reg.clone()).unwrap())
             .collect()
     }
 
@@ -117,7 +121,7 @@ mod tests {
     fn find_signatures(msg: &[u8], ps: &[Signer<D>], is: &[usize]) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
-            if let Some(sig) = ps[*i].sign(msg) {
+            if let Ok(sig) = ps[*i].create_single_signature(msg) {
                 sigs.push(sig);
             }
         }
@@ -181,7 +185,7 @@ mod tests {
                     aggr.verify(
                         &tc.msg,
                         &tc.clerk.compute_aggregate_verification_key(),
-                        &tc.clerk.params
+                        &tc.clerk.get_concatenation_clerk().parameters
                     )
                     .is_err()
                 )
@@ -239,7 +243,7 @@ mod tests {
         ) {
             let aggr_sig_type = AggregateSignatureType::Concatenation;
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut aggr_avks = Vec::new();
+            let mut aggr_avks: Vec<AggregateVerificationKey<D>> = Vec::new();
             let mut aggr_stms = Vec::new();
             let mut batch_msgs = Vec::new();
             let mut batch_params = Vec::new();
@@ -297,10 +301,10 @@ mod tests {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-            let avk = clerk.compute_aggregate_verification_key();
+            let avk: AggregateVerificationKey<D> = clerk.compute_aggregate_verification_key();
 
-            if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
+            if let Ok(sig) = ps[0].create_single_signature(&msg) {
+                assert!(sig.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
             }
         }
     }
@@ -332,12 +336,12 @@ mod tests {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-            let avk = clerk.compute_aggregate_verification_key();
+            let avk: AggregateVerificationKey<D> = clerk.compute_aggregate_verification_key();
 
-            if let Some(sig) = ps[0].sign(&msg) {
+            if let Ok(sig) = ps[0].create_single_signature(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
             }
         }
 
@@ -354,7 +358,7 @@ mod tests {
             let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
-                    let aggr2 = AggregateSignature::from_bytes(&bytes).unwrap();
+                    let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
             }
         }
@@ -408,14 +412,14 @@ mod tests {
         #[test]
         fn test_invalid_proof_quorum(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |_aggr, clerk, _msg| {
-                clerk.params.k += 7;
+                clerk.update_k(clerk.get_concatenation_clerk().parameters.k + 7);
             })
         }
         // todo: fn test_invalid_proof_individual_sig
         #[test]
         fn test_invalid_proof_index_bound(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |_aggr, clerk, _msg| {
-                clerk.params.m = 1;
+                clerk.update_m(1);
             })
         }
 
@@ -426,7 +430,7 @@ mod tests {
                 for sig_reg in concatenation_proof.signatures.iter_mut() {
                     let mut new_indices = sig_reg.sig.get_concatenation_signature_indices();
                     for index in new_indices.iter_mut() {
-                        *index %= clerk.params.k - 1
+                        *index %= clerk.get_concatenation_clerk().parameters.k - 1
                     }
                     sig_reg.sig.set_concatenation_signature_indices(&new_indices);
                 }

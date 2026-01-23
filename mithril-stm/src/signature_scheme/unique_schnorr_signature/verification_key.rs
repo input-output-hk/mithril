@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +59,18 @@ impl SchnorrVerificationKey {
             .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
         Ok(SchnorrVerificationKey(prime_order_projective_point))
+    }
+}
+
+impl PartialOrd for SchnorrVerificationKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(std::cmp::Ord::cmp(self, other))
+    }
+}
+
+impl Ord for SchnorrVerificationKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_bytes().cmp(&other.to_bytes())
     }
 }
 

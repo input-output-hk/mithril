@@ -3,84 +3,101 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, Parameters, RegisterError, Stake, StmResult,
-    signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+    ClosedKeyRegistration, MembershipDigest, Parameters, RegisterError, RegistrationEntry,
+    RegistrationEntryForConcatenation, Stake, StmResult,
+    VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+    signature_scheme::BlsSigningKey,
 };
 
 use super::Signer;
 
-/// Wrapper of the MultiSignature Verification key with proof of possession
-pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
-
-/// Initializer for `Signer`.
-/// This is the data that is used during the key registration procedure.
-/// Once the latter is finished, this instance is consumed into an `Signer`.
+/// Structure responsible of creating a signer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Initializer {
-    /// This participant's stake.
+    /// Stake of the participant
     pub stake: Stake,
-    /// Current protocol instantiation parameters.
-    pub params: Parameters,
-    /// Secret key.
-    pub(crate) sk: BlsSigningKey,
-    /// Verification (public) key + proof of possession.
-    pub(crate) pk: VerificationKeyProofOfPossession,
+    /// Protocol parameters.
+    #[serde(rename = "params")]
+    pub parameters: Parameters,
+    /// Signing key for concatenation proof system.
+    #[serde(rename = "sk")]
+    pub bls_signing_key: BlsSigningKey,
+    /// Verification key for concatenation proof system.
+    #[serde(rename = "pk")]
+    pub bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
 }
 
 impl Initializer {
-    /// Builds an `Initializer` that is ready to register with the key registration service.
-    /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn new<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
-        let sk = BlsSigningKey::generate(rng);
-        let pk = VerificationKeyProofOfPossession::from(&sk);
+    /// Creates a new initializer
+    pub fn new<R: RngCore + CryptoRng>(parameters: Parameters, stake: Stake, rng: &mut R) -> Self {
+        let bls_signing_key = BlsSigningKey::generate(rng);
+        let bls_verification_key_proof_of_possession =
+            VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
         Self {
             stake,
-            params,
-            sk,
-            pk,
+            parameters,
+            bls_signing_key,
+            bls_verification_key_proof_of_possession,
         }
+    }
+
+    /// Attempts to generate a new signer from the current registration state.
+    ///
+    /// # Process
+    /// 1. Verifies that registration is closed (determined by total stake threshold)
+    /// 2. Confirms the initializer is registered and retrieves its signer index
+    /// 3. Constructs the Merkle tree commitment
+    /// 4. Creates the underlying proof system signer (currently only the concatenation proof system)
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Registration is not yet closed
+    /// - The initializer is not registered
+    pub fn try_create_signer<D: MembershipDigest>(
+        self,
+        closed_key_registration: &ClosedKeyRegistration,
+    ) -> StmResult<Signer<D>> {
+        let registration_entry =
+            RegistrationEntry::new(self.bls_verification_key_proof_of_possession, self.stake)?;
+
+        let signer_index = match closed_key_registration
+            .key_registration
+            .get_signer_index_for_registration(&registration_entry)
+        {
+            Some(index) => index,
+            None => return Err(anyhow!(RegisterError::UnregisteredInitializer)),
+        };
+
+        let key_registration_commitment = closed_key_registration
+            .key_registration
+            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
+        )?;
+
+        // Create concatenation proof signer
+        let concatenation_proof_signer = ConcatenationProofSigner::new(
+            registration_entry.get_stake(),
+            closed_key_registration.total_stake,
+            self.parameters,
+            self.bls_signing_key,
+            self.bls_verification_key_proof_of_possession.vk,
+            key_registration_commitment,
+        );
+
+        // Create and return signer
+        Ok(Signer::new(
+            signer_index,
+            concatenation_proof_signer,
+            closed_key_registration.clone(),
+            self.parameters,
+            registration_entry.get_stake(),
+        ))
     }
 
     /// Extract the verification key with proof of possession.
-    pub fn get_verification_key_proof_of_possession(&self) -> VerificationKeyProofOfPossession {
-        self.pk
-    }
-
-    /// Build the `avk` for the given list of parties.
-    ///
-    /// Note that if this Initializer was modified *between* the last call to `register`,
-    /// then the resulting `Signer` may not be able to produce valid signatures.
-    ///
-    /// Returns an `Signer` specialized to
-    /// * this `Signer`'s ID and current stake
-    /// * this `Signer`'s parameter valuation
-    /// * the `avk` as built from the current registered parties (according to the registration service)
-    /// * the current total stake (according to the registration service)
-    /// # Error
-    /// This function fails if the initializer is not registered.
-    pub fn create_signer<D: MembershipDigest>(
-        self,
-        closed_reg: ClosedKeyRegistration<D>,
-    ) -> StmResult<Signer<D>> {
-        let mut my_index = None;
-        for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
-            if rp.0 == self.pk.vk {
-                my_index = Some(i as u64);
-                break;
-            }
-        }
-        if my_index.is_none() {
-            return Err(anyhow!(RegisterError::UnregisteredInitializer));
-        }
-
-        Ok(Signer::set_signer(
-            my_index.unwrap(),
-            self.stake,
-            self.params,
-            self.sk,
-            self.pk.vk,
-            closed_reg,
-        ))
+    pub fn get_verification_key_proof_of_possession_for_concatenation(
+        &self,
+    ) -> VerificationKeyProofOfPossessionForConcatenation {
+        self.bls_verification_key_proof_of_possession
     }
 
     /// Convert to bytes
@@ -92,9 +109,9 @@ impl Initializer {
     pub fn to_bytes(&self) -> [u8; 256] {
         let mut out = [0u8; 256];
         out[..8].copy_from_slice(&self.stake.to_be_bytes());
-        out[8..32].copy_from_slice(&self.params.to_bytes());
-        out[32..64].copy_from_slice(&self.sk.to_bytes());
-        out[64..].copy_from_slice(&self.pk.to_bytes());
+        out[8..32].copy_from_slice(&self.parameters.to_bytes());
+        out[32..64].copy_from_slice(&self.bls_signing_key.to_bytes());
+        out[64..].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
         out
     }
 
@@ -109,15 +126,15 @@ impl Initializer {
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
         let sk =
             BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = VerificationKeyProofOfPossession::from_bytes(
+        let pk = VerificationKeyProofOfPossessionForConcatenation::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
 
         Ok(Self {
             stake,
-            params,
-            sk,
-            pk,
+            parameters: params,
+            bls_signing_key: sk,
+            bls_verification_key_proof_of_possession: pk,
         })
     }
 }
@@ -125,10 +142,10 @@ impl Initializer {
 impl PartialEq for Initializer {
     fn eq(&self, other: &Self) -> bool {
         self.stake == other.stake
-            && self.params == other.params
-            && self.sk.to_bytes() == other.sk.to_bytes()
-            && self.get_verification_key_proof_of_possession()
-                == other.get_verification_key_proof_of_possession()
+            && self.parameters == other.parameters
+            && self.bls_signing_key.to_bytes() == other.bls_signing_key.to_bytes()
+            && self.get_verification_key_proof_of_possession_for_concatenation()
+                == other.get_verification_key_proof_of_possession_for_concatenation()
     }
 }
 
@@ -163,16 +180,16 @@ mod tests {
         fn golden_value() -> Initializer {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = BlsSigningKey::generate(&mut rng);
-            let pk = BlsVerificationKeyProofOfPossession::from(&sk);
+            let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
             Initializer {
                 stake: 1,
-                params: Parameters {
+                parameters: Parameters {
                     m: 20973,
                     k: 2422,
                     phi_f: 0.2,
                 },
-                sk,
-                pk,
+                bls_signing_key: sk,
+                bls_verification_key_proof_of_possession: pk,
             }
         }
 

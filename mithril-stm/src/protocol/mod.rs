@@ -12,7 +12,16 @@ pub use aggregate_signature::{
 };
 pub(crate) use eligibility_check::is_lottery_won;
 pub use error::RegisterError;
-pub use key_registration::{ClosedKeyRegistration, KeyRegistration, RegisteredParty};
+pub use key_registration::{
+    ClosedKeyRegistration, KeyRegistration, RegistrationEntry, RegistrationEntryForConcatenation,
+};
 pub use parameters::Parameters;
-pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProofOfPossession};
+pub use participant::{Initializer, Signer};
 pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};
+
+/// Wrapper of the Concatenation proof Verification key with proof of possession
+pub type VerificationKeyProofOfPossessionForConcatenation =
+    crate::signature_scheme::BlsVerificationKeyProofOfPossession;
+
+/// Wrapper of the MultiSignature Verification key
+pub type VerificationKeyForConcatenation = crate::signature_scheme::BlsVerificationKey;

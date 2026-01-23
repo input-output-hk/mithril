@@ -242,9 +242,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())))
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     /// Convert to bytes
     /// * Number of leaves as u64
     /// * Root of the Merkle commitment as bytes
@@ -256,9 +253,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         output
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D, L>> {
         let mut u64_bytes = [0u8; 8];

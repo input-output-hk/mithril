@@ -25,25 +25,23 @@ where
     let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
     let params = Parameters { k, m, phi_f: 0.2 };
 
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = KeyRegistration::initialize();
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg
-            .register(stake, p.get_verification_key_proof_of_possession())
-            .unwrap();
+        key_reg.register_by_entry(&p.clone().into()).unwrap();
         ps.push(p);
     }
 
-    let closed_reg = key_reg.close::<D>();
+    let closed_reg = key_reg.close_registration();
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.try_create_signer(&closed_reg).unwrap())
         .collect::<Vec<Signer<D>>>();
 
     let sigs = ps
         .par_iter()
-        .filter_map(|p| p.sign(&msg))
+        .filter_map(|p| p.create_single_signature(&msg).ok())
         .collect::<Vec<SingleSignature>>();
     let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 

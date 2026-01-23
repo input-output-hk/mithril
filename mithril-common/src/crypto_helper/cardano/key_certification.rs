@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use mithril_stm::{
-    ClosedKeyRegistration, Initializer, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
-    Parameters, RegisterError, Signer, Stake, VerificationKeyProofOfPossession,
+    ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+    RegisterError, Signer, Stake, VerificationKeyProofOfPossessionForConcatenation,
 };
 
 use crate::{
@@ -117,7 +117,9 @@ impl StmInitializerWrapper {
         let stm_initializer = Initializer::new(params, stake, rng);
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
-                &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
+                &stm_initializer
+                    .get_verification_key_proof_of_possession_for_concatenation()
+                    .to_bytes(),
                 current_kes_period.unwrap_or_default(),
             )?;
 
@@ -136,8 +138,9 @@ impl StmInitializerWrapper {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
-        self.stm_initializer.get_verification_key_proof_of_possession()
+    pub fn verification_key(&self) -> VerificationKeyProofOfPossessionForConcatenation {
+        self.stm_initializer
+            .get_verification_key_proof_of_possession_for_concatenation()
     }
 
     /// Extract the verification key signature.
@@ -147,7 +150,7 @@ impl StmInitializerWrapper {
 
     /// Extract the protocol parameters of the initializer
     pub fn get_protocol_parameters(&self) -> ProtocolParameters {
-        self.stm_initializer.params
+        self.stm_initializer.parameters
     }
 
     /// Extract the stake of the party
@@ -167,8 +170,8 @@ impl StmInitializerWrapper {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer(self, closed_reg: ClosedKeyRegistration<D>) -> StdResult<Signer<D>> {
-        self.stm_initializer.create_signer(closed_reg)
+    pub fn new_signer(self, closed_reg: ClosedKeyRegistration) -> StdResult<Signer<D>> {
+        self.stm_initializer.try_create_signer(&closed_reg)
     }
 
     /// Convert to bytes
@@ -224,7 +227,7 @@ impl KeyRegWrapper {
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
             kes_verifier: Arc::new(KesVerifierStandard),
-            stm_key_reg: KeyRegistration::init(),
+            stm_key_reg: KeyRegistration::initialize(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
     }
@@ -270,7 +273,7 @@ impl KeyRegWrapper {
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
-            self.stm_key_reg.register(stake, pk.into())?;
+            self.stm_key_reg.register(stake, &pk.into())?;
             return Ok(pool_id_bech32);
         }
         Err(anyhow!(
@@ -280,8 +283,8 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
-    pub fn close<D: MembershipDigest>(self) -> ClosedKeyRegistration<D> {
-        self.stm_key_reg.close()
+    pub fn close(self) -> ClosedKeyRegistration {
+        self.stm_key_reg.close_registration()
     }
 }
 
@@ -292,7 +295,7 @@ mod test_extensions {
 
     impl ProtocolInitializerTestExtension for StmInitializerWrapper {
         fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
-            self.stm_initializer.params = protocol_parameters.to_owned();
+            self.stm_initializer.parameters = protocol_parameters.to_owned();
         }
     }
 }
@@ -362,7 +365,7 @@ mod test {
             Some(KesEvolutions(0)),
             initializer_1
                 .stm_initializer
-                .get_verification_key_proof_of_possession()
+                .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
         );
         assert!(key_registration_1.is_ok());
@@ -390,7 +393,7 @@ mod test {
             Some(KesEvolutions(0)),
             initializer_2
                 .stm_initializer
-                .get_verification_key_proof_of_possession()
+                .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
         );
         assert!(key_registration_2.is_ok())

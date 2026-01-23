@@ -107,9 +107,11 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         parameters: &Parameters,
     ) -> StmResult<()> {
         match self {
-            AggregateSignature::Concatenation(concatenation_proof) => {
-                concatenation_proof.verify(msg, avk, parameters)
-            }
+            AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
+                msg,
+                avk.to_concatenation_proof_key().unwrap(),
+                parameters,
+            ),
             #[cfg(feature = "future_snark")]
             AggregateSignature::Future => Err(anyhow!(
                 AggregateSignatureError::UnsupportedProofSystem(self.into())
@@ -140,8 +142,12 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     if concatenation_proofs.len() != aggregate_signatures_length {
                         return Err(anyhow!(AggregateSignatureError::BatchInvalid));
                     }
-
-                    ConcatenationProof::batch_verify(&concatenation_proofs, msgs, avks, parameters)
+                    let avks = avks
+                        .iter()
+                        .filter_map(|avk| avk.to_concatenation_proof_key())
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    ConcatenationProof::batch_verify(&concatenation_proofs, msgs, &avks, parameters)
                 }
                 #[cfg(feature = "future_snark")]
                 AggregateSignatureType::Future => Err(anyhow!(
@@ -176,6 +182,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         let proof_bytes = &bytes[1..];
         let proof_type = AggregateSignatureType::from_byte_encoding_prefix(*proof_type_byte)
             .ok_or(AggregateSignatureError::SerializationError)?;
+
         match proof_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
                 ConcatenationProof::from_bytes(proof_bytes)?,
@@ -221,9 +228,9 @@ mod tests {
 
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
-            Clerk, ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
-            Signer,
-            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+            Clerk, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
+            VerificationKeyProofOfPossessionForConcatenation,
+            proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
 
         type D = MithrilMembershipDigest;
@@ -294,17 +301,50 @@ mod tests {
             };
             let sk_1 = BlsSigningKey::generate(&mut rng);
             let sk_2 = BlsSigningKey::generate(&mut rng);
-            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
-            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
-            let mut key_reg = KeyRegistration::init();
-            key_reg.register(1, pk_1).unwrap();
-            key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+            let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
+
+            let mut key_reg = KeyRegistration::initialize();
+            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+
+            key_reg.register_by_entry(&entry1).unwrap();
+            key_reg.register_by_entry(&entry2).unwrap();
+            let closed_key_reg = key_reg.close_registration();
+
             let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_key_reg);
-            let signer_1 = Signer::set_signer(0, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
-            let signer_2 = Signer::set_signer(1, 1, params, sk_2, pk_2.vk, closed_key_reg);
-            let signature_1 = signer_1.sign(&msg).unwrap();
-            let signature_2 = signer_2.sign(&msg).unwrap();
+
+            let signer_1: Signer<D> = Signer::new(
+                0,
+                ConcatenationProofSigner::new(
+                    1,
+                    2,
+                    params,
+                    sk_1,
+                    pk_1.vk,
+                    closed_key_reg.clone().key_registration.into_merkle_tree().unwrap(),
+                ),
+                closed_key_reg.clone(),
+                params,
+                1,
+            );
+
+            let signer_2: Signer<D> = Signer::new(
+                1,
+                ConcatenationProofSigner::new(
+                    1,
+                    2,
+                    params,
+                    sk_2,
+                    pk_2.vk,
+                    closed_key_reg.clone().key_registration.into_merkle_tree().unwrap(),
+                ),
+                closed_key_reg.clone(),
+                params,
+                1,
+            );
+            let signature_1 = signer_1.create_single_signature(&msg).unwrap();
+            let signature_2 = signer_2.create_single_signature(&msg).unwrap();
 
             clerk
                 .aggregate_signatures_with_type(

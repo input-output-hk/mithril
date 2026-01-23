@@ -12,4 +12,7 @@ pub enum SignatureError {
     /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
+
+    #[error("Unsupported aggregate verification key")]
+    UnsupportedAggregateVerificationKey,
 }

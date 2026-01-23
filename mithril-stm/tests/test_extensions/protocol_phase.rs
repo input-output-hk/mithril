@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
     KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake,
-    StmResult, VerificationKey,
+    StmResult, VerificationKeyForConcatenation,
 };
 
 type D = MithrilMembershipDigest;
@@ -13,7 +13,7 @@ type D = MithrilMembershipDigest;
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {
     pub signers: Vec<Signer<D>>,
-    pub reg_parties: Vec<(VerificationKey, Stake)>,
+    pub reg_parties: Vec<(VerificationKeyForConcatenation, Stake)>,
     pub initializers: Vec<Initializer>,
 }
 
@@ -31,27 +31,29 @@ pub fn initialization_phase(
 ) -> InitializationPhaseResult {
     let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
-    let mut key_reg = KeyRegistration::init();
+    let mut key_reg = KeyRegistration::initialize();
 
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
-    let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut reg_parties: Vec<(VerificationKeyForConcatenation, Stake)> =
+        Vec::with_capacity(nparties);
 
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg
-            .register(stake, p.get_verification_key_proof_of_possession())
-            .unwrap();
-        reg_parties.push((p.get_verification_key_proof_of_possession().vk, stake));
+        key_reg.register_by_entry(&p.clone().into()).unwrap();
+        reg_parties.push((
+            p.get_verification_key_proof_of_possession_for_concatenation().vk,
+            stake,
+        ));
         initializers.push(p);
     }
 
-    let closed_reg = key_reg.close();
+    let closed_reg = key_reg.close_registration();
 
     let signers = initializers
         .clone()
         .into_par_iter()
-        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.try_create_signer::<D>(&closed_reg).unwrap())
         .collect::<Vec<Signer<D>>>();
 
     InitializationPhaseResult {
@@ -64,12 +66,12 @@ pub fn initialization_phase(
 pub fn operation_phase(
     params: Parameters,
     signers: Vec<Signer<D>>,
-    reg_parties: Vec<(VerificationKey, Stake)>,
+    reg_parties: Vec<(VerificationKeyForConcatenation, Stake)>,
     msg: [u8; 32],
 ) -> OperationPhaseResult {
     let sigs = signers
         .par_iter()
-        .filter_map(|p| p.sign(&msg))
+        .filter_map(|p| p.create_single_signature(&msg).ok())
         .collect::<Vec<SingleSignature>>();
 
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);

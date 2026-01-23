@@ -339,7 +339,7 @@ mod tests {
 
             fn golden_message_with_bytes_hex_encoding() -> CertificateMessage {
                 CertificateMessage {
-                    aggregate_verification_key: "20f1ff3587d48e257282759ad031911080d14bb31d3ba591fa2f03e78cb232d47204fd386b8346a11b0000".to_string(),
+                    aggregate_verification_key: "00000000000000000404036cb79141a645faca33405ae82d67388a663fd1f55116781006608cccd2370000000000000006".to_string(),
                     multi_signature: "00000000000000000100000000000000d8964cf68269a7bbcf627b94847cf7258617ac01b982fbb55044ae74bed94722258cc2f4b8a2a9aa48bfbbe5a62fc48be90757e109c149b5eb3698018a306745d1342811159349e14609eaec04472659e118740982c3c4e783cb4d61ca3f807bcb000000eb0abf617600000000000000060000000000000005000000000000000d0000000000000016000000000000001f0000000000000047000000000000004b9679ca842431ccad3b666c4216cc6bfa41a7c8ed15114eee2be3f859a6de91441f8ed2e0c0ea569342467b21624dbca700000000000000000000000000000002000000000000000165c8a9d497873833ddbdb9cae279b7449d7d18df9759fe1b1707d115a7f30272b98dc7067290ff47b44099204c07f9ae8dc876d30013e19589248d329451acc00000000000000000".to_string(),
                     genesis_signature: "".to_string(),
                     ..golden_certificate_message()
@@ -362,7 +362,7 @@ mod tests {
 
             fn golden_message_with_bytes_hex_encoding() -> CertificateMessage {
                 CertificateMessage {
-                    aggregate_verification_key: "20f1ff3587d48e257282759ad031911080d14bb31d3ba591fa2f03e78cb232d47204fd386b8346a11b0000".to_string(),
+                    aggregate_verification_key: "00000000000000000404036cb79141a645faca33405ae82d67388a663fd1f55116781006608cccd2370000000000000006".to_string(),
                     multi_signature: "".to_string(),
                     genesis_signature: "c21f77fb812a8111b547c2145d765f854ca224b17e883d6483b668a8c4d095fd893efd2a2ba1d41da9f49d82bf02d8ee603791998b64436000e49184c000170b".to_string(),
                     ..golden_certificate_message()
