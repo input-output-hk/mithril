@@ -113,6 +113,8 @@
 
 #[cfg(feature = "future_snark")]
 pub mod circuits;
+#[cfg(feature = "future_snark")]
+mod hash;
 mod membership_commitment;
 mod proof_system;
 mod protocol;
@@ -130,11 +132,12 @@ pub use signature_scheme::{
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
 pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
-#[cfg(feature = "future_snark")]
-use blake2::digest::consts::U64;
 use blake2::{Blake2b, digest::consts::U32};
 use digest::{Digest, FixedOutput};
 use std::fmt::Debug;
+
+#[cfg(feature = "future_snark")]
+use hash::poseidon::MidnightPoseidonDigest;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -166,5 +169,5 @@ pub struct MithrilMembershipDigest {}
 impl MembershipDigest for MithrilMembershipDigest {
     type ConcatenationHash = Blake2b<U32>;
     #[cfg(feature = "future_snark")]
-    type SnarkHash = Blake2b<U64>;
+    type SnarkHash = MidnightPoseidonDigest;
 }

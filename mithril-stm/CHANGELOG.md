@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.7 (01-23-2026)
+
+### Added
+
+- Added a Digest trait implementation for the Poseidon hash in `hash`.
+
 ## 0.9.6 (01-23-2026)
 
 ### Added
