@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.6 (01-23-2026)
+
+### Added
+
+- Integrated the Halo2 certificate circuit prototype behind the `future_snark` feature.
+
 ## 0.9.5 (01-19-2026)
 
 ### Changed

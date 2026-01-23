@@ -7,5 +7,5 @@
 
 pub mod halo2;
 
-#[cfg(all(test, feature = "future_snark"))]
+#[cfg(test)]
 pub(crate) mod test_utils;
