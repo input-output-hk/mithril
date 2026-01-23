@@ -109,7 +109,7 @@ alter table cardano_tx drop column immutable_file_number;
  "#,
         ),
         // Migration 9
-        // Truncate Cardano transaction related tables to avoid data inconsistency
+        // Truncate Cardano transactions related tables to avoid data inconsistency
         // with previous versions of the nodes.
         SqlMigration::new(
             9,
@@ -118,6 +118,25 @@ delete from cardano_tx;
 delete from block_range_root;
 vacuum;
  "#,
+        ),
+        // Migration 10 (WIP)
+        // - rename `block_range_root` table to `block_range_root_legacy` (for the deprecated `CardanoTransactions` signed entity)
+        // - add `block_range_root` table (for the new `CardanoBlocksTransactions` signed entity)
+        // - add `cardano_block` (block_number, block_hash, slot_number)
+        // - update `cardano_tx` to set a foreign key `cardano_block` table
+        // - Truncate Cardano transactions related tables to force re-import of Cardano chain data to fill the `cardano_block` table
+        SqlMigration::new(
+            10,
+            r#"
+create table cardano_block (
+    block_hash text not null,
+    block_number integer not null,
+    slot_number integer not null,
+    primary key (block_hash)
+);
+create unique index cardano_block_block_number_index on cardano_block(block_number);
+create unique index cardano_block_slot_number_index on cardano_block(slot_number);
+"#,
         ),
     ]
 }
