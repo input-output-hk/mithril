@@ -70,7 +70,8 @@ impl<'a> CertificateChainBuilderContext<'a> {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            self.next_fixture.compute_and_encode_avk(),
+            self.next_fixture
+                .compute_and_encode_concatenation_aggregate_verification_key(),
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
@@ -380,7 +381,7 @@ impl<'a> CertificateChainBuilder<'a> {
     fn compute_avk_for_signers(signers: &[SignerFixture]) -> ProtocolAggregateVerificationKey {
         let clerk = Self::compute_clerk_for_signers(signers);
 
-        clerk.compute_aggregate_verification_key().into()
+        clerk.compute_aggregate_verification_key()
     }
 
     fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
@@ -462,7 +463,10 @@ impl<'a> CertificateChainBuilder<'a> {
 
         Certificate {
             epoch,
-            aggregate_verification_key: avk.to_owned(),
+            aggregate_verification_key: avk
+                .to_concatenation_aggregate_verification_key()
+                .to_owned()
+                .into(),
             previous_hash: "".to_string(),
             protocol_message,
             signed_message,
@@ -690,7 +694,8 @@ mod test {
             fixture: &fixture,
             next_fixture: &next_fixture,
         };
-        let expected_next_avk_part_value = next_fixture.compute_and_encode_avk();
+        let expected_next_avk_part_value =
+            next_fixture.compute_and_encode_concatenation_aggregate_verification_key();
         let expected_next_protocol_parameters_part_value =
             next_fixture.protocol_parameters().compute_hash();
 
@@ -872,7 +877,7 @@ mod test {
             .with_protocol_parameters(expected_protocol_parameters.into())
             .with_signers(3)
             .build();
-        let avk = fixture.compute_and_encode_avk();
+        let avk = fixture.compute_and_encode_concatenation_aggregate_verification_key();
         let context = CertificateChainBuilderContext {
             index_certificate: 2,
             total_certificates: 5,

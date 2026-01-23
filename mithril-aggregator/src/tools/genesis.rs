@@ -224,7 +224,7 @@ mod tests {
     fn create_fake_genesis_avk() -> ProtocolAggregateVerificationKey {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
-        fixture.compute_avk()
+        fixture.compute_aggregate_verification_key()
     }
 
     fn build_tools(

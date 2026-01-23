@@ -121,6 +121,7 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
+pub use proof_system::AggregateVerificationKeyForConcatenation;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,

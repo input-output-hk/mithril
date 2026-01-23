@@ -140,7 +140,7 @@ impl MithrilSignableBuilderService {
         let mut protocol_message = protocol_message;
         let next_aggregate_verification_key = self
             .seed_signable_builder
-            .compute_next_aggregate_verification_key()
+            .compute_next_aggregate_verification_key_for_concatenation()
             .await?;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -242,7 +242,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_next_aggregate_verification_key()
+            .expect_compute_next_aggregate_verification_key_for_concatenation()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
         mock_container

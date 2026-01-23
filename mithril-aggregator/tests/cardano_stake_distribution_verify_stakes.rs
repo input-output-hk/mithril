@@ -53,7 +53,10 @@ async fn cardano_stake_distribution_verify_stakes() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(2), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(
+            Epoch(2),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key()
+        )
     );
 
     comment!("Start the runtime state machine and register signers");
@@ -95,7 +98,7 @@ async fn cardano_stake_distribution_verify_stakes() {
         ExpectedCertificate::new(
             Epoch(3),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(3)),
             ExpectedCertificate::genesis_identifier(Epoch(2)),
         )
@@ -139,7 +142,7 @@ async fn cardano_stake_distribution_verify_stakes() {
         ExpectedCertificate::new(
             Epoch(4),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
         )
@@ -161,7 +164,7 @@ async fn cardano_stake_distribution_verify_stakes() {
         ExpectedCertificate::new(
             Epoch(4),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoStakeDistribution(Epoch(3)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )

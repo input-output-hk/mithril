@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
+## Mithril Distribution [XXXX] - UNRELEASED
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
 ## Mithril Distribution [2603.1] - UNRELEASED
 
 - **BREAKING** changes in Mithril client CLI:

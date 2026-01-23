@@ -10,7 +10,7 @@ use mithril_cardano_node_internal_database::digesters::{
 #[cfg(feature = "fs")]
 use mithril_common::entities::SignedEntityType;
 use mithril_common::{
-    logging::LoggerExtensions, protocol::SignerBuilder,
+    crypto_helper::ProtocolKey, logging::LoggerExtensions, protocol::SignerBuilder,
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
 
@@ -134,12 +134,14 @@ impl MessageBuilder {
                     || "Could not compute message: aggregate verification key computation failed",
                 )?;
 
-        let avk = signer_builder
-            .compute_aggregate_verification_key()
-            .to_json_hex()
-            .with_context(
-                || "Could not compute message: aggregate verification key encoding failed",
-            )?;
+        let avk = ProtocolKey::new(
+            signer_builder
+                .compute_aggregate_verification_key()
+                .to_concatenation_aggregate_verification_key()
+                .to_owned(),
+        )
+        .to_json_hex()
+        .with_context(|| "Could not compute message: aggregate verification key encoding failed")?;
 
         let mut message = certificate.protocol_message.clone();
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);

@@ -9,7 +9,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    StdResult, entities::ProtocolMessagePartValue, signable_builder::SignableSeedBuilder,
+    StdResult, crypto_helper::ProtocolKey, entities::ProtocolMessagePartValue,
+    signable_builder::SignableSeedBuilder,
 };
 
 use crate::services::EpochService;
@@ -28,13 +29,19 @@ impl AggregatorSignableSeedBuilder {
 
 #[async_trait]
 impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
-    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_next_aggregate_verification_key_for_concatenation(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
-        let next_aggregate_verification_key = (*epoch_service)
-            .next_aggregate_verification_key()?
-            .to_json_hex()
-            .with_context(|| "convert next avk to json hex failure")?
-            .to_string();
+        let next_aggregate_verification_key = ProtocolKey::new(
+            (*epoch_service)
+                .next_aggregate_verification_key()?
+                .to_concatenation_aggregate_verification_key()
+                .to_owned(),
+        )
+        .to_json_hex()
+        .with_context(|| "convert next avk to json hex failure")?
+        .to_string();
 
         Ok(next_aggregate_verification_key)
     }
@@ -103,10 +110,11 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
         let signable_seed_builder = build_signable_builder_service(epoch, &fixture, &next_fixture);
-        let expected_next_aggregate_verification_key = next_fixture.compute_and_encode_avk();
+        let expected_next_aggregate_verification_key =
+            next_fixture.compute_and_encode_concatenation_aggregate_verification_key();
 
         let next_aggregate_verification_key = signable_seed_builder
-            .compute_next_aggregate_verification_key()
+            .compute_next_aggregate_verification_key_for_concatenation()
             .await
             .unwrap();
 

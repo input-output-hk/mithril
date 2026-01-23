@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.9 (01-23-2026)
+
+### Changed
+
+- Refactored `AggregateVerificationKey` for better SNARK support.
+
 ## 0.9.8 (01-23-2026)
 
 ### Changed
@@ -15,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added a Digest trait implementation for the Poseidon hash in `hash`.
+- Implemented `Digest` trait for the Poseidon hash in a new `hash` module.
 
 ## 0.9.6 (01-23-2026)
 

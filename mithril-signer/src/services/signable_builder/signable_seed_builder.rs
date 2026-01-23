@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     StdResult,
-    crypto_helper::ProtocolInitializer,
+    crypto_helper::{ProtocolAggregateVerificationKeyForConcatenation, ProtocolInitializer},
     entities::{ProtocolMessagePartValue, ProtocolParameters, SignerWithStake},
     protocol::SignerBuilder,
     signable_builder::SignableSeedBuilder,
@@ -47,12 +47,14 @@ impl SignerSignableSeedBuilder {
         )
         .with_context(|| "SignerSignableSeedBuilder can not compute aggregate verification key")?;
 
-        let encoded_avk = signer_builder
+        let encoded_avk: ProtocolAggregateVerificationKeyForConcatenation = signer_builder
             .compute_aggregate_verification_key()
-            .to_json_hex()
-            .with_context(
-                || "SignerSignableSeedBuilder can not serialize aggregate verification key",
-            )?;
+            .to_concatenation_aggregate_verification_key()
+            .to_owned()
+            .into();
+        let encoded_avk = encoded_avk.to_json_hex().with_context(
+            || "SignerSignableSeedBuilder can not serialize aggregate verification key",
+        )?;
 
         Ok(encoded_avk)
     }
@@ -60,7 +62,9 @@ impl SignerSignableSeedBuilder {
 
 #[async_trait]
 impl SignableSeedBuilder for SignerSignableSeedBuilder {
-    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_next_aggregate_verification_key_for_concatenation(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let epoch = (*epoch_service).epoch_of_current_data()?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -163,13 +167,13 @@ mod tests {
         let signable_seed_builder = mock_container.build_signable_builder_service();
 
         let next_aggregate_verification_key = signable_seed_builder
-            .compute_next_aggregate_verification_key()
+            .compute_next_aggregate_verification_key_for_concatenation()
             .await
             .unwrap();
 
         assert_eq!(
             next_aggregate_verification_key,
-            next_fixture.compute_and_encode_avk()
+            next_fixture.compute_and_encode_concatenation_aggregate_verification_key()
         );
     }
 

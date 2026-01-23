@@ -90,7 +90,7 @@ impl SignerBuilder {
             &self.closed_key_registration,
         );
 
-        clerk.compute_aggregate_verification_key().into()
+        clerk.compute_aggregate_verification_key()
     }
 
     fn build_single_signer_with_rng<R: RngCore + CryptoRng>(

@@ -58,7 +58,10 @@ async fn create_certificate_with_buffered_signatures() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(
+            Epoch(1),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key()
+        )
     );
 
     comment!("Increase immutable number");
@@ -89,7 +92,7 @@ async fn create_certificate_with_buffered_signatures() {
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )

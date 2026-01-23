@@ -38,8 +38,10 @@ where
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignableSeedBuilder: Send + Sync {
-    /// Compute next aggregate verification key protocol message part value
-    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue>;
+    /// Compute next aggregate verification key for concatenation protocol message part value
+    async fn compute_next_aggregate_verification_key_for_concatenation(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue>;
 
     /// Compute next protocol parameters protocol message part value
     async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue>;
