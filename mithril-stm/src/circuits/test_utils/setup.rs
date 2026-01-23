@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter};
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 
-pub fn generate_params(k: u32, path: &str) -> ParamsKZG<Bls12> {
+pub(crate) fn generate_params(k: u32, path: &str) -> ParamsKZG<Bls12> {
     let parent = std::path::Path::new(path).parent().unwrap();
     fs::create_dir_all(parent).unwrap();
 
@@ -22,7 +22,7 @@ pub fn generate_params(k: u32, path: &str) -> ParamsKZG<Bls12> {
     params
 }
 
-pub fn load_params(path: &str) -> ParamsKZG<Bls12> {
+pub(crate) fn load_params(path: &str) -> ParamsKZG<Bls12> {
     let file = File::open(path).unwrap();
     let mut reader = BufReader::new(file);
     ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked).unwrap()

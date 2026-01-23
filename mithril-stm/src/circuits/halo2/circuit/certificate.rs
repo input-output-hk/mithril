@@ -220,8 +220,8 @@ mod tests {
     use super::*;
     use crate::circuits::halo2::off_circuit::merkle_tree::MerkleTree;
     use crate::circuits::halo2::off_circuit::unique_signature::{SigningKey, VerificationKey};
-    use crate::circuits::halo2::tools::setup::{generate_params, load_params};
     use crate::circuits::halo2::types::Bls12;
+    use crate::circuits::test_utils::setup::{generate_params, load_params};
     use ff::Field;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
     use midnight_proofs::utils::SerdeFormat;
