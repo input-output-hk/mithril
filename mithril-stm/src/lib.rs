@@ -137,7 +137,7 @@ use digest::{Digest, FixedOutput};
 use std::fmt::Debug;
 
 #[cfg(feature = "future_snark")]
-use crate::hash::poseidon::MidnightPoseidonDigest;
+use hash::poseidon::MidnightPoseidonDigest;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
