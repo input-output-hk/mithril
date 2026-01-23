@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use digest::{Digest, FixedOutput};
 use std::collections::BTreeSet;
 
@@ -32,9 +31,7 @@ impl KeyRegistration {
             self.registration_entries.insert(*entry);
             return Ok(());
         }
-        Err(anyhow!(RegisterError::KeyRegistered(Box::new(
-            entry.get_bls_verification_key()
-        ))))
+        Err(RegisterError::KeyRegistered(Box::new(entry.get_bls_verification_key())).into())
     }
 
     /// Registers a new signer with the given verification key proof of possession and stake.
@@ -69,7 +66,7 @@ impl KeyRegistration {
             .iter()
             .nth(*signer_index as usize)
             .cloned()
-            .ok_or_else(|| anyhow!(RegisterError::UnregisteredIndex))
+            .ok_or_else(|| RegisterError::UnregisteredIndex.into())
     }
 
     /// Converts the KeyRegistration into a Merkle tree
