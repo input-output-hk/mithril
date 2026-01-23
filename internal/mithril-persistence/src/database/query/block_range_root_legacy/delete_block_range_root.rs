@@ -7,12 +7,12 @@ use mithril_common::entities::{BlockNumber, BlockRange};
 use crate::database::record::BlockRangeRootRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-/// Query to delete old [BlockRangeRootRecord] from the sqlite database
-pub struct DeleteBlockRangeRootQuery {
+/// Query to delete old legacy [BlockRangeRootRecord] from the sqlite database
+pub struct DeleteLegacyBlockRangeRootQuery {
     condition: WhereCondition,
 }
 
-impl Query for DeleteBlockRangeRootQuery {
+impl Query for DeleteLegacyBlockRangeRootQuery {
     type Entity = BlockRangeRootRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -22,14 +22,14 @@ impl Query for DeleteBlockRangeRootQuery {
     fn get_definition(&self, condition: &str) -> String {
         // it is important to alias the fields with the same name as the table
         // since the table cannot be aliased in a RETURNING statement in SQLite.
-        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root")]);
+        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root_legacy")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("delete from block_range_root where {condition} returning {projection}")
+        format!("delete from block_range_root_legacy where {condition} returning {projection}")
     }
 }
 
-impl DeleteBlockRangeRootQuery {
+impl DeleteLegacyBlockRangeRootQuery {
     pub fn contains_or_above_block_number_threshold(
         block_number_threshold: BlockNumber,
     ) -> StdResult<Self> {
@@ -49,8 +49,8 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
-    use crate::database::query::GetBlockRangeRootQuery;
-    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
+    use crate::database::query::GetLegacyBlockRangeRootQuery;
+    use crate::database::query::block_range_root_legacy::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
 
@@ -82,9 +82,9 @@ mod tests {
 
         let cursor = connection
             .fetch(
-                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(BlockNumber(
-                    100,
-                ))
+                DeleteLegacyBlockRangeRootQuery::contains_or_above_block_number_threshold(
+                    BlockNumber(100),
+                )
                 .unwrap(),
             )
             .expect("pruning shouldn't crash without block range root stored");
@@ -125,13 +125,14 @@ mod tests {
         let dataset = block_range_root_dataset();
         insert_block_range_roots(&connection, dataset.clone());
 
-        let query =
-            DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_threshold)
-                .unwrap();
+        let query = DeleteLegacyBlockRangeRootQuery::contains_or_above_block_number_threshold(
+            block_threshold,
+        )
+        .unwrap();
         let cursor = connection.fetch(query).unwrap();
         assert_eq!(delete_record_number, cursor.count());
 
-        let cursor = connection.fetch(GetBlockRangeRootQuery::all()).unwrap();
+        let cursor = connection.fetch(GetLegacyBlockRangeRootQuery::all()).unwrap();
         assert_eq!(dataset.len() - delete_record_number, cursor.count());
     }
 }
