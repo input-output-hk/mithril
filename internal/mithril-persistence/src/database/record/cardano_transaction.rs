@@ -8,6 +8,8 @@ use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Cardano Transaction record is the representation of a cardano transaction.
+///
+/// It can't be stored in the database directly and must be obtained using a join with the block table.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CardanoTransactionRecord {
     /// Unique hash of the transaction
@@ -68,8 +70,9 @@ impl SqLiteEntity for CardanoTransactionRecord {
         Self: Sized,
     {
         let transaction_hash = row.read::<&str, _>(0);
-        let block_number = Hydrator::try_to_u64("cardano_tx.block_number", row.read::<i64, _>(1))?;
-        let slot_number = Hydrator::try_to_u64("cardano_tx.slot_number", row.read::<i64, _>(2))?;
+        let block_number =
+            Hydrator::try_to_u64("cardano_block.block_number", row.read::<i64, _>(1))?;
+        let slot_number = Hydrator::try_to_u64("cardano_block.slot_number", row.read::<i64, _>(2))?;
         let block_hash = row.read::<&str, _>(3);
 
         Ok(Self {
@@ -87,8 +90,8 @@ impl SqLiteEntity for CardanoTransactionRecord {
                 "{:cardano_tx:}.transaction_hash",
                 "text",
             ),
-            ("block_number", "{:cardano_tx:}.block_number", "int"),
-            ("slot_number", "{:cardano_tx:}.slot_number", "int"),
+            ("block_number", "{:cardano_block:}.block_number", "int"),
+            ("slot_number", "{:cardano_block:}.slot_number", "int"),
             ("block_hash", "{:cardano_tx:}.block_hash", "text"),
         ])
     }

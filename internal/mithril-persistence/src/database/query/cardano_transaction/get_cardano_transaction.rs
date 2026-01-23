@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, BlockRange, SlotNumber, TransactionHash};
+use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -45,7 +45,7 @@ impl GetCardanoTransactionQuery {
     }
 
     pub fn by_block_ranges(block_ranges: Vec<BlockRange>) -> Self {
-        let mut condition = WhereCondition::default();
+        let mut condition = WhereCondition::new("1 = 0", vec![]);
         for block_range in block_ranges {
             condition = condition.or_where(WhereCondition::new(
                 "(block_number >= ?* and block_number < ?*)",
@@ -71,24 +71,6 @@ impl GetCardanoTransactionQuery {
 
         Self { condition }
     }
-
-    pub fn with_highest_block_number_below_slot_number(slot_number: SlotNumber) -> Self {
-        Self {
-            condition: WhereCondition::new(
-                "block_number = (select max(block_number) from cardano_tx where slot_number <= ?*)",
-                vec![Value::Integer(*slot_number as i64)],
-            ),
-        }
-    }
-
-    pub fn with_highest_block_number() -> Self {
-        Self {
-            condition: WhereCondition::new(
-                "block_number = (select max(block_number) from cardano_tx)",
-                vec![],
-            ),
-        }
-    }
 }
 
 impl Query for GetCardanoTransactionQuery {
@@ -99,134 +81,403 @@ impl Query for GetCardanoTransactionQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
+        let aliases = SourceAlias::new(&[
+            ("{:cardano_tx:}", "cardano_tx"),
+            ("{:cardano_block:}", "cardano_block"),
+        ]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
         format!(
-            "select {projection} from cardano_tx where {condition} order by block_number, transaction_hash"
+            r#"
+select {projection}
+from cardano_block
+    inner join cardano_tx on cardano_block.block_hash = cardano_tx.block_hash
+where {condition}
+order by cardano_block.block_number, cardano_tx.transaction_hash
+"#
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::database::query::InsertCardanoTransactionQuery;
-    use crate::database::test_helper::cardano_tx_db_connection;
+    use mithril_common::entities::{CardanoBlockWithTransactions, SlotNumber};
+    use mithril_common::test::entities_extensions::BlockRangeTestExtension;
+
+    use crate::database::test_helper::{
+        cardano_tx_db_connection, insert_cardano_blocks_and_transaction,
+    };
     use crate::sqlite::{ConnectionExtensions, SqliteConnection};
 
     use super::*;
 
-    fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
-        connection
-            .fetch_first(InsertCardanoTransactionQuery::insert_many(records).unwrap())
-            .unwrap();
-    }
-
     fn transaction_record(
+        tx_hash: &str,
         block_number: BlockNumber,
         slot_number: SlotNumber,
     ) -> CardanoTransactionRecord {
         CardanoTransactionRecord::new(
-            format!("tx-hash-{slot_number}"),
+            tx_hash.to_owned(),
             block_number,
             slot_number,
-            format!("block-hash-{block_number}"),
+            format!("block_hash-{block_number}"),
         )
     }
 
-    #[test]
-    fn with_highest_block_number() {
-        let connection = cardano_tx_db_connection().unwrap();
-
-        let cursor = connection
-            .fetch(GetCardanoTransactionQuery::with_highest_block_number())
-            .unwrap();
-        assert_eq!(0, cursor.count());
-
-        insert_transactions(
-            &connection,
-            vec![
-                transaction_record(BlockNumber(10), SlotNumber(50)),
-                transaction_record(BlockNumber(10), SlotNumber(51)),
-                transaction_record(BlockNumber(11), SlotNumber(54)),
-                transaction_record(BlockNumber(11), SlotNumber(55)),
-            ],
-        );
-
-        let records: Vec<CardanoTransactionRecord> = connection
-            .fetch_collect(GetCardanoTransactionQuery::with_highest_block_number())
-            .unwrap();
-        assert_eq!(
-            vec![
-                transaction_record(BlockNumber(11), SlotNumber(54)),
-                transaction_record(BlockNumber(11), SlotNumber(55)),
-            ],
-            records
-        );
+    fn test_blocks_transactions_set() -> Vec<CardanoBlockWithTransactions> {
+        vec![
+            CardanoBlockWithTransactions::new(
+                "block_hash-10",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-1", "tx-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-14",
+                BlockNumber(14),
+                SlotNumber(54),
+                vec!["tx-3"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-15",
+                BlockNumber(15),
+                SlotNumber(55),
+                vec!["tx-4"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-20",
+                BlockNumber(20),
+                SlotNumber(60),
+                vec!["tx-5"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-24",
+                BlockNumber(24),
+                SlotNumber(64),
+                vec!["tx-6"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-30",
+                BlockNumber(30),
+                SlotNumber(70),
+                vec!["tx-7"],
+            ),
+        ]
     }
 
-    #[test]
-    fn with_highest_block_number_below_slot_number() {
+    fn connection_with_test_data_set() -> SqliteConnection {
         let connection = cardano_tx_db_connection().unwrap();
+        insert_cardano_blocks_and_transaction(&connection, test_blocks_transactions_set());
+        connection
+    }
 
-        let cursor = connection
-            .fetch(
-                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
-                    SlotNumber(51),
-                ),
-            )
-            .unwrap();
-        assert_eq!(0, cursor.count());
+    mod get_by_transaction_hash {
+        use super::*;
 
-        insert_transactions(
-            &connection,
-            vec![transaction_record(BlockNumber(2), SlotNumber(5))],
-        );
+        #[tokio::test]
+        async fn get_existing_hash() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_transaction_hash("tx-1"))
+                .unwrap();
 
-        let records: Vec<CardanoTransactionRecord> = connection
-            .fetch_collect(
-                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
-                    SlotNumber(5),
-                ),
-            )
-            .unwrap();
-        assert_eq!(
-            vec![transaction_record(BlockNumber(2), SlotNumber(5)),],
-            records
-        );
+            assert_eq!(
+                vec![transaction_record("tx-1", BlockNumber(10), SlotNumber(50))],
+                result
+            );
+        }
 
-        insert_transactions(
-            &connection,
-            vec![
-                transaction_record(BlockNumber(10), SlotNumber(50)),
-                transaction_record(BlockNumber(11), SlotNumber(51)),
-                transaction_record(BlockNumber(14), SlotNumber(54)),
-                transaction_record(BlockNumber(15), SlotNumber(55)),
-            ],
-        );
+        #[tokio::test]
+        async fn get_non_existing_transaction() {
+            let connection = connection_with_test_data_set();
+            let result = connection
+                .fetch_first(GetCardanoTransactionQuery::by_transaction_hash(
+                    "tx-not-exist",
+                ))
+                .unwrap();
 
-        let records: Vec<CardanoTransactionRecord> = connection
-            .fetch_collect(
-                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
-                    SlotNumber(53),
-                ),
-            )
-            .unwrap();
-        assert_eq!(
-            vec![transaction_record(BlockNumber(11), SlotNumber(51)),],
-            records
-        );
+            assert_eq!(None, result);
+        }
+    }
 
-        let records: Vec<CardanoTransactionRecord> = connection
-            .fetch_collect(
-                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
-                    SlotNumber(54),
-                ),
-            )
-            .unwrap();
-        assert_eq!(
-            vec![transaction_record(BlockNumber(14), SlotNumber(54)),],
-            records
-        );
+    mod get_by_transaction_hashes {
+        use super::*;
+
+        #[tokio::test]
+        async fn empty_hashes_list() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_transaction_hashes(
+                    vec![],
+                    BlockNumber(30),
+                ))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn one_hash_exactly_at_boundary_block_number() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_transaction_hashes(
+                    vec!["tx-7".to_string()],
+                    BlockNumber(30),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-7", BlockNumber(30), SlotNumber(70))],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn multiple_hashes_with_one_above_block_number_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_transaction_hashes(
+                    vec!["tx-1".to_string(), "tx-4".to_string(), "tx-6".to_string()],
+                    BlockNumber(20),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    transaction_record("tx-1", BlockNumber(10), SlotNumber(50)),
+                    transaction_record("tx-4", BlockNumber(15), SlotNumber(55)),
+                ],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn all_hashes_higher_than_block_number_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_transaction_hashes(
+                    vec!["tx-1".to_string(), "tx-4".to_string()],
+                    BlockNumber(5),
+                ))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+    }
+
+    mod get_by_block_ranges {
+        use super::*;
+
+        #[tokio::test]
+        async fn get_with_empty_ranges_list() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![]))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn get_one_range_that_does_not_intersect_any_block() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(100, 200),
+                ]))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn get_one_range_with_a_block_contained_in_the_range() {
+            // Single range - block contained in the
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(9, 12),
+                ]))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    transaction_record("tx-1", BlockNumber(10), SlotNumber(50)),
+                    transaction_record("tx-2", BlockNumber(10), SlotNumber(50)),
+                ],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_one_range_with_a_block_at_start_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(10, 12),
+                ]))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    transaction_record("tx-1", BlockNumber(10), SlotNumber(50)),
+                    transaction_record("tx-2", BlockNumber(10), SlotNumber(50)),
+                ],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_one_range_with_a_block_at_end_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(14, 15),
+                ]))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-3", BlockNumber(14), SlotNumber(54))],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_in_multiple_not_adjacent_ranges() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(15, 20),
+                    BlockRange::new(30, 35),
+                ]))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    transaction_record("tx-4", BlockNumber(15), SlotNumber(55)),
+                    transaction_record("tx-7", BlockNumber(30), SlotNumber(70)),
+                ],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_in_multiple_adjacent_ranges() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    BlockRange::new(20, 25),
+                    BlockRange::new(25, 30),
+                ]))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    transaction_record("tx-5", BlockNumber(20), SlotNumber(60)),
+                    transaction_record("tx-6", BlockNumber(24), SlotNumber(64)),
+                ],
+                result
+            );
+        }
+    }
+
+    mod get_between_blocks {
+        use super::*;
+
+        #[tokio::test]
+        async fn range_that_contains_no_block() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(100)..BlockNumber(300),
+                ))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn get_with_empty_range() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(30)..BlockNumber(30),
+                ))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn range_that_contains_a_block() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(25)..BlockNumber(35),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-7", BlockNumber(30), SlotNumber(70))],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn start_boundary_is_inclusive() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(30)..BlockNumber(36),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-7", BlockNumber(30), SlotNumber(70))],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn end_boundary_is_exclusive() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(28)..BlockNumber(30),
+                ))
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransactionRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn get_block_right_after_start_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(29)..BlockNumber(34),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-7", BlockNumber(30), SlotNumber(70))],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_block_right_below_end_boundary() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoTransactionRecord> = connection
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(
+                    BlockNumber(28)..BlockNumber(31),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![transaction_record("tx-7", BlockNumber(30), SlotNumber(70))],
+                result
+            );
+        }
     }
 }
