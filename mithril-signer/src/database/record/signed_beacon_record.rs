@@ -83,9 +83,9 @@ impl SqLiteEntity for SignedBeaconRecord {
         let epoch = row.read::<i64, _>(0);
         let beacon_str = Hydrator::read_signed_entity_beacon_column(&row, 1);
         let signed_entity_type_id = usize::try_from(row.read::<i64, _>(2)).map_err(|e| {
-            panic!(
-                "Integer field signed_beacon.signed_entity_type_id cannot be turned into usize: {e}"
-            )
+            HydrationError::InvalidData(format!(
+                "signed_beacon.signed_entity_type_id cannot be turned into usize: {e}"
+            ))
         })?;
         let initiated_at = &row.read::<&str, _>(3);
         let signed_at = &row.read::<&str, _>(4);
