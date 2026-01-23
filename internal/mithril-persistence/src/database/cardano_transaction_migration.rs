@@ -119,7 +119,7 @@ delete from block_range_root;
 vacuum;
  "#,
         ),
-        // Migration 10 (WIP)
+        // Migration 10
         // - rename `block_range_root` table to `block_range_root_legacy` (for the deprecated `CardanoTransactions` signed entity)
         // - add `block_range_root` table (for the new `CardanoBlocksTransactions` signed entity)
         // - add `cardano_block` (block_number, block_hash, slot_number)
@@ -131,6 +131,15 @@ vacuum;
 drop table cardano_tx;
 delete from block_range_root;
 vacuum;
+
+alter table block_range_root rename to block_range_root_legacy;
+
+create table block_range_root (
+    start         integer   not null,
+    end           integer   not null,
+    merkle_root   text      not null,
+    primary key (start, end)
+);
 
 create table cardano_block (
     block_hash text not null,

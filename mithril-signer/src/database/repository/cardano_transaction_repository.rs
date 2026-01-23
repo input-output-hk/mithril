@@ -42,7 +42,7 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
     }
 
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
-        let record = self.inner.retrieve_highest_block_range_root().await?;
+        let record = self.inner.retrieve_highest_legacy_block_range_root().await?;
         Ok(record.map(|record| record.range))
     }
 
@@ -66,7 +66,7 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
         if !block_ranges.is_empty() {
-            self.inner.create_block_range_roots(block_ranges).await?;
+            self.inner.create_legacy_block_range_roots(block_ranges).await?;
         }
         Ok(())
     }
@@ -102,7 +102,7 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for SignerCardanoChainDataRepos
         &'a self,
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
-        self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
+        self.inner.retrieve_legacy_block_range_roots_up_to(up_to_beacon).await
     }
 }
 
