@@ -128,6 +128,10 @@ vacuum;
         SqlMigration::new(
             10,
             r#"
+drop table cardano_tx;
+delete from block_range_root;
+vacuum;
+
 create table cardano_block (
     block_hash text not null,
     block_number integer not null,
@@ -136,6 +140,14 @@ create table cardano_block (
 );
 create unique index cardano_block_block_number_index on cardano_block(block_number);
 create unique index cardano_block_slot_number_index on cardano_block(slot_number);
+
+create table cardano_tx (
+    transaction_hash text not null,
+    block_hash text not null,
+    primary key (transaction_hash),
+    foreign key (block_hash) references cardano_block(block_hash) on delete cascade
+);
+create index cardano_tx_block_hash_index on cardano_tx(block_hash);
 "#,
         ),
     ]

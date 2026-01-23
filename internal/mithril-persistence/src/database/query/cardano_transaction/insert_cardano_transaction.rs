@@ -4,7 +4,7 @@ use sqlite::Value;
 
 use mithril_common::StdResult;
 
-use crate::database::record::CardanoTransactionRecord;
+use crate::database::record::StorableCardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Query to insert [CardanoTransactionRecord] in the sqlite database
@@ -13,24 +13,18 @@ pub struct InsertCardanoTransactionQuery {
 }
 
 impl InsertCardanoTransactionQuery {
-    /// Query that insert one record.
-    pub fn insert_one(record: &CardanoTransactionRecord) -> StdResult<Self> {
-        Self::insert_many(vec![record.clone()])
-    }
-
     /// Query that insert multiples records.
-    pub fn insert_many(transactions_records: Vec<CardanoTransactionRecord>) -> StdResult<Self> {
-        let columns = "(transaction_hash, block_number, slot_number, block_hash)";
-        let values_columns: Vec<&str> =
-            repeat_n("(?*, ?*, ?*, ?*)", transactions_records.len()).collect();
+    pub fn insert_many(
+        transactions_records: Vec<StorableCardanoTransactionRecord>,
+    ) -> StdResult<Self> {
+        let columns = "(transaction_hash,  block_hash)";
+        let values_columns: Vec<&str> = repeat_n("(?*, ?*)", transactions_records.len()).collect();
 
         let values: StdResult<Vec<Value>> =
             transactions_records.into_iter().try_fold(vec![], |mut vec, record| {
                 vec.append(&mut vec![
                     Value::String(record.transaction_hash),
-                    Value::Integer(record.block_number.try_into()?),
-                    Value::Integer(record.slot_number.try_into()?),
-                    Value::String(record.block_hash.clone()),
+                    Value::String(record.block_hash),
                 ]);
                 Ok(vec)
             });
@@ -44,7 +38,7 @@ impl InsertCardanoTransactionQuery {
 }
 
 impl Query for InsertCardanoTransactionQuery {
-    type Entity = CardanoTransactionRecord;
+    type Entity = StorableCardanoTransactionRecord;
 
     fn filters(&self) -> WhereCondition {
         self.condition.clone()
