@@ -111,6 +111,8 @@
 //! # }
 //! ```
 
+#[cfg(feature = "future_snark")]
+pub mod circuits;
 mod membership_commitment;
 mod proof_system;
 mod protocol;

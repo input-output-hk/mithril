@@ -3790,6 +3790,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "midnight-zk-stdlib"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0252a1e687f530a355d89bd6d4bce99d8361eef8abe6dff5b3b864fe8e426901"
+dependencies = [
+ "base64 0.13.1",
+ "bincode",
+ "blake2b_halo2",
+ "blake2b_simd",
+ "ff",
+ "group",
+ "midnight-circuits",
+ "midnight-curves",
+ "midnight-proofs",
+ "num-bigint",
+ "num-traits",
+ "rand 0.8.5",
+ "sha2",
+ "sha3-circuit",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4439,10 +4461,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
+ "blake2b_simd",
  "blst",
  "criterion",
  "digest 0.10.7",
@@ -4450,7 +4473,10 @@ dependencies = [
  "group",
  "midnight-circuits",
  "midnight-curves",
+ "midnight-proofs",
+ "midnight-zk-stdlib",
  "num-bigint",
+ "num-integer",
  "num-rational",
  "num-traits",
  "proptest",
@@ -4462,6 +4488,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "subtle",
  "thiserror 2.0.17",
 ]
 
