@@ -198,10 +198,28 @@ impl Runner for SignerRunner {
             }
             _ => (None, None),
         };
-        let current_kes_period = self.services.chain_observer.get_current_kes_period().await?;
-        let kes_evolutions = operational_certificate.map(|operational_certificate| {
-            current_kes_period.unwrap_or_default() - operational_certificate.get_start_kes_period()
-        });
+        let current_kes_period = self
+            .services
+            .chain_observer
+            .get_current_kes_period()
+            .await?
+            .ok_or_else(|| RunnerError::NoValueError("current_kes_period".to_string()))?;
+        let kes_evolutions = operational_certificate
+            .map(|operational_certificate| {
+                let start_kes_period = operational_certificate.get_start_kes_period();
+                if current_kes_period < start_kes_period {
+                    warn!(
+                        self.logger,
+                        "Current KES period is behind operational certificate start period.";
+                        "current_kes_period" => u64::from(current_kes_period),
+                        "start_kes_period" => u64::from(start_kes_period)
+                    );
+                    Err(RunnerError::NoValueError("kes_period_underflow".to_string()))
+                } else {
+                    Ok(current_kes_period - start_kes_period)
+                }
+            })
+            .transpose()?;
 
         let protocol_initializer = self
             .services
@@ -217,7 +235,7 @@ impl Runner for SignerRunner {
                 stake,
                 &protocol_parameters,
                 self.services.kes_signer.clone(),
-                current_kes_period,
+                Some(current_kes_period),
             )?;
 
             let signer = Signer::new(
