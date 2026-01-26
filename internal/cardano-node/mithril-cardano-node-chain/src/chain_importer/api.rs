@@ -27,16 +27,11 @@ pub trait ChainDataStore: Send + Sync {
     /// Get the highest stored block range root bounds
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>>;
 
-    /// Store list of transactions
-    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
-
     /// Store the given blocks and their transactions
     async fn store_blocks_and_transactions(
         &self,
-        _block_with_transactions: Vec<CardanoBlockWithTransactions>,
-    ) -> StdResult<()> {
-        todo!("store_blocks_and_transactions")
-    }
+        block_with_transactions: Vec<CardanoBlockWithTransactions>,
+    ) -> StdResult<()>;
 
     /// Get transactions in an interval of blocks
     async fn get_transactions_in_range(
@@ -50,23 +45,12 @@ pub trait ChainDataStore: Send + Sync {
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()>;
 
-    /// Remove transactions and block range roots that are in a rolled-back fork
-    ///
-    /// * Remove transactions with a slot number strictly greater than the given slot number
-    /// * Remove block range roots that have lower bound range strictly above the given slot number
-    async fn remove_rolled_back_transactions_and_block_range(
-        &self,
-        slot_number: SlotNumber,
-    ) -> StdResult<()>;
-
     /// Remove blocks, transactions, and block range roots that are in a rolled-back fork
     ///
     /// * Remove blocks and transactions with a slot number strictly greater than the given slot number
     /// * Remove block range roots that have lower bound range strictly above the given slot number
     async fn remove_rolled_chain_data_and_block_range(
         &self,
-        _slot_number: SlotNumber,
-    ) -> StdResult<()> {
-        todo!("remove_rolled_chain_data_and_block_range")
-    }
+        slot_number: SlotNumber,
+    ) -> StdResult<()>;
 }
