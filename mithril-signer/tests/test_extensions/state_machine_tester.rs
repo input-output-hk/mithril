@@ -137,18 +137,12 @@ impl StateMachineTester {
         let dependencies_builder = DependenciesBuilder::new(&config, logger.clone());
         let sqlite_connection = Arc::new(
             dependencies_builder
-                .build_sqlite_connection(
-                    ":memory:",
-                    mithril_signer::database::migration::get_migrations(),
-                )
+                .build_main_sqlite_connection(":memory:")
                 .await
                 .unwrap(),
         );
         let transaction_sqlite_connection = dependencies_builder
-            .build_sqlite_connection(
-                ":memory:",
-                mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-            )
+            .build_cardano_tx_sqlite_connection(":memory:")
             .await
             .unwrap();
         let sqlite_connection_cardano_transaction_pool = Arc::new(
