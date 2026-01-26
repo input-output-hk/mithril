@@ -170,7 +170,7 @@ pub type StmResult<T> = anyhow::Result<T, StmError>;
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 /// Target value type used in the lottery for snark proof system
-pub type TargetValue = crate::signature_scheme::BaseFieldElement;
+pub type LotteryTargetValue = crate::signature_scheme::BaseFieldElement;
 
 /// Trait defining the different hash types for different proof systems.
 pub trait MembershipDigest: Clone {
