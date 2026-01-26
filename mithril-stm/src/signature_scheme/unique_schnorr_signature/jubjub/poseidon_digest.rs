@@ -11,6 +11,9 @@ const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
     0,
 ]);
 
+#[cfg(feature = "future_snark")]
+pub const DST_LOTTERY: BaseFieldElement = BaseFieldElement(JubjubBase::from_raw([3, 3, 0, 0]));
+
 /// Computes a Poseidon digest over the provided base field elements
 /// Returns a scalar field element as the digest
 pub(crate) fn compute_poseidon_digest(input: &[BaseFieldElement]) -> BaseFieldElement {

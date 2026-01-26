@@ -2,6 +2,8 @@ mod aggregate_signature;
 mod eligibility_check;
 mod error;
 mod key_registration;
+#[cfg(feature = "future_snark")]
+mod lottery;
 mod parameters;
 mod participant;
 mod single_signature;
