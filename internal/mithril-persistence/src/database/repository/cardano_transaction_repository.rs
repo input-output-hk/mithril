@@ -201,16 +201,6 @@ impl CardanoTransactionRepository {
     /// Store the given transactions in the database.
     ///
     /// The storage is done in chunks to avoid exceeding sqlite binding limitations.
-    pub async fn store_transactions<T: Into<CardanoTransactionRecord> + Clone>(
-        &self,
-        transactions: Vec<T>,
-    ) -> StdResult<()> {
-        todo!("remove");
-    }
-
-    /// Store the given transactions in the database.
-    ///
-    /// The storage is done in chunks to avoid exceeding sqlite binding limitations.
     pub async fn store_blocks_and_transactions(
         &self,
         blocks_with_transactions: Vec<CardanoBlockWithTransactions>,
