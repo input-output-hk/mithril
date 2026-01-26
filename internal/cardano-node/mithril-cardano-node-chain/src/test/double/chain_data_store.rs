@@ -132,28 +132,6 @@ impl ChainDataStore for InMemoryChainDataStore {
         Ok(roots.iter().map(|record| record.range.clone()).max_by_key(|r| r.end))
     }
 
-    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
-        let mut blocks_to_store =
-            std::collections::HashMap::<BlockNumber, CardanoBlockWithTransactions>::new();
-        for tx in transactions {
-            let entry = blocks_to_store.entry(tx.block_number).or_insert(
-                CardanoBlockWithTransactions::new(
-                    tx.block_hash,
-                    tx.block_number,
-                    tx.slot_number,
-                    Vec::<String>::new(),
-                ),
-            );
-            entry.transactions_hashes.push(tx.transaction_hash);
-        }
-
-        self.blocks_with_txs
-            .lock()
-            .await
-            .extend(blocks_to_store.into_values());
-        Ok(())
-    }
-
     async fn store_blocks_and_transactions(
         &self,
         blocks_and_transactions: Vec<CardanoBlockWithTransactions>,
@@ -184,13 +162,6 @@ impl ChainDataStore for InMemoryChainDataStore {
             .await
             .extend(block_ranges.into_iter().map(Into::into));
         Ok(())
-    }
-
-    async fn remove_rolled_back_transactions_and_block_range(
-        &self,
-        slot_number: SlotNumber,
-    ) -> StdResult<()> {
-        self.remove_rolled_chain_data_and_block_range(slot_number).await
     }
 
     async fn remove_rolled_chain_data_and_block_range(

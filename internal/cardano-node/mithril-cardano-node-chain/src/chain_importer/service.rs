@@ -99,7 +99,7 @@ impl CardanoChainDataImporter {
                 }
                 ChainScannedBlocks::RollBackward(slot_number) => {
                     self.transaction_store
-                        .remove_rolled_back_transactions_and_block_range(slot_number)
+                        .remove_rolled_chain_data_and_block_range(slot_number)
                         .await?;
                 }
             }
@@ -1002,11 +1002,6 @@ mod tests {
                 Ok(None)
             }
 
-            async fn store_transactions(&self, _: Vec<CardanoTransaction>) -> StdResult<()> {
-                self.block_thread();
-                Ok(())
-            }
-
             async fn store_blocks_and_transactions(
                 &self,
                 _: Vec<CardanoBlockWithTransactions>,
@@ -1026,14 +1021,6 @@ mod tests {
             async fn store_block_range_roots(
                 &self,
                 _: Vec<(BlockRange, MKTreeNode)>,
-            ) -> StdResult<()> {
-                self.block_thread();
-                Ok(())
-            }
-
-            async fn remove_rolled_back_transactions_and_block_range(
-                &self,
-                _: SlotNumber,
             ) -> StdResult<()> {
                 self.block_thread();
                 Ok(())

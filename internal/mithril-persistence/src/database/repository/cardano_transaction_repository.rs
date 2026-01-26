@@ -298,9 +298,9 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
-    /// Remove transactions and block range roots that are in a rolled-back fork
+    /// Remove blocks, transactions, and block range roots that are in a rolled-back fork
     ///
-    /// * Remove transactions with block number strictly greater than the given block number
+    /// * Remove blocks and transactions with a block number strictly greater than the given block number
     /// * Remove block range roots that have lower bound range strictly above the given block number
     pub async fn remove_rolled_back_transactions_and_block_range_by_block_number(
         &self,
@@ -321,11 +321,11 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
-    /// Remove transactions and block range roots that are in a rolled-back fork
+    /// Remove blocks, transactions, and block range roots that are in a rolled-back fork
     ///
-    /// * Remove transactions with closest block number strictly greater than the given slot number if exists
+    /// * Remove blocks and transactions with the closest block number strictly greater than the given slot number if it exists
     /// * Remove block range roots that have lower bound range strictly above the aforementioned block number
-    pub async fn remove_rolled_back_transactions_and_block_range_by_slot_number(
+    pub async fn remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()> {
@@ -1334,7 +1334,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remove_rolled_back_transactions_and_block_range_by_slot_number() {
+    async fn remove_rolled_back_blocks_transactions_and_block_range_by_slot_number() {
         fn transaction_record(
             block_number: BlockNumber,
             slot_number: SlotNumber,
@@ -1376,7 +1376,9 @@ mod tests {
 
         {
             repository
-                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(110))
+                .remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(SlotNumber(
+                    110,
+                ))
                 .await
                 .expect("Failed to remove rolled back transactions");
 
@@ -1394,7 +1396,9 @@ mod tests {
 
         {
             repository
-                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(53))
+                .remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(SlotNumber(
+                    53,
+                ))
                 .await
                 .expect("Failed to remove rolled back transactions");
 
@@ -1410,7 +1414,9 @@ mod tests {
 
         {
             repository
-                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(51))
+                .remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(SlotNumber(
+                    51,
+                ))
                 .await
                 .expect("Failed to remove rolled back transactions");
 
