@@ -82,6 +82,8 @@ impl Ord for MerkleTreeConcatenationLeaf {
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
+/// The values that are committed in the Merkle Tree for `SnarkProof`.
+/// Namely, a verified `SchnorrVerificationKey` and its corresponding target value.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct MerkleTreeSnarkLeaf(pub VerificationKeyForSnark, pub TargetValue);
 
@@ -106,12 +108,48 @@ impl MerkleTreeSnarkLeaf {
     }
 
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if bytes.len() < 64 {
+            return Err(MerkleTreeError::SerializationError.into());
+        }
         let pk = VerificationKeyForSnark::from_bytes(&bytes[..32])
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut u64_bytes = [0u8; 64];
-        u64_bytes.copy_from_slice(&bytes[32..]);
-        let target_value =
-            TargetValue::from_bytes(&u64_bytes).map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut target_value_bytes = [0u8; 32];
+        target_value_bytes.copy_from_slice(&bytes[32..]);
+        let target_value = TargetValue::from_bytes(&target_value_bytes)
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         Ok(MerkleTreeSnarkLeaf(pk, target_value))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl From<MerkleTreeSnarkLeaf> for (VerificationKeyForSnark, TargetValue) {
+    fn from(leaf: MerkleTreeSnarkLeaf) -> (VerificationKeyForSnark, TargetValue) {
+        (leaf.0, leaf.1)
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl PartialOrd for MerkleTreeSnarkLeaf {
+    /// Ordering of MT Values.
+    ///
+    /// First we order by target value, then by key. By having this ordering,
+    /// we have the players with higher target value close together,
+    /// meaning that the probability of having several signatures in the same side of the tree, is higher.
+    /// This allows us to produce a more efficient batch opening of the merkle tree.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(std::cmp::Ord::cmp(self, other))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl Ord for MerkleTreeSnarkLeaf {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }
 }
