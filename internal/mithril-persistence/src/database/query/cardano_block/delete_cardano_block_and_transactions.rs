@@ -30,6 +30,13 @@ impl Query for DeleteCardanoBlockAndTransactionQuery {
 }
 
 impl DeleteCardanoBlockAndTransactionQuery {
+    #[cfg(test)]
+    pub fn all() -> Self {
+        Self {
+            condition: WhereCondition::default(),
+        }
+    }
+
     pub fn below_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
         let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
             format!("Failed to convert threshold `{block_number_threshold}` to i64")
@@ -55,8 +62,10 @@ impl DeleteCardanoBlockAndTransactionQuery {
 mod tests {
     use mithril_common::entities::{CardanoBlockWithTransactions, SlotNumber};
 
-    use crate::database::query::GetCardanoTransactionQuery;
-    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::database::query::{GetCardanoBlockQuery, GetCardanoTransactionQuery};
+    use crate::database::test_helper::{
+        cardano_tx_db_connection, insert_cardano_blocks_and_transaction,
+    };
     use crate::sqlite::ConnectionExtensions;
 
     use super::*;
@@ -84,10 +93,47 @@ mod tests {
         ]
     }
 
+    #[test]
+    fn test_delete_all_data() {
+        let connection = cardano_tx_db_connection().unwrap();
+        insert_cardano_blocks_and_transaction(&connection, test_blocks_transactions_set());
+
+        let query = DeleteCardanoBlockAndTransactionQuery::all();
+        let cursor = connection.fetch(query).unwrap();
+        assert_eq!(test_blocks_transactions_set().len(), cursor.count());
+
+        let cursor = connection.fetch(GetCardanoBlockQuery::all()).unwrap();
+        assert_eq!(0, cursor.count());
+
+        let cursor = connection.fetch(GetCardanoTransactionQuery::all()).unwrap();
+        assert_eq!(0, cursor.count());
+    }
+
+    #[tokio::test]
+    async fn ensure_transactions_are_deleted_after_block_deletion() {
+        let connection = cardano_tx_db_connection().unwrap();
+        insert_cardano_blocks_and_transaction(
+            &connection,
+            vec![CardanoBlockWithTransactions::new(
+                "block-hash-10",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-0"],
+            )],
+        );
+
+        connection
+            .fetch_first(DeleteCardanoBlockAndTransactionQuery::all())
+            .unwrap();
+
+        let number_of_remaining_txs: i64 = connection
+            .query_single_cell("select count(*) from cardano_tx", &[])
+            .unwrap();
+        assert_eq!(0, number_of_remaining_txs);
+    }
+
     mod prune_below_threshold_tests {
         use super::*;
-        use crate::database::query::GetCardanoBlockQuery;
-        use crate::database::test_helper::insert_cardano_blocks_and_transaction;
 
         #[test]
         fn test_prune_work_even_without_transactions_in_db() {
@@ -169,8 +215,6 @@ mod tests {
 
     mod prune_above_threshold_tests {
         use super::*;
-        use crate::database::query::GetCardanoBlockQuery;
-        use crate::database::test_helper::insert_cardano_blocks_and_transaction;
 
         #[test]
         fn test_prune_work_even_without_transactions_in_db() {

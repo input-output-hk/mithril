@@ -77,7 +77,7 @@ impl CardanoTransactionRepository {
         transaction_hash: T,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
         self.connection_pool.connection()?.fetch_first(
-            GetCardanoTransactionQuery::by_transaction_hash(&transaction_hash.into()),
+            GetCardanoTransactionQuery::by_transaction_hash(transaction_hash),
         )
     }
 

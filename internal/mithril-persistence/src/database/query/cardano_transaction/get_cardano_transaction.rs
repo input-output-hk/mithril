@@ -20,11 +20,11 @@ impl GetCardanoTransactionQuery {
     }
 
     // Useful in test and probably in the future.
-    pub fn by_transaction_hash(transaction_hash: &TransactionHash) -> Self {
+    pub fn by_transaction_hash<T: Into<TransactionHash>>(transaction_hash: T) -> Self {
         Self {
             condition: WhereCondition::new(
                 "transaction_hash = ?*",
-                vec![Value::String(transaction_hash.to_owned())],
+                vec![Value::String(transaction_hash.into())],
             ),
         }
     }
