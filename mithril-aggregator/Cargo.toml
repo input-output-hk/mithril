@@ -92,7 +92,7 @@ tempfile = "3.24.0"
 warp = { workspace = true, features = ["test"] }
 
 [[bench]]
-name = "cardano_transactions_import"
+name = "cardano_blocks_transactions_import"
 harness = false
 
 [[bench]]
