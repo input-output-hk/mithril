@@ -137,9 +137,7 @@ impl PartialOrd for MerkleTreeSnarkLeaf {
     /// Ordering of MT Values.
     ///
     /// First we order by target value, then by key. By having this ordering,
-    /// we have the players with higher target value close together,
-    /// meaning that the probability of having several signatures in the same side of the tree, is higher.
-    /// This allows us to produce a more efficient batch opening of the merkle tree.
+    /// we have the players with higher target value close together.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(std::cmp::Ord::cmp(self, other))
     }
@@ -163,6 +161,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "future_snark")]
     mod golden {
         use super::*;
         const GOLDEN_BYTES: &[u8; 104] = &[
@@ -194,18 +193,17 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "future_snark")]
     mod golden_json {
         use super::*;
         const GOLDEN_JSON: &str = r#"
-        {
+        [
             [143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,
             181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,
             6,137,94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,
             111,142,31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,
             251,68,69,121,16,224,194],
             1
-        }"#;
+        ]"#;
 
         fn golden_value() -> MerkleTreeConcatenationLeaf {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -217,7 +215,7 @@ mod tests {
 
         #[test]
         fn golden_conversions() {
-            let value = serde_json::from_str(GOLDEN_JSON)
+            let value: MerkleTreeConcatenationLeaf = serde_json::from_str(GOLDEN_JSON)
                 .expect("This JSON deserialization should not fail");
             assert_eq!(golden_value(), value);
 
