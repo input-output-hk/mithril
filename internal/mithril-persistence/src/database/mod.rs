@@ -58,8 +58,10 @@ pub(crate) mod test_helper {
         connection
             .apply(InsertCardanoBlockQuery::insert_many(blocks_records).unwrap())
             .unwrap();
-        connection
-            .apply(InsertCardanoTransactionQuery::insert_many(transactions_records).unwrap())
-            .unwrap();
+        if !transactions_records.is_empty() {
+            connection
+                .apply(InsertCardanoTransactionQuery::insert_many(transactions_records).unwrap())
+                .unwrap();
+        }
     }
 }
