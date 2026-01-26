@@ -6,8 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     LotteryIndex, MembershipDigest, Parameters, SignatureError, Stake, StmResult,
     VerificationKeyForConcatenation, proof_system::AggregateVerificationKeyForConcatenation,
-    protocol::is_lottery_won, signature_scheme::BlsSignature,
+    signature_scheme::BlsSignature,
 };
+
+use super::is_lottery_won;
 
 /// Single signature for the concatenation proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
