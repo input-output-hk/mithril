@@ -2,6 +2,9 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::{TargetValue, VerificationKeyForSnark};
+
 use crate::{Stake, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
@@ -73,5 +76,42 @@ impl PartialOrd for MerkleTreeConcatenationLeaf {
 impl Ord for MerkleTreeConcatenationLeaf {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct MerkleTreeSnarkLeaf(pub VerificationKeyForSnark, pub TargetValue);
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
+    fn as_bytes_for_merkle_tree(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl MerkleTreeSnarkLeaf {
+    fn to_bytes(self) -> Vec<u8> {
+        let mut result = [0u8; 64];
+        result[..32].copy_from_slice(&self.0.to_bytes());
+        result[32..].copy_from_slice(&self.1.to_bytes());
+        result.to_vec()
+    }
+
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let pk = VerificationKeyForSnark::from_bytes(&bytes[..32])
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut u64_bytes = [0u8; 64];
+        u64_bytes.copy_from_slice(&bytes[32..]);
+        let target_value =
+            TargetValue::from_bytes(&u64_bytes).map_err(|_| MerkleTreeError::SerializationError)?;
+        Ok(MerkleTreeSnarkLeaf(pk, target_value))
     }
 }

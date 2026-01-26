@@ -7,7 +7,7 @@ use std::ops::{Add, Mul, Sub};
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub(crate) struct BaseFieldElement(pub(crate) JubjubBase);
 
 impl BaseFieldElement {

@@ -131,6 +131,10 @@ pub use protocol::{
 };
 pub use signature_scheme::BlsSignatureError;
 
+use blake2::{Blake2b, digest::consts::U32};
+use digest::{Digest, FixedOutput};
+use std::fmt::Debug;
+
 #[cfg(feature = "benchmark-internals")]
 pub use signature_scheme::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
@@ -140,12 +144,11 @@ pub use signature_scheme::{
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
 pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
-use blake2::{Blake2b, digest::consts::U32};
-use digest::{Digest, FixedOutput};
-use std::fmt::Debug;
-
 #[cfg(feature = "future_snark")]
 use hash::poseidon::MidnightPoseidonDigest;
+
+#[cfg(feature = "future_snark")]
+pub use protocol::VerificationKeyForSnark;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -162,6 +165,12 @@ pub type StmError = anyhow::Error;
 
 /// Mithril-stm result type
 pub type StmResult<T> = anyhow::Result<T, StmError>;
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+/// Target value type used in the lottery for snark proof system
+pub(crate) type TargetValue = crate::signature_scheme::BaseFieldElement;
 
 /// Trait defining the different hash types for different proof systems.
 pub trait MembershipDigest: Clone {
