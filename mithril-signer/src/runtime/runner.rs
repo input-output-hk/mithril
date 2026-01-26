@@ -214,7 +214,9 @@ impl Runner for SignerRunner {
                         "current_kes_period" => u64::from(current_kes_period),
                         "start_kes_period" => u64::from(start_kes_period)
                     );
-                    Err(RunnerError::NoValueError("kes_period_underflow".to_string()))
+                    Err(RunnerError::NoValueError(
+                        "kes_period_underflow".to_string(),
+                    ))
                 } else {
                     Ok(current_kes_period - start_kes_period)
                 }
