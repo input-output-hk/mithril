@@ -18,10 +18,10 @@ use mithril_common::{
 };
 use mithril_resource_pool::ResourcePool;
 
-/// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
+/// Legacy Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait ProverService: Sync + Send {
+pub trait LegacyProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(
         &self,
@@ -51,15 +51,15 @@ pub trait TransactionsRetriever: Sync + Send {
     ) -> StdResult<Vec<CardanoTransaction>>;
 }
 
-/// Mithril prover
-pub struct MithrilProverService<S: MKTreeStorer> {
+/// Legacy Mithril prover
+pub struct LegacyMithrilProverService<S: MKTreeStorer> {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
 }
 
-impl<S: MKTreeStorer> MithrilProverService<S> {
+impl<S: MKTreeStorer> LegacyMithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
@@ -114,7 +114,7 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
 }
 
 #[async_trait]
-impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
+impl<S: MKTreeStorer> LegacyProverService for LegacyMithrilProverService<S> {
     async fn compute_transactions_proofs(
         &self,
         up_to: BlockNumber,
@@ -349,7 +349,7 @@ mod tests {
     fn build_prover<F, G, S: MKTreeStorer + 'static>(
         transaction_retriever_mock_config: F,
         block_range_root_retriever_mock_config: G,
-    ) -> MithrilProverService<S>
+    ) -> LegacyMithrilProverService<S>
     where
         F: FnOnce(&mut MockTransactionsRetriever),
         G: FnOnce(&mut MockBlockRangeRootRetrieverImpl<S>),
@@ -360,7 +360,7 @@ mod tests {
         block_range_root_retriever_mock_config(&mut block_range_root_retriever);
         let mk_map_pool_size = 1;
 
-        MithrilProverService::new(
+        LegacyMithrilProverService::new(
             Arc::new(transaction_retriever),
             Arc::new(block_range_root_retriever),
             mk_map_pool_size,
