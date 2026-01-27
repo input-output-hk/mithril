@@ -156,7 +156,7 @@ create table cardano_tx (
     primary key (transaction_hash),
     foreign key (block_hash) references cardano_block(block_hash) on delete cascade
 );
-create index cardano_tx_block_hash_index on cardano_tx(block_hash);
+create index block_hash_transaction_hash_index on cardano_tx(block_hash, transaction_hash);
 "#,
         ),
     ]
