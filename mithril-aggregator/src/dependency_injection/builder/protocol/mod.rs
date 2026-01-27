@@ -5,4 +5,5 @@
 mod artifacts;
 mod certificates;
 mod proving;
+mod proving_legacy;
 mod signables;

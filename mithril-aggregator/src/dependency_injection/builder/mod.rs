@@ -53,7 +53,7 @@ use crate::{
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorChainDataImporter, CertificateChainSynchronizer, CertifierService,
-        LegacyProverService, MessageService, MithrilSignerRegistrationFollower,
+        LegacyProverService, MessageService, MithrilSignerRegistrationFollower, ProverService,
         SignedEntityService, SignerSynchronizer, Snapshotter, StakeDistributionService,
         UpkeepService,
     },
@@ -269,6 +269,9 @@ pub struct DependenciesBuilder {
     /// Legacy Prover service
     pub legacy_prover_service: Option<Arc<dyn LegacyProverService>>,
 
+    /// Prover service
+    pub prover_service: Option<Arc<dyn ProverService>>,
+
     /// Signed Entity Type Lock
     pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
 
@@ -348,6 +351,7 @@ impl DependenciesBuilder {
             signed_entity_storer: None,
             message_service: None,
             legacy_prover_service: None,
+            prover_service: None,
             signed_entity_type_lock: None,
             chain_data_importer: None,
             upkeep_service: None,
@@ -406,6 +410,7 @@ impl DependenciesBuilder {
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
             legacy_prover_service: self.get_legacy_prover_service().await?,
+            prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_type_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
