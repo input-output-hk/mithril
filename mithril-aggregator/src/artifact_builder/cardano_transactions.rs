@@ -10,18 +10,18 @@ use mithril_common::{
     },
 };
 
-use crate::services::ProverService;
+use crate::services::LegacyProverService;
 
 use super::ArtifactBuilder;
 
 /// A [CardanoTransactionsArtifact] builder
 pub struct CardanoTransactionsArtifactBuilder {
-    prover_service: Arc<dyn ProverService>,
+    prover_service: Arc<dyn LegacyProverService>,
 }
 
 impl CardanoTransactionsArtifactBuilder {
     /// CardanoTransactions artifact builder factory
-    pub fn new(prover_service: Arc<dyn ProverService>) -> Self {
+    pub fn new(prover_service: Arc<dyn LegacyProverService>) -> Self {
         Self { prover_service }
     }
 }
@@ -58,13 +58,13 @@ impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
 mod tests {
     use mithril_common::{entities::ProtocolMessage, test::double::fake_data};
 
-    use crate::services::MockProverService;
+    use crate::services::MockLegacyProverService;
 
     use super::*;
 
     #[tokio::test]
     async fn should_compute_valid_artifact_with_merkleroot() {
-        let mut mock_prover = MockProverService::new();
+        let mut mock_prover = MockLegacyProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
         let cardano_transaction_artifact_builder =
             CardanoTransactionsArtifactBuilder::new(Arc::new(mock_prover));
@@ -95,7 +95,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_fail_to_compute_artifact_without_merkle_root() {
-        let mut mock_prover = MockProverService::new();
+        let mut mock_prover = MockLegacyProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
         let cardano_transaction_artifact_builder =
             CardanoTransactionsArtifactBuilder::new(Arc::new(mock_prover));

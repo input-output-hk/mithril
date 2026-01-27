@@ -53,8 +53,9 @@ use crate::{
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorChainDataImporter, CertificateChainSynchronizer, CertifierService,
-        MessageService, MithrilSignerRegistrationFollower, ProverService, SignedEntityService,
-        SignerSynchronizer, Snapshotter, StakeDistributionService, UpkeepService,
+        LegacyProverService, MessageService, MithrilSignerRegistrationFollower,
+        SignedEntityService, SignerSynchronizer, Snapshotter, StakeDistributionService,
+        UpkeepService,
     },
     tools::file_archiver::FileArchiver,
 };
@@ -266,7 +267,7 @@ pub struct DependenciesBuilder {
     pub message_service: Option<Arc<dyn MessageService>>,
 
     /// Prover service
-    pub prover_service: Option<Arc<dyn ProverService>>,
+    pub prover_service: Option<Arc<dyn LegacyProverService>>,
 
     /// Signed Entity Type Lock
     pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
