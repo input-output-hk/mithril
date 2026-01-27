@@ -46,7 +46,7 @@ async fn prove_transactions() {
     )
     .await;
     let observer = tester.observer.clone();
-    let prover = tester.dependencies.prover_service.clone();
+    let prover = tester.dependencies.legacy_prover_service.clone();
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

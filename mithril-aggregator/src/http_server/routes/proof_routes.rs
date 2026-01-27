@@ -275,7 +275,7 @@ mod tests {
         mock_prover_service
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.prover_service = Arc::new(mock_prover_service);
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -416,7 +416,7 @@ mod tests {
             .expect_compute_transactions_proofs()
             .withf(move |_, transaction_hashes| transaction_hashes == txs_expected)
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.prover_service = Arc::new(mock_prover_service);
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
