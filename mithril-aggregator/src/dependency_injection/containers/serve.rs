@@ -22,8 +22,8 @@ use crate::{
     },
     event_store::{EventMessage, TransmitterService},
     services::{
-        CertificateChainSynchronizer, CertifierService, EpochService, MessageService,
-        LegacyProverService, SignedEntityService, SignerRecorder, SignerSynchronizer,
+        CertificateChainSynchronizer, CertifierService, EpochService, LegacyProverService,
+        MessageService, SignedEntityService, SignerRecorder, SignerSynchronizer,
         StakeDistributionService, UpkeepService,
     },
 };
@@ -104,8 +104,8 @@ pub struct ServeCommandDependenciesContainer {
     /// HTTP message service
     pub message_service: Arc<dyn MessageService>,
 
-    /// Prover service
-    pub prover_service: Arc<dyn LegacyProverService>,
+    /// Legacy Prover service
+    pub legacy_prover_service: Arc<dyn LegacyProverService>,
 
     /// Signed Entity Type Lock
     pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,

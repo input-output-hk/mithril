@@ -136,7 +136,7 @@ pub fn with_http_message_service(
 pub fn with_prover_service(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (Arc<dyn LegacyProverService>,), Error = Infallible> + Clone + use<> {
-    let prover_service = router_state.dependencies.prover_service.clone();
+    let prover_service = router_state.dependencies.legacy_prover_service.clone();
     warp::any().map(move || prover_service.clone())
 }
 
