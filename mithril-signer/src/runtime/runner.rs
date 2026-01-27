@@ -205,20 +205,15 @@ impl Runner for SignerRunner {
         let (current_kes_period, kes_evolutions) = loop {
             attempt += 1;
 
-            let kes_period = self
-                .services
-                .chain_observer
-                .get_current_kes_period()
-                .await?;
+            let kes_period = self.services.chain_observer.get_current_kes_period().await?;
 
             let kes_period = match kes_period {
                 Some(kes_period) => kes_period,
                 None => {
                     if attempt >= max_retries {
-                        return Err(RunnerError::NoValueError(
-                            "current_kes_period".to_string(),
-                        )
-                        .into());
+                        return Err(
+                            RunnerError::NoValueError("current_kes_period".to_string()).into()
+                        );
                     }
                     warn!(
                         self.logger,
@@ -253,10 +248,9 @@ impl Runner for SignerRunner {
                             "current_kes_period" => u64::from(kes_period),
                             "start_kes_period" => u64::from(start_kes_period)
                         );
-                        return Err(RunnerError::NoValueError(
-                            "kes_period_underflow".to_string(),
-                        )
-                        .into());
+                        return Err(
+                            RunnerError::NoValueError("kes_period_underflow".to_string()).into(),
+                        );
                     }
                     warn!(
                         self.logger,
