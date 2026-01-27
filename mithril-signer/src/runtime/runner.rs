@@ -198,30 +198,78 @@ impl Runner for SignerRunner {
             }
             _ => (None, None),
         };
-        let current_kes_period = self
-            .services
-            .chain_observer
-            .get_current_kes_period()
-            .await?
-            .ok_or_else(|| RunnerError::NoValueError("current_kes_period".to_string()))?;
-        let kes_evolutions = operational_certificate
-            .map(|operational_certificate| {
-                let start_kes_period = operational_certificate.get_start_kes_period();
-                if current_kes_period < start_kes_period {
+        let mut attempt = 0;
+        let max_retries = 5;
+        let retry_delay = std::time::Duration::from_secs(1);
+
+        let (current_kes_period, kes_evolutions) = loop {
+            attempt += 1;
+
+            let kes_period = self
+                .services
+                .chain_observer
+                .get_current_kes_period()
+                .await?;
+
+            let kes_period = match kes_period {
+                Some(kes_period) => kes_period,
+                None => {
+                    if attempt >= max_retries {
+                        return Err(RunnerError::NoValueError(
+                            "current_kes_period".to_string(),
+                        )
+                        .into());
+                    }
                     warn!(
                         self.logger,
-                        "Current KES period is behind operational certificate start period.";
-                        "current_kes_period" => u64::from(current_kes_period),
-                        "start_kes_period" => u64::from(start_kes_period)
+                        "Current KES period is not available yet. Retrying...";
+                        "attempt" => attempt,
+                        "max_retries" => max_retries
                     );
-                    Err(RunnerError::NoValueError(
-                        "kes_period_underflow".to_string(),
-                    ))
-                } else {
-                    Ok(current_kes_period - start_kes_period)
+                    tokio::time::sleep(retry_delay).await;
+                    continue;
                 }
-            })
-            .transpose()?;
+            };
+
+            let check_result = match &operational_certificate {
+                Some(op_cert) => {
+                    let start_kes_period = op_cert.get_start_kes_period();
+                    if kes_period < start_kes_period {
+                        Err(start_kes_period)
+                    } else {
+                        Ok(Some(kes_period - start_kes_period))
+                    }
+                }
+                None => Ok(None),
+            };
+
+            match check_result {
+                Ok(evolutions) => break (kes_period, evolutions),
+                Err(start_kes_period) => {
+                    if attempt >= max_retries {
+                        warn!(
+                            self.logger,
+                            "Current KES period is behind operational certificate start period.";
+                            "current_kes_period" => u64::from(kes_period),
+                            "start_kes_period" => u64::from(start_kes_period)
+                        );
+                        return Err(RunnerError::NoValueError(
+                            "kes_period_underflow".to_string(),
+                        )
+                        .into());
+                    }
+                    warn!(
+                        self.logger,
+                        "KES period mismatch. Retrying...";
+                        "current_kes_period" => u64::from(kes_period),
+                        "start_kes_period" => u64::from(start_kes_period),
+                        "attempt" => attempt,
+                        "max_retries" => max_retries
+                    );
+                    tokio::time::sleep(retry_delay).await;
+                }
+            }
+        };
 
         let protocol_initializer = self
             .services
