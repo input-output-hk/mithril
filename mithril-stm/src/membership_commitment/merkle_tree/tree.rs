@@ -398,16 +398,23 @@ mod tests {
     // They will be updated as soon as the snark leaf version is available
     #[cfg(feature = "future_snark")]
     mod poseidon_digest {
+        use midnight_curves::Fq;
+
+        use crate::{
+            VerificationKeyForSnark, membership_commitment::MerkleTreeSnarkLeaf,
+            signature_scheme::BaseFieldElement,
+        };
+
         use super::*;
 
         type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
 
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
-                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
-                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
-                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
-                 (MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
+                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeSnarkLeaf>, Vec<MerkleTreeSnarkLeaf>) {
+                let pks = vec![VerificationKeyForSnark::default(); v.len()];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake)))).collect::<Vec<MerkleTreeSnarkLeaf>>();
+                 (MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves), leaves)
             }
         }
 
@@ -439,9 +446,9 @@ mod tests {
             #[test]
             fn test_bytes_tree_commitment((t, values) in arb_tree_poseidon(5)) {
                 let encoded = t.to_merkle_tree_commitment().to_bytes();
-                let decoded = MerkleTreeCommitment::<SnarkHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
+                let decoded = MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&encoded).unwrap();
 
-                let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_commitment();
+                let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values).to_merkle_tree_commitment();
                 assert_eq!(tree_commitment.root, decoded.root);
             }
 
@@ -449,8 +456,8 @@ mod tests {
             #[test]
             fn test_bytes_tree((t, values) in arb_tree_poseidon(5)) {
                 let bytes = t.to_bytes();
-                let deserialised = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::from_bytes(&bytes).unwrap();
-                let tree = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&values);
+                let deserialised = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&bytes).unwrap();
+                let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values);
                 assert_eq!(tree.nodes, deserialised.nodes);
             }
 
@@ -458,8 +465,8 @@ mod tests {
             #[test]
             fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree_poseidon(5)) {
                 let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
-                let decoded = MerkleTreeBatchCommitment::<SnarkHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
-                let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_batch_commitment();
+                let decoded = MerkleTreeBatchCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&encoded).unwrap();
+                let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values).to_merkle_tree_batch_commitment();
                 assert_eq!(tree_commitment.root, decoded.root);
                 assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
 
@@ -472,9 +479,9 @@ mod tests {
             fn values_with_invalid_proof(max_height: usize)
                                         (h in 1..max_height)
                                         (v in vec(any::<u64>(), 2..pow2_plus1(h)),
-                                         proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
-                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
-                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+                                         proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeSnarkLeaf>, Vec<Vec<u8>>) {
+                let pks = vec![VerificationKeyForSnark::default(); v.len()];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake)))).collect::<Vec<MerkleTreeSnarkLeaf>>();
                 (leaves, proof)
             }
         }
@@ -486,7 +493,7 @@ mod tests {
                 i in any::<usize>(),
                 (values, proof) in values_with_invalid_proof(10)
             ) {
-                let t = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
+                let t = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values[1..]);
                 let index = i % (values.len() - 1);
                 let path_values = proof.iter().map(|x| SnarkHash::digest(x).to_vec()).collect();
                 let path = MerklePath::new(path_values, index);
@@ -499,7 +506,7 @@ mod tests {
                 i in any::<usize>(),
                 (values, proof) in values_with_invalid_proof(10)
             ) {
-                let t = MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
+                let t = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values[1..]);
                 let indices = vec![i % (values.len() - 1); values.len() / 2];
                 let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
                 let path = MerkleBatchPath{values: proof
@@ -515,22 +522,22 @@ mod tests {
 
         prop_compose! {
             fn arb_tree_arb_batch(max_size: u32)
-                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
+                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeSnarkLeaf>, Vec<MerkleTreeSnarkLeaf>, Vec<usize>) {
                 let mut rng = rng();
                 let size = v.len();
-                let pks = vec![VerificationKeyForConcatenation::default(); size];
-                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+                let pks = vec![VerificationKeyForSnark::default(); size];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake)))).collect::<Vec<MerkleTreeSnarkLeaf>>();
 
                 let indices: Vec<usize> = (0..size).collect();
                 let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
                 mt_list.sort_unstable();
 
-                let mut batch_values: Vec<MerkleTreeConcatenationLeaf> = Vec::with_capacity(mt_list.len());
+                let mut batch_values: Vec<MerkleTreeSnarkLeaf> = Vec::with_capacity(mt_list.len());
                 for i in mt_list.iter() {
                     batch_values.push(leaves[*i]);
                 }
 
-                (MerkleTree::<SnarkHash, MerkleTreeConcatenationLeaf>::new(&leaves), batch_values, mt_list)
+                (MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves), batch_values, mt_list)
             }
         }
 
