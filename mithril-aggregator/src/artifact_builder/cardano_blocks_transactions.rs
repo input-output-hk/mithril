@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use mithril_common::{
     StdResult,
     entities::{
-        BlockNumber, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey,
+        BlockNumber, CardanoBlocksTransactionsSnapshot, Certificate, ProtocolMessagePartKey,
         SignedEntityType,
     },
 };
@@ -27,27 +27,27 @@ impl CardanoBlocksTransactionsArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
+impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
     for CardanoBlocksTransactionsArtifactBuilder
 {
     async fn compute_artifact(
         &self,
         beacon: BlockNumber,
         certificate: &Certificate,
-    ) -> StdResult<CardanoTransactionsSnapshot> {
+    ) -> StdResult<CardanoBlocksTransactionsSnapshot> {
         let merkle_root = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CardanoTransactionsMerkleRoot)
             .with_context(|| "Can not find CardanoTransactionsMerkleRoot protocol message part in certificate")
             .with_context(|| {
                 format!(
-                    "Can not compute CardanoTransactionsSnapshot artifact for signed_entity: {:?}",
+                    "Can not compute CardanoBlocksTransactionsSnapshot artifact for signed_entity: {:?}",
                     SignedEntityType::CardanoTransactions(certificate.epoch, beacon)
                 )
             })?;
         self.prover_service.compute_cache(beacon).await?;
 
-        Ok(CardanoTransactionsSnapshot::new(
+        Ok(CardanoBlocksTransactionsSnapshot::new(
             merkle_root.to_string(),
             beacon,
         ))
@@ -66,7 +66,7 @@ mod tests {
     async fn should_compute_valid_artifact_with_merkleroot() {
         let mut mock_prover = MockProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
-        let cardano_transaction_artifact_builder =
+        let cardano_blocks_transactions_artifact_builder =
             CardanoBlocksTransactionsArtifactBuilder::new(Arc::new(mock_prover));
 
         let certificate_with_merkle_root = {
@@ -82,7 +82,7 @@ mod tests {
         };
         let beacon = BlockNumber(100);
 
-        let artifact = cardano_transaction_artifact_builder
+        let artifact = cardano_blocks_transactions_artifact_builder
             .compute_artifact(beacon, &certificate_with_merkle_root)
             .await
             .unwrap();
@@ -97,7 +97,7 @@ mod tests {
     async fn should_fail_to_compute_artifact_without_merkle_root() {
         let mut mock_prover = MockProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
-        let cardano_transaction_artifact_builder =
+        let cardano_blocks_transactions_artifact_builder =
             CardanoBlocksTransactionsArtifactBuilder::new(Arc::new(mock_prover));
 
         let certificate_without_merkle_root = Certificate {
@@ -106,7 +106,7 @@ mod tests {
         };
         let beacon = BlockNumber(100);
 
-        cardano_transaction_artifact_builder
+        cardano_blocks_transactions_artifact_builder
             .compute_artifact(beacon, &certificate_without_merkle_root)
             .await
             .expect_err("The artifact building must fail since there is no CardanoTransactionsMerkleRoot part in its message.");

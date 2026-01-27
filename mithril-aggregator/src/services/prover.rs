@@ -7,9 +7,12 @@ use mithril_common::{
     StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange},
+    logging::LoggerExtensions,
     signable_builder::BlockRangeRootRetriever,
 };
 use mithril_resource_pool::ResourcePool;
+
+use crate::services::TransactionsRetriever;
 
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions and blocks
 /// /!\ The trait is not final /!\
@@ -22,10 +25,27 @@ pub trait ProverService: Sync + Send {
 
 /// Mithril prover
 pub struct MithrilProverService<S: MKTreeStorer> {
-    // transaction_retriever: Arc<dyn TransactionsRetriever>,
+    transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
+}
+
+impl<S: MKTreeStorer> MithrilProverService<S> {
+    /// Create a new Mithril prover
+    pub fn new(
+        transaction_retriever: Arc<dyn TransactionsRetriever>,
+        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+        mk_map_pool_size: usize,
+        logger: Logger,
+    ) -> Self {
+        Self {
+            transaction_retriever,
+            block_range_root_retriever,
+            mk_map_pool: ResourcePool::new(mk_map_pool_size, vec![]),
+            logger: logger.new_with_component_name::<Self>(),
+        }
+    }
 }
 
 #[async_trait]
