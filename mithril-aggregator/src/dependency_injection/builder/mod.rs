@@ -53,8 +53,9 @@ use crate::{
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorChainDataImporter, CertificateChainSynchronizer, CertifierService,
-        MessageService, MithrilSignerRegistrationFollower, ProverService, SignedEntityService,
-        SignerSynchronizer, Snapshotter, StakeDistributionService, UpkeepService,
+        LegacyProverService, MessageService, MithrilSignerRegistrationFollower, ProverService,
+        SignedEntityService, SignerSynchronizer, Snapshotter, StakeDistributionService,
+        UpkeepService,
     },
     tools::file_archiver::FileArchiver,
 };
@@ -265,6 +266,9 @@ pub struct DependenciesBuilder {
     /// HTTP Message service
     pub message_service: Option<Arc<dyn MessageService>>,
 
+    /// Legacy Prover service
+    pub legacy_prover_service: Option<Arc<dyn LegacyProverService>>,
+
     /// Prover service
     pub prover_service: Option<Arc<dyn ProverService>>,
 
@@ -346,6 +350,7 @@ impl DependenciesBuilder {
             mithril_network_configuration_provider: None,
             signed_entity_storer: None,
             message_service: None,
+            legacy_prover_service: None,
             prover_service: None,
             signed_entity_type_lock: None,
             chain_data_importer: None,
@@ -404,6 +409,7 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
+            legacy_prover_service: self.get_legacy_prover_service().await?,
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_type_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,

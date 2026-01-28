@@ -61,7 +61,7 @@ mod handlers {
             validators::ProverTransactionsHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
-        services::{ProverService, SignedEntityService},
+        services::{LegacyProverService, SignedEntityService},
         unwrap_to_internal_server_error,
     };
 
@@ -73,7 +73,7 @@ mod handlers {
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverTransactionsHashValidator,
-        prover_service: Arc<dyn ProverService>,
+        prover_service: Arc<dyn LegacyProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
@@ -128,7 +128,7 @@ mod handlers {
     }
 
     pub async fn build_response_message(
-        prover_service: Arc<dyn ProverService>,
+        prover_service: Arc<dyn LegacyProverService>,
         signed_entity: SignedEntity<CardanoTransactionsSnapshot>,
         transaction_hashes: Vec<String>,
     ) -> StdResult<CardanoTransactionsProofsMessage> {
@@ -170,7 +170,7 @@ mod tests {
         },
     };
 
-    use crate::services::MockProverService;
+    use crate::services::MockLegacyProverService;
     use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     use super::*;
@@ -189,7 +189,7 @@ mod tests {
     #[tokio::test]
     async fn build_response_message_return_latest_block_number_from_artifact_beacon() {
         // Arrange
-        let mut mock_prover_service = MockProverService::new();
+        let mut mock_prover_service = MockLegacyProverService::new();
         mock_prover_service
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
@@ -271,11 +271,11 @@ mod tests {
             .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsSnapshot>::dummy())));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
-        let mut mock_prover_service = MockProverService::new();
+        let mut mock_prover_service = MockLegacyProverService::new();
         mock_prover_service
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.prover_service = Arc::new(mock_prover_service);
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -410,13 +410,13 @@ mod tests {
             .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsSnapshot>::dummy())));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
-        let mut mock_prover_service = MockProverService::new();
+        let mut mock_prover_service = MockLegacyProverService::new();
         let txs_expected = vec![tx.clone()];
         mock_prover_service
             .expect_compute_transactions_proofs()
             .withf(move |_, transaction_hashes| transaction_hashes == txs_expected)
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.prover_service = Arc::new(mock_prover_service);
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";

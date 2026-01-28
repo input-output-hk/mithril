@@ -51,7 +51,7 @@ impl DependenciesBuilder {
                 snapshot_uploader,
                 logger.clone(),
             ));
-        let prover_service = self.get_prover_service().await?;
+        let prover_service = self.get_legacy_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
             CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
         );

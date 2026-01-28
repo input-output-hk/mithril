@@ -1,4 +1,5 @@
 //! The module used for building artifact
+mod cardano_blocks_transactions;
 mod cardano_database;
 mod cardano_database_artifacts;
 mod cardano_immutable_files_full;
