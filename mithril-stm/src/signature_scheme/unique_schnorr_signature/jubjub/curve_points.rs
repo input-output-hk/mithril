@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Ok, anyhow};
 use group::{Group, GroupEncoding};
 use midnight_circuits::instructions::HashToCurveCPU;
 use midnight_circuits::{
@@ -148,11 +148,7 @@ impl PrimeOrderProjectivePoint {
 
     /// Checks if the given point is on the curve using its coordinates
     pub(crate) fn is_on_curve(&self) -> StmResult<PrimeOrderProjectivePoint> {
-        let point_affine_representation = AffinePoint::from(self);
-        let (x, y) = (
-            point_affine_representation.get_u(),
-            point_affine_representation.get_v(),
-        );
+        let (x, y) = self.get_coordinates();
         let x_square = x * x;
         let y_square = y * y;
 
@@ -165,6 +161,17 @@ impl PrimeOrderProjectivePoint {
             )));
         }
         Ok(*self)
+    }
+
+    /// Retrieves the (u, v) coordinates of the prime order projective point in affine representation
+    pub(crate) fn get_coordinates(&self) -> (BaseFieldElement, BaseFieldElement) {
+        let affine_point = AffinePoint::from(self);
+
+        (affine_point.get_u(), affine_point.get_v())
+    }
+
+    pub(crate) fn from_coordinates(u: BaseFieldElement, v: BaseFieldElement) -> StmResult<Self> {
+        PrimeOrderProjectivePoint(JubjubSubgroup::from_raw_unchecked(u.0, v.0)).is_on_curve()
     }
 
     /// Converts the prime order projective point to its byte representation

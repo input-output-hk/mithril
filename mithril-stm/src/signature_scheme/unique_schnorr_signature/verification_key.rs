@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Ok, anyhow};
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
+use crate::{StmResult, signature_scheme::BaseFieldElement};
 
 use super::{
     PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
@@ -44,21 +44,28 @@ impl SchnorrVerificationKey {
         Ok(*self)
     }
 
-    /// Convert a `SchnorrVerificationKey` into bytes.
-    pub fn to_bytes(self) -> [u8; 32] {
-        self.0.to_bytes()
+    /// Convert a `SchnorrVerificationKey` into bytes by decomposing it into
+    /// its coordinates first.
+    pub fn to_bytes(self) -> [u8; 64] {
+        let (x, y) = self.0.get_coordinates();
+        let mut output = [0; 64];
+        output[0..32].copy_from_slice(&x.to_bytes());
+        output[32..64].copy_from_slice(&y.to_bytes());
+        output
     }
 
     /// Convert bytes into a `SchnorrVerificationKey`.
     ///
-    /// The bytes must represent a Jubjub Subgroup point or the conversion will fail
+    /// The bytes must represent two Jubjub Base field elements or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        if bytes.len() < 32 {
+        if bytes.len() < 64 {
             return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to construct a Schnorr verification key.",
             );
         }
-        let prime_order_projective_point = PrimeOrderProjectivePoint::from_bytes(bytes)
+        let x = BaseFieldElement::from_bytes(&bytes[0..32])?;
+        let y = BaseFieldElement::from_bytes(&bytes[32..64])?;
+        let prime_order_projective_point = PrimeOrderProjectivePoint::from_coordinates(x, y)
             .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
         Ok(SchnorrVerificationKey(prime_order_projective_point))
@@ -196,9 +203,11 @@ mod tests {
     mod golden {
         use super::*;
 
-        const GOLDEN_BYTES: &[u8; 32] = &[
-            144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47,
-            95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43,
+        const GOLDEN_BYTES: &[u8; 64] = &[
+            186, 22, 69, 162, 1, 67, 125, 160, 104, 197, 105, 109, 200, 34, 186, 196, 171, 155,
+            191, 178, 11, 116, 108, 8, 111, 249, 47, 39, 137, 55, 62, 62, 144, 52, 95, 161, 127,
+            253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136,
+            194, 66, 187, 253, 200, 32, 218, 43,
         ];
 
         fn golden_value() -> SchnorrVerificationKey {
