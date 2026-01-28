@@ -7,7 +7,10 @@ use anyhow::{Context, Ok, anyhow};
 use blst::byte;
 use serde::{Deserialize, Serialize};
 
-use crate::{StmResult, signature_scheme::AffinePoint};
+use crate::{
+    StmResult,
+    signature_scheme::{AffinePoint, BaseFieldElement},
+};
 
 use super::{
     PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
@@ -57,14 +60,16 @@ impl SchnorrVerificationKey {
 
     /// Convert bytes into a `SchnorrVerificationKey`.
     ///
-    /// The bytes must represent a Jubjub Subgroup point or the conversion will fail
+    /// The bytes must represent two Jubjub Base field elements or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        if bytes.len() < 32 {
+        if bytes.len() < 64 {
             return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to construct a Schnorr verification key.",
             );
         }
-        let prime_order_projective_point = PrimeOrderProjectivePoint::from_bytes(bytes)
+        let x = BaseFieldElement::from_bytes(&bytes[0..32])?;
+        let y = BaseFieldElement::from_bytes(&bytes[32..64])?;
+        let prime_order_projective_point = PrimeOrderProjectivePoint::from_coordinates(x, y)
             .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
         Ok(SchnorrVerificationKey(prime_order_projective_point))
