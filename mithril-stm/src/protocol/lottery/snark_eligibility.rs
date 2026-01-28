@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 
 #[cfg(feature = "future_snark")]
 use crate::{
-    LotteryIndex, LotteryTargetValue, Stake, StmResult,
+    LotteryIndex, LotteryTargetValue, Stake,
     signature_scheme::{
         BaseFieldElement, DST_LOTTERY, UniqueSchnorrSignature, compute_poseidon_digest,
     },
@@ -32,20 +32,16 @@ use super::error::LotteryError;
 /// Returns `Ok(TargetValue)` representing the computed threshold, or an error if:
 /// - `phi_f` is outside the valid range `[0.0, 1.0]`
 /// - Numeric conversion fails during computation
-pub fn compute_target_value(
-    phi_f: f64,
-    stake: Stake,
-    total_stake: Stake,
-) -> StmResult<LotteryTargetValue> {
+pub fn compute_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
     // modulus - 1
     let ev_max = -BaseFieldElement::get_one();
-    if !(0.0..=1.0).contains(&phi_f) {
-        return Err(LotteryError::InvalidPhiValue(phi_f).into());
-    }
+
+    assert!(phi_f <= 1.0, "phi_f must be less than or equal to 1.0");
+    assert!(0.0 <= phi_f, "phi_f must be greater than or equal to 0.0");
 
     // If phi_f = 1, then we automatically break with true
     if (phi_f - 1.0).abs() < f64::EPSILON {
-        return Ok(ev_max);
+        return ev_max;
     }
 
     // JubjubBase modulus
@@ -53,30 +49,25 @@ pub fn compute_target_value(
         "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
         16,
     )
-    .map_err(|_| LotteryError::BaseFieldElementConversion)?;
+    .unwrap();
 
     let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
     let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w);
     // increase precision
     let phi_high = Float::with_val(300, phi);
 
-    let t_float = modulus * phi_high;
-    let (t_integer, order) = t_float
-        .to_integer_round(Round::Zero)
-        .ok_or(LotteryError::FloatToIntegerConversion)?;
-
-    if t_integer < 0 {
-        return Err(LotteryError::InvalidIntegerValue(t_integer.to_u64_wrapping()).into());
-    }
+    let t = modulus * phi_high;
+    let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
+    assert!(t_int >= 0);
 
     let target = match order {
-        Ordering::Less => t_integer,
+        Ordering::Less => t_int,
         Ordering::Equal => {
-            if t_integer == 0 {
+            if t_int == 0 {
                 // hashing to 0 has negligible probability
-                t_integer
+                t_int
             } else {
-                t_integer - 1
+                t_int - 1
             }
         }
         Ordering::Greater => unreachable!(),
@@ -84,8 +75,7 @@ pub fn compute_target_value(
 
     let mut bytes: Vec<u8> = target.to_digits(Order::LsfLe);
     bytes.resize(32, 0);
-
-    BaseFieldElement::from_bytes(&bytes)
+    BaseFieldElement::from_bytes(&bytes).unwrap()
 }
 
 #[cfg(feature = "future_snark")]
@@ -150,7 +140,7 @@ mod tests {
         let stake = 50;
         let total_stake = 100;
 
-        let result = compute_target_value(phi_f, stake, total_stake).unwrap();
+        let result = compute_target_value(phi_f, stake, total_stake);
 
         // Since `phi_f` is 1, the function should return the maximum target (-F::ONE)
         assert_eq!(result, -BaseFieldElement::get_one());
@@ -163,7 +153,7 @@ mod tests {
         let stake = 50;
         let total_stake = 100;
 
-        let result = compute_target_value(phi_f, stake, total_stake).unwrap();
+        let result = compute_target_value(phi_f, stake, total_stake);
 
         // Validate that result is in the expected range
         assert!(result != -BaseFieldElement::get_one());
@@ -175,7 +165,7 @@ mod tests {
         let stake = 30;
         let total_stake = 100;
 
-        let target = compute_target_value(phi_f, stake, total_stake).unwrap();
+        let target = compute_target_value(phi_f, stake, total_stake);
         println!("Target = {:?}", target);
 
         let sk = SchnorrSigningKey::generate(&mut OsRng).unwrap();
