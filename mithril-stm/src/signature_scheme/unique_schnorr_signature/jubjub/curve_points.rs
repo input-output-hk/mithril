@@ -170,7 +170,10 @@ impl PrimeOrderProjectivePoint {
         (affine_point.get_u(), affine_point.get_v())
     }
 
+    /// Tries to create a PrimeOrderProjectivePoint from coordinates and fails
+    /// if the corresponding point is not of prime order or on the curve
     pub(crate) fn from_coordinates(u: BaseFieldElement, v: BaseFieldElement) -> StmResult<Self> {
+        // TODO: Add check that the point is on the curve
         PrimeOrderProjectivePoint(JubjubSubgroup::from_raw_unchecked(u.0, v.0)).is_on_curve()
     }
 
