@@ -212,11 +212,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_registration
-                        .clone()
-                        .key_registration
-                        .into_merkle_tree()
-                        .unwrap(),
+                    closed_key_registration.clone().key_registration.into_merkle_tree(),
                 ),
                 closed_key_registration,
                 params,
@@ -280,11 +276,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_registration
-                        .clone()
-                        .key_registration
-                        .into_merkle_tree()
-                        .unwrap(),
+                    closed_key_registration.clone().key_registration.into_merkle_tree(),
                 ),
                 closed_key_registration.clone(),
                 params,

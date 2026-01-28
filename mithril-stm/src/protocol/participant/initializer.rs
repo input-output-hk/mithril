@@ -71,7 +71,7 @@ impl Initializer {
         let key_registration_commitment = closed_key_registration
             .key_registration
             .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
-        )?;
+        );
 
         // Create concatenation proof signer
         let concatenation_proof_signer = ConcatenationProofSigner::new(
