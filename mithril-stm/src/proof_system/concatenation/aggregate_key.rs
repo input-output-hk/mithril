@@ -73,7 +73,6 @@ impl<D: MembershipDigest> From<&ClosedKeyRegistration>
                 .key_registration
                 .clone()
                 .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
-                .unwrap()
                 .to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,
         }
