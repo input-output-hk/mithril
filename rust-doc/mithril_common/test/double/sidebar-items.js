@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["fake_data","fake_keys"],"struct":["DummyApiVersionDiscriminantSource","FakeCertificaterRetriever"],"trait":["Dummy"]};

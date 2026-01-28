@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Bls12","Jubjub","JubjubAffine","JubjubBase","JubjubScalar","JubjubSubgroup"],"type":["LotteryIndex","MerkleRoot","Msg","Target"]};
