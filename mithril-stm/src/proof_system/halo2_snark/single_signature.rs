@@ -13,6 +13,8 @@ pub(crate) struct SingleSignatureForSnark {
     indexes: Vec<LotteryIndex>,
 }
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
 impl SingleSignatureForSnark {
     /// Create and return a new instance of `SingleSignatureForSnark` for given
     /// `schnorr_signature` and `indexes`.

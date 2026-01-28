@@ -232,7 +232,6 @@ mod tests {
     use proptest::{collection::vec, prelude::*};
     use rand::{rng, seq::IteratorRandom};
 
-    #[cfg(feature = "future_snark")]
     use crate::{
         MembershipDigest, MithrilMembershipDigest, VerificationKeyForConcatenation,
         membership_commitment::MerkleTreeConcatenationLeaf,
