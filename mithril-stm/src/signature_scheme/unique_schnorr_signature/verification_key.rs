@@ -4,9 +4,10 @@ use std::{
 };
 
 use anyhow::{Context, Ok, anyhow};
+use blst::byte;
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
+use crate::{StmResult, signature_scheme::AffinePoint};
 
 use super::{
     PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
@@ -44,9 +45,14 @@ impl SchnorrVerificationKey {
         Ok(*self)
     }
 
-    /// Convert a `SchnorrVerificationKey` into bytes.
-    pub fn to_bytes(self) -> [u8; 32] {
-        self.0.to_bytes()
+    /// Convert a `SchnorrVerificationKey` into bytes by decomposing it into
+    /// its coordinates first.
+    pub fn to_bytes(self) -> [u8; 64] {
+        let (x, y) = self.0.get_coordinates();
+        let mut output = [0; 64];
+        output[0..32].copy_from_slice(&x.to_bytes());
+        output[32..64].copy_from_slice(&y.to_bytes());
+        output
     }
 
     /// Convert bytes into a `SchnorrVerificationKey`.
