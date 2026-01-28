@@ -6,7 +6,7 @@ use mithril_common::{
     messages::AggregatorCapabilities,
 };
 
-use crate::{AggregatorDiscoverer, AggregatorEndpoint};
+use crate::{AggregatorDiscoverer, AggregatorEndpoint, model::AggregatorEndpointWithCapabilities};
 
 /// Required capabilities for an aggregator.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -50,14 +50,14 @@ impl RequiredAggregatorCapabilities {
 /// An aggregator discoverer for specific capabilities.
 pub struct CapableAggregatorDiscoverer {
     required_capabilities: RequiredAggregatorCapabilities,
-    inner_discoverer: Arc<dyn AggregatorDiscoverer>,
+    inner_discoverer: Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>,
 }
 
 impl CapableAggregatorDiscoverer {
     /// Creates a new `CapableAggregatorDiscoverer` instance with the provided capabilities.
     pub fn new(
         capabilities: RequiredAggregatorCapabilities,
-        inner_discoverer: Arc<dyn AggregatorDiscoverer>,
+        inner_discoverer: Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>,
     ) -> Self {
         Self {
             required_capabilities: capabilities,
@@ -67,11 +67,11 @@ impl CapableAggregatorDiscoverer {
 }
 
 #[async_trait::async_trait]
-impl AggregatorDiscoverer for CapableAggregatorDiscoverer {
+impl AggregatorDiscoverer<AggregatorEndpointWithCapabilities> for CapableAggregatorDiscoverer {
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,
-    ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpoint>>> {
+    ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpointWithCapabilities>>> {
         let aggregator_endpoints = self.inner_discoverer.get_available_aggregators(network).await?;
 
         Ok(Box::new(CapableAggregatorDiscovererIterator {
@@ -88,20 +88,17 @@ struct CapableAggregatorDiscovererIterator {
 }
 
 impl Iterator for CapableAggregatorDiscovererIterator {
-    type Item = AggregatorEndpoint;
+    type Item = AggregatorEndpointWithCapabilities;
 
     fn next(&mut self) -> Option<Self::Item> {
         for aggregator_endpoint in self.inner_iterator.by_ref() {
-            let aggregator_endpoint_clone = aggregator_endpoint.clone();
-            let aggregator_capabilities = tokio::task::block_in_place(move || {
-                tokio::runtime::Handle::current().block_on(async move {
-                    aggregator_endpoint_clone.retrieve_capabilities().await
-                })
-            });
-            if let Ok(aggregator_capabilities) = aggregator_capabilities
-                && self.required_capabilities.matches(&aggregator_capabilities)
+            if let Ok(aggregator_with_capabilities) =
+                AggregatorEndpointWithCapabilities::try_from(aggregator_endpoint)
+                && self
+                    .required_capabilities
+                    .matches(aggregator_with_capabilities.capabilities())
             {
-                return Some(aggregator_endpoint);
+                return Some(aggregator_with_capabilities);
             }
         }
 
@@ -292,7 +289,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            let next_aggregator = aggregators.next();
+            let next_aggregator = aggregators.next().map(|endpoint| endpoint.into());
             aggregator_server_mock.assert();
             assert_eq!(
                 Some(AggregatorEndpoint::new(aggregator_server.url("/"))),
@@ -369,7 +366,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            let next_aggregator = aggregators.next();
+            let next_aggregator = aggregators.next().map(|endpoint| endpoint.into());
             aggregator_server_mock_1.assert();
             aggregator_server_mock_2.assert();
             assert_eq!(
@@ -438,7 +435,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            let next_aggregator = aggregators.next();
+            let next_aggregator = aggregators.next().map(|endpoint| endpoint.into());
             aggregator_server_mock_1.assert();
             aggregator_server_mock_2.assert();
             aggregator_server_mock_3.assert();
