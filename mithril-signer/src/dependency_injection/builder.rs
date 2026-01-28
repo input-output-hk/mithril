@@ -42,7 +42,9 @@ use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
-use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool,
+};
 
 use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
 
@@ -185,16 +187,41 @@ impl<'a> DependenciesBuilder<'a> {
         Ok(Some(Arc::new(cache_provider)))
     }
 
-    /// Build a SQLite connection.
-    pub async fn build_sqlite_connection(
+    /// Build an SQLite connection for the main database.
+    pub async fn build_main_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+    ) -> StdResult<SqliteConnection> {
+        self.build_sqlite_connection(
+            sqlite_file_name,
+            crate::database::migration::get_migrations(),
+            &[],
+        )
+    }
+
+    /// Build an SQLite connection for the Cardano transactions database.
+    pub async fn build_cardano_tx_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+    ) -> StdResult<SqliteConnection> {
+        self.build_sqlite_connection(
+            sqlite_file_name,
+            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+            &[ConnectionOptions::EnableForeignKeys],
+        )
+    }
+
+    fn build_sqlite_connection(
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
+        options: &[ConnectionOptions],
     ) -> StdResult<SqliteConnection> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
             .with_migrations(migrations)
+            .with_options(options)
             .with_logger(self.root_logger())
             .build()
             .with_context(|| "Database connection initialisation error")?;
@@ -231,15 +258,9 @@ impl<'a> DependenciesBuilder<'a> {
         }
 
         let network = self.config.get_network()?;
-        let sqlite_connection = Arc::new(
-            self.build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
-                .await?,
-        );
+        let sqlite_connection = Arc::new(self.build_main_sqlite_connection(SQLITE_FILE).await?);
         let transaction_sqlite_connection = self
-            .build_sqlite_connection(
-                SQLITE_FILE_CARDANO_TRANSACTION,
-                mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-            )
+            .build_cardano_tx_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION)
             .await?;
         let sqlite_connection_cardano_transaction_pool = Arc::new(
             SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),

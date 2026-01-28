@@ -18,7 +18,7 @@ mod test_helper {
         records: Vec<BlockRangeRootRecord>,
     ) {
         connection
-            .fetch_first(InsertBlockRangeRootQuery::insert_many(records).unwrap())
+            .fetch_first(InsertLegacyBlockRangeRootQuery::insert_many(records).unwrap())
             .unwrap();
     }
 }
