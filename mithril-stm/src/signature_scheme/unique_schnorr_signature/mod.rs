@@ -153,7 +153,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::PrimeOrderProjectivePointSerialization)
+                    Some(UniqueSchnorrSignatureError::BaseFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -201,7 +201,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)
+                    Some(UniqueSchnorrSignatureError::BaseFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );

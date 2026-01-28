@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use anyhow::{Context, anyhow};
-use blake2::digest::{Digest, FixedOutput};
+use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
