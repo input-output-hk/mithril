@@ -73,7 +73,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let batch_proof = clerk
             .closed_key_registration
             .key_registration
-            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()?
+            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
             .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(Self {
