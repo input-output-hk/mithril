@@ -2,6 +2,9 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::{LotteryTargetValue, VerificationKeyForSnark};
+
 use crate::{Stake, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
@@ -73,5 +76,154 @@ impl PartialOrd for MerkleTreeConcatenationLeaf {
 impl Ord for MerkleTreeConcatenationLeaf {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+/// The values that are committed in the Merkle Tree for `SnarkProof`.
+/// Namely, a verified `SchnorrVerificationKey` and its corresponding target value.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct MerkleTreeSnarkLeaf(pub VerificationKeyForSnark, pub LotteryTargetValue);
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
+    fn as_bytes_for_merkle_tree(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl MerkleTreeSnarkLeaf {
+    fn to_bytes(self) -> Vec<u8> {
+        let mut result = [0u8; 64];
+        result[..32].copy_from_slice(&self.0.to_bytes());
+        result[32..].copy_from_slice(&self.1.to_bytes());
+        result.to_vec()
+    }
+
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if bytes.len() < 64 {
+            return Err(MerkleTreeError::SerializationError.into());
+        }
+        let pk = VerificationKeyForSnark::from_bytes(&bytes[..32])
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut target_value_bytes = [0u8; 32];
+        target_value_bytes.copy_from_slice(&bytes[32..]);
+        let target_value = LotteryTargetValue::from_bytes(&target_value_bytes)
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        Ok(MerkleTreeSnarkLeaf(pk, target_value))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl From<MerkleTreeSnarkLeaf> for (VerificationKeyForSnark, LotteryTargetValue) {
+    fn from(leaf: MerkleTreeSnarkLeaf) -> (VerificationKeyForSnark, LotteryTargetValue) {
+        (leaf.0, leaf.1)
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl PartialOrd for MerkleTreeSnarkLeaf {
+    /// Ordering of MT Values.
+    ///
+    /// First we order by target value, then by key. By having this ordering,
+    /// we have the players with higher target value close together.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(std::cmp::Ord::cmp(self, other))
+    }
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl Ord for MerkleTreeSnarkLeaf {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::signature_scheme::BlsSigningKey;
+
+    use super::*;
+
+    #[cfg(feature = "future_snark")]
+    mod golden {
+        use super::*;
+        const GOLDEN_BYTES: &[u8; 104] = &[
+            143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135,
+            228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173,
+            244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4,
+            246, 138, 48, 180, 133, 90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110, 234, 153,
+            90, 208, 192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68, 69, 121, 16,
+            224, 194, 0, 0, 0, 0, 0, 0, 0, 1,
+        ];
+
+        fn golden_value() -> MerkleTreeConcatenationLeaf {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let pk = VerificationKeyForConcatenation::from(&sk);
+            let stake = 1u64;
+            MerkleTreeConcatenationLeaf(pk, stake)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = MerkleTreeConcatenationLeaf::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = MerkleTreeConcatenationLeaf::to_bytes(value);
+            let golden_serialized = MerkleTreeConcatenationLeaf::to_bytes(golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
+        const GOLDEN_JSON: &str = r#"
+        [
+            [143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,
+            181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,
+            6,137,94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,
+            111,142,31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,
+            251,68,69,121,16,224,194],
+            1
+        ]"#;
+
+        fn golden_value() -> MerkleTreeConcatenationLeaf {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let pk = VerificationKeyForConcatenation::from(&sk);
+            let stake = 1u64;
+            MerkleTreeConcatenationLeaf(pk, stake)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value: MerkleTreeConcatenationLeaf = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
     }
 }
