@@ -38,7 +38,7 @@ impl MKTreeStoreSqlite {
     fn get_element_at_position(&self, position: u64) -> StdResult<Option<Arc<MKTreeNode>>> {
         let query = "SELECT element FROM merkle_tree WHERE position = ?";
         let mut statement = self.inner_store.prepare(query)?;
-        statement.bind((1, position as i64)).unwrap();
+        statement.bind((1, position as i64))?;
         let result = if let Ok(sqlite::State::Row) = statement.next() {
             Some(Arc::new(MKTreeNode::new(
                 statement.read::<Bytes, _>("element")?,
