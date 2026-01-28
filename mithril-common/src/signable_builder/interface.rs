@@ -4,9 +4,9 @@ use std::fmt::Debug;
 use crate::{
     StdResult,
     entities::{
-        BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
-        CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, ProtocolMessage,
-        ProtocolMessagePartValue, Snapshot,
+        BlockNumber, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot, CardanoDbBeacon,
+        CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution,
+        ProtocolMessage, ProtocolMessagePartValue, Snapshot,
     },
 };
 
@@ -72,6 +72,13 @@ impl Artifact for CardanoStakeDistribution {
 
 #[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for CardanoTransactionsSnapshot {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
+
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
+impl Artifact for CardanoBlocksTransactionsSnapshot {
     fn get_id(&self) -> String {
         self.hash.clone()
     }
