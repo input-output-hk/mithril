@@ -4,13 +4,9 @@ use std::{
 };
 
 use anyhow::{Context, Ok, anyhow};
-use blst::byte;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    StmResult,
-    signature_scheme::{AffinePoint, BaseFieldElement},
-};
+use crate::{StmResult, signature_scheme::BaseFieldElement};
 
 use super::{
     PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
@@ -207,9 +203,11 @@ mod tests {
     mod golden {
         use super::*;
 
-        const GOLDEN_BYTES: &[u8; 32] = &[
-            144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47,
-            95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43,
+        const GOLDEN_BYTES: &[u8; 64] = &[
+            186, 22, 69, 162, 1, 67, 125, 160, 104, 197, 105, 109, 200, 34, 186, 196, 171, 155,
+            191, 178, 11, 116, 108, 8, 111, 249, 47, 39, 137, 55, 62, 62, 144, 52, 95, 161, 127,
+            253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136,
+            194, 66, 187, 253, 200, 32, 218, 43,
         ];
 
         fn golden_value() -> SchnorrVerificationKey {
