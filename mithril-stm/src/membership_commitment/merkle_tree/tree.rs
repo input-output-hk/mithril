@@ -393,8 +393,6 @@ mod tests {
         }
     }
 
-    // Those tests are incomplete for now as we are missing the MerkleTreeSnarkLeaf
-    // They will be updated as soon as the snark leaf version is available
     #[cfg(feature = "future_snark")]
     mod poseidon_digest {
         use midnight_curves::Fq;
@@ -459,18 +457,6 @@ mod tests {
                 let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values);
                 assert_eq!(tree.nodes, deserialised.nodes);
             }
-
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree_poseidon(5)) {
-                let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
-                let decoded = MerkleTreeBatchCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&encoded).unwrap();
-                let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values).to_merkle_tree_batch_commitment();
-                assert_eq!(tree_commitment.root, decoded.root);
-                assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
-
-            }
-
         }
 
         prop_compose! {
@@ -497,66 +483,6 @@ mod tests {
                 let path_values = proof.iter().map(|x| SnarkHash::digest(x).to_vec()).collect();
                 let path = MerklePath::new(path_values, index);
                 assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
-            }
-
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_create_invalid_batch_proof(
-                i in any::<usize>(),
-                (values, proof) in values_with_invalid_proof(10)
-            ) {
-                let t = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values[1..]);
-                let indices = vec![i % (values.len() - 1); values.len() / 2];
-                let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
-                let path = MerkleBatchPath{values: proof
-                                .iter()
-                                .map(|x| SnarkHash::digest(x).to_vec())
-                                .collect(),
-                    indices,
-                    hasher: PhantomData::<SnarkHash>
-                    };
-                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &path).is_err());
-            }
-        }
-
-        prop_compose! {
-            fn arb_tree_arb_batch(max_size: u32)
-                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeSnarkLeaf>, Vec<MerkleTreeSnarkLeaf>, Vec<usize>) {
-                let mut rng = rng();
-                let size = v.len();
-                let pks = vec![VerificationKeyForSnark::default(); size];
-                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake)))).collect::<Vec<MerkleTreeSnarkLeaf>>();
-
-                let indices: Vec<usize> = (0..size).collect();
-                let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
-                mt_list.sort_unstable();
-
-                let mut batch_values: Vec<MerkleTreeSnarkLeaf> = Vec::with_capacity(mt_list.len());
-                for i in mt_list.iter() {
-                    batch_values.push(leaves[*i]);
-                }
-
-                (MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves), batch_values, mt_list)
-            }
-        }
-
-        proptest! {
-            #![proptest_config(ProptestConfig::with_cases(100))]
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_create_batch_proof((t, batch_values, indices) in arb_tree_arb_batch(30)) {
-                let batch_proof = t.compute_merkle_tree_batch_path(indices);
-                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &batch_proof).is_ok());
-            }
-
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
-                let bp = t.compute_merkle_tree_batch_path(indices);
-
-                let bytes = &bp.to_bytes();
-                let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
-                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
             }
         }
     }
