@@ -47,8 +47,8 @@ To support this transition, both certification versions will remain available du
 - [x] **Distribution [2543](https://github.com/input-output-hk/mithril/releases/tag/2543.0)**:
   - The `v2` backend is the default
 
-- [ ] **Distribution +3**:
-  - The `v1` backend will be deprecated.
+- [x] **Distribution [2603](https://github.com/input-output-hk/mithril/releases/tag/2603.1)**:
+  - The `v1` backend is deprecated.
 
 - [ ] **Distribution +4**:
   - The `v1` backend will be decommissioned and removed from the client CLI and library.

@@ -961,18 +961,28 @@ _These URLs may change in the future; please refer to this page for the latest r
 To download the latest released version of the DMQ node binary, run the following command:
 
 ```bash
-curl --fail -sL -o dmq-node **DMQ_RELEASE_URL**
+curl --fail -sL -o dmq-node.tar.gz **DMQ_RELEASE_URL**
+```
+
+Then, extract the archive:
+
+```bash
+tar -xzf dmq-node.tar.gz --strip-components=2 result/bin
+```
+
+And test that the binary works:
+
+```bash
+./dmq-node --version
+```
+
+You should see something like:
+
+```bash
+dmq-node version: 0.2.0.0
 ```
 
 ### Installing the service
-
-#### Make the binary executable
-
-To make the binary executable, run:
-
-```bash
-chmod +x dmq-node
-```
 
 #### Move the executable
 
@@ -1004,9 +1014,12 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
   "SigSubmissionLogicTracer": true,
   "SigSubmissionClientTracer": true,
   "SigSubmissionServerTracer": true,
+  "SigSubmissionClientProtocolTracer": true,
+  "SigSubmissionServerProtocolTracer": true,
   "MuxTracer": true,
-  "ChannelTracer": true,
+  "ChannelTracer": false,
   "DebugPeerSelectionTracer": true,
+  "ValidationTracer": true
 }
 EOF'
 ```
@@ -1032,9 +1045,12 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
   "SigSubmissionLogicTracer": true,
   "SigSubmissionClientTracer": true,
   "SigSubmissionServerTracer": true,
+  "SigSubmissionClientProtocolTracer": true,
+  "SigSubmissionServerProtocolTracer": true,
   "MuxTracer": true,
-  "ChannelTracer": true,
+  "ChannelTracer": false,
   "DebugPeerSelectionTracer": true,
+  "ValidationTracer": true
 }
 EOF'
 ```
@@ -1048,7 +1064,7 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
-  "PeerSharing": true,
+  "PeerSharing": false,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
   "ConnectionManagerTracer": true,
@@ -1060,9 +1076,12 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
   "SigSubmissionLogicTracer": true,
   "SigSubmissionClientTracer": true,
   "SigSubmissionServerTracer": true,
+  "SigSubmissionClientProtocolTracer": true,
+  "SigSubmissionServerProtocolTracer": true,
   "MuxTracer": true,
-  "ChannelTracer": true,
+  "ChannelTracer": false,
   "DebugPeerSelectionTracer": true,
+  "ValidationTracer": true
 }
 EOF'
 ```
@@ -1076,7 +1095,7 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket"
-  "PeerSharing": true,
+  "PeerSharing": false,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
   "ConnectionManagerTracer": true,
@@ -1088,9 +1107,12 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
   "SigSubmissionLogicTracer": true,
   "SigSubmissionClientTracer": true,
   "SigSubmissionServerTracer": true,
+  "SigSubmissionClientProtocolTracer": true,
+  "SigSubmissionServerProtocolTracer": true,
   "MuxTracer": true,
-  "ChannelTracer": true,
+  "ChannelTracer": false,
   "DebugPeerSelectionTracer": true,
+  "ValidationTracer": true
 }
 EOF'
 ```
