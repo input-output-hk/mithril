@@ -1,5 +1,6 @@
 use anyhow::Context;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use mithril_cardano_node_chain::{
@@ -94,6 +95,11 @@ impl DependenciesBuilder {
             self.configuration
                 .cardano_transactions_block_streamer_max_roll_forwards_per_poll(),
             self.root_logger(),
+        )
+        .set_throttling_interval(
+            self.configuration
+                .cardano_transactions_block_streamer_throttling_interval()
+                .map(Duration::from_millis),
         );
 
         Ok(Arc::new(block_scanner))

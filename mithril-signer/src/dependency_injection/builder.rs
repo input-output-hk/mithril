@@ -324,12 +324,19 @@ impl<'a> DependenciesBuilder<'a> {
             network,
             self.root_logger(),
         );
-        let block_scanner = Arc::new(CardanoBlockScanner::new(
-            Arc::new(Mutex::new(chain_block_reader)),
-            self.config
-                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
-            self.root_logger(),
-        ));
+        let block_scanner = Arc::new(
+            CardanoBlockScanner::new(
+                Arc::new(Mutex::new(chain_block_reader)),
+                self.config
+                    .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
+                self.root_logger(),
+            )
+            .set_throttling_interval(
+                self.config
+                    .cardano_transactions_block_streamer_throttling_interval
+                    .map(Duration::from_millis),
+            ),
+        );
         let chain_data_importer = Arc::new(CardanoChainDataImporter::new(
             block_scanner,
             chain_data_store.clone(),
