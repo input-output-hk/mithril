@@ -1,6 +1,8 @@
 use crate::circuits::halo2::golden::support::certificate_case::{
-    build_witness_with_indices, create_default_merkle_tree, prove_and_verify,
-    run_certificate_case, run_certificate_case_default, setup_certificate_env, CertificateScenario,
+    build_witness_with_fixed_signer, build_witness_with_indices,
+    create_default_merkle_tree, create_merkle_tree_with_leftmost_leaf,
+    create_merkle_tree_with_rightmost_leaf, prove_and_verify, run_certificate_case,
+    run_certificate_case_default, setup_certificate_env, CertificateScenario,
 };
 use crate::circuits::halo2::types::JubjubBase;
 use ff::Field;
@@ -76,6 +78,69 @@ fn test_certificate_max_strict_indices() {
         &sks,
         &leaves,
         &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    prove_and_verify(&env, scenario);
+}
+
+#[test]
+fn test_certificate_all_right() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_certificate_env("all_right", K, QUORUM);
+    let depth = env.num_signers().next_power_of_two().trailing_zeros();
+    let target = -JubjubBase::ONE;
+    let (sks, leaves, merkle_tree, rightmost_index) =
+        create_merkle_tree_with_rightmost_leaf(depth, target);
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![4, 12, 25];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let witness = build_witness_with_fixed_signer(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        rightmost_index,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    prove_and_verify(&env, scenario);
+}
+
+#[test]
+fn test_certificate_all_left() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_certificate_env("all_left", K, QUORUM);
+    let depth = env.num_signers().next_power_of_two().trailing_zeros();
+    let target = -JubjubBase::ONE;
+    let (sks, leaves, merkle_tree, leftmost_index) =
+        create_merkle_tree_with_leftmost_leaf(depth, target);
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![5, 13, 21];
+    assert!(indices.iter().all(|i| *i < m));
+
+    // Structural edge-case: all-left Merkle path shape with a fixed signer.
+    let witness = build_witness_with_fixed_signer(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        leftmost_index,
         merkle_root,
         msg,
         &indices,

@@ -22,7 +22,6 @@ type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
 // Public API for golden/cases:
 // - CertificateEnv, CertificateScenario
-// - compute_lottery_prefix, compute_ev
 // - setup_certificate_env, create_default_merkle_tree
 // - build_witness, build_witness_with_indices
 // - prove_and_verify
@@ -69,8 +68,8 @@ pub(crate) fn create_default_merkle_tree(
 ) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
     let mut rng = OsRng;
 
-    let mut sks = Vec::new();
-    let mut leaves = Vec::new();
+    let mut sks = Vec::with_capacity(n);
+    let mut leaves = Vec::with_capacity(n);
     for _ in 0..n {
         let sk = SigningKey::generate(&mut rng);
         let vk = VerificationKey::from(&sk);
@@ -80,6 +79,64 @@ pub(crate) fn create_default_merkle_tree(
     let tree = MerkleTree::create(&leaves);
 
     (sks, leaves, tree)
+}
+
+pub(crate) fn create_merkle_tree_with_rightmost_leaf(
+    depth: u32,
+    target: F,
+) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree, usize) {
+    assert!(
+        depth < usize::BITS,
+        "depth must be < usize::BITS to safely compute 1 << depth"
+    );
+    let mut rng = OsRng;
+    let n = 1usize << depth;
+    let rightmost_index = n - 1;
+
+    let mut sks = Vec::with_capacity(n);
+    let mut leaves = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let sk = SigningKey::generate(&mut rng);
+        let vk = VerificationKey::from(&sk);
+        let leaf_target = if i == rightmost_index { target } else { -F::ONE };
+        let leaf = MTLeaf(vk, leaf_target);
+        sks.push(sk);
+        leaves.push(leaf);
+    }
+
+    let tree = MerkleTree::create(&leaves);
+
+    (sks, leaves, tree, rightmost_index)
+}
+
+pub(crate) fn create_merkle_tree_with_leftmost_leaf(
+    depth: u32,
+    target: F,
+) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree, usize) {
+    assert!(
+        depth < usize::BITS,
+        "depth must be < usize::BITS to safely compute 1 << depth"
+    );
+    let mut rng = OsRng;
+    let n = 1usize << depth;
+    let leftmost_index = 0usize;
+
+    let mut sks = Vec::with_capacity(n);
+    let mut leaves = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let sk = SigningKey::generate(&mut rng);
+        let vk = VerificationKey::from(&sk);
+        let leaf_target = if i == leftmost_index { target } else { -F::ONE };
+        let leaf = MTLeaf(vk, leaf_target);
+        sks.push(sk);
+        leaves.push(leaf);
+    }
+
+    let tree = MerkleTree::create(&leaves);
+
+    (sks, leaves, tree, leftmost_index)
 }
 
 pub(crate) fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv {
@@ -146,6 +203,11 @@ pub(crate) fn build_witness_with_indices(
     msg: F,
     indices: &[u32],
 ) -> Vec<WitnessEntry> {
+    assert!(!indices.is_empty(), "indices must be non-empty");
+    assert!(
+        indices.windows(2).all(|w| w[0] < w[1]),
+        "indices must be strictly increasing"
+    );
     let num_signers = sks.len();
     let mut witness = Vec::new();
 
@@ -162,6 +224,50 @@ pub(crate) fn build_witness_with_indices(
 
         // any index is eligible as target is set to be the maximum
         witness.push((leaves[ii], merkle_path, sig, *index));
+    }
+
+    witness
+}
+
+// Intentionally reuse the same signer, Merkle path, and signature across indices to
+// stress Merkle-path shape in golden vectors; this is not a realistic lottery model,
+// and any grinding or signature randomness considerations are out of scope here.
+pub(crate) fn build_witness_with_fixed_signer(
+    sks: &[SigningKey],
+    leaves: &[MTLeaf],
+    merkle_tree: &MerkleTree,
+    signer_index: usize,
+    merkle_root: F,
+    msg: F,
+    indices: &[u32],
+) -> Vec<WitnessEntry> {
+    assert!(!indices.is_empty(), "indices must be non-empty");
+    assert!(
+        indices.windows(2).all(|w| w[0] < w[1]),
+        "indices must be strictly increasing"
+    );
+    assert!(signer_index < sks.len(), "signer_index out of bounds for sks");
+    assert!(
+        signer_index < leaves.len(),
+        "signer_index out of bounds for leaves"
+    );
+    let mut witness = Vec::new();
+    let usk = sks[signer_index].clone();
+    let uvk = leaves[signer_index].0;
+    let merkle_path = merkle_tree.get_path(signer_index);
+    let computed_root = merkle_path.compute_root(leaves[signer_index]);
+    assert_eq!(merkle_root, computed_root);
+
+    let sig = usk.sign(&[merkle_root, msg], &mut OsRng);
+    sig.verify(&[merkle_root, msg], &uvk).unwrap();
+
+    for index in indices {
+        witness.push((
+            leaves[signer_index],
+            merkle_path.clone(),
+            sig.clone(),
+            *index,
+        ));
     }
 
     witness
@@ -210,11 +316,7 @@ pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32, msg: F)
     let merkle_root = merkle_tree.root();
 
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
-    let scenario = CertificateScenario {
-        merkle_root,
-        msg,
-        witness,
-    };
+    let scenario = CertificateScenario::new(merkle_root, msg, witness);
 
     prove_and_verify(&env, scenario);
 }
