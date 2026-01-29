@@ -37,9 +37,9 @@ The Mithril team will provide dedicated support and guidance to help SPOs set up
 
 The rollout plan of the DMQ network is the following:
 
-- [ ] **Distribution +1**: `unstable` on the `pre-release-preview` network
-  - [ ] DMQ activation on the `pre-release-preview` network
-  - [ ] Release of a guide for setting up a DMQ node in the SPO infrastructure
+- [ ] **Distribution [2603](https://github.com/input-output-hk/mithril/releases/tag/2603.1)**: `unstable` on the `pre-release-preview` network
+  - [x] DMQ activation on the `pre-release-preview` network
+  - [x] Released a [guide](https://mithril.network/doc/manual/operate/run-signer-node/#set-up-the-dmq-node-unstable) for setting up a DMQ node in the SPO infrastructure
   - [ ] 4-6 weeks testing program with selected SPOs
 - [ ] **Distribution +2**: `stable` on the `release-preprod` and `release-mainnet` networks with fallback
   - [ ] DMQ activation on the `release-preprod` and `release-mainnet` networks
