@@ -13,7 +13,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2603.1] - UNRELEASED
+## Mithril Distribution [2603.1] - 2026-01-29
 
 - **BREAKING** changes in Mithril client CLI:
   - Progress bars and spinners are now outputted to stderr instead of stdout.
@@ -51,9 +51,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.8.14`  |
+| mithril-client      | `0.13.2`  |
+| mithril-client-cli  | `0.12.38` |
+| mithril-client-wasm | `0.9.11`  |
+| mithril-common      | `0.6.43`  |
+| mithril-signer      | `0.3.7`   |
+| mithril-stm         | `0.9.5`   |
 
 ## Mithril Distribution [2543.1] - 2025-11-03
 
