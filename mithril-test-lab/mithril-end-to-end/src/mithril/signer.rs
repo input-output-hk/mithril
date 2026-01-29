@@ -97,6 +97,10 @@ impl Signer {
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("TRANSACTIONS_IMPORT_BLOCK_CHUNK_SIZE", "150"),
+            (
+                "CARDANO_TRANSACTIONS_BLOCK_STREAMER_THROTTLING_INTERVAL",
+                "30",
+            ),
             ("PRELOADING_REFRESH_INTERVAL_IN_SECONDS", "10"),
             ("SIGNATURE_PUBLISHER_RETRY_DELAY_MS", "1"),
             ("SIGNATURE_PUBLISHER_DELAYER_DELAY_MS", "1"),
