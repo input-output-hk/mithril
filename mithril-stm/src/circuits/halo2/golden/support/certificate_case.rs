@@ -1,13 +1,15 @@
 use crate::circuits::halo2::circuit::certificate::Certificate;
-use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerkleTree};
-use crate::circuits::halo2::off_circuit::unique_signature::{SigningKey, VerificationKey};
+use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath, MerkleTree};
+use crate::circuits::halo2::off_circuit::unique_signature::{
+    Signature, SigningKey, VerificationKey,
+};
 use crate::circuits::halo2::types::{Bls12, JubjubBase};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use ff::Field;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
-use midnight_zk_stdlib::MidnightCircuit;
+use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_core::OsRng;
 use std::fs::create_dir_all;
 use std::io::Cursor;
@@ -16,7 +18,23 @@ use std::time::Instant;
 
 type F = JubjubBase;
 
-fn create_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
+type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
+
+pub(crate) struct CertificateEnv {
+    srs: ParamsKZG<Bls12>,
+    relation: Certificate,
+    vk: MidnightVK,
+    pk: MidnightPK<Certificate>,
+    num_signers: usize,
+}
+
+pub(crate) struct CertificateScenario {
+    merkle_root: F,
+    msg: F,
+    witness: Vec<WitnessEntry>,
+}
+
+fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
     let mut rng = OsRng;
 
     let mut sks = Vec::new();
@@ -45,7 +63,7 @@ fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
     generate_params(k, path.to_string_lossy().as_ref())
 }
 
-fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
+fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv {
     // let srs = filecoin_srs(k);
     let srs = load_or_generate_params(k);
 
@@ -54,8 +72,6 @@ fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let num_lotteries = quorum * 10;
     let relation = Certificate::new(quorum, num_lotteries, depth);
-
-    let (sks, leaves, merkle_tree) = create_merkle_tree(num_signers);
 
     {
         // Print circuit sizing information.
@@ -81,12 +97,26 @@ fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
         println!("vk length {:?}", buffer.get_ref().len());
     }
 
-    let merkle_root = merkle_tree.root();
-    // message to be signed
-    let msg = F::from(42);
+    CertificateEnv {
+        srs,
+        relation,
+        vk,
+        pk,
+        num_signers,
+    }
+}
 
-    // take the first few signers
-    let mut witness = vec![];
+fn build_witness(
+    sks: &[SigningKey],
+    leaves: &[MTLeaf],
+    merkle_tree: &MerkleTree,
+    merkle_root: F,
+    msg: F,
+    quorum: u32,
+) -> Vec<WitnessEntry> {
+    let num_signers = sks.len();
+    let mut witness = Vec::new();
+
     for i in 0..quorum as usize {
         let ii = i % num_signers;
         let usk = sks[ii].clone();
@@ -102,11 +132,20 @@ fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
         witness.push((leaves[ii], merkle_path, sig, (i + 1) as u32));
     }
 
-    let instance = (merkle_root, msg);
+    witness
+}
+
+fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenario) {
+    let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
     let proof = zk::prove::<Certificate, blake2b_simd::State>(
-        &srs, &pk, &relation, &instance, witness, OsRng,
+        &env.srs,
+        &env.pk,
+        &env.relation,
+        &instance,
+        scenario.witness,
+        OsRng,
     )
     .expect("Proof generation should not fail");
     let duration = start.elapsed();
@@ -116,8 +155,8 @@ fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
     let start = Instant::now();
     assert!(
         zk::verify::<Certificate, blake2b_simd::State>(
-            &srs.verifier_params(),
-            &vk,
+            &env.srs.verifier_params(),
+            &env.vk,
             &instance,
             None,
             &proof
@@ -128,29 +167,20 @@ fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
     println!("Proof verification took: {:?}", duration);
 }
 
-#[test]
-fn test_certificate_baseline() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    run_certificate_case("small", K, QUORUM);
-}
+pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
+    let env = setup_certificate_env(case_name, k, quorum);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers);
 
-#[test]
-fn test_certificate_medium() {
-    const K: u32 = 16;
-    const QUORUM: u32 = 32;
-    run_certificate_case("medium", K, QUORUM);
-}
+    let merkle_root = merkle_tree.root();
+    // message to be signed
+    let msg = F::from(42);
 
-// The following "large" test case is intentionally commented out.
-// This test is extremely expensive (large K and quorum) and can take
-// a very long time to run, which would make CI impractically heavy.
-// In the future, we may introduce a dedicated benchmarking or ignored-test
-// mechanism to re-enable it in a controlled way.
-//
-// #[test]
-// fn test_certificate_large() {
-//     const K: u32 = 21;
-//     const QUORUM: u32 = 1024;
-//     run_certificate_case("large", K, QUORUM);
-// }
+    let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
+    let scenario = CertificateScenario {
+        merkle_root,
+        msg,
+        witness,
+    };
+
+    prove_and_verify(&env, scenario);
+}
