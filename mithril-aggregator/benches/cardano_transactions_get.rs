@@ -25,7 +25,7 @@ fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
         .unwrap()
 }
 
-fn generate_blocks_with_one_transactions(
+fn generate_blocks_with_one_transaction(
     nb_transactions: usize,
 ) -> Vec<CardanoBlockWithTransactions> {
     // Note: we unrealistically generate transactions where each is on a different block.
@@ -45,7 +45,7 @@ fn generate_blocks_with_one_transactions(
 
 async fn init_db(nb_transaction_in_db: usize) -> AggregatorCardanoChainDataRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
-    let transactions = generate_blocks_with_one_transactions(nb_transaction_in_db);
+    let transactions = generate_blocks_with_one_transaction(nb_transaction_in_db);
     let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
     let repository = AggregatorCardanoChainDataRepository::new(Arc::new(
         SqliteConnectionPool::build_from_connection(connection),

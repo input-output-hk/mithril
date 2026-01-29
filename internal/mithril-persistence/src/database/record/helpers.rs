@@ -2,10 +2,10 @@ use mithril_common::entities::CardanoBlockWithTransactions;
 
 use crate::database::record::{CardanoBlockRecord, StorableCardanoTransactionRecord};
 
-/// Trait for converting types into their records representation
+/// Trait for converting types into their records representations
 ///
-/// Private as it only means to be used for types where we can't implement conversion using standard
-/// [From] trait such as Vec.
+/// Private as it is only meant to be used for types where we can't implement conversion using standard
+/// [From] trait (such as `Vec`).
 pub(crate) trait IntoRecords {
     type Output;
 

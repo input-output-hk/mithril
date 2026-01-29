@@ -29,7 +29,7 @@ pub(crate) mod test_helper {
         ConnectionBuilder, ConnectionExtensions, ConnectionOptions, SqliteConnection,
     };
 
-    /// In-memory sqlite database without foreign key support with cardano db migrations applied
+    /// In-memory sqlite database with foreign key support and cardano db migrations applied
     pub fn cardano_tx_db_connection() -> StdResult<SqliteConnection> {
         let connection = ConnectionBuilder::open_memory()
             .with_options(&[ConnectionOptions::EnableForeignKeys])
@@ -38,7 +38,7 @@ pub(crate) mod test_helper {
         Ok(connection)
     }
 
-    /// In-memory sqlite database without foreign key support with cardano db migrations applied
+    /// In-memory sqlite database with foreign key support and cardano db migrations applied
     #[allow(unused)] // Useful for debugging
     pub fn cardano_tx_db_connection_file(dir_path: &Path) -> StdResult<SqliteConnection> {
         let connection = ConnectionBuilder::open_file(&dir_path.join("cardano_tx.db"))

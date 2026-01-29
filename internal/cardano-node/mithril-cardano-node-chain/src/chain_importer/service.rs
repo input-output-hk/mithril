@@ -15,7 +15,8 @@ use crate::chain_importer::{ChainDataImporter, ChainDataStore};
 use crate::chain_scanner::{BlockScanner, ChainScannedBlocks};
 use crate::entities::RawCardanoPoint;
 
-/// Import and store Cardano chain data (CardanoTransaction).
+/// Import and store Cardano chain data (transactions, blocks) and aggregate them into Merkle trees
+/// for Mithril certificate generation and proof verification.
 #[derive(Clone)]
 pub struct CardanoChainDataImporter {
     block_scanner: Arc<dyn BlockScanner>,
