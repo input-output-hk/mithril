@@ -161,10 +161,10 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "future_snark")]
     mod test_concatenation_leaf {
         use super::*;
 
+        #[cfg(feature = "future_snark")]
         mod golden {
             use super::*;
             const GOLDEN_BYTES: &[u8; 104] = &[
@@ -231,6 +231,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     mod test_snark_leaf {
         use midnight_curves::Fq as JubjubBase;
 

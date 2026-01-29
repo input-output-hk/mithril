@@ -173,8 +173,18 @@ impl PrimeOrderProjectivePoint {
     /// Tries to create a PrimeOrderProjectivePoint from coordinates and fails
     /// if the corresponding point is not of prime order or on the curve
     pub(crate) fn from_coordinates(u: BaseFieldElement, v: BaseFieldElement) -> StmResult<Self> {
-        // TODO: Add check that the point is on the curve
-        PrimeOrderProjectivePoint(JubjubSubgroup::from_raw_unchecked(u.0, v.0)).is_on_curve()
+        let prime_order_point =
+            PrimeOrderProjectivePoint(JubjubSubgroup::from_raw_unchecked(u.0, v.0))
+                .is_on_curve()?;
+
+        let projective_point = ProjectivePoint::from(prime_order_point);
+        if !projective_point.is_prime_order() {
+            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotPrimeOrder(
+                Box::new(prime_order_point)
+            )));
+        }
+
+        Ok(prime_order_point)
     }
 
     /// Converts the prime order projective point to its byte representation
@@ -491,6 +501,33 @@ mod tests {
 
             let result = point.is_on_curve().unwrap();
             assert_eq!(result, point);
+        }
+    }
+
+    mod prime_order_point_conversion {
+        use super::*;
+
+        #[test]
+        fn test_get_from_coordinates() {
+            let mut rng = ChaCha20Rng::from_seed([14u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let generator = PrimeOrderProjectivePoint::create_generator();
+
+            let point = scalar * generator;
+            let (x, y) = point.get_coordinates();
+            let result = PrimeOrderProjectivePoint::from_coordinates(x, y).unwrap();
+
+            assert_eq!(result, point);
+        }
+
+        #[test]
+        fn test_fail_from_coordinates() {
+            let x = BaseFieldElement(JubjubBase::from(1u64));
+            let y = BaseFieldElement(JubjubBase::from(5u64));
+
+            let result = PrimeOrderProjectivePoint::from_coordinates(x, y);
+
+            result.expect_err("Random coordinates do not make a point on the curve!");
         }
     }
 }
