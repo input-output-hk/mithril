@@ -5,3 +5,4 @@ pub mod constants;
 pub mod hash;
 pub mod off_circuit;
 pub mod types;
+pub(crate) mod golden;
