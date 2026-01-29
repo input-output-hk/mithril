@@ -197,7 +197,13 @@ cargo run
 
 ### Cardano database
 
-Here is a basic example of the code targetting the `release-preprod` network aggregator:
+:::warning
+
+The cardano database v1 client is deprecated and is scheduled to be removed early 2026, use the [cardano database v2 client](#cardano-database-v2) instead.
+
+:::
+
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder};

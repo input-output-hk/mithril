@@ -16,9 +16,9 @@ For more information about the **Mithril protocol**, see the [About Mithril](../
 
 :::info
 
-In this guide, you will learn how to set up a **Mithril signer** within the stake pool operator (SPO) infrastructure both on Cardano `mainnet` and `testnet` environments:
+In this guide, you will learn how to set up a **Mithril signer** within the stake pool operator (SPO) infrastructure, both on Cardano `mainnet` and `testnet` environments:
 
-- On `mainnet`, you **must** run the **production** deployment where the **Mithril signer** runs on the **Cardano block producer** machine and the **Mithril relay** runs on the **Cardano relay** machine. **Note** that you can run the **production** deployment on `testnet`.
+- On `mainnet`, you **must** run the **production** deployment where the **Mithril signer** runs on the **Cardano block producer** machine and the **Mithril relay** runs on the **Cardano relay** machine. **Note** that you can also run the **production** deployment on `testnet`.
 - You can also run **naive** deployment, where the **Mithril signer** runs on the **Cardano relay** machine. This is possible in the testnet environment only, and does not require setting up a **Mithril relay**.
 
 :::
@@ -31,11 +31,11 @@ In the current setup, you don't need to install a Mithril aggregator.
 
 :::caution
 
-The **production** deployment model is currently in the beta version.
+The **production** deployment model is currently in beta.
 
 :::
 
-Here is the schema of the **production** deployment on mainnet:
+Below is the schema of the **production** deployment on mainnet:
 [![Production Mithril Signer Deployment Model](images/signer-deployment-production.jpg)](images/signer-deployment-production.jpg)
 
 and the schema of the **naive** deployment specifically for `testnets`:
@@ -49,7 +49,7 @@ On `mainnet`, you must **never** copy the `KES secret key` from the **Cardano bl
 
 ## Mithril keys certification
 
-The **Mithril signer** uses your Cardano `operational certificate` and `KES secret key` files which enable:
+The **Mithril signer** uses your Cardano `operational certificate` and `KES secret key` files, which enable:
 
 - Automatic computation of the `PoolId`
 - Verification of your `PoolId` ownership and the associated stake used by the Mithril protocol
@@ -57,8 +57,8 @@ The **Mithril signer** uses your Cardano `operational certificate` and `KES secr
 
 ## Mithril signer footprint
 
-The **Mithril signer** has been designed to have the lowest footprint possible in terms of CPU, memory, disk i/o and storage.
-Thus, there are no extra requirements on the recommended hardware for running a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
+The **Mithril signer** has been designed to have the lowest possible footprint in terms of CPU, memory, disk I/O, and storage.
+Thus, there are no additional requirements for the recommended hardware to run a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
 
 :::info
 
@@ -76,25 +76,25 @@ Here are some figures about the Mithril signer node running on Cardano `mainnet`
 
 ### Cardano transactions certification footprint
 
-Here is a detailed view of the impact of the signature of the Cardano transactions (the most resource-intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
+Here is a detailed view of the Cardano transaction signature's impact (the most resource-intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
 
 #### CPU
 
-[![Cardano Transaction Signer CPU](images/cardano-transaction-signer-cpu.png)](images/cardano-transaction-signer-cpu.png)
+[![Cardano transaction signer CPU](images/cardano-transaction-signer-cpu.png)](images/cardano-transaction-signer-cpu.png)
 
 #### Memory
 
-[![Cardano Transaction Signer CPU](images/cardano-transaction-signer-res-memory.png)](images/cardano-transaction-signer-res-memory.png)
+[![Cardano transaction signer CPU](images/cardano-transaction-signer-res-memory.png)](images/cardano-transaction-signer-res-memory.png)
 
 #### Disk
 
-[![Cardano Transaction Signer CPU](images/cardano-transaction-signer-disk-usage.png)](images/cardano-transaction-signer-disk-usage.png)
+[![Cardano transaction signer CPU](images/cardano-transaction-signer-disk-usage.png)](images/cardano-transaction-signer-disk-usage.png)
 
 ## Prerequisites
 
 :::info
 
-Note that this guide works on a Linux machine only.
+Note that this guide works only on a Linux machine.
 
 :::
 
@@ -102,7 +102,7 @@ Note that this guide works on a Linux machine only.
   - The pool's `operational certificate`
   - The pool's `KES secret key`
 
-- To access the file system of the **Cardano block producer** node for **production** deployment (or of the **Cardano relay** node for **naive** deployment), you will need the following permissions:
+- To access the file system of the **Cardano block-producing** node for **production** deployment (or of the **Cardano relay** node for **naive** deployment), you will need the following permissions:
   - Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   - Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
@@ -138,7 +138,7 @@ First, check the version of your Cardano node by running the following command:
 cardano-node --version
 ```
 
-Then, refer to the minimum supported versions listed in the the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
+Then, refer to the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
 
 You can also fetch the minimum supported version for your network using the command below:
 
@@ -279,7 +279,7 @@ sudo mv mithril-signer /opt/mithril
 :::caution
 
 - `User=cardano`:
-  Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **Mithril signer** must imperatively run with the same user.
+  Replace this value with the correct user. Here, we assume that the user running the **Cardano node** is `cardano`. The **Mithril signer** must imperatively run with the same user.
 
 - In the `/opt/mithril/mithril-signer.env` env file:
   - `KES_SECRET_KEY_PATH=/cardano/keys/kes.skey`: replace `/cardano/keys/kes.skey` with the path to your Cardano `KES secret key` file
@@ -315,7 +315,7 @@ Here is an **example** set of values for **release-preprod** that will be used i
 
 First, create an environment file that the service will use:
 
-- for **production** deployment:
+- For **production** deployment:
 
 ```bash
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
@@ -359,7 +359,7 @@ EOF'
 
 :::
 
-- for **naive** deployment:
+- For **naive** deployment:
 
 ```bash
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
@@ -452,7 +452,7 @@ Finally, monitor the logs of the service:
 tail -f /var/log/syslog | grep mithril-signer
 ```
 
-### Activate Prometheus endpoint
+### Activate a Prometheus endpoint
 
 The Mithril signer node can expose basic metrics on a Prometheus endpoint, which is not activated by default.
 
@@ -501,13 +501,13 @@ EOF`
 
 :::info
 
-When activated, the metrics endpoint will be accessible to the `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics` location, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
+When activated, the metrics endpoint will be accessible at the `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics` location, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
 
 :::
 
 :::info
 
-Additionally, a **Grafana template** has been created to easily set up a dashboard for this Prometheus endpoint (ID 20776): https://grafana.com/grafana/dashboards/20776-mithril-signer/
+See this [Grafana template](https://grafana.com/grafana/dashboards/20776-mithril-signer/), which helps to easily set up a dashboard for this Prometheus endpoint (ID 20776).
 
 :::
 
@@ -545,18 +545,18 @@ sudo systemctl restart mithril-signer
 
 :::info
 
-- If you have already installed `Squid` via `apt` package manager, we recommend that you delete it before manually building it from source by running the following commands:
+- If you have already installed `Squid` via the `apt` package manager, we recommend that you delete it before manually building it from source by running the following commands:
   - `sudo systemctl stop squid`
   - `sudo apt remove squid`
-  - `sudo apt autoremove`.
+  - `sudo apt autoremove`
 
-- The FAQ for compiling `Squid` is available [here](https://wiki.squid-cache.org/SquidFaq/CompilingSquid).
+- The FAQ for compiling `Squid` is available [here](https://wiki.squid-cache.org/SquidFaq/CompilingSquid)
 
 - You will need a C++ compiler that can be installed with the `sudo apt install build-essential` command.
 
 :::
 
-On the [Squid page listing released versions](https://www.squid-cache.org/Versions/), identify the latest stable released version (currently `6.12`) and download it:
+On the [Squid page with released versions](https://www.squid-cache.org/Versions/), identify the latest stable released version (currently `6.12`) and download it:
 
 ```bash
 wget https://www.squid-cache.org/Versions/v6/squid-6.12.tar.gz
@@ -589,7 +589,7 @@ Compile the sources:
 make
 ```
 
-And install `squid` binary:
+Install `squid` binary:
 
 ```bash
 sudo make install
@@ -630,7 +630,7 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 # Listening port (port 3132 is recommended)
 http_port **YOUR_RELAY_LISTENING_PORT**
 
-# ACL for internal IP of your block producer node
+# ACL for the internal IP of your block producer node
 acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP**
 
 # ACL for aggregator endpoint
@@ -686,7 +686,7 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 # Listening port (port 3132 is recommended)
 http_port 3132
 
-# ACL for internal IP of your block producer node
+# ACL for the internal IP of your block producer node
 acl block_producer_internal_ip src 192.168.1.75
 
 # ACL for aggregator endpoint
@@ -737,10 +737,10 @@ EOF'
 
 :::tip
 
-In case you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer to authorize its internal IP:
+If you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer to authorize its internal IP:
 
 ```bash
-# ACL for internal IP of your block producer node
+# ACL for the internal IP of your block producer node
 acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_1**
 acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_2**
 acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_3**
@@ -750,11 +750,11 @@ acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_3**
 
 With this configuration, the proxy will:
 
-- accept incoming traffic originating from the internal IP of the block-producing machine
-- accept incoming traffic directed to the listening port of the proxy
-- accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
-- anonymize the traffic completely and avoid disclosing any information about the block-producing machine
-- deny all other traffic.
+- Accept incoming traffic originating from the internal IP of the block-producing machine
+- Accept incoming traffic directed to the listening port of the proxy
+- Accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
+- Anonymize the traffic completely and avoid disclosing any information about the block-producing machine
+- Deny all other traffic.
 
 :::info
 
@@ -889,12 +889,552 @@ sudo service netfilter-persistent save
 
 :::
 
+## Set up the DMQ node (unstable)
+
+:::danger
+
+The DMQ node setup is currently **unstable** and not suitable for production use.
+
+During the stabilization and ramp-up phase of the DMQ network:
+
+- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
+- This section is subject to frequent changes.
+
+:::
+
+The DMQ node supports the implementation of a **Decentralized Message Queue** (DMQ) for Mithril. The DMQ protocol allows Mithril signers to exchange signatures in a decentralized manner, enhancing the robustness and scalability of the Mithril networks. Once stabilized and deployed on a majority of SPOs on a Mithril network, the DMQ protocol will allow multiple aggregators to operate simultaneously, improving the overall availability of the Mithril protocol. The DMQ protocol is fully described in the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
+
+The DMQ node follows the same deployment model as the Mithril signer node and the Cardano node:
+
+- For **production** deployment, the **DMQ node** setup is performed on the **Cardano block producer** machine and on the **Cardano relay** machine
+- For **naive** deployment, the **DMQ node** setup is performed on the **Cardano relay** machine only (for tests only).
+
+If you choose the **production** deployment, you will need to install and configure the DMQ node on both the **Cardano block producer** machine and the **Cardano relay** machine, following the same steps.
+
+:::caution
+
+- Here is the needed information to set up a DMQ node:
+  - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
+  - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
+  - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
+  - `**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_RELAY_PORT**`: replace with the listening port of your DMQ node on the relay machine
+  - `**YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the block producer machine (this is sensitive information that must not be shared publicly)
+  - `**YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**`: replace with the listening port of your DMQ node on the block producer machine
+  - `**YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**`: replace with the IP address of your DMQ bootstrap peer (the address can be found in the [Mithril networks](../getting-started/network-configurations.md) table)
+  - `**YOUR_DMQ_BOOTSTRAP_PEER_PORT**`: replace with the listening port of your DMQ bootstrap peer (the value can be found in the [Mithril networks](../getting-started/network-configurations.md) table).
+
+:::
+
+:::tip
+
+Here is an **example** set of values for **pre-release-preview** that will be used in this guide in the **tip** boxes to illustrate some commands:
+
+- **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
+- **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
+- **YOUR_CARDANO_NETWORK_MAGIC**: `2`
+- **YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**: `192.168.1.30`
+- **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**: `34.14.65.160`
+- **YOUR_DMQ_NODE_RELAY_PORT**: `6161`
+- **YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS**: `192.168.1.60`
+- **YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**: `6161`
+- **YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**: `34.76.22.193`
+- **YOUR_DMQ_BOOTSTRAP_PEER_PORT**: `6161`
+
+:::
+
+### Download the pre-built binary
+
+:::tip
+
+As we are still in a testing stage, we only support the `pre-release-preview` network.
+
+You can use these parameters for the **pre-release-preview** network:
+
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.2.0.0-pre-7/dmq-node-linux.tar.gz`
+
+_These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
+
+:::
+
+To download the latest released version of the DMQ node binary, run the following command:
+
+```bash
+curl --fail -sL -o dmq-node **DMQ_RELEASE_URL**
+```
+
+### Installing the service
+
+#### Make the binary executable
+
+To make the binary executable, run:
+
+```bash
+chmod +x dmq-node
+```
+
+#### Move the executable
+
+To move the executable to /opt/dmq, run:
+
+```bash
+sudo mkdir -p /opt/dmq
+sudo mv dmq-node /opt/dmq
+```
+
+#### Prepare the configuration file of the DMQ node
+
+- For a **DMQ node on the relay machine**, create a `/opt/dmq/config-relay.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/config-relay.json << EOF
+{
+  "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/config-relay.json << EOF
+{
+  "CardanoNetworkMagic": 2,
+  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::
+
+- For a **DMQ node on the block-producer machine**, create a `/opt/dmq/config-bp.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/config-bp.json << EOF
+{
+  "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/config-bp.json << EOF
+{
+  "CardanoNetworkMagic": 2,
+  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "PeerSharing": true,
+  "LocalMsgSubmissionTracer": true,
+  "LocalMsgNotificationTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": true,
+  "InboundGovernorTracer": true,
+  "LocalInboundGovernorTracer": true,
+  "PeerSelectionTracer": true,
+  "PeerSelectionCounters": true,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true,
+}
+EOF'
+```
+
+:::
+
+#### Prepare the topology file for the DMQ node
+
+:::tip
+
+The DMQ node's topology file follows a similar format to the Cardano node's topology file. More information is available at [Cardano node topology](https://developers.cardano.org/docs/get-started/infrastructure/node/topology/).
+
+:::
+
+- For a **DMQ node on the relay machine**, create a `/opt/dmq/topology-relay.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-relay.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "**YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**",
+          "port": **YOUR_DMQ_BOOTSTRAP_PEER_PORT**,
+          "valency": 1
+        }
+      ],
+      "advertise": true,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-relay.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "34.76.22.193",
+          "port": 6161,
+          "valency": 1
+        }
+      ],
+      "advertise": true,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::
+
+- For a **DMQ node on the block-producer machine**, create a `/opt/dmq/topology-bp.json` configuration file:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-bp.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**",
+          "port": **YOUR_DMQ_NODE_RELAY_PORT**,
+          "valency": 1
+        }
+      ],
+      "advertise": false,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+bash -c 'cat > /opt/dmq/topology-bp.json << EOF
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "192.168.1.30",
+          "port": 6161,
+          "valency": 1
+        }
+      ],
+      "advertise": false,
+      "trustable": false,
+      "valency": 2
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
+EOF'
+```
+
+:::
+
+#### Set up the service
+
+:::caution
+
+- `User=cardano`:
+  Replace this value with the correct user. We assume that the user running the **Cardano node** is `cardano`. The **DMQ node** must imperatively run with the same user.
+
+:::
+
+- For a **DMQ node on the relay machine**, create a `/etc/systemd/system/dmq-relay.service` description file for the service:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-relay.service << EOF
+[Unit]
+Description=DMQ relay service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-relay.json --topology-file /opt/dmq/topology-relay.json --local-socket **YOUR_DMQ_NODE_SOCKET_PATH** --host-addr **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS** --port **YOUR_DMQ_NODE_RELAY_PORT**
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-relay.service << EOF
+[Unit]
+Description=DMQ relay service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-relay.json --topology-file /opt/dmq/topology-relay.json --local-socket /dmq/ipc/node.socket --host-addr 34.14.65.160 --port 6161
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::
+
+Reload the service configuration (optional):
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Then, start the service:
+
+```bash
+sudo systemctl start dmq-relay
+```
+
+Register the service to start on boot:
+
+```bash
+sudo systemctl enable dmq-relay
+```
+
+Monitor the status of the service:
+
+```bash
+systemctl status dmq-relay.service
+```
+
+Finally, monitor the logs of the service:
+
+```bash
+tail -f /var/log/syslog | grep dmq-relay
+```
+
+- For a **DMQ node on the block-producer machine**, create a `/etc/systemd/system/dmq-bp.service` description file for the service:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-bp.service << EOF
+[Unit]
+Description=DMQ block-producer service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-bp.json --topology-file /opt/dmq/topology-bp.json --local-socket **YOUR_DMQ_NODE_SOCKET_PATH** --host-addr **YOUR_DMQ_NODE_BLOCK_PRODUCER_INTERNAL_ADDRESS** --port **YOUR_DMQ_NODE_BLOCK_PRODUCER_PORT**
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat > /etc/systemd/system/dmq-bp.service << EOF
+[Unit]
+Description=DMQ block-producer service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=cardano
+ExecStart=/opt/dmq/dmq-node --configuration-file /opt/dmq/config-bp.json --topology-file /opt/dmq/topology-bp.json --local-socket /dmq/ipc/node.socket --host-addr 192.168.1.60 --port 6161
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+:::
+
+Reload the service configuration (optional):
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Then, start the service:
+
+```bash
+sudo systemctl start dmq-bp
+```
+
+Register the service to start on boot:
+
+```bash
+sudo systemctl enable dmq-bp
+```
+
+Monitor the status of the service:
+
+```bash
+systemctl status dmq-bp.service
+```
+
+Finally, monitor the logs of the service:
+
+```bash
+tail -f /var/log/syslog | grep dmq-bp
+```
+
+### Update the configuration of the Mithril signer
+
+The Mithril signer node must be configured to use the DMQ node (use the **block-producer** DMQ node socket path for the **production** deployment):
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+DMQ_NODE_SOCKET_PATH=**YOUR_DMQ_NODE_SOCKET_PATH**
+EOF'
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+DMQ_NODE_SOCKET_PATH=/dmq/ipc/node.socket
+EOF'
+```
+
+:::
+
+### Firewall configuration
+
+You should use a configuration that is very similar to your Cardano nodes' configuration:
+
+- For the **DMQ node on the relay machine**, allow incoming traffic on the listening port of your DMQ relay node from the **Cardano block producer** machine
+- For the **DMQ node on the block-producer machine**, allow incoming traffic on the listening port of your DMQ block-producer node from the **DMQ relay** machine only.
+
+:::tip
+
+More information about the recommended firewall configuration of the Cardano node is available at [Cardano firewall configuration](https://developers.cardano.org/docs/operate-a-stake-pool/deployment-scenarios/hardening-server/#7--firewall-configuration).
+
+:::
+
 ## Verify the Mithril signer deployment
 
 :::tip
 There is a delay of `2` epochs between the signer node's registration and its ability to generate individual signatures. This delay is further explained in the [Mithril certificate chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates) documentation.
 
-Once this delay has passed, you should be able to observe your `PoolId` listed in some of the certificates accessible on the [`Mithril Explorer`](https://mithril.network/explorer).
+Once this delay has passed, you should be able to observe your `PoolId` listed in some of the certificates accessible on the [`Mithril explorer`](https://mithril.network/explorer).
 :::
 
 ### Verify your signer is registered
