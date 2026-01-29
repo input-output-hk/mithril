@@ -956,7 +956,7 @@ As we are still in a testing stage, we only support the `pre-release-preview` ne
 
 You can use these parameters for the **pre-release-preview** network:
 
-- **DMQ_RELEASE_URL**: `https://github.com/input-output-hk/mithril/raw/refs/heads/jpraynaud/dmq-node-binary/mithril-test-lab/mithril-devnet/bin/dmq-node-0.2.0.0-53bf9652787dc768abd86cf3844f1206f0fd7d8c`
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.2.0.0-pre-7/dmq-node-linux.tar.gz`
 
 _These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
 

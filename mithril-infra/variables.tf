@@ -231,7 +231,7 @@ variable "mithril_p2p_use_real_dmq_node" {
 variable "dmq_image_id" {
   type        = string
   description = "The DMQ image tag of service to deploy"
-  default     = "0.2.0.0-pre-6"
+  default     = "0.2.0.0-pre-7"
 }
 
 variable "dmq_image_registry" {
