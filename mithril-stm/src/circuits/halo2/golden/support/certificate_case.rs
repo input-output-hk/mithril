@@ -20,12 +20,22 @@ type F = JubjubBase;
 
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
+// Public API for golden/cases:
+// - CertificateEnv, CertificateScenario
+// - compute_lottery_prefix, compute_ev
+// - setup_certificate_env, create_default_merkle_tree
+// - build_witness, build_witness_with_indices
+// - prove_and_verify
+// - run_certificate_case, run_certificate_case_default
+
+// --- Public API (used by golden/cases) ---
 pub(crate) struct CertificateEnv {
     srs: ParamsKZG<Bls12>,
     relation: Certificate,
     vk: MidnightVK,
     pk: MidnightPK<Certificate>,
     num_signers: usize,
+    num_lotteries: u32,
 }
 
 pub(crate) struct CertificateScenario {
@@ -34,7 +44,29 @@ pub(crate) struct CertificateScenario {
     witness: Vec<WitnessEntry>,
 }
 
-fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
+impl CertificateEnv {
+    pub(crate) fn num_signers(&self) -> usize {
+        self.num_signers
+    }
+
+    pub(crate) fn num_lotteries(&self) -> u32 {
+        self.num_lotteries
+    }
+}
+
+impl CertificateScenario {
+    pub(crate) fn new(merkle_root: F, msg: F, witness: Vec<WitnessEntry>) -> Self {
+        Self {
+            merkle_root,
+            msg,
+            witness,
+        }
+    }
+}
+
+pub(crate) fn create_default_merkle_tree(
+    n: usize,
+) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
     let mut rng = OsRng;
 
     let mut sks = Vec::new();
@@ -50,20 +82,7 @@ fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, Merkle
     (sks, leaves, tree)
 }
 
-fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
-    let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
-
-    if path.exists() {
-        return load_params(path.to_string_lossy().as_ref());
-    }
-
-    create_dir_all(&assets_dir).unwrap();
-    generate_params(k, path.to_string_lossy().as_ref())
-}
-
-fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv {
+pub(crate) fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv {
     // let srs = filecoin_srs(k);
     let srs = load_or_generate_params(k);
 
@@ -103,10 +122,11 @@ fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv
         vk,
         pk,
         num_signers,
+        num_lotteries,
     }
 }
 
-fn build_witness(
+pub(crate) fn build_witness(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
     merkle_tree: &MerkleTree,
@@ -114,10 +134,22 @@ fn build_witness(
     msg: F,
     quorum: u32,
 ) -> Vec<WitnessEntry> {
+    let indices: Vec<u32> = (0..quorum).map(|i| i + 1).collect();
+    build_witness_with_indices(sks, leaves, merkle_tree, merkle_root, msg, &indices)
+}
+
+pub(crate) fn build_witness_with_indices(
+    sks: &[SigningKey],
+    leaves: &[MTLeaf],
+    merkle_tree: &MerkleTree,
+    merkle_root: F,
+    msg: F,
+    indices: &[u32],
+) -> Vec<WitnessEntry> {
     let num_signers = sks.len();
     let mut witness = Vec::new();
 
-    for i in 0..quorum as usize {
+    for (i, index) in indices.iter().enumerate() {
         let ii = i % num_signers;
         let usk = sks[ii].clone();
         let uvk = leaves[ii].0;
@@ -129,13 +161,13 @@ fn build_witness(
         assert_eq!(merkle_root, computed_root);
 
         // any index is eligible as target is set to be the maximum
-        witness.push((leaves[ii], merkle_path, sig, (i + 1) as u32));
+        witness.push((leaves[ii], merkle_path, sig, *index));
     }
 
     witness
 }
 
-fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenario) {
+pub(crate) fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenario) {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
@@ -185,4 +217,19 @@ pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32, msg: F)
     };
 
     prove_and_verify(&env, scenario);
+}
+
+// --- Private helpers ---
+
+fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
+    let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
+
+    if path.exists() {
+        return load_params(path.to_string_lossy().as_ref());
+    }
+
+    create_dir_all(&assets_dir).unwrap();
+    generate_params(k, path.to_string_lossy().as_ref())
 }
