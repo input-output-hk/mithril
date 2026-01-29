@@ -13,6 +13,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
+- **UNSTABLE**:
+  - Preliminary support for Cardano Blocks certification:
+    - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.
+
 ## Mithril Distribution [2603.1] - 2026-01-29
 
 - **BREAKING** changes in Mithril client CLI:
