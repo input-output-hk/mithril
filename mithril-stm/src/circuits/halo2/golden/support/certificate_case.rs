@@ -167,13 +167,15 @@ fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenario) {
     println!("Proof verification took: {:?}", duration);
 }
 
-pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32) {
+pub(crate) fn run_certificate_case_default(case_name: &str, k: u32, quorum: u32) {
+    run_certificate_case(case_name, k, quorum, F::from(42));
+}
+
+pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32, msg: F) {
     let env = setup_certificate_env(case_name, k, quorum);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers);
 
     let merkle_root = merkle_tree.root();
-    // message to be signed
-    let msg = F::from(42);
 
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
     let scenario = CertificateScenario {
