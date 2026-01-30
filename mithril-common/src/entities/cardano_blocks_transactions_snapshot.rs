@@ -3,19 +3,19 @@ use sha2::{Digest, Sha256};
 
 use super::BlockNumber;
 
-/// Snapshot of a set of Cardano transactions
+/// Snapshot of a set of Cardano blocks and transactions
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoBlocksTransactionsSnapshot {
-    /// Hash of the Cardano blocks transactions set
+    /// Hash of the Cardano blocks and transactions set
     pub hash: String,
 
-    /// Merkle root of the Cardano blocks transactions set
+    /// Merkle root of the Cardano blocks and transactions set
     pub merkle_root: String,
 
-    /// Beacon of the Cardano blocks transactions set
+    /// Block number at which the Cardano blocks and transactions set has been snapshotted
     pub block_number_signed: BlockNumber,
 
-    /// Aproximate block number of the tip at snapshot time
+    /// Block number of the tip of the chain at snapshot time (approximate)
     pub block_number_tip: BlockNumber,
 }
 
@@ -53,11 +53,11 @@ mod tests {
 
     #[test]
     fn test_cardano_blocks_transactions_snapshot_compute_hash() {
-        let mk_root_123_50_15_hash =
+        let expected_mk_root_hash =
             "d99fe4ea053d416de6726deef785766e44970351e63172521f4783f23c8cb66c";
 
         assert_eq!(
-            mk_root_123_50_15_hash,
+            expected_mk_root_hash,
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(50),
@@ -67,7 +67,7 @@ mod tests {
         );
 
         assert_ne!(
-            mk_root_123_50_15_hash,
+            expected_mk_root_hash,
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-456".to_string(),
                 BlockNumber(50),
@@ -77,7 +77,7 @@ mod tests {
         );
 
         assert_ne!(
-            mk_root_123_50_15_hash,
+            expected_mk_root_hash,
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(47),
@@ -87,7 +87,7 @@ mod tests {
         );
 
         assert_ne!(
-            mk_root_123_50_15_hash,
+            expected_mk_root_hash,
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(50),

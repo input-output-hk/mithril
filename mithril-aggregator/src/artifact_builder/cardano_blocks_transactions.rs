@@ -72,7 +72,7 @@ impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
                 cardano_transactions.security_parameter,
             )),
             None => Err(anyhow!(
-                "There is no cardano transaction signing configuration for aggregation for Epoch {}",
+                "There is no cardano blocks and transactions signing configuration for aggregation for Epoch {}",
                 certificate.epoch
             )),
         }

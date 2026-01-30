@@ -15,7 +15,7 @@ use mithril_resource_pool::ResourcePool;
 use crate::services::TransactionsRetriever;
 
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions and blocks
-/// /!\ The trait is not final /!\
+// TODO: finalize the trait implementation
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ProverService: Sync + Send {
