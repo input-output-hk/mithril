@@ -22,6 +22,19 @@ fn test_stm_medium() {
     run_stm_case_default("medium", K, QUORUM);
 }
 
+// The following "large" test case is intentionally commented out.
+// This test is extremely expensive (large K and quorum) and can take
+// a very long time to run, which would make CI impractically heavy.
+// In the future, we may introduce a dedicated benchmarking or ignored-test
+// mechanism to re-enable it in a controlled way.
+//
+// #[test]
+// fn test_stm_large() {
+//     const K: u32 = 21;
+//     const QUORUM: u32 = 1024;
+//     run_stm_case_default("large", K, QUORUM);
+// }
+
 #[test]
 fn test_stm_message_zero() {
     const K: u32 = 13;
@@ -398,15 +411,58 @@ fn test_stm_sig_lottery_mismatch() {
     assert!(matches!(result, Err(STMProofError::VerifyFail)));
 }
 
-// The following "large" test case is intentionally commented out.
-// This test is extremely expensive (large K and quorum) and can take
-// a very long time to run, which would make CI impractically heavy.
-// In the future, we may introduce a dedicated benchmarking or ignored-test
-// mechanism to re-enable it in a controlled way.
-//
-// #[test]
-// fn test_stm_large() {
-//     const K: u32 = 21;
-//     const QUORUM: u32 = 1024;
-//     run_stm_case_default("large", K, QUORUM);
-// }
+#[test]
+fn test_stm_non_increasing() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("non_increasing", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 14];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_index_oob() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("index_oob", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, m];
+
+    let witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+

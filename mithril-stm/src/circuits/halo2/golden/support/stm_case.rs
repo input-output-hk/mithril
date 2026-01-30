@@ -227,7 +227,8 @@ pub(crate) fn build_witness(
     build_witness_with_indices(sks, leaves, merkle_tree, merkle_root, msg, &indices)
 }
 
-/// Build a witness using caller-provided strictly increasing indices.
+/// Build a witness using caller-provided indices without enforcing ordering;
+/// the circuit is responsible for strict ordering checks in negative tests.
 pub(crate) fn build_witness_with_indices(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
@@ -237,10 +238,6 @@ pub(crate) fn build_witness_with_indices(
     indices: &[u32],
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
-    assert!(
-        indices.windows(2).all(|w| w[0] < w[1]),
-        "indices must be strictly increasing"
-    );
     let num_signers = sks.len();
     let mut witness = Vec::new();
 
@@ -275,10 +272,6 @@ pub(crate) fn build_witness_with_fixed_signer(
     indices: &[u32],
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
-    assert!(
-        indices.windows(2).all(|w| w[0] < w[1]),
-        "indices must be strictly increasing"
-    );
     assert!(signer_index < sks.len(), "signer_index out of bounds for sks");
     assert!(
         signer_index < leaves.len(),
