@@ -275,8 +275,20 @@ pub(crate) fn build_witness_with_fixed_signer(
     witness
 }
 
-/// Prove and verify a scenario using the STM relation and environment.
-pub(crate) fn prove_and_verify(env: &STMEnv, scenario: STMScenario) {
+/// Errors returned by `prove_and_verify_result`.
+#[derive(Debug)]
+pub(crate) enum STMProofError {
+    /// Proof generation failed.
+    ProveFail,
+    /// Proof verification failed.
+    VerifyFail,
+}
+
+/// Prove and verify a scenario, returning a typed result for negative tests.
+pub(crate) fn prove_and_verify_result(
+    env: &STMEnv,
+    scenario: STMScenario,
+) -> Result<(), STMProofError> {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
@@ -288,24 +300,27 @@ pub(crate) fn prove_and_verify(env: &STMEnv, scenario: STMScenario) {
         scenario.witness,
         OsRng,
     )
-    .expect("Proof generation should not fail");
+    .map_err(|_| STMProofError::ProveFail)?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
 
     let start = Instant::now();
-    assert!(
-        zk::verify::<STM, blake2b_simd::State>(
-            &env.srs.verifier_params(),
-            &env.vk,
-            &instance,
-            None,
-            &proof
-        )
-        .is_ok()
+    let verify_result = zk::verify::<STM, blake2b_simd::State>(
+        &env.srs.verifier_params(),
+        &env.vk,
+        &instance,
+        None,
+        &proof,
     );
     let duration = start.elapsed();
     println!("Proof verification took: {:?}", duration);
+
+    if verify_result.is_ok() {
+        Ok(())
+    } else {
+        Err(STMProofError::VerifyFail)
+    }
 }
 
 /// Run a case using the default message (F::from(42)).
@@ -323,7 +338,7 @@ pub(crate) fn run_stm_case(case_name: &str, k: u32, quorum: u32, msg: F) {
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
     let scenario = STMScenario::new(merkle_root, msg, witness);
 
-    prove_and_verify(&env, scenario);
+    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
 // Load cached KZG params if present; otherwise generate and persist them for reuse.

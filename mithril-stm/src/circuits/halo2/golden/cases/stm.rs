@@ -1,8 +1,8 @@
 use crate::circuits::halo2::golden::support::stm_case::{
-    build_witness_with_fixed_signer, build_witness_with_indices,
+    build_witness, build_witness_with_fixed_signer, build_witness_with_indices,
     create_default_merkle_tree, create_merkle_tree_with_leftmost_leaf,
-    create_merkle_tree_with_rightmost_leaf, prove_and_verify, run_stm_case,
-    run_stm_case_default, setup_stm_env, STMScenario,
+    create_merkle_tree_with_rightmost_leaf, prove_and_verify_result, run_stm_case,
+    run_stm_case_default, setup_stm_env, STMProofError, STMScenario,
 };
 use crate::circuits::halo2::types::JubjubBase;
 use ff::Field;
@@ -57,7 +57,7 @@ fn test_stm_min_strict_indices() {
     );
 
     let scenario = STMScenario::new(merkle_root, msg, witness);
-    prove_and_verify(&env, scenario);
+    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_stm_max_strict_indices() {
     );
 
     let scenario = STMScenario::new(merkle_root, msg, witness);
-    prove_and_verify(&env, scenario);
+    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
 #[test]
@@ -116,11 +116,11 @@ fn test_stm_all_right() {
     );
 
     let scenario = STMScenario::new(merkle_root, msg, witness);
-    prove_and_verify(&env, scenario);
+    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-#[test]
 /// Requires power-of-two signers; otherwise padding prevents an all-left path.
+#[test]
 fn test_stm_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
@@ -149,7 +149,43 @@ fn test_stm_all_left() {
     );
 
     let scenario = STMScenario::new(merkle_root, msg, witness);
-    prove_and_verify(&env, scenario);
+    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
+}
+
+#[test]
+fn test_stm_wrong_msg() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg0 = JubjubBase::from(42);
+    let msg1 = JubjubBase::from(43);
+
+    let env = setup_stm_env("wrong_msg", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+
+    let merkle_root = merkle_tree.root();
+    let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg0, QUORUM);
+    let scenario = STMScenario::new(merkle_root, msg1, witness);
+
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_wrong_root() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("wrong_root", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+
+    let merkle_root_0 = merkle_tree.root();
+    let merkle_root_1 = merkle_root_0 + JubjubBase::ONE;
+    let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root_0, msg, QUORUM);
+    let scenario = STMScenario::new(merkle_root_1, msg, witness);
+
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
 }
 
 // The following "large" test case is intentionally commented out.
