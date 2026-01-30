@@ -5,7 +5,8 @@ use tokio::sync::Mutex;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
+    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
+    SlotNumber,
 };
 
 use crate::chain_importer::ChainDataStore;
@@ -36,7 +37,7 @@ impl From<InMemoryBlockRangeRoot> for (BlockRange, MKTreeNode) {
 
 /// In memory implementation of [ChainDataStore], for testing purposes.
 pub struct InMemoryChainDataStore {
-    transactions: Mutex<Vec<CardanoTransaction>>,
+    blocks_with_txs: Mutex<Vec<CardanoBlockWithTransactions>>,
     block_range_roots: Mutex<Vec<InMemoryBlockRangeRoot>>,
 }
 
@@ -48,14 +49,17 @@ impl Default for InMemoryChainDataStore {
 
 /// Builder for [InMemoryChainDataStore].
 pub struct InMemoryChainDataStoreBuilder {
-    transactions: Vec<CardanoTransaction>,
+    blocks_with_txs: Vec<CardanoBlockWithTransactions>,
     block_range_roots: Vec<InMemoryBlockRangeRoot>,
 }
 
 impl InMemoryChainDataStoreBuilder {
-    /// Set the initial transactions for the store.
-    pub fn with_transactions(mut self, transactions: &[CardanoTransaction]) -> Self {
-        self.transactions = transactions.to_vec();
+    /// Set the initial blocks and transactions for the store.
+    pub fn with_blocks_and_transactions<T: Into<CardanoBlockWithTransactions> + Clone>(
+        mut self,
+        transactions: &[T],
+    ) -> Self {
+        self.blocks_with_txs = transactions.iter().map(|b| b.clone().into()).collect();
         self
     }
 
@@ -71,7 +75,7 @@ impl InMemoryChainDataStoreBuilder {
     /// Creates a new [InMemoryChainDataStore] with the current builder's data.
     pub fn build(self) -> InMemoryChainDataStore {
         InMemoryChainDataStore {
-            transactions: Mutex::new(self.transactions),
+            blocks_with_txs: Mutex::new(self.blocks_with_txs),
             block_range_roots: Mutex::new(self.block_range_roots),
         }
     }
@@ -81,14 +85,20 @@ impl InMemoryChainDataStore {
     /// Creates a new in-memory store builder with no initial data.
     pub fn builder() -> InMemoryChainDataStoreBuilder {
         InMemoryChainDataStoreBuilder {
-            transactions: vec![],
+            blocks_with_txs: vec![],
             block_range_roots: vec![],
         }
     }
 
     /// Returns all transactions in the store.
     pub async fn get_all_transactions(&self) -> Vec<CardanoTransaction> {
-        self.transactions.lock().await.clone()
+        let blocks = self.blocks_with_txs.lock().await.clone();
+        blocks.into_iter().flat_map(|b| b.into_transactions()).collect()
+    }
+
+    /// Returns all [CardanoBlockWithTransactions] in the store.
+    pub async fn get_all_block_with_txs(&self) -> Vec<CardanoBlockWithTransactions> {
+        self.blocks_with_txs.lock().await.clone()
     }
 
     /// Returns all block range roots in the store.
@@ -110,7 +120,7 @@ impl InMemoryChainDataStore {
 #[async_trait::async_trait]
 impl ChainDataStore for InMemoryChainDataStore {
     async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
-        let txs = self.transactions.lock().await;
+        let txs = self.blocks_with_txs.lock().await;
         Ok(txs
             .iter()
             .max_by_key(|tx| tx.block_number)
@@ -122,8 +132,11 @@ impl ChainDataStore for InMemoryChainDataStore {
         Ok(roots.iter().map(|record| record.range.clone()).max_by_key(|r| r.end))
     }
 
-    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
-        self.transactions.lock().await.extend(transactions);
+    async fn store_blocks_and_transactions(
+        &self,
+        blocks_and_transactions: Vec<CardanoBlockWithTransactions>,
+    ) -> StdResult<()> {
+        self.blocks_with_txs.lock().await.extend(blocks_and_transactions);
         Ok(())
     }
 
@@ -131,11 +144,12 @@ impl ChainDataStore for InMemoryChainDataStore {
         &self,
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        let txs = self.transactions.lock().await;
+        let txs = self.blocks_with_txs.lock().await;
         Ok(txs
             .iter()
             .filter(|tx| range.contains(&tx.block_number))
             .cloned()
+            .flat_map(|tx| tx.into_transactions())
             .collect())
     }
 
@@ -150,17 +164,17 @@ impl ChainDataStore for InMemoryChainDataStore {
         Ok(())
     }
 
-    async fn remove_rolled_back_transactions_and_block_range(
+    async fn remove_rolled_chain_data_and_block_range(
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()> {
-        self.transactions
+        self.blocks_with_txs
             .lock()
             .await
-            .retain(|tx| tx.slot_number <= slot_number);
+            .retain(|b| b.slot_number <= slot_number);
 
         if let Some(highest_remaining_block_number) =
-            self.transactions.lock().await.last().map(|tx| tx.block_number)
+            self.blocks_with_txs.lock().await.last().map(|tx| tx.block_number)
         {
             self.block_range_roots
                 .lock()
@@ -188,56 +202,87 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn store_and_get_transactions() {
+    async fn store_and_get_blocks_and_transactions() {
         let store = InMemoryChainDataStore::default();
 
-        let transactions = vec![
-            CardanoTransaction::new(
-                "tx_hash-123",
+        let block_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block_hash-123",
                 BlockNumber(10),
                 SlotNumber(50),
-                "block_hash-123",
+                vec!["tx_hash-123"],
             ),
-            CardanoTransaction::new(
-                "tx_hash-456",
+            CardanoBlockWithTransactions::new(
+                "block_hash-456",
                 BlockNumber(11),
                 SlotNumber(51),
-                "block_hash-456",
+                vec!["tx_hash-456", "tx_hash-789"],
             ),
         ];
 
-        store.store_transactions(transactions.clone()).await.unwrap();
+        store
+            .store_blocks_and_transactions(block_with_tx.clone())
+            .await
+            .unwrap();
+
+        let stored_blocks_with_txs = store.get_all_block_with_txs().await;
+        assert_eq!(block_with_tx, stored_blocks_with_txs);
 
         let stored_transactions = store.get_all_transactions().await;
-        assert_eq!(transactions, stored_transactions);
+        assert_eq!(
+            vec![
+                CardanoTransaction::new(
+                    "tx_hash-123",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block_hash-123"
+                ),
+                CardanoTransaction::new(
+                    "tx_hash-456",
+                    BlockNumber(11),
+                    SlotNumber(51),
+                    "block_hash-456"
+                ),
+                CardanoTransaction::new(
+                    "tx_hash-789",
+                    BlockNumber(11),
+                    SlotNumber(51),
+                    "block_hash-456"
+                )
+            ],
+            stored_transactions
+        );
     }
 
     #[tokio::test]
     async fn store_transactions_appends_to_existing() {
-        let existing_batch = vec![CardanoTransaction::new(
-            "tx_hash-123",
+        let existing_batch = vec![CardanoBlockWithTransactions::new(
+            "block_hash-123",
             BlockNumber(10),
             SlotNumber(50),
-            "block_hash-123",
+            vec!["tx_hash-123"],
         )];
 
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&existing_batch)
+            .with_blocks_and_transactions(&existing_batch)
             .build();
 
-        let second_batch = vec![CardanoTransaction::new(
-            "tx_hash-456",
+        let second_batch = vec![CardanoBlockWithTransactions::new(
+            "block_hash-456",
             BlockNumber(11),
             SlotNumber(51),
-            "block_hash-456",
+            vec!["tx_hash-456"],
         )];
 
-        store.store_transactions(second_batch.clone()).await.unwrap();
+        store
+            .store_blocks_and_transactions(second_batch.clone())
+            .await
+            .unwrap();
 
-        let stored_transactions = store.get_all_transactions().await;
-        assert_eq!(2, stored_transactions.len());
-        assert_eq!(existing_batch[0], stored_transactions[0]);
-        assert_eq!(second_batch[0], stored_transactions[1]);
+        let stored_blocks_with_tx = store.get_all_block_with_txs().await;
+        assert_eq!(2, stored_blocks_with_tx.len());
+        assert_eq!(existing_batch[0], stored_blocks_with_tx[0]);
+        assert_eq!(second_batch[0], stored_blocks_with_tx[1]);
     }
 
     #[tokio::test]
@@ -252,24 +297,24 @@ mod tests {
     #[tokio::test]
     async fn get_highest_beacon_returns_transaction_with_highest_block_number() {
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&[
-                CardanoTransaction::new(
-                    "tx_hash-123",
+            .with_blocks_and_transactions(&[
+                CardanoBlockWithTransactions::new(
+                    "block_hash-10",
                     BlockNumber(10),
                     SlotNumber(50),
-                    "block_hash-10",
+                    vec!["tx_hash-123"],
                 ),
-                CardanoTransaction::new(
-                    "tx_hash-456",
+                CardanoBlockWithTransactions::new(
+                    "block_hash-25",
                     BlockNumber(25),
                     SlotNumber(51),
-                    "block_hash-25",
+                    vec!["tx_hash-456"],
                 ),
-                CardanoTransaction::new(
-                    "tx_hash-789",
+                CardanoBlockWithTransactions::new(
+                    "block_hash-15",
                     BlockNumber(15),
                     SlotNumber(52),
-                    "block_hash-15",
+                    vec!["tx_hash-789"],
                 ),
             ])
             .build();
@@ -287,26 +332,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_highest_beacon_with_multiple_transactions_same_block_number() {
+    async fn get_highest_beacon_with_multiple_blocks_with_same_block_number() {
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&[
-                CardanoTransaction::new(
-                    "tx_hash-123",
+            .with_blocks_and_transactions(&[
+                CardanoBlockWithTransactions::new(
+                    "block_hash-10",
                     BlockNumber(10),
                     SlotNumber(50),
-                    "block_hash-10",
+                    vec!["tx_hash-123"],
                 ),
-                CardanoTransaction::new(
-                    "tx_hash-456",
+                CardanoBlockWithTransactions::new(
+                    "block_hash-25",
                     BlockNumber(25),
                     SlotNumber(51),
-                    "block_hash-25",
+                    vec!["tx_hash-456"],
                 ),
-                CardanoTransaction::new(
-                    "tx_hash-789",
+                CardanoBlockWithTransactions::new(
+                    "block_hash-25",
                     BlockNumber(25),
                     SlotNumber(51),
-                    "block_hash-25",
+                    vec!["tx_hash-789"],
                 ),
             ])
             .build();
@@ -448,14 +493,33 @@ mod tests {
 
     #[tokio::test]
     async fn get_transactions_in_range_filters_correctly() {
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-1", BlockNumber(10), SlotNumber(50), "block-hash-1"),
-            CardanoTransaction::new("tx-hash-2", BlockNumber(11), SlotNumber(51), "block-hash-2"),
-            CardanoTransaction::new("tx-hash-3", BlockNumber(12), SlotNumber(52), "block-hash-3"),
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx-hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx-hash-3"],
+            ),
         ];
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&transactions)
+            .with_blocks_and_transactions(&blocks_with_tx)
             .build();
+        let transactions: Vec<CardanoTransaction> = blocks_with_tx
+            .into_iter()
+            .flat_map(|tx| tx.into_transactions())
+            .collect();
 
         // Range excludes all transactions
         {
@@ -504,42 +568,62 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remove_rolled_back_transactions_and_block_range_removes_transactions_above_slot_number()
-     {
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-1", BlockNumber(10), SlotNumber(50), "block-hash-1"),
-            CardanoTransaction::new("tx-hash-2", BlockNumber(11), SlotNumber(51), "block-hash-2"),
-            CardanoTransaction::new("tx-hash-3", BlockNumber(12), SlotNumber(52), "block-hash-3"),
+    async fn remove_rolled_back_chain_data_and_block_range_removes_transactions_above_slot_number()
+    {
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx-hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx-hash-3"],
+            ),
         ];
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&transactions)
+            .with_blocks_and_transactions(&blocks_with_tx)
             .build();
 
         store
-            .remove_rolled_back_transactions_and_block_range(SlotNumber(51))
+            .remove_rolled_chain_data_and_block_range(SlotNumber(51))
             .await
             .unwrap();
 
-        let remaining = store.get_all_transactions().await;
-        assert_eq!(transactions[0..=1].to_vec(), remaining);
+        let remaining = store.get_all_block_with_txs().await;
+        assert_eq!(blocks_with_tx[0..=1].to_vec(), remaining);
     }
 
     #[tokio::test]
-    async fn remove_rolled_back_transactions_and_block_range_removes_block_ranges_above_highest_remaining_block()
+    async fn remove_rolled_back_chain_data_and_block_range_removes_block_ranges_above_highest_remaining_block()
      {
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-1", BlockNumber(10), SlotNumber(50), "block-hash-1"),
-            CardanoTransaction::new(
-                "tx-hash-2",
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
                 BlockRange::LENGTH * 2,
                 SlotNumber(100),
-                "block-hash-2",
+                vec!["tx-hash-2"],
             ),
-            CardanoTransaction::new(
-                "tx-hash-3",
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
                 BlockRange::LENGTH * 4,
                 SlotNumber(200),
-                "block-hash-3",
+                vec!["tx-hash-3"],
             ),
         ];
         let block_ranges_roots = vec![
@@ -561,13 +645,13 @@ mod tests {
             ),
         ];
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&transactions)
+            .with_blocks_and_transactions(&blocks_with_tx)
             .with_block_range_roots(&block_ranges_roots)
             .build();
 
         // Rollback to slot 100 (keeps transactions with slot <= 100)
         store
-            .remove_rolled_back_transactions_and_block_range(SlotNumber(100))
+            .remove_rolled_chain_data_and_block_range(SlotNumber(100))
             .await
             .unwrap();
 
@@ -586,13 +670,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remove_rolled_back_transactions_and_block_range_with_no_remaining_transactions() {
+    async fn remove_rolled_back_chain_data_and_block_range_with_no_remaining_transactions() {
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&[CardanoTransaction::new(
-                "tx-hash-1",
+            .with_blocks_and_transactions(&[CardanoBlockWithTransactions::new(
+                "block-hash-1",
                 BlockNumber(10),
                 SlotNumber(50),
-                "block-hash-1",
+                vec!["tx-hash-1"],
             )])
             .with_block_range_roots(&[(
                 BlockRange::from_block_number(BlockNumber(0)),
@@ -602,32 +686,48 @@ mod tests {
 
         // Rollback to slot before all transactions
         store
-            .remove_rolled_back_transactions_and_block_range(SlotNumber(40))
+            .remove_rolled_chain_data_and_block_range(SlotNumber(40))
             .await
             .unwrap();
 
+        assert!(store.get_all_block_with_txs().await.is_empty());
         assert!(store.get_all_transactions().await.is_empty());
         assert!(store.get_all_block_range_root().await.is_empty());
     }
 
     #[tokio::test]
-    async fn remove_rolled_back_transactions_and_block_range_keeps_transactions_with_equal_slot_number()
+    async fn remove_rolled_back_chain_data_and_block_range_keeps_transactions_with_equal_slot_number()
      {
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-1", BlockNumber(10), SlotNumber(50), "block-hash-1"),
-            CardanoTransaction::new("tx-hash-2", BlockNumber(11), SlotNumber(50), "block-hash-1"),
-            CardanoTransaction::new("tx-hash-3", BlockNumber(12), SlotNumber(51), "block-hash-2"),
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx-hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx-hash-3"],
+            ),
         ];
         let store = InMemoryChainDataStore::builder()
-            .with_transactions(&transactions)
+            .with_blocks_and_transactions(&blocks_with_tx)
             .build();
 
         store
-            .remove_rolled_back_transactions_and_block_range(SlotNumber(50))
+            .remove_rolled_chain_data_and_block_range(SlotNumber(50))
             .await
             .unwrap();
 
-        let remaining = store.get_all_transactions().await;
-        assert_eq!(transactions[0..=1].to_vec(), remaining);
+        let remaining = store.get_all_block_with_txs().await;
+        assert_eq!(blocks_with_tx[0..1].to_vec(), remaining);
     }
 }

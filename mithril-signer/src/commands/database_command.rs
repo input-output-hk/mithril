@@ -66,15 +66,12 @@ impl MigrateCommand {
         let services = DependenciesBuilder::new(&config, root_logger.clone());
 
         services
-            .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
+            .build_main_sqlite_connection(SQLITE_FILE)
             .await
             .with_context(|| "Dependencies Builder can not get sqlite connection")?;
 
         services
-            .build_sqlite_connection(
-                SQLITE_FILE_CARDANO_TRANSACTION,
-                mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-            )
+            .build_cardano_tx_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION)
             .await
             .with_context(
                 || "Dependencies Builder can not get cardano transaction pool sqlite connection",

@@ -7,12 +7,12 @@ use mithril_common::StdResult;
 use crate::database::record::BlockRangeRootRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-/// Query to insert [BlockRangeRootRecord] in the sqlite database
-pub struct InsertBlockRangeRootQuery {
+/// Query to insert legacy [BlockRangeRootRecord] in the sqlite database
+pub struct InsertLegacyBlockRangeRootQuery {
     condition: WhereCondition,
 }
 
-impl InsertBlockRangeRootQuery {
+impl InsertLegacyBlockRangeRootQuery {
     /// Query that insert multiples records.
     pub fn insert_many(block_range_records: Vec<BlockRangeRootRecord>) -> StdResult<Self> {
         let columns = "(start, end, merkle_root)";
@@ -37,7 +37,7 @@ impl InsertBlockRangeRootQuery {
     }
 }
 
-impl Query for InsertBlockRangeRootQuery {
+impl Query for InsertLegacyBlockRangeRootQuery {
     type Entity = BlockRangeRootRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -45,9 +45,9 @@ impl Query for InsertBlockRangeRootQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root")]);
+        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root_legacy")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("insert or ignore into block_range_root {condition} returning {projection}")
+        format!("insert or ignore into block_range_root_legacy {condition} returning {projection}")
     }
 }

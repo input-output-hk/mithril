@@ -109,7 +109,7 @@ alter table cardano_tx drop column immutable_file_number;
  "#,
         ),
         // Migration 9
-        // Truncate Cardano transaction related tables to avoid data inconsistency
+        // Truncate Cardano transactions related tables to avoid data inconsistency
         // with previous versions of the nodes.
         SqlMigration::new(
             9,
@@ -118,6 +118,46 @@ delete from cardano_tx;
 delete from block_range_root;
 vacuum;
  "#,
+        ),
+        // Migration 10
+        // - rename `block_range_root` table to `block_range_root_legacy` (for the deprecated `CardanoTransactions` signed entity)
+        // - add `block_range_root` table (for the new `CardanoBlocksTransactions` signed entity)
+        // - add `cardano_block` (block_number, block_hash, slot_number)
+        // - update `cardano_tx` to set a foreign key `cardano_block` table
+        // - Truncate Cardano transactions related tables to force re-import of Cardano chain data to fill the `cardano_block` table
+        SqlMigration::new(
+            10,
+            r#"
+drop table cardano_tx;
+delete from block_range_root;
+vacuum;
+
+alter table block_range_root rename to block_range_root_legacy;
+
+create table block_range_root (
+    start         integer   not null,
+    end           integer   not null,
+    merkle_root   text      not null,
+    primary key (start, end)
+);
+
+create table cardano_block (
+    block_hash text not null,
+    block_number integer not null,
+    slot_number integer not null,
+    primary key (block_hash)
+);
+create unique index cardano_block_block_number_index on cardano_block(block_number);
+create unique index cardano_block_slot_number_index on cardano_block(slot_number);
+
+create table cardano_tx (
+    transaction_hash text not null,
+    block_hash text not null,
+    primary key (transaction_hash),
+    foreign key (block_hash) references cardano_block(block_hash) on delete cascade
+);
+create index block_hash_transaction_hash_index on cardano_tx(block_hash, transaction_hash);
+"#,
         ),
     ]
 }

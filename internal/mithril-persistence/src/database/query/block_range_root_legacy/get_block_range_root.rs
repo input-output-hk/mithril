@@ -5,12 +5,12 @@ use mithril_common::entities::BlockNumber;
 use crate::database::record::BlockRangeRootRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-/// Simple queries to retrieve [BlockRangeRootRecord] from the sqlite database.
-pub struct GetBlockRangeRootQuery {
+/// Simple queries to retrieve legacy [BlockRangeRootRecord] from the sqlite database.
+pub struct GetLegacyBlockRangeRootQuery {
     condition: WhereCondition,
 }
 
-impl GetBlockRangeRootQuery {
+impl GetLegacyBlockRangeRootQuery {
     pub fn all() -> Self {
         Self {
             condition: WhereCondition::default(),
@@ -28,12 +28,15 @@ impl GetBlockRangeRootQuery {
 
     pub fn highest() -> Self {
         Self {
-            condition: WhereCondition::new("end = (select max(end) from block_range_root)", vec![]),
+            condition: WhereCondition::new(
+                "end = (select max(end) from block_range_root_legacy)",
+                vec![],
+            ),
         }
     }
 }
 
-impl Query for GetBlockRangeRootQuery {
+impl Query for GetLegacyBlockRangeRootQuery {
     type Entity = BlockRangeRootRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -41,10 +44,12 @@ impl Query for GetBlockRangeRootQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root")]);
+        let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root_legacy")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from block_range_root where {condition} order by start, end")
+        format!(
+            "select {projection} from block_range_root_legacy where {condition} order by start, end"
+        )
     }
 }
 
@@ -53,8 +58,8 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
-    use crate::database::query::GetBlockRangeRootQuery;
-    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
+    use crate::database::query::GetLegacyBlockRangeRootQuery;
+    use crate::database::query::block_range_root_legacy::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
 
@@ -85,9 +90,9 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                BlockNumber(100),
-            ))
+            .fetch_collect(
+                GetLegacyBlockRangeRootQuery::contains_or_below_block_number(BlockNumber(100)),
+            )
             .unwrap();
         assert_eq!(Vec::<BlockRangeRootRecord>::new(), cursor);
     }
@@ -99,9 +104,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                BlockNumber(10_000),
-            ))
+            .fetch_collect(
+                GetLegacyBlockRangeRootQuery::contains_or_below_block_number(BlockNumber(10_000)),
+            )
             .unwrap();
 
         assert_eq!(dataset, cursor);
@@ -114,9 +119,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                BlockNumber(44),
-            ))
+            .fetch_collect(
+                GetLegacyBlockRangeRootQuery::contains_or_below_block_number(BlockNumber(44)),
+            )
             .unwrap();
 
         assert_eq!(&dataset[0..2], &cursor);
@@ -129,9 +134,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                BlockNumber(45),
-            ))
+            .fetch_collect(
+                GetLegacyBlockRangeRootQuery::contains_or_below_block_number(BlockNumber(45)),
+            )
             .unwrap();
 
         assert_eq!(&dataset[0..2], &cursor);
@@ -144,9 +149,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                BlockNumber(46),
-            ))
+            .fetch_collect(
+                GetLegacyBlockRangeRootQuery::contains_or_below_block_number(BlockNumber(46)),
+            )
             .unwrap();
 
         assert_eq!(dataset, cursor);
@@ -156,8 +161,9 @@ mod tests {
     fn test_get_highest_with_empty_db() {
         let connection = cardano_tx_db_connection().unwrap();
 
-        let cursor: Option<BlockRangeRootRecord> =
-            connection.fetch_first(GetBlockRangeRootQuery::highest()).unwrap();
+        let cursor: Option<BlockRangeRootRecord> = connection
+            .fetch_first(GetLegacyBlockRangeRootQuery::highest())
+            .unwrap();
         assert_eq!(None, cursor);
     }
 
@@ -167,8 +173,9 @@ mod tests {
         let dataset = block_range_root_dataset();
         insert_block_range_roots(&connection, dataset.clone());
 
-        let cursor: Option<BlockRangeRootRecord> =
-            connection.fetch_first(GetBlockRangeRootQuery::highest()).unwrap();
+        let cursor: Option<BlockRangeRootRecord> = connection
+            .fetch_first(GetLegacyBlockRangeRootQuery::highest())
+            .unwrap();
         assert_eq!(dataset.last().cloned(), cursor);
     }
 }

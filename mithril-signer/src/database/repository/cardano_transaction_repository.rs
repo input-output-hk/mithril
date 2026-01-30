@@ -7,7 +7,8 @@ use mithril_cardano_node_chain::chain_importer::{
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
+    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
+    SlotNumber,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -42,12 +43,17 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
     }
 
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
-        let record = self.inner.retrieve_highest_block_range_root().await?;
+        let record = self.inner.retrieve_highest_legacy_block_range_root().await?;
         Ok(record.map(|record| record.range))
     }
 
-    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
-        self.inner.store_transactions(transactions).await
+    async fn store_blocks_and_transactions(
+        &self,
+        block_with_transactions: Vec<CardanoBlockWithTransactions>,
+    ) -> StdResult<()> {
+        self.inner
+            .store_blocks_and_transactions(block_with_transactions)
+            .await
     }
 
     async fn get_transactions_in_range(
@@ -66,17 +72,17 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
         if !block_ranges.is_empty() {
-            self.inner.create_block_range_roots(block_ranges).await?;
+            self.inner.create_legacy_block_range_roots(block_ranges).await?;
         }
         Ok(())
     }
 
-    async fn remove_rolled_back_transactions_and_block_range(
+    async fn remove_rolled_chain_data_and_block_range(
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()> {
         self.inner
-            .remove_rolled_back_transactions_and_block_range_by_slot_number(slot_number)
+            .remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(slot_number)
             .await
     }
 }
@@ -102,7 +108,7 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for SignerCardanoChainDataRepos
         &'a self,
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
-        self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
+        self.inner.retrieve_legacy_block_range_roots_up_to(up_to_beacon).await
     }
 }
 
