@@ -1,4 +1,4 @@
-use crate::circuits::halo2::circuit::certificate::Certificate;
+use crate::circuits::halo2::circuit::stm::STM;
 use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath, MerkleTree};
 use crate::circuits::halo2::off_circuit::unique_signature::{
     Signature, SigningKey, VerificationKey,
@@ -21,29 +21,29 @@ type F = JubjubBase;
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
 // Public API for golden/cases:
-// - CertificateEnv, CertificateScenario
-// - setup_certificate_env, create_default_merkle_tree
+// - STMEnv, STMScenario
+// - setup_stm_env, create_default_merkle_tree
 // - build_witness, build_witness_with_indices
 // - prove_and_verify
-// - run_certificate_case, run_certificate_case_default
+// - run_stm_case, run_stm_case_default
 
 // --- Public API (used by golden/cases) ---
-pub(crate) struct CertificateEnv {
+pub(crate) struct STMEnv {
     srs: ParamsKZG<Bls12>,
-    relation: Certificate,
+    relation: STM,
     vk: MidnightVK,
-    pk: MidnightPK<Certificate>,
+    pk: MidnightPK<STM>,
     num_signers: usize,
     num_lotteries: u32,
 }
 
-pub(crate) struct CertificateScenario {
+pub(crate) struct STMScenario {
     merkle_root: F,
     msg: F,
     witness: Vec<WitnessEntry>,
 }
 
-impl CertificateEnv {
+impl STMEnv {
     pub(crate) fn num_signers(&self) -> usize {
         self.num_signers
     }
@@ -53,7 +53,7 @@ impl CertificateEnv {
     }
 }
 
-impl CertificateScenario {
+impl STMScenario {
     pub(crate) fn new(merkle_root: F, msg: F, witness: Vec<WitnessEntry>) -> Self {
         Self {
             merkle_root,
@@ -139,7 +139,7 @@ pub(crate) fn create_merkle_tree_with_leftmost_leaf(
     (sks, leaves, tree, leftmost_index)
 }
 
-pub(crate) fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> CertificateEnv {
+pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
     // let srs = filecoin_srs(k);
     let srs = load_or_generate_params(k);
 
@@ -147,12 +147,12 @@ pub(crate) fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> Cer
     let num_signers: usize = 3000;
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let num_lotteries = quorum * 10;
-    let relation = Certificate::new(quorum, num_lotteries, depth);
+    let relation = STM::new(quorum, num_lotteries, depth);
 
     {
         // Print circuit sizing information.
         let circuit = MidnightCircuit::from_relation(&relation);
-        println!("\n=== Certificate case: {case_name} ===");
+        println!("\n=== STM case: {case_name} ===");
         println!("k (selected) {k}");
         println!("quorum {quorum}");
         println!("min_k {:?}", circuit.min_k());
@@ -173,7 +173,7 @@ pub(crate) fn setup_certificate_env(case_name: &str, k: u32, quorum: u32) -> Cer
         println!("vk length {:?}", buffer.get_ref().len());
     }
 
-    CertificateEnv {
+    STMEnv {
         srs,
         relation,
         vk,
@@ -273,11 +273,11 @@ pub(crate) fn build_witness_with_fixed_signer(
     witness
 }
 
-pub(crate) fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenario) {
+pub(crate) fn prove_and_verify(env: &STMEnv, scenario: STMScenario) {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
-    let proof = zk::prove::<Certificate, blake2b_simd::State>(
+    let proof = zk::prove::<STM, blake2b_simd::State>(
         &env.srs,
         &env.pk,
         &env.relation,
@@ -292,7 +292,7 @@ pub(crate) fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenar
 
     let start = Instant::now();
     assert!(
-        zk::verify::<Certificate, blake2b_simd::State>(
+        zk::verify::<STM, blake2b_simd::State>(
             &env.srs.verifier_params(),
             &env.vk,
             &instance,
@@ -305,18 +305,18 @@ pub(crate) fn prove_and_verify(env: &CertificateEnv, scenario: CertificateScenar
     println!("Proof verification took: {:?}", duration);
 }
 
-pub(crate) fn run_certificate_case_default(case_name: &str, k: u32, quorum: u32) {
-    run_certificate_case(case_name, k, quorum, F::from(42));
+pub(crate) fn run_stm_case_default(case_name: &str, k: u32, quorum: u32) {
+    run_stm_case(case_name, k, quorum, F::from(42));
 }
 
-pub(crate) fn run_certificate_case(case_name: &str, k: u32, quorum: u32, msg: F) {
-    let env = setup_certificate_env(case_name, k, quorum);
-    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers);
+pub(crate) fn run_stm_case(case_name: &str, k: u32, quorum: u32, msg: F) {
+    let env = setup_stm_env(case_name, k, quorum);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
 
     let merkle_root = merkle_tree.root();
 
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
-    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    let scenario = STMScenario::new(merkle_root, msg, witness);
 
     prove_and_verify(&env, scenario);
 }

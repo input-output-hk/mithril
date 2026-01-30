@@ -1,48 +1,48 @@
-use crate::circuits::halo2::golden::support::certificate_case::{
+use crate::circuits::halo2::golden::support::stm_case::{
     build_witness_with_fixed_signer, build_witness_with_indices,
     create_default_merkle_tree, create_merkle_tree_with_leftmost_leaf,
-    create_merkle_tree_with_rightmost_leaf, prove_and_verify, run_certificate_case,
-    run_certificate_case_default, setup_certificate_env, CertificateScenario,
+    create_merkle_tree_with_rightmost_leaf, prove_and_verify, run_stm_case,
+    run_stm_case_default, setup_stm_env, STMScenario,
 };
 use crate::circuits::halo2::types::JubjubBase;
 use ff::Field;
 
 #[test]
-fn test_certificate_baseline() {
+fn test_stm_baseline() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
-    run_certificate_case_default("small", K, QUORUM);
+    run_stm_case_default("small", K, QUORUM);
 }
 
 #[test]
-fn test_certificate_medium() {
+fn test_stm_medium() {
     const K: u32 = 16;
     const QUORUM: u32 = 32;
-    run_certificate_case_default("medium", K, QUORUM);
+    run_stm_case_default("medium", K, QUORUM);
 }
 
 #[test]
-fn test_certificate_message_zero() {
+fn test_stm_message_zero() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
-    run_certificate_case("message_zero", K, QUORUM, JubjubBase::ZERO);
+    run_stm_case("message_zero", K, QUORUM, JubjubBase::ZERO);
 }
 
 #[test]
-fn test_certificate_message_max() {
+fn test_stm_message_max() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg_max = -JubjubBase::ONE; // p - 1
-    run_certificate_case("message_max", K, QUORUM, msg_max);
+    run_stm_case("message_max", K, QUORUM, msg_max);
 }
 
 #[test]
-fn test_certificate_min_strict_indices() {
+fn test_stm_min_strict_indices() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
 
-    let env = setup_certificate_env("min_strict_indices", K, QUORUM);
+    let env = setup_stm_env("min_strict_indices", K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
 
     let merkle_root = merkle_tree.root();
@@ -56,17 +56,17 @@ fn test_certificate_min_strict_indices() {
         &indices,
     );
 
-    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    let scenario = STMScenario::new(merkle_root, msg, witness);
     prove_and_verify(&env, scenario);
 }
 
 #[test]
-fn test_certificate_max_strict_indices() {
+fn test_stm_max_strict_indices() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
 
-    let env = setup_certificate_env("max_strict_indices", K, QUORUM);
+    let env = setup_stm_env("max_strict_indices", K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
 
     let merkle_root = merkle_tree.root();
@@ -83,17 +83,17 @@ fn test_certificate_max_strict_indices() {
         &indices,
     );
 
-    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    let scenario = STMScenario::new(merkle_root, msg, witness);
     prove_and_verify(&env, scenario);
 }
 
 #[test]
-fn test_certificate_all_right() {
+fn test_stm_all_right() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
 
-    let env = setup_certificate_env("all_right", K, QUORUM);
+    let env = setup_stm_env("all_right", K, QUORUM);
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -JubjubBase::ONE;
     let (sks, leaves, merkle_tree, rightmost_index) =
@@ -114,17 +114,17 @@ fn test_certificate_all_right() {
         &indices,
     );
 
-    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    let scenario = STMScenario::new(merkle_root, msg, witness);
     prove_and_verify(&env, scenario);
 }
 
 #[test]
-fn test_certificate_all_left() {
+fn test_stm_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
 
-    let env = setup_certificate_env("all_left", K, QUORUM);
+    let env = setup_stm_env("all_left", K, QUORUM);
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -JubjubBase::ONE;
     let (sks, leaves, merkle_tree, leftmost_index) =
@@ -146,7 +146,7 @@ fn test_certificate_all_left() {
         &indices,
     );
 
-    let scenario = CertificateScenario::new(merkle_root, msg, witness);
+    let scenario = STMScenario::new(merkle_root, msg, witness);
     prove_and_verify(&env, scenario);
 }
 
@@ -157,8 +157,8 @@ fn test_certificate_all_left() {
 // mechanism to re-enable it in a controlled way.
 //
 // #[test]
-// fn test_certificate_large() {
+// fn test_stm_large() {
 //     const K: u32 = 21;
 //     const QUORUM: u32 = 1024;
-//     run_certificate_case_default("large", K, QUORUM);
+//     run_stm_case_default("large", K, QUORUM);
 // }
