@@ -4,7 +4,7 @@ use anyhow::{Context, anyhow};
 use pallas_network::{
     facades::DmqServer,
     miniprotocols::{
-        localmsgsubmission::DmqMsgValidationError,
+        localmsgsubmission::{DmqMsgRejectReason, DmqMsgValidationError},
         localtxsubmission::{Request, Response},
     },
 };
@@ -148,8 +148,8 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
                 );
                 (
                     None,
-                    Response::Rejected(DmqMsgValidationError(format!(
-                        "Expected a Submit request, but received: {request:?}"
+                    Response::Rejected(DmqMsgValidationError(DmqMsgRejectReason::Invalid(
+                        format!("Expected a Submit request, but received: {request:?}"),
                     ))),
                 )
             }

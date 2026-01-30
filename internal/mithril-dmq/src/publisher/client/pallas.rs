@@ -85,7 +85,8 @@ mod tests {
     use std::{fs, sync::Arc, time::Duration};
 
     use pallas_network::miniprotocols::{
-        localmsgsubmission::DmqMsgValidationError, localtxsubmission,
+        localmsgsubmission::{DmqMsgRejectReason, DmqMsgValidationError},
+        localtxsubmission,
     };
     use tokio::{net::UnixListener, task::JoinHandle};
 
@@ -128,7 +129,7 @@ mod tests {
                     localtxsubmission::Response::Accepted
                 } else {
                     localtxsubmission::Response::Rejected(DmqMsgValidationError(
-                        "fake error".to_string(),
+                        DmqMsgRejectReason::Other("fake error".to_string()),
                     ))
                 };
                 server_msg.send_submit_tx_response(response).await?;
