@@ -104,6 +104,7 @@ fn test_stm_all_right() {
     let indices = vec![4, 12, 25];
     assert!(indices.iter().all(|i| *i < m));
 
+    // Structural edge-case: all-right Merkle path shape with a fixed signer.
     let witness = build_witness_with_fixed_signer(
         &sks,
         &leaves,
@@ -119,6 +120,7 @@ fn test_stm_all_right() {
 }
 
 #[test]
+/// Requires power-of-two signers; otherwise padding prevents an all-left path.
 fn test_stm_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;

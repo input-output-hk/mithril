@@ -20,14 +20,7 @@ type F = JubjubBase;
 
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
-// Public API for golden/cases:
-// - STMEnv, STMScenario
-// - setup_stm_env, create_default_merkle_tree
-// - build_witness, build_witness_with_indices
-// - prove_and_verify
-// - run_stm_case, run_stm_case_default
-
-// --- Public API (used by golden/cases) ---
+/// Shared environment for STM golden cases (SRS, relation, keys, sizing).
 pub(crate) struct STMEnv {
     srs: ParamsKZG<Bls12>,
     relation: STM,
@@ -37,6 +30,7 @@ pub(crate) struct STMEnv {
     num_lotteries: u32,
 }
 
+/// Concrete STM scenario inputs for proving/verifying in golden tests.
 pub(crate) struct STMScenario {
     merkle_root: F,
     msg: F,
@@ -44,16 +38,19 @@ pub(crate) struct STMScenario {
 }
 
 impl STMEnv {
+    /// Number of signers used to size the default Merkle tree in golden cases.
     pub(crate) fn num_signers(&self) -> usize {
         self.num_signers
     }
 
+    /// Number of lotteries configured for the STM relation.
     pub(crate) fn num_lotteries(&self) -> u32 {
         self.num_lotteries
     }
 }
 
 impl STMScenario {
+    /// Construct a new STM scenario from its instance and witness data.
     pub(crate) fn new(merkle_root: F, msg: F, witness: Vec<WitnessEntry>) -> Self {
         Self {
             merkle_root,
@@ -63,6 +60,7 @@ impl STMScenario {
     }
 }
 
+/// Build a default Merkle tree with all leaves set to the max target.
 pub(crate) fn create_default_merkle_tree(
     n: usize,
 ) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
@@ -81,6 +79,7 @@ pub(crate) fn create_default_merkle_tree(
     (sks, leaves, tree)
 }
 
+/// Build a full tree with a controlled rightmost leaf and return its index.
 pub(crate) fn create_merkle_tree_with_rightmost_leaf(
     depth: u32,
     target: F,
@@ -110,6 +109,7 @@ pub(crate) fn create_merkle_tree_with_rightmost_leaf(
     (sks, leaves, tree, rightmost_index)
 }
 
+/// Build a full tree with a controlled leftmost leaf and return its index.
 pub(crate) fn create_merkle_tree_with_leftmost_leaf(
     depth: u32,
     target: F,
@@ -139,8 +139,8 @@ pub(crate) fn create_merkle_tree_with_leftmost_leaf(
     (sks, leaves, tree, leftmost_index)
 }
 
+/// Construct the STM relation environment and setup keys for a case.
 pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
-    // let srs = filecoin_srs(k);
     let srs = load_or_generate_params(k);
 
     // Keep num_signers fixed for baseline comparisons.
@@ -183,6 +183,7 @@ pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
     }
 }
 
+/// Build a witness with default strictly-increasing indices [0..quorum).
 pub(crate) fn build_witness(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
@@ -195,6 +196,7 @@ pub(crate) fn build_witness(
     build_witness_with_indices(sks, leaves, merkle_tree, merkle_root, msg, &indices)
 }
 
+/// Build a witness using caller-provided strictly increasing indices.
 pub(crate) fn build_witness_with_indices(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
@@ -229,9 +231,9 @@ pub(crate) fn build_witness_with_indices(
     witness
 }
 
-// Intentionally reuse the same signer, Merkle path, and signature across indices to
-// stress Merkle-path shape in golden vectors; this is not a realistic lottery model,
-// and any grinding or signature randomness considerations are out of scope here.
+/// Reuse the same signer, Merkle path, and signature across indices to stress
+/// Merkle-path shape in golden vectors; not a realistic lottery model, and any
+/// grinding or signature randomness considerations are out of scope.
 pub(crate) fn build_witness_with_fixed_signer(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
@@ -273,6 +275,7 @@ pub(crate) fn build_witness_with_fixed_signer(
     witness
 }
 
+/// Prove and verify a scenario using the STM relation and environment.
 pub(crate) fn prove_and_verify(env: &STMEnv, scenario: STMScenario) {
     let instance = (scenario.merkle_root, scenario.msg);
 
@@ -305,10 +308,12 @@ pub(crate) fn prove_and_verify(env: &STMEnv, scenario: STMScenario) {
     println!("Proof verification took: {:?}", duration);
 }
 
+/// Run a case using the default message (F::from(42)).
 pub(crate) fn run_stm_case_default(case_name: &str, k: u32, quorum: u32) {
     run_stm_case(case_name, k, quorum, F::from(42));
 }
 
+/// Run a case with a caller-specified message.
 pub(crate) fn run_stm_case(case_name: &str, k: u32, quorum: u32, msg: F) {
     let env = setup_stm_env(case_name, k, quorum);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
@@ -321,8 +326,7 @@ pub(crate) fn run_stm_case(case_name: &str, k: u32, quorum: u32, msg: F) {
     prove_and_verify(&env, scenario);
 }
 
-// --- Private helpers ---
-
+// Load cached KZG params if present; otherwise generate and persist them for reuse.
 fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
