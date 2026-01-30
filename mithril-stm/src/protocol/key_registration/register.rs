@@ -75,14 +75,14 @@ impl KeyRegistration {
         L: From<RegistrationEntry> + MerkleTreeLeaf,
     >(
         &self,
-    ) -> StmResult<MerkleTree<D, L>> {
-        Ok(MerkleTree::new(
+    ) -> MerkleTree<D, L> {
+        MerkleTree::new(
             &self
                 .registration_entries
                 .iter()
                 .map(|entry| (*entry).into())
                 .collect::<Vec<L>>(),
-        ))
+        )
     }
 
     /// Closes the registration by computing the total stake registered.
@@ -229,7 +229,6 @@ mod tests {
             closed_key_reg
                 .key_registration
                 .into_merkle_tree()
-                .unwrap()
                 .to_merkle_tree_batch_commitment()
         }
 
