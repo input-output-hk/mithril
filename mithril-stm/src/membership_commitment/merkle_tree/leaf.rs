@@ -161,7 +161,7 @@ mod tests {
 
     use super::*;
 
-    mod test_concatenation_leaf {
+    mod concatenation {
         use super::*;
 
         #[cfg(feature = "future_snark")]
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[cfg(feature = "future_snark")]
-    mod test_snark_leaf {
+    mod snark {
         use midnight_curves::Fq as JubjubBase;
 
         use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};

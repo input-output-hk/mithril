@@ -59,9 +59,10 @@ impl SchnorrVerificationKey {
     /// The bytes must represent two Jubjub Base field elements or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 64 {
-            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
-                || "Not enough bytes provided to construct a Schnorr verification key.",
-            );
+            return Err::<SchnorrVerificationKey, UniqueSchnorrSignatureError>(
+                UniqueSchnorrSignatureError::Serialization,
+            )
+            .with_context(|| "Not enough bytes provided to construct a Schnorr verification key.");
         }
         let x = BaseFieldElement::from_bytes(&bytes[0..32])?;
         let y = BaseFieldElement::from_bytes(&bytes[32..64])?;

@@ -1,4 +1,4 @@
-use anyhow::{Ok, anyhow};
+use anyhow::anyhow;
 use group::{Group, GroupEncoding};
 use midnight_circuits::instructions::HashToCurveCPU;
 use midnight_circuits::{

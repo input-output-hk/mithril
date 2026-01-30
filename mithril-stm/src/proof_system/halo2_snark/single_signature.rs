@@ -10,7 +10,7 @@ pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
     /// The index(es) for which the signature is valid
-    indexes: Vec<LotteryIndex>,
+    indices: Vec<LotteryIndex>,
 }
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -20,22 +20,22 @@ impl SingleSignatureForSnark {
     /// `schnorr_signature` and `indexes`.
     pub(crate) fn new(
         schnorr_signature: UniqueSchnorrSignature,
-        indexes: Vec<LotteryIndex>,
+        indices: Vec<LotteryIndex>,
     ) -> Self {
         Self {
             schnorr_signature,
-            indexes,
+            indices,
         }
     }
 
     /// Return `indices` of the single signature
     pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
-        &self.indexes
+        &self.indices
     }
 
-    /// Set `indexes` of single signature to given `indices`
+    /// Set `indices` of single signature to given `indices`
     pub(crate) fn set_indices(&mut self, indices: &[LotteryIndex]) {
-        self.indexes = indices.to_vec()
+        self.indices = indices.to_vec()
     }
 
     /// Return `schnorr_signature` of single signature

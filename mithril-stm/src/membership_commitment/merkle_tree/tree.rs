@@ -239,162 +239,254 @@ mod tests {
 
     use super::*;
 
-    type ConcatenationHash = <MithrilMembershipDigest as MembershipDigest>::ConcatenationHash;
-
     fn pow2_plus1(h: usize) -> usize {
         1 + 2_usize.pow(h as u32)
     }
 
-    prop_compose! {
-        fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<ConcatenationHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
-            let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
-             (MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
-        }
-    }
+    mod concatenation {
+        use super::*;
 
-    proptest! {
-        // Test the relation that t.get_path(i) is a valid
-        // proof for i
-        #![proptest_config(ProptestConfig::with_cases(100))]
-        #[cfg(feature = "future_snark")]
-        #[test]
-        fn test_create_proof((t, values) in arb_tree(30)) {
-            values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.compute_merkle_tree_path(i);
-                assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
-            })
+        type ConcatenationHash = <MithrilMembershipDigest as MembershipDigest>::ConcatenationHash;
+
+        prop_compose! {
+            fn arb_tree(max_size: u32)
+                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<ConcatenationHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>) {
+                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+                 (MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves), leaves)
+            }
         }
 
-        #[cfg(feature = "future_snark")]
-        #[test]
-        fn test_bytes_path((t, values) in arb_tree(30)) {
-            values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.compute_merkle_tree_path(i);
-                let bytes = pf.to_bytes();
-                let deserialised = MerklePath::from_bytes(&bytes).unwrap();
-                assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &deserialised).is_ok());
-            })
-        }
-
-        #[cfg(feature = "future_snark")]
-        #[test]
-        fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
-            let encoded = t.to_merkle_tree_commitment().to_bytes();
-            let decoded = MerkleTreeCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
-
-            let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_commitment();
-            assert_eq!(tree_commitment.root, decoded.root);
-        }
-
-        #[test]
-        fn test_bytes_tree((t, values) in arb_tree(5)) {
-            let bytes = t.to_bytes();
-            let deserialised = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&bytes).unwrap();
-            let tree = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values);
-            assert_eq!(tree.nodes, deserialised.nodes);
-        }
-
-        #[cfg(feature = "future_snark")]
-        #[test]
-        fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
-            let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
-            let decoded = MerkleTreeBatchCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
-            let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_batch_commitment();
-            assert_eq!(tree_commitment.root, decoded.root);
-            assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
-
-        }
-
-    }
-
-    prop_compose! {
-        // Returns values with a randomly generated path
-        fn values_with_invalid_proof(max_height: usize)
-                                    (h in 1..max_height)
-                                    (v in vec(any::<u64>(), 2..pow2_plus1(h)),
-                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
-            let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
-            (leaves, proof)
-        }
-    }
-
-    proptest! {
-        #[cfg(feature = "future_snark")]
-        #[test]
-        fn test_create_invalid_proof(
-            i in any::<usize>(),
-            (values, proof) in values_with_invalid_proof(10)
-        ) {
-            let t = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
-            let index = i % (values.len() - 1);
-            let path_values = proof. iter().map(|x|  ConcatenationHash::digest(x).to_vec()).collect();
-            let path = MerklePath::new(path_values, index);
-            assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
-        }
-
-        #[test]
-        fn test_create_invalid_batch_proof(
-            i in any::<usize>(),
-            (values, proof) in values_with_invalid_proof(10)
-        ) {
-            let t = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
-            let indices = vec![i % (values.len() - 1); values.len() / 2];
-            let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
-            let path = MerkleBatchPath{values: proof
-                            .iter()
-                            .map(|x|  ConcatenationHash::digest(x).to_vec())
-                            .collect(),
-                indices,
-                hasher: PhantomData::<ConcatenationHash>
-                };
-            assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &path).is_err());
-        }
-    }
-
-    prop_compose! {
-        fn arb_tree_arb_batch(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<ConcatenationHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
-            let mut rng = rng();
-            let size = v.len();
-            let pks = vec![VerificationKeyForConcatenation::default(); size];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
-
-            let indices: Vec<usize> = (0..size).collect();
-            let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
-            mt_list.sort_unstable();
-
-            let mut batch_values: Vec<MerkleTreeConcatenationLeaf> = Vec::with_capacity(mt_list.len());
-            for i in mt_list.iter() {
-                batch_values.push(leaves[*i]);
+        proptest! {
+            // Test the relation that t.get_path(i) is a valid
+            // proof for i
+            #![proptest_config(ProptestConfig::with_cases(100))]
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_create_proof((t, values) in arb_tree(30)) {
+                values.iter().enumerate().for_each(|(i, _v)| {
+                    let pf = t.compute_merkle_tree_path(i);
+                    assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
+                })
             }
 
-            (MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves), batch_values, mt_list)
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_bytes_path((t, values) in arb_tree(30)) {
+                values.iter().enumerate().for_each(|(i, _v)| {
+                    let pf = t.compute_merkle_tree_path(i);
+                    let bytes = pf.to_bytes();
+                    let deserialised = MerklePath::from_bytes(&bytes).unwrap();
+                    assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &deserialised).is_ok());
+                })
+            }
+
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
+                let encoded = t.to_merkle_tree_commitment().to_bytes();
+                let decoded = MerkleTreeCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
+
+                let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_commitment();
+                assert_eq!(tree_commitment.root, decoded.root);
+            }
+
+            #[test]
+            fn test_bytes_tree((t, values) in arb_tree(5)) {
+                let bytes = t.to_bytes();
+                let deserialised = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&bytes).unwrap();
+                let tree = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values);
+                assert_eq!(tree.nodes, deserialised.nodes);
+            }
+
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
+                let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
+                let decoded = MerkleTreeBatchCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
+                let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_batch_commitment();
+                assert_eq!(tree_commitment.root, decoded.root);
+                assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
+
+            }
+
         }
-    }
 
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(100))]
-        #[test]
-        fn test_create_batch_proof((t, batch_values, indices) in arb_tree_arb_batch(30)) {
-            let batch_proof = t.compute_merkle_tree_batch_path(indices);
-            assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &batch_proof).is_ok());
+        prop_compose! {
+            // Returns values with a randomly generated path
+            fn values_with_invalid_proof(max_height: usize)
+                                        (h in 1..max_height)
+                                        (v in vec(any::<u64>(), 2..pow2_plus1(h)),
+                                         proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeConcatenationLeaf>, Vec<Vec<u8>>) {
+                let pks = vec![VerificationKeyForConcatenation::default(); v.len()];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+                (leaves, proof)
+            }
         }
 
-        #[test]
-        fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
-            let bp = t.compute_merkle_tree_batch_path(indices);
+        proptest! {
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_create_invalid_proof(
+                i in any::<usize>(),
+                (values, proof) in values_with_invalid_proof(10)
+            ) {
+                let t = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
+                let index = i % (values.len() - 1);
+                let path_values = proof. iter().map(|x|  ConcatenationHash::digest(x).to_vec()).collect();
+                let path = MerklePath::new(path_values, index);
+                assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
+            }
 
-            let bytes = &bp.to_bytes();
-            let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
-            assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
+            #[test]
+            fn test_create_invalid_batch_proof(
+                i in any::<usize>(),
+                (values, proof) in values_with_invalid_proof(10)
+            ) {
+                let t = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values[1..]);
+                let indices = vec![i % (values.len() - 1); values.len() / 2];
+                let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
+                let path = MerkleBatchPath{values: proof
+                                .iter()
+                                .map(|x|  ConcatenationHash::digest(x).to_vec())
+                                .collect(),
+                    indices,
+                    hasher: PhantomData::<ConcatenationHash>
+                    };
+                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &path).is_err());
+            }
+        }
+
+        prop_compose! {
+            fn arb_tree_arb_batch(max_size: u32)
+                       (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<ConcatenationHash, MerkleTreeConcatenationLeaf>, Vec<MerkleTreeConcatenationLeaf>, Vec<usize>) {
+                let mut rng = rng();
+                let size = v.len();
+                let pks = vec![VerificationKeyForConcatenation::default(); size];
+                let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
+
+                let indices: Vec<usize> = (0..size).collect();
+                let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
+                mt_list.sort_unstable();
+
+                let mut batch_values: Vec<MerkleTreeConcatenationLeaf> = Vec::with_capacity(mt_list.len());
+                for i in mt_list.iter() {
+                    batch_values.push(leaves[*i]);
+                }
+
+                (MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves), batch_values, mt_list)
+            }
+        }
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(100))]
+            #[test]
+            fn test_create_batch_proof((t, batch_values, indices) in arb_tree_arb_batch(30)) {
+                let batch_proof = t.compute_merkle_tree_batch_path(indices);
+                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &batch_proof).is_ok());
+            }
+
+            #[test]
+            fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
+                let bp = t.compute_merkle_tree_batch_path(indices);
+
+                let bytes = &bp.to_bytes();
+                let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
+                assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
+            }
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod golden {
+            use super::*;
+
+            const GOLDEN_BYTES: &[u8; 40] = &[
+                0, 0, 0, 0, 0, 0, 0, 4, 178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148,
+                224, 156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146,
+                236, 249,
+            ];
+
+            fn golden_value()
+            -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf>
+            {
+                let number_of_leaves = 4;
+                let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
+                let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+                let leaves = pks
+                    .into_iter()
+                    .zip(stakes)
+                    .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                    .collect::<Vec<MerkleTreeConcatenationLeaf>>();
+
+                let tree =
+                    MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves);
+
+                tree.to_merkle_tree_batch_commitment()
+            }
+
+            #[test]
+            fn golden_conversions() {
+                let value = MerkleTreeBatchCommitment::<
+                    ConcatenationHash,
+                    MerkleTreeConcatenationLeaf,
+                >::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized = MerkleTreeBatchCommitment::<
+                    ConcatenationHash,
+                    MerkleTreeConcatenationLeaf,
+                >::to_bytes(&value);
+                let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
+                assert_eq!(golden_serialized, serialized);
+            }
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod golden_json {
+            use super::*;
+            const GOLDEN_JSON: &str = r#"
+        {
+            "root": [178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148, 224, 156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249],
+            "nr_leaves": 4,
+            "hasher": null
+        }"#;
+
+            fn golden_value()
+            -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf>
+            {
+                let number_of_leaves = 4;
+                let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
+                let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+                let leaves = pks
+                    .into_iter()
+                    .zip(stakes)
+                    .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                    .collect::<Vec<MerkleTreeConcatenationLeaf>>();
+
+                let tree =
+                    MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves);
+
+                tree.to_merkle_tree_batch_commitment()
+            }
+
+            #[test]
+            fn golden_conversions() {
+                let value = serde_json::from_str(GOLDEN_JSON)
+                    .expect("This JSON deserialization should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized =
+                    serde_json::to_string(&value).expect("This JSON serialization should not fail");
+                let golden_serialized = serde_json::to_string(&golden_value())
+                    .expect("This JSON serialization should not fail");
+                assert_eq!(golden_serialized, serialized);
+            }
         }
     }
 
     #[cfg(feature = "future_snark")]
-    mod poseidon_digest {
+    mod snark {
         use midnight_curves::Fq;
 
         use crate::{
@@ -405,6 +497,12 @@ mod tests {
         use super::*;
 
         type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
+
+        impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeCommitment<D, L> {
+            fn eq(&self, other: &Self) -> bool {
+                self.root == other.root
+            }
+        }
 
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
@@ -485,88 +583,81 @@ mod tests {
                 assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
             }
         }
-    }
 
-    #[cfg(feature = "future_snark")]
-    mod golden {
-        use super::*;
+        #[cfg(feature = "future_snark")]
+        mod golden {
+            use super::*;
 
-        const GOLDEN_BYTES: &[u8; 40] = &[
-            0, 0, 0, 0, 0, 0, 0, 4, 178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148, 224,
-            156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249,
-        ];
+            const GOLDEN_BYTES: &[u8; 32] = &[
+                70, 51, 141, 228, 75, 74, 213, 158, 71, 119, 129, 77, 160, 2, 3, 215, 47, 104, 127,
+                164, 240, 176, 36, 253, 161, 1, 247, 91, 197, 130, 86, 38,
+            ];
 
-        fn golden_value()
-        -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf> {
-            let number_of_leaves = 4;
-            let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
-            let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
-            let leaves = pks
-                .into_iter()
-                .zip(stakes)
-                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
-                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
+            fn golden_value() -> MerkleTreeCommitment<SnarkHash, MerkleTreeSnarkLeaf> {
+                let number_of_leaves = 4;
+                let pks = vec![VerificationKeyForSnark::default(); number_of_leaves];
+                let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+                let leaves = pks
+                    .into_iter()
+                    .zip(stakes)
+                    .map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake))))
+                    .collect::<Vec<MerkleTreeSnarkLeaf>>();
+                let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
 
-            let tree = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves);
+                tree.to_merkle_tree_commitment()
+            }
 
-            tree.to_merkle_tree_batch_commitment()
-        }
-
-        #[test]
-        fn golden_conversions() {
-            let value =
-                MerkleTreeBatchCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(
+            #[test]
+            fn golden_conversions() {
+                let value = MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(
                     GOLDEN_BYTES,
                 )
                 .expect("This from bytes should not fail");
-            assert_eq!(golden_value(), value);
+                assert_eq!(golden_value(), value);
 
-            let serialized = MerkleTreeBatchCommitment::<
-                ConcatenationHash,
-                MerkleTreeConcatenationLeaf,
-            >::to_bytes(&value);
-            let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
-            assert_eq!(golden_serialized, serialized);
+                let serialized =
+                    MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::to_bytes(&value);
+                let golden_serialized = MerkleTreeCommitment::to_bytes(&golden_value());
+                assert_eq!(golden_serialized, serialized);
+            }
         }
-    }
 
-    #[cfg(feature = "future_snark")]
-    mod golden_json {
-        use super::*;
-        const GOLDEN_JSON: &str = r#"
+        #[cfg(feature = "future_snark")]
+        mod golden_json {
+            use super::*;
+            const GOLDEN_JSON: &str = r#"
         {
-            "root": [178, 30, 231, 127, 65, 247, 162, 149, 33, 29, 147, 148, 224, 156, 96, 113, 140, 42, 98, 166, 137, 14, 69, 29, 28, 244, 161, 145, 207, 146, 236, 249],
-            "nr_leaves": 4,
+            "root": [70,51,141,228,75,74,213,158,71,119,129,77,160,2,3,215,47,104,127,164,240,176,36,253,161,1,247,91,197,130,86,38],
             "hasher": null
         }"#;
 
-        fn golden_value()
-        -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf> {
-            let number_of_leaves = 4;
-            let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
-            let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
-            let leaves = pks
-                .into_iter()
-                .zip(stakes)
-                .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
-                .collect::<Vec<MerkleTreeConcatenationLeaf>>();
+            fn golden_value() -> MerkleTreeCommitment<SnarkHash, MerkleTreeSnarkLeaf> {
+                let number_of_leaves = 4;
+                let pks = vec![VerificationKeyForSnark::default(); number_of_leaves];
+                let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+                let leaves = pks
+                    .into_iter()
+                    .zip(stakes)
+                    .map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake))))
+                    .collect::<Vec<MerkleTreeSnarkLeaf>>();
 
-            let tree = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves);
+                let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
 
-            tree.to_merkle_tree_batch_commitment()
-        }
+                tree.to_merkle_tree_commitment()
+            }
 
-        #[test]
-        fn golden_conversions() {
-            let value = serde_json::from_str(GOLDEN_JSON)
-                .expect("This JSON deserialization should not fail");
-            assert_eq!(golden_value(), value);
+            #[test]
+            fn golden_conversions() {
+                let value = serde_json::from_str(GOLDEN_JSON)
+                    .expect("This JSON deserialization should not fail");
+                assert_eq!(golden_value(), value);
 
-            let serialized =
-                serde_json::to_string(&value).expect("This JSON serialization should not fail");
-            let golden_serialized = serde_json::to_string(&golden_value())
-                .expect("This JSON serialization should not fail");
-            assert_eq!(golden_serialized, serialized);
+                let serialized =
+                    serde_json::to_string(&value).expect("This JSON serialization should not fail");
+                let golden_serialized = serde_json::to_string(&golden_value())
+                    .expect("This JSON serialization should not fail");
+                assert_eq!(golden_serialized, serialized);
+            }
         }
     }
 }
