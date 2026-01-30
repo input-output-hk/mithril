@@ -1,10 +1,11 @@
 use crate::circuits::halo2::golden::support::stm_case::{
     build_witness, build_witness_with_fixed_signer, build_witness_with_indices,
-    create_default_merkle_tree, create_merkle_tree_with_leftmost_leaf,
+    create_default_merkle_tree, create_merkle_tree_with_controlled_leaf,
+    create_merkle_tree_with_leftmost_leaf,
     create_merkle_tree_with_rightmost_leaf, prove_and_verify_result, run_stm_case,
     run_stm_case_default, setup_stm_env, STMProofError, STMScenario,
 };
-use crate::circuits::halo2::types::JubjubBase;
+use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
 use ff::Field;
 
 #[test]
@@ -184,6 +185,215 @@ fn test_stm_wrong_root() {
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root_0, msg, QUORUM);
     let scenario = STMScenario::new(merkle_root_1, msg, witness);
 
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_signed_other_msg() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg0 = JubjubBase::from(42);
+    let msg1 = JubjubBase::from(43);
+
+    let env = setup_stm_env("signed_other_msg", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let witness0 = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg0,
+        &indices,
+    );
+    let witness1 = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg1,
+        &indices,
+    );
+
+    // Witness membership/path/index match (root, msg1), but signature is from (root, msg0).
+    let mut witness = Vec::with_capacity(witness1.len());
+    for (w1, w0) in witness1.into_iter().zip(witness0.into_iter()) {
+        witness.push((w1.0, w1.1, w0.2, w1.3));
+    }
+
+    let scenario = STMScenario::new(merkle_root, msg1, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_sig_leaf_mismatch() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("sig_leaf_mismatch", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let mut mismatch_idx = None;
+    for i in 0..witness.len() {
+        for j in (i + 1)..witness.len() {
+            if witness[i].0.to_bytes() != witness[j].0.to_bytes() {
+                mismatch_idx = Some((i, j));
+                break;
+            }
+        }
+        if mismatch_idx.is_some() {
+            break;
+        }
+    }
+    let (i, j) = mismatch_idx.expect("expected at least two distinct signers in witness");
+
+    // Keep leaf/path/index from i, but replace signature with j's signature.
+    let sig_j = witness[j].2.clone();
+    witness[i].2 = sig_j;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_bad_challenge() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("bad_challenge", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+    witness[0].2.c += JubjubBase::ONE;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_bad_response() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("bad_response", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+    witness[0].2.s += JubjubScalar::ONE;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_bad_commitment() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("bad_commitment", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+    witness[0].2.sigma = witness[1].2.sigma;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_sig_lottery_mismatch() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("sig_lottery_mismatch", K, QUORUM);
+    let depth = env.num_signers().next_power_of_two().trailing_zeros();
+    let signer_index = 0usize;
+    let (sks, leaves, merkle_tree) =
+        create_merkle_tree_with_controlled_leaf(depth, signer_index, JubjubBase::ZERO);
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![5, 17, 25];
+    assert!(indices.iter().all(|i| *i < m));
+
+    // Lottery-mismatch negative test: target=0 so eligibility should fail (ev > target),
+    // with negligible flake probability if ev==0.
+    let witness = build_witness_with_fixed_signer(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        signer_index,
+        merkle_root,
+        msg,
+        &indices,
+    );
+    let scenario = STMScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(STMProofError::VerifyFail)));
 }

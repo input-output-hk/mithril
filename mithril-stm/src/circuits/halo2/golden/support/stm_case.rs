@@ -139,6 +139,37 @@ pub(crate) fn create_merkle_tree_with_leftmost_leaf(
     (sks, leaves, tree, leftmost_index)
 }
 
+/// Build a full tree with a controlled leaf target at a specific index.
+pub(crate) fn create_merkle_tree_with_controlled_leaf(
+    depth: u32,
+    leaf_index: usize,
+    target: F,
+) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
+    assert!(
+        depth < usize::BITS,
+        "depth must be < usize::BITS to safely compute 1 << depth"
+    );
+    let n = 1usize << depth;
+    assert!(leaf_index < n, "leaf_index out of bounds for tree size");
+
+    let mut rng = OsRng;
+    let mut sks = Vec::with_capacity(n);
+    let mut leaves = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let sk = SigningKey::generate(&mut rng);
+        let vk = VerificationKey::from(&sk);
+        let leaf_target = if i == leaf_index { target } else { -F::ONE };
+        let leaf = MTLeaf(vk, leaf_target);
+        sks.push(sk);
+        leaves.push(leaf);
+    }
+
+    let tree = MerkleTree::create(&leaves);
+
+    (sks, leaves, tree)
+}
+
 /// Construct the STM relation environment and setup keys for a case.
 pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
     let srs = load_or_generate_params(k);
@@ -183,7 +214,7 @@ pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
     }
 }
 
-/// Build a witness with default strictly-increasing indices [0..quorum).
+/// Build a witness with default strictly increasing indices [0..quorum).
 pub(crate) fn build_witness(
     sks: &[SigningKey],
     leaves: &[MTLeaf],
@@ -192,7 +223,7 @@ pub(crate) fn build_witness(
     msg: F,
     quorum: u32,
 ) -> Vec<WitnessEntry> {
-    let indices: Vec<u32> = (0..quorum).map(|i| i + 1).collect();
+    let indices: Vec<u32> = (0..quorum).collect();
     build_witness_with_indices(sks, leaves, merkle_tree, merkle_root, msg, &indices)
 }
 
