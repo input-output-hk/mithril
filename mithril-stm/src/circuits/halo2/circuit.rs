@@ -1,7 +1,7 @@
-use crate::circuits::halo2::circuit::gadgets::{
+use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
+use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
 use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath};
 use crate::circuits::halo2::off_circuit::unique_signature::Signature;
 use crate::circuits::halo2::types::{Jubjub, JubjubBase, LotteryIndex, MerkleRoot, Msg};
@@ -22,7 +22,7 @@ type F = JubjubBase;
 type C = Jubjub;
 
 #[derive(Clone, Default, Debug)]
-pub struct STM {
+pub struct Circuit {
     // k in mithril: the required number of signatures for a valid certificate
     quorum: u32,
     // m in mithril: the number of lotteries that a user can participate in to sign a message
@@ -30,7 +30,7 @@ pub struct STM {
     merkle_tree_depth: u32,
 }
 
-impl STM {
+impl Circuit {
     pub fn new(quorum: u32, num_lotteries: u32, merkle_tree_depth: u32) -> Self {
         Self {
             quorum,
@@ -40,7 +40,7 @@ impl STM {
     }
 }
 
-impl Relation for STM {
+impl Relation for Circuit {
     type Instance = (MerkleRoot, Msg);
     type Witness = Vec<(MTLeaf, MerklePath, Signature, LotteryIndex)>;
 
@@ -206,7 +206,7 @@ impl Relation for STM {
         let num_lotteries = u32::from_le_bytes(num_lotteries_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
 
-        // Construct and return the `STM` instance.
+        // Construct and return the `Circuit` instance.
         Ok(Self {
             quorum,
             num_lotteries,

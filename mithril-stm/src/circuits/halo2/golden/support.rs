@@ -1,4 +1,4 @@
-use crate::circuits::halo2::circuit::stm::STM;
+use crate::circuits::halo2::circuit::Circuit;
 use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath, MerkleTree};
 use crate::circuits::halo2::off_circuit::unique_signature::{
     Signature, SigningKey, VerificationKey,
@@ -20,37 +20,37 @@ type F = JubjubBase;
 
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
-/// Shared environment for STM golden cases (SRS, relation, keys, sizing).
-pub(crate) struct STMEnv {
+/// Shared environment for Circuit golden cases (SRS, relation, keys, sizing).
+pub(crate) struct CircuitEnv {
     srs: ParamsKZG<Bls12>,
-    relation: STM,
+    relation: Circuit,
     vk: MidnightVK,
-    pk: MidnightPK<STM>,
+    pk: MidnightPK<Circuit>,
     num_signers: usize,
     num_lotteries: u32,
 }
 
-/// Concrete STM scenario inputs for proving/verifying in golden tests.
-pub(crate) struct STMScenario {
+/// Concrete Circuit scenario inputs for proving/verifying in golden tests.
+pub(crate) struct CircuitScenario {
     merkle_root: F,
     msg: F,
     witness: Vec<WitnessEntry>,
 }
 
-impl STMEnv {
+impl CircuitEnv {
     /// Number of signers used to size the default Merkle tree in golden cases.
     pub(crate) fn num_signers(&self) -> usize {
         self.num_signers
     }
 
-    /// Number of lotteries configured for the STM relation.
+    /// Number of lotteries configured for the Circuit relation.
     pub(crate) fn num_lotteries(&self) -> u32 {
         self.num_lotteries
     }
 }
 
-impl STMScenario {
-    /// Construct a new STM scenario from its instance and witness data.
+impl CircuitScenario {
+    /// Construct a new Circuit scenario from its instance and witness data.
     pub(crate) fn new(merkle_root: F, msg: F, witness: Vec<WitnessEntry>) -> Self {
         Self {
             merkle_root,
@@ -61,9 +61,7 @@ impl STMScenario {
 }
 
 /// Build a default Merkle tree with all leaves set to the max target.
-pub(crate) fn create_default_merkle_tree(
-    n: usize,
-) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
+pub(crate) fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
     let mut rng = OsRng;
 
     let mut sks = Vec::with_capacity(n);
@@ -98,7 +96,11 @@ pub(crate) fn create_merkle_tree_with_rightmost_leaf(
     for i in 0..n {
         let sk = SigningKey::generate(&mut rng);
         let vk = VerificationKey::from(&sk);
-        let leaf_target = if i == rightmost_index { target } else { -F::ONE };
+        let leaf_target = if i == rightmost_index {
+            target
+        } else {
+            -F::ONE
+        };
         let leaf = MTLeaf(vk, leaf_target);
         sks.push(sk);
         leaves.push(leaf);
@@ -170,20 +172,20 @@ pub(crate) fn create_merkle_tree_with_controlled_leaf(
     (sks, leaves, tree)
 }
 
-/// Construct the STM relation environment and setup keys for a case.
-pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
+/// Construct the Circuit relation environment and setup keys for a case.
+pub(crate) fn setup_circuit_env(case_name: &str, k: u32, quorum: u32) -> CircuitEnv {
     let srs = load_or_generate_params(k);
 
     // Keep num_signers fixed for baseline comparisons.
     let num_signers: usize = 3000;
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let num_lotteries = quorum * 10;
-    let relation = STM::new(quorum, num_lotteries, depth);
+    let relation = Circuit::new(quorum, num_lotteries, depth);
 
     {
         // Print circuit sizing information.
         let circuit = MidnightCircuit::from_relation(&relation);
-        println!("\n=== STM case: {case_name} ===");
+        println!("\n=== Circuit case: {case_name} ===");
         println!("k (selected) {k}");
         println!("quorum {quorum}");
         println!("min_k {:?}", circuit.min_k());
@@ -204,7 +206,7 @@ pub(crate) fn setup_stm_env(case_name: &str, k: u32, quorum: u32) -> STMEnv {
         println!("vk length {:?}", buffer.get_ref().len());
     }
 
-    STMEnv {
+    CircuitEnv {
         srs,
         relation,
         vk,
@@ -272,7 +274,10 @@ pub(crate) fn build_witness_with_fixed_signer(
     indices: &[u32],
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
-    assert!(signer_index < sks.len(), "signer_index out of bounds for sks");
+    assert!(
+        signer_index < sks.len(),
+        "signer_index out of bounds for sks"
+    );
     assert!(
         signer_index < leaves.len(),
         "signer_index out of bounds for leaves"
@@ -301,7 +306,7 @@ pub(crate) fn build_witness_with_fixed_signer(
 
 /// Errors returned by `prove_and_verify_result`.
 #[derive(Debug)]
-pub(crate) enum STMProofError {
+pub(crate) enum CircuitProofError {
     /// Proof generation failed.
     ProveFail,
     /// Proof verification failed.
@@ -310,13 +315,13 @@ pub(crate) enum STMProofError {
 
 /// Prove and verify a scenario, returning a typed result for negative tests.
 pub(crate) fn prove_and_verify_result(
-    env: &STMEnv,
-    scenario: STMScenario,
-) -> Result<(), STMProofError> {
+    env: &CircuitEnv,
+    scenario: CircuitScenario,
+) -> Result<(), CircuitProofError> {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
-    let proof = zk::prove::<STM, blake2b_simd::State>(
+    let proof = zk::prove::<Circuit, blake2b_simd::State>(
         &env.srs,
         &env.pk,
         &env.relation,
@@ -324,13 +329,13 @@ pub(crate) fn prove_and_verify_result(
         scenario.witness,
         OsRng,
     )
-    .map_err(|_| STMProofError::ProveFail)?;
+    .map_err(|_| CircuitProofError::ProveFail)?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
 
     let start = Instant::now();
-    let verify_result = zk::verify::<STM, blake2b_simd::State>(
+    let verify_result = zk::verify::<Circuit, blake2b_simd::State>(
         &env.srs.verifier_params(),
         &env.vk,
         &instance,
@@ -343,24 +348,24 @@ pub(crate) fn prove_and_verify_result(
     if verify_result.is_ok() {
         Ok(())
     } else {
-        Err(STMProofError::VerifyFail)
+        Err(CircuitProofError::VerifyFail)
     }
 }
 
 /// Run a case using the default message (F::from(42)).
-pub(crate) fn run_stm_case_default(case_name: &str, k: u32, quorum: u32) {
-    run_stm_case(case_name, k, quorum, F::from(42));
+pub(crate) fn run_circuit_case_default(case_name: &str, k: u32, quorum: u32) {
+    run_circuit_case(case_name, k, quorum, F::from(42));
 }
 
 /// Run a case with a caller-specified message.
-pub(crate) fn run_stm_case(case_name: &str, k: u32, quorum: u32, msg: F) {
-    let env = setup_stm_env(case_name, k, quorum);
+pub(crate) fn run_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) {
+    let env = setup_circuit_env(case_name, k, quorum);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
 
     let merkle_root = merkle_tree.root();
 
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, quorum);
-    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let scenario = CircuitScenario::new(merkle_root, msg, witness);
 
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
