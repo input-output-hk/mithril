@@ -63,7 +63,7 @@ impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
         let cardano_transactions = network_configuration
             .configuration_for_aggregation
             .signed_entity_types_config
-            .cardano_transactions;
+            .cardano_transactions; //TODO: use cardano_blocks_transactions instead (when issue 2971 will be done)
 
         match cardano_transactions {
             Some(cardano_transactions) => Ok(CardanoBlocksTransactionsSnapshot::new(
