@@ -466,3 +466,189 @@ fn test_stm_index_oob() {
     assert!(matches!(result, Err(STMProofError::VerifyFail)));
 }
 
+#[test]
+fn test_stm_corrupt_sibling() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("corrupt_sibling", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let d = 0usize;
+    assert!(!witness[0].1.siblings.is_empty());
+    assert!(d < witness[0].1.siblings.len());
+    witness[0].1.siblings[d].1 += JubjubBase::ONE;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_flip_position() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("flip_position", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let d = 1usize;
+    assert!(d < witness[0].1.siblings.len());
+    witness[0].1.siblings[d].0 = match witness[0].1.siblings[d].0 {
+        crate::circuits::halo2::off_circuit::merkle_tree::Position::Left => {
+            crate::circuits::halo2::off_circuit::merkle_tree::Position::Right
+        }
+        crate::circuits::halo2::off_circuit::merkle_tree::Position::Right => {
+            crate::circuits::halo2::off_circuit::merkle_tree::Position::Left
+        }
+    };
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[ignore]
+#[test]
+fn test_stm_wrong_path_len_short() {
+    // Ignored: malformed MerklePath length currently causes a panic during circuit synthesis (witness layout),
+    // not a clean verification failure. To be re-enabled once the circuit is hardened to handle this safely.
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("wrong_path_len_short", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    assert!(!witness[0].1.siblings.is_empty());
+    witness[0].1.siblings.pop();
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[ignore]
+#[test]
+fn test_stm_wrong_path_len_long() {
+    // Ignored: malformed MerklePath length currently causes a panic during circuit synthesis (witness layout),
+    // not a clean verification failure. To be re-enabled once the circuit is hardened to handle this safely.
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("wrong_path_len_long", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    witness[0].1.siblings.push((
+        crate::circuits::halo2::off_circuit::merkle_tree::Position::Left,
+        JubjubBase::ZERO,
+    ));
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
+
+#[test]
+fn test_stm_path_other_leaf() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_env("path_other_leaf", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness = build_witness_with_indices(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let mut mismatch_idx = None;
+    for i in 0..witness.len() {
+        for j in (i + 1)..witness.len() {
+            if witness[i].0.to_bytes() != witness[j].0.to_bytes() {
+                mismatch_idx = Some((i, j));
+                break;
+            }
+        }
+        if mismatch_idx.is_some() {
+            break;
+        }
+    }
+    let (i, j) = mismatch_idx.expect("expected at least two distinct leaves in witness");
+
+    // Keep path/signature/index from i, but swap leaf with j.
+    witness[i].0 = witness[j].0;
+
+    let scenario = STMScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(STMProofError::VerifyFail)));
+}
