@@ -1,3 +1,15 @@
+use std::fs::create_dir_all;
+use std::io::Cursor;
+use std::path::PathBuf;
+use std::time::Instant;
+
+use ff::Field;
+use midnight_proofs::poly::kzg::params::ParamsKZG;
+use midnight_proofs::utils::SerdeFormat;
+use midnight_zk_stdlib as zk;
+use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
+use rand_core::OsRng;
+
 use crate::circuits::halo2::circuit::Circuit;
 use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath, MerkleTree};
 use crate::circuits::halo2::off_circuit::unique_signature::{
@@ -5,16 +17,6 @@ use crate::circuits::halo2::off_circuit::unique_signature::{
 };
 use crate::circuits::halo2::types::{Bls12, JubjubBase};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
-use ff::Field;
-use midnight_proofs::poly::kzg::params::ParamsKZG;
-use midnight_proofs::utils::SerdeFormat;
-use midnight_zk_stdlib as zk;
-use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
-use rand_core::OsRng;
-use std::fs::create_dir_all;
-use std::io::Cursor;
-use std::path::PathBuf;
-use std::time::Instant;
 
 type F = JubjubBase;
 
@@ -176,14 +178,12 @@ pub(crate) fn create_merkle_tree_with_controlled_leaf(
 pub(crate) fn setup_circuit_env(case_name: &str, k: u32, quorum: u32) -> CircuitEnv {
     let srs = load_or_generate_params(k);
 
-    // Keep num_signers fixed for baseline comparisons.
     let num_signers: usize = 3000;
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let num_lotteries = quorum * 10;
     let relation = Circuit::new(quorum, num_lotteries, depth);
 
     {
-        // Print circuit sizing information.
         let circuit = MidnightCircuit::from_relation(&relation);
         println!("\n=== Circuit case: {case_name} ===");
         println!("k (selected) {k}");
@@ -200,9 +200,7 @@ pub(crate) fn setup_circuit_env(case_name: &str, k: u32, quorum: u32) -> Circuit
 
     {
         let mut buffer = Cursor::new(Vec::new());
-        // Serialize the MidnightVK instance to the buffer in the RawBytes format
         vk.write(&mut buffer, SerdeFormat::RawBytes).unwrap();
-        // Get the size of the serialized MidnightVK
         println!("vk length {:?}", buffer.get_ref().len());
     }
 

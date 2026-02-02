@@ -1,10 +1,3 @@
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
-use crate::circuits::halo2::gadgets::{
-    verify_lottery, verify_merkle_path, verify_unique_signature,
-};
-use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath};
-use crate::circuits::halo2::off_circuit::unique_signature::Signature;
-use crate::circuits::halo2::types::{Jubjub, JubjubBase, LotteryIndex, MerkleRoot, Msg};
 use ff::Field;
 use group::Group;
 use midnight_circuits::ecc::curves::CircuitCurve;
@@ -17,6 +10,14 @@ use midnight_circuits::types::{
 use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
+
+use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
+use crate::circuits::halo2::gadgets::{
+    verify_lottery, verify_merkle_path, verify_unique_signature,
+};
+use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath};
+use crate::circuits::halo2::off_circuit::unique_signature::Signature;
+use crate::circuits::halo2::types::{Jubjub, JubjubBase, LotteryIndex, MerkleRoot, Msg};
 
 type F = JubjubBase;
 type C = Jubjub;

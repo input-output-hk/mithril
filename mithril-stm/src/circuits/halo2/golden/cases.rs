@@ -1,3 +1,5 @@
+use ff::Field;
+
 use crate::circuits::halo2::golden::support::{
     CircuitProofError, CircuitScenario, build_witness, build_witness_with_fixed_signer,
     build_witness_with_indices, create_default_merkle_tree,
@@ -6,8 +8,8 @@ use crate::circuits::halo2::golden::support::{
     run_circuit_case_default, setup_circuit_env,
 };
 use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
-use ff::Field;
 
+/// Baseline: valid witness; expected to succeed.
 #[test]
 fn baseline() {
     const K: u32 = 13;
@@ -15,6 +17,9 @@ fn baseline() {
     run_circuit_case_default("small", K, QUORUM);
 }
 
+/// Sanity: larger valid witness; expected to succeed.
+/// Expensive; excluded from CI and intended for manual runs.
+#[ignore]
 #[test]
 fn medium() {
     const K: u32 = 16;
@@ -22,34 +27,34 @@ fn medium() {
     run_circuit_case_default("medium", K, QUORUM);
 }
 
-// The following "large" test case is intentionally commented out.
-// This test is extremely expensive (large K and quorum) and can take
-// a very long time to run, which would make CI impractically heavy.
-// In the future, we may introduce a dedicated benchmarking or ignored-test
-// mechanism to re-enable it in a controlled way.
-//
-// #[test]
-// fn large() {
-//     const K: u32 = 21;
-//     const QUORUM: u32 = 1024;
-//     run_circuit_case_default("large", K, QUORUM);
-// }
-
+/// Very large valid witness; expected to succeed.
+/// Extremely expensive; excluded from CI and intended for manual runs.
+#[ignore]
 #[test]
-fn message_zero() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    run_circuit_case("message_zero", K, QUORUM, JubjubBase::ZERO);
+fn large() {
+    const K: u32 = 21;
+    const QUORUM: u32 = 1024;
+    run_circuit_case_default("large", K, QUORUM);
 }
 
+/// Public message is zero; expected to succeed.
 #[test]
-fn message_max() {
+fn msg_0() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    run_circuit_case("msg_0", K, QUORUM, JubjubBase::ZERO);
+}
+
+/// Public message is max field element; expected to succeed.
+#[test]
+fn msg_max() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg_max = -JubjubBase::ONE; // p - 1
-    run_circuit_case("message_max", K, QUORUM, msg_max);
+    run_circuit_case("msg_max", K, QUORUM, msg_max);
 }
 
+/// Indices start at 0 and strictly increase; expected to succeed.
 #[test]
 fn min_strict_indices() {
     const K: u32 = 13;
@@ -68,6 +73,7 @@ fn min_strict_indices() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
+/// Indices end at m-1 and strictly increase; expected to succeed.
 #[test]
 fn max_strict_indices() {
     const K: u32 = 13;
@@ -89,6 +95,7 @@ fn max_strict_indices() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
+/// All-right Merkle path with a fixed signer; expected to succeed.
 #[test]
 fn all_right() {
     const K: u32 = 13;
@@ -106,7 +113,6 @@ fn all_right() {
     let indices = vec![4, 12, 25];
     assert!(indices.iter().all(|i| *i < m));
 
-    // Structural edge-case: all-right Merkle path shape with a fixed signer.
     let witness = build_witness_with_fixed_signer(
         &sks,
         &leaves,
@@ -121,6 +127,7 @@ fn all_right() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
+/// All-left Merkle path with a fixed signer; expected to succeed.
 /// Requires power-of-two signers; otherwise padding prevents an all-left path.
 #[test]
 fn all_left() {
@@ -139,7 +146,6 @@ fn all_left() {
     let indices = vec![5, 13, 21];
     assert!(indices.iter().all(|i| *i < m));
 
-    // Structural edge-case: all-left Merkle path shape with a fixed signer.
     let witness = build_witness_with_fixed_signer(
         &sks,
         &leaves,
@@ -154,6 +160,7 @@ fn all_left() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
+/// Mutation: public msg mismatched to witness; expected to fail verification.
 #[test]
 fn wrong_msg() {
     const K: u32 = 13;
@@ -172,6 +179,7 @@ fn wrong_msg() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: public Merkle root mismatched; expected to fail verification.
 #[test]
 fn wrong_root() {
     const K: u32 = 13;
@@ -190,6 +198,7 @@ fn wrong_root() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: signature produced for a different msg; expected to fail verification.
 #[test]
 fn signed_other_msg() {
     const K: u32 = 13;
@@ -221,6 +230,7 @@ fn signed_other_msg() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: leaf VK and signature from different signers; expected to fail verification.
 #[test]
 fn sig_leaf_mismatch() {
     const K: u32 = 13;
@@ -261,6 +271,7 @@ fn sig_leaf_mismatch() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: signature challenge altered; expected to fail verification.
 #[test]
 fn bad_challenge() {
     const K: u32 = 13;
@@ -284,6 +295,7 @@ fn bad_challenge() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: signature response altered; expected to fail verification.
 #[test]
 fn bad_response() {
     const K: u32 = 13;
@@ -307,6 +319,7 @@ fn bad_response() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: signature commitment altered; expected to fail verification.
 #[test]
 fn bad_commitment() {
     const K: u32 = 13;
@@ -330,6 +343,7 @@ fn bad_commitment() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: lottery target too small; expected to fail verification.
 #[test]
 fn sig_lottery_mismatch() {
     const K: u32 = 13;
@@ -347,8 +361,6 @@ fn sig_lottery_mismatch() {
     let indices = vec![5, 17, 25];
     assert!(indices.iter().all(|i| *i < m));
 
-    // Lottery-mismatch negative test: target=0 so eligibility should fail (ev > target),
-    // with negligible flake probability if ev==0.
     let witness = build_witness_with_fixed_signer(
         &sks,
         &leaves,
@@ -363,6 +375,7 @@ fn sig_lottery_mismatch() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: indices are not strictly increasing; expected to fail verification.
 #[test]
 fn non_increasing() {
     const K: u32 = 13;
@@ -385,6 +398,7 @@ fn non_increasing() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: index is out of bounds (>= m); expected to fail verification.
 #[test]
 fn index_oob() {
     const K: u32 = 13;
@@ -406,6 +420,7 @@ fn index_oob() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: Merkle sibling hash corrupted; expected to fail verification.
 #[test]
 fn corrupt_sibling() {
     const K: u32 = 13;
@@ -433,6 +448,7 @@ fn corrupt_sibling() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: Merkle position bit flipped; expected to fail verification.
 #[test]
 fn flip_position() {
     const K: u32 = 13;
@@ -466,11 +482,10 @@ fn flip_position() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Ignored: malformed path length panics during synthesis; expected to fail verification once hardened.
 #[ignore]
 #[test]
 fn wrong_path_len_short() {
-    // Ignored: malformed MerklePath length currently causes a panic during circuit synthesis (witness layout),
-    // not a clean verification failure. To be re-enabled once the circuit is hardened to handle this safely.
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -494,11 +509,10 @@ fn wrong_path_len_short() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Ignored: malformed path length panics during synthesis; expected to fail verification once hardened.
 #[ignore]
 #[test]
 fn wrong_path_len_long() {
-    // Ignored: malformed MerklePath length currently causes a panic during circuit synthesis (witness layout),
-    // not a clean verification failure. To be re-enabled once the circuit is hardened to handle this safely.
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -524,6 +538,7 @@ fn wrong_path_len_long() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
+/// Mutation: leaf swapped while keeping its path; expected to fail verification.
 #[test]
 fn path_other_leaf() {
     const K: u32 = 13;

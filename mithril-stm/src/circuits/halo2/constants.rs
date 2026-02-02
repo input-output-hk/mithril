@@ -1,8 +1,8 @@
 //! Constants used by the Halo2 prototype.
 
-use crate::circuits::halo2::types::JubjubBase;
-
 pub use midnight_curves::EDWARDS_D;
+
+use crate::circuits::halo2::types::JubjubBase;
 
 /// Domain separation tag for the unique Schnorr signature.
 /// Mirrors the value used in `mithril-circuits` (prototype stage).

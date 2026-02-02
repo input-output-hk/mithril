@@ -1,3 +1,7 @@
+use ff::Field;
+use group::Group;
+use rand_core::{CryptoRng, RngCore};
+
 use crate::circuits::halo2::constants::DST_UNIQUE_SIGNATURE;
 use crate::circuits::halo2::hash::{HashCPU, HashToCurveCPU, JubjubHashToCurve, PoseidonHash};
 use crate::circuits::halo2::off_circuit::error::SignatureError;
@@ -5,9 +9,6 @@ use crate::circuits::halo2::off_circuit::utils::{
     get_coordinates, is_on_curve, jubjub_base_to_scalar,
 };
 use crate::circuits::halo2::types::{Jubjub, JubjubBase, JubjubScalar, JubjubSubgroup};
-use ff::Field;
-use group::Group;
-use rand_core::{CryptoRng, RngCore};
 
 #[derive(Debug, Clone)]
 pub struct SigningKey(JubjubScalar);
