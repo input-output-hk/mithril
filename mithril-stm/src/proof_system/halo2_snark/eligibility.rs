@@ -155,10 +155,12 @@ pub fn check_index(
 mod tests {
     use rand_core::OsRng;
 
-    #[cfg(feature = "future_snark")]
-    use super::{check_index, compute_target_value, lottery_prefix};
+    use crate::LotteryTargetValue;
     #[cfg(feature = "future_snark")]
     use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
+
+    #[cfg(feature = "future_snark")]
+    use super::{check_index, compute_target_value, lottery_prefix};
 
     #[cfg(feature = "future_snark")]
     #[test]
@@ -215,8 +217,21 @@ mod tests {
     }
 
     #[cfg(feature = "future_snark")]
+    #[test]
+    fn test_following_stake() {
+        let phi_f = 0.2;
+        let total_stake = 10000000;
+
+        let mut prev_target = compute_target_value(phi_f, 99, total_stake);
+        for stake in 1000000..1000100 {
+            let target = compute_target_value(phi_f, stake, total_stake);
+            assert!(prev_target < target);
+            prev_target = target;
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
     mod golden {
-        use crate::LotteryTargetValue;
 
         use super::*;
 
