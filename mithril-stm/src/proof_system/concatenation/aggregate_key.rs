@@ -70,8 +70,6 @@ impl<D: MembershipDigest> From<&ClosedKeyRegistration>
     fn from(reg: &ClosedKeyRegistration) -> Self {
         Self {
             mt_commitment: reg
-                .key_registration
-                .clone()
                 .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
                 .to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,
@@ -114,8 +112,20 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut key_reg = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
-            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
 
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
@@ -169,8 +179,20 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut key_reg = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
-            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
 
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
