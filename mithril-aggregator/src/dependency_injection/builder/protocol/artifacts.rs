@@ -6,11 +6,11 @@ use std::sync::Arc;
 use mithril_common::crypto_helper::ManifestSigner;
 
 use crate::artifact_builder::{
-    AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
-    CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
-    CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
-    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
-    MithrilStakeDistributionArtifactBuilder,
+    AncillaryArtifactBuilder, AncillaryFileUploader, CardanoBlocksTransactionsArtifactBuilder,
+    CardanoDatabaseArtifactBuilder, CardanoImmutableFilesFullArtifactBuilder,
+    CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
+    DigestArtifactBuilder, DigestFileUploader, DigestSnapshotter, ImmutableArtifactBuilder,
+    ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
 };
 use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
@@ -51,10 +51,18 @@ impl DependenciesBuilder {
                 snapshot_uploader,
                 logger.clone(),
             ));
-        let prover_service = self.get_legacy_prover_service().await?;
+        let legacy_prover_service = self.get_legacy_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
-            CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
+            CardanoTransactionsArtifactBuilder::new(legacy_prover_service.clone()),
         );
+        let prover_service = self.get_prover_service().await?;
+        let mithril_network_configuration_provider =
+            self.get_mithril_network_configuration_provider().await?;
+        let cardano_blocks_transactions_artifact_builder =
+            Arc::new(CardanoBlocksTransactionsArtifactBuilder::new(
+                prover_service.clone(),
+                mithril_network_configuration_provider.clone(),
+            ));
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
@@ -66,6 +74,7 @@ impl DependenciesBuilder {
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
+            cardano_blocks_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
             cardano_database_artifact_builder,
         );
@@ -83,7 +92,7 @@ impl DependenciesBuilder {
         if let Some(signed_entity) =
             signed_entity_service.get_last_cardano_transaction_snapshot().await?
         {
-            prover_service
+            legacy_prover_service
                 .compute_cache(signed_entity.artifact.block_number)
                 .await?;
         }
