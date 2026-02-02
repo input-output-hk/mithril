@@ -8,6 +8,8 @@ use crate::{
     VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
     signature_scheme::BlsSigningKey,
 };
+#[cfg(feature = "future_snark")]
+use crate::{VerificationKeyForSnark, signature_scheme::SchnorrSigningKey};
 
 use super::Signer;
 
@@ -25,6 +27,12 @@ pub struct Initializer {
     /// Verification key for concatenation proof system.
     #[serde(rename = "pk")]
     pub bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
+    #[cfg(feature = "future_snark")]
+    /// Signing key for snark proof system.
+    pub schnorr_signing_key: Option<SchnorrSigningKey>,
+    #[cfg(feature = "future_snark")]
+    /// Verification key for snark proof system.
+    pub schnorr_verification_key: Option<VerificationKeyForSnark>,
 }
 
 impl Initializer {
@@ -33,11 +41,23 @@ impl Initializer {
         let bls_signing_key = BlsSigningKey::generate(rng);
         let bls_verification_key_proof_of_possession =
             VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
+        #[cfg(feature = "future_snark")]
+        let (schnorr_signing_key, schnorr_verification_key) = {
+            let sk = SchnorrSigningKey::generate(rng).ok();
+            let vk = sk
+                .as_ref()
+                .and_then(|sk| VerificationKeyForSnark::new_from_signing_key(sk.clone()).ok());
+            (sk, vk)
+        };
         Self {
             stake,
             parameters,
             bls_signing_key,
             bls_verification_key_proof_of_possession,
+            #[cfg(feature = "future_snark")]
+            schnorr_signing_key,
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key,
         }
     }
 
@@ -57,8 +77,12 @@ impl Initializer {
         self,
         closed_key_registration: &ClosedKeyRegistration,
     ) -> StmResult<Signer<D>> {
-        let registration_entry =
-            RegistrationEntry::new(self.bls_verification_key_proof_of_possession, self.stake)?;
+        let registration_entry = RegistrationEntry::new(
+            self.bls_verification_key_proof_of_possession,
+            self.stake,
+            #[cfg(feature = "future_snark")]
+            self.schnorr_verification_key,
+        )?;
 
         let signer_index = match closed_key_registration
             .key_registration
@@ -69,9 +93,7 @@ impl Initializer {
         };
 
         let key_registration_commitment = closed_key_registration
-            .key_registration
-            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
-        );
+            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
 
         // Create concatenation proof signer
         let concatenation_proof_signer = ConcatenationProofSigner::new(
@@ -135,6 +157,10 @@ impl Initializer {
             parameters: params,
             bls_signing_key: sk,
             bls_verification_key_proof_of_possession: pk,
+            #[cfg(feature = "future_snark")]
+            schnorr_signing_key: None,
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key: None,
         })
     }
 }
@@ -190,6 +216,10 @@ mod tests {
                 },
                 bls_signing_key: sk,
                 bls_verification_key_proof_of_possession: pk,
+                #[cfg(feature = "future_snark")]
+                schnorr_signing_key: None,
+                #[cfg(feature = "future_snark")]
+                schnorr_verification_key: None,
             }
         }
 

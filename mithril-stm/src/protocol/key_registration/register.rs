@@ -6,6 +6,9 @@ use crate::{
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
 };
 
+#[cfg(feature = "future_snark")]
+use crate::VerificationKeyForSnark;
+
 use super::RegistrationEntry;
 
 /// Key Registration
@@ -41,8 +44,14 @@ impl KeyRegistration {
         &mut self,
         stake: Stake,
         vk_pop: &VerificationKeyProofOfPossessionForConcatenation,
+        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<VerificationKeyForSnark>,
     ) -> StmResult<()> {
-        let entry = RegistrationEntry::new(*vk_pop, stake)?;
+        let entry = RegistrationEntry::new(
+            *vk_pop,
+            stake,
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key,
+        )?;
         self.register_by_entry(&entry)
     }
 
@@ -67,22 +76,6 @@ impl KeyRegistration {
             .nth(*signer_index as usize)
             .cloned()
             .ok_or_else(|| RegisterError::UnregisteredIndex.into())
-    }
-
-    /// Converts the KeyRegistration into a Merkle tree
-    pub fn into_merkle_tree<
-        D: Digest + FixedOutput,
-        L: From<RegistrationEntry> + MerkleTreeLeaf,
-    >(
-        &self,
-    ) -> MerkleTree<D, L> {
-        MerkleTree::new(
-            &self
-                .registration_entries
-                .iter()
-                .map(|entry| (*entry).into())
-                .collect::<Vec<L>>(),
-        )
     }
 
     /// Closes the registration by computing the total stake registered.
@@ -113,6 +106,25 @@ pub struct ClosedKeyRegistration {
 
     /// The total stake registered
     pub total_stake: Stake,
+}
+
+impl ClosedKeyRegistration {
+    /// Converts the KeyRegistration into a Merkle tree
+    pub fn into_merkle_tree<
+        D: Digest + FixedOutput,
+        L: From<RegistrationEntry> + MerkleTreeLeaf,
+    >(
+        &self,
+    ) -> MerkleTree<D, L> {
+        MerkleTree::new(
+            &self
+                .key_registration
+                .registration_entries
+                .iter()
+                .map(|entry| (*entry).into())
+                .collect::<Vec<L>>(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +168,10 @@ mod tests {
                     pk.pop = fake_key.pop;
                 }
 
-                let entry_result = RegistrationEntry::new(pk, stake);
+                let entry_result = RegistrationEntry::new(pk, stake,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                );
 
                 match entry_result {
                     Ok(entry) => {
@@ -175,7 +190,7 @@ mod tests {
                         }
                     },
                     Err(error) =>  match error.downcast_ref::<RegisterError>(){
-                        Some(RegisterError::KeyInvalid(a)) => {
+                        Some(RegisterError::ConcatenationKeyInvalid(a)) => {
                             assert_eq!(fake_it, 0);
                             assert!(pk.verify_proof_of_possession().is_err());
                             assert!(a.as_ref() == &pk.vk);
@@ -226,10 +241,7 @@ mod tests {
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
-            closed_key_reg
-                .key_registration
-                .into_merkle_tree()
-                .to_merkle_tree_batch_commitment()
+            closed_key_reg.into_merkle_tree().to_merkle_tree_batch_commitment()
         }
 
         #[test]
