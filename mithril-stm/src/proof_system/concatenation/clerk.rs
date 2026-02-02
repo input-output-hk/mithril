@@ -79,7 +79,7 @@ impl ConcatenationClerk {
                 .concatenation_signature
                 .verify(
                     params,
-                    &sig_reg.reg_party.get_bls_verification_key(),
+                    &sig_reg.reg_party.get_verification_key_for_concatenation(),
                     &sig_reg.reg_party.get_stake(),
                     avk,
                     msg,

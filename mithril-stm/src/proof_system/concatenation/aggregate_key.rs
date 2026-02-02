@@ -70,7 +70,7 @@ impl<D: MembershipDigest> From<&ClosedKeyRegistration>
     fn from(reg: &ClosedKeyRegistration) -> Self {
         Self {
             mt_commitment: reg
-                .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+                .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
                 .to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,
         }

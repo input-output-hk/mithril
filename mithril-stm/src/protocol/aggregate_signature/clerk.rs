@@ -91,7 +91,10 @@ impl<D: MembershipDigest> Clerk<D> {
             .get_concatenation_clerk()
             .closed_key_registration
             .get_registration_entry_for_index(party_index)?;
-        Ok((entry.get_bls_verification_key(), entry.get_stake()))
+        Ok((
+            entry.get_verification_key_for_concatenation(),
+            entry.get_stake(),
+        ))
     }
 
     #[cfg(test)]

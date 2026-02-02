@@ -23,8 +23,8 @@ pub struct RegistrationEntry(
 );
 
 impl RegistrationEntry {
-    /// Creates a new registration entry. Verifies the proof of possession before creating the
-    /// entry. Fails if the proof of possession is invalid.
+    /// Creates a new registration entry. Verifies the proof of possession of verification key for
+    /// concatenation and validates the schnorr verification key before creating the entry.
     pub fn new(
         bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
         stake: Stake,
@@ -59,7 +59,7 @@ impl RegistrationEntry {
     }
 
     #[cfg(feature = "future_snark")]
-    /// Gets the BLS verification key.
+    /// Gets the Schnorr verification key.
     pub fn get_schnorr_verification_key(&self) -> VerificationKeyForSnark {
         self.2.unwrap()
     }
@@ -69,6 +69,10 @@ impl RegistrationEntry {
         self.1
     }
 
+    /// Converts the registration entry into a closed registration entry.
+    /// This is where we will compute the lottery target value in the future.
+    /// `LotteryTargetValue` is set to one for now.
+    /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
     pub fn to_closed_registration_entry(&self, _total_stake: Stake) -> ClosedRegistrationEntry {
         ClosedRegistrationEntry::new(
             self.0,
@@ -81,13 +85,14 @@ impl RegistrationEntry {
     }
 }
 
+/// TODO: This is only used for tests right now. Consider removing it later.
 impl From<ClosedRegistrationEntry> for RegistrationEntry {
     fn from(entry: ClosedRegistrationEntry) -> Self {
         RegistrationEntry(
-            entry.get_bls_verification_key(),
+            entry.get_verification_key_for_concatenation(),
             entry.get_stake(),
             #[cfg(feature = "future_snark")]
-            Some(entry.get_schnorr_verification_key()),
+            Some(entry.get_verification_key_for_snark()),
         )
     }
 }
@@ -103,6 +108,7 @@ impl From<Initializer> for RegistrationEntry {
     }
 }
 
+// TODO: Update when `future_snark` is activated
 impl Hash for RegistrationEntry {
     /// Hashes the registration entry by hashing the stake first, then the verification key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -126,6 +132,7 @@ impl PartialOrd for RegistrationEntry {
     }
 }
 
+// TODO: Update when `future_snark` is activated
 impl Ord for RegistrationEntry {
     /// Compares the registration entries by comparing the stake first, then the verification key.
     fn cmp(&self, other: &Self) -> Ordering {
