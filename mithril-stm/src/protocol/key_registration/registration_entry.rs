@@ -10,6 +10,8 @@ use crate::{
     VerificationKeyProofOfPossessionForConcatenation,
 };
 
+use super::ClosedRegistrationEntry;
+
 /// Represents a signer registration entry
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
 pub struct RegistrationEntry(
@@ -67,6 +69,17 @@ impl RegistrationEntry {
         self.1
     }
 
+    pub fn to_closed_registration_entry(&self, _total_stake: Stake) -> ClosedRegistrationEntry {
+        ClosedRegistrationEntry::new(
+            self.0,
+            self.1,
+            #[cfg(feature = "future_snark")]
+            self.2,
+            #[cfg(feature = "future_snark")]
+            None,
+        )
+    }
+
     /// Converts the registration entry to bytes.
     /// Uses 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
     /// The order is backward compatible with previous implementations.
@@ -91,6 +104,17 @@ impl RegistrationEntry {
             #[cfg(feature = "future_snark")]
             None,
         ))
+    }
+}
+
+impl From<ClosedRegistrationEntry> for RegistrationEntry {
+    fn from(entry: ClosedRegistrationEntry) -> Self {
+        RegistrationEntry(
+            entry.get_bls_verification_key(),
+            entry.get_stake(),
+            #[cfg(feature = "future_snark")]
+            Some(entry.get_schnorr_verification_key()),
+        )
     }
 }
 
