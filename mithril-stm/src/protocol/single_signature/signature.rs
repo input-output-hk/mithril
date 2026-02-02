@@ -198,8 +198,20 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
-            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
@@ -212,7 +224,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_registration.clone().key_registration.into_merkle_tree(),
+                    closed_key_registration.into_merkle_tree(),
                 ),
                 closed_key_registration,
                 params,
@@ -261,8 +273,20 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
             let mut registration = KeyRegistration::initialize();
-            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
-            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
 
@@ -276,7 +300,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_registration.clone().key_registration.into_merkle_tree(),
+                    closed_key_registration.into_merkle_tree(),
                 ),
                 closed_key_registration.clone(),
                 params,

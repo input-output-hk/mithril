@@ -1,11 +1,14 @@
-use crate::signature_scheme::BlsVerificationKey;
+use crate::VerificationKeyForConcatenation;
+
+#[cfg(feature = "future_snark")]
+use crate::VerificationKeyForSnark;
 
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered(Box<BlsVerificationKey>),
+    KeyRegistered(Box<VerificationKeyForConcatenation>),
 
     /// Cannot register if the registration is closed.
     #[error("Cannot register if the registration is closed.")]
@@ -15,9 +18,14 @@ pub enum RegisterError {
     #[error("Registration is not closed. Cannot create a signer")]
     RegistrationIsNotClosed,
 
-    /// The supplied key is not valid
+    /// The supplied concatenation key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    KeyInvalid(Box<BlsVerificationKey>),
+    ConcatenationKeyInvalid(Box<VerificationKeyForConcatenation>),
+
+    #[cfg(feature = "future_snark")]
+    /// The supplied snark key is not valid
+    #[error("The verification of correctness of the supplied key is invalid.")]
+    SnarkKeyInvalid(Box<VerificationKeyForSnark>),
 
     /// Serialization error
     #[error("Serialization error")]
