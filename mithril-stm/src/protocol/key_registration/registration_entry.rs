@@ -3,12 +3,12 @@ use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "future_snark")]
-use crate::VerificationKeyForSnark;
 use crate::{
     Initializer, RegisterError, Stake, StmResult, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };
+#[cfg(feature = "future_snark")]
+use crate::{LotteryTargetValue, VerificationKeyForSnark};
 
 use super::ClosedRegistrationEntry;
 
@@ -76,34 +76,8 @@ impl RegistrationEntry {
             #[cfg(feature = "future_snark")]
             self.2,
             #[cfg(feature = "future_snark")]
-            None,
+            Some(LotteryTargetValue::get_one()),
         )
-    }
-
-    /// Converts the registration entry to bytes.
-    /// Uses 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
-    /// The order is backward compatible with previous implementations.
-    pub(crate) fn to_bytes(self) -> Vec<u8> {
-        let mut result = [0u8; 104];
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..].copy_from_slice(&self.1.to_be_bytes());
-        result.to_vec()
-    }
-
-    /// Creates a registration entry from bytes.
-    /// Expects 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
-    /// The order is backward compatible with previous implementations.
-    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bls_verification_key = VerificationKeyForConcatenation::from_bytes(bytes)?;
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[96..]);
-        let stake = Stake::from_be_bytes(u64_bytes);
-        Ok(RegistrationEntry(
-            bls_verification_key,
-            stake,
-            #[cfg(feature = "future_snark")]
-            None,
-        ))
     }
 }
 

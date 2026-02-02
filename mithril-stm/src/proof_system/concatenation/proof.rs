@@ -45,7 +45,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
                     .get_registration_entry_for_index(&sig.signer_index)
                     .map(|reg_party| SingleSignatureWithRegisteredParty {
                         sig: sig.clone(),
-                        reg_party: reg_party.into(),
+                        reg_party,
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;

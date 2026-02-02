@@ -56,29 +56,6 @@ impl KeyRegistration {
         self.register_by_entry(&entry)
     }
 
-    /// Gets the index of a signer registration entry
-    pub fn get_signer_index_for_registration(
-        &self,
-        entry: &RegistrationEntry,
-    ) -> Option<SignerIndex> {
-        self.registration_entries
-            .iter()
-            .position(|r| r == entry)
-            .map(|s| s as u64)
-    }
-
-    /// Get the registration entry for a given signer index.
-    pub fn get_registration_entry_for_index(
-        &self,
-        signer_index: &SignerIndex,
-    ) -> StmResult<RegistrationEntry> {
-        self.registration_entries
-            .iter()
-            .nth(*signer_index as usize)
-            .cloned()
-            .ok_or_else(|| RegisterError::UnregisteredIndex.into())
-    }
-
     /// Closes the registration by computing the total stake registered.
     pub fn close_registration(self) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
@@ -239,7 +216,7 @@ mod tests {
         }
     }
 
-    mod golden {
+    mod golden_concatenation {
         use blake2::{Blake2b, digest::consts::U32};
 
         use crate::{
@@ -273,6 +250,57 @@ mod tests {
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
             closed_key_reg.into_merkle_tree().to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod golden_snark {
+
+        use crate::{
+            Initializer, MidnightPoseidonDigest, Parameters,
+            membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+        };
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root":[180,207,50,12,214,249,187,175,72,186,1,11,41,69,239,106,8,77,206,33,91,119,240,234,0,70,110,7,166,129,187,1],
+            "hasher":null
+        }"#;
+
+        fn golden_value() -> MerkleTreeCommitment<MidnightPoseidonDigest, MerkleTreeSnarkLeaf> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let number_of_parties = 4;
+
+            let mut key_reg = KeyRegistration::initialize();
+            for stake in 0..number_of_parties {
+                let initializer = Initializer::new(params, stake, &mut rng);
+                key_reg.register_by_entry(&initializer.clone().into()).unwrap();
+            }
+
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            closed_key_reg
+                .into_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
+                .to_merkle_tree_commitment()
         }
 
         #[test]
