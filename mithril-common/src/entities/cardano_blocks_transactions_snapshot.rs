@@ -96,4 +96,22 @@ mod tests {
             .compute_hash()
         );
     }
+
+    #[test]
+    fn test_block_number_tip_is_the_addition_of_block_number_and_offset_security_parameter() {
+        let block_number_signed_value = 100;
+        let offset_security_parameter_value = 20;
+
+        let snapshot = CardanoBlocksTransactionsSnapshot::new(
+            "mk-root-123".to_string(),
+            BlockNumber(block_number_signed_value),
+            BlockNumber(offset_security_parameter_value),
+        );
+
+        assert_eq!(
+            snapshot.block_number_tip,
+            BlockNumber(block_number_signed_value + offset_security_parameter_value),
+            "Block number tip should be the sum of block number signed and offset security parameter"
+        );
+    }
 }
