@@ -238,6 +238,16 @@ pub trait ConfigurationSource {
         panic!("allow_unparsable_block is not implemented.");
     }
 
+    /// Cardano blocks and transactions prover cache pool size
+    fn cardano_blocks_transactions_prover_cache_pool_size(&self) -> usize {
+        panic!("cardano_blocks_transactions_prover_cache_pool_size is not implemented.");
+    }
+
+    /// Cardano and transactions database connection pool size
+    fn cardano_blocks_transactions_database_connection_pool_size(&self) -> usize {
+        panic!("cardano_blocks_transactions_database_connection_pool_size is not implemented.");
+    }
+
     /// Cardano transactions prover cache pool size
     fn cardano_transactions_prover_cache_pool_size(&self) -> usize {
         panic!("cardano_transactions_prover_cache_pool_size is not implemented.");
@@ -584,6 +594,12 @@ pub struct ServeCommandConfiguration {
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: bool,
 
+    /// Cardano blocks and transactions prover cache pool size
+    pub cardano_blocks_transactions_prover_cache_pool_size: usize,
+
+    /// Cardano blocks and transactions database connection pool size
+    pub cardano_blocks_transactions_database_connection_pool_size: usize,
+
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: usize,
 
@@ -773,6 +789,8 @@ impl ServeCommandConfiguration {
             blockfrost_parameters: None,
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
+            cardano_blocks_transactions_prover_cache_pool_size: 3,
+            cardano_blocks_transactions_database_connection_pool_size: 5,
             cardano_transactions_prover_cache_pool_size: 3,
             cardano_transactions_database_connection_pool_size: 5,
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
@@ -935,6 +953,14 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.allow_unparsable_block
     }
 
+    fn cardano_blocks_transactions_prover_cache_pool_size(&self) -> usize {
+        self.cardano_blocks_transactions_prover_cache_pool_size
+    }
+
+    fn cardano_blocks_transactions_database_connection_pool_size(&self) -> usize {
+        self.cardano_blocks_transactions_database_connection_pool_size
+    }
+
     fn cardano_transactions_prover_cache_pool_size(&self) -> usize {
         self.cardano_transactions_prover_cache_pool_size
     }
@@ -1046,6 +1072,12 @@ pub struct DefaultConfiguration {
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: String,
 
+    /// Cardano blocks and transactions prover cache pool size
+    pub cardano_blocks_transactions_prover_cache_pool_size: u32,
+
+    /// Cardano blocks and transactions database connection pool size
+    pub cardano_blocks_transactions_database_connection_pool_size: u32,
+
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: u32,
 
@@ -1100,6 +1132,8 @@ impl Default for DefaultConfiguration {
             snapshot_use_cdn_domain: "false".to_string(),
             signer_importer_run_interval: 720,
             allow_unparsable_block: "false".to_string(),
+            cardano_blocks_transactions_prover_cache_pool_size: 10,
+            cardano_blocks_transactions_database_connection_pool_size: 10,
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
@@ -1158,6 +1192,16 @@ impl Source for DefaultConfiguration {
         register_config_value!(result, &namespace, myself.snapshot_use_cdn_domain);
         register_config_value!(result, &namespace, myself.signer_importer_run_interval);
         register_config_value!(result, &namespace, myself.allow_unparsable_block);
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_blocks_transactions_prover_cache_pool_size
+        );
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_blocks_transactions_database_connection_pool_size
+        );
         register_config_value!(
             result,
             &namespace,

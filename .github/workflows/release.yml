@@ -186,6 +186,8 @@ jobs:
           mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_blockfrost_parameters: ${{ secrets.AGGREGATOR_BLOCKFROST_PARAMETERS }}
+          mithril_aggregator_cardano_blocks_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
+          mithril_aggregator_cardano_blocks_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
