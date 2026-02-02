@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{MembershipDigest, RegistrationEntry, StmResult};
+use crate::{ClosedRegistrationEntry, MembershipDigest, StmResult};
 
 use super::{SignatureError, SingleSignature};
 
@@ -10,7 +10,7 @@ pub struct SingleSignatureWithRegisteredParty {
     /// Stm signature
     pub sig: SingleSignature,
     /// Registered party
-    pub reg_party: RegistrationEntry,
+    pub reg_party: ClosedRegistrationEntry,
 }
 
 impl SingleSignatureWithRegisteredParty {
@@ -29,7 +29,7 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let reg_party = RegistrationEntry::from_bytes(
+        let reg_party = ClosedRegistrationEntry::from_bytes(
             bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
@@ -122,6 +122,7 @@ mod tests {
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let total_stake = closed_key_reg.total_stake;
 
             let signer: Signer<MithrilMembershipDigest> = Signer::new(
                 1,
@@ -140,7 +141,7 @@ mod tests {
             let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {
                 sig: signature,
-                reg_party: entry1,
+                reg_party: entry1.to_closed_registration_entry(total_stake),
             }
         }
 
