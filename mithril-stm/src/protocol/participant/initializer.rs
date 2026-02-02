@@ -84,10 +84,9 @@ impl Initializer {
             self.schnorr_verification_key,
         )?;
 
-        let signer_index = match closed_key_registration
-            .key_registration
-            .get_signer_index_for_registration(&registration_entry)
-        {
+        let signer_index = match closed_key_registration.get_signer_index_for_registration(
+            &registration_entry.to_closed_registration_entry(closed_key_registration.total_stake),
+        ) {
             Some(index) => index,
             None => return Err(anyhow!(RegisterError::UnregisteredInitializer)),
         };
