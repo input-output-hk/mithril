@@ -1,5 +1,3 @@
-use std::hash::{Hash, Hasher};
-
 use serde::{Deserialize, Serialize};
 
 use crate::{LotteryIndex, UniqueSchnorrSignature};
@@ -41,12 +39,6 @@ impl SingleSignatureForSnark {
     /// Return `schnorr_signature` of single signature
     pub(crate) fn get_schnorr_signature(&self) -> UniqueSchnorrSignature {
         self.schnorr_signature
-    }
-}
-
-impl Hash for SingleSignatureForSnark {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.schnorr_signature.to_bytes(), state)
     }
 }
 
