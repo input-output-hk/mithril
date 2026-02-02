@@ -8,7 +8,7 @@ pub type RegistrationEntryForSnark = MerkleTreeSnarkLeaf;
 impl From<ClosedRegistrationEntry> for RegistrationEntryForSnark {
     fn from(entry: ClosedRegistrationEntry) -> Self {
         MerkleTreeSnarkLeaf(
-            entry.get_schnorr_verification_key(),
+            entry.get_verification_key_for_snark(),
             entry.get_lottery_target_value(),
         )
     }
