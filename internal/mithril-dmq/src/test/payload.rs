@@ -9,7 +9,7 @@ use mithril_common::{
 };
 
 /// A test message payload for the DMQ.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Hash)]
 pub struct DmqMessageTestPayload {
     message: Vec<u8>,
 }
