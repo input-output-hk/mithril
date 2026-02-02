@@ -141,7 +141,7 @@ pub use signature_scheme::{
     BlsVerificationKeyProofOfPossession,
 };
 
-#[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
+#[cfg(feature = "future_snark")]
 pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
 #[cfg(feature = "future_snark")]

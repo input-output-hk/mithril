@@ -34,7 +34,7 @@ impl BaseFieldElement {
         match JubjubBase::from_bytes_le(&base_bytes).into_option() {
             Some(base_field_element) => Ok(Self(base_field_element)),
             None => Err(anyhow!(
-                UniqueSchnorrSignatureError::ScalarFieldElementSerialization
+                UniqueSchnorrSignatureError::BaseFieldElementSerialization
             )),
         }
     }

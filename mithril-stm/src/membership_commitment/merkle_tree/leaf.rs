@@ -101,20 +101,20 @@ impl MerkleTreeLeaf for MerkleTreeSnarkLeaf {
 #[allow(dead_code)]
 impl MerkleTreeSnarkLeaf {
     fn to_bytes(self) -> Vec<u8> {
-        let mut result = [0u8; 64];
-        result[..32].copy_from_slice(&self.0.to_bytes());
-        result[32..].copy_from_slice(&self.1.to_bytes());
+        let mut result = [0u8; 96];
+        result[..64].copy_from_slice(&self.0.to_bytes());
+        result[64..].copy_from_slice(&self.1.to_bytes());
         result.to_vec()
     }
 
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        if bytes.len() < 64 {
+        if bytes.len() < 96 {
             return Err(MerkleTreeError::SerializationError.into());
         }
-        let pk = VerificationKeyForSnark::from_bytes(&bytes[..32])
+        let pk = VerificationKeyForSnark::from_bytes(&bytes[..64])
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut target_value_bytes = [0u8; 32];
-        target_value_bytes.copy_from_slice(&bytes[32..]);
+        target_value_bytes.copy_from_slice(&bytes[64..]);
         let target_value = LotteryTargetValue::from_bytes(&target_value_bytes)
             .map_err(|_| MerkleTreeError::SerializationError)?;
         Ok(MerkleTreeSnarkLeaf(pk, target_value))
@@ -161,41 +161,44 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "future_snark")]
-    mod golden {
+    mod concatenation {
         use super::*;
-        const GOLDEN_BYTES: &[u8; 104] = &[
-            143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135,
-            228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173,
-            244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4,
-            246, 138, 48, 180, 133, 90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110, 234, 153,
-            90, 208, 192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68, 69, 121, 16,
-            224, 194, 0, 0, 0, 0, 0, 0, 0, 1,
-        ];
 
-        fn golden_value() -> MerkleTreeConcatenationLeaf {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = BlsSigningKey::generate(&mut rng);
-            let pk = VerificationKeyForConcatenation::from(&sk);
-            let stake = 1u64;
-            MerkleTreeConcatenationLeaf(pk, stake)
+        #[cfg(feature = "future_snark")]
+        mod golden {
+            use super::*;
+            const GOLDEN_BYTES: &[u8; 104] = &[
+                143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135,
+                228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135,
+                173, 244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176,
+                11, 4, 246, 138, 48, 180, 133, 90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110,
+                234, 153, 90, 208, 192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68,
+                69, 121, 16, 224, 194, 0, 0, 0, 0, 0, 0, 0, 1,
+            ];
+
+            fn golden_value() -> MerkleTreeConcatenationLeaf {
+                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let pk = VerificationKeyForConcatenation::from(&sk);
+                let stake = 1u64;
+                MerkleTreeConcatenationLeaf(pk, stake)
+            }
+
+            #[test]
+            fn golden_conversions() {
+                let value = MerkleTreeConcatenationLeaf::from_bytes(GOLDEN_BYTES)
+                    .expect("This from bytes should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized = MerkleTreeConcatenationLeaf::to_bytes(value);
+                let golden_serialized = MerkleTreeConcatenationLeaf::to_bytes(golden_value());
+                assert_eq!(golden_serialized, serialized);
+            }
         }
 
-        #[test]
-        fn golden_conversions() {
-            let value = MerkleTreeConcatenationLeaf::from_bytes(GOLDEN_BYTES)
-                .expect("This from bytes should not fail");
-            assert_eq!(golden_value(), value);
-
-            let serialized = MerkleTreeConcatenationLeaf::to_bytes(value);
-            let golden_serialized = MerkleTreeConcatenationLeaf::to_bytes(golden_value());
-            assert_eq!(golden_serialized, serialized);
-        }
-    }
-
-    mod golden_json {
-        use super::*;
-        const GOLDEN_JSON: &str = r#"
+        mod golden_json {
+            use super::*;
+            const GOLDEN_JSON: &str = r#"
         [
             [143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,
             181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,
@@ -205,25 +208,99 @@ mod tests {
             1
         ]"#;
 
-        fn golden_value() -> MerkleTreeConcatenationLeaf {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = BlsSigningKey::generate(&mut rng);
-            let pk = VerificationKeyForConcatenation::from(&sk);
-            let stake = 1u64;
-            MerkleTreeConcatenationLeaf(pk, stake)
+            fn golden_value() -> MerkleTreeConcatenationLeaf {
+                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let pk = VerificationKeyForConcatenation::from(&sk);
+                let stake = 1u64;
+                MerkleTreeConcatenationLeaf(pk, stake)
+            }
+
+            #[test]
+            fn golden_conversions() {
+                let value: MerkleTreeConcatenationLeaf = serde_json::from_str(GOLDEN_JSON)
+                    .expect("This JSON deserialization should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized =
+                    serde_json::to_string(&value).expect("This JSON serialization should not fail");
+                let golden_serialized = serde_json::to_string(&golden_value())
+                    .expect("This JSON serialization should not fail");
+                assert_eq!(golden_serialized, serialized);
+            }
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod snark {
+        use midnight_curves::Fq as JubjubBase;
+
+        use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
+
+        use super::*;
+
+        mod golden {
+
+            use super::*;
+
+            const GOLDEN_BYTES: &[u8; 96] = &[
+                186, 22, 69, 162, 1, 67, 125, 160, 104, 197, 105, 109, 200, 34, 186, 196, 171, 155,
+                191, 178, 11, 116, 108, 8, 111, 249, 47, 39, 137, 55, 62, 62, 144, 52, 95, 161,
+                127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9,
+                70, 136, 194, 66, 187, 253, 200, 32, 218, 43, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+
+            fn golden_value() -> MerkleTreeSnarkLeaf {
+                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+                let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+                let pk = VerificationKeyForSnark::new_from_signing_key(sk).unwrap();
+                let stake = BaseFieldElement(JubjubBase::from(1u64));
+                MerkleTreeSnarkLeaf(pk, stake)
+            }
+
+            #[test]
+            fn golden_conversions() {
+                let value = MerkleTreeSnarkLeaf::from_bytes(GOLDEN_BYTES)
+                    .expect("This from bytes should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized = MerkleTreeSnarkLeaf::to_bytes(value);
+                let golden_serialized = MerkleTreeSnarkLeaf::to_bytes(golden_value());
+                assert_eq!(golden_serialized, serialized);
+            }
         }
 
-        #[test]
-        fn golden_conversions() {
-            let value: MerkleTreeConcatenationLeaf = serde_json::from_str(GOLDEN_JSON)
-                .expect("This JSON deserialization should not fail");
-            assert_eq!(golden_value(), value);
+        mod golden_json {
+            use super::*;
+            const GOLDEN_JSON: &str = r#"
+        [
+            [144,52,95,161,127,253,49,32,140,217,231,207,32,238,244,196,97,241,47,95,101,9,
+            70,136,194,66,187,253,200,32,218,43],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        ]"#;
 
-            let serialized =
-                serde_json::to_string(&value).expect("This JSON serialization should not fail");
-            let golden_serialized = serde_json::to_string(&golden_value())
-                .expect("This JSON serialization should not fail");
-            assert_eq!(golden_serialized, serialized);
+            fn golden_value() -> MerkleTreeSnarkLeaf {
+                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+                let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+                let pk = VerificationKeyForSnark::new_from_signing_key(sk).unwrap();
+                let stake = BaseFieldElement(JubjubBase::from(1u64));
+                MerkleTreeSnarkLeaf(pk, stake)
+            }
+
+            #[test]
+            fn golden_conversions() {
+                println!("{:?}", serde_json::to_string(&golden_value()));
+                let value: MerkleTreeSnarkLeaf = serde_json::from_str(GOLDEN_JSON)
+                    .expect("This JSON deserialization should not fail");
+                assert_eq!(golden_value(), value);
+
+                let serialized =
+                    serde_json::to_string(&value).expect("This JSON serialization should not fail");
+                let golden_serialized = serde_json::to_string(&golden_value())
+                    .expect("This JSON serialization should not fail");
+                assert_eq!(golden_serialized, serialized);
+            }
         }
     }
 }

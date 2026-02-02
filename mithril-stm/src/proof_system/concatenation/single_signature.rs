@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-};
+use std::cmp::Ordering;
 
 use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
@@ -88,12 +85,6 @@ impl SingleSignatureForConcatenation {
     /// Return `sigma` of single signature
     pub(crate) fn get_sigma(&self) -> BlsSignature {
         self.sigma
-    }
-}
-
-impl Hash for SingleSignatureForConcatenation {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
