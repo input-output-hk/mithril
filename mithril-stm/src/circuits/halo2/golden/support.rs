@@ -9,6 +9,7 @@ use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_core::OsRng;
+use thiserror::Error;
 
 use crate::circuits::halo2::circuit::Circuit;
 use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath, MerkleTree};
@@ -24,11 +25,23 @@ type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
 
 /// Shared environment for Circuit golden cases (SRS, relation, keys, sizing).
 pub(crate) struct CircuitEnv {
+    /// Structured reference string used by the Halo2/KZG proving system.
+    /// Generated or loaded once per test case.
     srs: ParamsKZG<Bls12>,
+
+    /// The Circuit relation defining all constraints enforced in-circuit.
     relation: Circuit,
+
+    /// Verification key corresponding to `relation` and `srs`.
     vk: MidnightVK,
+
+    /// Proving key corresponding to `relation` and `vk`.
     pk: MidnightPK<Circuit>,
+
+    /// Number of signers used to size the Merkle tree in golden tests.
     num_signers: usize,
+
+    /// Number of lotteries (`m`) configured for the Circuit relation.
     num_lotteries: u32,
 }
 
@@ -303,11 +316,13 @@ pub(crate) fn build_witness_with_fixed_signer(
 }
 
 /// Errors returned by `prove_and_verify_result`.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub(crate) enum CircuitProofError {
     /// Proof generation failed.
+    #[error("proof generation failed")]
     ProveFail,
     /// Proof verification failed.
+    #[error("proof verification failed")]
     VerifyFail,
 }
 

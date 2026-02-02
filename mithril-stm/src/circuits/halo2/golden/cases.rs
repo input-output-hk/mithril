@@ -482,8 +482,8 @@ fn flip_position() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
-/// Ignored: malformed path length panics during synthesis; expected to fail verification once hardened.
-#[ignore]
+/// Malformed path length panics during synthesis; expected to fail verification once hardened.
+#[should_panic]
 #[test]
 fn wrong_path_len_short() {
     const K: u32 = 13;
@@ -509,8 +509,8 @@ fn wrong_path_len_short() {
     assert!(matches!(result, Err(CircuitProofError::VerifyFail)));
 }
 
-/// Ignored: malformed path length panics during synthesis; expected to fail verification once hardened.
-#[ignore]
+/// Malformed path length panics during synthesis; expected to fail verification once hardened.
+#[should_panic]
 #[test]
 fn wrong_path_len_long() {
     const K: u32 = 13;
