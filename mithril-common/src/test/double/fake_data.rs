@@ -243,6 +243,27 @@ pub fn cardano_transactions_snapshots(total: u64) -> Vec<entities::CardanoTransa
         .collect()
 }
 
+/// Fake Cardano Transaction
+pub fn cardano_block_transactions_snapshot(
+    block_number_signed: BlockNumber,
+    offset_security_parameter: BlockNumber,
+) -> entities::CardanoBlocksTransactionsSnapshot {
+    entities::CardanoBlocksTransactionsSnapshot::new(
+        format!("merkleroot-{block_number_signed}"),
+        block_number_signed,
+        offset_security_parameter,
+    )
+}
+
+/// Fake Cardano Transactions list
+pub fn cardano_blocks_transactions_snapshots(
+    total: u64,
+) -> Vec<entities::CardanoBlocksTransactionsSnapshot> {
+    (1..total + 1)
+        .map(|idx| cardano_block_transactions_snapshot(BlockNumber(idx), BlockNumber(15)))
+        .collect()
+}
+
 /// Fake Cardano Stake Distribution
 pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistribution {
     let stake_distribution = StakeDistribution::from([("pool-1".to_string(), 100)]);

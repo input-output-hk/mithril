@@ -1329,21 +1329,23 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn get_cardano_transaction() {
+        async fn get_cardano_block_transactions() {
             let record = SignedEntityRecord {
                 signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoTransactions(
+                signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
                     Epoch(18),
                     BlockNumber(120),
                 ),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_transactions_snapshot(
+                artifact: serde_json::to_string(&fake_data::cardano_block_transactions_snapshot(
                     BlockNumber(1),
+                    BlockNumber(15),
                 ))
                 .unwrap(),
                 created_at: Default::default(),
             };
-            let message: CardanoTransactionSnapshotMessage = record.clone().try_into().unwrap();
+            let message: CardanoBlockTransactionsSnapshotMessage =
+                record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
                 .with_signed_entity_records(std::slice::from_ref(&record))
@@ -1351,10 +1353,10 @@ mod tests {
                 .await;
 
             let response = service
-                .get_cardano_transaction_message(&record.signed_entity_id)
+                .get_cardano_block_transactions_message(&record.signed_entity_id)
                 .await
                 .unwrap()
-                .expect("A CardanoTransactionMessage was expected.");
+                .expect("A CardanoBlockTransactionsMessage was expected.");
 
             assert_eq!(message, response);
         }

@@ -108,7 +108,10 @@ pub mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
-        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
+        messages::{
+            CardanoBlockTransactionsSnapshotMessage, CardanoTransactionSnapshotListItemMessage,
+            CardanoTransactionSnapshotMessage,
+        },
         test::double::Dummy,
     };
     use mithril_persistence::sqlite::HydrationError;
@@ -230,7 +233,7 @@ pub mod tests {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_block_transactions_message()
-            .return_once(|_| Ok(Some(CardanoTransactionSnapshotMessage::dummy())))
+            .return_once(|_| Ok(Some(CardanoBlockTransactionsSnapshotMessage::dummy())))
             .once();
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
