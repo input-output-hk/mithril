@@ -7,6 +7,9 @@ pub type RegistrationEntryForConcatenation = MerkleTreeConcatenationLeaf;
 
 impl From<ClosedRegistrationEntry> for RegistrationEntryForConcatenation {
     fn from(entry: ClosedRegistrationEntry) -> Self {
-        MerkleTreeConcatenationLeaf(entry.get_bls_verification_key(), entry.get_stake())
+        MerkleTreeConcatenationLeaf(
+            entry.get_verification_key_for_concatenation(),
+            entry.get_stake(),
+        )
     }
 }

@@ -92,7 +92,7 @@ impl Initializer {
         };
 
         let key_registration_commitment = closed_key_registration
-            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
+            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
 
         // Create concatenation proof signer
         let concatenation_proof_signer = ConcatenationProofSigner::new(
@@ -127,6 +127,8 @@ impl Initializer {
     /// * Params
     /// * Secret Key
     /// * Public key (including PoP)
+    ///
+    /// TODO: Update when `future_snark` is activated
     pub fn to_bytes(&self) -> [u8; 256] {
         let mut out = [0u8; 256];
         out[..8].copy_from_slice(&self.stake.to_be_bytes());
@@ -139,6 +141,8 @@ impl Initializer {
     /// Convert a slice of bytes to an `Initializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
+    ///
+    /// TODO: Update when `future_snark` is activated
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Initializer> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
@@ -164,6 +168,7 @@ impl Initializer {
     }
 }
 
+/// TODO: Update when `future_snark` is activated
 impl PartialEq for Initializer {
     fn eq(&self, other: &Self) -> bool {
         self.stake == other.stake

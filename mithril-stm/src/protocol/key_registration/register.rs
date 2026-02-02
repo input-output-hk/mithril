@@ -35,6 +35,7 @@ impl KeyRegistration {
             self.registration_entries.insert(*entry);
             return Ok(());
         }
+        // TODO: Update the error to include entry instead of bls key
         Err(RegisterError::KeyRegistered(Box::new(entry.get_bls_verification_key())).into())
     }
 
@@ -56,7 +57,10 @@ impl KeyRegistration {
         self.register_by_entry(&entry)
     }
 
-    /// Closes the registration by computing the total stake registered.
+    /// Closes the registration
+    /// Computes the total stake and converts the registration entries into closed registration
+    /// entries.
+    /// Returns the `ClosedKeyRegistration`.
     pub fn close_registration(self) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
@@ -76,7 +80,7 @@ impl KeyRegistration {
             .collect();
 
         ClosedKeyRegistration {
-            key_registration: closed_registration_entries,
+            closed_registration_entries,
             total_stake,
         }
     }
@@ -85,16 +89,16 @@ impl KeyRegistration {
 /// Closed Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
-    /// The key registration entries
-    pub key_registration: BTreeSet<ClosedRegistrationEntry>,
+    /// The closed key registration entries
+    pub closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
 
     /// The total stake registered
     pub total_stake: Stake,
 }
 
 impl ClosedKeyRegistration {
-    /// Converts the KeyRegistration into a Merkle tree
-    pub fn into_merkle_tree<
+    /// Creates a Merkle tree from the closed registration entries
+    pub fn to_merkle_tree<
         D: Digest + FixedOutput,
         L: From<ClosedRegistrationEntry> + MerkleTreeLeaf,
     >(
@@ -102,30 +106,30 @@ impl ClosedKeyRegistration {
     ) -> MerkleTree<D, L> {
         MerkleTree::new(
             &self
-                .key_registration
+                .closed_registration_entries
                 .iter()
                 .map(|entry| (*entry).into())
                 .collect::<Vec<L>>(),
         )
     }
 
-    /// Gets the index of a signer registration entry
+    /// Gets the index of given closed registration entry.
     pub fn get_signer_index_for_registration(
         &self,
         entry: &ClosedRegistrationEntry,
     ) -> Option<SignerIndex> {
-        self.key_registration
+        self.closed_registration_entries
             .iter()
             .position(|r| r == entry)
             .map(|s| s as u64)
     }
 
-    /// Get the registration entry for a given signer index.
+    /// Get the closed registration entry for a given signer index.
     pub fn get_registration_entry_for_index(
         &self,
         signer_index: &SignerIndex,
     ) -> StmResult<ClosedRegistrationEntry> {
-        self.key_registration
+        self.closed_registration_entries
             .iter()
             .nth(*signer_index as usize)
             .cloned()
@@ -208,7 +212,7 @@ mod tests {
 
             if !kr.registration_entries.is_empty() {
                 let closed = kr.close_registration();
-                let retrieved_keys = closed.key_registration.iter()
+                let retrieved_keys = closed.closed_registration_entries.iter()
                     .map(|entry| (*entry).into())
                     .collect::<BTreeSet<RegistrationEntry>>();
                 assert!(retrieved_keys == keys);
@@ -249,7 +253,7 @@ mod tests {
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
-            closed_key_reg.into_merkle_tree().to_merkle_tree_batch_commitment()
+            closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment()
         }
 
         #[test]
@@ -299,7 +303,7 @@ mod tests {
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
             closed_key_reg
-                .into_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
+                .to_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
                 .to_merkle_tree_commitment()
         }
 

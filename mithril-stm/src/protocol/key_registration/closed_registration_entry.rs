@@ -7,7 +7,7 @@ use crate::{Stake, StmResult, VerificationKeyForConcatenation};
 #[cfg(feature = "future_snark")]
 use crate::{LotteryTargetValue, VerificationKeyForSnark};
 
-/// Represents a signer registration entry
+/// Represents a registration entry of a closed key registration.
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
 pub struct ClosedRegistrationEntry(
     VerificationKeyForConcatenation,
@@ -21,6 +21,7 @@ pub struct ClosedRegistrationEntry(
 );
 
 impl ClosedRegistrationEntry {
+    /// Creates a new closed registration entry.
     pub fn new(
         verification_key_for_concatenation: VerificationKeyForConcatenation,
         stake: Stake,
@@ -39,8 +40,8 @@ impl ClosedRegistrationEntry {
         )
     }
 
-    /// Gets the BLS verification key.
-    pub fn get_bls_verification_key(&self) -> VerificationKeyForConcatenation {
+    /// Gets the verification key for concatenation.
+    pub fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
         self.0
     }
 
@@ -50,8 +51,8 @@ impl ClosedRegistrationEntry {
     }
 
     #[cfg(feature = "future_snark")]
-    /// Gets the Schnorr verification key.
-    pub fn get_schnorr_verification_key(&self) -> VerificationKeyForSnark {
+    /// Gets the verification key for snark.
+    pub fn get_verification_key_for_snark(&self) -> VerificationKeyForSnark {
         self.2.unwrap()
     }
     #[cfg(feature = "future_snark")]
@@ -61,8 +62,9 @@ impl ClosedRegistrationEntry {
     }
 
     /// Converts the registration entry to bytes.
-    /// Uses 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
+    /// Uses 96 bytes for the verification key for concatenation and 8 bytes for the stake (u64 big-endian).
     /// The order is backward compatible with previous implementations.
+    /// TODO: Update when `future_snark` is activated
     pub(crate) fn to_bytes(self) -> Vec<u8> {
         let mut result = [0u8; 104];
         result[..96].copy_from_slice(&self.0.to_bytes());
@@ -71,8 +73,9 @@ impl ClosedRegistrationEntry {
     }
 
     /// Creates a registration entry from bytes.
-    /// Expects 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
+    /// Expects 96 bytes for the verification key for concatenation and 8 bytes for the stake (u64 big-endian).
     /// The order is backward compatible with previous implementations.
+    /// TODO: Update when `future_snark` is activated
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let bls_verification_key = VerificationKeyForConcatenation::from_bytes(bytes)?;
         let mut u64_bytes = [0u8; 8];
@@ -89,6 +92,7 @@ impl ClosedRegistrationEntry {
     }
 }
 
+// TODO: Update when `future_snark` is activated
 impl Hash for ClosedRegistrationEntry {
     /// Hashes the registration entry by hashing the stake first, then the verification key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -112,6 +116,7 @@ impl PartialOrd for ClosedRegistrationEntry {
     }
 }
 
+// TODO: Update when `future_snark` is activated
 impl Ord for ClosedRegistrationEntry {
     /// Compares the registration entries by comparing the stake first, then the verification key.
     fn cmp(&self, other: &Self) -> Ordering {
@@ -134,7 +139,10 @@ mod tests {
 
     use super::*;
 
-    fn create_registration_entry(rng: &mut ChaCha20Rng, stake: Stake) -> ClosedRegistrationEntry {
+    fn create_closed_registration_entry(
+        rng: &mut ChaCha20Rng,
+        stake: Stake,
+    ) -> ClosedRegistrationEntry {
         let bls_sk = BlsSigningKey::generate(rng);
         let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
 
@@ -149,7 +157,7 @@ mod tests {
             #[cfg(feature = "future_snark")]
             Some(schnorr_verification_key),
             #[cfg(feature = "future_snark")]
-            None,
+            Some(LotteryTargetValue::get_one()),
         )
     }
 
@@ -157,8 +165,8 @@ mod tests {
     fn test_ord_different_stakes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-        let entry_low_stake = create_registration_entry(&mut rng, 100);
-        let entry_high_stake = create_registration_entry(&mut rng, 200);
+        let entry_low_stake = create_closed_registration_entry(&mut rng, 100);
+        let entry_high_stake = create_closed_registration_entry(&mut rng, 200);
 
         assert_eq!(entry_low_stake.cmp(&entry_high_stake), Ordering::Less);
         assert_eq!(entry_high_stake.cmp(&entry_low_stake), Ordering::Greater);
@@ -168,8 +176,8 @@ mod tests {
     fn test_ord_same_stake_different_keys() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-        let entry1 = create_registration_entry(&mut rng, 100);
-        let entry2 = create_registration_entry(&mut rng, 100);
+        let entry1 = create_closed_registration_entry(&mut rng, 100);
+        let entry2 = create_closed_registration_entry(&mut rng, 100);
 
         let cmp_result = entry1.cmp(&entry2);
         assert!(cmp_result == Ordering::Less || cmp_result == Ordering::Greater);

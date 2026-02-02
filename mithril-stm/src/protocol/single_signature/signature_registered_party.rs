@@ -132,7 +132,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_reg.into_merkle_tree(),
+                    closed_key_reg.to_merkle_tree(),
                 ),
                 closed_key_reg.clone(),
                 params,
