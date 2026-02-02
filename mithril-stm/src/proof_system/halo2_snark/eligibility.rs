@@ -41,7 +41,10 @@ cfg_num_integer! {
 
 cfg_rug! {
     #[cfg(feature = "future_snark")]
-    use rug::{Float, integer::Order, ops::Pow};
+    use rug::{Float, integer::Order, ops::Pow, Integer, float::Round};
+
+    #[cfg(feature = "future_snark")]
+    use std::cmp::Ordering;
 
     #[cfg(feature = "future_snark")]
     pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
@@ -61,7 +64,7 @@ cfg_rug! {
         let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
         assert!(t_int >= 0);
 
-        let target = match order {
+        let target: Integer = match order {
             Ordering::Less => t_int,
             Ordering::Equal => {
                 if t_int == 0 { t_int }
@@ -74,7 +77,10 @@ cfg_rug! {
 }
 
 #[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, Stake, signature_scheme::BaseFieldElement};
+use crate::{
+    LotteryIndex, LotteryTargetValue, SignatureError, Stake, StmResult, UniqueSchnorrSignature,
+    signature_scheme::{BaseFieldElement, DST_LOTTERY, compute_poseidon_digest},
+};
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -98,12 +104,61 @@ pub fn compute_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> Lot
     BaseFieldElement::from_bytes(&bytes).unwrap()
 }
 
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+/// Computes the lottery prefix hash from a message.
+/// The prefix is computed by prepending `DST_LOTTERY`
+/// to the message and hashing the result using `compute_poseidon_digest`.
+pub fn lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
+    let mut prefix = vec![DST_LOTTERY];
+    prefix.extend_from_slice(msg);
+    compute_poseidon_digest(&prefix)
+}
+
+#[cfg(feature = "future_snark")]
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+/// Verifies if a lottery index is eligible based on the signature and target value.
+///
+/// This function checks whether a given index wins the lottery by computing an
+/// evaluation value from the signature's commitment point and the index, then
+/// comparing it against the target value. An index is eligible if its
+/// evaluation value is less than or equal to the target.
+///
+/// The evaluation is computed as: `ev = Poseidon(prefix, sigma_x, sigma_y, index)`
+/// where `(sigma_x, sigma_y)` are the coordinates of the signature's commitment point.
+pub fn check_index(
+    signature: &UniqueSchnorrSignature,
+    index: LotteryIndex,
+    m: u64,
+    prefix: BaseFieldElement,
+    target: LotteryTargetValue,
+) -> StmResult<()> {
+    if index > m {
+        return Err(SignatureError::IndexBoundFailed(index, m).into());
+    }
+
+    let idx = BaseFieldElement::from(index);
+    let (sigma_x, sigma_y) = signature.commitment_point.get_coordinates();
+    let ev = compute_poseidon_digest(&[prefix, sigma_x, sigma_y, idx]);
+
+    // check if ev <= target
+    if ev > target {
+        return Err(SignatureError::LotteryLost.into());
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use rand_core::OsRng;
+
     #[cfg(feature = "future_snark")]
-    use super::compute_target_value;
+    use super::{check_index, compute_target_value, lottery_prefix};
     #[cfg(feature = "future_snark")]
-    use crate::signature_scheme::BaseFieldElement;
+    use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     #[cfg(feature = "future_snark")]
     #[test]
@@ -131,5 +186,31 @@ mod tests {
 
         // Validate that result is in the expected range
         assert!(result != -BaseFieldElement::get_one());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn test_check_index() {
+        let phi_f = 0.2;
+        let stake = 30;
+        let total_stake = 100;
+
+        let target = compute_target_value(phi_f, stake, total_stake);
+        println!("Target = {:?}", target);
+
+        let sk = SchnorrSigningKey::generate(&mut OsRng).unwrap();
+        let msg = BaseFieldElement::random(&mut OsRng);
+        let sig = sk.sign(&msg.to_bytes(), &mut OsRng).unwrap();
+
+        let m = 100;
+        let mut counter = 0;
+        let prefix = lottery_prefix(&[msg]);
+        for i in 0..m {
+            if check_index(&sig, i, m, prefix, target).is_ok() {
+                println!("Index: {}", i);
+                counter += 1;
+            }
+        }
+        println!("Total eligible indices:{:?}", counter);
     }
 }
