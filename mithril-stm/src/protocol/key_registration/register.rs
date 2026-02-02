@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 use crate::{
     RegisterError, SignerIndex, Stake, StmResult, VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
+    protocol::key_registration::ClosedRegistrationEntry,
 };
 
 #[cfg(feature = "future_snark")]
@@ -91,8 +92,14 @@ impl KeyRegistration {
             }
             res
         });
+        let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
+            .registration_entries
+            .iter()
+            .map(|entry| entry.to_closed_registration_entry(total_stake))
+            .collect();
+
         ClosedKeyRegistration {
-            key_registration: self,
+            key_registration: closed_registration_entries,
             total_stake,
         }
     }
@@ -102,7 +109,7 @@ impl KeyRegistration {
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
     /// The key registration entries
-    pub key_registration: KeyRegistration,
+    pub key_registration: BTreeSet<ClosedRegistrationEntry>,
 
     /// The total stake registered
     pub total_stake: Stake,
@@ -112,18 +119,40 @@ impl ClosedKeyRegistration {
     /// Converts the KeyRegistration into a Merkle tree
     pub fn into_merkle_tree<
         D: Digest + FixedOutput,
-        L: From<RegistrationEntry> + MerkleTreeLeaf,
+        L: From<ClosedRegistrationEntry> + MerkleTreeLeaf,
     >(
         &self,
     ) -> MerkleTree<D, L> {
         MerkleTree::new(
             &self
                 .key_registration
-                .registration_entries
                 .iter()
                 .map(|entry| (*entry).into())
                 .collect::<Vec<L>>(),
         )
+    }
+
+    /// Gets the index of a signer registration entry
+    pub fn get_signer_index_for_registration(
+        &self,
+        entry: &ClosedRegistrationEntry,
+    ) -> Option<SignerIndex> {
+        self.key_registration
+            .iter()
+            .position(|r| r == entry)
+            .map(|s| s as u64)
+    }
+
+    /// Get the registration entry for a given signer index.
+    pub fn get_registration_entry_for_index(
+        &self,
+        signer_index: &SignerIndex,
+    ) -> StmResult<ClosedRegistrationEntry> {
+        self.key_registration
+            .iter()
+            .nth(*signer_index as usize)
+            .cloned()
+            .ok_or_else(|| RegisterError::UnregisteredIndex.into())
     }
 }
 
@@ -202,7 +231,9 @@ mod tests {
 
             if !kr.registration_entries.is_empty() {
                 let closed = kr.close_registration();
-                let retrieved_keys = closed.key_registration.registration_entries;
+                let retrieved_keys = closed.key_registration.iter()
+                    .map(|entry| (*entry).into())
+                    .collect::<BTreeSet<RegistrationEntry>>();
                 assert!(retrieved_keys == keys);
             }
         }

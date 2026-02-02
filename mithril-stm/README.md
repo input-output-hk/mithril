@@ -129,7 +129,7 @@ let avk: AggregateVerificationKey<D>  = clerk.compute_aggregate_verification_key
 
 // Check all parties can verify every sig
 for (s, p) in sigs.iter().zip(ps.iter()) {
-    let stake = closed_reg.key_registration.get_registration_entry_for_index(&s.signer_index).unwrap().get_stake();
+    let stake = closed_reg.get_registration_entry_for_index(&s.signer_index).unwrap().get_stake();
     assert!(s.verify::<D>(&params, &p.get_bls_verification_key(), &stake, &avk, &msg).is_ok(), "Verification failed");
 }
 

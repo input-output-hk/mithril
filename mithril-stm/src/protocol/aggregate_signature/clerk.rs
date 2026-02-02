@@ -90,7 +90,6 @@ impl<D: MembershipDigest> Clerk<D> {
         let entry = self
             .get_concatenation_clerk()
             .closed_key_registration
-            .key_registration
             .get_registration_entry_for_index(party_index)?;
         Ok((entry.get_bls_verification_key(), entry.get_stake()))
     }

@@ -42,11 +42,10 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             .map(|sig| {
                 clerk
                     .closed_key_registration
-                    .key_registration
                     .get_registration_entry_for_index(&sig.signer_index)
                     .map(|reg_party| SingleSignatureWithRegisteredParty {
                         sig: sig.clone(),
-                        reg_party,
+                        reg_party: reg_party.into(),
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
