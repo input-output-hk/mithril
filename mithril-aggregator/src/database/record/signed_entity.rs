@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use mithril_common::StdError;
 use mithril_common::crypto_helper::ProtocolParameters;
 use mithril_common::entities::{
-    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntityType, SlotNumber, Snapshot,
-    StakeDistribution,
+    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntityType, Snapshot, StakeDistribution,
 };
 #[cfg(test)]
 use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};

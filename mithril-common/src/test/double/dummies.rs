@@ -104,8 +104,8 @@ mod messages {
         AncillaryLocation, BlockNumber, CardanoDbBeacon, CardanoTransactionsSetProof,
         CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
         ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
-        StakeDistribution, StakeDistributionParty, SupportedEra, TemplateUri,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
+        StakeDistributionParty, SupportedEra, TemplateUri,
     };
     use crate::messages::*;
 

@@ -2,7 +2,6 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::SlotNumber;
 use crate::entities::{BlockNumber, Epoch};
 
 /// Message structure of a Cardano Transactions snapshot
