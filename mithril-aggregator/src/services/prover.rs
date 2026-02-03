@@ -25,7 +25,7 @@ pub trait ProverService: Sync + Send {
 
 /// Mithril prover
 pub struct MithrilProverService<S: MKTreeStorer> {
-    transaction_retriever: Arc<dyn TransactionsRetriever>,
+    _transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
@@ -34,13 +34,13 @@ pub struct MithrilProverService<S: MKTreeStorer> {
 impl<S: MKTreeStorer> MithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
-        transaction_retriever: Arc<dyn TransactionsRetriever>,
+        _transaction_retriever: Arc<dyn TransactionsRetriever>,
         block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
         mk_map_pool_size: usize,
         logger: Logger,
     ) -> Self {
         Self {
-            transaction_retriever,
+            _transaction_retriever,
             block_range_root_retriever,
             mk_map_pool: ResourcePool::new(mk_map_pool_size, vec![]),
             logger: logger.new_with_component_name::<Self>(),
