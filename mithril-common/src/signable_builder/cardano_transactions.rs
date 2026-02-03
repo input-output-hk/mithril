@@ -24,7 +24,7 @@ pub trait TransactionsImporter: Send + Sync {
 /// Block Range Merkle roots retriever
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
+pub trait LegacyBlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn retrieve_block_range_roots<'a>(
         &'a self,
@@ -41,7 +41,7 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
             .await?
             .map(|(block_range, root)| (block_range, root.into()));
         let mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
-        .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
+        .with_context(|| "LegacyBlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
 
         Ok(mk_hash_map)
     }
@@ -50,14 +50,14 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder<S: MKTreeStorer> {
     transaction_importer: Arc<dyn TransactionsImporter>,
-    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+    block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
 }
 
 impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
     /// Constructor
     pub fn new(
         transaction_importer: Arc<dyn TransactionsImporter>,
-        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+        block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
     ) -> Self {
         Self {
             transaction_importer,
@@ -122,7 +122,7 @@ mod tests {
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(move |_| Ok(()));
         let retrieved_transactions = transactions.clone();
-        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+        let mut block_range_root_retriever = MockLegacyBlockRangeRootRetriever::new();
         block_range_root_retriever
             .expect_compute_merkle_map_from_block_range_roots()
             .return_once(move |_| Ok(compute_mk_map_from_transactions(retrieved_transactions)));
@@ -156,7 +156,7 @@ mod tests {
         let block_number = BlockNumber(50);
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(|_| Ok(()));
-        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+        let mut block_range_root_retriever = MockLegacyBlockRangeRootRetriever::new();
         block_range_root_retriever
             .expect_compute_merkle_map_from_block_range_roots()
             .return_once(move |_| Ok(compute_mk_map_from_transactions(vec![])));

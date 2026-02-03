@@ -10,7 +10,7 @@ use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
     SlotNumber,
 };
-use mithril_common::signable_builder::BlockRangeRootRetriever;
+use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
@@ -103,7 +103,7 @@ impl HighestStoredBlockNumberGetter for SignerCardanoChainDataRepository {
 }
 
 #[async_trait::async_trait]
-impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for SignerCardanoChainDataRepository {
+impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for SignerCardanoChainDataRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,

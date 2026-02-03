@@ -8,7 +8,7 @@ use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
     SlotNumber, TransactionHash,
 };
-use mithril_common::signable_builder::BlockRangeRootRetriever;
+use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
@@ -88,7 +88,7 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
 }
 
 #[async_trait::async_trait]
-impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataRepository {
+impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for AggregatorCardanoChainDataRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,
