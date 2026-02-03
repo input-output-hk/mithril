@@ -6,7 +6,7 @@ pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_blocks_transactions(router_state)
-        .or(artifact_cardano_blocks_transaction_by_id(router_state))
+        .or(artifact_cardano_block_transactions_by_id(router_state))
 }
 
 /// GET /artifact/cardano-blocks-transactions
@@ -20,11 +20,11 @@ fn artifact_cardano_blocks_transactions(
         .and_then(handlers::list_artifacts)
 }
 
-/// GET /artifact/cardano-block-transactions/:id
-fn artifact_cardano_blocks_transaction_by_id(
+/// GET /artifact/cardano-blocks-transactions/:id
+fn artifact_cardano_block_transactions_by_id(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
-    warp::path!("artifact" / "cardano-block-transactions" / String)
+    warp::path!("artifact" / "cardano-blocks-transactions" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
         .and(middlewares::with_logger(router_state))
@@ -109,8 +109,8 @@ pub mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         messages::{
-            CardanoBlockTransactionsSnapshotMessage, CardanoTransactionSnapshotListItemMessage,
-            CardanoTransactionSnapshotMessage,
+            CardanoBlockTransactionsSnapshotListItemMessage,
+            CardanoBlockTransactionsSnapshotMessage,
         },
         test::double::Dummy,
     };
@@ -135,8 +135,12 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_get_ok() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .get_cardano_block_transactions_list_message()
-            .return_once(|_| Ok(vec![CardanoTransactionSnapshotListItemMessage::dummy()]))
+            .expect_get_cardano_block_transactions_list_message()
+            .return_once(|_| {
+                Ok(vec![
+                    CardanoBlockTransactionsSnapshotListItemMessage::dummy(),
+                ])
+            })
             .once();
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
@@ -198,10 +202,10 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_block_transactions_increments_artifact_detail_total_served_since_startup_metric()
+    async fn test_cardano_blocks_transactions_by_hash_increments_artifact_detail_total_served_since_startup_metric()
      {
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-transaction/{hash}";
+        let path = "/artifact/cardano-blocks-transactions/{hash}";
         let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
@@ -229,7 +233,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_block_transactions_get_ok() {
+    async fn test_cardano_blocks_transactions_by_hash_get_ok() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_block_transactions_message()
@@ -239,7 +243,7 @@ pub mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-transaction/{hash}";
+        let path = "/artifact/cardano-blocks-transactions/{hash}";
 
         let response = request()
             .method(method)
@@ -262,7 +266,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_block_transactions_return_404_not_found_when_no_record() {
+    async fn test_cardano_blocks_transactions_by_hash_return_404_not_found_when_no_record() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_block_transactions_message()
@@ -272,7 +276,7 @@ pub mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-block-transactions/{hash}";
+        let path = "/artifact/cardano-blocks-transactions/{hash}";
 
         let response = request()
             .method(method)
@@ -295,7 +299,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_block_transactions_get_ko() {
+    async fn test_cardano_blocks_transactions_by_hash_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_block_transactions_message()
@@ -305,7 +309,7 @@ pub mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-transaction/{hash}";
+        let path = "/artifact/cardano-blocks-transactions/{hash}";
 
         let response = request()
             .method(method)

@@ -562,6 +562,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /artifact/cardano-blocks-transactions:
+    get:
+      summary: Get most recent Cardano blocks and transactions set snapshots
+      description: |
+        Returns the list of the most recent Cardano blocks and transactions set snapshots
+      responses:
+        "200":
+          description: Cardano blocks and transactions set snapshots found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoBlockTransactionsSnapshotListMessage"
+        default:
+          description: Cardano blocks and transactions set snapshots retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-blocks-transactions/{hash}:
+    get:
+      summary: Get Cardano block and transactions set snapshot information
+      description: |
+        Returns the information of a Cardano block and transactions set snapshot
+      parameters:
+        - name: hash
+          in: path
+          description: Hash of the Cardano block and transactions set snapshot to retrieve
+          required: true
+          schema:
+            type: string
+            format: bytes
+            examples:
+              - "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+      responses:
+        "200":
+          description: Cardano block and transactions set snapshot found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoBlockTransactionsSnapshotMessage"
+        "404":
+          description: Cardano block and transactions set snapshot not found
+        default:
+          description: Cardano block and transactions set snapshot retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /proof/cardano-transaction:
     get:
       summary: Get the proofs of a Cardano transaction list
@@ -2581,6 +2631,108 @@ components:
             "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
             "epoch": 123,
             "block_number": 1234,
+            "created_at": "2022-06-14T10:52:31Z"
+          }
+
+    CardanoBlockTransactionsSnapshotListMessage:
+      description: CardanoBlockTransactionsSnapshotListMessage represents a list of Cardano blocks and transactions set snapshots
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - hash
+          - certificate_hash
+          - merkle_root
+          - epoch
+          - block_number_signed
+          - block_number_tip
+          - created_at
+        properties:
+          hash:
+            description: Hash of the Cardano block and transactions set
+            type: string
+            format: bytes
+          certificate_hash:
+            description: Hash of the associated certificate
+            type: string
+            format: bytes
+          merkle_root:
+            description: Merkle root of the Cardano blocks and transactions set
+            type: string
+            format: bytes
+          epoch:
+            $ref: "#/components/schemas/Epoch"
+          block_number_signed:
+            description: Block number of the Cardano block transactions snapshot
+            type: integer
+            format: int64
+          block_number_tip:
+            description: The aproximate block number tip of the Cardano block transactions snapshot
+            type: integer
+            format: int64
+          created_at:
+            description: Date and time at which the Cardano transactions set was created
+            type: string
+            format: date-time,
+        examples:
+          - {
+              "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+              "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+              "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
+              "epoch": 123,
+              "block_number_signed": 1234,
+              "block_number_tip": 1249,
+              "created_at": "2022-06-14T10:52:31Z"
+            }
+
+    CardanoBlockTransactionsSnapshotMessage:
+      description: This message represents a Cardano transactions set snapshot.
+      type: object
+      additionalProperties: false
+      required:
+        - hash
+        - certificate_hash
+        - merkle_root
+        - epoch
+        - block_number_signed
+        - block_number_tip
+        - created_at
+      properties:
+        hash:
+          description: Hash of the Cardano transactions set
+          type: string
+          format: bytes
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
+        merkle_root:
+          description: Merkle root of the Cardano transactions set
+          type: string
+          format: bytes
+        epoch:
+          $ref: "#/components/schemas/Epoch"
+        block_number_signed:
+          description: Block number of the Cardano block transactions snapshot
+          type: integer
+          format: int64
+        block_number_tip:
+          description: The aproximate block number tip of the Cardano block transactions snapshot
+          type: integer
+          format: int64
+        created_at:
+          description: Date and time at which the Cardano transactions set was created
+          type: string
+          format: date-time,
+      examples:
+        - {
+            "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+            "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+            "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
+            "epoch": 123,
+            "block_number_signed": 1234,
+            "block_number_tip": 1249,
             "created_at": "2022-06-14T10:52:31Z"
           }
 
