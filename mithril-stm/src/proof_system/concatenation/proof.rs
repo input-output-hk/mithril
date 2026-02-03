@@ -127,7 +127,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let leaves = self
             .signatures
             .iter()
-            .map(|r| r.reg_party.into())
+            .filter_map(|r| r.reg_party.into())
             .collect::<Vec<RegistrationEntryForConcatenation>>();
 
         avk.get_merkle_tree_batch_commitment()

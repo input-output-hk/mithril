@@ -32,7 +32,7 @@ impl SchnorrVerificationKey {
         Ok(SchnorrVerificationKey(signing_key.0 * generator))
     }
 
-    pub fn is_valid(&self) -> StmResult<Self> {
+    pub fn is_valid(&self) -> StmResult<()> {
         let projective_point = ProjectivePoint::from(self.0);
         if !projective_point.is_prime_order() {
             return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotPrimeOrder(
@@ -41,7 +41,7 @@ impl SchnorrVerificationKey {
         }
         self.0.is_on_curve()?;
 
-        Ok(*self)
+        Ok(())
     }
 
     /// Convert a `SchnorrVerificationKey` into bytes by decomposing it into
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn create_verification_key_from_signing_key() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let vk = SchnorrVerificationKey::new_from_signing_key(sk);
 
@@ -113,8 +113,8 @@ mod tests {
     #[test]
     fn different_signing_keys_produce_different_verification_keys() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk1 = SchnorrSigningKey::generate(&mut rng).unwrap();
-        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk1 = SchnorrSigningKey::generate(&mut rng);
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
 
         let vk1 = SchnorrVerificationKey::new_from_signing_key(sk1).unwrap();
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2).unwrap();
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn same_signing_key_produces_same_verification_key() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let vk1 = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn valid_verification_key_passes_validation() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
 
         let result = vk.is_valid();
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn from_bytes_exact_size() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
         let vk_bytes = vk.to_bytes();
 
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn from_bytes_extra_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
         let vk_bytes = vk.to_bytes();
 
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn to_bytes_is_deterministic() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
 
         let bytes1 = vk.to_bytes();
@@ -212,7 +212,7 @@ mod tests {
 
         fn golden_value() -> SchnorrVerificationKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             SchnorrVerificationKey::new_from_signing_key(sk).unwrap()
         }
 
@@ -235,7 +235,7 @@ mod tests {
 
         fn golden_value() -> SchnorrVerificationKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             SchnorrVerificationKey::new_from_signing_key(sk).unwrap()
         }
 

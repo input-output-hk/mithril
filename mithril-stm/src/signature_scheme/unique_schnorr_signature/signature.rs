@@ -158,7 +158,7 @@ mod tests {
         let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -175,9 +175,9 @@ mod tests {
         let base_input2 = BaseFieldElement::try_from(msg2.as_slice()).unwrap();
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
-        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2).unwrap();
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -283,7 +283,7 @@ mod tests {
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
             sk.sign(&[base_input], &mut rng).unwrap()
@@ -313,7 +313,7 @@ mod tests {
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
             sk.sign(&[base_input], &mut rng).unwrap()

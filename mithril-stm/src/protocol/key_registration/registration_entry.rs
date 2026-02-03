@@ -3,12 +3,12 @@ use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::VerificationKeyForSnark;
 use crate::{
     Initializer, RegisterError, Stake, StmResult, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };
-#[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, VerificationKeyForSnark};
 
 use super::ClosedRegistrationEntry;
 
@@ -18,7 +18,7 @@ pub struct RegistrationEntry(
     VerificationKeyForConcatenation,
     Stake,
     #[cfg(feature = "future_snark")]
-    #[serde(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     Option<VerificationKeyForSnark>,
 );
 
@@ -39,11 +39,13 @@ impl RegistrationEntry {
             })?;
 
         #[cfg(feature = "future_snark")]
-        if let Some(schnorr_vk) = schnorr_verification_key {
-            schnorr_vk
-                .is_valid()
-                .map_err(|_| RegisterError::SnarkKeyInvalid(Box::new(schnorr_vk)))?;
-        }
+        schnorr_verification_key
+            .map(|schnorr_vk| {
+                schnorr_vk
+                    .is_valid()
+                    .map_err(|_| RegisterError::SnarkKeyInvalid(Box::new(schnorr_vk)))
+            })
+            .transpose()?;
 
         Ok(RegistrationEntry(
             bls_verification_key_proof_of_possession.vk,
@@ -53,35 +55,20 @@ impl RegistrationEntry {
         ))
     }
 
-    /// Gets the BLS verification key.
-    pub fn get_bls_verification_key(&self) -> VerificationKeyForConcatenation {
+    /// Gets the verification key for concatenation.
+    pub fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
         self.0
     }
 
     #[cfg(feature = "future_snark")]
-    /// Gets the Schnorr verification key.
-    pub fn get_schnorr_verification_key(&self) -> VerificationKeyForSnark {
-        self.2.unwrap()
+    /// Gets the verification key for snark.
+    pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
+        self.2
     }
 
     /// Gets the stake associated with the registration entry.
     pub fn get_stake(&self) -> Stake {
         self.1
-    }
-
-    /// Converts the registration entry into a closed registration entry.
-    /// This is where we will compute the lottery target value in the future.
-    /// `LotteryTargetValue` is set to one for now.
-    /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
-    pub fn to_closed_registration_entry(&self, _total_stake: Stake) -> ClosedRegistrationEntry {
-        ClosedRegistrationEntry::new(
-            self.0,
-            self.1,
-            #[cfg(feature = "future_snark")]
-            self.2,
-            #[cfg(feature = "future_snark")]
-            Some(LotteryTargetValue::get_one()),
-        )
     }
 }
 
@@ -92,7 +79,7 @@ impl From<ClosedRegistrationEntry> for RegistrationEntry {
             entry.get_verification_key_for_concatenation(),
             entry.get_stake(),
             #[cfg(feature = "future_snark")]
-            Some(entry.get_verification_key_for_snark()),
+            entry.get_verification_key_for_snark(),
         )
     }
 }
@@ -161,8 +148,8 @@ mod tests {
 
         #[cfg(feature = "future_snark")]
         let schnorr_verification_key = {
-            let sk = SchnorrSigningKey::generate(rng).unwrap();
-            VerificationKeyForSnark::new_from_signing_key(sk.clone()).unwrap()
+            let sk = SchnorrSigningKey::generate(rng);
+            VerificationKeyForSnark::new_from_signing_key(sk).unwrap()
         };
         RegistrationEntry::new(
             bls_pk,
