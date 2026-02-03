@@ -4,7 +4,9 @@ use mithril_common::crypto_helper::MKTreeStoreInMemory;
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-use crate::services::{MithrilProverService, ProverService};
+use crate::services::{
+    LegacyMithrilProverService, LegacyProverService, MithrilProverService, ProverService,
+};
 impl DependenciesBuilder {
     /// Build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
@@ -27,5 +29,26 @@ impl DependenciesBuilder {
     /// [ProverService] service
     pub async fn get_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
         get_dependency!(self.prover_service)
+    }
+
+    /// Build Legacy Prover service
+    pub async fn build_legacy_prover_service(&mut self) -> Result<Arc<dyn LegacyProverService>> {
+        let mk_map_pool_size = self.configuration.cardano_transactions_prover_cache_pool_size();
+        let transaction_retriever = self.get_chain_data_repository().await?;
+        let block_range_root_retriever = self.get_chain_data_repository().await?;
+        let logger = self.root_logger();
+        let prover_service = LegacyMithrilProverService::<MKTreeStoreInMemory>::new(
+            transaction_retriever,
+            block_range_root_retriever,
+            mk_map_pool_size,
+            logger,
+        );
+
+        Ok(Arc::new(prover_service))
+    }
+
+    /// [LegacyProverService] service
+    pub async fn get_legacy_prover_service(&mut self) -> Result<Arc<dyn LegacyProverService>> {
+        get_dependency!(self.legacy_prover_service)
     }
 }
