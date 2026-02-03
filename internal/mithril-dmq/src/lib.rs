@@ -9,10 +9,10 @@ pub mod test;
 #[cfg(unix)]
 pub use consumer::DmqConsumerServerPallas;
 pub use consumer::{
-    DmqConsumerClient, DmqConsumerClientDeduplicator, DmqConsumerClientPallas, DmqConsumerServer,
-    DEFAULT_SEEN_MESSAGE_TTL,
+    DMQ_MESSAGE_DEDUPLICATOR_TTL, DmqConsumerClient, DmqConsumerClientDeduplicator,
+    DmqConsumerClientPallas, DmqConsumerServer,
 };
-pub use model::{DmqMessage, DmqMessageBuilder, DmqNetwork};
+pub use model::{DmqMessage, DmqMessageBuilder, DmqNetwork, SystemUnixTimestampProvider};
 #[cfg(unix)]
 pub use publisher::DmqPublisherServerPallas;
 pub use publisher::{DmqPublisherClient, DmqPublisherClientPallas, DmqPublisherServer};
