@@ -27,11 +27,13 @@ pub struct Initializer {
     /// Verification key for concatenation proof system.
     #[serde(rename = "pk")]
     pub bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
-    #[cfg(feature = "future_snark")]
     /// Signing key for snark proof system.
-    pub schnorr_signing_key: Option<SchnorrSigningKey>,
     #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schnorr_signing_key: Option<SchnorrSigningKey>,
     /// Verification key for snark proof system.
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub schnorr_verification_key: Option<VerificationKeyForSnark>,
 }
 
@@ -43,11 +45,10 @@ impl Initializer {
             VerificationKeyProofOfPossessionForConcatenation::from(&bls_signing_key);
         #[cfg(feature = "future_snark")]
         let (schnorr_signing_key, schnorr_verification_key) = {
-            let sk = SchnorrSigningKey::generate(rng).ok();
-            let vk = sk
-                .as_ref()
-                .and_then(|sk| VerificationKeyForSnark::new_from_signing_key(sk.clone()).ok());
-            (sk, vk)
+            let sk = SchnorrSigningKey::generate(rng);
+            let vk = VerificationKeyForSnark::new_from_signing_key(sk.clone())
+                .expect("verification key creation from valid signing key should not fail");
+            (Some(sk), Some(vk))
         };
         Self {
             stake,
@@ -84,12 +85,11 @@ impl Initializer {
             self.schnorr_verification_key,
         )?;
 
-        let signer_index = match closed_key_registration.get_signer_index_for_registration(
-            &registration_entry.to_closed_registration_entry(closed_key_registration.total_stake),
-        ) {
-            Some(index) => index,
-            None => return Err(anyhow!(RegisterError::UnregisteredInitializer)),
-        };
+        let signer_index = closed_key_registration
+            .get_signer_index_for_registration(
+                &(registration_entry, closed_key_registration.total_stake).into(),
+            )
+            .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
         let key_registration_commitment = closed_key_registration
             .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
@@ -125,57 +125,87 @@ impl Initializer {
     /// # Layout
     /// * Stake (u64)
     /// * Params
-    /// * Secret Key
-    /// * Public key (including PoP)
-    ///
-    /// TODO: Update when `future_snark` is activated
-    pub fn to_bytes(&self) -> [u8; 256] {
+    /// * BLS signing key
+    /// * BLS verification key (including PoP)
+    /// * [Future Snark - Schnorr Signing Key]
+    /// * [Future Snark - Schnorr Verification Key]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        #[cfg(feature = "future_snark")]
+        let mut out = [0u8; 352];
+        #[cfg(not(feature = "future_snark"))]
         let mut out = [0u8; 256];
+
         out[..8].copy_from_slice(&self.stake.to_be_bytes());
         out[8..32].copy_from_slice(&self.parameters.to_bytes());
         out[32..64].copy_from_slice(&self.bls_signing_key.to_bytes());
-        out[64..].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
-        out
+        out[64..256].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
+
+        #[cfg(feature = "future_snark")]
+        if let Some(schnorr_sk) = &self.schnorr_signing_key {
+            out[256..288].copy_from_slice(&schnorr_sk.to_bytes());
+        }
+        #[cfg(feature = "future_snark")]
+        if let Some(schnorr_vk) = &self.schnorr_verification_key {
+            out[288..352].copy_from_slice(&schnorr_vk.to_bytes());
+        }
+
+        out.to_vec()
     }
 
     /// Convert a slice of bytes to an `Initializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    ///
-    /// TODO: Update when `future_snark` is activated
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Initializer> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
         let params =
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
-        let sk =
-            BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = VerificationKeyProofOfPossessionForConcatenation::from_bytes(
-            bytes.get(64..).ok_or(RegisterError::SerializationError)?,
-        )?;
+        let bls_signing_key =
+            BlsSigningKey::from_bytes(bytes.get(32..64).ok_or(RegisterError::SerializationError)?)?;
+        let bls_verification_key_proof_of_possession =
+            VerificationKeyProofOfPossessionForConcatenation::from_bytes(
+                bytes.get(64..256).ok_or(RegisterError::SerializationError)?,
+            )?;
+
+        #[cfg(feature = "future_snark")]
+        let (schnorr_signing_key, schnorr_verification_key) = {
+            let sk = SchnorrSigningKey::from_bytes(
+                bytes.get(256..288).ok_or(RegisterError::SerializationError)?,
+            )?;
+            let vk = VerificationKeyForSnark::from_bytes(
+                bytes.get(288..352).ok_or(RegisterError::SerializationError)?,
+            )?;
+            (Some(sk), Some(vk))
+        };
 
         Ok(Self {
             stake,
             parameters: params,
-            bls_signing_key: sk,
-            bls_verification_key_proof_of_possession: pk,
+            bls_signing_key,
+            bls_verification_key_proof_of_possession,
             #[cfg(feature = "future_snark")]
-            schnorr_signing_key: None,
+            schnorr_signing_key,
             #[cfg(feature = "future_snark")]
-            schnorr_verification_key: None,
+            schnorr_verification_key,
         })
     }
 }
 
-/// TODO: Update when `future_snark` is activated
 impl PartialEq for Initializer {
     fn eq(&self, other: &Self) -> bool {
-        self.stake == other.stake
+        let base_eq = self.stake == other.stake
             && self.parameters == other.parameters
             && self.bls_signing_key.to_bytes() == other.bls_signing_key.to_bytes()
             && self.get_verification_key_proof_of_possession_for_concatenation()
-                == other.get_verification_key_proof_of_possession_for_concatenation()
+                == other.get_verification_key_proof_of_possession_for_concatenation();
+
+        #[cfg(feature = "future_snark")]
+        let base_eq = base_eq
+            && self.schnorr_signing_key == other.schnorr_signing_key
+            && self.schnorr_verification_key == other.schnorr_verification_key;
+
+        base_eq
     }
 }
 
