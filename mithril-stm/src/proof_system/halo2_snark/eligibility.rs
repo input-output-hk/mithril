@@ -19,8 +19,11 @@ cfg_num_integer! {
         let c =
             Ratio::from_float((1.0 - phi_f).ln()).expect("Only fails if the float is infinite or NaN.");
         let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+        println!("c = {:?}", c);
 
+        println!("w = {:?}", w);
         let phi = (w * c).neg();
+        println!("phi = {:?}", phi);
         let t = Ratio::from(modulus) * phi;
 
         // Floor division
@@ -56,9 +59,12 @@ cfg_rug! {
         .unwrap();
 
         let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
+        println!("w = {:?}", w);
         let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w);
+        println!("phi = {:?}", phi);
         // increase precision
         let phi_high = Float::with_val(300, phi);
+        println!("phi_high = {:?}", phi_high);
 
         let t = modulus * phi_high;
         let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
@@ -153,6 +159,7 @@ pub fn check_index(
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
     use rand_core::OsRng;
 
     use crate::LotteryTargetValue;
@@ -228,6 +235,24 @@ mod tests {
             assert!(prev_target < target);
             prev_target = target;
         }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Checking that following stakes always have the same order.
+        fn following_stake_same_order(
+            phi_f in 0.01..0.5f64,
+            total_stake in 100_000_000..1_000_000_000u64,
+            stake in 10_000_000..50_000_000u64,
+        ) {
+            let base_target = compute_target_value(phi_f, stake, total_stake);
+            let next_target = compute_target_value(phi_f, stake + 1, total_stake);
+
+            assert!(base_target < next_target);
+        }
+
     }
 
     #[cfg(feature = "future_snark")]
@@ -323,31 +348,47 @@ mod tests {
             ],
         ];
 
-        fn golden_value() -> LotteryTargetValue {
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+        fn golden_value_num_int() -> LotteryTargetValue {
             let phi_f = 0.2;
             let stake = 30;
             let total_stake = 100;
 
-            let target = compute_target_value(phi_f, stake, total_stake);
-            target
+            compute_target_value(phi_f, stake, total_stake)
+        }
+
+        #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
+        fn golden_value_rug() -> LotteryTargetValue {
+            let phi_f = 0.2;
+            let stake = 30;
+            let total_stake = 100;
+
+            compute_target_value(phi_f, stake, total_stake)
         }
 
         fn golden_vector() -> Vec<LotteryTargetValue> {
             let phi_f = 0.2;
             let total_stake = 100;
-            let target_vector = (30..50)
+            (30..50)
                 .map(|stake| compute_target_value(phi_f, stake, total_stake))
-                .collect();
-            target_vector
+                .collect()
         }
 
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         #[test]
-        fn golden_check() {
+        fn golden_check_num_int() {
             let golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
 
-            assert_eq!(golden_target, golden_value());
+            assert_eq!(golden_target, golden_value_num_int());
         }
 
+        #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
+        #[test]
+        fn golden_check_rug() {
+            let golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
+
+            assert_eq!(golden_target, golden_value_rug());
+        }
         #[test]
         fn golden_vector_check() {
             let golden_vector = golden_vector();
