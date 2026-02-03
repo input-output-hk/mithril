@@ -12,7 +12,7 @@ use crate::dependency_injection::EpochServiceWrapper;
 use crate::event_store::{EventMessage, TransmitterService};
 use crate::http_server::routes::http_server_child_logger;
 use crate::http_server::routes::router::{RouterConfig, RouterState};
-use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
+use crate::services::{CertifierService, LegacyProverService, MessageService, SignedEntityService};
 use crate::{
     MetricsService, SignerRegisterer, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
@@ -135,8 +135,8 @@ pub fn with_http_message_service(
 /// With Prover service
 pub fn with_prover_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn ProverService>,), Error = Infallible> + Clone + use<> {
-    let prover_service = router_state.dependencies.prover_service.clone();
+) -> impl Filter<Extract = (Arc<dyn LegacyProverService>,), Error = Infallible> + Clone + use<> {
+    let prover_service = router_state.dependencies.legacy_prover_service.clone();
     warp::any().map(move || prover_service.clone())
 }
 

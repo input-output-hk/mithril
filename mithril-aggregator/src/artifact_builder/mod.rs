@@ -1,4 +1,5 @@
 //! The module used for building artifact
+mod cardano_blocks_transactions;
 mod cardano_database;
 mod cardano_database_artifacts;
 mod cardano_immutable_files_full;
@@ -7,6 +8,7 @@ mod cardano_transactions;
 mod interface;
 mod mithril_stake_distribution;
 
+pub use cardano_blocks_transactions::*;
 pub use cardano_database::*;
 pub use cardano_database_artifacts::*;
 pub use cardano_immutable_files_full::*;
