@@ -16,13 +16,14 @@
 //!    - if it exists in the database, it is replaced
 //!    - if it doesn't exist, it is inserted
 //! 5. Create a certified open message in the database, based on the latest certificate (the first
-//!    of the last epoch synchronized)
+//!    of the last epoch synchronized), only if the corresponding epoch settings exist (to avoid
+//!    foreign key constraint violations when synchronizing a gapped certificate chain)
 //! 6. End
 //!
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{Logger, debug, info};
+use slog::{Logger, debug, info, warn};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -32,6 +33,7 @@ use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
+use crate::EpochSettingsStorer;
 use crate::entities::OpenMessage;
 
 use super::{
@@ -46,6 +48,7 @@ pub struct MithrilCertificateChainSynchronizer {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     open_message_storer: Arc<dyn OpenMessageStorer>,
+    epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     logger: Logger,
 }
 
@@ -76,6 +79,7 @@ impl MithrilCertificateChainSynchronizer {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         open_message_storer: Arc<dyn OpenMessageStorer>,
+        epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -84,6 +88,7 @@ impl MithrilCertificateChainSynchronizer {
             certificate_verifier,
             genesis_verifier,
             open_message_storer,
+            epoch_settings_storer,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -183,18 +188,39 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
             .with_context(|| "Failed to retrieve and validate remote certificate chain")?;
-        let open_message = prepare_open_message_to_store(
-            remote_certificate_chain
-                .last()
-                .with_context(|| "Retrieved certificate chain is empty")?,
-        );
+        let latest_certificate = remote_certificate_chain
+            .last()
+            .with_context(|| "Retrieved certificate chain is empty")?
+            .clone();
+
         self.store_certificate_chain(remote_certificate_chain)
             .await
             .with_context(|| "Failed to store remote retrieved certificate chain")?;
-        self.open_message_storer
-            .insert_or_replace_open_message(open_message)
-            .await
-            .with_context(|| "Failed to store open message when synchronizing certificate chain")?;
+
+        // In case the synchronized certificate chain is incomplete, the open message creation
+        // may be skipped to avoid foreign key constraint violations which could occur with the absence of
+        // epoch settings (as we they are pruned regularly) for the latest synchronized certificate's epoch.
+        // This situation may arise when synchronizing a gapped certificate chain.
+        let epoch_settings_exist = self
+            .epoch_settings_storer
+            .get_epoch_settings(latest_certificate.epoch)
+            .await?
+            .is_some();
+        if epoch_settings_exist {
+            let open_message = prepare_open_message_to_store(&latest_certificate);
+            self.open_message_storer
+                .insert_or_replace_open_message(open_message)
+                .await
+                .with_context(
+                    || "Failed to store open message when synchronizing certificate chain",
+                )?;
+        } else {
+            warn!(
+                self.logger,
+                "Skipping open message creation: no epoch settings for epoch {}",
+                latest_certificate.epoch
+            );
+        }
 
         info!(
             self.logger,
@@ -223,15 +249,18 @@ mod tests {
     use std::sync::RwLock;
 
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
+    use mithril_common::entities::Epoch;
     use mithril_common::test::{
         builder::{CertificateChainBuilder, CertificateChainFixture},
-        double::{FakeCertificaterRetriever, fake_data, fake_keys},
+        double::{Dummy, FakeCertificaterRetriever, fake_data, fake_keys},
         mock_extensions::MockBuilder,
     };
 
+    use crate::entities::AggregatorEpochSettings;
     use crate::services::{
         MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
     };
+    use crate::store::FakeEpochSettingsStorer;
     use crate::test::TestLogger;
     use crate::test::double::mocks::MockCertificateVerifier;
 
@@ -239,6 +268,12 @@ mod tests {
 
     impl MithrilCertificateChainSynchronizer {
         fn default_for_test() -> Self {
+            Self::default_for_test_with_epoch_settings(vec![])
+        }
+
+        fn default_for_test_with_epoch_settings(
+            epoch_settings: Vec<(Epoch, AggregatorEpochSettings)>,
+        ) -> Self {
             let genesis_verification_key =
                 fake_keys::genesis_verification_key()[0].try_into().unwrap();
             Self::new(
@@ -249,6 +284,7 @@ mod tests {
                     genesis_verification_key,
                 )),
                 Arc::new(MockOpenMessageStorer::new()),
+                Arc::new(FakeEpochSettingsStorer::new(epoch_settings)),
                 TestLogger::stdout(),
             )
         }
@@ -630,6 +666,22 @@ mod tests {
             remote_chain: &CertificateChainFixture,
             storer: Arc<dyn SynchronizedCertificateStorer>,
         ) -> MithrilCertificateChainSynchronizer {
+            build_synchronizer_with_epoch_settings(remote_chain, storer, true)
+        }
+
+        fn build_synchronizer_with_epoch_settings(
+            remote_chain: &CertificateChainFixture,
+            storer: Arc<dyn SynchronizedCertificateStorer>,
+            expect_open_message_creation: bool,
+        ) -> MithrilCertificateChainSynchronizer {
+            let latest_epoch = remote_chain.latest_certificate().epoch;
+
+            let epoch_settings = if expect_open_message_creation {
+                vec![(latest_epoch, AggregatorEpochSettings::dummy())]
+            } else {
+                vec![]
+            };
+
             MithrilCertificateChainSynchronizer {
                 certificate_storer: storer.clone(),
                 remote_certificate_retriever:
@@ -643,17 +695,24 @@ mod tests {
                     }),
                 certificate_verifier: fake_verifier(remote_chain),
                 open_message_storer: MockBuilder::<MockOpenMessageStorer>::configure(|mock| {
-                    // Ensure that `store_open_message` is called
-                    let expected_msd_epoch = remote_chain.latest_certificate().epoch;
-                    mock.expect_insert_or_replace_open_message()
-                        .with(function(move |open_message: &OpenMessage| {
-                            open_message.signed_entity_type
-                                == SignedEntityType::MithrilStakeDistribution(expected_msd_epoch)
-                        }))
-                        .times(1..)
-                        .returning(|_| Ok(()));
+                    if expect_open_message_creation {
+                        let expected_msd_epoch = latest_epoch;
+                        mock.expect_insert_or_replace_open_message()
+                            .with(function(move |open_message: &OpenMessage| {
+                                open_message.signed_entity_type
+                                    == SignedEntityType::MithrilStakeDistribution(
+                                        expected_msd_epoch,
+                                    )
+                            }))
+                            .times(1..)
+                            .returning(|_| Ok(()));
+                    } else {
+                        mock.expect_insert_or_replace_open_message().never();
+                    }
                 }),
-                ..MithrilCertificateChainSynchronizer::default_for_test()
+                ..MithrilCertificateChainSynchronizer::default_for_test_with_epoch_settings(
+                    epoch_settings,
+                )
             }
         }
 
@@ -696,6 +755,24 @@ mod tests {
 
             // Force true - will sync
             synchronizer.synchronize_certificate_chain(true).await.unwrap();
+
+            let mut expected =
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
+            expected.reverse();
+            assert_eq!(expected, storer.stored_certificates());
+        }
+
+        #[tokio::test]
+        async fn skips_open_message_creation_when_epoch_settings_do_not_exist() {
+            let remote_chain = CertificateChainBuilder::default()
+                .with_certificates_per_epoch(1)
+                .with_total_certificates(5)
+                .build();
+            let storer = Arc::new(DumbCertificateStorer::default());
+            let synchronizer =
+                build_synchronizer_with_epoch_settings(&remote_chain, storer.clone(), false);
+
+            synchronizer.synchronize_certificate_chain(false).await.unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
