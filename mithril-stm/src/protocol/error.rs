@@ -1,4 +1,4 @@
-use crate::VerificationKeyForConcatenation;
+use crate::{RegistrationEntry, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
 use crate::VerificationKeyForSnark;
@@ -8,7 +8,7 @@ use crate::VerificationKeyForSnark;
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered(Box<VerificationKeyForConcatenation>),
+    EntryAlreadyRegistered(Box<RegistrationEntry>),
 
     /// Cannot register if the registration is closed.
     #[error("Cannot register if the registration is closed.")]
@@ -19,12 +19,12 @@ pub enum RegisterError {
     RegistrationIsNotClosed,
 
     /// The supplied concatenation key is not valid
-    #[error("The verification of correctness of the supplied key is invalid.")]
+    #[error("The verification of correctness of the supplied concatenation key is invalid.")]
     ConcatenationKeyInvalid(Box<VerificationKeyForConcatenation>),
 
     #[cfg(feature = "future_snark")]
     /// The supplied snark key is not valid
-    #[error("The verification of correctness of the supplied key is invalid.")]
+    #[error("The verification of correctness of the supplied SNARK key is invalid.")]
     SnarkKeyInvalid(Box<VerificationKeyForSnark>),
 
     /// Serialization error
@@ -38,4 +38,14 @@ pub enum RegisterError {
     /// No registration found for the given index.
     #[error("No registration found for the given index.")]
     UnregisteredIndex,
+
+    #[cfg(feature = "future_snark")]
+    /// Snark key is none
+    #[error("The verification key for snark is undefined.")]
+    SnarkKeyUndefined,
+
+    #[cfg(feature = "future_snark")]
+    /// Lottery target value is none
+    #[error("The lottery target value is undefined.")]
+    LotteryTargetValueUndefined,
 }

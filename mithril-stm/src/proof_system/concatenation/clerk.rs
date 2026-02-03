@@ -238,7 +238,7 @@ mod tests {
                 .iter()
                 .map(|sig| SingleSignatureWithRegisteredParty {
                     sig: sig.clone(),
-                    reg_party: clerk.closed_key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap().into(),
+                    reg_party: clerk.closed_key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap(),
                 })
                 .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 

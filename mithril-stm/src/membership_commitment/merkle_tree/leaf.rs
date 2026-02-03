@@ -253,7 +253,7 @@ mod tests {
 
             fn golden_value() -> MerkleTreeSnarkLeaf {
                 let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-                let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+                let sk = SchnorrSigningKey::generate(&mut rng);
                 let pk = VerificationKeyForSnark::new_from_signing_key(sk).unwrap();
                 let stake = BaseFieldElement(JubjubBase::from(1u64));
                 MerkleTreeSnarkLeaf(pk, stake)
@@ -282,7 +282,7 @@ mod tests {
 
             fn golden_value() -> MerkleTreeSnarkLeaf {
                 let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-                let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+                let sk = SchnorrSigningKey::generate(&mut rng);
                 let pk = VerificationKeyForSnark::new_from_signing_key(sk).unwrap();
                 let stake = BaseFieldElement(JubjubBase::from(1u64));
                 MerkleTreeSnarkLeaf(pk, stake)

@@ -153,7 +153,7 @@ mod tests {
         let msg = vec![0, 0, 0, 1];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
@@ -168,9 +168,9 @@ mod tests {
         let msg2 = vec![0, 0, 0, 2];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
-        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2).unwrap();
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
@@ -196,7 +196,7 @@ mod tests {
     fn from_bytes_signature_exact_size() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let msg = vec![1, 2, 3];
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
@@ -209,7 +209,7 @@ mod tests {
     fn from_bytes_signature_extra_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let msg = vec![1, 2, 3];
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
@@ -225,7 +225,7 @@ mod tests {
     fn to_bytes_is_deterministic() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let msg = vec![1, 2, 3];
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
 
@@ -240,7 +240,7 @@ mod tests {
     fn signature_roundtrip_preserves_verification() {
         let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
         let msg = vec![5, 6, 7, 8, 9];
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
         // Create and verify original signature
@@ -271,7 +271,7 @@ mod tests {
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             sk.sign(&msg, &mut rng).unwrap()
         }
@@ -300,7 +300,7 @@ mod tests {
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             sk.sign(&msg, &mut rng).unwrap()
         }

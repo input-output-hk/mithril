@@ -35,8 +35,7 @@ impl KeyRegistration {
             self.registration_entries.insert(*entry);
             return Ok(());
         }
-        // TODO: Update the error to include entry instead of bls key
-        Err(RegisterError::KeyRegistered(Box::new(entry.get_bls_verification_key())).into())
+        Err(RegisterError::EntryAlreadyRegistered(Box::new(*entry)).into())
     }
 
     /// Registers a new signer with the given verification key proof of possession and stake.
@@ -60,6 +59,7 @@ impl KeyRegistration {
     /// Closes the registration
     /// Computes the total stake and converts the registration entries into closed registration
     /// entries.
+    ///
     /// Returns the `ClosedKeyRegistration`.
     pub fn close_registration(self) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
@@ -76,7 +76,7 @@ impl KeyRegistration {
         let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
             .registration_entries
             .iter()
-            .map(|entry| entry.to_closed_registration_entry(total_stake))
+            .map(|entry| (*entry, total_stake).into())
             .collect();
 
         ClosedKeyRegistration {
@@ -98,17 +98,15 @@ pub struct ClosedKeyRegistration {
 
 impl ClosedKeyRegistration {
     /// Creates a Merkle tree from the closed registration entries
-    pub fn to_merkle_tree<
-        D: Digest + FixedOutput,
-        L: From<ClosedRegistrationEntry> + MerkleTreeLeaf,
-    >(
-        &self,
-    ) -> MerkleTree<D, L> {
+    pub fn to_merkle_tree<D: Digest + FixedOutput, L: MerkleTreeLeaf>(&self) -> MerkleTree<D, L>
+    where
+        Option<L>: From<ClosedRegistrationEntry>,
+    {
         MerkleTree::new(
             &self
                 .closed_registration_entries
                 .iter()
-                .map(|entry| (*entry).into())
+                .filter_map(|entry| (*entry).into())
                 .collect::<Vec<L>>(),
         )
     }
@@ -191,8 +189,8 @@ mod tests {
                                 assert!(keys.insert(entry));
                             },
                             Err(error) => match error.downcast_ref::<RegisterError>(){
-                                Some(RegisterError::KeyRegistered(e1)) => {
-                                    assert!(e1.as_ref() == &entry.get_bls_verification_key());
+                                Some(RegisterError::EntryAlreadyRegistered(e1)) => {
+                                    assert!(e1.as_ref() == &entry);
                                     assert!(keys.contains(&entry));
                                 },
                                 _ => {panic!("Unexpected error: {error}")}
