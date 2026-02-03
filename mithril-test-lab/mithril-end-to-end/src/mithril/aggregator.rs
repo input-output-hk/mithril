@@ -135,6 +135,10 @@ impl Aggregator {
                 "1",
             ),
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
+            (
+                "CARDANO_TRANSACTIONS_BLOCK_STREAMER_THROTTLING_INTERVAL",
+                "30",
+            ),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
             ("CUSTOM_ORIGIN_TAG_WHITE_LIST", "E2E"),
             ("SIGNATURE_PROCESSOR_WAIT_DELAY_ON_ERROR_MS", "100"),

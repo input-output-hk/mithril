@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
+- Add optional throttling to the Cardano transactions import in the signer and aggregator (enabled by default).
+
 - **UNSTABLE**:
   - Preliminary support for Cardano Blocks certification:
     - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.

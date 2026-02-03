@@ -1,6 +1,6 @@
 [package]
 name = "mithril-cardano-node-chain"
-version = "0.1.16"
+version = "0.1.17"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -36,4 +36,4 @@ mockall = { workspace = true }
 pallas-crypto = "0.34.0"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "test-util"] }

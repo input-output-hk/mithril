@@ -270,6 +270,11 @@ pub trait ConfigurationSource {
         );
     }
 
+    /// Minimum duration between two consecutive block streamer polls in milliseconds.
+    fn cardano_transactions_block_streamer_throttling_interval(&self) -> Option<u64> {
+        panic!("cardano_transactions_block_streamer_throttling_interval is not implemented.");
+    }
+
     /// Enable metrics server (Prometheus endpoint on /metrics).
     fn enable_metrics_server(&self) -> bool {
         panic!("enable_metrics_server is not implemented.");
@@ -605,6 +610,11 @@ pub struct ServeCommandConfiguration {
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 
+    /// Minimum duration between two consecutive block streamer polls in milliseconds `[default: 400]`.
+    ///
+    /// Set this value to `0` to disable throttling.
+    pub cardano_transactions_block_streamer_throttling_interval: Option<u64>,
+
     /// Enable metrics server (Prometheus endpoint on /metrics).
     pub enable_metrics_server: bool,
 
@@ -782,6 +792,7 @@ impl ServeCommandConfiguration {
             preload_security_parameter: BlockNumber(30),
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_throttling_interval: None,
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
@@ -959,6 +970,10 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.cardano_transactions_block_streamer_max_roll_forwards_per_poll
     }
 
+    fn cardano_transactions_block_streamer_throttling_interval(&self) -> Option<u64> {
+        self.cardano_transactions_block_streamer_throttling_interval
+    }
+
     fn enable_metrics_server(&self) -> bool {
         self.enable_metrics_server
     }
@@ -1064,6 +1079,9 @@ pub struct DefaultConfiguration {
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
 
+    /// Minimum duration between two consecutive block streamer polls in milliseconds.
+    pub cardano_transactions_block_streamer_throttling_interval: u64,
+
     /// Enable metrics server (Prometheus endpoint on /metrics).
     pub enable_metrics_server: String,
 
@@ -1109,6 +1127,7 @@ impl Default for DefaultConfiguration {
             preload_security_parameter: 2160,
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+            cardano_transactions_block_streamer_throttling_interval: 400,
             enable_metrics_server: "false".to_string(),
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
@@ -1177,6 +1196,11 @@ impl Source for DefaultConfiguration {
             result,
             &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
+        );
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_transactions_block_streamer_throttling_interval
         );
         register_config_value!(result, &namespace, myself.enable_metrics_server);
         register_config_value!(result, &namespace, myself.metrics_server_ip);
