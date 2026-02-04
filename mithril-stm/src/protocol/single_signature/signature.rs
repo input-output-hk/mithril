@@ -167,12 +167,28 @@ mod tests {
 
     use crate::{
         AggregateVerificationKey, Clerk, KeyRegistration, MithrilMembershipDigest, Parameters,
-        RegistrationEntry, Signer, SingleSignature,
+        RegistrationEntry, Signer, SingleSignature, StmResult,
         VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
         signature_scheme::BlsSigningKey,
     };
 
     type D = MithrilMembershipDigest;
+
+    trait IntoStmResult<T> {
+        fn into_stm_result(self) -> StmResult<T>;
+    }
+
+    impl<T> IntoStmResult<T> for T {
+        fn into_stm_result(self) -> StmResult<T> {
+            Ok(self)
+        }
+    }
+
+    impl<T> IntoStmResult<T> for StmResult<T> {
+        fn into_stm_result(self) -> StmResult<T> {
+            self
+        }
+    }
 
     fn build_single_signature_context() -> (
         Parameters,
@@ -214,7 +230,8 @@ mod tests {
                     .clone()
                     .key_registration
                     .into_merkle_tree()
-                    .unwrap(),
+                    .into_stm_result()
+                    .expect("merkle tree should be built"),
             ),
             closed_key_registration,
             params,
