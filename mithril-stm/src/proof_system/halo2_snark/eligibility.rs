@@ -1,8 +1,6 @@
 cfg_num_integer! {
     use num_bigint::BigInt;
     use num_rational::Ratio;
-    use num_rational::BigRational;
-    use std::ops::Neg;
 
     // Description of the math behind the computation we want to do
     //
@@ -19,24 +17,24 @@ cfg_num_integer! {
     // We can check instead (C * x)^N < epsilon
     // which gives us the bound N < log(epsilon) / log(|C*x|)
 
-    #[cfg(feature = "future_snark")]
-    fn compute_phi_fixed(x: Ratio<BigInt>, w: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
-        let mut phi = Ratio::zero();
-        let mut term = Ratio::one();
+    // #[cfg(feature = "future_snark")]
+    // fn compute_phi_fixed(x: Ratio<BigInt>, w: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
+    //     let mut phi = Ratio::zero();
+    //     let mut term = Ratio::one();
 
-        for n in 1..iterations {
-            // Calculate the next coefficient: term *= (k - (n-1)) / n
-            let multiplier = (&w - Ratio::from(BigInt::from(n - 1))) / Ratio::from(BigInt::from(n));
-            term = term * multiplier * &x;
+    //     for n in 1..iterations {
+    //         // Calculate the next coefficient: term *= (k - (n-1)) / n
+    //         let multiplier = (&w - Ratio::from(BigInt::from(n - 1))) / Ratio::from(BigInt::from(n));
+    //         term = term * multiplier * &x;
 
-            if n % 2 == 1 {
-                phi += &term;
-            } else {
-                phi -= &term;
-            }
-        }
-        phi
-    }
+    //         if n % 2 == 1 {
+    //             phi += &term;
+    //         } else {
+    //             phi -= &term;
+    //         }
+    //     }
+    //     phi
+    // }
 
 
     #[cfg(feature = "future_snark")]
@@ -71,10 +69,10 @@ cfg_num_integer! {
         // println!("modulus = {:?}", modulus);
 
         let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-        let c =
-            Ratio::from_float((1.0 - phi_f.clone()).ln()).expect("Only fails if the float is infinite or NaN.");
+        // let c =
+        //     Ratio::from_float((1.0 - phi_f.clone()).ln()).expect("Only fails if the float is infinite or NaN.");
         let c_2 =
-            Ratio::from_float((-phi_f.clone()).ln_1p()).expect("Only fails if the float is infinite or NaN.");
+            Ratio::from_float((-phi_f).ln_1p()).expect("Only fails if the float is infinite or NaN.");
 
         // println!("c = {:?}", c);
         // println!("c_2 = {:?}", c_2);
@@ -110,7 +108,7 @@ cfg_num_integer! {
         // Floor division
         let (t_int, remainder) = t_taylor.numer().div_rem(t_taylor.denom());
         assert!(t_int >= BigInt::zero());
-        println!("t_int = {:?}", t_int);
+        // println!("t_int = {:?}", t_int);
 
         // If exact division and t_int > 0, subtract 1
         let target = if remainder.is_zero() && !t_int.is_zero() {
@@ -143,21 +141,21 @@ cfg_rug! {
 
         // let modulus = Integer::from(1u64<<16);
 
-        println!("modulus = {:?}", modulus);
+        // println!("modulus = {:?}", modulus);
 
         let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
         let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w.clone());
 
         // increase precision
         let phi_high = Float::with_val(300, phi.clone());
-        println!("phi_high = {:?}", phi_high);
+        // println!("phi_high = {:?}", phi_high);
 
         let t = modulus * phi_high;
-        println!("t_rug = {:?}", t);
+        // println!("t_rug = {:?}", t);
 
         let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
         assert!(t_int >= 0);
-        println!("t_int = {:?}", t_int);
+        // println!("t_int = {:?}", t_int);
 
         let target: Integer = match order {
             Ordering::Less => t_int,
@@ -170,10 +168,6 @@ cfg_rug! {
         target.to_digits(Order::LsfLe)
     }
 }
-
-use core::num;
-
-use num_traits::{One, Signed, Zero};
 
 #[cfg(feature = "future_snark")]
 use crate::{
@@ -335,6 +329,7 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         /// Checking that following stakes always have the same order.
         fn following_stake_same_order(
             phi_f in 0.01..0.5f64,
@@ -345,6 +340,48 @@ mod tests {
             let next_target = compute_target_value(phi_f, stake + 1, total_stake);
 
             assert!(base_target < next_target);
+        }
+
+        #[test]
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+        /// Checking that following stakes always have the same order.
+        fn following_small_stake_same_order(
+            phi_f in 0.01..0.5f64,
+            total_stake in 100_000_000..1_000_000_000u64,
+            stake in 100_000..500_000u64,
+        ) {
+            let base_target = compute_target_value(phi_f, stake, total_stake);
+            let next_target = compute_target_value(phi_f, stake + 1, total_stake);
+
+            assert!(base_target < next_target);
+        }
+
+        #[test]
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+        /// Checking that following stakes always have the same order.
+        fn same_stake_same_result(
+            phi_f in 0.01..0.5f64,
+            total_stake in 100_000_000..1_000_000_000u64,
+            stake in 10_000_000..50_000_000u64,
+        ) {
+            let target = compute_target_value(phi_f, stake, total_stake);
+            let same_target = compute_target_value(phi_f, stake, total_stake);
+
+            assert!(target == same_target);
+        }
+
+        #[test]
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+        /// Checking that following stakes always have the same order.
+        fn same_small_stake_same_result(
+            phi_f in 0.01..0.5f64,
+            total_stake in 100_000_000..1_000_000_000u64,
+            stake in 100_000..500_000u64,
+        ) {
+            let target = compute_target_value(phi_f, stake, total_stake);
+            let same_target = compute_target_value(phi_f, stake, total_stake);
+
+            assert!(target == same_target);
         }
 
     }
