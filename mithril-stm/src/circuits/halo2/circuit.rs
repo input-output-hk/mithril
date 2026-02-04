@@ -24,7 +24,7 @@ type C = Jubjub;
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
-    // k in mithril: the required number of signatures for a valid certificate
+    // k in mithril: the required number of distinct lottery indices slots needed to create a valid multi-signature
     quorum: u32,
     // m in mithril: the number of lotteries that a user can participate in to sign a message
     num_lotteries: u32,
