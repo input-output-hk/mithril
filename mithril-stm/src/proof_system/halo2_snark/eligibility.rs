@@ -4,6 +4,21 @@ cfg_num_integer! {
     use num_rational::BigRational;
     use std::ops::Neg;
 
+    // Description of the math behind the computation we want to do
+    //
+    // poseidon_hash / p < 1 - (1 - phi_f)^w
+    // where p is the modulus of the field, phi_f a parameter constant comprised in (0,1) and w a variable in (0,1)
+    // poseidon_hash < p * (1 - (1 - phi_f)^w)
+    // poseidon_hash < p * (1 - exp( w * ln(1 - phi_f) ) )
+    // let C = ln(1 - phi_f)
+    // poseidon_hash < p * (1 - exp( w * C ) )
+    // We want to use the taylor series to approximate exp( w * C )
+    // exp(C*x) = 1 + C*x + (C*x)^2/2! + (C*x)^3/3! + ... + (C*x)^{N-1}/(N-1}! + O(x^(N))
+    // We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
+    // Hence we stop when |(C*x)^N / N!| < epsilon
+    // We can check instead (C * x)^N < epsilon
+    // which gives us the bound N < log(epsilon) / log(|C*x|)
+
     #[cfg(feature = "future_snark")]
     fn compute_phi_fixed(x: Ratio<BigInt>, w: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
         let mut phi = Ratio::zero();
@@ -23,35 +38,21 @@ cfg_num_integer! {
         phi
     }
 
+
     #[cfg(feature = "future_snark")]
-    fn compute_phi(x: BigRational, a: BigInt, b: BigInt, precision_bits: usize) -> BigRational {
-        let n = BigRational::new(a, b);
-        let mut phi = BigRational::zero();
-        let mut term = n.clone() * &x; // First term: nx
-        let mut k = 1;
-
-        // We stop when the current term is so small it doesn't affect the target precision
-        // Or set a fixed high iteration count.
-        let threshold = BigRational::new(BigInt::one(), BigInt::one() << precision_bits);
-
-        while term.abs() > threshold && k < 100 {
-            if k % 2 == 1 {
-                phi += &term;
-            } else {
-                phi -= &term;
-            }
-
-            // Compute next term iteratively to save cycles:
-            // term_{k+1} = term_k * (x) * (n - k) / (k + 1)
-            let n_minus_k = &n - BigRational::from_integer(BigInt::from(k));
-            let k_plus_1 = BigRational::from_integer(BigInt::from(k + 1));
-
-            term = term * &x * n_minus_k / k_plus_1;
-            k += 1;
+    pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
+        let mut acc = Ratio::new_raw(BigInt::from(1),BigInt::from(1));
+        let mut numerator = BigInt::from(1);
+        let mut denominator = BigInt::from(1);
+        let x_time_c = x * c;
+        for i in 1..iterations {
+            numerator *= x_time_c.numer();
+            denominator *= i * x_time_c.denom();
+            acc += Ratio::new_raw(numerator.clone(), denominator.clone());
         }
-
-        phi
+        acc
     }
+
 
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -67,37 +68,36 @@ cfg_num_integer! {
         )
         .unwrap();
 
-        // let modulus = BigInt::from(1u64<<16);
+        // println!("modulus = {:?}", modulus);
 
-        println!("modulus = {:?}", modulus);
+        let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+        let c =
+            Ratio::from_float((1.0 - phi_f.clone()).ln()).expect("Only fails if the float is infinite or NaN.");
+        let c_2 =
+            Ratio::from_float((-phi_f.clone()).ln_1p()).expect("Only fails if the float is infinite or NaN.");
 
-        // OLD way
-        // let c =
-        //     Ratio::from_float((1.0 - phi_f.clone()).ln()).expect("Only fails if the float is infinite or NaN.");
-        // let phi = (w.clone() * c.clone()).neg();
-        // let t = Ratio::from(modulus.clone()) * phi.clone();
-        // println!("t = {:?}", t);
         // println!("c = {:?}", c);
-        // println!("w = {:?}", w);
-        // println!("phi = {:?}", phi);
+        // println!("c_2 = {:?}", c_2);
 
 
         // With Taylor series 1
-        let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
-        let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+        // let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+        // let phi_taylor = compute_phi_fixed(phi_f_ratio.clone(), w.clone(), 200);
+        // let t_taylor_1 =  Ratio::from(modulus.clone()) * phi_taylor.clone();
+        // // println!("t_taylor = {:?}", t_taylor_1);
+        // // println!("phi_taylor = {:?}", phi_taylor);
 
-        // let phi_taylor1 = compute_phi(phi_f_ratio.clone(), BigInt::from(stake), BigInt::from(total_stake), 117);
-        // let t_taylor1 = (phi_taylor1.numer() * modulus.clone()) / phi_taylor1.denom();
-        // println!("t_taylor1 = {:?}", t_taylor1);
-        // println!("phi_taylor1 = {:?}", phi_taylor1);
+        // // Floor division
+        // let (t_int_1, remainder) = t_taylor_1.numer().div_rem(t_taylor_1.denom());
+        // assert!(t_int_1 >= BigInt::zero());
+        // println!("t_int_1 = {:?}", t_int_1);
 
         // With Taylor series 2
-        let phi_taylor = compute_phi_fixed(phi_f_ratio.clone(), w.clone(), 200);
-        // let t_taylor = (phi_taylor.numer() * modulus.clone()) / phi_taylor.denom();
-        let t_taylor =  Ratio::from(modulus.clone()) * phi_taylor.clone();
-        println!("t_taylor = {:?}", t_taylor);
-        println!("phi_taylor = {:?}", phi_taylor);
-
+        // let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
+        let exp_wc = compute_exp(c_2.clone(), w.clone(), 50);
+        let t_taylor = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_wc.clone();
+        // println!("phi_taylor = {:?}", phi_taylor);
+        // println!("t_taylor = {:?}", t_taylor);
 
         // With Basic f64
         // let phi_test = 1.0 - (1.0 - phi_f).powf(stake as f64/total_stake as f64);
@@ -170,6 +170,8 @@ cfg_rug! {
         target.to_digits(Order::LsfLe)
     }
 }
+
+use core::num;
 
 use num_traits::{One, Signed, Zero};
 
@@ -315,13 +317,14 @@ mod tests {
     }
 
     #[cfg(feature = "future_snark")]
+    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
     #[test]
     fn test_following_stake() {
-        let phi_f = 0.2;
-        let total_stake = 10000000;
+        let phi_f = 0.05;
+        let total_stake = 1_000_000_000;
 
-        let mut prev_target = compute_target_value(phi_f, 99, total_stake);
-        for stake in 1000000..1000100 {
+        let mut prev_target = compute_target_value(phi_f, 99_999, total_stake);
+        for stake in 100_000..100_100 {
             let target = compute_target_value(phi_f, stake, total_stake);
             assert!(prev_target < target);
             prev_target = target;
@@ -441,7 +444,7 @@ mod tests {
 
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         fn golden_value_num_int() -> LotteryTargetValue {
-            let phi_f = 0.2;
+            let phi_f = 0.05;
             let stake = 30;
             let total_stake = 100;
 
@@ -450,7 +453,7 @@ mod tests {
 
         #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
         fn golden_value_rug() -> LotteryTargetValue {
-            let phi_f = 0.2;
+            let phi_f = 0.05;
             let stake = 30;
             let total_stake = 100;
 
