@@ -50,7 +50,7 @@ Note that all three phases require a set of parties (`P` in the paper) to be fix
 three important parameters are generated:
 
 - `m`: defines the number of lotteries that a single user can participate in to sign a message
-- `k`: defines the the required number of distinct lottery indices slots needed to create a valid multi-signature
+- `k`: defines the required number of distinct lottery indices needed to create a valid multi-signature
 - `phi_f` (as denoted in the library): defines the chance of a signer to win a lottery.
 
 :::
