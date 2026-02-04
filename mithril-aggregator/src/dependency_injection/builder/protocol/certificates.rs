@@ -105,6 +105,7 @@ impl DependenciesBuilder {
                     verifier,
                     self.get_genesis_verifier().await?,
                     self.get_open_message_repository().await?,
+                    self.get_epoch_settings_store().await?,
                     self.root_logger(),
                 ))
             } else {
