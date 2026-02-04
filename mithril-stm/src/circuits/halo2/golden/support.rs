@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::io::Cursor;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 
 use ff::Field;
@@ -22,6 +24,18 @@ use crate::circuits::test_utils::setup::{generate_params, load_params};
 type F = JubjubBase;
 
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
+type VkPkPair = (MidnightVK, MidnightPK<StmCircuit>);
+type VkPkCache = HashMap<VkPkKey, Arc<VkPkPair>>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct VkPkKey {
+    k: u32,
+    quorum: u32,
+    num_lotteries: u32,
+    merkle_tree_depth: u32,
+}
+
+static VKPK_CACHE: OnceLock<Mutex<VkPkCache>> = OnceLock::new();
 
 /// Shared environment for STM circuit golden cases (SRS, relation, keys, sizing).
 pub(crate) struct StmCircuitEnv {
@@ -205,11 +219,14 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
         println!("{:?}", zk::cost_model(&relation));
     }
 
-    let start = Instant::now();
-    let vk = zk::setup_vk(&srs, &relation);
-    let pk = zk::setup_pk(&relation, &vk);
-    let duration = start.elapsed();
-    println!("\nvk pk generation took: {:?}", duration);
+    let key = VkPkKey {
+        k,
+        quorum,
+        num_lotteries,
+        merkle_tree_depth: depth,
+    };
+    let vkpk = get_or_build_vkpk(key, &relation, &srs);
+    let (vk, pk) = (&vkpk.0, &vkpk.1);
 
     {
         let mut buffer = Cursor::new(Vec::new());
@@ -220,8 +237,8 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
     StmCircuitEnv {
         srs,
         relation,
-        vk,
-        pk,
+        vk: vk.clone(),
+        pk: pk.clone(),
         num_signers,
         num_lotteries,
     }
@@ -395,4 +412,21 @@ fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
 
     create_dir_all(&assets_dir).unwrap();
     generate_params(k, path.to_string_lossy().as_ref())
+}
+
+fn get_or_build_vkpk(key: VkPkKey, relation: &StmCircuit, srs: &ParamsKZG<Bls12>) -> Arc<VkPkPair> {
+    let cache = VKPK_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(vkpk) = cache.lock().unwrap().get(&key).cloned() {
+        return vkpk;
+    }
+
+    let start = Instant::now();
+    let vk = zk::setup_vk(srs, relation);
+    let pk = zk::setup_pk(relation, &vk);
+    let duration = start.elapsed();
+    println!("\nvk pk generation took: {:?}", duration);
+
+    let vkpk = Arc::new((vk, pk));
+    cache.lock().unwrap().insert(key, vkpk.clone());
+    vkpk
 }
