@@ -18,6 +18,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE**:
   - Preliminary support for Cardano Blocks certification:
     - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.
+  - Added a **DMQ consumer deduplicator** to avoid processing the same message multiple times in case of reconnection to the DMQ server.
 
 ## Mithril Distribution [2603.1] - 2026-01-29
 
