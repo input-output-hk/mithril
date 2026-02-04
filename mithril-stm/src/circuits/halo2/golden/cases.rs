@@ -577,3 +577,118 @@ fn path_other_leaf() {
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
+
+/// Mutation: leaf and Merkle path come from different signers; expected to fail verification.
+#[test]
+fn leaf_path_mismatch() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("leaf_path_mismatch", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness =
+        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+
+    let mut mismatch_idx = None;
+    for i in 0..witness.len() {
+        for j in (i + 1)..witness.len() {
+            if witness[i].0.to_bytes() != witness[j].0.to_bytes() {
+                mismatch_idx = Some((i, j));
+                break;
+            }
+        }
+        if mismatch_idx.is_some() {
+            break;
+        }
+    }
+    let (i, j) = mismatch_idx.expect("expected at least two distinct leaves in witness");
+
+    // Keep leaf/signature/index from i, but swap in j's Merkle path.
+    witness[i].1 = witness[j].1.clone();
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
+
+/// Mutation: leaf verification key is swapped while keeping target/path/signature; expected to fail verification.
+#[test]
+fn wrong_vk() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("wrong_vk", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness =
+        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+
+    let mut mismatch_idx = None;
+    for i in 0..witness.len() {
+        for j in (i + 1)..witness.len() {
+            if witness[i].0.to_bytes() != witness[j].0.to_bytes() {
+                mismatch_idx = Some((i, j));
+                break;
+            }
+        }
+        if mismatch_idx.is_some() {
+            break;
+        }
+    }
+    let (i, j) = mismatch_idx.expect("expected at least two distinct leaves in witness");
+
+    // Keep target/path/signature/index from i, but swap in j's verification key.
+    let target = witness[i].0.1;
+    let vk = witness[j].0.0;
+    witness[i].0 = crate::circuits::halo2::off_circuit::merkle_tree::MTLeaf(vk, target);
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
+
+/// Mutation: leaf target is too small (target < ev); expected to fail verification.
+#[test]
+fn target_lt_ev() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("target_lt_ev", K, QUORUM);
+    let depth = env.num_signers().next_power_of_two().trailing_zeros();
+    let signer_index = 0usize;
+    let (sks, leaves, merkle_tree) =
+        create_merkle_tree_with_controlled_leaf(depth, signer_index, JubjubBase::ZERO);
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![5, 17, 25];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let witness = build_witness_with_fixed_signer(
+        &sks,
+        &leaves,
+        &merkle_tree,
+        signer_index,
+        merkle_root,
+        msg,
+        &indices,
+    );
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
