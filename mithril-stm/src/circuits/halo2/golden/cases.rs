@@ -692,3 +692,68 @@ fn target_lt_ev() {
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
+
+/// Malformed witness length panics during synthesis; expected to fail verification once hardened.
+#[should_panic]
+#[test]
+fn wrong_witness_len_short() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("wrong_witness_len_short", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let mut witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, QUORUM);
+    witness.pop();
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
+
+/// Malformed witness length panics during synthesis; expected to fail verification once hardened.
+#[should_panic]
+#[test]
+fn wrong_witness_len_long() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("wrong_witness_len_long", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let mut witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, QUORUM);
+    let extra = witness.last().cloned().expect("expected non-empty witness");
+    witness.push(extra);
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
+
+/// Mutation: duplicate a valid witness entry (index/signature/leaf/path); expected to fail verification.
+#[test]
+fn duplicate_entries() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = JubjubBase::from(42);
+
+    let env = setup_stm_circuit_env("duplicate_entries", K, QUORUM);
+    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let merkle_root = merkle_tree.root();
+
+    let m = env.num_lotteries();
+    let indices = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m));
+
+    let mut witness =
+        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+    witness[1] = witness[0].clone();
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+}
