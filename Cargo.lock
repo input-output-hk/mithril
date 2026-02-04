@@ -4224,7 +4224,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "async-trait",

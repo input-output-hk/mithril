@@ -8,8 +8,11 @@ pub mod test;
 
 #[cfg(unix)]
 pub use consumer::DmqConsumerServerPallas;
-pub use consumer::{DmqConsumerClient, DmqConsumerClientPallas, DmqConsumerServer};
-pub use model::{DmqMessage, DmqMessageBuilder, DmqNetwork};
+pub use consumer::{
+    DMQ_MESSAGE_DEDUPLICATOR_TTL, DmqConsumerClient, DmqConsumerClientDeduplicator,
+    DmqConsumerClientPallas, DmqConsumerServer,
+};
+pub use model::{DmqMessage, DmqMessageBuilder, DmqNetwork, SystemUnixTimestampProvider};
 #[cfg(unix)]
 pub use publisher::DmqPublisherServerPallas;
 pub use publisher::{DmqPublisherClient, DmqPublisherClientPallas, DmqPublisherServer};
