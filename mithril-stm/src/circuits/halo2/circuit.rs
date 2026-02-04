@@ -23,7 +23,7 @@ type F = JubjubBase;
 type C = Jubjub;
 
 #[derive(Clone, Default, Debug)]
-pub struct Circuit {
+pub struct StmCircuit {
     // k in mithril: the required number of signatures for a valid certificate
     quorum: u32,
     // m in mithril: the number of lotteries that a user can participate in to sign a message
@@ -31,7 +31,7 @@ pub struct Circuit {
     merkle_tree_depth: u32,
 }
 
-impl Circuit {
+impl StmCircuit {
     pub fn new(quorum: u32, num_lotteries: u32, merkle_tree_depth: u32) -> Self {
         Self {
             quorum,
@@ -41,7 +41,7 @@ impl Circuit {
     }
 }
 
-impl Relation for Circuit {
+impl Relation for StmCircuit {
     type Instance = (MerkleRoot, Msg);
     type Witness = Vec<(MTLeaf, MerklePath, Signature, LotteryIndex)>;
 
@@ -207,7 +207,7 @@ impl Relation for Circuit {
         let num_lotteries = u32::from_le_bytes(num_lotteries_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
 
-        // Construct and return the `Circuit` instance.
+        // Construct and return the `StmCircuit` instance.
         Ok(Self {
             quorum,
             num_lotteries,

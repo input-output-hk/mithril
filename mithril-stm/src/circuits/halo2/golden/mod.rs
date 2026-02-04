@@ -1,4 +1,4 @@
-//! Golden tests lock in Halo2 circuit behavior for safe refactors and hardening.
+//! Golden tests lock in Halo2 STM circuit behavior for safe refactors and hardening.
 //! cases.rs holds the test cases; support.rs provides shared helpers and witness builders.
 //! Includes baseline plus positive and negative scenarios.
 
