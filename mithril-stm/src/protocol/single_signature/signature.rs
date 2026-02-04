@@ -166,10 +166,66 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
-        KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-        SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
-        proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
+        AggregateVerificationKey, Clerk, KeyRegistration, MithrilMembershipDigest, Parameters,
+        RegistrationEntry, Signer, SingleSignature,
+        VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+        signature_scheme::BlsSigningKey,
     };
+
+    type D = MithrilMembershipDigest;
+
+    fn build_single_signature_context() -> (
+        Parameters,
+        Signer<D>,
+        VerificationKeyProofOfPossessionForConcatenation,
+        VerificationKeyProofOfPossessionForConcatenation,
+        AggregateVerificationKey<D>,
+        [u8; 16],
+    ) {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let message = [42u8; 16];
+        let params = Parameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.8,
+        };
+
+        let sk_1 = BlsSigningKey::generate(&mut rng);
+        let sk_2 = BlsSigningKey::generate(&mut rng);
+        let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
+        let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
+
+        let mut registration = KeyRegistration::initialize();
+        let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+        let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+        registration.register_by_entry(&entry1).unwrap();
+        registration.register_by_entry(&entry2).unwrap();
+
+        let closed_key_registration = registration.close_registration();
+        let signer: Signer<D> = Signer::new(
+            1,
+            ConcatenationProofSigner::new(
+                1,
+                2,
+                params,
+                sk_1,
+                pk_1.vk,
+                closed_key_registration
+                    .clone()
+                    .key_registration
+                    .into_merkle_tree()
+                    .unwrap(),
+            ),
+            closed_key_registration,
+            params,
+            1,
+        );
+
+        let clerk = Clerk::new_clerk_from_signer(&signer);
+        let avk = clerk.compute_aggregate_verification_key();
+
+        (params, signer, pk_1, pk_2, avk, message)
+    }
 
     mod golden {
         use super::*;
@@ -321,5 +377,47 @@ mod tests {
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
+    }
+
+    #[test]
+    fn verify_fails_with_wrong_verification_key() {
+        let (params, signer, _pk_1, pk_2, avk, message) = build_single_signature_context();
+        let signature = signer
+            .create_single_signature(&message)
+            .expect("signature should be created");
+
+        let result = signature.verify(&params, &pk_2.vk, &1, &avk, &message);
+        assert!(result.is_err(), "Verification should fail with wrong VK");
+    }
+
+    #[test]
+    fn verify_fails_with_out_of_bounds_index() {
+        let (params, signer, pk_1, _pk_2, avk, message) = build_single_signature_context();
+        let mut signature = signer
+            .create_single_signature(&message)
+            .expect("signature should be created");
+
+        signature.set_concatenation_signature_indices(&[params.m + 1]);
+
+        let result = signature.verify(&params, &pk_1.vk, &1, &avk, &message);
+        assert!(
+            result.is_err(),
+            "Verification should fail with invalid index"
+        );
+    }
+
+    #[test]
+    fn verify_fails_with_wrong_message() {
+        let (params, signer, pk_1, _pk_2, avk, message) = build_single_signature_context();
+        let signature = signer
+            .create_single_signature(&message)
+            .expect("signature should be created");
+        let wrong_message = [43u8; 16];
+
+        let result = signature.verify(&params, &pk_1.vk, &1, &avk, &wrong_message);
+        assert!(
+            result.is_err(),
+            "Verification should fail with wrong message"
+        );
     }
 }
