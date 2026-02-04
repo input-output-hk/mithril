@@ -50,6 +50,14 @@ impl<M: TryFromBytes + TryToBytes + Debug + Send + Sync + Clone + Eq>
         }
     }
 
+    /// Creates a new `DmqConsumerClientDeduplicator` with the default TTL.
+    pub fn new_with_default_ttl(
+        inner: Arc<dyn DmqConsumerClient<M>>,
+        timestamp_provider: Arc<dyn UnixTimestampProvider>,
+    ) -> Self {
+        Self::new(inner, timestamp_provider, DMQ_MESSAGE_DEDUPLICATOR_TTL)
+    }
+
     /// Computes a key for the message to be used in the seen messages cache.
     fn try_compute_message_key(&self, message: &M) -> StdResult<MessageKey> {
         let mut hasher = Blake2b::<U64>::new();
@@ -76,7 +84,7 @@ impl<M: TryFromBytes + TryToBytes + Debug + Send + Sync + Clone + Eq>
     }
 
     /// Checks if a message has already been seen.
-    async fn message_has_been_seen(&self, message: &M) -> StdResult<bool> {
+    async fn has_message_been_seen(&self, message: &M) -> StdResult<bool> {
         let seen_messages = self.seen_messages.lock().await;
 
         Ok(seen_messages.contains_key(&self.try_compute_message_key(message)?))
@@ -128,7 +136,7 @@ impl<M: TryFromBytes + TryToBytes + Debug + Send + Sync + Clone + Eq + Clone> Dm
 
         let mut deduplicated_messages = Vec::new();
         for (message, party_id) in messages {
-            if !self.message_has_been_seen(&message).await? {
+            if !self.has_message_been_seen(&message).await? {
                 self.mark_message_as_seen(message.clone(), current_timestamp).await?;
                 deduplicated_messages.push((message, party_id));
             }

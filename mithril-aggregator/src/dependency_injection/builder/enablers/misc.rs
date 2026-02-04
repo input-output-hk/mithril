@@ -12,8 +12,7 @@ use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::messages::RegisterSignatureMessageDmq;
 use mithril_dmq::{
-    DMQ_MESSAGE_DEDUPLICATOR_TTL, DmqConsumerClientDeduplicator, DmqConsumerClientPallas,
-    SystemUnixTimestampProvider,
+    DmqConsumerClientDeduplicator, DmqConsumerClientPallas, SystemUnixTimestampProvider,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
@@ -93,11 +92,11 @@ impl DependenciesBuilder {
                         self.configuration.get_dmq_network()?,
                         self.root_logger(),
                     ));
-                let dmq_consumer_deduplicator = Arc::new(DmqConsumerClientDeduplicator::new(
-                    dmq_consumer,
-                    Arc::new(SystemUnixTimestampProvider),
-                    DMQ_MESSAGE_DEDUPLICATOR_TTL,
-                ));
+                let dmq_consumer_deduplicator =
+                    Arc::new(DmqConsumerClientDeduplicator::new_with_default_ttl(
+                        dmq_consumer,
+                        Arc::new(SystemUnixTimestampProvider),
+                    ));
                 Arc::new(SignatureConsumerDmq::new(dmq_consumer_deduplicator))
                     as Arc<dyn SignatureConsumer>
             }
