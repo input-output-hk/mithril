@@ -2,8 +2,6 @@
 //! cases.rs holds the test cases; support.rs provides shared helpers and witness builders.
 //! Includes baseline plus positive and negative scenarios.
 
-#[cfg(test)]
 pub(crate) mod support;
 
-#[cfg(test)]
 pub(crate) mod cases;
