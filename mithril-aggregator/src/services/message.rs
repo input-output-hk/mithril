@@ -9,7 +9,7 @@ use mithril_common::{
     StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
     messages::{
-        CardanoBlockTransactionsSnapshotListMessage, CardanoBlockTransactionsSnapshotMessage,
+        CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
         CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
@@ -116,16 +116,16 @@ pub trait MessageService: Sync + Send {
     ) -> StdResult<CardanoTransactionSnapshotListMessage>;
 
     /// Return the information regarding the Cardano blocks transactions set for the given identifier.
-    async fn get_cardano_block_transactions_message(
+    async fn get_cardano_blocks_transactions_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoBlockTransactionsSnapshotMessage>>;
+    ) -> StdResult<Option<CardanoBlocksTransactionsSnapshotMessage>>;
 
     /// Return the list of the last Cardano blocks transactions set message.
-    async fn get_cardano_block_transactions_list_message(
+    async fn get_cardano_blocks_transactions_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoBlockTransactionsSnapshotListMessage>;
+    ) -> StdResult<CardanoBlocksTransactionsSnapshotListMessage>;
 
     /// Return the information regarding the Cardano stake distribution for the given identifier.
     async fn get_cardano_stake_distribution_message(
@@ -369,19 +369,19 @@ impl MessageService for MithrilMessageService {
         entities.into_iter().map(|i| i.try_into()).collect()
     }
 
-    async fn get_cardano_block_transactions_message(
+    async fn get_cardano_blocks_transactions_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoBlockTransactionsSnapshotMessage>> {
+    ) -> StdResult<Option<CardanoBlocksTransactionsSnapshotMessage>> {
         let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
 
-    async fn get_cardano_block_transactions_list_message(
+    async fn get_cardano_blocks_transactions_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoBlockTransactionsSnapshotListMessage> {
+    ) -> StdResult<CardanoBlocksTransactionsSnapshotListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoBlocksTransactions;
         let entities = self
             .signed_entity_storer
@@ -1325,11 +1325,11 @@ mod tests {
             assert_eq!(message, response);
         }
     }
-    mod cardano_block_transactions {
+    mod cardano_blocks_transactions {
         use super::*;
 
         #[tokio::test]
-        async fn get_cardano_block_transactions() {
+        async fn get_cardano_blocks_transactions() {
             let record = SignedEntityRecord {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
@@ -1337,14 +1337,14 @@ mod tests {
                     BlockNumber(120),
                 ),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_block_transactions_snapshot(
+                artifact: serde_json::to_string(&fake_data::cardano_blocks_transactions_snapshot(
                     BlockNumber(1),
                     BlockNumber(15),
                 ))
                 .unwrap(),
                 created_at: Default::default(),
             };
-            let message: CardanoBlockTransactionsSnapshotMessage =
+            let message: CardanoBlocksTransactionsSnapshotMessage =
                 record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
@@ -1353,20 +1353,20 @@ mod tests {
                 .await;
 
             let response = service
-                .get_cardano_block_transactions_message(&record.signed_entity_id)
+                .get_cardano_blocks_transactions_message(&record.signed_entity_id)
                 .await
                 .unwrap()
-                .expect("A CardanoBlockTransactionsMessage was expected.");
+                .expect("A CardanoBlocksTransactionsMessage was expected.");
 
             assert_eq!(message, response);
         }
 
         #[tokio::test]
-        async fn get_cardano_block_transactions_not_exist() {
+        async fn get_cardano_blocks_transactions_not_exist() {
             let service = MessageServiceBuilder::new().build().await;
 
             let response = service
-                .get_cardano_block_transactions_message("whatever")
+                .get_cardano_blocks_transactions_message("whatever")
                 .await
                 .unwrap();
 
@@ -1374,7 +1374,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_cardano_block_transactions_list_message() {
+        async fn get_cardano_blocks_transactions_list_message() {
             let records = vec![
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-1".to_string(),
@@ -1384,7 +1384,7 @@ mod tests {
                     ),
                     certificate_id: "cert_id-1".to_string(),
                     artifact: serde_json::to_string(
-                        &fake_data::cardano_block_transactions_snapshot(
+                        &fake_data::cardano_blocks_transactions_snapshot(
                             BlockNumber(1),
                             BlockNumber(15),
                         ),
@@ -1401,7 +1401,7 @@ mod tests {
                     created_at: Default::default(),
                 },
             ];
-            let message: CardanoBlockTransactionsSnapshotListMessage =
+            let message: CardanoBlocksTransactionsSnapshotListMessage =
                 vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
@@ -1409,10 +1409,10 @@ mod tests {
                 .build()
                 .await;
 
-            let response = service.get_cardano_block_transactions_list_message(0).await.unwrap();
+            let response = service.get_cardano_blocks_transactions_list_message(0).await.unwrap();
             assert!(response.is_empty());
 
-            let response = service.get_cardano_block_transactions_list_message(3).await.unwrap();
+            let response = service.get_cardano_blocks_transactions_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }

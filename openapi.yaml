@@ -573,7 +573,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoBlockTransactionsSnapshotListMessage"
+                $ref: "#/components/schemas/CardanoBlocksTransactionsSnapshotListMessage"
         default:
           description: Cardano blocks and transactions set snapshots retrieval error
           content:
@@ -602,7 +602,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoBlockTransactionsSnapshotMessage"
+                $ref: "#/components/schemas/CardanoBlocksTransactionsSnapshotMessage"
         "404":
           description: Cardano block and transactions set snapshot not found
         default:
@@ -2634,8 +2634,8 @@ components:
             "created_at": "2022-06-14T10:52:31Z"
           }
 
-    CardanoBlockTransactionsSnapshotListMessage:
-      description: CardanoBlockTransactionsSnapshotListMessage represents a list of Cardano blocks and transactions set snapshots
+    CardanoBlocksTransactionsSnapshotListMessage:
+      description: CardanoBlocksTransactionsSnapshotListMessage represents a list of Cardano blocks and transactions set snapshots
       type: array
       items:
         type: object
@@ -2664,11 +2664,11 @@ components:
           epoch:
             $ref: "#/components/schemas/Epoch"
           block_number_signed:
-            description: Block number of the Cardano block transactions snapshot
+            description: Block number of the Cardano blocks transactions snapshot
             type: integer
             format: int64
           block_number_tip:
-            description: The approximate block number tip of the Cardano block transactions snapshot
+            description: The approximate block number tip of the Cardano blocks transactions snapshot
             type: integer
             format: int64
           created_at:
@@ -2686,8 +2686,8 @@ components:
               "created_at": "2022-06-14T10:52:31Z"
             }
 
-    CardanoBlockTransactionsSnapshotMessage:
-      description: This message represents a Cardano transactions set snapshot.
+    CardanoBlocksTransactionsSnapshotMessage:
+      description: This message represents a Cardano blocks and transactions set snapshot.
       type: object
       additionalProperties: false
       required:
@@ -2714,11 +2714,11 @@ components:
         epoch:
           $ref: "#/components/schemas/Epoch"
         block_number_signed:
-          description: Block number of the Cardano block transactions snapshot
+          description: Block number of the Cardano blocks transactions snapshot
           type: integer
           format: int64
         block_number_tip:
-          description: The approximate block number tip of the Cardano block transactions snapshot
+          description: The approximate block number tip of the Cardano blocks transactions snapshot
           type: integer
           format: int64
         created_at:

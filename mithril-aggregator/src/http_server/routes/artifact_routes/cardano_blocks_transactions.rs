@@ -6,7 +6,7 @@ pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_blocks_transactions(router_state)
-        .or(artifact_cardano_block_transactions_by_id(router_state))
+        .or(artifact_cardano_blocks_transactions_by_id(router_state))
 }
 
 /// GET /artifact/cardano-blocks-transactions
@@ -21,7 +21,7 @@ fn artifact_cardano_blocks_transactions(
 }
 
 /// GET /artifact/cardano-blocks-transactions/:id
-fn artifact_cardano_block_transactions_by_id(
+fn artifact_cardano_blocks_transactions_by_id(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-blocks-transactions" / String)
@@ -52,7 +52,7 @@ pub mod handlers {
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         match http_message_service
-            .get_cardano_block_transactions_list_message(LIST_MAX_ITEMS)
+            .get_cardano_blocks_transactions_list_message(LIST_MAX_ITEMS)
             .await
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
@@ -73,23 +73,23 @@ pub mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_artifact_detail_cardano_block_transactions_total_served_since_startup()
+            .get_artifact_detail_cardano_blocks_transactions_total_served_since_startup()
             .increment(&[
                 client_metadata.origin_tag.as_deref().unwrap_or_default(),
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
         match http_message_service
-            .get_cardano_block_transactions_message(&signed_entity_id)
+            .get_cardano_blocks_transactions_message(&signed_entity_id)
             .await
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
-                warn!(logger, "get_cardano_block_transactions_details::not_found");
+                warn!(logger, "get_cardano_blocks_transactions_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!(logger, "get_cardano_block_transactions_details::error"; "error" => ?err);
+                warn!(logger, "get_cardano_blocks_transactions_details::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -109,8 +109,8 @@ pub mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         messages::{
-            CardanoBlockTransactionsSnapshotListItemMessage,
-            CardanoBlockTransactionsSnapshotMessage,
+            CardanoBlocksTransactionsSnapshotListItemMessage,
+            CardanoBlocksTransactionsSnapshotMessage,
         },
         test::double::Dummy,
     };
@@ -135,10 +135,10 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_get_ok() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_cardano_block_transactions_list_message()
+            .expect_get_cardano_blocks_transactions_list_message()
             .return_once(|_| {
                 Ok(vec![
-                    CardanoBlockTransactionsSnapshotListItemMessage::dummy(),
+                    CardanoBlocksTransactionsSnapshotListItemMessage::dummy(),
                 ])
             })
             .once();
@@ -172,7 +172,7 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_cardano_block_transactions_list_message()
+            .expect_get_cardano_blocks_transactions_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies!().await;
@@ -209,7 +209,7 @@ pub mod tests {
         let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
-            .get_artifact_detail_cardano_block_transactions_total_served_since_startup()
+            .get_artifact_detail_cardano_blocks_transactions_total_served_since_startup()
             .get(&["TEST", "CLI"]);
 
         request()
@@ -227,7 +227,7 @@ pub mod tests {
             initial_counter_value + 1,
             dependency_manager
                 .metrics_service
-                .get_artifact_detail_cardano_block_transactions_total_served_since_startup()
+                .get_artifact_detail_cardano_blocks_transactions_total_served_since_startup()
                 .get(&["TEST", "CLI"])
         );
     }
@@ -236,8 +236,8 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_by_hash_get_ok() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_cardano_block_transactions_message()
-            .return_once(|_| Ok(Some(CardanoBlockTransactionsSnapshotMessage::dummy())))
+            .expect_get_cardano_blocks_transactions_message()
+            .return_once(|_| Ok(Some(CardanoBlocksTransactionsSnapshotMessage::dummy())))
             .once();
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
@@ -269,7 +269,7 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_by_hash_return_404_not_found_when_no_record() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_cardano_block_transactions_message()
+            .expect_get_cardano_blocks_transactions_message()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies!().await;
@@ -302,7 +302,7 @@ pub mod tests {
     async fn test_cardano_blocks_transactions_by_hash_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_cardano_block_transactions_message()
+            .expect_get_cardano_blocks_transactions_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies!().await;

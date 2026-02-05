@@ -373,8 +373,8 @@ mod messages {
         }
     }
 
-    impl Dummy for CardanoBlockTransactionsSnapshotMessage {
-        /// Return a dummy [CardanoBlockTransactionsSnapshotMessage] (test-only).
+    impl Dummy for CardanoBlocksTransactionsSnapshotMessage {
+        /// Return a dummy [CardanoBlocksTransactionsSnapshotMessage] (test-only).
         fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),
@@ -390,8 +390,8 @@ mod messages {
         }
     }
 
-    impl Dummy for CardanoBlockTransactionsSnapshotListItemMessage {
-        /// Return a dummy [CardanoBlockTransactionsSnapshotListItemMessage] (test-only).
+    impl Dummy for CardanoBlocksTransactionsSnapshotListItemMessage {
+        /// Return a dummy [CardanoBlocksTransactionsSnapshotListItemMessage] (test-only).
         fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),

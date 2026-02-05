@@ -136,7 +136,7 @@ pub fn routes(
                 .or(artifact_routes::mithril_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_transaction::routes(&state))
-                .or(artifact_routes::cardano_block_transactions::routes(&state))
+                .or(artifact_routes::cardano_blocks_transactions::routes(&state))
                 .or(proof_routes::routes(&state))
                 .or(signer_routes::routes(&state))
                 .or(signatures_routes::routes(&state))

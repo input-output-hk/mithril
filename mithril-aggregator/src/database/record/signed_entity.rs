@@ -9,7 +9,7 @@ use mithril_common::entities::{
 #[cfg(test)]
 use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
 use mithril_common::messages::{
-    CardanoBlockTransactionsSnapshotListItemMessage, CardanoBlockTransactionsSnapshotMessage,
+    CardanoBlocksTransactionsSnapshotListItemMessage, CardanoBlocksTransactionsSnapshotMessage,
     CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotMessage,
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
@@ -372,19 +372,19 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotListItemMessage {
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoBlockTransactionsSnapshotMessage {
+impl TryFrom<SignedEntityRecord> for CardanoBlocksTransactionsSnapshotMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
         #[derive(Deserialize)]
-        struct TmpCardanoBlockTransactions {
+        struct TmpCardanoBlocksTransactions {
             merkle_root: String,
             block_number_signed: BlockNumber,
             block_number_tip: BlockNumber,
             hash: String,
         }
-        let artifact = serde_json::from_str::<TmpCardanoBlockTransactions>(&value.artifact)?;
-        let cardano_block_transactions_message = CardanoBlockTransactionsSnapshotMessage {
+        let artifact = serde_json::from_str::<TmpCardanoBlocksTransactions>(&value.artifact)?;
+        let cardano_blocks_transactions_message = CardanoBlocksTransactionsSnapshotMessage {
             merkle_root: artifact.merkle_root,
             epoch: value.signed_entity_type.get_epoch(),
             block_number_signed: artifact.block_number_signed,
@@ -394,23 +394,23 @@ impl TryFrom<SignedEntityRecord> for CardanoBlockTransactionsSnapshotMessage {
             created_at: value.created_at,
         };
 
-        Ok(cardano_block_transactions_message)
+        Ok(cardano_blocks_transactions_message)
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoBlockTransactionsSnapshotListItemMessage {
+impl TryFrom<SignedEntityRecord> for CardanoBlocksTransactionsSnapshotListItemMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
         #[derive(Deserialize)]
-        struct TmpCardanoBlockTransactions {
+        struct TmpCardanoBlocksTransactions {
             merkle_root: String,
             block_number_signed: BlockNumber,
             block_number_tip: BlockNumber,
             hash: String,
         }
-        let artifact = serde_json::from_str::<TmpCardanoBlockTransactions>(&value.artifact)?;
-        let message = CardanoBlockTransactionsSnapshotListItemMessage {
+        let artifact = serde_json::from_str::<TmpCardanoBlocksTransactions>(&value.artifact)?;
+        let message = CardanoBlocksTransactionsSnapshotListItemMessage {
             merkle_root: artifact.merkle_root,
             epoch: value.signed_entity_type.get_epoch(),
             block_number_signed: artifact.block_number_signed,

@@ -4,25 +4,25 @@ use serde::{Deserialize, Serialize};
 use crate::entities::{BlockNumber, Epoch};
 
 /// Message structure of a Cardano Transactions Snapshots list
-pub type CardanoBlockTransactionsSnapshotListMessage =
-    Vec<CardanoBlockTransactionsSnapshotListItemMessage>;
+pub type CardanoBlocksTransactionsSnapshotListMessage =
+    Vec<CardanoBlocksTransactionsSnapshotListItemMessage>;
 
 /// Message structure of a Cardano Transactions Snapshot list item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CardanoBlockTransactionsSnapshotListItemMessage {
-    /// Merkle root of the Cardano block transactions snapshot
+pub struct CardanoBlocksTransactionsSnapshotListItemMessage {
+    /// Merkle root of the Cardano blockstransactions snapshot
     pub merkle_root: String,
 
-    /// Epoch of the Cardano block transactions snapshot
+    /// Epoch of the Cardano blocks transactions snapshot
     pub epoch: Epoch,
 
-    /// Block number of the Cardano block transactions snapshot
+    /// Block number of the Cardano blocks transactions snapshot
     pub block_number_signed: BlockNumber,
 
-    /// The approximate block number tip of the Cardano block transactions snapshot
+    /// The approximate block number tip of the Cardano blocks transactions snapshot
     pub block_number_tip: BlockNumber,
 
-    /// Hash of the Cardano block transactions snapshot
+    /// Hash of the Cardano blocks transactions snapshot
     pub hash: String,
 
     /// Hash of the associated certificate
@@ -36,8 +36,8 @@ pub struct CardanoBlockTransactionsSnapshotListItemMessage {
 mod tests {
     use super::*;
 
-    fn golden_message_current() -> CardanoBlockTransactionsSnapshotListMessage {
-        vec![CardanoBlockTransactionsSnapshotListItemMessage {
+    fn golden_message_current() -> CardanoBlocksTransactionsSnapshotListMessage {
+        vec![CardanoBlocksTransactionsSnapshotListItemMessage {
             merkle_root: "mkroot-123".to_string(),
             epoch: Epoch(7),
             block_number_signed: BlockNumber(5),
@@ -63,8 +63,8 @@ mod tests {
     #[test]
     fn test_current_json_deserialized_into_current_message() {
         let json = CURRENT_JSON;
-        let message: CardanoBlockTransactionsSnapshotListMessage = serde_json::from_str(json).expect(
-                    "This JSON is expected to be successfully parsed into a CardanoBlockTransactionsSnapshotListMessage instance.",
+        let message: CardanoBlocksTransactionsSnapshotListMessage = serde_json::from_str(json).expect(
+                    "This JSON is expected to be successfully parsed into a CardanoBlocksTransactionsSnapshotListMessage instance.",
                 );
         assert_eq!(golden_message_current(), message);
     }

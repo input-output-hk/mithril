@@ -2,8 +2,8 @@
 //! This module aims at providing shared structures for API communications.
 mod aggregator_features;
 mod aggregator_status;
-mod cardano_block_transactions_snapshot;
-mod cardano_block_transactions_snapshot_list;
+mod cardano_blocks_transactions_snapshot;
+mod cardano_blocks_transactions_snapshot_list;
 mod cardano_database;
 mod cardano_database_digest_list;
 mod cardano_database_immutable_files_restored;
@@ -31,9 +31,9 @@ pub use aggregator_features::{
     AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
 };
 pub use aggregator_status::AggregatorStatusMessage;
-pub use cardano_block_transactions_snapshot::CardanoBlockTransactionsSnapshotMessage;
-pub use cardano_block_transactions_snapshot_list::{
-    CardanoBlockTransactionsSnapshotListItemMessage, CardanoBlockTransactionsSnapshotListMessage,
+pub use cardano_blocks_transactions_snapshot::CardanoBlocksTransactionsSnapshotMessage;
+pub use cardano_blocks_transactions_snapshot_list::{
+    CardanoBlocksTransactionsSnapshotListItemMessage, CardanoBlocksTransactionsSnapshotListMessage,
 };
 pub use cardano_database::{
     AncillaryMessagePart, CardanoDatabaseSnapshotMessage, DigestsMessagePart, ImmutablesMessagePart,
