@@ -7,43 +7,38 @@ use crate::circuits::halo2::golden::helpers::{
 };
 use crate::circuits::halo2::types::JubjubBase;
 
-// Baseline: valid witness; expected to succeed.
 #[test]
-fn baseline() {
+fn baseline_valid() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     run_stm_circuit_case_default(current_function!(), K, QUORUM);
 }
 
-// Sanity: larger valid witness; expected to succeed.
 // Expensive; excluded from CI and intended for manual runs.
 #[ignore]
 #[test]
-fn medium() {
+fn medium_valid() {
     const K: u32 = 16;
     const QUORUM: u32 = 32;
     run_stm_circuit_case_default(current_function!(), K, QUORUM);
 }
 
-// Very large valid witness; expected to succeed.
 // Extremely expensive; excluded from CI and intended for manual runs.
 #[ignore]
 #[test]
-fn large() {
+fn large_valid() {
     const K: u32 = 21;
     const QUORUM: u32 = 1024;
     run_stm_circuit_case_default(current_function!(), K, QUORUM);
 }
 
-// Public message is zero; expected to succeed.
 #[test]
-fn msg_0() {
+fn msg_zero() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     run_stm_circuit_case(current_function!(), K, QUORUM, JubjubBase::ZERO);
 }
 
-// Public message is max field element; expected to succeed.
 #[test]
 fn msg_max() {
     const K: u32 = 13;
@@ -52,9 +47,8 @@ fn msg_max() {
     run_stm_circuit_case(current_function!(), K, QUORUM, msg_max);
 }
 
-// Indices start at 0 and strictly increase; expected to succeed.
 #[test]
-fn min_strict_indices() {
+fn indices_from_zero() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -64,13 +58,13 @@ fn min_strict_indices() {
     let indices = vec![0, 1, 2];
     let witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-// Indices end at m-1 and strictly increase; expected to succeed.
 #[test]
-fn max_strict_indices() {
+fn indices_to_max() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -83,13 +77,13 @@ fn max_strict_indices() {
     let indices = (start..m).collect::<Vec<u32>>();
     let witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-// All-right Merkle path with a fixed signer; expected to succeed.
 #[test]
-fn all_right() {
+fn mp_all_right() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -98,6 +92,7 @@ fn all_right() {
     let target = -JubjubBase::ONE;
     let (sks, leaves, merkle_tree, rightmost_index) =
         create_merkle_tree_with_leaf_selector(depth, LeafSelector::RightMost, target);
+
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![4, 12, 25];
@@ -111,14 +106,14 @@ fn all_right() {
         msg,
         &indices,
     );
+
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-// All-left Merkle path with a fixed signer; expected to succeed.
 // Requires power-of-two signers; otherwise padding prevents an all-left path.
 #[test]
-fn all_left() {
+fn mp_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -127,6 +122,7 @@ fn all_left() {
     let target = -JubjubBase::ONE;
     let (sks, leaves, merkle_tree, leftmost_index) =
         create_merkle_tree_with_leaf_selector(depth, LeafSelector::LeftMost, target);
+
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![5, 13, 21];
@@ -140,6 +136,7 @@ fn all_left() {
         msg,
         &indices,
     );
+
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
