@@ -243,7 +243,7 @@ pub fn cardano_transactions_snapshots(total: u64) -> Vec<entities::CardanoTransa
         .collect()
 }
 
-/// Fake Cardano Transaction
+/// Fake Cardano BLock Transactions
 pub fn cardano_block_transactions_snapshot(
     block_number_signed: BlockNumber,
     offset_security_parameter: BlockNumber,
@@ -255,7 +255,7 @@ pub fn cardano_block_transactions_snapshot(
     )
 }
 
-/// Fake Cardano Transactions list
+/// Fake Cardano BLocks Transactions list
 pub fn cardano_blocks_transactions_snapshots(
     total: u64,
 ) -> Vec<entities::CardanoBlocksTransactionsSnapshot> {

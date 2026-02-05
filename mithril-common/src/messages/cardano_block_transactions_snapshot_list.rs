@@ -19,7 +19,7 @@ pub struct CardanoBlockTransactionsSnapshotListItemMessage {
     /// Block number of the Cardano block transactions snapshot
     pub block_number_signed: BlockNumber,
 
-    /// The aproximate block number tip of the Cardano block transactions snapshot
+    /// The approximate block number tip of the Cardano block transactions snapshot
     pub block_number_tip: BlockNumber,
 
     /// Hash of the Cardano block transactions snapshot

@@ -2668,7 +2668,7 @@ components:
             type: integer
             format: int64
           block_number_tip:
-            description: The aproximate block number tip of the Cardano block transactions snapshot
+            description: The approximate block number tip of the Cardano block transactions snapshot
             type: integer
             format: int64
           created_at:
@@ -2718,7 +2718,7 @@ components:
           type: integer
           format: int64
         block_number_tip:
-          description: The aproximate block number tip of the Cardano block transactions snapshot
+          description: The approximate block number tip of the Cardano block transactions snapshot
           type: integer
           format: int64
         created_at:
