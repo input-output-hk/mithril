@@ -604,6 +604,20 @@ mod tests {
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
+            fn golden_check_max_values_fail() {
+                let golden_target_max = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE);
+                let golden_target_max_1 =
+                    BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_ONE);
+                let golden_target_max_2 =
+                    BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_TWO);
+
+                assert!(golden_target_max != golden_value_max_stake_minus_two());
+                assert!(golden_target_max_1 != golden_value_max_stake());
+                assert!(golden_target_max_2 != golden_value_max_stake_minus_one());
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
             fn golden_check_following_stake_medium() {
                 let golden_target_vector = golden_value_following_stake_medium();
 
