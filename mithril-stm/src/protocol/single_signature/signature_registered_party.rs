@@ -29,13 +29,22 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
+        let size_reg_party: usize = if cfg!(feature = "future_snark") {
+            200
+        } else {
+            104
+        };
+
         let reg_party = ClosedRegistrationEntry::from_bytes(
-            bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
+            bytes
+                .get(0..size_reg_party)
+                .ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
-            bytes.get(104..).ok_or(SignatureError::SerializationError)?,
+            bytes
+                .get(size_reg_party..)
+                .ok_or(SignatureError::SerializationError)?,
         )?;
-
         Ok(SingleSignatureWithRegisteredParty { sig, reg_party })
     }
 }
@@ -147,10 +156,9 @@ mod tests {
 
         #[test]
         fn golden_conversions() {
-            let value: SingleSignatureWithRegisteredParty = serde_json::from_str(GOLDEN_JSON)
+            let value = serde_json::from_str(GOLDEN_JSON)
                 .expect("This JSON deserialization should not fail");
-            dbg!("Deserialized value: {:#?}", &value);
-            // assert_eq!(golden_value(), value);
+            assert_eq!(golden_value(), value);
 
             let serialized =
                 serde_json::to_string(&value).expect("This JSON serialization should not fail");

@@ -49,8 +49,7 @@ impl SchnorrSigningKey {
     ) -> StmResult<UniqueSchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let prime_order_generator_point = PrimeOrderProjectivePoint::create_generator();
-        let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone())
-            .with_context(|| "Could not generate verification key from signing key.")?;
+        let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone());
 
         // First hashing the message to a scalar then hashing it to a curve point
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;

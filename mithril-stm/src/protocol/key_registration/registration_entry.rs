@@ -72,7 +72,6 @@ impl RegistrationEntry {
     }
 }
 
-/// TODO: This is only used for tests right now. Consider removing it later.
 impl From<ClosedRegistrationEntry> for RegistrationEntry {
     fn from(entry: ClosedRegistrationEntry) -> Self {
         RegistrationEntry(
@@ -95,12 +94,13 @@ impl From<Initializer> for RegistrationEntry {
     }
 }
 
-// TODO: Update when `future_snark` is activated
 impl Hash for RegistrationEntry {
     /// Hashes the registration entry by hashing the stake first, then the verification key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.1.hash(state);
         self.0.hash(state);
+        #[cfg(feature = "future_snark")]
+        self.2.hash(state);
     }
 
     fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H)
@@ -119,7 +119,6 @@ impl PartialOrd for RegistrationEntry {
     }
 }
 
-// TODO: Update when `future_snark` is activated
 impl Ord for RegistrationEntry {
     /// Compares the registration entries by comparing the stake first, then the verification key.
     fn cmp(&self, other: &Self) -> Ordering {
@@ -149,7 +148,7 @@ mod tests {
         #[cfg(feature = "future_snark")]
         let schnorr_verification_key = {
             let sk = SchnorrSigningKey::generate(rng);
-            VerificationKeyForSnark::new_from_signing_key(sk).unwrap()
+            VerificationKeyForSnark::new_from_signing_key(sk)
         };
         RegistrationEntry::new(
             bls_pk,

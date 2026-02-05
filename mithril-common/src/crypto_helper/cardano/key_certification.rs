@@ -273,7 +273,12 @@ impl KeyRegWrapper {
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
-            self.stm_key_reg.register(stake, &pk.into())?;
+            self.stm_key_reg.register(
+                stake,
+                &pk.into(),
+                #[cfg(feature = "future_snark")]
+                None,
+            )?;
             return Ok(pool_id_bech32);
         }
         Err(anyhow!(

@@ -46,8 +46,7 @@ impl Initializer {
         #[cfg(feature = "future_snark")]
         let (schnorr_signing_key, schnorr_verification_key) = {
             let sk = SchnorrSigningKey::generate(rng);
-            let vk = VerificationKeyForSnark::new_from_signing_key(sk.clone())
-                .expect("verification key creation from valid signing key should not fail");
+            let vk = VerificationKeyForSnark::new_from_signing_key(sk.clone());
             (Some(sk), Some(vk))
         };
         Self {
