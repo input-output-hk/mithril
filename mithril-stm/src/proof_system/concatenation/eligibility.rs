@@ -238,83 +238,122 @@ mod tests {
     mod tests_eligibility_for_snark {
         use super::*;
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
-        fn test_zero_stake_bytes_stable() {
-            let phi_f = 0.05;
-            let total_stake = 45_000_000_000;
+        mod stability_tests {
+            use super::*;
 
-            for _ in 0..100 {
-                let target = compute_target_bytes(phi_f, 0, total_stake);
-                assert!(target == BigInt::ZERO);
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_zero_stake_bytes_stable() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+
+                for _ in 0..100 {
+                    let target = compute_target_bytes(phi_f, 0, total_stake);
+                    assert!(target == BigInt::ZERO);
+                }
             }
-        }
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
-        fn test_one_stake_bytes_stable() {
-            let phi_f = 0.05;
-            let total_stake = 45_000_000_000;
-            let first_target = compute_target_bytes(phi_f, 1, total_stake);
-            for _ in 0..100 {
-                let target = compute_target_bytes(phi_f, 1, total_stake);
-                assert!(target == first_target);
-            }
-        }
-
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
-        fn test_following_stake_same_order() {
-            let phi_f = 0.05;
-            let total_stake = 45_000_000_000;
-
-            let mut prev_target = compute_target_bytes(phi_f, 99_999, total_stake);
-            for stake in 100_000..100_100 {
-                let target = compute_target_bytes(phi_f, stake, total_stake);
-                assert!(prev_target < target);
-                prev_target = target;
-            }
-        }
-
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
-        fn test_minimal_stake_difference_stable() {
-            let phi_f = 0.05;
-            let total_stake = 45_000_000_000;
-            for _ in 0..100 {
-                let zero_target = compute_target_bytes(phi_f, 0, total_stake);
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_one_stake_bytes_stable() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
                 let first_target = compute_target_bytes(phi_f, 1, total_stake);
-                assert!(zero_target < first_target);
-                let second_target = compute_target_bytes(phi_f, 2, total_stake);
-                assert!(first_target < second_target);
+                for _ in 0..100 {
+                    let target = compute_target_bytes(phi_f, 1, total_stake);
+                    assert!(target == first_target);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_full_stake_stable() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+
+                let full_target = compute_target_bytes(phi_f, total_stake, total_stake);
+                for _ in 0..100 {
+                    let target = compute_target_bytes(phi_f, total_stake, total_stake);
+                    assert!(full_target == target);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_minimal_stake_difference_stable() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+                for _ in 0..100 {
+                    let zero_target = compute_target_bytes(phi_f, 0, total_stake);
+                    let first_target = compute_target_bytes(phi_f, 1, total_stake);
+                    assert!(zero_target < first_target);
+                    let second_target = compute_target_bytes(phi_f, 2, total_stake);
+                    assert!(first_target < second_target);
+                }
+            }
+        }
+
+        mod ordering_tests {
+            use super::*;
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_min_stake_same_order() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bytes(phi_f, 0, total_stake);
+                for i in 1..=100 {
+                    let target = compute_target_bytes(phi_f, i, total_stake);
+                    println!("{:?}", target.clone() - prev_target.clone());
+                    assert!(prev_target < target);
+                    prev_target = target;
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_stake_same_order() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bytes(phi_f, 99_999, total_stake);
+                for stake in 100_000..100_100 {
+                    let target = compute_target_bytes(phi_f, stake, total_stake);
+                    println!("{:?}", target.clone() - prev_target.clone());
+                    assert!(prev_target < target);
+                    prev_target = target;
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_max_stake_same_order() {
+                let phi_f = 0.05;
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bytes(phi_f, total_stake, total_stake);
+                for i in 1..=100 {
+                    let target = compute_target_bytes(phi_f, total_stake - i, total_stake);
+                    println!("{:?}", prev_target.clone() - target.clone());
+                    assert!(prev_target > target);
+                    prev_target = target;
+                }
             }
         }
 
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         #[test]
-        fn test_full_stake() {
+        fn test_advantage_smaller_stake() {
             let phi_f = 0.05;
             let total_stake = 45_000_000_000;
 
-            let full_target = compute_target_bytes(phi_f, total_stake, total_stake);
-            for _ in 0..100 {
-                let target = compute_target_bytes(phi_f, total_stake, total_stake);
-                assert!(full_target == target);
-            }
-        }
+            let target_100k = compute_target_bytes(phi_f, 100_000, total_stake);
+            let target_10m = compute_target_bytes(phi_f, 10_000_000, total_stake);
+            let target_10b = compute_target_bytes(phi_f, 10_000_000_000, total_stake);
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
-        fn test_following_max_stake_same_order() {
-            let phi_f = 0.05;
-            let total_stake = 45_000_000_000;
-
-            let mut prev_target = compute_target_bytes(phi_f, total_stake, total_stake);
-            for i in 1..=100 {
-                let target = compute_target_bytes(phi_f, total_stake - i, total_stake);
-                assert!(prev_target > target);
-                prev_target = target;
-            }
+            println!("{:?}", target_10m / target_100k.clone());
+            println!("{:?}", target_10b.clone() / target_100k.clone());
         }
 
         proptest! {
@@ -495,59 +534,15 @@ mod tests {
             ];
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_zero_stake() -> BigInt {
+            fn golden_value_target_from_stake(stake: u64) -> BigInt {
                 let phi_f = 0.05;
-                let stake = 0;
                 let total_stake = 45_000_000_000;
-
                 // let target = compute_target_bytes(phi_f, stake, total_stake);
                 // let (_, mut bytes) = target.to_bytes_le();
                 // bytes.resize(32, 0);
                 // println!("{:?}", bytes);
                 // target
                 compute_target_bytes(phi_f, stake, total_stake)
-            }
-
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_one_stake() -> BigInt {
-                let phi_f = 0.05;
-                let stake = 1;
-                let total_stake = 45_000_000_000;
-
-                compute_target_bytes(phi_f, stake, total_stake)
-            }
-
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_two_stake() -> BigInt {
-                let phi_f = 0.05;
-                let stake = 2;
-                let total_stake = 45_000_000_000;
-
-                compute_target_bytes(phi_f, stake, total_stake)
-            }
-
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_max_stake() -> BigInt {
-                let phi_f = 0.05;
-                let total_stake = 45_000_000_000;
-
-                compute_target_bytes(phi_f, total_stake, total_stake)
-            }
-
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_max_stake_minus_one() -> BigInt {
-                let phi_f = 0.05;
-                let total_stake = 45_000_000_000;
-
-                compute_target_bytes(phi_f, total_stake - 1, total_stake)
-            }
-
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-            fn golden_value_max_stake_minus_two() -> BigInt {
-                let phi_f = 0.05;
-                let total_stake = 45_000_000_000;
-
-                compute_target_bytes(phi_f, total_stake - 2, total_stake)
             }
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
@@ -583,9 +578,9 @@ mod tests {
                 let golden_target_1 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_ONE);
                 let golden_target_2 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_TWO);
 
-                assert_eq!(golden_target_0, golden_value_zero_stake());
-                assert_eq!(golden_target_1, golden_value_one_stake());
-                assert_eq!(golden_target_2, golden_value_two_stake());
+                assert_eq!(golden_target_0, golden_value_target_from_stake(0));
+                assert_eq!(golden_target_1, golden_value_target_from_stake(1));
+                assert_eq!(golden_target_2, golden_value_target_from_stake(2));
             }
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
@@ -597,9 +592,18 @@ mod tests {
                 let golden_target_max_2 =
                     BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_TWO);
 
-                assert_eq!(golden_target_max, golden_value_max_stake());
-                assert_eq!(golden_target_max_1, golden_value_max_stake_minus_one());
-                assert_eq!(golden_target_max_2, golden_value_max_stake_minus_two());
+                assert_eq!(
+                    golden_target_max,
+                    golden_value_target_from_stake(45_000_000_000)
+                );
+                assert_eq!(
+                    golden_target_max_1,
+                    golden_value_target_from_stake(44_999_999_999)
+                );
+                assert_eq!(
+                    golden_target_max_2,
+                    golden_value_target_from_stake(44_999_999_998)
+                );
             }
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
@@ -611,9 +615,9 @@ mod tests {
                 let golden_target_max_2 =
                     BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_TWO);
 
-                assert!(golden_target_max != golden_value_max_stake_minus_two());
-                assert!(golden_target_max_1 != golden_value_max_stake());
-                assert!(golden_target_max_2 != golden_value_max_stake_minus_one());
+                assert!(golden_target_max != golden_value_target_from_stake(44_999_999_998));
+                assert!(golden_target_max_1 != golden_value_target_from_stake(45_000_000_000));
+                assert!(golden_target_max_2 != golden_value_target_from_stake(44_999_999_999));
             }
 
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
