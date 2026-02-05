@@ -61,6 +61,7 @@
 //!     let entry = RegistrationEntry::new(
 //!         p.get_verification_key_proof_of_possession_for_concatenation(),
 //!         p.stake,
+//!        #[cfg(feature = "future_snark")] p.schnorr_verification_key,
 //!     )
 //!     .unwrap();
 //!     key_reg.register_by_entry(&entry).unwrap();
