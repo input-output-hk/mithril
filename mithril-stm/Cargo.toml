@@ -14,7 +14,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend"]
+default = ["num-integer-backend"]
 benchmark-internals = [] # For benchmarking
 future_snark = [
     "dep:ff",
@@ -29,7 +29,7 @@ future_snark = [
     "dep:rand",
     "dep:subtle",
 ] # For activating snark features
-num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
+num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits","dep:num-integer"]
 rug-backend = ["rug/default"]
 
 [dependencies]
