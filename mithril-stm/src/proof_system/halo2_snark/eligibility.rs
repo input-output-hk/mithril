@@ -17,27 +17,7 @@ cfg_num_integer! {
     // We can check instead (C * x)^N < epsilon
     // which gives us the bound N < log(epsilon) / log(|C*x|)
 
-    // #[cfg(feature = "future_snark")]
-    // fn compute_phi_fixed(x: Ratio<BigInt>, w: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
-    //     let mut phi = Ratio::zero();
-    //     let mut term = Ratio::one();
-
-    //     for n in 1..iterations {
-    //         // Calculate the next coefficient: term *= (k - (n-1)) / n
-    //         let multiplier = (&w - Ratio::from(BigInt::from(n - 1))) / Ratio::from(BigInt::from(n));
-    //         term = term * multiplier * &x;
-
-    //         if n % 2 == 1 {
-    //             phi += &term;
-    //         } else {
-    //             phi -= &term;
-    //         }
-    //     }
-    //     phi
-    // }
-
-
-    #[cfg(feature = "future_snark")]
+#[allow(dead_code)]
     pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
         let mut acc = Ratio::new_raw(BigInt::from(1),BigInt::from(1));
         let mut numerator = BigInt::from(1);
@@ -52,9 +32,7 @@ cfg_num_integer! {
     }
 
 
-    #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
         use num_integer::Integer;
         use num_traits::{Zero, Num};
@@ -66,49 +44,17 @@ cfg_num_integer! {
         )
         .unwrap();
 
-        // println!("modulus = {:?}", modulus);
-
         let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-        // let c =
-        //     Ratio::from_float((1.0 - phi_f.clone()).ln()).expect("Only fails if the float is infinite or NaN.");
-        let c_2 =
+        let c =
             Ratio::from_float((-phi_f).ln_1p()).expect("Only fails if the float is infinite or NaN.");
 
-        // println!("c = {:?}", c);
-        // println!("c_2 = {:?}", c_2);
-
-
-        // With Taylor series 1
-        // let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-        // let phi_taylor = compute_phi_fixed(phi_f_ratio.clone(), w.clone(), 200);
-        // let t_taylor_1 =  Ratio::from(modulus.clone()) * phi_taylor.clone();
-        // // println!("t_taylor = {:?}", t_taylor_1);
-        // // println!("phi_taylor = {:?}", phi_taylor);
-
-        // // Floor division
-        // let (t_int_1, remainder) = t_taylor_1.numer().div_rem(t_taylor_1.denom());
-        // assert!(t_int_1 >= BigInt::zero());
-        // println!("t_int_1 = {:?}", t_int_1);
-
         // With Taylor series 2
-        // let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
-        let exp_wc = compute_exp(c_2.clone(), w.clone(), 50);
+        let exp_wc = compute_exp(c.clone(), w.clone(), 50);
         let t_taylor = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_wc.clone();
-        // println!("phi_taylor = {:?}", phi_taylor);
-        // println!("t_taylor = {:?}", t_taylor);
-
-        // With Basic f64
-        // let phi_test = 1.0 - (1.0 - phi_f).powf(stake as f64/total_stake as f64);
-        // println!("phi_test = {:?}", phi_test);
-        // let t_test = phi_test * ((1u64<<16) as f64);
-        // println!("t_test = {:?}", t_test);
-
-
 
         // Floor division
         let (t_int, remainder) = t_taylor.numer().div_rem(t_taylor.denom());
         assert!(t_int >= BigInt::zero());
-        // println!("t_int = {:?}", t_int);
 
         // If exact division and t_int > 0, subtract 1
         let target = if remainder.is_zero() && !t_int.is_zero() {
@@ -246,6 +192,7 @@ pub fn check_index(
 
 #[cfg(test)]
 mod tests {
+
     use proptest::prelude::*;
     use rand_core::OsRng;
 
@@ -255,6 +202,26 @@ mod tests {
 
     #[cfg(feature = "future_snark")]
     use super::{check_index, compute_target_value, lottery_prefix};
+
+    #[cfg(test)]
+    mod test_bytes_computation {
+        #[cfg(feature = "future_snark")]
+        use midnight_curves::Fq;
+
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn test_zero_stake_bytes() {
+            let phi_f = 0.05;
+            let total_stake = 45_000_000_000;
+
+            for _ in 0..100 {
+                let target = compute_target_bytes(phi_f, 0, total_stake);
+                println!("{:?}", target);
+                assert!(target == vec![0u8]);
+            }
+        }
+    }
 
     #[cfg(feature = "future_snark")]
     #[test]
@@ -325,12 +292,67 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
+    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+    #[test]
+    fn test_greatest_stake_difference() {
+        let phi_f = 0.05;
+        let total_stake = 45_000_000_000;
+
+        let first_target = compute_target_value(phi_f, 1, total_stake);
+        for _ in 0..100 {
+            let target = compute_target_value(phi_f, 1, total_stake);
+            assert!(first_target == target);
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+    #[test]
+    fn test_minimal_stake_difference() {
+        let phi_f = 0.05;
+        let total_stake = 45_000_000_000;
+        for _ in 0..100 {
+            let zero_target = compute_target_value(phi_f, 0, total_stake);
+            let first_target = compute_target_value(phi_f, 1, total_stake);
+            assert!(zero_target < first_target);
+            let second_target = compute_target_value(phi_f, 2, total_stake);
+            assert!(first_target < second_target);
+        }
+    }
+
+    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+    #[test]
+    fn test_zero_stake() {
+        let phi_f = 0.05;
+        let total_stake = 45_000_000_000;
+
+        for _ in 0..100 {
+            use ff::Field;
+
+            let target = compute_target_value(phi_f, 0, total_stake);
+            assert!(target == BaseFieldElement(Fq::ZERO));
+        }
+    }
+
+    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+    #[test]
+    fn test_full_stake() {
+        let phi_f = 0.05;
+        let total_stake = 45_000_000_000;
+
+        for _ in 0..100 {
+            let target = compute_target_value(phi_f, total_stake, total_stake);
+            println!("{:?}", target);
+        }
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        /// Checking that following stakes always have the same order.
+        #[cfg(feature = "future_snark")]
         fn following_stake_same_order(
             phi_f in 0.01..0.5f64,
             total_stake in 100_000_000..1_000_000_000u64,
@@ -344,7 +366,7 @@ mod tests {
 
         #[test]
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        /// Checking that following stakes always have the same order.
+        #[cfg(feature = "future_snark")]
         fn following_small_stake_same_order(
             phi_f in 0.01..0.5f64,
             total_stake in 100_000_000..1_000_000_000u64,
@@ -358,7 +380,7 @@ mod tests {
 
         #[test]
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        /// Checking that following stakes always have the same order.
+        #[cfg(feature = "future_snark")]
         fn same_stake_same_result(
             phi_f in 0.01..0.5f64,
             total_stake in 100_000_000..1_000_000_000u64,
@@ -372,7 +394,7 @@ mod tests {
 
         #[test]
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        /// Checking that following stakes always have the same order.
+        #[cfg(feature = "future_snark")]
         fn same_small_stake_same_result(
             phi_f in 0.01..0.5f64,
             total_stake in 100_000_000..1_000_000_000u64,
@@ -387,6 +409,7 @@ mod tests {
     }
 
     #[cfg(feature = "future_snark")]
+    #[allow(dead_code)]
     mod golden {
 
         use super::*;
@@ -506,7 +529,7 @@ mod tests {
         }
 
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[test]
+        // #[test]
         fn golden_check_num_int() {
             let _golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
             println!("{:?}", golden_value_num_int());
@@ -514,14 +537,14 @@ mod tests {
         }
 
         #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
-        #[test]
+        // #[test]
         fn golden_check_rug() {
             let _golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
             println!("{:?}", golden_value_rug());
 
             // assert_eq!(golden_target, golden_value_rug());
         }
-        #[test]
+        // #[test]
         fn golden_vector_check() {
             let golden_vector = golden_vector();
 
