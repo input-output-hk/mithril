@@ -21,12 +21,17 @@ use crate::circuits::halo2::off_circuit::unique_signature::{
 use crate::circuits::halo2::types::{Bls12, JubjubBase};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 
+/// Base field type used throughout STM circuit golden tests.
 type F = JubjubBase;
 
+/// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
+/// VK/PK pair cached per STM circuit configuration.
 type VkPkPair = (MidnightVK, MidnightPK<StmCircuit>);
+/// Cache map for VK/PK pairs keyed by STM circuit configuration.
 type VkPkCache = HashMap<VkPkKey, Arc<VkPkPair>>;
 
+/// Cache key for VK/PK pairs derived from the STM circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct VkPkKey {
     k: u32,
@@ -35,6 +40,7 @@ struct VkPkKey {
     merkle_tree_depth: u32,
 }
 
+/// Global cache for VK/PK pairs keyed by STM circuit configuration.
 static VKPK_CACHE: OnceLock<Mutex<VkPkCache>> = OnceLock::new();
 
 /// Shared environment for STM circuit golden cases (SRS, relation, keys, sizing).
@@ -414,6 +420,7 @@ fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
     generate_params(k, path.to_string_lossy().as_ref())
 }
 
+// Get a cached VK/PK pair or build and insert it if missing.
 fn get_or_build_vkpk(key: VkPkKey, relation: &StmCircuit, srs: &ParamsKZG<Bls12>) -> Arc<VkPkPair> {
     let cache = VKPK_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     if let Some(vkpk) = cache.lock().unwrap().get(&key).cloned() {

@@ -9,7 +9,7 @@ use crate::circuits::halo2::golden::support::{
 };
 use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
 
-/// Baseline: valid witness; expected to succeed.
+// Baseline: valid witness; expected to succeed.
 #[test]
 fn baseline() {
     const K: u32 = 13;
@@ -17,8 +17,8 @@ fn baseline() {
     run_stm_circuit_case_default("small", K, QUORUM);
 }
 
-/// Sanity: larger valid witness; expected to succeed.
-/// Expensive; excluded from CI and intended for manual runs.
+// Larger valid witness; expected to succeed.
+// Expensive; excluded from CI and intended for manual runs.
 #[ignore]
 #[test]
 fn medium() {
@@ -27,8 +27,8 @@ fn medium() {
     run_stm_circuit_case_default("medium", K, QUORUM);
 }
 
-/// Very large valid witness; expected to succeed.
-/// Extremely expensive; excluded from CI and intended for manual runs.
+// Very large valid witness; expected to succeed.
+// Extremely expensive; excluded from CI and intended for manual runs.
 #[ignore]
 #[test]
 fn large() {
@@ -37,7 +37,7 @@ fn large() {
     run_stm_circuit_case_default("large", K, QUORUM);
 }
 
-/// Public message is zero; expected to succeed.
+// Public message is zero; expected to succeed.
 #[test]
 fn msg_0() {
     const K: u32 = 13;
@@ -45,7 +45,7 @@ fn msg_0() {
     run_stm_circuit_case("msg_0", K, QUORUM, JubjubBase::ZERO);
 }
 
-/// Public message is max field element; expected to succeed.
+// Public message is max field element; expected to succeed.
 #[test]
 fn msg_max() {
     const K: u32 = 13;
@@ -54,7 +54,7 @@ fn msg_max() {
     run_stm_circuit_case("msg_max", K, QUORUM, msg_max);
 }
 
-/// Indices start at 0 and strictly increase; expected to succeed.
+// Indices start at 0 and strictly increase; expected to succeed.
 #[test]
 fn min_strict_indices() {
     const K: u32 = 13;
@@ -73,7 +73,7 @@ fn min_strict_indices() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-/// Indices end at m-1 and strictly increase; expected to succeed.
+// Indices end at m-1 and strictly increase; expected to succeed.
 #[test]
 fn max_strict_indices() {
     const K: u32 = 13;
@@ -95,7 +95,7 @@ fn max_strict_indices() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-/// All-right Merkle path with a fixed signer; expected to succeed.
+// All-right Merkle path with a fixed signer; expected to succeed.
 #[test]
 fn all_right() {
     const K: u32 = 13;
@@ -127,8 +127,8 @@ fn all_right() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-/// All-left Merkle path with a fixed signer; expected to succeed.
-/// Requires power-of-two signers; otherwise padding prevents an all-left path.
+// All-left Merkle path with a fixed signer; expected to succeed.
+// Requires power-of-two signers; otherwise padding prevents an all-left path.
 #[test]
 fn all_left() {
     const K: u32 = 13;
@@ -160,7 +160,7 @@ fn all_left() {
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
 }
 
-/// Mutation: public msg mismatched to witness; expected to fail verification.
+// Mutation: public msg mismatched to witness; expected to fail verification.
 #[test]
 fn wrong_msg() {
     const K: u32 = 13;
@@ -179,7 +179,7 @@ fn wrong_msg() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: public Merkle root mismatched; expected to fail verification.
+// Mutation: public Merkle root mismatched; expected to fail verification.
 #[test]
 fn wrong_root() {
     const K: u32 = 13;
@@ -198,7 +198,7 @@ fn wrong_root() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: signature produced for a different msg; expected to fail verification.
+// Mutation: signature produced for a different msg; expected to fail verification.
 #[test]
 fn signed_other_msg() {
     const K: u32 = 13;
@@ -230,7 +230,7 @@ fn signed_other_msg() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: leaf VK and signature from different signers; expected to fail verification.
+// Mutation: leaf VK and signature from different signers; expected to fail verification.
 #[test]
 fn sig_leaf_mismatch() {
     const K: u32 = 13;
@@ -271,7 +271,7 @@ fn sig_leaf_mismatch() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: signature challenge altered; expected to fail verification.
+// Mutation: signature challenge altered; expected to fail verification.
 #[test]
 fn bad_challenge() {
     const K: u32 = 13;
@@ -295,7 +295,7 @@ fn bad_challenge() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: signature response altered; expected to fail verification.
+// Mutation: signature response altered; expected to fail verification.
 #[test]
 fn bad_response() {
     const K: u32 = 13;
@@ -319,7 +319,7 @@ fn bad_response() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: signature commitment altered; expected to fail verification.
+// Mutation: signature commitment altered; expected to fail verification.
 #[test]
 fn bad_commitment() {
     const K: u32 = 13;
@@ -343,7 +343,7 @@ fn bad_commitment() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: lottery target too small; expected to fail verification.
+// Mutation: lottery target too small; expected to fail verification.
 #[test]
 fn sig_lottery_mismatch() {
     const K: u32 = 13;
@@ -375,7 +375,7 @@ fn sig_lottery_mismatch() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: indices are not strictly increasing; expected to fail verification.
+// Mutation: indices are not strictly increasing; expected to fail verification.
 #[test]
 fn non_increasing() {
     const K: u32 = 13;
@@ -398,7 +398,7 @@ fn non_increasing() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: index is out of bounds (>= m); expected to fail verification.
+// Mutation: index is out of bounds (>= m); expected to fail verification.
 #[test]
 fn index_oob() {
     const K: u32 = 13;
@@ -420,7 +420,7 @@ fn index_oob() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: Merkle sibling hash corrupted; expected to fail verification.
+// Mutation: Merkle sibling hash corrupted; expected to fail verification.
 #[test]
 fn corrupt_sibling() {
     const K: u32 = 13;
@@ -448,7 +448,7 @@ fn corrupt_sibling() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: Merkle position bit flipped; expected to fail verification.
+// Mutation: Merkle position bit flipped; expected to fail verification.
 #[test]
 fn flip_position() {
     const K: u32 = 13;
@@ -482,7 +482,7 @@ fn flip_position() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Malformed path length panics during synthesis; expected to fail verification once hardened.
+// Malformed path length panics during synthesis; expected to fail verification once hardened.
 #[should_panic]
 #[test]
 fn wrong_path_len_short() {
@@ -509,7 +509,7 @@ fn wrong_path_len_short() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Malformed path length panics during synthesis; expected to fail verification once hardened.
+// Malformed path length panics during synthesis; expected to fail verification once hardened.
 #[should_panic]
 #[test]
 fn wrong_path_len_long() {
@@ -538,7 +538,7 @@ fn wrong_path_len_long() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: leaf swapped while keeping its path; expected to fail verification.
+// Mutation: leaf swapped while keeping its path; expected to fail verification.
 #[test]
 fn path_other_leaf() {
     const K: u32 = 13;
@@ -578,7 +578,7 @@ fn path_other_leaf() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: leaf and Merkle path come from different signers; expected to fail verification.
+// Mutation: leaf and Merkle path come from different signers; expected to fail verification.
 #[test]
 fn leaf_path_mismatch() {
     const K: u32 = 13;
@@ -618,7 +618,7 @@ fn leaf_path_mismatch() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: leaf verification key is swapped while keeping target/path/signature; expected to fail verification.
+// Mutation: leaf verification key is swapped while keeping target/path/signature; expected to fail verification.
 #[test]
 fn wrong_vk() {
     const K: u32 = 13;
@@ -660,7 +660,7 @@ fn wrong_vk() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: leaf target is too small (target < ev); expected to fail verification.
+// Mutation: leaf target is too small (target < ev); expected to fail verification.
 #[test]
 fn target_lt_ev() {
     const K: u32 = 13;
@@ -693,7 +693,7 @@ fn target_lt_ev() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Malformed witness length panics during synthesis; expected to fail verification once hardened.
+// Malformed witness length panics during synthesis; expected to fail verification once hardened.
 #[should_panic]
 #[test]
 fn wrong_witness_len_short() {
@@ -713,7 +713,7 @@ fn wrong_witness_len_short() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Malformed witness length panics during synthesis; expected to fail verification once hardened.
+// Malformed witness length panics during synthesis; expected to fail verification once hardened.
 #[should_panic]
 #[test]
 fn wrong_witness_len_long() {
@@ -734,7 +734,7 @@ fn wrong_witness_len_long() {
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
-/// Mutation: duplicate a valid witness entry (index/signature/leaf/path); expected to fail verification.
+// Mutation: duplicate a valid witness entry (index/signature/leaf/path); expected to fail verification.
 #[test]
 fn duplicate_entries() {
     const K: u32 = 13;
