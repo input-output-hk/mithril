@@ -206,7 +206,6 @@ jobs:
               --exclude mithril-relay
               --exclude mithril-client-wasm
               --exclude mithril-aggregator-fake
-              --exclude mithril-stm
               --exclude mithril-end-to-end
 
     runs-on: ${{ matrix.os }}
