@@ -127,7 +127,7 @@ impl ChainDataStore for InMemoryChainDataStore {
             .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone())))
     }
 
-    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+    async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
         let roots = self.block_range_roots.lock().await;
         Ok(roots.iter().map(|record| record.range.clone()).max_by_key(|r| r.end))
     }
@@ -153,7 +153,7 @@ impl ChainDataStore for InMemoryChainDataStore {
             .collect())
     }
 
-    async fn store_block_range_roots(
+    async fn store_legacy_block_range_roots(
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
@@ -383,7 +383,10 @@ mod tests {
             ),
         ];
 
-        store.store_block_range_roots(block_ranges.clone()).await.unwrap();
+        store
+            .store_legacy_block_range_roots(block_ranges.clone())
+            .await
+            .unwrap();
 
         let stored_roots = store.get_all_block_range_root().await;
         assert_eq!(
@@ -402,7 +405,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn store_block_range_roots_appends_to_existing() {
+    async fn store_legacy_block_range_roots_appends_to_existing() {
         let store = InMemoryChainDataStore::builder()
             .with_block_range_roots(&[(
                 BlockRange::from_block_number(BlockNumber(0)),
@@ -411,7 +414,7 @@ mod tests {
             .build();
 
         store
-            .store_block_range_roots(vec![(
+            .store_legacy_block_range_roots(vec![(
                 BlockRange::from_block_number(BlockRange::LENGTH),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             )])
@@ -444,16 +447,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_highest_block_range_returns_none_when_empty() {
+    async fn get_highest_legacy_block_range_returns_none_when_empty() {
         let store = InMemoryChainDataStore::default();
 
-        let highest_range = store.get_highest_block_range().await.unwrap();
+        let highest_range = store.get_highest_legacy_block_range().await.unwrap();
 
         assert_eq!(None, highest_range);
     }
 
     #[tokio::test]
-    async fn get_highest_block_range_returns_range_with_highest_end() {
+    async fn get_highest_legacy_block_range_returns_range_with_highest_end() {
         let store = InMemoryChainDataStore::builder()
             .with_block_range_roots(&[
                 (
@@ -471,7 +474,7 @@ mod tests {
             ])
             .build();
 
-        let highest_range = store.get_highest_block_range().await.unwrap();
+        let highest_range = store.get_highest_legacy_block_range().await.unwrap();
 
         assert_eq!(
             Some(BlockRange::from_block_number(BlockRange::LENGTH * 2)),

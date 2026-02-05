@@ -24,8 +24,8 @@ pub trait ChainDataStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>>;
 
-    /// Get the highest stored block range root bounds
-    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>>;
+    /// Get the highest stored legacy block range root bounds
+    async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>>;
 
     /// Store the given blocks and their transactions
     async fn store_blocks_and_transactions(
@@ -39,8 +39,8 @@ pub trait ChainDataStore: Send + Sync {
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>>;
 
-    /// Store list of block ranges with their corresponding merkle root
-    async fn store_block_range_roots(
+    /// Store list of legacy block ranges with their corresponding merkle root
+    async fn store_legacy_block_range_roots(
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()>;

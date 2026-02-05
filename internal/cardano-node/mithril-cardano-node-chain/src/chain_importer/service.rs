@@ -114,7 +114,7 @@ impl CardanoChainDataImporter {
     }
 
     async fn import_block_ranges(&self, until: BlockNumber) -> StdResult<()> {
-        let block_ranges = match self.transaction_store.get_highest_block_range().await?.map(
+        let block_ranges = match self.transaction_store.get_highest_legacy_block_range().await?.map(
             |highest_stored_block_range| {
                 BlockRange::all_block_ranges_in(
                     BlockRange::start(highest_stored_block_range.end)..=(until),
@@ -129,7 +129,7 @@ impl CardanoChainDataImporter {
         };
 
         debug!(
-            self.logger, "Computing Block Range Roots";
+            self.logger, "Computing Legacy Block Range Roots";
             "start_block" => *block_ranges.start(), "end_block" => *block_ranges.end(),
         );
 
@@ -151,13 +151,13 @@ impl CardanoChainDataImporter {
                 let block_ranges_with_merkle_root_save =
                     mem::take(&mut block_ranges_with_merkle_root);
                 self.transaction_store
-                    .store_block_range_roots(block_ranges_with_merkle_root_save)
+                    .store_legacy_block_range_roots(block_ranges_with_merkle_root_save)
                     .await?;
             }
         }
 
         self.transaction_store
-            .store_block_range_roots(block_ranges_with_merkle_root)
+            .store_legacy_block_range_roots(block_ranges_with_merkle_root)
             .await
     }
 }
@@ -612,7 +612,7 @@ mod tests {
             let importer = {
                 let mut store_mock = MockChainDataStore::new();
                 store_mock
-                    .expect_get_highest_block_range()
+                    .expect_get_highest_legacy_block_range()
                     .returning(|| {
                         Ok(Some(BlockRange::from_block_number(
                             HIGHEST_BLOCK_RANGE_START,
@@ -628,7 +628,9 @@ mod tests {
                             .contains(range)
                     })
                     .returning(transactions_for_block);
-                store_mock.expect_store_block_range_roots().returning(|_| Ok(()));
+                store_mock
+                    .expect_store_legacy_block_range_roots()
+                    .returning(|_| Ok(()));
 
                 CardanoChainDataImporter::new_for_test(
                     Arc::new(MockBlockScannerImpl::new()),
@@ -998,7 +1000,7 @@ mod tests {
                 Ok(None)
             }
 
-            async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+            async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
                 self.block_thread();
                 Ok(None)
             }
@@ -1019,7 +1021,7 @@ mod tests {
                 Ok(vec![])
             }
 
-            async fn store_block_range_roots(
+            async fn store_legacy_block_range_roots(
                 &self,
                 _: Vec<(BlockRange, MKTreeNode)>,
             ) -> StdResult<()> {
