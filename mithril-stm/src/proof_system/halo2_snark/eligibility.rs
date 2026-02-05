@@ -17,7 +17,7 @@ cfg_num_integer! {
     // We can check instead (C * x)^N < epsilon
     // which gives us the bound N < log(epsilon) / log(|C*x|)
 
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
         let mut acc = Ratio::new_raw(BigInt::from(1),BigInt::from(1));
         let mut numerator = BigInt::from(1);
@@ -201,12 +201,11 @@ mod tests {
     use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     #[cfg(feature = "future_snark")]
-    use super::{check_index, compute_target_value, lottery_prefix};
+    use super::{check_index, compute_target_bytes, compute_target_value, lottery_prefix};
 
     #[cfg(test)]
     mod test_bytes_computation {
-        #[cfg(feature = "future_snark")]
-        use midnight_curves::Fq;
+        use super::*;
 
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         #[cfg(feature = "future_snark")]
@@ -329,6 +328,7 @@ mod tests {
 
         for _ in 0..100 {
             use ff::Field;
+            use midnight_curves::Fq;
 
             let target = compute_target_value(phi_f, 0, total_stake);
             assert!(target == BaseFieldElement(Fq::ZERO));

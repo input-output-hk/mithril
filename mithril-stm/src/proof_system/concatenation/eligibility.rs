@@ -556,7 +556,7 @@ mod tests {
                 let total_stake = 45_000_000_000;
                 let mut golden_values = vec![];
 
-                for stake in 100_000..100_00 {
+                for stake in 100_000..100_010 {
                     let target = compute_target_bytes(phi_f, stake, total_stake);
                     golden_values.push(target);
                 }
