@@ -52,7 +52,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
         let sk = SchnorrSigningKey::generate(&mut rng);
-        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
         let sig = sk.sign(&msg, &mut rng_sig).unwrap();
         sigs.push(sig);
         mvks.push(vk);

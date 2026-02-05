@@ -94,14 +94,6 @@ impl ScalarFieldElement {
         false
     }
 
-    /// Checks if the scalar field element is one
-    pub(crate) fn is_one(&self) -> bool {
-        if self.0 == JubjubScalar::one() {
-            return true;
-        }
-        false
-    }
-
     /// Tries to generate a new random non-zero scalar field element in 100 attempts
     ///
     /// Returns an error if unable to generate a non-zero scalar after 100 attempts
@@ -366,7 +358,7 @@ mod tests {
             let two = ScalarFieldElement(JubjubScalar::one() + JubjubScalar::one());
             let one = ScalarFieldElement(JubjubScalar::one());
             let result = two - one;
-            assert!(result.is_one());
+            assert_eq!(result, ScalarFieldElement(JubjubScalar::one()));
         }
 
         #[test]

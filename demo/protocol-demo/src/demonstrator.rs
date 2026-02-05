@@ -105,7 +105,14 @@ impl Party {
 
         let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
         for (_party_id, stake, verification_key) in players_with_keys {
-            key_reg.register(*stake, verification_key).unwrap();
+            key_reg
+                .register(
+                    *stake,
+                    verification_key,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                )
+                .unwrap();
         }
         let closed_reg = key_reg.close_registration();
 
@@ -257,7 +264,14 @@ impl Verifier {
 
         let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
         for (_party_id, stake, verification_key) in players_with_keys {
-            key_reg.register(*stake, verification_key).unwrap();
+            key_reg
+                .register(
+                    *stake,
+                    verification_key,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                )
+                .unwrap();
         }
         let closed_reg = key_reg.close_registration();
 

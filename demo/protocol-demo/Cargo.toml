@@ -8,6 +8,9 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
+[features]
+future_snark = [] # For activating snark features
+
 [dependencies]
 clap = { workspace = true }
 hex = { workspace = true }
