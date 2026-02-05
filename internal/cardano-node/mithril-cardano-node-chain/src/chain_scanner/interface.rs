@@ -6,6 +6,7 @@ use mithril_common::entities::{BlockNumber, SlotNumber};
 use crate::entities::{RawCardanoPoint, ScannedBlock};
 
 /// A scanner that can read cardano transactions in a cardano database
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait BlockScanner: Sync + Send {
     /// Scan the transactions
