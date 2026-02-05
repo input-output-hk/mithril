@@ -3,6 +3,7 @@
 
 mod api;
 mod block_ranges_importer;
+mod blocks_and_transactions_importer;
 mod importer_by_chunk;
 mod importer_with_pruner;
 mod service;
