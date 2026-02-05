@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::io::Cursor;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use ff::Field;
@@ -26,22 +26,19 @@ type F = JubjubBase;
 
 /// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
-/// VK/PK pair cached per STM circuit configuration.
-type VkPkPair = (MidnightVK, MidnightPK<StmCircuit>);
-/// Cache map for VK/PK pairs keyed by STM circuit configuration.
-type VkPkCache = HashMap<VkPkKey, Arc<VkPkPair>>;
+/// Verification/proving key pair cached per STM circuit configuration.
+type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCircuit>);
+/// Cache map for verification/proving keys keyed by STM circuit configuration.
+type CircuitKeysCache = HashMap<StmCircuitConfig, Arc<CircuitVerificationAndProvingKeyPair>>;
 
-/// Cache key for VK/PK pairs derived from the STM circuit configuration.
+/// Cache key derived from the STM circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct VkPkKey {
+struct StmCircuitConfig {
     k: u32,
     quorum: u32,
     num_lotteries: u32,
     merkle_tree_depth: u32,
 }
-
-/// Global cache for VK/PK pairs keyed by STM circuit configuration.
-static VKPK_CACHE: OnceLock<Mutex<VkPkCache>> = OnceLock::new();
 
 /// Shared environment for STM circuit golden cases (SRS, relation, keys, sizing).
 pub(crate) struct StmCircuitEnv {
@@ -70,6 +67,16 @@ pub(crate) struct StmCircuitScenario {
     merkle_root: F,
     msg: F,
     witness: Vec<WitnessEntry>,
+}
+
+/// Selects which leaf index is assigned the controlled target.
+pub(crate) enum LeafSelector {
+    /// Use the leftmost leaf (index 0).
+    LeftMost,
+    /// Use the rightmost leaf (index n - 1).
+    RightMost,
+    /// Use a specific leaf index.
+    Index(usize),
 }
 
 impl StmCircuitEnv {
@@ -112,82 +119,25 @@ pub(crate) fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLe
     (sks, leaves, tree)
 }
 
-/// Build a full tree with a controlled rightmost leaf and return its index.
-pub(crate) fn create_merkle_tree_with_rightmost_leaf(
+/// Build a full tree with one controlled leaf selected by `selector` and return its index.
+pub(crate) fn create_merkle_tree_with_leaf_selector(
     depth: u32,
+    selector: LeafSelector,
     target: F,
 ) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree, usize) {
     assert!(
         depth < usize::BITS,
         "depth must be < usize::BITS to safely compute 1 << depth"
     );
-    let mut rng = OsRng;
     let n = 1usize << depth;
-    let rightmost_index = n - 1;
-
-    let mut sks = Vec::with_capacity(n);
-    let mut leaves = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let sk = SigningKey::generate(&mut rng);
-        let vk = VerificationKey::from(&sk);
-        let leaf_target = if i == rightmost_index {
-            target
-        } else {
-            -F::ONE
-        };
-        let leaf = MTLeaf(vk, leaf_target);
-        sks.push(sk);
-        leaves.push(leaf);
-    }
-
-    let tree = MerkleTree::create(&leaves);
-
-    (sks, leaves, tree, rightmost_index)
-}
-
-/// Build a full tree with a controlled leftmost leaf and return its index.
-pub(crate) fn create_merkle_tree_with_leftmost_leaf(
-    depth: u32,
-    target: F,
-) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree, usize) {
-    assert!(
-        depth < usize::BITS,
-        "depth must be < usize::BITS to safely compute 1 << depth"
-    );
-    let mut rng = OsRng;
-    let n = 1usize << depth;
-    let leftmost_index = 0usize;
-
-    let mut sks = Vec::with_capacity(n);
-    let mut leaves = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let sk = SigningKey::generate(&mut rng);
-        let vk = VerificationKey::from(&sk);
-        let leaf_target = if i == leftmost_index { target } else { -F::ONE };
-        let leaf = MTLeaf(vk, leaf_target);
-        sks.push(sk);
-        leaves.push(leaf);
-    }
-
-    let tree = MerkleTree::create(&leaves);
-
-    (sks, leaves, tree, leftmost_index)
-}
-
-/// Build a full tree with a controlled leaf target at a specific index.
-pub(crate) fn create_merkle_tree_with_controlled_leaf(
-    depth: u32,
-    leaf_index: usize,
-    target: F,
-) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
-    assert!(
-        depth < usize::BITS,
-        "depth must be < usize::BITS to safely compute 1 << depth"
-    );
-    let n = 1usize << depth;
-    assert!(leaf_index < n, "leaf_index out of bounds for tree size");
+    let selected_index = match selector {
+        LeafSelector::LeftMost => 0usize,
+        LeafSelector::RightMost => n - 1,
+        LeafSelector::Index(i) => {
+            assert!(i < n, "leaf_index out of bounds for tree size");
+            i
+        }
+    };
 
     let mut rng = OsRng;
     let mut sks = Vec::with_capacity(n);
@@ -196,7 +146,7 @@ pub(crate) fn create_merkle_tree_with_controlled_leaf(
     for i in 0..n {
         let sk = SigningKey::generate(&mut rng);
         let vk = VerificationKey::from(&sk);
-        let leaf_target = if i == leaf_index { target } else { -F::ONE };
+        let leaf_target = if i == selected_index { target } else { -F::ONE };
         let leaf = MTLeaf(vk, leaf_target);
         sks.push(sk);
         leaves.push(leaf);
@@ -204,7 +154,7 @@ pub(crate) fn create_merkle_tree_with_controlled_leaf(
 
     let tree = MerkleTree::create(&leaves);
 
-    (sks, leaves, tree)
+    (sks, leaves, tree, selected_index)
 }
 
 /// Construct the STM circuit relation environment and setup keys for a case.
@@ -225,14 +175,14 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
         println!("{:?}", zk::cost_model(&relation));
     }
 
-    let key = VkPkKey {
+    let config = StmCircuitConfig {
         k,
         quorum,
         num_lotteries,
         merkle_tree_depth: depth,
     };
-    let vkpk = get_or_build_vkpk(key, &relation, &srs);
-    let (vk, pk) = (&vkpk.0, &vkpk.1);
+    let key_pair = get_or_build_circuit_keys(config, &relation, &srs);
+    let (vk, pk) = (&key_pair.0, &key_pair.1);
 
     {
         let mut buffer = Cursor::new(Vec::new());
@@ -295,6 +245,23 @@ pub(crate) fn build_witness_with_indices(
     witness
 }
 
+/// Find two witness entries with distinct leaves, for negative test construction.
+pub(crate) fn find_two_distinct_witness_entries(witness: &[WitnessEntry]) -> (usize, usize) {
+    assert!(witness.len() >= 2, "expected at least two witness entries");
+    if witness[0].0.to_bytes() != witness[1].0.to_bytes() {
+        return (0, 1);
+    }
+    for i in 0..witness.len() {
+        let leaf_i = witness[i].0.to_bytes();
+        for (j, wj) in witness.iter().enumerate().skip(i + 1) {
+            if leaf_i != wj.0.to_bytes() {
+                return (i, j);
+            }
+        }
+    }
+    panic!("expected at least two distinct leaves in witness");
+}
+
 /// Reuse the same signer, Merkle path, and signature across indices to stress
 /// Merkle-path shape in golden vectors; not a realistic lottery model, and any
 /// grinding or signature randomness considerations are out of scope.
@@ -349,11 +316,14 @@ pub(crate) enum StmCircuitProofError {
     VerifyFail,
 }
 
+/// Result type for STM circuit golden helpers.
+type StmResult<T> = Result<T, StmCircuitProofError>;
+
 /// Prove and verify a scenario, returning a typed result for negative tests.
 pub(crate) fn prove_and_verify_result(
     env: &StmCircuitEnv,
     scenario: StmCircuitScenario,
-) -> Result<(), StmCircuitProofError> {
+) -> StmResult<()> {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
@@ -420,11 +390,16 @@ fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
     generate_params(k, path.to_string_lossy().as_ref())
 }
 
-// Get a cached VK/PK pair or build and insert it if missing.
-fn get_or_build_vkpk(key: VkPkKey, relation: &StmCircuit, srs: &ParamsKZG<Bls12>) -> Arc<VkPkPair> {
-    let cache = VKPK_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Some(vkpk) = cache.lock().unwrap().get(&key).cloned() {
-        return vkpk;
+/// Get cached verification/proving keys or build and insert them if missing.
+fn get_or_build_circuit_keys(
+    config: StmCircuitConfig,
+    relation: &StmCircuit,
+    srs: &ParamsKZG<Bls12>,
+) -> Arc<CircuitVerificationAndProvingKeyPair> {
+    static STM_CIRCUIT_KEYS_CACHE: LazyLock<RwLock<CircuitKeysCache>> =
+        LazyLock::new(|| RwLock::new(HashMap::new()));
+    if let Some(key_pair) = STM_CIRCUIT_KEYS_CACHE.read().unwrap().get(&config).cloned() {
+        return key_pair;
     }
 
     let start = Instant::now();
@@ -433,7 +408,10 @@ fn get_or_build_vkpk(key: VkPkKey, relation: &StmCircuit, srs: &ParamsKZG<Bls12>
     let duration = start.elapsed();
     println!("\nvk pk generation took: {:?}", duration);
 
-    let vkpk = Arc::new((vk, pk));
-    cache.lock().unwrap().insert(key, vkpk.clone());
-    vkpk
+    let key_pair = Arc::new((vk, pk));
+    STM_CIRCUIT_KEYS_CACHE
+        .write()
+        .unwrap()
+        .insert(config, key_pair.clone());
+    key_pair
 }
