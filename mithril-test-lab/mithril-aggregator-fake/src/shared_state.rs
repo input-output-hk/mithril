@@ -23,6 +23,8 @@ pub struct AppState {
     mithril_stake_distributions: BTreeMap<String, String>,
     cardano_transaction_snapshot_list: String,
     cardano_transaction_snapshots: BTreeMap<String, String>,
+    cardano_blocks_transactions_snapshot_list: String,
+    cardano_blocks_transactions_snapshots: BTreeMap<String, String>,
     cardano_transaction_proofs: BTreeMap<String, String>,
     cardano_stake_distribution_list: String,
     cardano_stake_distributions: BTreeMap<String, String>,
@@ -57,6 +59,10 @@ impl Default for AppState {
             cardano_transaction_snapshot_list: default_values::cardano_transaction_snapshots_list()
                 .to_owned(),
             cardano_transaction_snapshots: default_values::cardano_transaction_snapshots(),
+            cardano_blocks_transactions_snapshot_list:
+                default_values::cardano_blocks_transactions_snapshots_list().to_owned(),
+            cardano_blocks_transactions_snapshots:
+                default_values::cardano_blocks_transactions_snapshots(),
             cardano_transaction_proofs: default_values::cardano_transaction_proofs(),
             cardano_stake_distribution_list: default_values::cardano_stake_distribution_list()
                 .to_owned(),
@@ -85,6 +91,8 @@ impl AppState {
             reader.read_files("mithril-stake-distribution")?;
         let (cardano_transaction_snapshot_list, cardano_transaction_snapshots) =
             reader.read_files("ctx-snapshot")?;
+        let (cardano_blocks_transactions_snapshot_list, cardano_blocks_transactions_snapshots) =
+            reader.read_files("cardano-blocks-tx-snapshot")?;
         let (_, cardano_transaction_proofs) = reader.read_files("ctx-proof")?;
         let (cardano_stake_distribution_list, cardano_stake_distributions) =
             reader.read_files("cardano-stake-distribution")?;
@@ -108,6 +116,8 @@ impl AppState {
             mithril_stake_distributions,
             cardano_transaction_snapshot_list,
             cardano_transaction_snapshots,
+            cardano_blocks_transactions_snapshot_list,
+            cardano_blocks_transactions_snapshots,
             cardano_transaction_proofs,
             cardano_stake_distribution_list,
             cardano_stake_distributions_per_epoch,
@@ -168,6 +178,19 @@ impl AppState {
     /// return the Cardano transactions snapshot identified by the given key if any.
     pub async fn get_cardano_transaction_snapshot(&self, key: &str) -> StdResult<Option<String>> {
         Ok(self.cardano_transaction_snapshots.get(key).cloned())
+    }
+
+    /// return the list of Cardano blocks transactions snapshots in the same order as they were read
+    pub async fn get_cardano_blocks_transactions_snapshots(&self) -> StdResult<String> {
+        Ok(self.cardano_blocks_transactions_snapshot_list.clone())
+    }
+
+    /// return the Cardano blocks transactions snapshot identified by the given key if any.
+    pub async fn get_cardano_blocks_transactions_snapshot(
+        &self,
+        key: &str,
+    ) -> StdResult<Option<String>> {
+        Ok(self.cardano_blocks_transactions_snapshots.get(key).cloned())
     }
 
     /// return the Cardano transactions proofs from Cardano transaction hashes.

@@ -13,20 +13,53 @@ For now, the following routes are implemented:
 - GET /aggregator/artifact/snapshot/:digest
 - GET /aggregator/artifact/mithril-stake-distributions/
 - GET /aggregator/artifact/mithril-stake-distribution/:hash
+- GET /aggregator/status
+- GET /aggregator/artifact/cardano-transactions
+- GET /aggregator/artifact/cardano-transaction/:hash
+- GET /aggregator/artifact/cardano-blocks-transactions
+- GET /aggregator/artifact/cardano-blocks-transactions/:hash
+- GET /aggregator/artifact/cardano-stake-distributions
+- GET /aggregator/artifact/cardano-stake-distribution/:hash
+- GET /aggregator/artifact/cardano-stake-distribution/epoch/:epoch
+- GET /aggregator/artifact/cardano-database
+- GET /aggregator/artifact/cardano-database/epoch/:epoch
+- GET /aggregator/artifact/cardano-database/:hash
+- GET /aggregator/proof/cardano-transaction
+- POST /aggregator/statistics/snapshot
 
 ## Data fixtures
 
 It is either possible to use default data provided with the binary or to load a static set of data at start up using the `-d` or `--data-dir` option. When set the given directory is scanned for the following files:
 
+- cardano-blocks-tx-snapshots.json
+- cardano-blocks-tx-snapshots-list.json
+- cardano-databases.json
+- cardano-databases-list.json
+- cardano-stake-distributions.json
+- cardano-stake-distributions-list.json
 - certificates.json
-- snapshots.json
+- certificates-list.json
+- ctx-proofs.json
+- ctx-proofs-list.json
+- ctx-snapshots.json
+- ctx-snapshots-list.json
+- epoch-settings.json
 - mithril-stake-distributions.json
+- mithril-stake-distributions-list.json
+- snapshots.json
+- snapshots-list.json
+- status.json
 
 For each file, the identifiers of the corresponding artifacts are extracted and the following files are read:
 
+- cardano-blocks-tx-snapshot-{hash}.json
+- cardano-database-{hash}.json
+- cardano-stake-distribution-{hash}.json
 - certificate-{hash}.json
-- snapshot-{digest}.json
+- ctx-proof-{hash}.json
+- ctx-snapshot"-{hash}.json
 - mithril-stake-distribution-{hash}.json
+- snapshot-{digest}.json
 
 If a file is missing or incomplete, the software will stop with an error message.
 

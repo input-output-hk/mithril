@@ -221,6 +221,9 @@ download_artifacts "$BASE_URL/artifact/cardano-database" "cardano-database" "has
 download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-snapshots-list"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-snapshot" "hash"
 
+download_data "$BASE_URL/artifact/cardano-blocks-transactions"  "cardano-blocks-tx-snapshots-list"
+download_artifacts "$BASE_URL/artifact/cardano-blocks-transactions" "cardano-blocks-tx-snapshot" "hash"
+
 if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
     download_ctx_proof "$CARDANO_TRANSACTIONS_HASHES"
     write_ctx_proof_hashes_list "$CARDANO_TRANSACTIONS_HASHES"
@@ -235,6 +238,6 @@ download_data "$BASE_URL/certificates" "certificates-list"
 download_artifacts "$BASE_URL/certificate" "certificate" "hash"
 download_certificate_chain
 
-for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "cardano-stake-distribution" "cardano-database" "certificate"; do
+for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "cardano-blocks-tx-snapshot" "cardano-stake-distribution" "cardano-database" "certificate"; do
   join_artifacts_files "$artifact_type"
 done

@@ -44,6 +44,14 @@ pub async fn aggregator_router() -> Router<SharedState> {
             get(cardano_transaction_snapshot),
         )
         .route(
+            "/artifact/cardano-blocks-transactions",
+            get(cardano_blocks_transactions_snapshots),
+        )
+        .route(
+            "/artifact/cardano-blocks-transactions/{hash}",
+            get(cardano_blocks_transactions_snapshot),
+        )
+        .route(
             "/artifact/cardano-stake-distributions",
             get(cardano_stake_distributions),
         )
@@ -202,6 +210,33 @@ pub async fn cardano_transaction_snapshot(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("cardano transaction snapshot hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return the list of Cardano blocks transactions snapshots
+pub async fn cardano_blocks_transactions_snapshots(
+    State(state): State<SharedState>,
+) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let certificates = app_state.get_cardano_blocks_transactions_snapshots().await?;
+
+    Ok(certificates)
+}
+
+/// HTTP: return a cardano blocks transactions snapshot identified by its hash.
+pub async fn cardano_blocks_transactions_snapshot(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_cardano_blocks_transactions_snapshot(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano blocks transactions snapshot hash={key} NOT FOUND.");
             AppError::NotFound
         })
 }
@@ -441,6 +476,31 @@ mod tests {
 
         let response = cardano_transaction_snapshot(hash, state).await.expect(
             "The handler was expected to succeed since the cardano transaction snapshot's hash does exist.",
+        );
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_cardano_blocks_transactions_snapshot_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = cardano_blocks_transactions_snapshot(hash, state).await.expect_err(
+            "The handler was expected to fail since the cardano blocks transactions snapshot's hash does not exist.",
+        );
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn existing_cardano_blocks_transactions_snapshot_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash =
+            Path(default_values::cardano_blocks_transactions_snapshot_hashes()[0].to_string());
+
+        let response = cardano_blocks_transactions_snapshot(hash, state).await.expect(
+            "The handler was expected to succeed since the cardano blocks transactions snapshot's hash does exist.",
         );
 
         assert_eq!(StatusCode::OK, response.status());
