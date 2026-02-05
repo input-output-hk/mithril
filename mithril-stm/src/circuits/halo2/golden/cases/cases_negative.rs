@@ -1,173 +1,13 @@
 use ff::Field;
 
-use crate::circuits::halo2::golden::support::{
+use crate::circuits::halo2::golden::helpers::{
     LeafSelector, StmCircuitProofError, StmCircuitScenario, build_witness,
     build_witness_with_fixed_signer, build_witness_with_indices, create_default_merkle_tree,
     create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
-    prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
-    setup_stm_circuit_env,
+    prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::off_circuit::merkle_tree::Position;
 use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
-
-macro_rules! current_function {
-    () => {{
-        fn f() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
-        }
-        let name = type_name_of(f);
-        let name = name.strip_suffix("::f").unwrap_or(name);
-        let name = name.strip_suffix("::{{closure}}").unwrap_or(name);
-        let function_name_index = name.rfind("::").map(|index| index + 2).unwrap_or(0);
-        &name[function_name_index..]
-    }};
-}
-
-// Baseline: valid witness; expected to succeed.
-#[test]
-fn baseline() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    run_stm_circuit_case_default(current_function!(), K, QUORUM);
-}
-
-// Sanity: larger valid witness; expected to succeed.
-// Expensive; excluded from CI and intended for manual runs.
-#[ignore]
-#[test]
-fn medium() {
-    const K: u32 = 16;
-    const QUORUM: u32 = 32;
-    run_stm_circuit_case_default(current_function!(), K, QUORUM);
-}
-
-// Very large valid witness; expected to succeed.
-// Extremely expensive; excluded from CI and intended for manual runs.
-#[ignore]
-#[test]
-fn large() {
-    const K: u32 = 21;
-    const QUORUM: u32 = 1024;
-    run_stm_circuit_case_default(current_function!(), K, QUORUM);
-}
-
-// Public message is zero; expected to succeed.
-#[test]
-fn msg_0() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    run_stm_circuit_case(current_function!(), K, QUORUM, JubjubBase::ZERO);
-}
-
-// Public message is max field element; expected to succeed.
-#[test]
-fn msg_max() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg_max = -JubjubBase::ONE; // p - 1
-    run_stm_circuit_case(current_function!(), K, QUORUM, msg_max);
-}
-
-// Indices start at 0 and strictly increase; expected to succeed.
-#[test]
-fn min_strict_indices() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg = JubjubBase::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
-    let merkle_root = merkle_tree.root();
-    let indices = vec![0, 1, 2];
-    let witness =
-        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
-
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
-}
-
-// Indices end at m-1 and strictly increase; expected to succeed.
-#[test]
-fn max_strict_indices() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg = JubjubBase::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
-    let merkle_root = merkle_tree.root();
-    let m = env.num_lotteries();
-    assert!(m >= QUORUM, "num_lotteries must be >= quorum");
-    let start = m - QUORUM;
-    let indices = (start..m).collect::<Vec<u32>>();
-    let witness =
-        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
-
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
-}
-
-// All-right Merkle path with a fixed signer; expected to succeed.
-#[test]
-fn all_right() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg = JubjubBase::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let depth = env.num_signers().next_power_of_two().trailing_zeros();
-    let target = -JubjubBase::ONE;
-    let (sks, leaves, merkle_tree, rightmost_index) =
-        create_merkle_tree_with_leaf_selector(depth, LeafSelector::RightMost, target);
-
-    let merkle_root = merkle_tree.root();
-    let m = env.num_lotteries();
-    let indices = vec![4, 12, 25];
-    assert!(indices.iter().all(|i| *i < m));
-    let witness = build_witness_with_fixed_signer(
-        &sks,
-        &leaves,
-        &merkle_tree,
-        rightmost_index,
-        merkle_root,
-        msg,
-        &indices,
-    );
-
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
-}
-
-// All-left Merkle path with a fixed signer; expected to succeed.
-// Requires power-of-two signers; otherwise padding prevents an all-left path.
-#[test]
-fn all_left() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg = JubjubBase::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let depth = env.num_signers().next_power_of_two().trailing_zeros();
-    let target = -JubjubBase::ONE;
-    let (sks, leaves, merkle_tree, leftmost_index) =
-        create_merkle_tree_with_leaf_selector(depth, LeafSelector::LeftMost, target);
-
-    let merkle_root = merkle_tree.root();
-    let m = env.num_lotteries();
-    let indices = vec![5, 13, 21];
-    assert!(indices.iter().all(|i| *i < m));
-    let witness = build_witness_with_fixed_signer(
-        &sks,
-        &leaves,
-        &merkle_tree,
-        leftmost_index,
-        merkle_root,
-        msg,
-        &indices,
-    );
-
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
-}
 
 // Mutation: public msg mismatched to witness; expected to fail verification.
 #[test]
@@ -178,10 +18,8 @@ fn wrong_msg() {
     let msg1 = JubjubBase::from(43);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg0, QUORUM);
-
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -195,11 +33,9 @@ fn wrong_root() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root_0 = merkle_tree.root();
     let merkle_root_1 = merkle_root_0 + JubjubBase::ONE;
     let witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root_0, msg, QUORUM);
-
     let scenario = StmCircuitScenario::new(merkle_root_1, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -214,7 +50,6 @@ fn signed_other_msg() {
     let msg1 = JubjubBase::from(43);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -228,7 +63,6 @@ fn signed_other_msg() {
     for (w1, w0) in witness1.into_iter().zip(witness0.into_iter()) {
         witness.push((w1.0, w1.1, w0.2, w1.3));
     }
-
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -242,7 +76,6 @@ fn sig_leaf_mismatch() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -253,7 +86,6 @@ fn sig_leaf_mismatch() {
     // Keep leaf/path/index from i, but replace signature with j's signature.
     let sig_j = witness[j].2.clone();
     witness[i].2 = sig_j;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -267,7 +99,6 @@ fn bad_challenge() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -275,7 +106,6 @@ fn bad_challenge() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     witness[0].2.c += JubjubBase::ONE;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -289,7 +119,6 @@ fn bad_response() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -297,7 +126,6 @@ fn bad_response() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     witness[0].2.s += JubjubScalar::ONE;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -311,7 +139,6 @@ fn bad_commitment() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -319,7 +146,6 @@ fn bad_commitment() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     witness[0].2.sigma = witness[1].2.sigma;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -339,7 +165,6 @@ fn sig_lottery_mismatch() {
         LeafSelector::Index(signer_index),
         JubjubBase::ZERO,
     );
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![5, 17, 25];
@@ -353,7 +178,6 @@ fn sig_lottery_mismatch() {
         msg,
         &indices,
     );
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -367,14 +191,12 @@ fn non_increasing() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 14];
     assert!(indices.iter().all(|i| *i < m));
     let witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -388,13 +210,11 @@ fn index_oob() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, m];
     let witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -408,7 +228,6 @@ fn corrupt_sibling() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -419,7 +238,6 @@ fn corrupt_sibling() {
     assert!(!witness[0].1.siblings.is_empty());
     assert!(d < witness[0].1.siblings.len());
     witness[0].1.siblings[d].1 += JubjubBase::ONE;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -433,7 +251,6 @@ fn flip_position() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -446,7 +263,6 @@ fn flip_position() {
         Position::Left => Position::Right,
         Position::Right => Position::Left,
     };
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -461,7 +277,6 @@ fn wrong_path_len_short() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -470,7 +285,6 @@ fn wrong_path_len_short() {
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     assert!(!witness[0].1.siblings.is_empty());
     witness[0].1.siblings.pop();
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let _ = prove_and_verify_result(&env, scenario);
 }
@@ -484,7 +298,6 @@ fn wrong_path_len_long() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -492,7 +305,6 @@ fn wrong_path_len_long() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     witness[0].1.siblings.push((Position::Left, JubjubBase::ZERO));
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let _ = prove_and_verify_result(&env, scenario);
 }
@@ -505,7 +317,6 @@ fn path_other_leaf() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -515,7 +326,6 @@ fn path_other_leaf() {
     let (i, j) = find_two_distinct_witness_entries(&witness);
     // Keep path/signature/index from i, but swap leaf with j.
     witness[i].0 = witness[j].0;
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -529,7 +339,6 @@ fn leaf_path_mismatch() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -539,7 +348,6 @@ fn leaf_path_mismatch() {
     let (i, j) = find_two_distinct_witness_entries(&witness);
     // Keep leaf/signature/index from i, but swap in j's Merkle path.
     witness[i].1 = witness[j].1.clone();
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -553,7 +361,6 @@ fn wrong_vk() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -565,7 +372,6 @@ fn wrong_vk() {
     let target = witness[i].0.1;
     let vk = witness[j].0.0;
     witness[i].0 = crate::circuits::halo2::off_circuit::merkle_tree::MTLeaf(vk, target);
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -585,7 +391,6 @@ fn target_lt_ev() {
         LeafSelector::Index(signer_index),
         JubjubBase::ZERO,
     );
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![5, 17, 25];
@@ -599,7 +404,6 @@ fn target_lt_ev() {
         msg,
         &indices,
     );
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
@@ -614,11 +418,9 @@ fn wrong_witness_len_short() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let mut witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, QUORUM);
     witness.pop();
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let _ = prove_and_verify_result(&env, scenario);
 }
@@ -632,12 +434,10 @@ fn wrong_witness_len_long() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let mut witness = build_witness(&sks, &leaves, &merkle_tree, merkle_root, msg, QUORUM);
     let extra = witness.last().cloned().expect("expected non-empty witness");
     witness.push(extra);
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let _ = prove_and_verify_result(&env, scenario);
 }
@@ -650,7 +450,6 @@ fn duplicate_entries() {
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
-
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     let indices = vec![6, 14, 22];
@@ -658,7 +457,6 @@ fn duplicate_entries() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
     witness[1] = witness[0].clone();
-
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
     assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
