@@ -102,6 +102,7 @@ for stake in parties {
     let entry = RegistrationEntry::new(
         p.get_verification_key_proof_of_possession_for_concatenation(),
         p.stake,
+        #[cfg(feature = "future_snark")] p.schnorr_verification_key,
     )
     .unwrap();
     key_reg.register_by_entry(&entry).unwrap();
@@ -128,9 +129,9 @@ let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 let avk: AggregateVerificationKey<D>  = clerk.compute_aggregate_verification_key();
 
 // Check all parties can verify every sig
-for (s, p) in sigs.iter().zip(ps.iter()) {
-    let stake = closed_reg.get_registration_entry_for_index(&s.signer_index).unwrap().get_stake();
-    assert!(s.verify::<D>(&params, &p.get_bls_verification_key(), &stake, &avk, &msg).is_ok(), "Verification failed");
+for s in sigs.iter() {
+    let entry = closed_reg.get_registration_entry_for_index(&s.signer_index).unwrap();
+    assert!(s.verify::<D>(&params, &entry.get_verification_key_for_concatenation(), &entry.get_stake(), &avk, &msg).is_ok(), "Verification failed");
 }
 
 // Aggregate a concatenation proof with random parties
