@@ -1,12 +1,13 @@
-use crate::circuits::halo2::constants::EDWARDS_D;
-use crate::circuits::halo2::types::{
-    Jubjub, JubjubAffine, JubjubBase, JubjubScalar, JubjubSubgroup,
-};
 use ff::{Field, PrimeField};
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::{Num, One, Zero};
 use subtle::{Choice, ConstantTimeEq};
+
+use crate::circuits::halo2::constants::EDWARDS_D;
+use crate::circuits::halo2::types::{
+    Jubjub, JubjubAffine, JubjubBase, JubjubScalar, JubjubSubgroup,
+};
 
 pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let extended: Jubjub = point.into(); // Convert to JubjubExtended

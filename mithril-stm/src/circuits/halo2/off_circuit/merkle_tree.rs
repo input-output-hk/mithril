@@ -1,8 +1,9 @@
+use ff::Field;
+
 use crate::circuits::halo2::hash::{HashCPU, PoseidonHash};
 use crate::circuits::halo2::off_circuit::error::MerkleTreeError;
 use crate::circuits::halo2::off_circuit::unique_signature::VerificationKey;
 use crate::circuits::halo2::types::{JubjubBase, Target};
-use ff::Field;
 
 type F = JubjubBase;
 
