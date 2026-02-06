@@ -2650,7 +2650,7 @@ components:
           - created_at
         properties:
           hash:
-            description: Hash of the Cardano block and transactions set
+            description: Hash of the Cardano Blocks and Transactions snapshot
             type: string
             format: bytes
           certificate_hash:
@@ -2658,21 +2658,21 @@ components:
             type: string
             format: bytes
           merkle_root:
-            description: Merkle root of the Cardano blocks and transactions set
+            description: Merkle root of the Cardano Blocks and Transactions snapshot
             type: string
             format: bytes
           epoch:
             $ref: "#/components/schemas/Epoch"
           block_number_signed:
-            description: Block number of the Cardano blocks transactions snapshot
+            description: The maximum block number signed in the Cardano Blocks and Transactions
             type: integer
             format: int64
           block_number_tip:
-            description: The approximate block number tip of the Cardano blocks transactions snapshot
+            description: The block number of the tip of the chain at snapshot time of the Cardano Blocks and Transactions
             type: integer
             format: int64
           created_at:
-            description: Date and time at which the Cardano transactions set was created
+            description: Time of creation
             type: string
             format: date-time,
         examples:
@@ -2700,7 +2700,7 @@ components:
         - created_at
       properties:
         hash:
-          description: Hash of the Cardano transactions set
+          description: Hash of the Cardano Blocks and Transactions snapshot
           type: string
           format: bytes
         certificate_hash:
@@ -2708,21 +2708,21 @@ components:
           type: string
           format: bytes
         merkle_root:
-          description: Merkle root of the Cardano transactions set
+          description: Merkle root of the Cardano Blocks and Transactions snapshot
           type: string
           format: bytes
         epoch:
           $ref: "#/components/schemas/Epoch"
         block_number_signed:
-          description: Block number of the Cardano blocks transactions snapshot
+          description: The maximum block number signed in the Cardano Blocks and Transactions
           type: integer
           format: int64
         block_number_tip:
-          description: The approximate block number tip of the Cardano blocks transactions snapshot
+          description: The block number of the tip of the chain at snapshot time of the Cardano Blocks and Transactions
           type: integer
           format: int64
         created_at:
-          description: Date and time at which the Cardano transactions set was created
+          description: Time of creation
           type: string
           format: date-time,
       examples:

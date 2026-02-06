@@ -10,25 +10,25 @@ pub type CardanoBlocksTransactionsSnapshotListMessage =
 /// Message structure of a Cardano Transactions Snapshot list item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoBlocksTransactionsSnapshotListItemMessage {
-    /// Merkle root of the Cardano blockstransactions snapshot
+    /// Merkle root of the Cardano Blocks and Transactions snapshot
     pub merkle_root: String,
 
-    /// Epoch of the Cardano blocks transactions snapshot
+    /// Epoch of the Cardano Blocks and Transactions snapshot
     pub epoch: Epoch,
 
-    /// Block number of the Cardano blocks transactions snapshot
+    /// The maximum block number signed in the Cardano Blocks and Transactions snapshot
     pub block_number_signed: BlockNumber,
 
-    /// The approximate block number tip of the Cardano blocks transactions snapshot
+    /// The block number of the tip of the chain at snapshot time of the Cardano Blocks and Transactions
     pub block_number_tip: BlockNumber,
 
-    /// Hash of the Cardano blocks transactions snapshot
+    /// Hash of the Cardano Blocks and Transactions snapshot
     pub hash: String,
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
 
-    /// DateTime of creation
+    /// Time of creation
     pub created_at: DateTime<Utc>,
 }
 
