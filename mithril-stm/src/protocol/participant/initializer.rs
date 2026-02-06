@@ -169,13 +169,11 @@ impl Initializer {
 
         #[cfg(feature = "future_snark")]
         let (schnorr_signing_key, schnorr_verification_key) = {
-            let schnorr_signing_key = bytes
-                .get(256..288)
-                .map(|bytes| SchnorrSigningKey::from_bytes(bytes))
-                .transpose()?;
+            let schnorr_signing_key =
+                bytes.get(256..288).map(SchnorrSigningKey::from_bytes).transpose()?;
             let schnorr_verification_key = bytes
                 .get(288..352)
-                .map(|bytes| VerificationKeyForSnark::from_bytes(bytes))
+                .map(VerificationKeyForSnark::from_bytes)
                 .transpose()?;
 
             match (&schnorr_signing_key, &schnorr_verification_key) {

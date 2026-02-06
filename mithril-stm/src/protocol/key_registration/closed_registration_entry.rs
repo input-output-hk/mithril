@@ -107,12 +107,11 @@ impl ClosedRegistrationEntry {
         let (verification_key_for_snark, lottery_target_value) = {
             let schnorr_verification_key = bytes
                 .get(104..168)
-                .map(|bytes| VerificationKeyForSnark::from_bytes(bytes))
+                .map(VerificationKeyForSnark::from_bytes)
                 .transpose()?;
-            let lottery_target_value = bytes
-                .get(168..200)
-                .map(|bytes| LotteryTargetValue::from_bytes(bytes))
-                .transpose()?;
+
+            let lottery_target_value =
+                bytes.get(168..200).map(LotteryTargetValue::from_bytes).transpose()?;
 
             match (schnorr_verification_key, lottery_target_value) {
                 (Some(_), None) | (None, Some(_)) => {
