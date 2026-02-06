@@ -151,6 +151,19 @@ impl CardanoTransactionsSigningConfig {
     }
 }
 
+/// Configuration for the signing of Cardano blocks and transactions
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CardanoBlocksTransactionsSigningConfig {
+    /// Number of blocks to discard from the tip of the chain when importing blocks and transactions.
+    pub security_parameter: BlockNumber,
+
+    /// The number of blocks between signature of the blocks and transactions.
+    ///
+    /// *Note: The step is adjusted to be a multiple of the block range length in order
+    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    pub step: BlockNumber,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::entities::{

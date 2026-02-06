@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use mithril_common::{
-    entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants},
+    entities::{
+        CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        SignedEntityTypeDiscriminants,
+    },
     test::double::{Dummy, fake_data},
 };
 
@@ -33,7 +36,18 @@ impl Dummy for MithrilNetworkConfigurationForEpoch {
             ]),
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+                cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig::dummy()),
             },
+        }
+    }
+}
+
+impl Dummy for SignedEntityTypeConfiguration {
+    /// Return a dummy [SignedEntityTypeConfiguration] (test-only).
+    fn dummy() -> Self {
+        Self {
+            cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+            cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig::dummy()),
         }
     }
 }
