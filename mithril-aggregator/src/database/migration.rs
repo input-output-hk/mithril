@@ -285,5 +285,13 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (5, 'Cardano Blocks and Transactions');
         "#,
         ),
+        // Migration 39
+        // Add the optional `aggregate_verification_key_snark` field to 'certificate` table.
+        SqlMigration::new(
+            39,
+            r#"
+alter table certificate add column aggregate_verification_key_snark text;
+        "#,
+        ),
     ]
 }
