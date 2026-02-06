@@ -351,9 +351,16 @@ pub struct MKTree<S: MKTreeStorer> {
 impl<S: MKTreeStorer> MKTree<S> {
     /// MKTree factory
     pub fn new<T: Into<MKTreeNode> + Clone>(leaves: &[T]) -> StdResult<Self> {
+        Self::new_from_iter(leaves.iter().cloned())
+    }
+
+    /// MKTree factory
+    pub fn new_from_iter<T: IntoIterator<Item = U>, U: Into<MKTreeNode>>(
+        leaves: T,
+    ) -> StdResult<Self> {
         let mut inner_tree = MMR::<_, _, _>::new(0, MKTreeStore::<S>::build()?);
-        for leaf in leaves {
-            let leaf = Arc::new(leaf.to_owned().into());
+        for leaf in leaves.into_iter() {
+            let leaf = Arc::new(leaf.into());
             let inner_tree_position = inner_tree.push(leaf.clone())?;
             inner_tree
                 .store()
