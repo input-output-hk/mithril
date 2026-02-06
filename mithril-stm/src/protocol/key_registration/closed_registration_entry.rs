@@ -1,7 +1,5 @@
-use serde::de::{self, SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 use std::cmp::Ordering;
-use std::fmt;
 use std::hash::Hash;
 
 use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation};
@@ -10,17 +8,17 @@ use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyF
 use crate::{LotteryTargetValue, VerificationKeyForSnark};
 
 /// Represents a registration entry of a closed key registration.
-#[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize)]
-pub struct ClosedRegistrationEntry(
-    VerificationKeyForConcatenation,
-    Stake,
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Deserialize)]
+pub struct ClosedRegistrationEntry {
+    verification_key_for_concatenation: VerificationKeyForConcatenation,
+    stake: Stake,
     #[cfg(feature = "future_snark")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    Option<VerificationKeyForSnark>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    verification_key_for_snark: Option<VerificationKeyForSnark>,
     #[cfg(feature = "future_snark")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    Option<LotteryTargetValue>,
-);
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    lottery_target_value: Option<LotteryTargetValue>,
+}
 
 impl ClosedRegistrationEntry {
     /// Creates a new closed registration entry.
@@ -32,36 +30,36 @@ impl ClosedRegistrationEntry {
         >,
         #[cfg(feature = "future_snark")] lottery_target_value: Option<LotteryTargetValue>,
     ) -> Self {
-        ClosedRegistrationEntry(
+        ClosedRegistrationEntry {
             verification_key_for_concatenation,
             stake,
             #[cfg(feature = "future_snark")]
             verification_key_for_snark,
             #[cfg(feature = "future_snark")]
             lottery_target_value,
-        )
+        }
     }
 
     /// Gets the verification key for concatenation.
     pub fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
-        self.0
+        self.verification_key_for_concatenation
     }
 
     /// Gets the stake.
     pub fn get_stake(&self) -> Stake {
-        self.1
+        self.stake
     }
 
     #[cfg(feature = "future_snark")]
     /// Gets the verification key for snark.
     pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
-        self.2
+        self.verification_key_for_snark
     }
 
     #[cfg(feature = "future_snark")]
     /// Gets the lottery target value.
     pub fn get_lottery_target_value(&self) -> Option<LotteryTargetValue> {
-        self.3
+        self.lottery_target_value
     }
 
     /// Converts the registration entry to bytes.
@@ -77,11 +75,13 @@ impl ClosedRegistrationEntry {
         let capacity = 104;
 
         let mut result = Vec::with_capacity(capacity);
-        result.extend_from_slice(&self.0.to_bytes());
-        result.extend_from_slice(&self.1.to_be_bytes());
+        result.extend_from_slice(&self.verification_key_for_concatenation.to_bytes());
+        result.extend_from_slice(&self.stake.to_be_bytes());
 
         #[cfg(feature = "future_snark")]
-        if let (Some(schnorr_vk), Some(target_value)) = (&self.2, &self.3) {
+        if let (Some(schnorr_vk), Some(target_value)) =
+            (&self.verification_key_for_snark, &self.lottery_target_value)
+        {
             result.extend_from_slice(&schnorr_vk.to_bytes());
             result.extend_from_slice(&target_value.to_bytes());
         }
@@ -96,7 +96,7 @@ impl ClosedRegistrationEntry {
     /// bytes for the lottery target value.
     /// The order is backward compatible with previous implementations.
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bls_verification_key = VerificationKeyForConcatenation::from_bytes(
+        let verification_key_for_concatenation = VerificationKeyForConcatenation::from_bytes(
             bytes.get(..96).ok_or(RegisterError::SerializationError)?,
         )?;
         let mut u64_bytes = [0u8; 8];
@@ -104,7 +104,7 @@ impl ClosedRegistrationEntry {
         let stake = Stake::from_be_bytes(u64_bytes);
 
         #[cfg(feature = "future_snark")]
-        let (schnorr_verification_key, lottery_target_value) = {
+        let (verification_key_for_snark, lottery_target_value) = {
             let schnorr_verification_key = bytes
                 .get(104..168)
                 .map(|bytes| VerificationKeyForSnark::from_bytes(bytes))
@@ -123,14 +123,44 @@ impl ClosedRegistrationEntry {
             (schnorr_verification_key, lottery_target_value)
         };
 
-        Ok(ClosedRegistrationEntry(
-            bls_verification_key,
+        Ok(ClosedRegistrationEntry {
+            verification_key_for_concatenation,
             stake,
             #[cfg(feature = "future_snark")]
-            schnorr_verification_key,
+            verification_key_for_snark,
             #[cfg(feature = "future_snark")]
             lottery_target_value,
-        ))
+        })
+    }
+}
+
+impl Serialize for ClosedRegistrationEntry {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[cfg(not(feature = "future_snark"))]
+        {
+            let mut tuple = serializer.serialize_tuple(2)?;
+            tuple.serialize_element(&self.verification_key_for_concatenation)?;
+            tuple.serialize_element(&self.stake)?;
+            tuple.end()
+        }
+        #[cfg(feature = "future_snark")]
+        {
+            let tuples_number = if self.verification_key_for_snark.is_some()
+                && self.lottery_target_value.is_some()
+            {
+                4
+            } else {
+                2
+            };
+            let mut tuple = serializer.serialize_tuple(tuples_number)?;
+            tuple.serialize_element(&self.verification_key_for_concatenation)?;
+            tuple.serialize_element(&self.stake)?;
+            if tuples_number == 4 {
+                tuple.serialize_element(&self.verification_key_for_snark)?;
+                tuple.serialize_element(&self.lottery_target_value)?;
+            }
+            tuple.end()
+        }
     }
 }
 
@@ -162,12 +192,12 @@ impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
 impl Hash for ClosedRegistrationEntry {
     /// Hashes the registration entry by hashing the stake first, then the verification key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.1.hash(state);
-        self.0.hash(state);
+        self.stake.hash(state);
+        self.verification_key_for_concatenation.hash(state);
         #[cfg(feature = "future_snark")]
         {
-            self.2.hash(state);
-            self.3.hash(state);
+            self.verification_key_for_snark.hash(state);
+            self.lottery_target_value.hash(state);
         }
     }
 
@@ -194,54 +224,10 @@ impl Ord for ClosedRegistrationEntry {
     /// (`VerificationKeyForSnark`, `LotteryTargetValue`), as we do not need them for ordering
     /// the Merkle tree leaves.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
-    }
-}
-
-/// Custom deserializer for backwards compatibility.
-/// Accepts both legacy 2-field format and new 4-field format when `future_snark` is enabled.
-impl<'de> Deserialize<'de> for ClosedRegistrationEntry {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct ClosedRegistrationEntryVisitor;
-
-        impl<'de> Visitor<'de> for ClosedRegistrationEntryVisitor {
-            type Value = ClosedRegistrationEntry;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a tuple with 2 or 4 elements")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let vk: VerificationKeyForConcatenation = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let stake: Stake = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-
-                #[cfg(feature = "future_snark")]
-                let snark_vk: Option<VerificationKeyForSnark> = seq.next_element()?.flatten();
-                #[cfg(feature = "future_snark")]
-                let target: Option<LotteryTargetValue> = seq.next_element()?.flatten();
-
-                Ok(ClosedRegistrationEntry(
-                    vk,
-                    stake,
-                    #[cfg(feature = "future_snark")]
-                    snark_vk,
-                    #[cfg(feature = "future_snark")]
-                    target,
-                ))
-            }
-        }
-
-        deserializer.deserialize_tuple(4, ClosedRegistrationEntryVisitor)
+        self.stake.cmp(&other.stake).then(
+            self.verification_key_for_concatenation
+                .cmp(&other.verification_key_for_concatenation),
+        )
     }
 }
 
