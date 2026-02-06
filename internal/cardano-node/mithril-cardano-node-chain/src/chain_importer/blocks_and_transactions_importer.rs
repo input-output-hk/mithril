@@ -508,7 +508,7 @@ mod tests {
 
             let repository = Arc::new(
                 InMemoryChainDataStore::builder()
-                    .with_block_range_roots(
+                    .with_legacy_block_range_roots(
                         &[
                             expected_remaining_block_ranges.clone(),
                             vec![
@@ -531,7 +531,7 @@ mod tests {
                     .build(),
             );
 
-            let block_range_roots = repository.get_all_block_range_root().await;
+            let block_range_roots = repository.get_all_legacy_block_range_root().await;
             assert_eq!(6, block_range_roots.len());
 
             let chain_point =
@@ -545,7 +545,7 @@ mod tests {
 
             assert_eq!(
                 expected_remaining_block_ranges,
-                repository.get_all_block_range().await
+                repository.get_all_legacy_block_ranges().await
             );
         }
     }

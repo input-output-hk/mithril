@@ -136,7 +136,7 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
                 BlockRange::from_block_number(BlockRange::LENGTH * 4),
             ],
-            repository.get_all_block_range().await
+            repository.get_all_legacy_block_ranges().await
         );
     }
 
@@ -164,7 +164,7 @@ mod tests {
                 BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
-            repository.get_all_block_range().await
+            repository.get_all_legacy_block_ranges().await
         );
     }
 
@@ -176,7 +176,7 @@ mod tests {
 
         importer.run(BlockNumber(10_000)).await.unwrap();
 
-        let block_range_roots = repository.get_all_block_range_root().await;
+        let block_range_roots = repository.get_all_legacy_block_range_root().await;
         assert!(
             block_range_roots.is_empty(),
             "No block range root should be stored, found: {block_range_roots:?}"
@@ -190,7 +190,7 @@ mod tests {
         let repository = Arc::new(
             InMemoryChainDataStore::builder()
                 .with_blocks_and_transactions(&blocks)
-                .with_block_range_roots(&[
+                .with_legacy_block_range_roots(&[
                     (
                         BlockRange::from_block_number(BlockNumber(0)),
                         MKTreeNode::from_hex("AAAA").unwrap(),
@@ -214,7 +214,7 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
-            repository.get_all_block_range().await
+            repository.get_all_legacy_block_ranges().await
         );
     }
 
@@ -234,7 +234,7 @@ mod tests {
 
         assert_eq!(
             vec![BlockRange::from_block_number(BlockRange::LENGTH)],
-            repository.get_all_block_range().await
+            repository.get_all_legacy_block_ranges().await
         );
     }
 
@@ -254,7 +254,7 @@ mod tests {
 
         assert_eq!(
             vec![BlockRange::from_block_number(BlockRange::LENGTH)],
-            repository.get_all_block_range().await
+            repository.get_all_legacy_block_ranges().await
         );
     }
 
@@ -326,7 +326,7 @@ mod tests {
 
         importer.run(up_to_block_number).await.unwrap();
 
-        let block_range_roots = repository.get_all_block_range_root().await;
+        let block_range_roots = repository.get_all_legacy_block_range_root().await;
         assert_eq!(
             expected_block_range_roots,
             block_range_roots
