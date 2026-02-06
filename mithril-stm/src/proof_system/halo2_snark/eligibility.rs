@@ -80,28 +80,19 @@ cfg_rug! {
         // JubjubBase modulus
         let modulus = Integer::from_str_radix(
             "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-            // "1",
             16,
         )
         .unwrap();
-
-        // let modulus = Integer::from(1u64<<16);
-
-        // println!("modulus = {:?}", modulus);
 
         let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
         let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w.clone());
 
         // increase precision
         let phi_high = Float::with_val(300, phi.clone());
-        // println!("phi_high = {:?}", phi_high);
-
         let t = modulus * phi_high;
-        // println!("t_rug = {:?}", t);
 
         let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
         assert!(t_int >= 0);
-        // println!("t_int = {:?}", t_int);
 
         let target: Integer = match order {
             Ordering::Less => t_int,
