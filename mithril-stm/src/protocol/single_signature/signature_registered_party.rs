@@ -16,35 +16,47 @@ pub struct SingleSignatureWithRegisteredParty {
 impl SingleSignatureWithRegisteredParty {
     /// Convert `SingleSignatureWithRegisteredParty` to bytes
     /// # Layout
+    /// * RegParty length (u64 big-endian)
     /// * RegParty
+    /// * Signature length (u64 big-endian)
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&(self.reg_party.to_bytes()));
-        out.extend_from_slice(&self.sig.to_bytes());
-
+        let reg_party_bytes = self.reg_party.to_bytes();
+        out.extend_from_slice(&(reg_party_bytes.len() as u64).to_be_bytes());
+        out.extend_from_slice(&reg_party_bytes);
+        let sig_bytes = self.sig.to_bytes();
+        out.extend_from_slice(&(sig_bytes.len() as u64).to_be_bytes());
+        out.extend_from_slice(&sig_bytes);
         out
     }
-    ///Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
+    /// Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let size_reg_party: usize = if cfg!(feature = "future_snark") {
-            200
-        } else {
-            104
-        };
+        let mut u64_bytes = [0u8; 8];
 
+        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
+        let size_reg_party = u64::from_be_bytes(u64_bytes) as usize;
         let reg_party = ClosedRegistrationEntry::from_bytes(
             bytes
-                .get(0..size_reg_party)
+                .get(8..8 + size_reg_party)
                 .ok_or(SignatureError::SerializationError)?,
         )?;
+
+        let sig_offset = 8 + size_reg_party;
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(sig_offset..sig_offset + 8)
+                .ok_or(SignatureError::SerializationError)?,
+        );
+        let size_sig = u64::from_be_bytes(u64_bytes) as usize;
         let sig = SingleSignature::from_bytes::<D>(
             bytes
-                .get(size_reg_party..)
+                .get(sig_offset + 8..sig_offset + 8 + size_sig)
                 .ok_or(SignatureError::SerializationError)?,
         )?;
+
         Ok(SingleSignatureWithRegisteredParty { sig, reg_party })
     }
 }
