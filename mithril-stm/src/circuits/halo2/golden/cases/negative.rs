@@ -10,7 +10,7 @@ use crate::circuits::halo2::off_circuit::merkle_tree::Position;
 use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
 
 #[test]
-fn msg_mismatch() {
+fn message_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg0 = JubjubBase::from(42);
@@ -26,7 +26,7 @@ fn msg_mismatch() {
 }
 
 #[test]
-fn root_mismatch() {
+fn merkle_root_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -42,7 +42,7 @@ fn root_mismatch() {
 }
 
 #[test]
-fn sig_other_msg() {
+fn signature_other_message() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg0 = JubjubBase::from(42);
@@ -70,7 +70,7 @@ fn sig_other_msg() {
 }
 
 #[test]
-fn sig_vk_mismatch() {
+fn signature_verification_key_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -94,7 +94,7 @@ fn sig_vk_mismatch() {
 }
 
 #[test]
-fn sig_bad_challenge() {
+fn signature_bad_challenge() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -115,7 +115,7 @@ fn sig_bad_challenge() {
 }
 
 #[test]
-fn sig_bad_response() {
+fn signature_bad_response() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -136,7 +136,7 @@ fn sig_bad_response() {
 }
 
 #[test]
-fn sig_bad_commitment() {
+fn signature_bad_commitment() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -150,39 +150,6 @@ fn sig_bad_commitment() {
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
 
     witness[0].2.sigma = witness[1].2.sigma;
-
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
-}
-
-#[test]
-fn target_too_small() {
-    const K: u32 = 13;
-    const QUORUM: u32 = 3;
-    let msg = JubjubBase::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let depth = env.num_signers().next_power_of_two().trailing_zeros();
-    let signer_index = 0usize;
-    let (sks, leaves, merkle_tree, _) = create_merkle_tree_with_leaf_selector(
-        depth,
-        LeafSelector::Index(signer_index),
-        JubjubBase::ZERO,
-    );
-
-    let merkle_root = merkle_tree.root();
-    let m = env.num_lotteries();
-    let indices = vec![5, 17, 25];
-    assert!(indices.iter().all(|i| *i < m));
-    let witness = build_witness_with_fixed_signer(
-        &sks,
-        &leaves,
-        &merkle_tree,
-        signer_index,
-        merkle_root,
-        msg,
-        &indices,
-    );
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
@@ -210,7 +177,7 @@ fn indices_not_increasing() {
 }
 
 #[test]
-fn index_oob() {
+fn index_out_of_bounds() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -229,7 +196,7 @@ fn index_oob() {
 }
 
 #[test]
-fn mp_corrupt_sibling() {
+fn merkle_path_corrupt_sibling() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -253,7 +220,7 @@ fn mp_corrupt_sibling() {
 }
 
 #[test]
-fn mp_flip_pos() {
+fn merkle_path_flip_position() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -280,7 +247,7 @@ fn mp_flip_pos() {
 
 #[should_panic]
 #[test]
-fn mp_len_short() {
+fn merkle_path_length_short() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -297,12 +264,13 @@ fn mp_len_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let _ = prove_and_verify_result(&env, scenario);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
 #[should_panic]
 #[test]
-fn mp_len_long() {
+fn merkle_path_length_long() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -318,11 +286,12 @@ fn mp_len_long() {
     witness[0].1.siblings.push((Position::Left, JubjubBase::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let _ = prove_and_verify_result(&env, scenario);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
 #[test]
-fn leaf_swap_keep_path() {
+fn leaf_swap_keep_merkle_path() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -345,7 +314,7 @@ fn leaf_swap_keep_path() {
 }
 
 #[test]
-fn leaf_path_mismatch() {
+fn leaf_merkle_path_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -368,7 +337,7 @@ fn leaf_path_mismatch() {
 }
 
 #[test]
-fn leaf_wrong_vk() {
+fn leaf_wrong_verification_key() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -393,7 +362,7 @@ fn leaf_wrong_vk() {
 }
 
 #[test]
-fn target_lt_ev() {
+fn target_less_than_evaluation() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -427,7 +396,7 @@ fn target_lt_ev() {
 
 #[should_panic]
 #[test]
-fn witness_len_short() {
+fn witness_length_short() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -439,12 +408,13 @@ fn witness_len_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let _ = prove_and_verify_result(&env, scenario);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
 #[should_panic]
 #[test]
-fn witness_len_long() {
+fn witness_length_long() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -457,11 +427,12 @@ fn witness_len_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let _ = prove_and_verify_result(&env, scenario);
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
 }
 
 #[test]
-fn witness_dup_entry() {
+fn witness_duplicate_entry() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);

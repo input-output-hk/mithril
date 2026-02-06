@@ -33,14 +33,14 @@ fn large_valid() {
 }
 
 #[test]
-fn msg_zero() {
+fn message_zero() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     run_stm_circuit_case(current_function!(), K, QUORUM, JubjubBase::ZERO);
 }
 
 #[test]
-fn msg_max() {
+fn message_max() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg_max = -JubjubBase::ONE; // p - 1
@@ -83,7 +83,7 @@ fn indices_to_max() {
 }
 
 #[test]
-fn mp_all_right() {
+fn merkle_path_all_right() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
@@ -113,7 +113,7 @@ fn mp_all_right() {
 
 // Requires power-of-two signers; otherwise padding prevents an all-left path.
 #[test]
-fn mp_all_left() {
+fn merkle_path_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);

@@ -10,7 +10,8 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
-use rand_core::OsRng;
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 use thiserror::Error;
 
 use crate::circuits::halo2::circuit::StmCircuit;
@@ -26,6 +27,14 @@ type F = JubjubBase;
 
 /// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, Signature, u32);
+
+/// Default number of signers used in golden test environments.
+const DEFAULT_NUM_SIGNERS: usize = 3000;
+/// Lottery count multiplier per quorum size used in golden test environments.
+const LOTTERIES_PER_QUORUM: u32 = 10;
+/// Default message value used by golden test cases.
+const DEFAULT_TEST_MSG: u64 = 42;
+
 /// Verification/proving key pair cached per STM circuit configuration.
 type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCircuit>);
 /// Cache map for verification/proving keys keyed by STM circuit configuration.
@@ -104,7 +113,7 @@ impl StmCircuitScenario {
 
 /// Build a default Merkle tree with all leaves set to the max target.
 pub(crate) fn create_default_merkle_tree(n: usize) -> (Vec<SigningKey>, Vec<MTLeaf>, MerkleTree) {
-    let mut rng = OsRng;
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
     let mut sks = Vec::with_capacity(n);
     let mut leaves = Vec::with_capacity(n);
@@ -139,7 +148,7 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
         }
     };
 
-    let mut rng = OsRng;
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut sks = Vec::with_capacity(n);
     let mut leaves = Vec::with_capacity(n);
 
@@ -161,9 +170,9 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
 pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> StmCircuitEnv {
     let srs = load_or_generate_params(k);
 
-    let num_signers: usize = 3000;
+    let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
-    let num_lotteries = quorum * 10;
+    let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
     let relation = StmCircuit::new(quorum, num_lotteries, depth);
 
     {
@@ -225,13 +234,14 @@ pub(crate) fn build_witness_with_indices(
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
     let num_signers = sks.len();
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut witness = Vec::new();
 
     for (i, index) in indices.iter().enumerate() {
         let ii = i % num_signers;
         let usk = sks[ii].clone();
         let uvk = leaves[ii].0;
-        let sig = usk.sign(&[merkle_root, msg], &mut OsRng);
+        let sig = usk.sign(&[merkle_root, msg], &mut rng);
         sig.verify(&[merkle_root, msg], &uvk).unwrap();
 
         let merkle_path = merkle_tree.get_path(ii);
@@ -290,7 +300,8 @@ pub(crate) fn build_witness_with_fixed_signer(
     let computed_root = merkle_path.compute_root(leaves[signer_index]);
     assert_eq!(merkle_root, computed_root);
 
-    let sig = usk.sign(&[merkle_root, msg], &mut OsRng);
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let sig = usk.sign(&[merkle_root, msg], &mut rng);
     sig.verify(&[merkle_root, msg], &uvk).unwrap();
 
     for index in indices {
@@ -327,13 +338,14 @@ pub(crate) fn prove_and_verify_result(
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let proof = zk::prove::<StmCircuit, blake2b_simd::State>(
         &env.srs,
         &env.pk,
         &env.relation,
         &instance,
         scenario.witness,
-        OsRng,
+        &mut rng,
     )
     .map_err(|_| StmCircuitProofError::ProveFail)?;
     let duration = start.elapsed();
@@ -358,9 +370,9 @@ pub(crate) fn prove_and_verify_result(
     }
 }
 
-/// Run a case using the default message (F::from(42)).
+/// Run a case using the default message (F::from(DEFAULT_TEST_MSG)).
 pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32) {
-    run_stm_circuit_case(case_name, k, quorum, F::from(42));
+    run_stm_circuit_case(case_name, k, quorum, F::from(DEFAULT_TEST_MSG));
 }
 
 /// Run a case with a caller-specified message.

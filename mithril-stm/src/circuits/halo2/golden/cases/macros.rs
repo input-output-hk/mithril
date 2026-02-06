@@ -1,3 +1,9 @@
+/// This macro relies on `std::any::type_name` string formatting and
+/// performs suffix stripping (`::f`, `::{{closure}}`) and path slicing to
+/// extract the function name. This depends on compiler-generated type names
+/// and is therefore not guaranteed to be stable across compiler versions.
+///
+/// Intended for test labeling and diagnostics only.
 macro_rules! current_function {
     () => {{
         fn f() {}
