@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::ops::Range;
 
 use async_trait::async_trait;
@@ -5,8 +6,8 @@ use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
-    SlotNumber,
+    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+    CardanoTransaction, ChainPoint, SlotNumber,
 };
 
 /// Cardano chain data importer
@@ -24,6 +25,9 @@ pub trait ChainDataStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>>;
 
+    /// Get the highest stored block range root bounds
+    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>>;
+
     /// Get the highest stored legacy block range root bounds
     async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>>;
 
@@ -33,11 +37,23 @@ pub trait ChainDataStore: Send + Sync {
         block_with_transactions: Vec<CardanoBlockWithTransactions>,
     ) -> StdResult<()>;
 
+    /// Get all blocks and transactions in an interval of blocks
+    async fn get_blocks_and_transactions_in_range(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>>;
+
     /// Get transactions in an interval of blocks
     async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>>;
+
+    /// Store list of block ranges with their corresponding merkle root
+    async fn store_block_range_roots(
+        &self,
+        block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()>;
 
     /// Store list of legacy block ranges with their corresponding merkle root
     async fn store_legacy_block_range_roots(

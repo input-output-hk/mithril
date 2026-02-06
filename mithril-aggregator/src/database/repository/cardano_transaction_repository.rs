@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::ops::{Deref, Range};
 use std::sync::Arc;
 
@@ -5,8 +6,8 @@ use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
-    SlotNumber, TransactionHash,
+    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+    CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -42,6 +43,10 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
         self.inner.get_transaction_highest_chain_point().await
     }
 
+    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+        todo!()
+    }
+
     async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
         let record = self.inner.retrieve_highest_legacy_block_range_root().await?;
         Ok(record.map(|record| record.range))
@@ -56,6 +61,13 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
             .await
     }
 
+    async fn get_blocks_and_transactions_in_range(
+        &self,
+        _range: Range<BlockNumber>,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        todo!()
+    }
+
     async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,
@@ -65,6 +77,13 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
                 .map(|record| record.into())
                 .collect::<Vec<CardanoTransaction>>()
         })
+    }
+
+    async fn store_block_range_roots(
+        &self,
+        _block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()> {
+        todo!()
     }
 
     async fn store_legacy_block_range_roots(

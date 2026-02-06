@@ -73,6 +73,26 @@ impl CardanoBlockWithTransactions {
             .collect()
     }
 
+    /// Converts the block into a vector of [CardanoBlockTransactionMkTreeNode].
+    pub fn into_mk_tree_node(self) -> Vec<CardanoBlockTransactionMkTreeNode> {
+        let mut result = Vec::with_capacity(self.transactions_hashes.len() + 1);
+        result.push(CardanoBlockTransactionMkTreeNode::Block {
+            block_hash: self.block_hash.clone(),
+            block_number: self.block_number,
+            slot_number: self.slot_number,
+        });
+        result.extend(self.transactions_hashes.into_iter().map(|tx_hash| {
+            CardanoBlockTransactionMkTreeNode::Transaction {
+                transaction_hash: tx_hash,
+                block_hash: self.block_hash.clone(),
+                block_number: self.block_number,
+                slot_number: self.slot_number,
+            }
+        }));
+
+        result
+    }
+
     /// Returns the number of transactions in the block.
     pub fn transactions_count(&self) -> usize {
         self.transactions_hashes.len()
