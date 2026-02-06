@@ -49,6 +49,7 @@ impl ChainDataImporter for CardanoChainDataImporter {
             Handle::current().block_on(async move {
                 importer.blocks_transactions_importer.run(up_to_beacon).await?;
                 importer.block_ranges_importer.run(up_to_beacon).await?;
+                importer.block_ranges_importer.run_legacy(up_to_beacon).await?;
                 Ok(())
             })
         })
