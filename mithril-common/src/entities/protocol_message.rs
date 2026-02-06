@@ -13,6 +13,10 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "cardano_transactions_merkle_root")]
     CardanoTransactionsMerkleRoot,
 
+    /// The ProtocolMessage part key associated to the Cardano Blocks and Transactions Merkle Root
+    #[serde(rename = "cardano_blocks_transactions_merkle_root")]
+    CardanoBlocksTransactionsMerkleRoot,
+
     /// The ProtocolMessage part key associated to the Next epoch aggregate verification key
     ///
     /// The AVK that will be allowed to be used to sign during the next epoch
@@ -58,6 +62,9 @@ impl Display for ProtocolMessagePartKey {
             Self::NextProtocolParameters => write!(f, "next_protocol_parameters"),
             Self::CurrentEpoch => write!(f, "current_epoch"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
+            Self::CardanoBlocksTransactionsMerkleRoot => {
+                write!(f, "cardano_blocks_transactions_merkle_root")
+            }
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
             Self::CardanoStakeDistributionEpoch => write!(f, "cardano_stake_distribution_epoch"),
             Self::CardanoStakeDistributionMerkleRoot => {
@@ -122,8 +129,8 @@ mod tests {
 
     #[test]
     fn test_protocol_message_compute_hash_include_next_aggregate_verification_key() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -131,13 +138,13 @@ mod tests {
             "next-avk-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_snapshot_digest() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -145,13 +152,13 @@ mod tests {
             "snapshot-digest-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_cardano_transactions_merkle_root() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -159,13 +166,27 @@ mod tests {
             "ctx-merke-root-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_cardano_blocks_transactions_merkle_root() {
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            "cardano-blocks-tx-merkle-root-456".to_string(),
+        );
+
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_cardano_stake_distribution_epoch() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -173,13 +194,13 @@ mod tests {
             "cardano-stake-distribution-epoch-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_cardano_stake_distribution_merkle_root() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -187,13 +208,13 @@ mod tests {
             "cardano-stake-distribution-merkle-root-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_lastest_immutable_file_number() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -201,13 +222,13 @@ mod tests {
             "latest-immutable-file-number-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
     fn test_protocol_message_compute_hash_include_cardano_database_merkle_root() {
-        let protocol_message = build_protocol_message_reference();
-        let hash_expected = protocol_message.compute_hash();
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
@@ -215,7 +236,7 @@ mod tests {
             "cardano-database-merkle-root-456".to_string(),
         );
 
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
     }
 
     #[test]
@@ -230,6 +251,34 @@ mod tests {
         );
 
         assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_set_message_part_calling_order_have_no_influence_on_hash_computed() {
+        let mut protocol_message_a_b = build_protocol_message_reference();
+        protocol_message_a_b.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            "A".to_string(),
+        );
+        protocol_message_a_b.set_message_part(
+            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+            "B".to_string(),
+        );
+
+        let mut protocol_message_b_a = build_protocol_message_reference();
+        protocol_message_b_a.set_message_part(
+            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+            "B".to_string(),
+        );
+        protocol_message_b_a.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            "A".to_string(),
+        );
+
+        assert_eq!(
+            protocol_message_a_b.compute_hash(),
+            protocol_message_b_a.compute_hash()
+        );
     }
 
     #[test]
@@ -257,6 +306,10 @@ mod tests {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             "ctx-merkle-root-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            "cardano-blocks-tx-merkle-root-123".to_string(),
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::LatestBlockNumber,
