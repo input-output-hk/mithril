@@ -1,3 +1,5 @@
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
     ProtocolGenesisSignature, ProtocolMultiSignature,
@@ -48,10 +50,16 @@ pub struct Certificate {
     /// aka H(MSG(p,n) || AVK(n-1))
     pub signed_message: String,
 
-    /// Aggregate verification key
-    /// The AVK used to sign during the current epoch
+    /// Aggregate verification key for Concatenation
+    /// The AVK used to sign for Concatenation during the current epoch
     /// aka AVK(n-2)
     pub aggregate_verification_key: ProtocolAggregateVerificationKeyForConcatenation,
+
+    #[cfg(feature = "future_snark")]
+    /// Aggregate verification key for SNARK
+    /// The AVK used to sign for SNARK during the current epoch
+    /// aka AVKS(n-2)
+    pub aggregate_verification_key_snark: Option<ProtocolAggregateVerificationKeyForSnark>,
 
     /// Certificate signature
     pub signature: CertificateSignature,
@@ -79,6 +87,12 @@ impl Certificate {
                 .to_concatenation_aggregate_verification_key()
                 .to_owned()
                 .into(),
+            #[cfg(feature = "future_snark")]
+            // TODO: Fix
+            /* aggregate_verification_key_snark: aggregate_verification_key
+                .to_snark_aggregate_verification_key()
+                .map(|avk| avk.into()), */
+            aggregate_verification_key_snark :None,
             signature,
         };
         certificate.hash = certificate.compute_hash();
@@ -94,6 +108,16 @@ impl Certificate {
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
         hasher.update(self.aggregate_verification_key.to_json_hex().unwrap().as_bytes());
+        #[cfg(feature = "future_snark")]
+        hasher.update(
+            // TODO: Fix
+            /* self.aggregate_verification_key_snark
+            .as_ref()
+            .map(|avk| avk.to_json_hex().unwrap()) // TODO: use bytes codec instead of json hex
+            .unwrap_or_default()
+            .as_bytes(), */
+            todo!(),
+        );
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
                 hasher.update(signature.to_bytes_hex().unwrap());
@@ -132,8 +156,17 @@ impl Certificate {
 
     /// Create the aggregate verification key from the certificate.
     pub fn create_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
-        let aggregate_verification_key = &self.aggregate_verification_key;
-        ProtocolAggregateVerificationKey::new(aggregate_verification_key.to_owned().into())
+        let aggregate_verification_key_for_concatenation = &self.aggregate_verification_key;
+        #[cfg(feature = "future_snark")]
+        let aggregate_verification_key_snark = self
+            .aggregate_verification_key_snark
+            .as_ref()
+            .map(|avk| avk.to_owned().into());
+        ProtocolAggregateVerificationKey::new(
+            aggregate_verification_key_for_concatenation.to_owned().into(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark,
+        )
     }
 }
 
@@ -164,6 +197,14 @@ impl Debug for Certificate {
                     "aggregate_verification_key",
                     &format_args!("{:?}", self.aggregate_verification_key.to_json_hex()),
                 )
+                /* #[cfg(feature = "future_snark")] //TODO: Fix
+                .field(
+                    "aggregate_verification_key_snark",
+                    &format_args!(
+                        "{:?}",
+                        self.aggregate_verification_key_snark.as_ref().map(|avk| avk.to_json_hex())
+                    ),
+                ) */
                 .field("signature", &format_args!("{:?}", self.signature))
                 .finish(),
             false => debug.finish_non_exhaustive(),
@@ -242,6 +283,15 @@ mod tests {
                 )
                 .unwrap()
                 .into(),
+                #[cfg(feature = "future_snark")]
+                // TODO: Fix
+                None, /* Some(
+                          ProtocolAggregateVerificationKeyForSnark::try_from(
+                              fake_keys::aggregate_verification_key_for_snark()[0],
+                          )
+                          .unwrap()
+                          .into(),
+                      ), */
             ),
             CertificateSignature::MultiSignature(
                 signed_entity_type.clone(),
@@ -363,6 +413,8 @@ mod tests {
                 )
                 .unwrap()
                 .into(),
+                #[cfg(feature = "future_snark")]
+                None, // TODO: Fix
             ),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),

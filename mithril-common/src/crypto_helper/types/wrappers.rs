@@ -1,7 +1,8 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
 use mithril_stm::{
     AggregateSignature, AggregateVerificationKey, AggregateVerificationKeyForConcatenation,
-    SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
+    AggregateVerificationKeyForSnark, SingleSignature,
+    VerificationKeyProofOfPossessionForConcatenation,
 };
 
 use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, ProtocolMembershipDigest};
@@ -31,6 +32,10 @@ pub type ProtocolAggregateVerificationKey = AggregateVerificationKey<ProtocolMem
 /// Wrapper of [MithrilStm:AggregateVerificationKeyForConcatenation](struct@AggregateVerificationKeyForConcatenation).
 pub type ProtocolAggregateVerificationKeyForConcatenation =
     ProtocolKey<AggregateVerificationKeyForConcatenation<ProtocolMembershipDigest>>;
+
+/// Wrapper of [MithrilStm:AggregateVerificationKeyForSnark](struct@AggregateVerificationKeyForSnark).
+pub type ProtocolAggregateVerificationKeyForSnark =
+    ProtocolKey<AggregateVerificationKeyForSnark<ProtocolMembershipDigest>>;
 
 /// Wrapper of [MKProof] to add serialization utilities.
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;

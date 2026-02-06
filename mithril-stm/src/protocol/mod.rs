@@ -12,6 +12,8 @@ pub use aggregate_signature::{
 };
 pub(crate) use eligibility_check::is_lottery_won;
 pub use error::RegisterError;
+#[cfg(feature = "future_snark")]
+pub use key_registration::RegistrationEntryForSnark;
 pub use key_registration::{
     ClosedKeyRegistration, ClosedRegistrationEntry, KeyRegistration, RegistrationEntry,
     RegistrationEntryForConcatenation,

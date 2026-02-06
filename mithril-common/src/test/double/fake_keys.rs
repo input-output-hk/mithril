@@ -387,6 +387,12 @@ pub const fn aggregate_verification_key_for_concatenation<'a>() -> [&'a str; 3] 
     ]
 }
 
+/// A list of pre bytes hex encoded [MithrilStm:AggregateVerificationKeyForSnark](struct@mithril_stm::AggregateVerificationKeyForSnark)
+pub const fn aggregate_verification_key_for_snark<'a>() -> [&'a str; 3] {
+    // TODO: complete
+    todo!()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

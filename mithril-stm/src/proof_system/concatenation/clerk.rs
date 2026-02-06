@@ -37,7 +37,7 @@ impl ConcatenationClerk {
         }
     }
 
-    /// Compute the `ConcatenationProofKey` related to the used registration.
+    /// Compute the Concatenation aggregate verification key related to the used registration.
     pub fn compute_aggregate_verification_key_for_concatenation<D: MembershipDigest>(
         &self,
     ) -> AggregateVerificationKeyForConcatenation<D> {

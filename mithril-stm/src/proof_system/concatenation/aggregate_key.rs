@@ -14,7 +14,8 @@ use crate::{
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub struct AggregateVerificationKeyForConcatenation<D: MembershipDigest> {
-    mt_commitment: MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf>,
+    merkle_tree_commitment:
+        MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf>,
     total_stake: Stake,
 }
 
@@ -23,7 +24,7 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
     pub(crate) fn get_merkle_tree_batch_commitment(
         &self,
     ) -> MerkleTreeBatchCommitment<D::ConcatenationHash, MerkleTreeConcatenationLeaf> {
-        self.mt_commitment.clone()
+        self.merkle_tree_commitment.clone()
     }
 
     /// Get the total stake.
@@ -34,7 +35,7 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
     /// Convert the aggregate verification key for concatenation to bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        bytes.extend(self.mt_commitment.to_bytes());
+        bytes.extend(self.merkle_tree_commitment.to_bytes()); // TODO: support dynamic length for the commitment
         bytes.extend(self.total_stake.to_be_bytes());
 
         bytes
@@ -49,8 +50,9 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
         let mt_commitment = MerkleTreeBatchCommitment::from_bytes(
             bytes.get(..size - 8).ok_or(MerkleTreeError::SerializationError)?,
         )?;
+
         Ok(Self {
-            mt_commitment,
+            merkle_tree_commitment: mt_commitment,
             total_stake: stake,
         })
     }
@@ -58,7 +60,8 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
 
 impl<D: MembershipDigest> PartialEq for AggregateVerificationKeyForConcatenation<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
+        self.merkle_tree_commitment == other.merkle_tree_commitment
+            && self.total_stake == other.total_stake
     }
 }
 
@@ -67,12 +70,12 @@ impl<D: MembershipDigest> Eq for AggregateVerificationKeyForConcatenation<D> {}
 impl<D: MembershipDigest> From<&ClosedKeyRegistration>
     for AggregateVerificationKeyForConcatenation<D>
 {
-    fn from(reg: &ClosedKeyRegistration) -> Self {
+    fn from(registration: &ClosedKeyRegistration) -> Self {
         Self {
-            mt_commitment: reg
+            merkle_tree_commitment: registration
                 .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
                 .to_merkle_tree_batch_commitment(),
-            total_stake: reg.total_stake,
+            total_stake: registration.total_stake,
         }
     }
 }

@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
 
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SnarkClerk;
 use crate::{
     AggregateVerificationKey, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
     Signer, SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
@@ -19,6 +21,8 @@ use super::AggregationError;
 #[derive(Debug, Clone)]
 pub struct Clerk<D: MembershipDigest> {
     concatenation_proof_clerk: ConcatenationClerk,
+    #[cfg(feature = "future_snark")]
+    snark_proof_clerk: Option<SnarkClerk>,
     phantom_data: PhantomData<D>,
 }
 
@@ -27,6 +31,8 @@ impl<D: MembershipDigest> Clerk<D> {
     pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
         Self {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_signer(signer),
+            #[cfg(feature = "future_snark")]
+            snark_proof_clerk: SnarkClerk::new_clerk_from_signer(signer).into(),
             phantom_data: PhantomData,
         }
     }
@@ -40,6 +46,11 @@ impl<D: MembershipDigest> Clerk<D> {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_closed_key_registration(
                 parameters, closed_reg,
             ),
+            #[cfg(feature = "future_snark")]
+            snark_proof_clerk: SnarkClerk::new_clerk_from_closed_key_registration(
+                parameters, closed_reg,
+            )
+            .into(),
             phantom_data: PhantomData,
         }
     }
@@ -79,6 +90,10 @@ impl<D: MembershipDigest> Clerk<D> {
         AggregateVerificationKey::new(
             self.concatenation_proof_clerk
                 .compute_aggregate_verification_key_for_concatenation(),
+            #[cfg(feature = "future_snark")]
+            self.snark_proof_clerk
+                .as_ref()
+                .map(|clerk| clerk.compute_aggregate_verification_key_for_snark()),
         )
     }
 

@@ -48,6 +48,13 @@ pub struct CertificateMessage {
     /// aka AVK(n-2)
     pub aggregate_verification_key: String,
 
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    /// Aggregate verification key for SNARK
+    /// The AVK used to sign for SNARK during the current epoch
+    /// aka AVKS(n-2)
+    pub aggregate_verification_key_snark: Option<String>,
+
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
     pub multi_signature: String,
@@ -89,6 +96,14 @@ impl Debug for CertificateMessage {
                     "aggregate_verification_key",
                     &self.aggregate_verification_key,
                 )
+                /* #[cfg(feature = "future_snark")] // TODO: fix
+                .field(
+                    "aggregate_verification_key_snark",
+                    &format_args!(
+                        "{:?}",
+                        self.aggregate_verification_key_snark.as_ref().map(|avk| avk.to_json_hex())
+                    ),
+                ) */
                 .field("multi_signature", &self.multi_signature)
                 .field("genesis_signature", &self.genesis_signature)
                 .finish(),
@@ -121,7 +136,14 @@ impl TryFrom<CertificateMessage> for Certificate {
                 .aggregate_verification_key
                 .try_into()
                 .with_context(|| {
-                "Can not convert message to certificate: can not decode the aggregate verification key"
+                "Can not convert message to certificate: can not decode the aggregate verification key for Concatenation"
+            })?,
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: certificate_message
+                .aggregate_verification_key_snark
+                .try_into()
+                .with_context(|| {
+                "Can not convert message to certificate: can not decode the aggregate verification key for SNARK"
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
@@ -190,8 +212,18 @@ impl TryFrom<Certificate> for CertificateMessage {
                 .aggregate_verification_key
                 .to_json_hex()
                 .with_context(|| {
-                    "Can not convert certificate to message: can not encode aggregate verification key"
+                    "Can not convert certificate to message: can not encode aggregate verification key for Concatenation"
                 })?,
+            #[cfg(feature = "future_snark")]
+            // TODO: Fix
+            /* aggregate_verification_key_snark: certificate
+                .aggregate_verification_key_snark
+                .map(|avk| avk.to_json_hex()) // TODO: Fix encoding
+                .transpose()
+                .with_context(|| {
+                    "Can not convert certificate to message: can not encode aggregate verification key for SNARK"
+                })?, */
+            aggregate_verification_key_snark: None,
             multi_signature,
             genesis_signature,
         };
@@ -210,6 +242,7 @@ mod tests {
 
     use super::*;
 
+    // TODO: Support golden tests for 'future_snark' with AVK for SNARK
     fn golden_certificate_message() -> CertificateMessage {
         CertificateMessage {
             hash: "hash".to_string(),
@@ -255,6 +288,8 @@ mod tests {
             },
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
         }

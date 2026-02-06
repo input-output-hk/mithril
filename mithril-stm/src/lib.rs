@@ -123,6 +123,10 @@ mod protocol;
 mod signature_scheme;
 
 pub use proof_system::AggregateVerificationKeyForConcatenation;
+#[cfg(feature = "future_snark")]
+pub use proof_system::AggregateVerificationKeyForSnark;
+#[cfg(feature = "future_snark")]
+pub use protocol::RegistrationEntryForSnark;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, Clerk, ClosedKeyRegistration, ClosedRegistrationEntry, Initializer,
