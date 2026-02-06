@@ -1,3 +1,4 @@
+pub mod cardano_blocks_transactions;
 pub mod cardano_database;
 pub mod cardano_stake_distribution;
 pub mod cardano_transaction;

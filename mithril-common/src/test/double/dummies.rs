@@ -342,7 +342,7 @@ mod messages {
     }
 
     impl Dummy for CardanoTransactionSnapshotMessage {
-        /// Return a dummy [CertificateMessage] (test-only).
+        /// Return a dummy [CardanoTransactionSnapshotMessage] (test-only).
         fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),
@@ -358,12 +358,46 @@ mod messages {
     }
 
     impl Dummy for CardanoTransactionSnapshotListItemMessage {
-        /// Return a dummy [CertificateMessage] (test-only).
+        /// Return a dummy [CardanoTransactionSnapshotListItemMessage] (test-only).
         fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),
                 epoch: Epoch(10),
                 block_number: BlockNumber(100),
+                hash: "hash-123".to_string(),
+                certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            }
+        }
+    }
+
+    impl Dummy for CardanoBlocksTransactionsSnapshotMessage {
+        /// Return a dummy [CardanoBlocksTransactionsSnapshotMessage] (test-only).
+        fn dummy() -> Self {
+            Self {
+                merkle_root: "mkroot-123".to_string(),
+                epoch: Epoch(10),
+                block_number_signed: BlockNumber(100),
+                block_number_tip: BlockNumber(115),
+                hash: "hash-123".to_string(),
+                certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            }
+        }
+    }
+
+    impl Dummy for CardanoBlocksTransactionsSnapshotListItemMessage {
+        /// Return a dummy [CardanoBlocksTransactionsSnapshotListItemMessage] (test-only).
+        fn dummy() -> Self {
+            Self {
+                merkle_root: "mkroot-123".to_string(),
+                epoch: Epoch(10),
+                block_number_signed: BlockNumber(100),
+                block_number_tip: BlockNumber(115),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")

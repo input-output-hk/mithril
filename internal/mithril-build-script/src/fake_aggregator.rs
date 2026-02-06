@@ -31,6 +31,9 @@ pub struct FakeAggregatorData {
     individual_cardano_transaction_snapshots: BTreeMap<ArtifactId, FileContent>,
     cardano_transaction_proofs: BTreeMap<ArtifactId, FileContent>,
 
+    cardano_blocks_transactions_snapshots_list: FileContent,
+    individual_cardano_blocks_transactions_snapshots: BTreeMap<ArtifactId, FileContent>,
+
     cardano_stake_distributions_list: FileContent,
     individual_cardano_stake_distributions: BTreeMap<ArtifactId, FileContent>,
 
@@ -76,6 +79,9 @@ impl FakeAggregatorData {
                 "ctx-snapshots-list.json" => {
                     data.cardano_transaction_snapshots_list = file_content;
                 }
+                "cardano-blocks-tx-snapshots-list.json" => {
+                    data.cardano_blocks_transactions_snapshots_list = file_content;
+                }
                 "mithril-stake-distributions.json" => {
                     data.individual_mithril_stake_distributions =
                         Self::read_artifacts_json_file(&entry.path());
@@ -96,6 +102,10 @@ impl FakeAggregatorData {
                 }
                 "ctx-snapshots.json" => {
                     data.individual_cardano_transaction_snapshots =
+                        Self::read_artifacts_json_file(&entry.path());
+                }
+                "cardano-blocks-tx-snapshots.json" => {
+                    data.individual_cardano_blocks_transactions_snapshots =
                         Self::read_artifacts_json_file(&entry.path());
                 }
                 "ctx-proofs.json" => {
@@ -255,6 +265,20 @@ impl FakeAggregatorData {
                 generate_list_getter(
                     "cardano_transaction_snapshots_list",
                     self.cardano_transaction_snapshots_list,
+                ),
+                generate_ids_array(
+                    "cardano_blocks_transactions_snapshot_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_blocks_transactions_snapshots.keys().cloned(),
+                    ),
+                ),
+                generate_artifact_getter(
+                    "cardano_blocks_transactions_snapshots",
+                    self.individual_cardano_blocks_transactions_snapshots,
+                ),
+                generate_list_getter(
+                    "cardano_blocks_transactions_snapshots_list",
+                    self.cardano_blocks_transactions_snapshots_list,
                 ),
                 generate_ids_array(
                     "proof_transaction_hashes",

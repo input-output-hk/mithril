@@ -69,6 +69,11 @@ build_metrics_service!(
         "Number of Cardano transaction artifact details served since startup on a Mithril aggregator node",
         &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
     ),
+    artifact_detail_cardano_blocks_transactions_total_served_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_artifact_detail_cardano_blocks_transactions_total_served_since_startup",
+        "Number of Cardano blocks transactions artifact details served since startup on a Mithril aggregator node",
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
+    ),
     proof_cardano_transaction_total_proofs_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_proof_cardano_transaction_total_proofs_served_since_startup",
         "Number of Cardano transaction proofs served since startup on a Mithril aggregator node",
