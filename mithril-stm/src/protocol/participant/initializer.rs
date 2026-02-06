@@ -130,25 +130,25 @@ impl Initializer {
     /// * [Future Snark - Schnorr Verification Key]
     pub fn to_bytes(&self) -> Vec<u8> {
         #[cfg(feature = "future_snark")]
-        let mut out = [0u8; 352];
+        let capacity = 352;
         #[cfg(not(feature = "future_snark"))]
-        let mut out = [0u8; 256];
+        let capacity = 256;
 
-        out[..8].copy_from_slice(&self.stake.to_be_bytes());
-        out[8..32].copy_from_slice(&self.parameters.to_bytes());
-        out[32..64].copy_from_slice(&self.bls_signing_key.to_bytes());
-        out[64..256].copy_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
+        let mut out = Vec::with_capacity(capacity);
+        out.extend_from_slice(&self.stake.to_be_bytes());
+        out.extend_from_slice(&self.parameters.to_bytes());
+        out.extend_from_slice(&self.bls_signing_key.to_bytes());
+        out.extend_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
 
         #[cfg(feature = "future_snark")]
-        if let Some(schnorr_sk) = &self.schnorr_signing_key {
-            out[256..288].copy_from_slice(&schnorr_sk.to_bytes());
-        }
-        #[cfg(feature = "future_snark")]
-        if let Some(schnorr_vk) = &self.schnorr_verification_key {
-            out[288..352].copy_from_slice(&schnorr_vk.to_bytes());
+        if let (Some(schnorr_sk), Some(schnorr_vk)) =
+            (&self.schnorr_signing_key, &self.schnorr_verification_key)
+        {
+            out.extend_from_slice(&schnorr_sk.to_bytes());
+            out.extend_from_slice(&schnorr_vk.to_bytes());
         }
 
-        out.to_vec()
+        out
     }
 
     /// Convert a slice of bytes to an `Initializer`
@@ -169,13 +169,22 @@ impl Initializer {
 
         #[cfg(feature = "future_snark")]
         let (schnorr_signing_key, schnorr_verification_key) = {
-            let sk = SchnorrSigningKey::from_bytes(
-                bytes.get(256..288).ok_or(RegisterError::SerializationError)?,
-            )?;
-            let vk = VerificationKeyForSnark::from_bytes(
-                bytes.get(288..352).ok_or(RegisterError::SerializationError)?,
-            )?;
-            (Some(sk), Some(vk))
+            let schnorr_signing_key = bytes
+                .get(256..288)
+                .map(|bytes| SchnorrSigningKey::from_bytes(bytes))
+                .transpose()?;
+            let schnorr_verification_key = bytes
+                .get(288..352)
+                .map(|bytes| VerificationKeyForSnark::from_bytes(bytes))
+                .transpose()?;
+
+            match (&schnorr_signing_key, &schnorr_verification_key) {
+                (Some(_), None) | (None, Some(_)) => {
+                    return Err(RegisterError::SerializationError.into());
+                }
+                _ => {}
+            }
+            (schnorr_signing_key, schnorr_verification_key)
         };
 
         Ok(Self {

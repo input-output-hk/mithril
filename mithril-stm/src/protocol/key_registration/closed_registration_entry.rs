@@ -72,24 +72,21 @@ impl ClosedRegistrationEntry {
     /// The order is backward compatible with previous implementations.
     pub(crate) fn to_bytes(self) -> Vec<u8> {
         #[cfg(feature = "future_snark")]
-        let mut result = [0u8; 200];
+        let capacity = 200;
         #[cfg(not(feature = "future_snark"))]
-        let mut result = [0u8; 104];
+        let capacity = 104;
 
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..104].copy_from_slice(&self.1.to_be_bytes());
+        let mut result = Vec::with_capacity(capacity);
+        result.extend_from_slice(&self.0.to_bytes());
+        result.extend_from_slice(&self.1.to_be_bytes());
 
         #[cfg(feature = "future_snark")]
-        {
-            if let Some(schnorr_vk) = &self.2 {
-                result[104..168].copy_from_slice(&schnorr_vk.to_bytes());
-            }
-            if let Some(target_value) = &self.3 {
-                result[168..200].copy_from_slice(&target_value.to_bytes());
-            }
+        if let (Some(schnorr_vk), Some(target_value)) = (&self.2, &self.3) {
+            result.extend_from_slice(&schnorr_vk.to_bytes());
+            result.extend_from_slice(&target_value.to_bytes());
         }
 
-        result.to_vec()
+        result
     }
 
     /// Creates a registration entry from bytes.
@@ -108,13 +105,22 @@ impl ClosedRegistrationEntry {
 
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, lottery_target_value) = {
-            let vk = VerificationKeyForSnark::from_bytes(
-                bytes.get(104..168).ok_or(RegisterError::SerializationError)?,
-            )?;
-            let target = LotteryTargetValue::from_bytes(
-                bytes.get(168..200).ok_or(RegisterError::SerializationError)?,
-            )?;
-            (Some(vk), Some(target))
+            let schnorr_verification_key = bytes
+                .get(104..168)
+                .map(|bytes| VerificationKeyForSnark::from_bytes(bytes))
+                .transpose()?;
+            let lottery_target_value = bytes
+                .get(168..200)
+                .map(|bytes| LotteryTargetValue::from_bytes(bytes))
+                .transpose()?;
+
+            match (schnorr_verification_key, lottery_target_value) {
+                (Some(_), None) | (None, Some(_)) => {
+                    return Err(RegisterError::SerializationError.into());
+                }
+                _ => {}
+            }
+            (schnorr_verification_key, lottery_target_value)
         };
 
         Ok(ClosedRegistrationEntry(
@@ -182,7 +188,11 @@ impl PartialOrd for ClosedRegistrationEntry {
 }
 
 impl Ord for ClosedRegistrationEntry {
-    /// Compares the registration entries by comparing the stake first, then the verification key.
+    /// Orders by stake first, then by Verification key for concatenation.
+    ///
+    /// Note: this ordering intentionally excludes the snark fields
+    /// (`VerificationKeyForSnark`, `LotteryTargetValue`), as we do not need them for ordering
+    /// the Merkle tree leaves.
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }
