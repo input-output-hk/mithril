@@ -14,11 +14,12 @@ use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 
 use crate::database::query::{
     DeleteCardanoBlockAndTransactionQuery, DeleteLegacyBlockRangeRootQuery, GetCardanoBlockQuery,
-    GetCardanoTransactionQuery, GetLegacyBlockRangeRootQuery, InsertCardanoBlockQuery,
-    InsertCardanoTransactionQuery, InsertLegacyBlockRangeRootQuery,
+    GetCardanoBlockTransactionsQuery, GetCardanoTransactionQuery, GetLegacyBlockRangeRootQuery,
+    InsertCardanoBlockQuery, InsertCardanoTransactionQuery, InsertLegacyBlockRangeRootQuery,
 };
 use crate::database::record::{
-    BlockRangeRootRecord, CardanoBlockRecord, CardanoTransactionRecord, IntoRecords,
+    BlockRangeRootRecord, CardanoBlockRecord, CardanoBlockTransactionsRecord,
+    CardanoTransactionRecord, IntoRecords,
 };
 use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
 
@@ -59,6 +60,17 @@ impl CardanoTransactionRepository {
         self.connection_pool
             .connection()?
             .fetch_collect(GetCardanoTransactionQuery::between_blocks(range))
+    }
+
+    /// Return all the [CardanoTransactionRecord]s in the database where block number is in the
+    /// given range.
+    pub async fn get_blocks_with_transactions_in_range_blocks(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<Vec<CardanoBlockTransactionsRecord>> {
+        self.connection_pool
+            .connection()?
+            .fetch_collect(GetCardanoBlockTransactionsQuery::between_blocks(range))
     }
 
     /// Return the [CardanoBlockRecord] for the given block hash.
@@ -259,6 +271,8 @@ impl CardanoTransactionRepository {
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let mut transactions = vec![];
+        // Make one query per block range to optimize throughput as asking multiple block ranges at once
+        // made SQLite quickly collapse (see PR #1723)
         for block_range in block_ranges {
             let block_range_transactions: Vec<CardanoTransactionRecord> =
                 self.connection_pool.connection()?.fetch_collect(
@@ -268,6 +282,25 @@ impl CardanoTransactionRepository {
         }
 
         Ok(transactions)
+    }
+
+    /// Get the [CardanoBlockTransactionsRecord] for the given block ranges.
+    pub async fn get_blocks_with_transactions_by_block_ranges(
+        &self,
+        block_ranges: Vec<BlockRange>,
+    ) -> StdResult<Vec<CardanoBlockTransactionsRecord>> {
+        let mut blocks_with_transactions = vec![];
+        // Make one query per block range to optimize throughput as asking multiple block ranges at once
+        // made SQLite quickly collapse (see PR #1723)
+        for block_range in block_ranges {
+            let block_range_transactions: Vec<CardanoBlockTransactionsRecord> =
+                self.connection_pool.connection()?.fetch_collect(
+                    GetCardanoBlockTransactionsQuery::by_block_ranges(vec![block_range]),
+                )?;
+            blocks_with_transactions.extend(block_range_transactions);
+        }
+
+        Ok(blocks_with_transactions)
     }
 
     /// Prune the transactions older than the given number of blocks (based on the block range root
@@ -885,6 +918,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn repository_get_blocks_with_transactions_in_range_blocks() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+
+        let blocks = vec![
+            CardanoBlockWithTransactions::new(
+                "block_hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx_hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx_hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx_hash-3"],
+            ),
+        ];
+        repository
+            .create_block_and_transactions(blocks.clone())
+            .await
+            .unwrap();
+        let expected_blocks: Vec<CardanoBlockTransactionsRecord> =
+            blocks.into_iter().map(Into::into).collect();
+
+        {
+            let blocks = repository
+                .get_blocks_with_transactions_in_range_blocks(BlockNumber(0)..BlockNumber(10))
+                .await
+                .unwrap();
+            assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), blocks);
+        }
+        {
+            let blocks = repository
+                .get_blocks_with_transactions_in_range_blocks(BlockNumber(13)..BlockNumber(21))
+                .await
+                .unwrap();
+            assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), blocks);
+        }
+        {
+            let blocks = repository
+                .get_blocks_with_transactions_in_range_blocks(BlockNumber(9)..BlockNumber(12))
+                .await
+                .unwrap();
+            assert_eq!(expected_blocks[0..=1].to_vec(), blocks);
+        }
+        {
+            let blocks = repository
+                .get_blocks_with_transactions_in_range_blocks(BlockNumber(10)..BlockNumber(13))
+                .await
+                .unwrap();
+            assert_eq!(expected_blocks.clone(), blocks);
+        }
+        {
+            let blocks = repository
+                .get_blocks_with_transactions_in_range_blocks(BlockNumber(11)..BlockNumber(14))
+                .await
+                .unwrap();
+            assert_eq!(expected_blocks[1..=2].to_vec(), blocks);
+        }
+    }
+
+    #[tokio::test]
     async fn repository_get_transactions_by_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
@@ -981,6 +1085,104 @@ mod tests {
                     expected_transactions[3..=4].to_vec()
                 ]
                 .concat(),
+                transaction_result
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_get_blocks_with_transactions_by_block_ranges() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+
+        let blocks = vec![
+            CardanoBlockWithTransactions::new(
+                "block_hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx_hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx_hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-3",
+                BlockNumber(20),
+                SlotNumber(52),
+                vec!["tx_hash-3"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-4",
+                BlockNumber(31),
+                SlotNumber(53),
+                vec!["tx_hash-4"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-5",
+                BlockNumber(35),
+                SlotNumber(54),
+                vec!["tx_hash-5"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-6",
+                BlockNumber(46),
+                SlotNumber(55),
+                vec!["tx_hash-6"],
+            ),
+        ];
+        repository
+            .create_block_and_transactions(blocks.clone())
+            .await
+            .unwrap();
+        let expected_blocks: Vec<CardanoBlockTransactionsRecord> =
+            blocks.into_iter().map(Into::into).collect();
+
+        {
+            let transaction_result = repository
+                .get_blocks_with_transactions_by_block_ranges(vec![BlockRange::from_block_number(
+                    BlockNumber(100),
+                )])
+                .await
+                .unwrap();
+            assert_eq!(
+                Vec::<CardanoBlockTransactionsRecord>::new(),
+                transaction_result
+            );
+        }
+        {
+            let transaction_result = repository
+                .get_blocks_with_transactions_by_block_ranges(vec![BlockRange::from_block_number(
+                    BlockNumber(0),
+                )])
+                .await
+                .unwrap();
+            assert_eq!(expected_blocks[0..=1].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository
+                .get_blocks_with_transactions_by_block_ranges(vec![
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    BlockRange::from_block_number(BlockNumber(15)),
+                ])
+                .await
+                .unwrap();
+            assert_eq!(expected_blocks[0..=2].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository
+                .get_blocks_with_transactions_by_block_ranges(vec![
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    BlockRange::from_block_number(BlockNumber(30)),
+                ])
+                .await
+                .unwrap();
+            assert_eq!(
+                [expected_blocks[0..=1].to_vec(), expected_blocks[3..=4].to_vec()].concat(),
                 transaction_result
             );
         }
