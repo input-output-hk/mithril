@@ -42,12 +42,25 @@ mod entities {
             Self {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig::dummy(),
+                ),
             }
         }
     }
 
     impl Dummy for CardanoTransactionsSigningConfig {
         /// Return a dummy [CardanoTransactionsSigningConfig] (test-only).
+        fn dummy() -> Self {
+            Self {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
+            }
+        }
+    }
+
+    impl Dummy for CardanoBlocksTransactionsSigningConfig {
+        /// Return a dummy [CardanoBlocksTransactionsSigningConfig] (test-only).
         fn dummy() -> Self {
             Self {
                 security_parameter: BlockNumber(0),
@@ -101,11 +114,12 @@ mod messages {
 
     use crate::crypto_helper::KesEvolutions;
     use crate::entities::{
-        AncillaryLocation, BlockNumber, CardanoDbBeacon, CardanoTransactionsSetProof,
-        CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
-        ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
-        StakeDistributionParty, SupportedEra, TemplateUri,
+        AncillaryLocation, BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon,
+        CardanoTransactionsSetProof, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+        DigestLocation, Epoch, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, SupportedEra,
+        TemplateUri,
     };
     use crate::messages::*;
 
@@ -503,6 +517,9 @@ mod messages {
                     phi_f: 0.65,
                 },
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig::dummy(),
+                ),
                 available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
             }
         }
