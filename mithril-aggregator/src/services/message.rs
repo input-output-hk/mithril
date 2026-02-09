@@ -225,9 +225,16 @@ impl MessageService for MithrilMessageService {
         let cardano_transactions_signing_config = cardano_transactions_discriminant
             .and(epoch_settings.cardano_transactions_signing_config);
 
+        let cardano_blocks_transactions_discriminant =
+            enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions);
+
+        let cardano_blocks_transactions_signing_config = cardano_blocks_transactions_discriminant
+            .and(epoch_settings.cardano_blocks_transactions_signing_config);
+
         let protocol_configuration_message = ProtocolConfigurationMessage {
             protocol_parameters: epoch_settings.protocol_parameters,
             cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config,
             available_signed_entity_types: enabled_discriminants,
         };
         Ok(Some(protocol_configuration_message))
@@ -696,7 +703,10 @@ mod tests {
     mod protocol_configuration {
         use super::*;
 
-        use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
+        use mithril_common::entities::{
+            CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+            ProtocolParameters,
+        };
 
         use crate::entities::AggregatorEpochSettings;
 
@@ -706,9 +716,15 @@ mod tests {
             let aggregator_epoch_settings = AggregatorEpochSettings {
                 protocol_parameters: ProtocolParameters::new(5, 100, 0.65),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
+                    security_parameter: BlockNumber(10),
                     step: BlockNumber(15),
                 }),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(20),
+                        step: BlockNumber(30),
+                    },
+                ),
             };
             let message_service = MessageServiceBuilder::new()
                 .with_epoch_settings(BTreeMap::from([(epoch, aggregator_epoch_settings)]))
@@ -728,8 +744,15 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
+                    security_parameter: BlockNumber(10),
                     step: BlockNumber(15)
+                })
+            );
+            assert_eq!(
+                message.cardano_blocks_transactions_signing_config,
+                Some(CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(20),
+                    step: BlockNumber(30)
                 })
             );
             assert_eq!(

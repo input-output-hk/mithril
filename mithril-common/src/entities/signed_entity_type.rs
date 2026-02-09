@@ -195,8 +195,7 @@ impl SignedEntityTypeDiscriminants {
     }
 
     fn iter_all() -> impl Iterator<Item = Self> {
-        // Temporarily exclude CardanoBlocksTransactions until it can be derived from a TimePoint in SignedEntityConfig
-        Self::iter().filter(|&d| d != Self::CardanoBlocksTransactions)
+        Self::iter()
     }
 
     /// Get the database value from enum's instance
@@ -570,6 +569,7 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             ]
         );
     }
