@@ -12,8 +12,8 @@ use crate::store::ProtocolInitializerStorer;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants, Signer, SignerWithStake,
+    CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, Epoch, PartyId,
+    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_persistence::store::StakeStorer;
@@ -72,6 +72,11 @@ pub trait EpochService: Sync + Send {
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>>;
 
+    /// Get the cardano blocks and transactions signing configuration for the current epoch
+    fn cardano_blocks_transactions_signing_config(
+        &self,
+    ) -> StdResult<&Option<CardanoBlocksTransactionsSigningConfig>>;
+
     /// Check if the given signer can sign for the current epoch
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
 }
@@ -84,6 +89,7 @@ pub(crate) struct EpochData {
     pub next_signers: Vec<Signer>,
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -193,11 +199,15 @@ impl EpochService for MithrilEpochService {
             .enabled_signed_entity_types
             .clone();
 
-        let cardano_transactions_signing_config = mithril_network_configuration
+        let signed_entity_types_config = &mithril_network_configuration
             .configuration_for_aggregation
-            .signed_entity_types_config
-            .cardano_transactions
-            .clone();
+            .signed_entity_types_config;
+
+        let cardano_transactions_signing_config =
+            signed_entity_types_config.cardano_transactions.clone();
+
+        let cardano_blocks_transactions_signing_config =
+            signed_entity_types_config.cardano_blocks_transactions.clone();
 
         self.epoch_data = Some(EpochData {
             epoch: aggregator_signer_registration_epoch,
@@ -207,6 +217,7 @@ impl EpochService for MithrilEpochService {
             next_signers,
             allowed_discriminants,
             cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config,
         });
 
         Ok(())
@@ -258,6 +269,12 @@ impl EpochService for MithrilEpochService {
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
         Ok(&self.unwrap_data()?.cardano_transactions_signing_config)
+    }
+
+    fn cardano_blocks_transactions_signing_config(
+        &self,
+    ) -> StdResult<&Option<CardanoBlocksTransactionsSigningConfig>> {
+        Ok(&self.unwrap_data()?.cardano_blocks_transactions_signing_config)
     }
 
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool> {
@@ -313,6 +330,9 @@ impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
             cardano_transactions_signing_config: epoch_service
                 .cardano_transactions_signing_config()?
                 .clone(),
+            cardano_blocks_transactions_signing_config: epoch_service
+                .cardano_blocks_transactions_signing_config()?
+                .clone(),
         })
     }
 }
@@ -353,6 +373,7 @@ impl MithrilEpochService {
             next_signers: vec![],
             allowed_discriminants: BTreeSet::new(),
             cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
         };
         self.epoch_data = Some(epoch_data);
         self
@@ -405,6 +426,10 @@ pub(crate) mod mock_epoch_service {
             fn cardano_transactions_signing_config(
                 &self,
             ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
+
+            fn cardano_blocks_transactions_signing_config(
+                &self,
+            ) -> StdResult<&'static Option<CardanoBlocksTransactionsSigningConfig>>;
 
             fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
         }
@@ -912,6 +937,7 @@ mod tests {
             let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: None,
+                    cardano_blocks_transactions: None,
                 },
                 enabled_signed_entity_types: allowed_discriminants.clone(),
                 ..Dummy::dummy()
@@ -940,6 +966,7 @@ mod tests {
                 SignedEntityConfig {
                     allowed_discriminants,
                     cardano_transactions_signing_config: None,
+                    cardano_blocks_transactions_signing_config: None,
                 },
                 config
             );
@@ -980,6 +1007,9 @@ mod tests {
                     allowed_discriminants,
                     cardano_transactions_signing_config: Some(
                         CardanoTransactionsSigningConfig::dummy()
+                    ),
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy()
                     ),
                 },
                 config

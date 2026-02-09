@@ -35,8 +35,9 @@ use mithril_common::{
     api_version::APIVersionProvider,
     crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityType,
-        SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra, TimePoint,
+        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        ChainPoint, Epoch, SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake,
+        SlotNumber, SupportedEra, TimePoint,
     },
     signable_builder::{
         CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -161,11 +162,18 @@ impl StateMachineTester {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         };
+        let cardano_blocks_transactions_signing_config = CardanoBlocksTransactionsSigningConfig {
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
+        };
         let fake_aggregator = Arc::new(FakeAggregator::new(ticker_service.clone()));
 
         let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(cardano_transactions_signing_config.clone()),
+                cardano_blocks_transactions: Some(
+                    cardano_blocks_transactions_signing_config.clone(),
+                ),
             },
             enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
             ..Dummy::dummy()
