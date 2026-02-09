@@ -95,24 +95,40 @@ cfg_num_integer! {
     // let C = ln(1 - phi_f)
     // poseidon_hash < p * (1 - exp( w * C ) )
     // We want to use the taylor series to approximate exp( w * C )
-    // exp(C*x) = 1 + C*x + (C*x)^2/2! + (C*x)^3/3! + ... + (C*x)^{N-1}/(N-1}! + O(x^(N))
+    // exp(C*x) = 1 + C*x + (C*x)^2/2! + (C*x)^3/3! + ... + (C*x)^{N-1}/(N-1)! + O(x^(N))
     // We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
     // Hence we stop when |(C*x)^N / N!| < epsilon
     // We can check instead (C * x)^N < epsilon
     // which gives us the bound N < log(epsilon) / log(|C*x|)
 
-    #[allow(dead_code)]
-    pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
-        let mut acc = Ratio::new_raw(BigInt::from(1),BigInt::from(1));
-        let mut numerator = BigInt::from(1);
-        let mut denominator = BigInt::from(1);
-        let x_time_c = x * c;
-        for i in 1..iterations {
-            numerator *= x_time_c.numer();
-            denominator *= i * x_time_c.denom();
-            acc += Ratio::new_raw(numerator.clone(), denominator.clone());
+    // Function that computes an approximation of exp(a/b) using a binomial splitting
+    // to compute the taylor expansion terms between i and j,
+    // i.e. between (a/b)^i * (1/i!) and (a/b)^j * (1/j!)
+    pub fn exponential_approx(i: usize, j: usize, a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+        if j - i == 1 {
+            if i == 0 {
+                return (BigInt::one(), BigInt::one(), BigInt::one());
+            }
+            return (a.clone(), b * BigInt::from(i), a.clone());
         }
-        acc
+
+        let mid = (i + j) / 2;
+        let (p_l, q_l, t_l) = exponential_approx(i, mid, a, b);
+        let (p_r, q_r, t_r) = exponential_approx(mid, j, a, b);
+
+        let p = &p_l * &q_r + &t_l * &p_r;
+        let q = &q_l * &q_r;
+        let t = t_l * t_r;
+
+        (p, q, t)
+    }
+
+    /// Computes a Taylor expansion of the exponantial exp(c*w) up to the (N-1)th term
+    pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
+        let cw = c * x;
+        let (num, denom, _) = exponential_approx(0, iterations, cw.numer(), cw.denom());
+
+        Ratio::new_raw(num, denom)
     }
 
 
@@ -132,7 +148,6 @@ cfg_num_integer! {
         let c =
             Ratio::from_float((-phi_f).ln_1p()).expect("Only fails if the float is infinite or NaN.");
 
-        // With Taylor series 2
         let exp_wc = compute_exp(c.clone(), w.clone(), 50);
         let t_taylor = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_wc.clone();
 
@@ -141,16 +156,11 @@ cfg_num_integer! {
         assert!(t_int >= BigInt::zero());
 
         // If exact division and t_int > 0, subtract 1
-        // let target =
         if remainder.is_zero() && !t_int.is_zero() {
             t_int - 1
         } else {
             t_int
         }
-
-        // let (_, bytes) = target.to_bytes_le();
-        // bytes
-        // target
     }
 }
 
@@ -304,7 +314,6 @@ mod tests {
                 let mut prev_target = compute_target_bytes(phi_f, 0, total_stake);
                 for i in 1..=100 {
                     let target = compute_target_bytes(phi_f, i, total_stake);
-                    println!("{:?}", target.clone() - prev_target.clone());
                     assert!(prev_target < target);
                     prev_target = target;
                 }
@@ -319,7 +328,6 @@ mod tests {
                 let mut prev_target = compute_target_bytes(phi_f, 99_999, total_stake);
                 for stake in 100_000..100_100 {
                     let target = compute_target_bytes(phi_f, stake, total_stake);
-                    println!("{:?}", target.clone() - prev_target.clone());
                     assert!(prev_target < target);
                     prev_target = target;
                 }
@@ -334,7 +342,6 @@ mod tests {
                 let mut prev_target = compute_target_bytes(phi_f, total_stake, total_stake);
                 for i in 1..=100 {
                     let target = compute_target_bytes(phi_f, total_stake - i, total_stake);
-                    println!("{:?}", prev_target.clone() - target.clone());
                     assert!(prev_target > target);
                     prev_target = target;
                 }
