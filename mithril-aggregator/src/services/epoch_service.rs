@@ -318,6 +318,11 @@ impl EpochService for MithrilEpochService {
                 .signed_entity_types_config
                 .cardano_transactions
                 .clone(),
+            cardano_blocks_transactions_signing_config: network_configuration
+                .configuration_for_registration
+                .signed_entity_types_config
+                .cardano_blocks_transactions
+                .clone(),
         };
         self.insert_epoch_settings(
             signer_registration_epoch,
@@ -349,6 +354,11 @@ impl EpochService for MithrilEpochService {
                 .configuration_for_aggregation
                 .signed_entity_types_config
                 .cardano_transactions
+                .clone(),
+            cardano_blocks_transactions_signing_config: network_configuration
+                .configuration_for_aggregation
+                .signed_entity_types_config
+                .cardano_blocks_transactions
                 .clone(),
         };
 
@@ -625,20 +635,31 @@ impl FakeEpochService {
         epoch: Epoch,
         fixture: &mithril_common::test::builder::MithrilFixture,
     ) -> Self {
-        use mithril_common::entities::CardanoTransactionsSigningConfig;
+        use mithril_common::entities::{
+            CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        };
         use mithril_common::test::double::Dummy;
 
         let current_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig::dummy(),
+            ),
         };
         let next_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig::dummy(),
+            ),
         };
         let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig::dummy(),
+            ),
         };
 
         FakeEpochServiceBuilder {
@@ -787,7 +808,8 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
+        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test::{
         builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
@@ -906,17 +928,26 @@ mod tests {
                     cardano_transactions_signing_config: Some(
                         CardanoTransactionsSigningConfig::dummy(),
                     ),
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_next_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: Some(
                         CardanoTransactionsSigningConfig::dummy(),
                     ),
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_signer_registration_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: Some(
                         CardanoTransactionsSigningConfig::dummy(),
+                    ),
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
                     ),
                 },
                 total_spo: 1,
@@ -1075,8 +1106,15 @@ mod tests {
             security_parameter: BlockNumber(29),
             step: BlockNumber(986),
         });
+        let cardano_blocks_transactions_signing_config =
+            Some(CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(45),
+                step: BlockNumber(999),
+            });
+
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
         ]);
 
@@ -1084,6 +1122,8 @@ mod tests {
             allowed_discriminants: allowed_discriminants.clone(),
             stored_current_epoch_settings: AggregatorEpochSettings {
                 cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
+                cardano_blocks_transactions_signing_config:
+                    cardano_blocks_transactions_signing_config.clone(),
                 ..AggregatorEpochSettings::dummy()
             },
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
@@ -1105,6 +1145,7 @@ mod tests {
             SignedEntityConfig {
                 allowed_discriminants,
                 cardano_transactions_signing_config,
+                cardano_blocks_transactions_signing_config,
             }
         );
     }
@@ -1176,6 +1217,9 @@ mod tests {
                     protocol_parameters: next_epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: Some(
                         CardanoTransactionsSigningConfig::dummy(),
+                    ),
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
                     ),
                 },
                 next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
@@ -1278,22 +1322,47 @@ mod tests {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(6, 89, 0.124),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(10),
-                step: BlockNumber(15),
+                security_parameter: BlockNumber(1),
+                step: BlockNumber(11),
             }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(111),
+                    step: BlockNumber(1111),
+                },
+            ),
         };
+
+        let mut aggregation_configuration = MithrilNetworkConfigurationForEpoch::dummy();
+        aggregation_configuration
+            .signed_entity_types_config
+            .cardano_transactions = Some(CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(2),
+            step: BlockNumber(22),
+        });
+
+        let mut next_aggregation_configuration = MithrilNetworkConfigurationForEpoch::dummy();
+        next_aggregation_configuration
+            .signed_entity_types_config
+            .cardano_transactions = Some(CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(3),
+            step: BlockNumber(33),
+        });
 
         let epoch = Epoch(4);
         let mut service = MithrilEpochService {
             mithril_network_configuration_provider: Arc::new(
                 FakeMithrilNetworkConfigurationProvider::new(
-                    MithrilNetworkConfigurationForEpoch::dummy(),
-                    MithrilNetworkConfigurationForEpoch::dummy(),
+                    aggregation_configuration,
+                    next_aggregation_configuration,
                     MithrilNetworkConfigurationForEpoch {
                         protocol_parameters: expected_epoch_settings.protocol_parameters.clone(),
                         signed_entity_types_config: SignedEntityTypeConfiguration {
                             cardano_transactions: expected_epoch_settings
                                 .cardano_transactions_signing_config
+                                .clone(),
+                            cardano_blocks_transactions: expected_epoch_settings
+                                .cardano_blocks_transactions_signing_config
                                 .clone(),
                         },
                         ..Dummy::dummy()
