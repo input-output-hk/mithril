@@ -13,9 +13,11 @@ use mithril_common::entities::{
 use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 
 use crate::database::query::{
-    DeleteCardanoBlockAndTransactionQuery, DeleteLegacyBlockRangeRootQuery, GetCardanoBlockQuery,
+    DeleteBlockRangeRootQuery, DeleteCardanoBlockAndTransactionQuery,
+    DeleteLegacyBlockRangeRootQuery, GetBlockRangeRootQuery, GetCardanoBlockQuery,
     GetCardanoBlockTransactionsQuery, GetCardanoTransactionQuery, GetLegacyBlockRangeRootQuery,
-    InsertCardanoBlockQuery, InsertCardanoTransactionQuery, InsertLegacyBlockRangeRootQuery,
+    InsertBlockRangeRootQuery, InsertCardanoBlockQuery, InsertCardanoTransactionQuery,
+    InsertLegacyBlockRangeRootQuery,
 };
 use crate::database::record::{
     BlockRangeRootRecord, CardanoBlockRecord, CardanoBlockTransactionsRecord,
@@ -126,6 +128,18 @@ impl CardanoTransactionRepository {
     }
 
     /// Create new [BlockRangeRootRecord]s in the database.
+    pub async fn create_block_range_roots<T: Into<BlockRangeRootRecord>>(
+        &self,
+        block_ranges: Vec<T>,
+    ) -> StdResult<Vec<BlockRangeRootRecord>> {
+        let records: Vec<BlockRangeRootRecord> =
+            block_ranges.into_iter().map(|tx| tx.into()).collect();
+        let connection = self.connection_pool.connection()?;
+
+        connection.fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?)
+    }
+
+    /// Create new legacy [BlockRangeRootRecord]s in the database.
     pub async fn create_legacy_block_range_roots<T: Into<BlockRangeRootRecord>>(
         &self,
         block_ranges: Vec<T>,
@@ -166,7 +180,25 @@ impl CardanoTransactionRepository {
             )
     }
 
-    /// Retrieve all the legacy Block Range Roots in database up to the block range that contains the given
+    /// Retrieve all the Block Range Roots in database for which their start number is below the given
+    /// block number.
+    pub async fn retrieve_block_range_roots_up_to(
+        &self,
+        block_number: BlockNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + '_>> {
+        let block_range_roots = self
+            .connection_pool
+            .connection()?
+            .fetch(GetBlockRangeRootQuery::contains_or_below_block_number(
+                block_number,
+            ))?
+            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
+            .collect::<Vec<_>>(); // TODO: remove this collect to return the iterator directly
+
+        Ok(Box::new(block_range_roots.into_iter()))
+    }
+
+    /// Retrieve all the legacy Block Range Roots in database for which their start number is below the given
     /// block number.
     pub async fn retrieve_legacy_block_range_roots_up_to(
         &self,
@@ -180,6 +212,15 @@ impl CardanoTransactionRepository {
             .collect::<Vec<_>>(); // TODO: remove this collect to return the iterator directly
 
         Ok(Box::new(block_range_roots.into_iter()))
+    }
+
+    /// Retrieve the block range root with the highest bounds in the database.
+    pub async fn retrieve_highest_block_range_root(
+        &self,
+    ) -> StdResult<Option<BlockRangeRootRecord>> {
+        self.connection_pool
+            .connection()?
+            .fetch_first(GetBlockRangeRootQuery::highest())
     }
 
     /// Retrieve the legacy block range root with the highest bounds in the database.
@@ -201,6 +242,13 @@ impl CardanoTransactionRepository {
             .collect();
 
         Ok(records)
+    }
+
+    /// Retrieve all the [BlockRangeRootRecord] in database.
+    pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
+        self.connection_pool
+            .connection()?
+            .fetch_collect(GetBlockRangeRootQuery::all())
     }
 
     /// Retrieve all the legacy [BlockRangeRootRecord] in database.
@@ -331,16 +379,20 @@ impl CardanoTransactionRepository {
     ) -> StdResult<()> {
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
-        let query =
-            DeleteCardanoBlockAndTransactionQuery::above_block_number_threshold(block_number)?;
-        connection.fetch_first(query)?;
 
-        let query = DeleteLegacyBlockRangeRootQuery::contains_or_above_block_number_threshold(
-            block_number,
+        connection.fetch_first(
+            DeleteCardanoBlockAndTransactionQuery::above_block_number_threshold(block_number)?,
         )?;
-        connection.fetch_first(query)?;
-        transaction.commit()?;
+        connection.fetch_first(
+            DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_number)?,
+        )?;
+        connection.fetch_first(
+            DeleteLegacyBlockRangeRootQuery::contains_or_above_block_number_threshold(
+                block_number,
+            )?,
+        )?;
 
+        transaction.commit()?;
         Ok(())
     }
 
@@ -1299,7 +1351,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_retrieve_block_range_roots_up_to() {
+    async fn repository_retrieve_legacy_block_range_roots_up_to() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
@@ -1360,6 +1412,140 @@ mod tests {
 
         let retrieved_block_range =
             repository.retrieve_highest_legacy_block_range_root().await.unwrap();
+        assert_eq!(block_range_roots.last().cloned(), retrieved_block_range);
+    }
+
+    #[tokio::test]
+    async fn repository_store_block_range() {
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(cardano_tx_db_connection().unwrap()),
+        ));
+
+        repository
+            .create_block_range_roots(vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+            ])
+            .await
+            .unwrap();
+
+        let connection = repository.connection_pool.connection().unwrap();
+        let records: Vec<BlockRangeRootRecord> =
+            connection.fetch_collect(GetBlockRangeRootQuery::all()).unwrap();
+        assert_eq!(
+            vec![
+                BlockRangeRootRecord {
+                    range: BlockRange::from_block_number(BlockNumber(0)),
+                    merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
+                },
+                BlockRangeRootRecord {
+                    range: BlockRange::from_block_number(BlockRange::LENGTH),
+                    merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
+                }
+            ],
+            records
+        );
+    }
+
+    #[tokio::test]
+    async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+        let range = BlockRange::from_block_number(BlockNumber(0));
+
+        repository
+            .create_block_range_roots(vec![(range.clone(), MKTreeNode::from_hex("AAAA").unwrap())])
+            .await
+            .unwrap();
+        repository
+            .create_block_range_roots(vec![(range.clone(), MKTreeNode::from_hex("BBBB").unwrap())])
+            .await
+            .unwrap();
+
+        let record: Vec<BlockRangeRootRecord> = repository
+            .connection_pool
+            .connection()
+            .unwrap()
+            .fetch_collect(GetBlockRangeRootQuery::all())
+            .unwrap();
+        assert_eq!(
+            vec![BlockRangeRootRecord {
+                range,
+                merkle_root: MKTreeNode::from_hex("AAAA").unwrap()
+            }],
+            record
+        );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_block_range_roots_up_to() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+        let block_range_roots = vec![
+            (
+                BlockRange::from_block_number(BlockNumber(15)),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(BlockNumber(30)),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(BlockNumber(45)),
+                MKTreeNode::from_hex("CCCC").unwrap(),
+            ),
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let retrieved_block_ranges = repository
+            .retrieve_block_range_roots_up_to(BlockNumber(45))
+            .await
+            .unwrap();
+        assert_eq!(
+            block_range_roots[0..2].to_vec(),
+            retrieved_block_ranges.collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_highest_block_range_roots() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+        let block_range_roots = vec![
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(BlockNumber(15)),
+                merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(BlockNumber(30)),
+                merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(BlockNumber(45)),
+                merkle_root: MKTreeNode::from_hex("CCCC").unwrap(),
+            },
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let retrieved_block_range = repository.retrieve_highest_block_range_root().await.unwrap();
         assert_eq!(block_range_roots.last().cloned(), retrieved_block_range);
     }
 
@@ -1512,6 +1698,27 @@ mod tests {
             ])
             .await
             .unwrap();
+        repository
+            .create_block_range_roots(vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    MKTreeNode::from_hex("9999").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+            ])
+            .await
+            .unwrap();
 
         repository
             .remove_rolled_back_transactions_and_block_range_by_block_number(BlockRange::LENGTH * 3)
@@ -1522,6 +1729,7 @@ mod tests {
             2,
             repository.get_all_legacy_block_range_root().unwrap().len()
         );
+        assert_eq!(3, repository.get_all_block_range_root().unwrap().len());
         assert_eq!(2, repository.get_all_blocks().await.unwrap().len());
     }
 

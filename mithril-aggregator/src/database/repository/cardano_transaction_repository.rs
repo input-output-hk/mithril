@@ -44,7 +44,8 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
     }
 
     async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
-        todo!()
+        let record = self.inner.retrieve_highest_block_range_root().await?;
+        Ok(record.map(|record| record.range))
     }
 
     async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
@@ -82,9 +83,12 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
 
     async fn store_block_range_roots(
         &self,
-        _block_ranges: Vec<(BlockRange, MKTreeNode)>,
+        block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
-        todo!()
+        if !block_ranges.is_empty() {
+            self.inner.create_block_range_roots(block_ranges).await?;
+        }
+        Ok(())
     }
 
     async fn store_legacy_block_range_roots(
