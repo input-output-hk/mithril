@@ -10,9 +10,9 @@ use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
 use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
 use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm, ConfigSecret,
-    HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants,
+    BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+    CompressionAlgorithm, ConfigSecret, HexEncodedGenesisVerificationKey, HexEncodedKey,
+    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
 };
 use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
 use mithril_dmq::DmqNetwork;
@@ -263,6 +263,13 @@ pub trait ConfigurationSource {
         panic!("cardano_transactions_signing_config is not implemented.");
     }
 
+    /// Cardano blocks and transactions signing configuration
+    fn cardano_blocks_transactions_signing_config(
+        &self,
+    ) -> Option<CardanoBlocksTransactionsSigningConfig> {
+        panic!("cardano_blocks_transactions_signing_config is not implemented.");
+    }
+
     /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
     fn preload_security_parameter(&self) -> BlockNumber {
         panic!("preload_security_parameter is not implemented.");
@@ -408,11 +415,24 @@ pub trait ConfigurationSource {
             None
         };
 
+        let cardano_blocks_transactions_signing_config = if allowed_discriminants
+            .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+        {
+            let cardano_blocks_transactions_signing_config =
+                self.cardano_blocks_transactions_signing_config().with_context(
+                    || "Configuration `cardano_blocks_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoBlocksTransactions` is enabled in `signed_entity_types`"
+                )?;
+            Some(cardano_blocks_transactions_signing_config)
+        } else {
+            None
+        };
+
         Ok(AggregatorEpochSettings {
             protocol_parameters: self.protocol_parameters().with_context(
                 || "Configuration `protocol_parameters` is mandatory for a Leader Aggregator",
             )?,
             cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config,
         })
     }
 
@@ -615,6 +635,10 @@ pub struct ServeCommandConfiguration {
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 
+    /// Cardano blocks and transactions signing configuration
+    #[example = "`{ security_parameter: 3000, step: 120 }`"]
+    pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
+
     /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload,
     /// default to 2160.
     #[example = "`2160`"]
@@ -807,6 +831,12 @@ impl ServeCommandConfiguration {
                 security_parameter: BlockNumber(120),
                 step: BlockNumber(15),
             }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(120),
+                    step: BlockNumber(15),
+                },
+            ),
             preload_security_parameter: BlockNumber(30),
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
@@ -984,6 +1014,12 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.cardano_transactions_signing_config.clone()
     }
 
+    fn cardano_blocks_transactions_signing_config(
+        &self,
+    ) -> Option<CardanoBlocksTransactionsSigningConfig> {
+        self.cardano_blocks_transactions_signing_config.clone()
+    }
+
     fn preload_security_parameter(&self) -> BlockNumber {
         self.preload_security_parameter
     }
@@ -1102,6 +1138,9 @@ pub struct DefaultConfiguration {
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
+    /// Cardano blocks and transactions signing configuration
+    pub cardano_blocks_transactions_signing_config: CardanoBlocksTransactionsSigningConfig,
+
     /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload
     pub preload_security_parameter: u64,
 
@@ -1155,6 +1194,10 @@ impl Default for DefaultConfiguration {
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(3000),
+                step: BlockNumber(120),
+            },
+            cardano_blocks_transactions_signing_config: CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(3000),
                 step: BlockNumber(120),
             },
@@ -1267,6 +1310,18 @@ impl Source for DefaultConfiguration {
                 ("step".to_string(), ValueKind::from(*v.step),)
             ])
         );
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_blocks_transactions_signing_config,
+            |v: CardanoBlocksTransactionsSigningConfig| HashMap::from([
+                (
+                    "security_parameter".to_string(),
+                    ValueKind::from(*v.security_parameter),
+                ),
+                ("step".to_string(), ValueKind::from(*v.step),)
+            ])
+        );
         register_config_value!(result, &namespace, myself.aggregate_signature_type);
         register_config_value!(
             result,
@@ -1328,6 +1383,22 @@ mod test {
         assert_eq!(
             target.cardano_transactions_signing_config,
             DefaultConfiguration::default().cardano_transactions_signing_config
+        );
+    }
+
+    #[test]
+    fn can_build_config_with_cardano_blocks_tx_signing_config_from_default_configuration() {
+        #[derive(Debug, Deserialize)]
+        struct TargetConfig {
+            cardano_blocks_transactions_signing_config: CardanoBlocksTransactionsSigningConfig,
+        }
+
+        let config_builder = config::Config::builder().add_source(DefaultConfiguration::default());
+        let target: TargetConfig = config_builder.build().unwrap().try_deserialize().unwrap();
+
+        assert_eq!(
+            target.cardano_blocks_transactions_signing_config,
+            DefaultConfiguration::default().cardano_blocks_transactions_signing_config
         );
     }
 
@@ -1487,7 +1558,8 @@ mod test {
             assert_eq!(
                 AggregatorEpochSettings {
                     protocol_parameters: ProtocolParameters::new(1, 2, 3.1),
-                    cardano_transactions_signing_config: None
+                    cardano_transactions_signing_config: None,
+                    cardano_blocks_transactions_signing_config: None,
                 },
                 epoch_settings
             );
@@ -1516,7 +1588,8 @@ mod test {
                     cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                         security_parameter: BlockNumber(10),
                         step: BlockNumber(30),
-                    },)
+                    }),
+                    cardano_blocks_transactions_signing_config: None,
                 },
                 epoch_settings
             );
@@ -1540,6 +1613,80 @@ mod test {
                     .to_string()
                     .contains("Configuration `cardano_transactions_signing_config` is mandatory")
             );
+        }
+
+        #[test]
+        fn succeed_when_cardano_blocks_transactions_is_disabled_and_cardano_blocks_transactions_signing_config_is_not_set()
+         {
+            let epoch_settings = ServeCommandConfiguration {
+                signed_entity_types: None,
+                cardano_blocks_transactions_signing_config: None,
+                protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap();
+
+            assert_eq!(
+                AggregatorEpochSettings {
+                    protocol_parameters: ProtocolParameters::new(1, 2, 3.1),
+                    cardano_transactions_signing_config: None,
+                    cardano_blocks_transactions_signing_config: None,
+                },
+                epoch_settings
+            );
+        }
+
+        #[test]
+        fn succeed_when_cardano_blocks_transactions_is_enabled_and_cardano_blocks_transactions_signing_config_is_set()
+         {
+            let epoch_settings = ServeCommandConfiguration {
+                signed_entity_types: Some(
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string(),
+                ),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(10),
+                        step: BlockNumber(30),
+                    },
+                ),
+                protocol_parameters: Some(ProtocolParameters::new(2, 3, 4.1)),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap();
+
+            assert_eq!(
+                AggregatorEpochSettings {
+                    protocol_parameters: ProtocolParameters::new(2, 3, 4.1),
+                    cardano_transactions_signing_config: None,
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig {
+                            security_parameter: BlockNumber(10),
+                            step: BlockNumber(30),
+                        }
+                    ),
+                },
+                epoch_settings
+            );
+        }
+
+        #[test]
+        fn fails_when_cardano_blocks_transactions_is_enabled_without_associated_config() {
+            let error = ServeCommandConfiguration {
+                cardano_blocks_transactions_signing_config: None,
+                signed_entity_types: Some(
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string(),
+                ),
+                protocol_parameters: Some(fake_data::protocol_parameters()),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap_err();
+
+            assert!(error.to_string().contains(
+                "Configuration `cardano_blocks_transactions_signing_config` is mandatory"
+            ));
         }
     }
 
