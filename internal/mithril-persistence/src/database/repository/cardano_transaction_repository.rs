@@ -161,12 +161,17 @@ impl CardanoTransactionRepository {
         }))
     }
 
-    /// Get the highest start [BlockNumber] of the legacy block range roots stored in the database.
-    pub async fn get_highest_start_block_number_for_legacy_block_range_roots(
-        &self,
-    ) -> StdResult<Option<BlockNumber>> {
+    /// Get the threshold [BlockNumber] to prune the blocks and transactions below.
+    ///
+    /// To ensure that all new and legacy blocks range roots were computed and stored: This threshold
+    /// is the minimum of the highest block number of the block range roots and the highest block
+    /// number of the legacy block range roots.
+    pub async fn get_prune_blocks_threshold(&self) -> StdResult<Option<BlockNumber>> {
         let highest: Option<i64> = self.connection_pool.connection()?.query_single_cell(
-            "select max(start) as highest from block_range_root_legacy;",
+            r#"
+select coalesce(min(max_new.highest, max_legacy.highest), max_new.highest, max_legacy.highest)
+from (select max(start) as highest from block_range_root) max_new,
+     (select max(start) as highest from block_range_root_legacy) max_legacy;"#,
             &[],
         )?;
         highest
@@ -352,10 +357,7 @@ impl CardanoTransactionRepository {
     /// Prune the transactions older than the given number of blocks (based on the block range root
     /// stored).
     pub async fn prune_transaction(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()> {
-        if let Some(highest_block_range_start) = self
-            .get_highest_start_block_number_for_legacy_block_range_roots()
-            .await?
-        {
+        if let Some(highest_block_range_start) = self.get_prune_blocks_threshold().await? {
             let threshold = highest_block_range_start - number_of_blocks_to_keep;
             let query =
                 DeleteCardanoBlockAndTransactionQuery::below_block_number_threshold(threshold)?;
@@ -1607,38 +1609,61 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_highest_start_block_number_for_legacy_block_range_roots() {
+    async fn get_prune_blocks_threshold() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
         ));
 
-        let highest = repository
-            .get_highest_start_block_number_for_legacy_block_range_roots()
-            .await
-            .unwrap();
-        assert_eq!(None, highest);
+        // Nothing stored
+        {
+            let highest = repository.get_prune_blocks_threshold().await.unwrap();
+            assert_eq!(None, highest);
+        }
+        // Add two block range roots in the "new" table but none in the "legacy"; select the highest of the two in the "new" table
+        {
+            repository
+                .create_block_range_roots(vec![
+                    (
+                        BlockRange::from_block_number(BlockNumber(45)),
+                        MKTreeNode::from_hex("AAAA").unwrap(),
+                    ),
+                    (
+                        BlockRange::from_block_number(BlockNumber(60)),
+                        MKTreeNode::from_hex("BBBB").unwrap(),
+                    ),
+                ])
+                .await
+                .unwrap();
+            let highest = repository.get_prune_blocks_threshold().await.unwrap();
+            assert_eq!(Some(BlockNumber(60)), highest);
+        }
+        // Add a first block range in the "legacy" table, but below than existing in the "new" table; the highest should be the new block range
+        {
+            repository
+                .create_legacy_block_range_roots(vec![(
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("DDDD").unwrap(),
+                )])
+                .await
+                .unwrap();
 
-        let block_range_roots = vec![
-            (
-                BlockRange::from_block_number(BlockNumber(15)),
-                MKTreeNode::from_hex("AAAA").unwrap(),
-            ),
-            (
-                BlockRange::from_block_number(BlockNumber(30)),
-                MKTreeNode::from_hex("BBBB").unwrap(),
-            ),
-        ];
-        repository
-            .create_legacy_block_range_roots(block_range_roots.clone())
-            .await
-            .unwrap();
+            let highest = repository.get_prune_blocks_threshold().await.unwrap();
+            assert_eq!(Some(BlockNumber(30)), highest);
+        }
+        // Add a second block range in the "legacy" table, but higher than existing in the "new" table; the highest should be change back to the new block range
+        {
+            repository
+                .create_legacy_block_range_roots(vec![(
+                    BlockRange::from_block_number(BlockNumber(75)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                )])
+                .await
+                .unwrap();
 
-        let highest = repository
-            .get_highest_start_block_number_for_legacy_block_range_roots()
-            .await
-            .unwrap();
-        assert_eq!(Some(BlockNumber(30)), highest);
+            let highest = repository.get_prune_blocks_threshold().await.unwrap();
+            assert_eq!(Some(BlockNumber(60)), highest);
+        }
     }
 
     #[tokio::test]
