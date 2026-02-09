@@ -285,5 +285,18 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (5, 'Cardano Blocks and Transactions');
         "#,
         ),
+        // Migration 39
+        // Add `cardano_blocks_transactions_signing_config` column to `epoch_setting` table.
+        SqlMigration::new(
+            39,
+            r#"
+-- disable foreign keys since `signer_registration` has a foreign key constraint on `epoch_setting
+pragma foreign_keys=false;
+alter table epoch_setting add column cardano_blocks_transactions_signing_config json;
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+        "#,
+        ),
     ]
 }

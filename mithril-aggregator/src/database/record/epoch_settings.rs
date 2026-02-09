@@ -1,4 +1,7 @@
-use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
+use mithril_common::entities::{
+    CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, Epoch,
+    ProtocolParameters,
+};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 use crate::entities::AggregatorEpochSettings;
@@ -14,6 +17,9 @@ pub struct EpochSettingsRecord {
 
     /// Cardano transactions signing configuration.
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+    /// Cardano blocks and transactions signing configuration.
+    pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
 }
 
 impl From<EpochSettingsRecord> for AggregatorEpochSettings {
@@ -21,6 +27,8 @@ impl From<EpochSettingsRecord> for AggregatorEpochSettings {
         Self {
             protocol_parameters: other.protocol_parameters,
             cardano_transactions_signing_config: other.cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config: other
+                .cardano_blocks_transactions_signing_config,
         }
     }
 }
@@ -33,6 +41,7 @@ impl SqLiteEntity for EpochSettingsRecord {
         let epoch_settings_id_int = row.read::<i64, _>(0);
         let protocol_parameters_string = &row.read::<&str, _>(1);
         let cardano_transactions_signing_config_string = &row.read::<Option<&str>, _>(2);
+        let cardano_blocks_transactions_signing_config_string = &row.read::<Option<&str>, _>(3);
 
         let epoch_settings_record = Self {
             epoch_settings_id: Epoch(epoch_settings_id_int.try_into().map_err(|e| {
@@ -51,6 +60,13 @@ impl SqLiteEntity for EpochSettingsRecord {
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{config}' to CardanoTransactionsSigningConfig. Error: {e}"
+                    ))
+                },
+            )).transpose()?,
+            cardano_blocks_transactions_signing_config: cardano_blocks_transactions_signing_config_string.map(|config| serde_json::from_str(config).map_err(
+                |e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{config}' to CardanoBlocksTransactionsSigningConfig. Error: {e}"
                     ))
                 },
             )).transpose()?,
@@ -75,6 +91,11 @@ impl SqLiteEntity for EpochSettingsRecord {
         projection.add_field(
             "cardano_transactions_signing_config",
             "{:epoch_setting:}.cardano_transactions_signing_config",
+            "text",
+        );
+        projection.add_field(
+            "cardano_blocks_transactions_signing_config",
+            "{:epoch_setting:}.cardano_blocks_transactions_signing_config",
             "text",
         );
 

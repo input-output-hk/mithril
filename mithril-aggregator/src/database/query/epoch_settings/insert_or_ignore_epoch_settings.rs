@@ -13,13 +13,20 @@ impl InsertOrIgnoreEpochSettingsQuery {
     pub fn one(epoch_settings: EpochSettingsRecord) -> Self {
         Self {
             condition: WhereCondition::new(
-                "(epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) values (?1, ?2, ?3)",
+                r#"(epoch_setting_id, protocol_parameters, 
+                cardano_transactions_signing_config, 
+                cardano_blocks_transactions_signing_config) 
+                values (?1, ?2, ?3, ?4)"#,
                 vec![
                     Value::Integer(*epoch_settings.epoch_settings_id as i64),
                     Value::String(
                         serde_json::to_string(&epoch_settings.protocol_parameters).unwrap(),
                     ),
                     match &epoch_settings.cardano_transactions_signing_config {
+                        Some(config) => Value::String(serde_json::to_string(config).unwrap()),
+                        None => Value::Null,
+                    },
+                    match &epoch_settings.cardano_blocks_transactions_signing_config {
                         Some(config) => Value::String(serde_json::to_string(config).unwrap()),
                         None => Value::Null,
                     },
@@ -48,7 +55,10 @@ impl Query for InsertOrIgnoreEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig, Epoch};
+    use mithril_common::entities::{
+        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        Epoch,
+    };
     use mithril_common::test::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -68,6 +78,12 @@ mod tests {
                 security_parameter: BlockNumber(24),
                 step: BlockNumber(62),
             }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(48),
+                    step: BlockNumber(96),
+                },
+            ),
         };
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
@@ -81,6 +97,7 @@ mod tests {
             epoch_settings_id: Epoch(4),
             protocol_parameters: fake_data::protocol_parameters(),
             cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
         };
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
@@ -102,6 +119,12 @@ mod tests {
                 security_parameter: BlockNumber(24),
                 step: BlockNumber(62),
             }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(48),
+                    step: BlockNumber(96),
+                },
+            ),
         };
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
@@ -116,6 +139,12 @@ mod tests {
                     security_parameter: BlockNumber(134),
                     step: BlockNumber(872),
                 }),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(321),
+                        step: BlockNumber(987),
+                    },
+                ),
                 ..expected_epoch_settings.clone()
             }))
             .unwrap();

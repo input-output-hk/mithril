@@ -209,6 +209,7 @@ pub fn insert_epoch_settings(
             epoch_settings_id: Epoch(1),
             protocol_parameters: ProtocolParameters::new(1, 2, 1.0),
             cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
         })
         .filters()
         .expand();
