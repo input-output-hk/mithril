@@ -291,11 +291,51 @@ mod tests {
         assert_eq!(entry2.cmp(&entry1), cmp_result.reverse());
     }
 
-    mod golden {
-        use super::*;
+    #[test]
+    // cargo test --package mithril-stm --lib  -- protocol::key_registration::closed_registration_entry::tests::serialize_old_new_without_feature --exact --show-output --nocapture
+    // [[143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,6,137,94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,111,142,31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,251,68,69,121,16,224,194],1]
+    // [143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135, 228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173, 244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4, 246, 138, 48, 180, 133, 90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110, 234, 153, 90, 208, 192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68, 69, 121, 16, 224, 194, 0, 0, 0, 0, 0, 0, 0, 1]
+    // cargo test --package mithril-stm --lib --features future_snark -- protocol::key_registration::closed_registration_entry::tests::serialize_old_new_without_feature --exact --show-output --nocapture
+    // [[143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,6,137,94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,111,142,31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,251,68,69,121,16,224,194],1,[45,121,194,155,110,46,240,74,141,138,78,228,92,179,58,63,233,239,84,114,149,77,188,93,8,22,11,12,45,186,211,56],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    // [143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135, 228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173, 244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4, 246, 138, 48, 180, 133, 90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110, 234, 153, 90, 208, 192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68, 69, 121, 16, 224, 194, 0, 0, 0, 0, 0, 0, 0, 1, 200, 194, 6, 212, 77, 254, 23, 111, 33, 34, 139, 71, 131, 196, 108, 13, 217, 75, 187, 131, 158, 77, 197, 163, 30, 123, 151, 237, 157, 232, 167, 10, 45, 121, 194, 155, 110, 46, 240, 74, 141, 138, 78, 228, 92, 179, 58, 63, 233, 239, 84, 114, 149, 77, 188, 93, 8, 22, 11, 12, 45, 186, 211, 56, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    fn serialize_old_new_without_feature() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let bls_sk = BlsSigningKey::generate(&mut rng);
+        let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+        #[cfg(feature = "future_snark")]
+        let schnorr_verification_key = {
+            let sk = SchnorrSigningKey::generate(&mut rng);
+            VerificationKeyForSnark::new_from_signing_key(sk.clone())
+        };
+        #[cfg(feature = "future_snark")]
+        let entry = ClosedRegistrationEntry::new(
+            bls_pk.vk,
+            1,
+            #[cfg(feature = "future_snark")]
+            Some(schnorr_verification_key),
+            #[cfg(feature = "future_snark")]
+            Some(LotteryTargetValue::get_one()),
+        );
 
         #[cfg(not(feature = "future_snark"))]
-        const GOLDEN_BYTES: &[u8; 104] = &[
+        let entry = ClosedRegistrationEntry::new(
+            bls_pk.vk,
+            1,
+            #[cfg(feature = "future_snark")]
+            None,
+            #[cfg(feature = "future_snark")]
+            None,
+        );
+        println!("{:?}", serde_json::to_string(&entry).unwrap());
+        println!("{:?}", entry.to_bytes());
+    }
+
+    mod golden_bytes {
+        use super::*;
+
+        // Created without the `future_snark` feature
+        const LEGACY_GOLDEN_BYTES: &[u8; 104] = &[
             143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135,
             228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173,
             244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4,
@@ -304,8 +344,8 @@ mod tests {
             224, 194, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
 
-        #[cfg(feature = "future_snark")]
-        const GOLDEN_BYTES: &[u8; 200] = &[
+        // Created with the `future_snark` feature
+        const GOLDEN_BYTES_WITH_FUTURE_SNARK: &[u8; 200] = &[
             143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56, 126, 186, 135,
             228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199, 193, 89, 187, 88, 29, 135, 173,
             244, 86, 36, 83, 54, 67, 164, 6, 137, 94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4,
@@ -318,7 +358,24 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
-        fn golden_value() -> ClosedRegistrationEntry {
+        #[cfg(not(feature = "future_snark"))]
+        fn legacy_golden_value() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        fn golden_value_for_future_snark() -> ClosedRegistrationEntry {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let bls_sk = BlsSigningKey::generate(&mut rng);
             let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
@@ -338,15 +395,278 @@ mod tests {
             )
         }
 
-        #[test]
-        fn golden_conversions() {
-            let value = ClosedRegistrationEntry::from_bytes(GOLDEN_BYTES)
-                .expect("This from bytes should not fail");
-            assert_eq!(golden_value(), value);
+        #[cfg(feature = "future_snark")]
+        fn golden_value_for_future_snark() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
 
+            #[cfg(feature = "future_snark")]
+            let schnorr_verification_key = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                VerificationKeyForSnark::new_from_signing_key(sk.clone())
+            };
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                Some(schnorr_verification_key),
+                #[cfg(feature = "future_snark")]
+                Some(LotteryTargetValue::get_one()),
+            )
+        }
+
+        #[cfg(feature = "future_snark")]
+        fn legacy_golden_value() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+        }
+
+        #[test]
+        fn case1_golden_serialize_deserialize_without_future_snark() {
+            // Deserialize without feature
+            let value = ClosedRegistrationEntry::from_bytes(LEGACY_GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(legacy_golden_value(), value);
+
+            // Serialize without feature
             let serialized = ClosedRegistrationEntry::to_bytes(value);
-            let golden_serialized = ClosedRegistrationEntry::to_bytes(golden_value());
+            let golden_serialized = ClosedRegistrationEntry::to_bytes(legacy_golden_value());
             assert_eq!(golden_serialized, serialized);
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case2_golden_serialize_deserialize_with_future_snark() {
+            // Deserialize with feature
+            let value = ClosedRegistrationEntry::from_bytes(GOLDEN_BYTES_WITH_FUTURE_SNARK)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value_for_future_snark(), value);
+
+            // Serialize with feature
+            let serialized = ClosedRegistrationEntry::to_bytes(value);
+            let golden_serialized =
+                ClosedRegistrationEntry::to_bytes(golden_value_for_future_snark());
+            assert_eq!(golden_serialized, serialized);
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        #[test]
+        fn case3_golden_deserialize_future_snark_bytes_for_legacy() {
+            // Deserialize with feature
+            let value = ClosedRegistrationEntry::from_bytes(GOLDEN_BYTES_WITH_FUTURE_SNARK)
+                .expect("This from bytes should not fail");
+            assert_eq!(legacy_golden_value(), value);
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case4_golden_deserialize_legacy_bytes_for_future_snark() {
+            // Deserialize with feature
+            let value = ClosedRegistrationEntry::from_bytes(LEGACY_GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(legacy_golden_value(), value);
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case5_golden_serialize_legacy_golden_value_for_future_snark() {
+            let golden_serialized = ClosedRegistrationEntry::to_bytes(legacy_golden_value());
+            assert_eq!(golden_serialized, LEGACY_GOLDEN_BYTES);
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        #[test]
+        fn case6_golden_serialize_future_golden_value_for_legacy() {
+            let golden_serialized =
+                ClosedRegistrationEntry::to_bytes(golden_value_for_future_snark());
+            assert_eq!(golden_serialized, LEGACY_GOLDEN_BYTES);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
+
+        // Created without the `future_snark` feature
+        const LEGACY_GOLDEN_JSON: &str = r#"
+        [
+            [
+                143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,181,
+                52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,6,137,
+                94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,111,142,
+                31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,251,68,69,
+                121,16,224,194
+            ],
+            1
+        ]
+        "#;
+
+        // Created with the `future_snark` feature
+        const GOLDEN_JSON_FOR_FUTURE_SNARK: &str = r#"
+        [
+            [
+                143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,181,
+                52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,6,137,
+                94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,111,142,
+                31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,251,68,69,
+                121,16,224,194
+            ],
+            1,
+            [
+                45,121,194,155,110,46,240,74,141,138,78,228,92,179,58,63,233,239,84,114,149,77,
+                188,93,8,22,11,12,45,186,211,56
+            ],
+            [
+                1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ]
+        ]
+        "#;
+
+        #[cfg(not(feature = "future_snark"))]
+        fn legacy_golden_value() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        fn golden_value_for_future_snark() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            #[cfg(feature = "future_snark")]
+            let schnorr_verification_key = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                VerificationKeyForSnark::new_from_signing_key(sk.clone())
+            };
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                Some(schnorr_verification_key),
+                #[cfg(feature = "future_snark")]
+                Some(LotteryTargetValue::get_one()),
+            )
+        }
+
+        #[cfg(feature = "future_snark")]
+        fn golden_value_for_future_snark() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            #[cfg(feature = "future_snark")]
+            let schnorr_verification_key = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                VerificationKeyForSnark::new_from_signing_key(sk.clone())
+            };
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                Some(schnorr_verification_key),
+                #[cfg(feature = "future_snark")]
+                Some(LotteryTargetValue::get_one()),
+            )
+        }
+
+        #[cfg(feature = "future_snark")]
+        fn legacy_golden_value() -> ClosedRegistrationEntry {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let bls_sk = BlsSigningKey::generate(&mut rng);
+            let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+            ClosedRegistrationEntry::new(
+                bls_pk.vk,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+        }
+
+        #[test]
+        fn case1_golden_serialize_deserialize_without_future_snark() {
+            // Deserialize without feature
+            let value = serde_json::from_str(LEGACY_GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            let golden_entry = legacy_golden_value();
+            assert_eq!(golden_entry, value);
+
+            // Serialize without feature
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&legacy_golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case2_golden_serialize_deserialize_with_future_snark() {
+            let value = serde_json::from_str(GOLDEN_JSON_FOR_FUTURE_SNARK)
+                .expect("This JSON deserialization should not fail");
+            let golden_entry = golden_value_for_future_snark();
+            assert_eq!(golden_entry, value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value_for_future_snark())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        #[test]
+        fn case3_golden_deserialize_future_snark_json_for_legacy() {
+            serde_json::from_str::<ClosedRegistrationEntry>(GOLDEN_JSON_FOR_FUTURE_SNARK)
+                .expect_err("This JSON deserialization should fail");
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case4_golden_deserialize_legacy_json_for_future_snark() {
+            // Deserialize with feature
+            let value = serde_json::from_str(LEGACY_GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(legacy_golden_value(), value);
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn case5_golden_serialize_legacy_golden_value_for_future_snark() {
+            let serialized = serde_json::to_string(&legacy_golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_ne!(LEGACY_GOLDEN_JSON, serialized);
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        #[test]
+        fn case6_golden_serialize_future_golden_value_for_legacy() {
+            let serialized = serde_json::to_string(&golden_value_for_future_snark())
+                .expect("This JSON serialization should not fail");
+            assert_ne!(LEGACY_GOLDEN_JSON, serialized);
         }
     }
 }
