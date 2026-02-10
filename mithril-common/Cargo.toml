@@ -19,12 +19,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 ignored = ["serde_bytes"]
 
 [features]
-default = ["rug-backend"]
+default = ["num-integer-backend"]
 
-# Enables `rug-backend` features for `mithril-stm` dependency
-rug-backend = ["mithril-stm/rug-backend"]
 # Enables `num-integer-backend` features for `mithril-stm` dependency
-# by default it's `rug-backend`
 num-integer-backend = ["mithril-stm/num-integer-backend"]
 
 # Disable signer certification, to be used only for tests

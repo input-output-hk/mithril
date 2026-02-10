@@ -20,7 +20,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 # Include native-tls in reqwest by default
-default = ["native-tls", "rug-backend", "enable-http-compression"]
+default = ["native-tls", "num-integer-backend", "enable-http-compression"]
 
 # Full feature set
 full = ["fs"]
@@ -44,10 +44,7 @@ rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
 # Support compressed traffic with `reqwest`
 enable-http-compression = ["reqwest/gzip", "reqwest/zstd", "reqwest/deflate", "reqwest/brotli"]
 
-# Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
-rug-backend = ["mithril-common/rug-backend"]
 # Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`)
-# by default it's `rug-backend`
 num-integer-backend = ["mithril-common/num-integer-backend"]
 
 [dependencies]
