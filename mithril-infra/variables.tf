@@ -318,6 +318,19 @@ variable "mithril_aggregator_cardano_blocks_transactions_database_connection_poo
   default     = 10
 }
 
+variable "mithril_aggregator_cardano_blocks_transactions_signing_config_security_parameter" {
+  type        = number
+  description = "Number of blocks to discard from the tip of the chain when importing Cardano blocks and transactions"
+  default     = 100
+}
+
+variable "mithril_aggregator_cardano_blocks_transactions_signing_config_step" {
+  type        = number
+  description = "Number of blocks between signature of the Cardano blocks and transactions"
+  default     = 30
+}
+
+
 variable "mithril_aggregator_cardano_transactions_prover_cache_pool_size" {
   type        = number
   description = "Cardano transactions prover cache pool size"
