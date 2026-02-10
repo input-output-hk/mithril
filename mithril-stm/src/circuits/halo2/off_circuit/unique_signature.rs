@@ -54,49 +54,6 @@ impl SigningKey {
         Signature { sigma, s, c }
     }
 
-    pub fn sign_long(
-        &self,
-        msg: &[JubjubBase],
-        rng: &mut (impl RngCore + CryptoRng),
-    ) -> LongSignature {
-        let g = JubjubSubgroup::generator();
-        let vk = g * self.0;
-
-        let hash = JubjubHashToCurve::hash_to_curve(msg);
-        let sigma = hash * self.0;
-        let r = JubjubScalar::random(rng);
-        let cap_r_1 = hash * r;
-        let cap_r_2 = g * r;
-
-        let (hx, hy) = get_coordinates(hash);
-        let (vk_x, vk_y) = get_coordinates(vk);
-        let (sigma_x, sigma_y) = get_coordinates(sigma);
-        let (cap_r_1_x, cap_r_1_y) = get_coordinates(cap_r_1);
-        let (cap_r_2_x, cap_r_2_y) = get_coordinates(cap_r_2);
-
-        let c = PoseidonHash::hash(&[
-            DST_UNIQUE_SIGNATURE,
-            hx,
-            hy,
-            vk_x,
-            vk_y,
-            sigma_x,
-            sigma_y,
-            cap_r_1_x,
-            cap_r_1_y,
-            cap_r_2_x,
-            cap_r_2_y,
-        ]);
-        let c_scalar = jubjub_base_to_scalar(c);
-        let s = r - self.0 * c_scalar;
-
-        LongSignature {
-            sigma,
-            cap_r_1,
-            cap_r_2,
-            s,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -198,84 +155,6 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LongSignature {
-    pub sigma: JubjubSubgroup,
-    pub cap_r_1: JubjubSubgroup,
-    pub cap_r_2: JubjubSubgroup,
-    pub s: JubjubScalar,
-}
-
-impl LongSignature {
-    pub fn verify(&self, msg: &[JubjubBase], vk: &VerificationKey) -> Result<(), SignatureError> {
-        let g = JubjubSubgroup::generator();
-        let hash = JubjubHashToCurve::hash_to_curve(msg);
-        let (hx, hy) = get_coordinates(hash);
-        let (vk_x, vk_y) = get_coordinates(vk.0);
-        let (sigma_x, sigma_y) = get_coordinates(self.sigma);
-        let (cap_r_1_x, cap_r_1_y) = get_coordinates(self.cap_r_1);
-        let (cap_r_2_x, cap_r_2_y) = get_coordinates(self.cap_r_2);
-
-        let c_prime = PoseidonHash::hash(&[
-            DST_UNIQUE_SIGNATURE,
-            hx,
-            hy,
-            vk_x,
-            vk_y,
-            sigma_x,
-            sigma_y,
-            cap_r_1_x,
-            cap_r_1_y,
-            cap_r_2_x,
-            cap_r_2_y,
-        ]);
-        let c = jubjub_base_to_scalar(c_prime);
-
-        {
-            let right = hash * self.s + self.sigma * c;
-            if self.cap_r_1 != right {
-                return Err(SignatureError::VerificationFailed);
-            }
-        }
-
-        {
-            let right = g * self.s + vk.0 * c;
-            if self.cap_r_2 != right {
-                return Err(SignatureError::VerificationFailed);
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn to_short_signature(&self, hash_msg: &JubjubSubgroup, vk: &VerificationKey) -> Signature {
-        let (hx, hy) = get_coordinates(*hash_msg);
-        let (vk_x, vk_y) = get_coordinates(vk.0);
-        let (sigma_x, sigma_y) = get_coordinates(self.sigma);
-        let (cap_r_1_x, cap_r_1_y) = get_coordinates(self.cap_r_1);
-        let (cap_r_2_x, cap_r_2_y) = get_coordinates(self.cap_r_2);
-
-        let c = PoseidonHash::hash(&[
-            DST_UNIQUE_SIGNATURE,
-            hx,
-            hy,
-            vk_x,
-            vk_y,
-            sigma_x,
-            sigma_y,
-            cap_r_1_x,
-            cap_r_1_y,
-            cap_r_2_x,
-            cap_r_2_y,
-        ]);
-
-        Signature {
-            sigma: self.sigma,
-            s: self.s,
-            c,
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -331,20 +210,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_signature_unique_long_verification_valid() {
-        let mut rng = OsRng;
-        let sk = SigningKey::generate(&mut rng);
-        let vk: VerificationKey = (&sk).into();
-        let msg = JubjubBase::random(&mut rng);
-
-        // Generate a regular Signature and convert it to SignatureLong
-        let sig_long = sk.sign_long(&[msg], &mut rng);
-        // Verify the SignatureLong
-        assert!(sig_long.verify(&[msg], &vk).is_ok());
-
-        let hash_msg = JubjubHashToCurve::hash_to_curve(&[msg]);
-        let sig = sig_long.to_short_signature(&hash_msg, &vk);
-        assert!(sig.verify(&[msg], &vk).is_ok());
-    }
 }
