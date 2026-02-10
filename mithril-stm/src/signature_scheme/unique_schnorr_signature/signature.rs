@@ -29,16 +29,16 @@ impl UniqueSchnorrSignature {
     ///
     /// Input:
     ///     - a Unique Schnorr signature
-    ///     - a message: some BaseFieldElements
+    ///     - a message: some bytes
     ///     - a verification key: a value depending on the signing key
     /// Output:
     ///     - Ok(()) if the signature verifies and an error if not
     ///
     /// The protocol computes:
-    ///     - msg_hash_point = H(msg)
+    ///     - msg_hash_point = H(Sha256(msg))
     ///     - random_point_1_recomputed = response * msg_hash_point + challenge * commitment_point
     ///     - random_point_2_recomputed = response * prime_order_generator_point + challenge * verification_key
-    ///     - challenge_recomputed = Poseidon(DST || H(msg) || verification_key
+    ///     - challenge_recomputed = Poseidon(DST || H(Sha256(msg)) || verification_key
     ///     || commitment_point || random_point_1_recomputed || random_point_2_recomputed)
     ///
     /// Check: challenge == challenge_recomputed
@@ -145,6 +145,7 @@ impl UniqueSchnorrSignature {
 
 #[cfg(test)]
 mod tests {
+    use midnight_curves::Fq as JubjubBase;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -152,10 +153,20 @@ mod tests {
         BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
     };
 
+    fn convert_to_base_field(input: &[u8; 32]) -> BaseFieldElement {
+        BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(input[0..8].try_into().unwrap()),
+            u64::from_le_bytes(input[8..16].try_into().unwrap()),
+            u64::from_le_bytes(input[16..24].try_into().unwrap()),
+            u64::from_le_bytes(input[24..32].try_into().unwrap()),
+        ]))
+    }
+
     #[test]
     fn valid_signature_verification() {
-        let msg = vec![0, 0, 0, 1];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let mut msg = vec![0, 0, 0, 1];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
@@ -169,10 +180,12 @@ mod tests {
 
     #[test]
     fn invalid_signature() {
-        let msg = vec![0, 0, 0, 1];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
-        let msg2 = vec![0, 0, 0, 2];
-        let base_input2 = BaseFieldElement::try_from(msg2.as_slice()).unwrap();
+        let mut msg = vec![0, 0, 0, 1];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let mut msg2 = vec![0, 0, 0, 2];
+        msg2.resize(32, 0);
+        let base_input2 = convert_to_base_field(msg2[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
@@ -273,19 +286,19 @@ mod tests {
         use super::*;
 
         const GOLDEN_BYTES: &[u8; 96] = &[
-            39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173,
-            108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148, 230, 175, 77, 63, 232,
-            229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109,
-            208, 226, 177, 140, 55, 79, 174, 10, 121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110,
-            106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194,
-            239, 173, 14,
+            29, 151, 165, 198, 86, 17, 177, 118, 162, 129, 205, 254, 96, 241, 182, 127, 190, 80,
+            93, 201, 162, 243, 235, 174, 103, 56, 231, 57, 133, 194, 160, 212, 226, 169, 48, 189,
+            39, 50, 160, 58, 4, 118, 134, 246, 71, 56, 230, 212, 167, 86, 195, 110, 32, 5, 75, 211,
+            192, 223, 186, 36, 204, 230, 133, 6, 75, 115, 48, 103, 53, 207, 92, 187, 182, 152, 61,
+            18, 78, 88, 161, 155, 212, 223, 165, 182, 116, 43, 249, 15, 84, 4, 174, 4, 167, 229,
+            131, 62,
         ];
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
-            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
             sk.sign(&[base_input], &mut rng).unwrap()
         }
 
@@ -306,16 +319,16 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "commitment_point": [39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173, 108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148], 
-            "response": [230, 175, 77, 63, 232, 229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109, 208, 226, 177, 140, 55, 79, 174, 10], 
-            "challenge": [121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110, 106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194, 239, 173, 14]
+            "commitment_point": [29, 151, 165, 198, 86, 17, 177, 118, 162, 129, 205, 254, 96, 241, 182, 127, 190, 80, 93, 201, 162, 243, 235, 174, 103, 56, 231, 57, 133, 194, 160, 212],
+            "response": [226, 169, 48, 189, 39, 50, 160, 58, 4, 118, 134, 246, 71, 56, 230, 212, 167, 86, 195, 110, 32, 5, 75, 211, 192, 223, 186, 36, 204, 230, 133, 6], 
+            "challenge": [75, 115, 48, 103, 53, 207, 92, 187, 182, 152, 61, 18, 78, 88, 161, 155, 212, 223, 165, 182, 116, 43, 249, 15, 84, 4, 174, 4, 167, 229, 131, 62]
         }"#;
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
-            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
             sk.sign(&[base_input], &mut rng).unwrap()
         }
 

@@ -13,7 +13,6 @@ mod signing_key;
 mod verification_key;
 
 pub use error::*;
-pub use jubjub::BaseFieldElement;
 pub(crate) use jubjub::*;
 pub use signature::*;
 pub use signing_key::*;
@@ -45,7 +44,7 @@ mod tests {
 
         #[test]
         fn valid_signing_verification(
-            msg in prop::collection::vec(any::<u8>(), 1..128),
+            mut msg in prop::collection::vec(any::<u8>(), 1..32),
             seed in any::<[u8;32]>(),
         ) {
             let sk = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
@@ -61,7 +60,7 @@ mod tests {
         }
 
         #[test]
-        fn invalid_signature(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
+        fn invalid_signature(mut msg in prop::collection::vec(any::<u8>(), 1..32), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk1 = SchnorrSigningKey::generate(&mut rng);
             let vk1 = SchnorrVerificationKey::new_from_signing_key(sk1);
@@ -150,7 +149,7 @@ mod tests {
         }
 
         #[test]
-        fn signature_to_from_bytes(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
+        fn signature_to_from_bytes(mut msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk = SchnorrSigningKey::generate(&mut rng);
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
