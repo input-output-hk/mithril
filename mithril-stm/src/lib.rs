@@ -144,7 +144,9 @@ pub use signature_scheme::{
 };
 
 #[cfg(feature = "future_snark")]
-pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
+pub use signature_scheme::{
+    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
+};
 
 #[cfg(feature = "future_snark")]
 use hash::poseidon::MidnightPoseidonDigest;

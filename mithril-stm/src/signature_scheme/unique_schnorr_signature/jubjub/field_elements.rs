@@ -40,7 +40,7 @@ impl BaseFieldElement {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "benchmark-internals"))]
 impl From<&[u8; 32]> for BaseFieldElement {
     fn from(value: &[u8; 32]) -> Self {
         BaseFieldElement(JubjubBase::from_raw([
