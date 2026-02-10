@@ -145,7 +145,6 @@ impl UniqueSchnorrSignature {
 
 #[cfg(test)]
 mod tests {
-    use midnight_curves::Fq as JubjubBase;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -153,20 +152,11 @@ mod tests {
         BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
     };
 
-    fn convert_to_base_field(input: &[u8; 32]) -> BaseFieldElement {
-        BaseFieldElement(JubjubBase::from_raw([
-            u64::from_le_bytes(input[0..8].try_into().unwrap()),
-            u64::from_le_bytes(input[8..16].try_into().unwrap()),
-            u64::from_le_bytes(input[16..24].try_into().unwrap()),
-            u64::from_le_bytes(input[24..32].try_into().unwrap()),
-        ]))
-    }
-
     #[test]
     fn valid_signature_verification() {
         let mut msg = vec![0, 0, 0, 1];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
@@ -182,10 +172,10 @@ mod tests {
     fn invalid_signature() {
         let mut msg = vec![0, 0, 0, 1];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let mut msg2 = vec![0, 0, 0, 2];
         msg2.resize(32, 0);
-        let base_input2 = convert_to_base_field(msg2[0..32].try_into().unwrap());
+        let base_input2 = BaseFieldElement::from(&msg2[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
@@ -217,7 +207,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let mut msg = vec![1, 2, 3];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -232,7 +222,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let mut msg = vec![1, 2, 3];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -250,7 +240,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let mut msg = vec![1, 2, 3];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -267,7 +257,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
         let mut msg = vec![5, 6, 7, 8, 9];
         msg.resize(32, 0);
-        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
@@ -302,7 +292,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];
-            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
             sk.sign(&[base_input], &mut rng).unwrap()
         }
 
@@ -332,7 +322,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];
-            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let base_input = BaseFieldElement::from(&msg[0..32].try_into().unwrap());
             sk.sign(&[base_input], &mut rng).unwrap()
         }
 

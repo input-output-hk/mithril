@@ -137,14 +137,12 @@ use std::fmt::Debug;
 
 #[cfg(feature = "benchmark-internals")]
 pub use signature_scheme::{
-    BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
+    BaseFieldElement, BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };
 
 #[cfg(feature = "future_snark")]
-pub use signature_scheme::{
-    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
-};
+pub use signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature};
 
 #[cfg(feature = "future_snark")]
 use hash::poseidon::MidnightPoseidonDigest;
