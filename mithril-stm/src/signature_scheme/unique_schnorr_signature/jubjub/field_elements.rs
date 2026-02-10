@@ -41,13 +41,23 @@ impl BaseFieldElement {
 }
 
 #[cfg(any(test, feature = "benchmark-internals"))]
-impl From<&[u8; 32]> for BaseFieldElement {
-    fn from(value: &[u8; 32]) -> Self {
+// Only uses the 32 first bytes of the input or pads it if necessary
+// To use only in tests or benchmarks
+impl From<&[u8]> for BaseFieldElement {
+    fn from(value: &[u8]) -> Self {
+        let bytes: Vec<u8> = if value.len() < 32 {
+            let mut v = vec![0u8; value.len()];
+            v.copy_from_slice(value);
+            v.resize(32, 0);
+            v
+        } else {
+            value.to_vec()
+        };
         BaseFieldElement(JubjubBase::from_raw([
-            u64::from_le_bytes(value[0..8].try_into().unwrap()),
-            u64::from_le_bytes(value[8..16].try_into().unwrap()),
-            u64::from_le_bytes(value[16..24].try_into().unwrap()),
-            u64::from_le_bytes(value[24..32].try_into().unwrap()),
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
         ]))
     }
 }
