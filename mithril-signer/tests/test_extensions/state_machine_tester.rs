@@ -40,9 +40,9 @@ use mithril_common::{
         SlotNumber, SupportedEra, TimePoint,
     },
     signable_builder::{
-        CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
-        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-        SignableBuilderServiceDependencies,
+        CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
     },
     test::double::{Dummy, fake_data},
 };
@@ -249,8 +249,14 @@ impl StateMachineTester {
             MKTreeStoreSqlite,
         >::new(
             transactions_importer.clone(),
-            block_range_root_retriever,
+            block_range_root_retriever.clone(),
         ));
+        let cardano_blocks_transactions_builder = Arc::new(
+            CardanoBlocksTransactionsSignableBuilder::<MKTreeStoreSqlite>::new(
+                transactions_importer.clone(),
+                block_range_root_retriever,
+            ),
+        );
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
@@ -277,6 +283,7 @@ impl StateMachineTester {
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
+            cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
         );
