@@ -65,11 +65,12 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
             .send_submit_tx(dmq_message.into())
             .await
             .with_context(|| "Failed to submit DMQ message")?;
-        let response = client.msg_submission().recv_submit_tx_response().await?;
+        let response = client.msg_submission().recv_submit_tx_response().await;
         if let Err(e) = client.msg_submission().terminate_gracefully().await {
             error!(self.logger, "Failed to send Done"; "error" => ?e);
+            client.abort().await;
         }
-        client.abort().await;
+        let response = response?;
 
         if response != Response::Accepted {
             anyhow::bail!("Failed to publish DMQ message: {:?}", response);
@@ -84,7 +85,8 @@ mod tests {
     use std::{fs, sync::Arc, time::Duration};
 
     use pallas_network::miniprotocols::{
-        localmsgsubmission::DmqMsgValidationError, localtxsubmission,
+        localmsgsubmission::{DmqMsgRejectReason, DmqMsgValidationError},
+        localtxsubmission,
     };
     use tokio::{net::UnixListener, task::JoinHandle};
 
@@ -102,14 +104,14 @@ mod tests {
         TempDir::create_with_short_path("dmq_publisher", folder_name)
     }
 
-    fn setup_dmq_server(socket_path: PathBuf, reply_success: bool) -> JoinHandle<()> {
+    fn setup_dmq_server(socket_path: PathBuf, reply_success: bool) -> JoinHandle<StdResult<()>> {
         tokio::spawn({
             async move {
                 // server setup
                 if socket_path.exists() {
-                    fs::remove_file(socket_path.clone()).unwrap();
+                    fs::remove_file(socket_path.clone())?;
                 }
-                let listener = UnixListener::bind(socket_path).unwrap();
+                let listener = UnixListener::bind(socket_path)?;
                 let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
                     .await
                     .unwrap();
@@ -118,7 +120,7 @@ mod tests {
                 let server_msg = server.msg_submission();
 
                 // server waits for request from client and replies to it
-                let request = server_msg.recv_next_request().await.unwrap();
+                let request = server_msg.recv_next_request().await?;
                 match &request {
                     localtxsubmission::Request::Submit(_) => (),
                     request => panic!("Expected a Submit request, but received: {request:?}"),
@@ -127,14 +129,18 @@ mod tests {
                     localtxsubmission::Response::Accepted
                 } else {
                     localtxsubmission::Response::Rejected(DmqMsgValidationError(
-                        "fake error".to_string(),
+                        DmqMsgRejectReason::Other("fake error".to_string()),
                     ))
                 };
-                server_msg.send_submit_tx_response(response).await.unwrap();
+                server_msg.send_submit_tx_response(response).await?;
 
                 // server receives done from client
-                let request = server_msg.recv_next_request().await.unwrap();
-                assert_eq!(localtxsubmission::Request::Done, request);
+                let request = server_msg.recv_next_request().await?;
+                if request != localtxsubmission::Request::Done {
+                    anyhow::bail!("Expected a Done request, but received: {request:?}");
+                }
+
+                Ok(())
             }
         })
     }
@@ -173,9 +179,10 @@ mod tests {
             publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
-        let (_, res) = tokio::join!(server, client);
+        let (res_server, res_client) = tokio::join!(server, client);
 
-        res.unwrap().unwrap();
+        res_server.unwrap().unwrap();
+        res_client.unwrap().unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -211,8 +218,9 @@ mod tests {
             publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
-        let (_, res) = tokio::join!(server, client);
+        let (res_server, res_client) = tokio::join!(server, client);
 
-        res.unwrap().expect_err("Publishing DMQ message should fail");
+        res_server.unwrap().unwrap();
+        res_client.unwrap().expect_err("Publishing DMQ message should fail");
     }
 }
