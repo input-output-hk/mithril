@@ -46,7 +46,7 @@ impl SchnorrSigningKey {
     ///
     pub fn sign<R: RngCore + CryptoRng>(
         &self,
-        msg: &[u8],
+        msg: &[BaseFieldElement],
         rng: &mut R,
     ) -> StmResult<UniqueSchnorrSignature> {
         // Use the subgroup generator to compute the curve points

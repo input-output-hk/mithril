@@ -9,7 +9,6 @@ use midnight_circuits::{
 use midnight_curves::{
     EDWARDS_D, Fq as JubjubBase, JubjubAffine as JubjubAffinePoint, JubjubExtended, JubjubSubgroup,
 };
-use sha2::{Digest, Sha256};
 use std::ops::{Add, Mul};
 
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
@@ -63,18 +62,10 @@ impl ProjectivePoint {
     /// Hashes input bytes to a projective point on the Jubjub curve
     /// For now we leave the SHA call in the function since the SHA
     /// function is not used anywhere else. This might change in the future.
-    pub(crate) fn hash_to_projective_point(input: &[u8]) -> StmResult<Self> {
-        let mut hash = Sha256::new();
-        hash.update(input);
-        let mut hashed_input = [0u8; 32];
-        hashed_input.copy_from_slice(&hash.finalize());
-        let scalar_input = JubjubBase::from_raw([
-            u64::from_le_bytes(hashed_input[0..8].try_into()?),
-            u64::from_le_bytes(hashed_input[8..16].try_into()?),
-            u64::from_le_bytes(hashed_input[16..24].try_into()?),
-            u64::from_le_bytes(hashed_input[24..32].try_into()?),
-        ]);
-        let point = JubjubHashToCurveGadget::hash_to_curve(&[scalar_input]);
+    pub(crate) fn hash_to_projective_point(input: &[BaseFieldElement]) -> StmResult<Self> {
+        let point = JubjubHashToCurveGadget::hash_to_curve(
+            &input.iter().map(|elem| elem.0).collect::<Vec<JubjubBase>>(),
+        );
         Ok(ProjectivePoint(JubjubExtended::from(point)))
     }
 
@@ -233,6 +224,15 @@ mod tests {
 
     use super::*;
 
+    pub fn convert_to_base_field(input: &[u8; 32]) -> BaseFieldElement {
+        BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(input[0..8].try_into().unwrap()),
+            u64::from_le_bytes(input[8..16].try_into().unwrap()),
+            u64::from_le_bytes(input[16..24].try_into().unwrap()),
+            u64::from_le_bytes(input[24..32].try_into().unwrap()),
+        ]))
+    }
+
     mod golden {
         use super::*;
 
@@ -263,13 +263,14 @@ mod tests {
         use super::*;
 
         const GOLDEN_BYTES: &[u8] = &[
-            15, 44, 110, 49, 102, 14, 172, 174, 230, 224, 30, 24, 129, 48, 80, 106, 88, 47, 98,
-            132, 180, 50, 8, 88, 48, 33, 149, 193, 129, 151, 209, 239,
+            238, 7, 23, 98, 52, 212, 110, 3, 226, 113, 172, 10, 74, 173, 92, 250, 224, 43, 81, 19,
+            173, 191, 35, 38, 127, 247, 107, 15, 230, 154, 198, 241,
         ];
 
         fn golden_value() -> ProjectivePoint {
             let msg = [255u8; 32];
-            ProjectivePoint::hash_to_projective_point(&msg).unwrap()
+            let base_input = convert_to_base_field(&msg);
+            ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap()
         }
 
         #[test]
@@ -288,24 +289,30 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
-
             let result = p1 + p2;
-
             let bytes = result.to_bytes();
             let recovered = ProjectivePoint::from_bytes(&bytes).unwrap();
+
             assert_eq!(result, recovered);
         }
 
         #[test]
         fn test_add_identity() {
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
             let identity = ProjectivePoint(JubjubExtended::identity());
 
             let result = point + identity;
+
             assert_eq!(result, point);
         }
 
@@ -314,8 +321,11 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
 
@@ -328,8 +338,11 @@ mod tests {
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar3 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
 
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
             let p1 = scalar1 * point;
             let p2 = scalar2 * point;
             let p3 = scalar3 * point;
@@ -341,12 +354,15 @@ mod tests {
         fn test_scalar_mul() {
             let mut rng = ChaCha20Rng::from_seed([4u8; 32]);
             let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
 
             let result = scalar * point;
-
             let bytes = result.to_bytes();
             let recovered = ProjectivePoint::from_bytes(&bytes).unwrap();
+
             assert_eq!(result, recovered);
         }
 
@@ -354,8 +370,14 @@ mod tests {
         fn test_scalar_mul_distributivity_over_point_addition() {
             let mut rng = ChaCha20Rng::from_seed([5u8; 32]);
             let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point1 = ProjectivePoint::hash_to_projective_point(b"test_point_1").unwrap();
-            let point2 = ProjectivePoint::hash_to_projective_point(b"test_point_2").unwrap();
+            let mut msg1 = b"test_point_1".to_vec();
+            msg1.resize(32, 0);
+            let base_input1 = convert_to_base_field(msg1[0..32].try_into().unwrap());
+            let mut msg2 = b"test_point_2".to_vec();
+            msg2.resize(32, 0);
+            let base_input2 = convert_to_base_field(msg2[0..32].try_into().unwrap());
+            let point1 = ProjectivePoint::hash_to_projective_point(&[base_input1]).unwrap();
+            let point2 = ProjectivePoint::hash_to_projective_point(&[base_input2]).unwrap();
 
             let left = scalar * (point1 + point2);
             let right = (scalar * point1) + (scalar * point2);
@@ -368,7 +390,10 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([6u8; 32]);
             let scalar1 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let scalar2 = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
-            let point = ProjectivePoint::hash_to_projective_point(b"test_point").unwrap();
+            let mut msg = b"test_point".to_vec();
+            msg.resize(32, 0);
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            let point = ProjectivePoint::hash_to_projective_point(&[base_input]).unwrap();
 
             let combined_scalar = scalar1 * scalar2;
             let left = combined_scalar * point;

@@ -40,6 +40,18 @@ impl BaseFieldElement {
     }
 }
 
+#[cfg(any(test, feature = "benchmark-internals"))]
+impl From<&[u8; 32]> for BaseFieldElement {
+    fn from(value: &[u8; 32]) -> Self {
+        BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(value[0..8].try_into().unwrap()),
+            u64::from_le_bytes(value[8..16].try_into().unwrap()),
+            u64::from_le_bytes(value[16..24].try_into().unwrap()),
+            u64::from_le_bytes(value[24..32].try_into().unwrap()),
+        ]))
+    }
+}
+
 impl Add for BaseFieldElement {
     type Output = BaseFieldElement;
 

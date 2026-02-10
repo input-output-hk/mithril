@@ -43,7 +43,11 @@ impl UniqueSchnorrSignature {
     ///
     /// Check: challenge == challenge_recomputed
     ///
-    pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> StmResult<()> {
+    pub fn verify(
+        &self,
+        msg: &[BaseFieldElement],
+        verification_key: &SchnorrVerificationKey,
+    ) -> StmResult<()> {
         // Check that the verification key is valid
         verification_key
             .is_valid()
@@ -141,31 +145,47 @@ impl UniqueSchnorrSignature {
 
 #[cfg(test)]
 mod tests {
+    use midnight_curves::Fq as JubjubBase;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     use crate::signature_scheme::{
-        SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
+        BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
     };
+
+    fn convert_to_base_field(input: &[u8; 32]) -> BaseFieldElement {
+        BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(input[0..8].try_into().unwrap()),
+            u64::from_le_bytes(input[8..16].try_into().unwrap()),
+            u64::from_le_bytes(input[16..24].try_into().unwrap()),
+            u64::from_le_bytes(input[24..32].try_into().unwrap()),
+        ]))
+    }
 
     #[test]
     fn valid_signature_verification() {
-        let msg = vec![0, 0, 0, 1];
+        let mut msg = vec![0, 0, 0, 1];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
-        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
 
-        sig.verify(&msg, &vk)
+        sig.verify(&[base_input], &vk)
             .expect("Valid signature should verify successfully");
     }
 
     #[test]
     fn invalid_signature() {
-        let msg = vec![0, 0, 0, 1];
-        let msg2 = vec![0, 0, 0, 2];
+        let mut msg = vec![0, 0, 0, 1];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+        let mut msg2 = vec![0, 0, 0, 2];
+        msg2.resize(32, 0);
+        let base_input2 = convert_to_base_field(msg2[0..32].try_into().unwrap());
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
@@ -173,12 +193,12 @@ mod tests {
         let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2).unwrap();
 
-        let sig = sk.sign(&msg, &mut rng).unwrap();
-        let sig2 = sk.sign(&msg2, &mut rng).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig2 = sk.sign(&[base_input2], &mut rng).unwrap();
 
         // Wrong verification key is used
-        let result1 = sig.verify(&msg, &vk2);
-        let result2 = sig2.verify(&msg, &vk);
+        let result1 = sig.verify(&[base_input], &vk2);
+        let result2 = sig2.verify(&[base_input], &vk);
 
         result1.expect_err("Wrong verification key used, test should fail.");
         // Wrong message is verified
@@ -195,10 +215,12 @@ mod tests {
     #[test]
     fn from_bytes_signature_exact_size() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
-        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
 
         let sig_restored = UniqueSchnorrSignature::from_bytes(&sig_bytes).unwrap();
@@ -208,10 +230,12 @@ mod tests {
     #[test]
     fn from_bytes_signature_extra_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
-        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
 
         let mut extended_bytes = sig_bytes.to_vec();
@@ -224,10 +248,12 @@ mod tests {
     #[test]
     fn to_bytes_is_deterministic() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
-        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
 
         // Converting to bytes multiple times should give same result
         let bytes1 = sig.to_bytes();
@@ -239,13 +265,16 @@ mod tests {
     #[test]
     fn signature_roundtrip_preserves_verification() {
         let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
-        let msg = vec![5, 6, 7, 8, 9];
+        let mut msg = vec![5, 6, 7, 8, 9];
+        msg.resize(32, 0);
+        let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
 
         // Create and verify original signature
-        let sig = sk.sign(&msg, &mut rng).unwrap();
-        sig.verify(&msg, &vk).expect("Original signature should verify");
+        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        sig.verify(&[base_input], &vk)
+            .expect("Original signature should verify");
 
         // Roundtrip through bytes
         let sig_bytes = sig.to_bytes();
@@ -253,7 +282,7 @@ mod tests {
 
         // Restored signature should still verify
         sig_restored
-            .verify(&msg, &vk)
+            .verify(&[base_input], &vk)
             .expect("Restored signature should verify");
     }
 
@@ -261,19 +290,20 @@ mod tests {
         use super::*;
 
         const GOLDEN_BYTES: &[u8; 96] = &[
-            39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173,
-            108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148, 230, 175, 77, 63, 232,
-            229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109,
-            208, 226, 177, 140, 55, 79, 174, 10, 121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110,
-            106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194,
-            239, 173, 14,
+            29, 151, 165, 198, 86, 17, 177, 118, 162, 129, 205, 254, 96, 241, 182, 127, 190, 80,
+            93, 201, 162, 243, 235, 174, 103, 56, 231, 57, 133, 194, 160, 212, 226, 169, 48, 189,
+            39, 50, 160, 58, 4, 118, 134, 246, 71, 56, 230, 212, 167, 86, 195, 110, 32, 5, 75, 211,
+            192, 223, 186, 36, 204, 230, 133, 6, 75, 115, 48, 103, 53, 207, 92, 187, 182, 152, 61,
+            18, 78, 88, 161, 155, 212, 223, 165, 182, 116, 43, 249, 15, 84, 4, 174, 4, 167, 229,
+            131, 62,
         ];
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];
-            sk.sign(&msg, &mut rng).unwrap()
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            sk.sign(&[base_input], &mut rng).unwrap()
         }
 
         #[test]
@@ -293,16 +323,17 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "commitment_point": [39, 90, 41, 56, 174, 106, 33, 173, 254, 49, 113, 116, 208, 4, 121, 177, 236, 223, 173, 108, 193, 135, 214, 159, 99, 93, 108, 202, 201, 200, 141, 148],
-            "response": [230, 175, 77, 63, 232, 229, 34, 36, 7, 205, 254, 86, 70, 160, 49, 87, 114, 98, 20, 88, 141, 224, 113, 109, 208, 226, 177, 140, 55, 79, 174, 10],
-            "challenge": [121, 59, 197, 98, 35, 17, 213, 33, 65, 143, 110, 106, 145, 86, 141, 107, 204, 91, 39, 205, 113, 69, 87, 194, 239, 242, 188, 14, 194, 239, 173, 14]
+            "commitment_point": [29, 151, 165, 198, 86, 17, 177, 118, 162, 129, 205, 254, 96, 241, 182, 127, 190, 80, 93, 201, 162, 243, 235, 174, 103, 56, 231, 57, 133, 194, 160, 212],
+            "response": [226, 169, 48, 189, 39, 50, 160, 58, 4, 118, 134, 246, 71, 56, 230, 212, 167, 86, 195, 110, 32, 5, 75, 211, 192, 223, 186, 36, 204, 230, 133, 6], 
+            "challenge": [75, 115, 48, 103, 53, 207, 92, 187, 182, 152, 61, 18, 78, 88, 161, 155, 212, 223, 165, 182, 116, 43, 249, 15, 84, 4, 174, 4, 167, 229, 131, 62]
         }"#;
 
         fn golden_value() -> UniqueSchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
             let msg = [0u8; 32];
-            sk.sign(&msg, &mut rng).unwrap()
+            let base_input = convert_to_base_field(msg[0..32].try_into().unwrap());
+            sk.sign(&[base_input], &mut rng).unwrap()
         }
 
         #[test]

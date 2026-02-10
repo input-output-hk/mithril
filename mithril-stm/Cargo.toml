@@ -51,7 +51,6 @@ rand = { version = "0.9.2", optional = true }
 rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
 serde = { workspace = true }
-sha2 = "0.10.9"
 subtle = { version = "2.5.0", optional = true }
 thiserror = { workspace = true }
 
