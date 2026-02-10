@@ -2,15 +2,13 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use anyhow::Context;
-use async_trait::async_trait;
 
 use mithril_common::StdResult;
-use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
+use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction,
     ChainPoint, SlotNumber, TransactionHash,
 };
-use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 
 use crate::database::query::{
     DeleteBlockRangeRootQuery, DeleteCardanoBlockAndTransactionQuery,
@@ -412,16 +410,6 @@ impl CardanoTransactionRepository {
         }
 
         Ok(())
-    }
-}
-
-#[async_trait]
-impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for CardanoTransactionRepository {
-    async fn retrieve_block_range_roots<'a>(
-        &'a self,
-        up_to_beacon: BlockNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
-        self.retrieve_legacy_block_range_roots_up_to(up_to_beacon).await
     }
 }
 
