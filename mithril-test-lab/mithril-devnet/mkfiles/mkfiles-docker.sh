@@ -128,6 +128,7 @@ cat >> docker-compose.yaml <<EOF
       - SNAPSHOT_UPLOADER_TYPE=local
       - SNAPSHOT_COMPRESSION_ALGORITHM=zstandard
       - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
+      - DMQ_NODE_SOCKET_PATH=/data/ipc/dmq.node.sock
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_NODE_VERSION=${CARDANO_NODE_VERSION}
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
@@ -215,6 +216,7 @@ EOF
       - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
       - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
+      - DMQ_NODE_SOCKET_PATH=/data/ipc/dmq.node.sock
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - KES_SECRET_KEY_PATH=/data/shelley/kes.skey
@@ -255,6 +257,7 @@ cat >> docker-compose.yaml <<EOF
       - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
       - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
+      - DMQ_NODE_SOCKET_PATH=/data/ipc/dmq.node.sock
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:

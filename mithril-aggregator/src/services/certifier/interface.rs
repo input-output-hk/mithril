@@ -38,7 +38,7 @@ pub enum CertifierServiceError {
 
     /// No certificate for this epoch
     #[error(
-        "There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})"
+        "There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?}). A leader aggregator must be re-genesis by the owner of the genesis keys, a follower aggregator will automatically catchup with the leader's certificate chain."
     )]
     CertificateEpochGap {
         /// Epoch of the last issued certificate

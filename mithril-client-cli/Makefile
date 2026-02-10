@@ -40,6 +40,22 @@ docker-build:
 	cd ../ && docker build -t mithril/mithril-client -f mithril-client-cli/Dockerfile .
 
 docker-build-ci: build
+	# Check that we are on Linux, then build
+	if [ "$$(uname -s)" != "Linux" ]; then \
+		echo "Error: this target only supports Linux"; \
+		exit 1; \
+	fi; \
+	RAW_ARCH=$$(uname -m); \
+	if [ "$$RAW_ARCH" = "x86_64" ]; then \
+		ARCH="amd64"; \
+	elif [ "$$RAW_ARCH" = "aarch64" ]; then \
+		ARCH="arm64"; \
+	else \
+		echo "Error: unsupported architecture $$RAW_ARCH"; \
+		exit 1; \
+	fi; \
+	mkdir -p ./bin-linux-$${ARCH}; \
+	cp ../target/release/mithril-client ./bin-linux-$${ARCH}/mithril-client
 	cd ../ && docker build -t mithril/mithril-client -f mithril-client-cli/Dockerfile.ci --build-arg DOCKER_IMAGE_FROM .
 
 docker-run:
