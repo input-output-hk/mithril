@@ -4,7 +4,7 @@ use midnight_curves::Fq as JubjubBase;
 use super::BaseFieldElement;
 
 /// Domain Separation Tag (DST) for the Poseidon hash used in signature contexts.
-const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
+pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
     0x5349_474E_5F44_5354, // "SIGN_DST" (ASCII), little-endian u64
     0,
     0,

@@ -2,7 +2,7 @@ use ff::Field;
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::circuits::halo2::constants::DST_UNIQUE_SIGNATURE;
+use crate::circuits::halo2::constants::DST_SIGNATURE;
 use crate::circuits::halo2::hash::{HashCPU, HashToCurveCPU, JubjubHashToCurve, PoseidonHash};
 use crate::circuits::halo2::off_circuit::error::SignatureError;
 use crate::circuits::halo2::off_circuit::utils::{
@@ -36,7 +36,7 @@ impl SigningKey {
         let (cap_r_2_x, cap_r_2_y) = get_coordinates(cap_r_2);
 
         let c = PoseidonHash::hash(&[
-            DST_UNIQUE_SIGNATURE,
+            DST_SIGNATURE,
             hx,
             hy,
             vk_x,
@@ -129,7 +129,7 @@ impl Signature {
         let (cap_r_1_x_prime, cap_r_1_y_prime) = get_coordinates(cap_r_1_prime);
         let (cap_r_2_x_prime, cap_r_2_y_prime) = get_coordinates(cap_r_2_prime);
         let c_prime = PoseidonHash::hash(&[
-            DST_UNIQUE_SIGNATURE,
+            DST_SIGNATURE,
             hx,
             hy,
             vk_x,

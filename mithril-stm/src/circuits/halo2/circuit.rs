@@ -11,7 +11,7 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
+use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
@@ -71,8 +71,7 @@ impl Relation for StmCircuit {
             <C as CircuitCurve>::CryptographicGroup::generator(),
         )?;
 
-        let dst_signature: AssignedNative<_> =
-            std_lib.assign_fixed(layouter, DST_UNIQUE_SIGNATURE)?;
+        let dst_signature: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_SIGNATURE)?;
         let dst_lottery: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_LOTTERY)?;
         let lottery_prefix = std_lib.poseidon(
             layouter,
