@@ -6,8 +6,9 @@ use mithril_cardano_node_internal_database::signable_builder::{
 };
 use mithril_common::crypto_helper::MKTreeStoreInMemory;
 use mithril_common::signable_builder::{
-    CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
-    MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+    CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
+    CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+    MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     SignableBuilderServiceDependencies, SignableSeedBuilder,
 };
 
@@ -30,9 +31,15 @@ impl DependenciesBuilder {
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreInMemory,
         >::new(
-            transaction_importer,
-            block_range_root_retriever,
+            transaction_importer.clone(),
+            block_range_root_retriever.clone(),
         ));
+        let cardano_blocks_transactions_builder =
+            Arc::new(CardanoBlocksTransactionsSignableBuilder::<
+                MKTreeStoreInMemory,
+            >::new(
+                transaction_importer, block_range_root_retriever
+            ));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
@@ -45,6 +52,7 @@ impl DependenciesBuilder {
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
+            cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
         );

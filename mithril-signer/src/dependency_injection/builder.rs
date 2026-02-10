@@ -30,9 +30,9 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::messages::RegisterSignatureMessageDmq;
 use mithril_common::signable_builder::{
-    CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
-    MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-    SignableBuilderServiceDependencies,
+    CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
+    CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+    MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
 };
 use mithril_common::{MITHRIL_SIGNER_VERSION_HEADER, StdResult};
 
@@ -379,9 +379,15 @@ impl<'a> DependenciesBuilder<'a> {
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
             MKTreeStoreSqlite,
         >::new(
-            state_machine_transactions_importer,
-            block_range_root_retriever,
+            state_machine_transactions_importer.clone(),
+            block_range_root_retriever.clone(),
         ));
+        let cardano_blocks_transactions_builder = Arc::new(
+            CardanoBlocksTransactionsSignableBuilder::<MKTreeStoreSqlite>::new(
+                state_machine_transactions_importer,
+                block_range_root_retriever,
+            ),
+        );
         let cardano_stake_distribution_signable_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
@@ -408,6 +414,7 @@ impl<'a> DependenciesBuilder<'a> {
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
+            cardano_blocks_transactions_builder,
             cardano_stake_distribution_signable_builder,
             cardano_database_signable_builder,
         );
