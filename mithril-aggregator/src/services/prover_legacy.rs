@@ -14,7 +14,7 @@ use mithril_common::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
     logging::LoggerExtensions,
-    signable_builder::BlockRangeRootRetriever,
+    signable_builder::LegacyBlockRangeRootRetriever,
 };
 use mithril_resource_pool::ResourcePool;
 
@@ -54,7 +54,7 @@ pub trait TransactionsRetriever: Sync + Send {
 /// Legacy Mithril prover
 pub struct LegacyMithrilProverService<S: MKTreeStorer> {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
-    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+    block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
 }
@@ -63,7 +63,7 @@ impl<S: MKTreeStorer> LegacyMithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
-        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+        block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
         mk_map_pool_size: usize,
         logger: Logger,
     ) -> Self {
@@ -222,10 +222,10 @@ mod tests {
     use super::*;
 
     mock! {
-        pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
+        pub LegacyBlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
 
         #[async_trait]
-        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
+        impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for LegacyBlockRangeRootRetrieverImpl<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
@@ -352,11 +352,11 @@ mod tests {
     ) -> LegacyMithrilProverService<S>
     where
         F: FnOnce(&mut MockTransactionsRetriever),
-        G: FnOnce(&mut MockBlockRangeRootRetrieverImpl<S>),
+        G: FnOnce(&mut MockLegacyBlockRangeRootRetrieverImpl<S>),
     {
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever_mock_config(&mut transaction_retriever);
-        let mut block_range_root_retriever = MockBlockRangeRootRetrieverImpl::new();
+        let mut block_range_root_retriever = MockLegacyBlockRangeRootRetrieverImpl::new();
         block_range_root_retriever_mock_config(&mut block_range_root_retriever);
         let mk_map_pool_size = 1;
 

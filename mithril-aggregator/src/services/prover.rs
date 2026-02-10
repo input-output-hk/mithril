@@ -8,7 +8,7 @@ use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange},
     logging::LoggerExtensions,
-    signable_builder::BlockRangeRootRetriever,
+    signable_builder::LegacyBlockRangeRootRetriever,
 };
 use mithril_resource_pool::ResourcePool;
 
@@ -26,7 +26,7 @@ pub trait ProverService: Sync + Send {
 /// Mithril prover
 pub struct MithrilProverService<S: MKTreeStorer> {
     _transaction_retriever: Arc<dyn TransactionsRetriever>,
-    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+    block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
 }
@@ -35,7 +35,7 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
         _transaction_retriever: Arc<dyn TransactionsRetriever>,
-        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+        block_range_root_retriever: Arc<dyn LegacyBlockRangeRootRetriever<S>>,
         mk_map_pool_size: usize,
         logger: Logger,
     ) -> Self {

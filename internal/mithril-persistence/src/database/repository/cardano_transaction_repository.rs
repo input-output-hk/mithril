@@ -10,7 +10,7 @@ use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction,
     ChainPoint, SlotNumber, TransactionHash,
 };
-use mithril_common::signable_builder::BlockRangeRootRetriever;
+use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 
 use crate::database::query::{
     DeleteCardanoBlockAndTransactionQuery, DeleteLegacyBlockRangeRootQuery, GetCardanoBlockQuery,
@@ -331,7 +331,7 @@ impl CardanoTransactionRepository {
 }
 
 #[async_trait]
-impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for CardanoTransactionRepository {
+impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for CardanoTransactionRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,

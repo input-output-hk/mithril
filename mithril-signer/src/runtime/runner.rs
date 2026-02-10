@@ -389,8 +389,8 @@ mod tests {
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
         signable_builder::{
-            BlockRangeRootRetriever, CardanoStakeDistributionSignableBuilder,
-            CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+            CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+            LegacyBlockRangeRootRetriever, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
         test::{
@@ -434,10 +434,10 @@ mod tests {
     }
 
     mock! {
-        pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
+        pub LegacyBlockRangeRootRetriever<S: MKTreeStorer> { }
 
         #[async_trait]
-        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
+        impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for LegacyBlockRangeRootRetriever<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
@@ -492,7 +492,7 @@ mod tests {
             ),
         )));
         let block_range_root_retriever =
-            Arc::new(MockBlockRangeRootRetrieverImpl::<MKTreeStoreInMemory>::new());
+            Arc::new(MockLegacyBlockRangeRootRetriever::<MKTreeStoreInMemory>::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer.clone(),
             block_range_root_retriever,

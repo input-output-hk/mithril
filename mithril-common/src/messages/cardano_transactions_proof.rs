@@ -186,8 +186,8 @@ mod tests {
     use crate::crypto_helper::{MKMap, MKMapNode, MKProof, MKTreeStoreInMemory};
     use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
     use crate::signable_builder::{
-        CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever, MockTransactionsImporter,
-        SignableBuilder,
+        CardanoTransactionsSignableBuilder, MockLegacyBlockRangeRootRetriever,
+        MockTransactionsImporter, SignableBuilder,
     };
     use crate::test::crypto_helper::MKProofTestExtension;
     use crate::test::double::Dummy;
@@ -370,7 +370,7 @@ mod tests {
     ) -> ProtocolMessage {
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(move |_| Ok(()));
-        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+        let mut block_range_root_retriever = MockLegacyBlockRangeRootRetriever::new();
 
         let transactions_imported = transactions.to_vec();
         block_range_root_retriever

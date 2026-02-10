@@ -8,7 +8,7 @@ use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
     SlotNumber, TransactionHash,
 };
-use mithril_common::signable_builder::BlockRangeRootRetriever;
+use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
@@ -42,7 +42,7 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
         self.inner.get_transaction_highest_chain_point().await
     }
 
-    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+    async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
         let record = self.inner.retrieve_highest_legacy_block_range_root().await?;
         Ok(record.map(|record| record.range))
     }
@@ -67,7 +67,7 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
         })
     }
 
-    async fn store_block_range_roots(
+    async fn store_legacy_block_range_roots(
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
@@ -88,7 +88,7 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
 }
 
 #[async_trait::async_trait]
-impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataRepository {
+impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for AggregatorCardanoChainDataRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,

@@ -39,6 +39,7 @@ impl From<InMemoryBlockRangeRoot> for (BlockRange, MKTreeNode) {
 pub struct InMemoryChainDataStore {
     blocks_with_txs: Mutex<Vec<CardanoBlockWithTransactions>>,
     block_range_roots: Mutex<Vec<InMemoryBlockRangeRoot>>,
+    legacy_block_range_roots: Mutex<Vec<InMemoryBlockRangeRoot>>,
 }
 
 impl Default for InMemoryChainDataStore {
@@ -51,6 +52,7 @@ impl Default for InMemoryChainDataStore {
 pub struct InMemoryChainDataStoreBuilder {
     blocks_with_txs: Vec<CardanoBlockWithTransactions>,
     block_range_roots: Vec<InMemoryBlockRangeRoot>,
+    legacy_block_range_roots: Vec<InMemoryBlockRangeRoot>,
 }
 
 impl InMemoryChainDataStoreBuilder {
@@ -72,11 +74,22 @@ impl InMemoryChainDataStoreBuilder {
         self
     }
 
+    /// Set the initial block range roots for the store.
+    pub fn with_legacy_block_range_roots<T: Into<InMemoryBlockRangeRoot> + Clone>(
+        mut self,
+        block_range_roots: &[T],
+    ) -> Self {
+        self.legacy_block_range_roots =
+            block_range_roots.iter().map(|brr| brr.clone().into()).collect();
+        self
+    }
+
     /// Creates a new [InMemoryChainDataStore] with the current builder's data.
     pub fn build(self) -> InMemoryChainDataStore {
         InMemoryChainDataStore {
             blocks_with_txs: Mutex::new(self.blocks_with_txs),
             block_range_roots: Mutex::new(self.block_range_roots),
+            legacy_block_range_roots: Mutex::new(self.legacy_block_range_roots),
         }
     }
 }
@@ -87,6 +100,7 @@ impl InMemoryChainDataStore {
         InMemoryChainDataStoreBuilder {
             blocks_with_txs: vec![],
             block_range_roots: vec![],
+            legacy_block_range_roots: vec![],
         }
     }
 
@@ -107,8 +121,23 @@ impl InMemoryChainDataStore {
     }
 
     /// Returns all block ranges in the store.
-    pub async fn get_all_block_range(&self) -> Vec<BlockRange> {
+    pub async fn get_all_block_ranges(&self) -> Vec<BlockRange> {
         self.block_range_roots
+            .lock()
+            .await
+            .iter()
+            .map(|r| r.range.clone())
+            .collect()
+    }
+
+    /// Returns all legacy block range roots in the store.
+    pub async fn get_all_legacy_block_range_root(&self) -> Vec<InMemoryBlockRangeRoot> {
+        self.legacy_block_range_roots.lock().await.clone()
+    }
+
+    /// Returns all legacy block ranges in the store.
+    pub async fn get_all_legacy_block_ranges(&self) -> Vec<BlockRange> {
+        self.legacy_block_range_roots
             .lock()
             .await
             .iter()
@@ -127,8 +156,8 @@ impl ChainDataStore for InMemoryChainDataStore {
             .map(|tx| ChainPoint::new(tx.slot_number, tx.block_number, tx.block_hash.clone())))
     }
 
-    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
-        let roots = self.block_range_roots.lock().await;
+    async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
+        let roots = self.legacy_block_range_roots.lock().await;
         Ok(roots.iter().map(|record| record.range.clone()).max_by_key(|r| r.end))
     }
 
@@ -153,11 +182,11 @@ impl ChainDataStore for InMemoryChainDataStore {
             .collect())
     }
 
-    async fn store_block_range_roots(
+    async fn store_legacy_block_range_roots(
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
-        self.block_range_roots
+        self.legacy_block_range_roots
             .lock()
             .await
             .extend(block_ranges.into_iter().map(Into::into));
@@ -180,8 +209,13 @@ impl ChainDataStore for InMemoryChainDataStore {
                 .lock()
                 .await
                 .retain(|record| record.range.start < highest_remaining_block_number);
+            self.legacy_block_range_roots
+                .lock()
+                .await
+                .retain(|record| record.range.start < highest_remaining_block_number);
         } else {
             self.block_range_roots.lock().await.clear();
+            self.legacy_block_range_roots.lock().await.clear();
         }
 
         Ok(())
@@ -197,8 +231,11 @@ mod tests {
         let store = InMemoryChainDataStore::default();
 
         assert!(store.get_all_transactions().await.is_empty());
+        assert!(store.get_all_block_with_txs().await.is_empty());
+        assert!(store.get_all_block_ranges().await.is_empty());
         assert!(store.get_all_block_range_root().await.is_empty());
-        assert!(store.get_all_block_range().await.is_empty());
+        assert!(store.get_all_legacy_block_range_root().await.is_empty());
+        assert!(store.get_all_legacy_block_ranges().await.is_empty());
     }
 
     #[tokio::test]
@@ -369,7 +406,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn store_and_get_block_range_roots() {
+    async fn store_and_get_legacy_block_range_roots() {
         let store = InMemoryChainDataStore::default();
 
         let block_ranges = vec![
@@ -383,9 +420,12 @@ mod tests {
             ),
         ];
 
-        store.store_block_range_roots(block_ranges.clone()).await.unwrap();
+        store
+            .store_legacy_block_range_roots(block_ranges.clone())
+            .await
+            .unwrap();
 
-        let stored_roots = store.get_all_block_range_root().await;
+        let stored_roots = store.get_all_legacy_block_range_root().await;
         assert_eq!(
             vec![
                 InMemoryBlockRangeRoot {
@@ -402,23 +442,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn store_block_range_roots_appends_to_existing() {
+    async fn store_legacy_block_range_roots_appends_to_existing() {
         let store = InMemoryChainDataStore::builder()
-            .with_block_range_roots(&[(
+            .with_legacy_block_range_roots(&[(
                 BlockRange::from_block_number(BlockNumber(0)),
                 MKTreeNode::from_hex("AAAA").unwrap(),
             )])
             .build();
 
         store
-            .store_block_range_roots(vec![(
+            .store_legacy_block_range_roots(vec![(
                 BlockRange::from_block_number(BlockRange::LENGTH),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             )])
             .await
             .unwrap();
 
-        let stored_roots = store.get_all_block_range_root().await;
+        let stored_roots = store.get_all_legacy_block_range_root().await;
         assert_eq!(
             vec![
                 InMemoryBlockRangeRoot {
@@ -433,7 +473,7 @@ mod tests {
             stored_roots
         );
 
-        let ranges = store.get_all_block_range().await;
+        let ranges = store.get_all_legacy_block_ranges().await;
         assert_eq!(
             vec![
                 BlockRange::from_block_number(BlockNumber(0)),
@@ -444,18 +484,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_highest_block_range_returns_none_when_empty() {
+    async fn get_highest_legacy_block_range_returns_none_when_empty() {
         let store = InMemoryChainDataStore::default();
 
-        let highest_range = store.get_highest_block_range().await.unwrap();
+        let highest_range = store.get_highest_legacy_block_range().await.unwrap();
 
         assert_eq!(None, highest_range);
     }
 
     #[tokio::test]
-    async fn get_highest_block_range_returns_range_with_highest_end() {
+    async fn get_highest_legacy_block_range_returns_range_with_highest_end() {
         let store = InMemoryChainDataStore::builder()
-            .with_block_range_roots(&[
+            .with_legacy_block_range_roots(&[
                 (
                     BlockRange::from_block_number(BlockNumber(0)),
                     MKTreeNode::from_hex("AAAA").unwrap(),
@@ -471,7 +511,7 @@ mod tests {
             ])
             .build();
 
-        let highest_range = store.get_highest_block_range().await.unwrap();
+        let highest_range = store.get_highest_legacy_block_range().await.unwrap();
 
         assert_eq!(
             Some(BlockRange::from_block_number(BlockRange::LENGTH * 2)),
@@ -647,6 +687,7 @@ mod tests {
         let store = InMemoryChainDataStore::builder()
             .with_blocks_and_transactions(&blocks_with_tx)
             .with_block_range_roots(&block_ranges_roots)
+            .with_legacy_block_range_roots(&block_ranges_roots)
             .build();
 
         // Rollback to slot 100 (keeps transactions with slot <= 100)
@@ -659,13 +700,23 @@ mod tests {
         assert_eq!(2, remaining_transactions.len());
 
         // Block ranges with start < highest remaining block number (BlockRange::LENGTH * 2) should remain
-        let remaining_ranges = store.get_all_block_range().await;
+        let remaining_ranges = store.get_all_block_ranges().await;
         assert_eq!(
             vec![
                 BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH),
             ],
             remaining_ranges
+        );
+
+        // Legacy Block ranges with start < highest remaining block number (BlockRange::LENGTH * 2) should remain
+        let remaining_legacy_ranges = store.get_all_legacy_block_ranges().await;
+        assert_eq!(
+            vec![
+                BlockRange::from_block_number(BlockNumber(0)),
+                BlockRange::from_block_number(BlockRange::LENGTH),
+            ],
+            remaining_legacy_ranges
         );
     }
 
@@ -678,7 +729,7 @@ mod tests {
                 SlotNumber(50),
                 vec!["tx-hash-1"],
             )])
-            .with_block_range_roots(&[(
+            .with_legacy_block_range_roots(&[(
                 BlockRange::from_block_number(BlockNumber(0)),
                 MKTreeNode::from_hex("AAAA").unwrap(),
             )])
@@ -693,6 +744,7 @@ mod tests {
         assert!(store.get_all_block_with_txs().await.is_empty());
         assert!(store.get_all_transactions().await.is_empty());
         assert!(store.get_all_block_range_root().await.is_empty());
+        assert!(store.get_all_legacy_block_range_root().await.is_empty());
     }
 
     #[tokio::test]
