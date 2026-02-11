@@ -4,11 +4,10 @@ use crate::{
     MembershipDigest, Parameters, RegistrationEntryForConcatenation, SignatureError, Stake,
     StmResult, VerificationKeyForConcatenation,
     membership_commitment::MerkleTree,
-    protocol::is_lottery_won,
     signature_scheme::{BlsSignature, BlsSigningKey},
 };
 
-use super::SingleSignatureForConcatenation;
+use super::{SingleSignatureForConcatenation, is_lottery_won};
 
 /// Concatenation Proof single signature generator.
 /// Contains the signer's stake and signing key besides the total stake of the closed registration,
