@@ -7,7 +7,8 @@ use crate::circuits::halo2::golden::helpers::{
     prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::off_circuit::merkle_tree::Position;
-use crate::circuits::halo2::types::{JubjubBase, JubjubScalar};
+use crate::circuits::halo2::types::JubjubBase;
+use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
 
 #[test]
 fn message_mismatch() {
@@ -107,7 +108,7 @@ fn signature_bad_challenge() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
 
-    witness[0].2.c += JubjubBase::ONE;
+    witness[0].2.challenge = witness[0].2.challenge + BaseFieldElement::get_one();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
@@ -128,7 +129,9 @@ fn signature_bad_response() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
 
-    witness[0].2.s += JubjubScalar::ONE;
+    witness[0].2.response = witness[0].2.response
+        - ScalarFieldElement::from_base_field(&BaseFieldElement::get_one())
+            .expect("Failed to convert base field element to scalar");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
@@ -149,7 +152,7 @@ fn signature_bad_commitment() {
     let mut witness =
         build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
 
-    witness[0].2.sigma = witness[1].2.sigma;
+    witness[0].2.commitment_point = witness[1].2.commitment_point;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);
@@ -353,8 +356,11 @@ fn leaf_wrong_verification_key() {
     let (i, j) = find_two_distinct_witness_entries(&witness);
     // Keep target/path/signature/index from i, but swap in j's verification key.
     let target = witness[i].0.1;
-    let vk = witness[j].0.0;
-    witness[i].0 = crate::circuits::halo2::off_circuit::merkle_tree::MTLeaf(vk, target);
+    let vk_bytes = witness[j].0.0;
+    witness[i].0 = crate::circuits::halo2::off_circuit::merkle_tree::MTLeaf(
+        vk_bytes,
+        target,
+    );
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);

@@ -2,25 +2,35 @@ use ff::Field;
 
 use crate::circuits::halo2::hash::{HashCPU, PoseidonHash};
 use crate::circuits::halo2::off_circuit::error::MerkleTreeError;
-use crate::circuits::halo2::off_circuit::unique_signature::VerificationKey;
 use crate::circuits::halo2::types::{JubjubBase, Target};
 
 type F = JubjubBase;
 
 #[derive(Debug, Copy, Clone)]
-pub struct MTLeaf(pub VerificationKey, pub Target);
+pub struct MTLeaf(pub [u8; 64], pub Target);
 
 impl MTLeaf {
     pub fn to_field(&self) -> [F; 3] {
         let mut elements = [F::ZERO; 3];
-        elements[0..2].copy_from_slice(&self.0.to_field());
+        let mut u_bytes = [0u8; 32];
+        let mut v_bytes = [0u8; 32];
+        u_bytes.copy_from_slice(&self.0[0..32]);
+        v_bytes.copy_from_slice(&self.0[32..64]);
+        let u = JubjubBase::from_bytes_le(&u_bytes)
+            .into_option()
+            .expect("invalid VK u-coordinate bytes");
+        let v = JubjubBase::from_bytes_le(&v_bytes)
+            .into_option()
+            .expect("invalid VK v-coordinate bytes");
+        elements[0] = u;
+        elements[1] = v;
         elements[2] = self.1;
         elements
     }
 
     pub fn to_bytes(&self) -> [u8; 96] {
         let mut bytes = [0u8; 96];
-        bytes[0..64].copy_from_slice(&self.0.to_bytes());
+        bytes[0..64].copy_from_slice(&self.0);
         bytes[64..96].copy_from_slice(&self.1.to_bytes_le());
         bytes
     }
@@ -30,13 +40,14 @@ impl MTLeaf {
         let target_bytes: [u8; 32] = bytes[64..96]
             .try_into()
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        let vk = VerificationKey::from_bytes(&bytes[0..64])
-            .map_err(|_| MerkleTreeError::SerializationError)?;
         let target = Target::from_bytes_le(&target_bytes)
             .into_option()
             .ok_or(MerkleTreeError::SerializationError)?;
+        let vk_bytes: [u8; 64] = bytes[0..64]
+            .try_into()
+            .map_err(|_| MerkleTreeError::SerializationError)?;
 
-        Ok(Self(vk, target))
+        Ok(Self(vk_bytes, target))
     }
 }
 
@@ -250,14 +261,24 @@ impl TryFrom<&[u8]> for MerkleTreeCommitment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuits::halo2::off_circuit::unique_signature::SigningKey;
-    use rand_core::OsRng;
+    use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     fn create_leaf(value: F) -> MTLeaf {
-        let mut rng = OsRng;
-        let sk = SigningKey::generate(&mut rng);
-        let vk = VerificationKey::from(&sk);
-        MTLeaf(vk, value)
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
+        // to avoid deterministic-seed flakes in golden vectors.
+        let sk = loop {
+            let sk = SchnorrSigningKey::generate(&mut rng)
+                .expect("Failed to generate STM signing key");
+            if SchnorrVerificationKey::new_from_signing_key(sk.clone()).is_ok() {
+                break sk;
+            }
+        };
+        let stm_vk = SchnorrVerificationKey::new_from_signing_key(sk)
+            .expect("Failed to build STM verification key from signing key");
+        MTLeaf(stm_vk.to_bytes(), value)
     }
 
     #[test]
@@ -319,5 +340,26 @@ mod tests {
                 "Computed root does not match the actual root"
             );
         }
+    }
+
+    #[test]
+    fn test_leaf_bytes_layout() {
+        let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+        // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
+        // to avoid deterministic-seed flakes in golden vectors.
+        let sk = loop {
+            let sk = SchnorrSigningKey::generate(&mut rng)
+                .expect("Failed to generate STM signing key");
+            if SchnorrVerificationKey::new_from_signing_key(sk.clone()).is_ok() {
+                break sk;
+            }
+        };
+        let stm_vk = SchnorrVerificationKey::new_from_signing_key(sk)
+            .expect("Failed to build STM verification key from signing key");
+        let target = F::random(&mut rng);
+        let leaf = MTLeaf(stm_vk.to_bytes(), target);
+        let bytes = leaf.to_bytes();
+        assert_eq!(bytes.len(), 96);
+        assert_eq!(&bytes[0..64], &stm_vk.to_bytes());
     }
 }

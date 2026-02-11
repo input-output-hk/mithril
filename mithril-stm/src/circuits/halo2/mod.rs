@@ -4,7 +4,6 @@ pub mod circuit;
 pub mod constants;
 pub mod gadgets;
 pub mod hash;
-pub(crate) mod signature_adapter;
 pub mod off_circuit;
 pub mod types;
 
