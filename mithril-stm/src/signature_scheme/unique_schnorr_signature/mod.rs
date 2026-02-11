@@ -26,8 +26,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::signature_scheme::{
-        BaseFieldElement, PrimeOrderProjectivePoint, ScalarFieldElement, SchnorrSigningKey,
-        SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+        BaseFieldElement, PrimeOrderProjectivePoint, SchnorrSigningKey, SchnorrVerificationKey,
+        UniqueSchnorrSignature, UniqueSchnorrSignatureError,
     };
 
     proptest! {
@@ -66,7 +66,8 @@ mod tests {
             let sk1 = SchnorrSigningKey::generate(&mut rng);
             let vk1 = SchnorrVerificationKey::new_from_signing_key(sk1);
             let sk2 = SchnorrSigningKey::generate(&mut rng);
-            let fake_sig = sk2.sign(&msg, &mut rng).unwrap();
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let fake_sig = sk2.sign(&[base_input], &mut rng).unwrap();
 
             let error = fake_sig.verify(&[base_input], &vk1).expect_err("Fake signature should not be verified");
 
@@ -152,7 +153,8 @@ mod tests {
         fn signature_to_from_bytes(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk = SchnorrSigningKey::generate(&mut rng);
-            let signature = sk.sign(&msg, &mut ChaCha20Rng::from_seed(seed)).unwrap();
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let signature = sk.sign(&[base_input], &mut ChaCha20Rng::from_seed(seed)).unwrap();
             let signature_bytes = signature.to_bytes();
 
             // Valid conversion
