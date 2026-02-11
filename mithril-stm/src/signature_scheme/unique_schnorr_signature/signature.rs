@@ -29,16 +29,16 @@ impl UniqueSchnorrSignature {
     ///
     /// Input:
     ///     - a Unique Schnorr signature
-    ///     - a message: some bytes
+    ///     - a message: some BaseFieldElements
     ///     - a verification key: a value depending on the signing key
     /// Output:
     ///     - Ok(()) if the signature verifies and an error if not
     ///
     /// The protocol computes:
-    ///     - msg_hash_point = H(Sha256(msg))
+    ///     - msg_hash_point = H(msg)
     ///     - random_point_1_recomputed = response * msg_hash_point + challenge * commitment_point
     ///     - random_point_2_recomputed = response * prime_order_generator_point + challenge * verification_key
-    ///     - challenge_recomputed = Poseidon(DST || H(Sha256(msg)) || verification_key
+    ///     - challenge_recomputed = Poseidon(DST || H(msg) || verification_key
     ///     || commitment_point || random_point_1_recomputed || random_point_2_recomputed)
     ///
     /// Check: challenge == challenge_recomputed

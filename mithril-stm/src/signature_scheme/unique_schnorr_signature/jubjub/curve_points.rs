@@ -59,9 +59,7 @@ impl From<&PrimeOrderProjectivePoint> for AffinePoint {
 pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 
 impl ProjectivePoint {
-    /// Hashes input bytes to a projective point on the Jubjub curve
-    /// For now we leave the SHA call in the function since the SHA
-    /// function is not used anywhere else. This might change in the future.
+    /// Hashes input BaseFieldElements to a projective point on the Jubjub curve
     pub(crate) fn hash_to_projective_point(input: &[BaseFieldElement]) -> StmResult<Self> {
         let point = JubjubHashToCurveGadget::hash_to_curve(
             &input.iter().map(|elem| elem.0).collect::<Vec<JubjubBase>>(),

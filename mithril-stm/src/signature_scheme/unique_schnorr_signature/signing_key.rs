@@ -27,7 +27,7 @@ impl SchnorrSigningKey {
     /// and works with the Jubjub elliptic curve and the Poseidon hash function.
     ///
     /// Input:
-    ///     - a message: some bytes
+    ///     - a message: some BaseFieldElements
     ///     - a signing key: an element of the scalar field of the Jubjub curve
     /// Output:
     ///     - a unique signature of the form (commitment_point, response, challenge):
@@ -35,11 +35,11 @@ impl SchnorrSigningKey {
     ///         - the response and challenge depends on a random value generated during the signature
     ///
     /// The protocol computes:
-    ///     - commitment_point = signing_key * H(Sha256(msg))
+    ///     - commitment_point = signing_key * H(msg)
     ///     - random_scalar, a random value
-    ///     - random_point_1 = random_scalar * H(Sha256(msg))
+    ///     - random_point_1 = random_scalar * H(msg)
     ///     - random_point_2 = random_scalar * prime_order_generator_point, where generator is a generator of the prime-order subgroup of Jubjub
-    ///     - challenge = Poseidon(DST || H(Sha256(msg)) || verification_key || commitment_point || random_point_1 || random_point_2)
+    ///     - challenge = Poseidon(DST || H(msg) || verification_key || commitment_point || random_point_1 || random_point_2)
     ///     - response = random_scalar - challenge * signing_key
     ///
     /// Output the signature (`commitment_point`, `response`, `challenge`)
