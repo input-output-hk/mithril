@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
+use sha2::{Digest, Sha256};
 use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Sub};
 
@@ -46,12 +47,7 @@ impl BaseFieldElement {
 impl TryFrom<&[u8]> for BaseFieldElement {
     type Error = TryFromSliceError;
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        use sha2::{Digest, Sha256};
-
-        let mut hash = Sha256::new();
-        hash.update(value);
-        let mut hashed_input = [0u8; 32];
-        hashed_input.copy_from_slice(&hash.finalize());
+        let hashed_input: [u8; 32] = Sha256::digest(value).into();
         Ok(BaseFieldElement(JubjubBase::from_raw([
             u64::from_le_bytes(hashed_input[0..8].try_into()?),
             u64::from_le_bytes(hashed_input[8..16].try_into()?),
