@@ -15,21 +15,24 @@
 ### Imports
 
 Imports must appear at the top of the file (or at the top of a `#[cfg(test)]` module for
-test-only imports) and follow this ordering, with a blank line between each group:
+test-only imports) and follow this ordering, with a blank line between each group:s
 
 1. Standard library (`std`, `core`, `alloc`)
 2. External dependencies (third-party crates)
-3. Crate-internal imports (`crate::`)
-4. Parent / sibling imports (`super::`, `self::`)
+3. Mithril crates
+4. Crate-internal imports (`crate::`)
+5. Parent / sibling imports (`super::`, `self::`)
 
 ```rust
 use std::collections::HashMap;
 use std::sync::Arc;
-
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
+use mithril_common::{StdError, StdResult};
+
 use crate::domain::model::Certificate;
+use crate::services::SignerService;
 use crate::services::SignerService;
 
 use super::helper::build_test_fixture;
@@ -64,7 +67,7 @@ use super::helper::build_test_fixture;
 - `#[allow(dead_code)]` is **not permitted** in production code. If code is unused, remove
   it. The only exception is scaffolding during an active, in-progress implementation that
   will be completed in the same pull request.
-- **Do not introduce new `TODO`, `FIXME`, or `HACK` comments.** If work is deferred, create
+- **Do not introduce new `TODO` or `FIXME` comments.** If work is deferred, create
   a tracking issue and reference it instead.
 
 ### Feature Flags
@@ -75,7 +78,9 @@ use super::helper::build_test_fixture;
 
 ### Ownership and Borrowing
 
-- Prefer borrowing (`&T`, `&str`) over owned types (`T`, `String`) in function parameters
+- Avoid unnecessary `.clone()` calls. If cloning is required, ensure it is intentional and
+  not a workaround for a borrow-checker issue that could be solved with better lifetimes
+  or by simply moving the value.
   when the function does not need ownership.
 - Avoid unnecessary `.clone()` calls. If cloning is required, ensure it is intentional and
   not a workaround for a borrow-checker issue that could be solved with better lifetimes.
