@@ -27,6 +27,7 @@ future_snark = [
     "dep:num-integer",
     "dep:num-traits",
     "dep:rand",
+    "dep:sha2",
     "dep:subtle",
 ] # For activating snark features
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
@@ -51,6 +52,7 @@ rand = { version = "0.9.2", optional = true }
 rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
 serde = { workspace = true }
+sha2 = { version = "0.10.9", optional = true }
 subtle = { version = "2.5.0", optional = true }
 thiserror = { workspace = true }
 

@@ -2,6 +2,8 @@ use anyhow::{Context, anyhow};
 use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
+#[cfg(any(test, feature = "benchmark-internals"))]
+use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Sub};
 
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
@@ -40,25 +42,23 @@ impl BaseFieldElement {
     }
 }
 
-#[cfg(any(test, feature = "benchmark-internals"))]
-// Only uses the 32 first bytes of the input or pads it if necessary
-// To use only in tests or benchmarks
-impl From<&[u8]> for BaseFieldElement {
-    fn from(value: &[u8]) -> Self {
-        let bytes: Vec<u8> = if value.len() < 32 {
-            let mut v = vec![0u8; value.len()];
-            v.copy_from_slice(value);
-            v.resize(32, 0);
-            v
-        } else {
-            value.to_vec()
-        };
-        BaseFieldElement(JubjubBase::from_raw([
-            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
-            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
-            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
-            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
-        ]))
+/// Try to convert an arbitrary slice of bytes to a BaseFieldElement by first
+/// hashing the bytes using Sha256 and then converting using modulus reduction
+impl TryFrom<&[u8]> for BaseFieldElement {
+    type Error = TryFromSliceError;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        use sha2::{Digest, Sha256};
+
+        let mut hash = Sha256::new();
+        hash.update(value);
+        let mut hashed_input = [0u8; 32];
+        hashed_input.copy_from_slice(&hash.finalize());
+        Ok(BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(hashed_input[0..8].try_into()?),
+            u64::from_le_bytes(hashed_input[8..16].try_into()?),
+            u64::from_le_bytes(hashed_input[16..24].try_into()?),
+            u64::from_le_bytes(hashed_input[24..32].try_into()?),
+        ])))
     }
 }
 
