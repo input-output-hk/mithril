@@ -34,6 +34,11 @@ jobs:
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         if: matrix.os == 'ubuntu-22.04'
