@@ -4,7 +4,7 @@ use midnight_curves::Fq as JubjubBase;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
+use mithril_stm::{BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey};
 
 fn midnight_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     let mut group = c.benchmark_group("Schnorr".to_string());
@@ -47,13 +47,14 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
 
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
+    let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
     let mut mvks = Vec::new();
     let mut msks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
         let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
-        let sig = sk.sign(&msg, &mut rng_sig).unwrap();
+        let sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
         sigs.push(sig);
         mvks.push(vk);
         msks.push(sk);
@@ -62,7 +63,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     group.bench_function(BenchmarkId::new("Signature", nr_sigs), |b| {
         b.iter(|| {
             for sk in msks.iter() {
-                let _sig = sk.sign(&msg, &mut rng_sig).unwrap();
+                let _sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
             }
         })
     });
@@ -70,7 +71,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     group.bench_function(BenchmarkId::new("Verification", nr_sigs), |b| {
         b.iter(|| {
             for (vk, sig) in mvks.iter().zip(sigs.iter()) {
-                assert!(sig.verify(&msg, vk).is_ok());
+                assert!(sig.verify(&[base_input], vk).is_ok());
             }
         })
     });

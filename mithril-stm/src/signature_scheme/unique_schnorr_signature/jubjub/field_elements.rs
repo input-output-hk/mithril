@@ -2,6 +2,8 @@ use anyhow::{Context, anyhow};
 use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
+use sha2::{Digest, Sha256};
+use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Sub};
 
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
@@ -37,6 +39,21 @@ impl BaseFieldElement {
                 UniqueSchnorrSignatureError::BaseFieldElementSerialization
             )),
         }
+    }
+}
+
+/// Try to convert an arbitrary slice of bytes to a BaseFieldElement by first
+/// hashing the bytes using Sha256 and then converting using modulus reduction
+impl TryFrom<&[u8]> for BaseFieldElement {
+    type Error = TryFromSliceError;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let hashed_input: [u8; 32] = Sha256::digest(value).into();
+        Ok(BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(hashed_input[0..8].try_into()?),
+            u64::from_le_bytes(hashed_input[8..16].try_into()?),
+            u64::from_le_bytes(hashed_input[16..24].try_into()?),
+            u64::from_le_bytes(hashed_input[24..32].try_into()?),
+        ])))
     }
 }
 

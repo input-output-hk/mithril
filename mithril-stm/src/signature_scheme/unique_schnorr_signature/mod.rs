@@ -13,6 +13,7 @@ mod signing_key;
 mod verification_key;
 
 pub use error::*;
+pub use jubjub::BaseFieldElement;
 pub(crate) use jubjub::*;
 pub use signature::*;
 pub use signing_key::*;
@@ -25,8 +26,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::signature_scheme::{
-        PrimeOrderProjectivePoint, ScalarFieldElement, SchnorrSigningKey, SchnorrVerificationKey,
-        UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+        BaseFieldElement, PrimeOrderProjectivePoint, ScalarFieldElement, SchnorrSigningKey,
+        SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
     };
 
     proptest! {
@@ -60,15 +61,15 @@ mod tests {
             let sk_result = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
             assert!(sk_result.is_ok(), "Signing key generation failed");
             let sk = sk_result.unwrap();
-
             let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
 
-            let sig_result = sk.sign(&msg, &mut ChaCha20Rng::from_seed(seed));
+            let sig_result = sk.sign(&[base_input], &mut ChaCha20Rng::from_seed(seed));
             assert!(sig_result.is_ok(), "Signature generation failed");
 
             let sig = sig_result.unwrap();
 
-            assert!(sig.verify(&msg, &vk).is_ok(), "Verification failed.");
+            assert!(sig.verify(&[base_input], &vk).is_ok(), "Verification failed.");
         }
 
         #[test]
@@ -77,9 +78,10 @@ mod tests {
             let sk1 = SchnorrSigningKey::generate(&mut rng).unwrap();
             let vk1 = SchnorrVerificationKey::new_from_signing_key(sk1).unwrap();
             let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
-            let fake_sig = sk2.sign(&msg, &mut rng).unwrap();
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let fake_sig = sk2.sign(&[base_input], &mut rng).unwrap();
 
-            let error = fake_sig.verify(&msg, &vk1).expect_err("Fake signature should not be verified");
+            let error = fake_sig.verify(&[base_input], &vk1).expect_err("Fake signature should not be verified");
 
             assert!(
                 matches!(
@@ -163,7 +165,8 @@ mod tests {
         fn signature_to_from_bytes(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
-            let signature = sk.sign(&msg, &mut ChaCha20Rng::from_seed(seed)).unwrap();
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            let signature = sk.sign(&[base_input], &mut ChaCha20Rng::from_seed(seed)).unwrap();
             let signature_bytes = signature.to_bytes();
 
             // Valid conversion

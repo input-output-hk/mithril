@@ -137,7 +137,7 @@ use std::fmt::Debug;
 
 #[cfg(feature = "benchmark-internals")]
 pub use signature_scheme::{
-    BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
+    BaseFieldElement, BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };
 
