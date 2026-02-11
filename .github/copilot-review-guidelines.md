@@ -15,7 +15,7 @@
 ### Imports
 
 Imports must appear at the top of the file (or at the top of a `#[cfg(test)]` module for
-test-only imports) and follow this ordering, with a blank line between each group:s
+test-only imports) and follow this ordering, with a blank line between each group:
 
 1. Standard library (`std`, `core`, `alloc`)
 2. External dependencies (third-party crates)
@@ -32,7 +32,6 @@ use serde::{Deserialize, Serialize};
 use mithril_common::{StdError, StdResult};
 
 use crate::domain::model::Certificate;
-use crate::services::SignerService;
 use crate::services::SignerService;
 
 use super::helper::build_test_fixture;
@@ -80,10 +79,7 @@ use super::helper::build_test_fixture;
 
 - Avoid unnecessary `.clone()` calls. If cloning is required, ensure it is intentional and
   not a workaround for a borrow-checker issue that could be solved with better lifetimes
-  or by simply moving the value.
-  when the function does not need ownership.
-- Avoid unnecessary `.clone()` calls. If cloning is required, ensure it is intentional and
-  not a workaround for a borrow-checker issue that could be solved with better lifetimes.
+  or by simply moving the value when the function does not need ownership.
 
 ### Type Conversions
 
@@ -94,7 +90,9 @@ use super::helper::build_test_fixture;
 ### Constants and Magic Values
 
 - Do not use hardcoded literal values (numbers, strings) in logic. Extract them into named
-  constants or configuration values so their intent is clear and they are easy to update.
+  constants or configuration values so their intent is clear and they are easy to update (except for tests files and dummies values).
+
+).
 
 ### Derive and Trait Implementations
 
