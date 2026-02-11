@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-22.04-arm]
+        include:
+          - os: ubuntu-22.04
+            musl_target: x86_64-unknown-linux-musl
+          - os: ubuntu-22.04-arm
+            musl_target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
@@ -34,6 +38,20 @@ jobs:
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.musl_target }}
+
+      #Prerequisites for static build with musl
+      - name: Install musl toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            musl-tools \
+            build-essential \
+            pkg-config
+      
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         if: matrix.os == 'ubuntu-22.04'
@@ -43,16 +61,16 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_tls,full
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_tls,full --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
 
       - name: Build Debian packages
         shell: bash
         run: |
-          cargo deb --no-build --package mithril-aggregator
-          cargo deb --no-build --package mithril-signer
-          cargo deb --no-build --package mithril-client-cli
-          cargo deb --no-build --package mithril-relay
+          cargo deb --no-build --package mithril-aggregator --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-signer --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-client-cli --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-relay --target=${{ matrix.musl_target }}
 
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
