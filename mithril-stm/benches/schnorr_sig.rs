@@ -47,7 +47,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
 
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
-    let base_input = BaseFieldElement::from(msg.as_slice());
+    let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
     let mut mvks = Vec::new();
     let mut msks = Vec::new();
     let mut sigs = Vec::new();

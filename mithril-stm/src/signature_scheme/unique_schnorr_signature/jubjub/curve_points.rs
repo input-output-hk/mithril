@@ -61,9 +61,11 @@ pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 impl ProjectivePoint {
     /// Hashes input BaseFieldElements to a projective point on the Jubjub curve
     pub(crate) fn hash_to_projective_point(input: &[BaseFieldElement]) -> StmResult<Self> {
-        let point = JubjubHashToCurveGadget::hash_to_curve(
-            &input.iter().map(|elem| elem.0).collect::<Vec<JubjubBase>>(),
-        );
+        let mut base_elements = Vec::with_capacity(input.len());
+        for elem in input.iter() {
+            base_elements.push(elem.0);
+        }
+        let point = JubjubHashToCurveGadget::hash_to_curve(&base_elements);
         Ok(ProjectivePoint(JubjubExtended::from(point)))
     }
 

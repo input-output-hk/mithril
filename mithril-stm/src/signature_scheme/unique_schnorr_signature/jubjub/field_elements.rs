@@ -2,7 +2,6 @@ use anyhow::{Context, anyhow};
 use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
-#[cfg(any(test, feature = "benchmark-internals"))]
 use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Sub};
 
