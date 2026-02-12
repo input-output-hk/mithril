@@ -144,17 +144,14 @@ impl Serialize for ClosedRegistrationEntry {
         }
         #[cfg(feature = "future_snark")]
         {
-            let tuples_number = if self.verification_key_for_snark.is_some()
+            let has_snark_fields = self.verification_key_for_snark.is_some()
                 && self.lottery_target_value.is_some()
-            {
-                4
-            } else {
-                2
-            };
+                && cfg!(feature = "future_snark");
+            let tuples_number = if has_snark_fields { 4 } else { 2 };
             let mut tuple = serializer.serialize_tuple(tuples_number)?;
             tuple.serialize_element(&self.verification_key_for_concatenation)?;
             tuple.serialize_element(&self.stake)?;
-            if tuples_number == 4 {
+            if has_snark_fields {
                 tuple.serialize_element(&self.verification_key_for_snark)?;
                 tuple.serialize_element(&self.lottery_target_value)?;
             }
