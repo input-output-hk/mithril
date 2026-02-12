@@ -62,10 +62,10 @@ jobs:
       - name: Build Debian packages
         shell: bash
         run: |
-          cargo deb --no-build --package mithril-aggregator
-          cargo deb --no-build --package mithril-signer
-          cargo deb --no-build --package mithril-client-cli
-          cargo deb --no-build --package mithril-relay
+          cargo deb --no-build --package mithril-aggregator --target=x86_64-unknown-linux-musl
+          cargo deb --no-build --package mithril-signer --target=x86_64-unknown-linux-musl
+          cargo deb --no-build --package mithril-client-cli --target=x86_64-unknown-linux-musl
+          cargo deb --no-build --package mithril-relay --target=x86_64-unknown-linux-musl
 
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
