@@ -634,7 +634,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_transactions_in_range_returns_empty_when_no_transactions() {
+    async fn get_transactions_in_range_returns_empty_when_store_empty() {
         let store = InMemoryChainDataStore::default();
 
         let transactions = store
@@ -722,7 +722,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_blocks_and_transactions_in_range_returns_empty_when_no_transactions() {
+    async fn get_blocks_and_transactions_in_range_returns_empty_when_store_empty() {
         let store = InMemoryChainDataStore::default();
 
         let transactions = store

@@ -9,6 +9,8 @@ use mithril_common::entities::{BlockNumber, BlockRange};
 
 use crate::chain_importer::ChainDataStore;
 
+const BLOCK_RANGE_BATCH_SIZE: usize = 100;
+
 /// Internal component responsible for computing and storing block range roots
 #[derive(Clone)]
 pub(crate) struct BlockRangeImporter {
@@ -62,7 +64,7 @@ impl BlockRangeImporter {
                     .compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
-            if block_ranges_with_merkle_root.len() >= 100 {
+            if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
                 let block_ranges_with_merkle_root_save =
                     mem::take(&mut block_ranges_with_merkle_root);
                 self.transaction_store
@@ -112,7 +114,7 @@ impl BlockRangeImporter {
                 MKTree::<MKTreeStoreInMemory>::new_from_iter(transactions)?.compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
-            if block_ranges_with_merkle_root.len() >= 100 {
+            if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
                 let block_ranges_with_merkle_root_save =
                     mem::take(&mut block_ranges_with_merkle_root);
                 self.transaction_store

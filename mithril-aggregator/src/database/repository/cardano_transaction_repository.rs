@@ -67,7 +67,7 @@ impl ChainDataStore for AggregatorCardanoChainDataRepository {
         range: Range<BlockNumber>,
     ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
         let records = self.inner.get_blocks_with_transactions_in_range_blocks(range).await?;
-        Ok(records.into_iter().flat_map(|b| b.into_mk_tree_node()).collect())
+        Ok(records.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
     }
 
     async fn get_transactions_in_range(

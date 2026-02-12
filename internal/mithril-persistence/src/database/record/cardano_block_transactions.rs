@@ -90,7 +90,7 @@ impl From<CardanoBlockWithTransactions> for CardanoBlockTransactionsRecord {
 
 impl CardanoBlockTransactionsRecord {
     /// Converts the block into a vector of [CardanoBlockTransactionMkTreeNode].
-    pub fn into_mk_tree_node(self) -> Vec<CardanoBlockTransactionMkTreeNode> {
+    pub fn into_mk_tree_nodes(self) -> Vec<CardanoBlockTransactionMkTreeNode> {
         let mut result = Vec::with_capacity(self.transactions_hashes.len() + 1);
         result.push(CardanoBlockTransactionMkTreeNode::Block {
             block_hash: self.block_hash.clone(),
@@ -128,7 +128,7 @@ mod tests {
                 SlotNumber(50),
                 Vec::<&str>::new()
             )
-            .into_mk_tree_node()
+            .into_mk_tree_nodes()
         );
     }
 
@@ -160,7 +160,7 @@ mod tests {
                 SlotNumber(50),
                 vec!["tx-1", "tx-2"]
             )
-            .into_mk_tree_node()
+            .into_mk_tree_nodes()
         );
     }
 }
