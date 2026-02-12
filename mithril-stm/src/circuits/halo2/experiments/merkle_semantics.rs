@@ -5,6 +5,7 @@ use rand_core::SeedableRng;
 use crate::circuits::halo2::off_circuit::merkle_tree::{MerkleTree, MTLeaf};
 use crate::circuits::halo2::types::JubjubBase;
 use crate::circuits::halo2::utils::field_bytes::digest_bytes_to_base;
+use crate::circuits::halo2::utils::merkle_path::stm_path_to_halo2_path;
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
@@ -71,7 +72,7 @@ fn check_tree(label: &str, halo2_leaves: &[MTLeaf], stm_leaves: &[MerkleTreeSnar
 fn merkle_root_semantics_equivalence() {
     let mut rng = ChaCha20Rng::from_seed([9u8; 32]);
 
-    for &n in &[4usize, 8usize] {
+    for &n in &[3usize, 4, 5, 6, 7, 8, 9] {
         let (halo2_leaves, stm_leaves) = build_leaves(&mut rng, n, None);
         check_tree(&format!("random_n{n}"), &halo2_leaves, &stm_leaves);
 
@@ -79,5 +80,55 @@ fn merkle_root_semantics_equivalence() {
         check_tree(&format!("zero_target_n{n}"), &halo2_zero, &stm_zero);
     }
 
-    println!("Merkle root semantics match for n=4 and n=8");
+    println!("Merkle root semantics match for n=3..9");
+}
+
+#[test]
+fn merkle_path_adapter_equivalence() {
+    let mut rng = ChaCha20Rng::from_seed([11u8; 32]);
+
+    for &n in &[3usize, 4, 5, 6, 7, 8, 9] {
+        let (halo2_leaves, stm_leaves) = build_leaves(&mut rng, n, None);
+        let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
+        let stm_root_bytes = stm_tree.to_merkle_tree_commitment().root;
+        let root_bytes: [u8; 32] = stm_root_bytes
+            .as_slice()
+            .try_into()
+            .expect("STM root bytes must be 32 bytes");
+        let root_field = digest_bytes_to_base(&root_bytes)
+            .expect("STM root bytes must decode to a field element");
+
+        for i in 0..n {
+            let stm_path = stm_tree.compute_merkle_tree_path(i);
+            let halo2_path = stm_path_to_halo2_path(&stm_path)
+                .expect("STM path should adapt to halo2 path");
+            let halo2_root = halo2_path.compute_root(halo2_leaves[i]);
+            assert_eq!(
+                halo2_root, root_field,
+                "Merkle path adapter mismatch at index {i} (n={n})"
+            );
+        }
+
+        let (halo2_zero, stm_zero) = build_leaves(&mut rng, n, Some(JubjubBase::ZERO));
+        let stm_zero_tree =
+            StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_zero);
+        let stm_zero_root_bytes = stm_zero_tree.to_merkle_tree_commitment().root;
+        let zero_root_bytes: [u8; 32] = stm_zero_root_bytes
+            .as_slice()
+            .try_into()
+            .expect("STM root bytes must be 32 bytes");
+        let zero_root_field = digest_bytes_to_base(&zero_root_bytes)
+            .expect("STM root bytes must decode to a field element");
+
+        for i in 0..n {
+            let stm_path = stm_zero_tree.compute_merkle_tree_path(i);
+            let halo2_path = stm_path_to_halo2_path(&stm_path)
+                .expect("STM path should adapt to halo2 path");
+            let halo2_root = halo2_path.compute_root(halo2_zero[i]);
+            assert_eq!(
+                halo2_root, zero_root_field,
+                "Merkle path adapter mismatch (zero_target) at index {i} (n={n})"
+            );
+        }
+    }
 }
