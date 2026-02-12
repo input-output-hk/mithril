@@ -83,23 +83,6 @@ cfg_num_integer! {
 }
 
 cfg_num_integer! {
-    // use num_bigint::BigInt;
-    // use num_rational::Ratio;
-
-    // Description of the math behind the computation we want to do
-    //
-    // poseidon_hash / p < 1 - (1 - phi_f)^w
-    // where p is the modulus of the field, phi_f a parameter constant comprised in (0,1) and w a variable in (0,1)
-    // poseidon_hash < p * (1 - (1 - phi_f)^w)
-    // poseidon_hash < p * (1 - exp( w * ln(1 - phi_f) ) )
-    // let C = ln(1 - phi_f)
-    // poseidon_hash < p * (1 - exp( w * C ) )
-    // We want to use the taylor series to approximate exp( w * C )
-    // exp(C*x) = 1 + C*x + (C*x)^2/2! + (C*x)^3/3! + ... + (C*x)^{N-1}/(N-1)! + O(x^(N))
-    // We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
-    // Hence we stop when |(C*x)^N / N!| < epsilon
-    // We can check instead (C * x)^N < epsilon
-    // which gives us the bound N < log(epsilon) / log(|C*x|)
 
     // Function that computes an approximation of exp(a/b) using a binomial splitting
     // to compute the taylor expansion terms between i and j,
@@ -121,6 +104,22 @@ cfg_num_integer! {
         let t = t_l * t_r;
 
         (p, q, t)
+    }
+
+    // Function that computes an approximation of ln(1 - a/b) using a taylor expansion
+    // for a given number of iterations
+    #[allow(dead_code)]
+    fn ln_1p_approx(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
+        let mut num = a.clone();
+        let mut denom = b.clone();
+        let mut acc = Ratio::new_raw(a.clone(),b.clone());
+        for i in 2..(iterations + 1) {
+            num = num * a;
+            denom = denom * b;
+            acc = acc + Ratio::new_raw(num.clone(), denom.clone() * i);
+        }
+
+        -acc
     }
 
     /// Computes a Taylor expansion of the exponantial exp(c*w) up to the (N-1)th term
@@ -193,10 +192,11 @@ cfg_rug! {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
     use proptest::prelude::*;
+
+    use super::*;
     // Implementation of `is_lottery_won` without approximation. We only get the precision of f64 here.
     fn trivial_is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         let ev_max = BigInt::from(2u8).pow(512);
