@@ -129,11 +129,11 @@ impl Initializer {
     /// * [Future Snark - Schnorr Signing Key]
     /// * [Future Snark - Schnorr Verification Key]
     pub fn to_bytes(&self) -> Vec<u8> {
-        #[cfg(feature = "future_snark")]
-        let capacity = 352;
-        #[cfg(not(feature = "future_snark"))]
-        let capacity = 256;
-
+        let capacity = if cfg!(feature = "future_snark") {
+            352
+        } else {
+            256
+        };
         let mut out = Vec::with_capacity(capacity);
         out.extend_from_slice(&self.stake.to_be_bytes());
         out.extend_from_slice(&self.parameters.to_bytes());
