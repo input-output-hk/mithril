@@ -43,6 +43,7 @@ jobs:
         with:
           targets: ${{ matrix.musl_target }}
 
+      #Prerequisites for static build with musl
       - name: Install musl toolchain
         run: |
           sudo apt-get update
