@@ -96,5 +96,9 @@ name = "cardano_blocks_transactions_import"
 harness = false
 
 [[bench]]
+name = "cardano_blocks_transactions_get"
+harness = false
+
+[[bench]]
 name = "cardano_transactions_get"
 harness = false
