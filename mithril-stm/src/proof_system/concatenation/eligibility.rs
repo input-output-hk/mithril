@@ -96,14 +96,14 @@ cfg_num_integer! {
         }
 
         let mid = (i + j) / 2;
-        let (p_l, q_l, t_l) = exponential_approx(i, mid, a, b);
-        let (p_r, q_r, t_r) = exponential_approx(mid, j, a, b);
+        let (numerator_l, denominator_l, auxiliary_value_l) = exponential_approx(i, mid, a, b);
+        let (numerator_r, denominator_r, auxiliary_value_r) = exponential_approx(mid, j, a, b);
 
-        let p = &p_l * &q_r + &t_l * &p_r;
-        let q = &q_l * &q_r;
-        let t = t_l * t_r;
+        let numerator = &numerator_l * &denominator_r + &auxiliary_value_l * &numerator_r;
+        let denominator = &denominator_l * &denominator_r;
+        let auxiliary_value = auxiliary_value_l * auxiliary_value_r;
 
-        (p, q, t)
+        (numerator, denominator, auxiliary_value)
     }
 
     // Function that computes an approximation of ln(1 - a/b) using a taylor expansion
@@ -143,22 +143,23 @@ cfg_num_integer! {
         )
         .unwrap();
 
-        let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-        let c =
-            Ratio::from_float((-phi_f).ln_1p()).expect("Only fails if the float is infinite or NaN.");
+        let stake_ratio = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
 
-        let exp_wc = compute_exp(c.clone(), w.clone(), 50);
-        let t_taylor = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_wc.clone();
+        let phi_f_ratio = Ratio::from_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let ln_one_minus_phi_f = ln_1p_approx(50, phi_f_ratio.numer(), phi_f_ratio.denom());
+
+        let exp_ln_one_minus_phi_f_stake_ratio = compute_exp(ln_one_minus_phi_f.clone(), stake_ratio.clone(), 50);
+        let target_as_ratio = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_ln_one_minus_phi_f_stake_ratio.clone();
 
         // Floor division
-        let (t_int, remainder) = t_taylor.numer().div_rem(t_taylor.denom());
-        assert!(t_int >= BigInt::zero());
+        let (target_as_int, remainder) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
+        assert!(target_as_int >= BigInt::zero());
 
-        // If exact division and t_int > 0, subtract 1
-        if remainder.is_zero() && !t_int.is_zero() {
-            t_int - 1
+        // If exact division and target_as_int > 0, subtract 1
+        if remainder.is_zero() && !target_as_int.is_zero() {
+            target_as_int - 1
         } else {
-            t_int
+            target_as_int
         }
     }
 }
