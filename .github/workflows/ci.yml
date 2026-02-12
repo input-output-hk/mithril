@@ -24,7 +24,7 @@ jobs:
             musl_target: x86_64-unknown-linux-musl
           - os: ubuntu-22.04-arm
             musl_target: aarch64-unknown-linux-musl
-      runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
