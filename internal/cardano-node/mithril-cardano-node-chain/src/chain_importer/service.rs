@@ -49,6 +49,7 @@ impl ChainDataImporter for CardanoChainDataImporter {
             Handle::current().block_on(async move {
                 importer.blocks_transactions_importer.run(up_to_beacon).await?;
                 importer.block_ranges_importer.run(up_to_beacon).await?;
+                importer.block_ranges_importer.run_legacy(up_to_beacon).await?;
                 Ok(())
             })
         })
@@ -59,13 +60,15 @@ impl ChainDataImporter for CardanoChainDataImporter {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::ops::Range;
     use std::sync::atomic::AtomicUsize;
     use std::time::Duration;
 
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::{
-        BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint, SlotNumber,
+        BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+        CardanoTransaction, ChainPoint, SlotNumber,
     };
 
     use crate::test::TestLogger;
@@ -126,6 +129,11 @@ mod tests {
                 Ok(None)
             }
 
+            async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+                self.block_thread();
+                Ok(None)
+            }
+
             async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
                 self.block_thread();
                 Ok(None)
@@ -139,12 +147,28 @@ mod tests {
                 Ok(())
             }
 
+            async fn get_blocks_and_transactions_in_range(
+                &self,
+                _range: Range<BlockNumber>,
+            ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+                self.block_thread();
+                Ok(BTreeSet::new())
+            }
+
             async fn get_transactions_in_range(
                 &self,
                 _: Range<BlockNumber>,
             ) -> StdResult<Vec<CardanoTransaction>> {
                 self.block_thread();
                 Ok(vec![])
+            }
+
+            async fn store_block_range_roots(
+                &self,
+                _block_ranges: Vec<(BlockRange, MKTreeNode)>,
+            ) -> StdResult<()> {
+                self.block_thread();
+                Ok(())
             }
 
             async fn store_legacy_block_range_roots(

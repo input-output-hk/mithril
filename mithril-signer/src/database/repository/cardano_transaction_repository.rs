@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::ops::{Deref, Range};
 use std::sync::Arc;
 
@@ -7,8 +8,8 @@ use mithril_cardano_node_chain::chain_importer::{
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, ChainPoint,
-    SlotNumber,
+    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+    CardanoTransaction, ChainPoint, SlotNumber,
 };
 use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -42,6 +43,11 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
         self.inner.get_transaction_highest_chain_point().await
     }
 
+    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+        let record = self.inner.retrieve_highest_block_range_root().await?;
+        Ok(record.map(|record| record.range))
+    }
+
     async fn get_highest_legacy_block_range(&self) -> StdResult<Option<BlockRange>> {
         let record = self.inner.retrieve_highest_legacy_block_range_root().await?;
         Ok(record.map(|record| record.range))
@@ -56,6 +62,14 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
             .await
     }
 
+    async fn get_blocks_and_transactions_in_range(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        let records = self.inner.get_blocks_with_transactions_in_range_blocks(range).await?;
+        Ok(records.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
+    }
+
     async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,
@@ -65,6 +79,16 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
                 .map(|record| record.into())
                 .collect::<Vec<CardanoTransaction>>()
         })
+    }
+
+    async fn store_block_range_roots(
+        &self,
+        block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()> {
+        if !block_ranges.is_empty() {
+            self.inner.create_block_range_roots(block_ranges).await?;
+        }
+        Ok(())
     }
 
     async fn store_legacy_block_range_roots(
