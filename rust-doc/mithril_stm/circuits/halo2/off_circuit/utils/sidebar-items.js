@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["big_to_fe","big_to_limbs","decompose","fe_to_big","get_coordinates","is_on_curve","jubjub_base_from_le_bytes","jubjub_base_to_scalar","modulus","split"]};

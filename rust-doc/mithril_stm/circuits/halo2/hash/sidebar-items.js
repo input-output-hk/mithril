@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":["HashCPU","HashToCurveCPU"],"type":["JubjubHashToCurve","PoseidonHash"]};
