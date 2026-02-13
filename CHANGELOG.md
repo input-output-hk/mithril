@@ -9,9 +9,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+- Support for `Cardano node` `10.6.2` in the signer and the aggregator.
 
 - Add optional throttling to the Cardano transactions import in the signer and aggregator (enabled by default).
 
@@ -19,6 +17,10 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Preliminary support for Cardano Blocks certification:
     - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.
   - Added a **DMQ consumer deduplicator** to avoid processing the same message multiple times in case of reconnection to the DMQ server.
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
 
 ## Mithril Distribution [2603.1] - 2026-01-29
 
