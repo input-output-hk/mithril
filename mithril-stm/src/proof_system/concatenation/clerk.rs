@@ -79,7 +79,7 @@ impl ConcatenationClerk {
                 .concatenation_signature
                 .verify(
                     params,
-                    &sig_reg.reg_party.get_bls_verification_key(),
+                    &sig_reg.reg_party.get_verification_key_for_concatenation(),
                     &sig_reg.reg_party.get_stake(),
                     avk,
                     msg,
@@ -238,7 +238,7 @@ mod tests {
                 .iter()
                 .map(|sig| SingleSignatureWithRegisteredParty {
                     sig: sig.clone(),
-                    reg_party: clerk.closed_key_registration.key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap(),
+                    reg_party: clerk.closed_key_registration.get_registration_entry_for_index(&sig.signer_index).unwrap(),
                 })
                 .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 

@@ -13,7 +13,8 @@ pub use aggregate_signature::{
 pub(crate) use eligibility_check::is_lottery_won;
 pub use error::RegisterError;
 pub use key_registration::{
-    ClosedKeyRegistration, KeyRegistration, RegistrationEntry, RegistrationEntryForConcatenation,
+    ClosedKeyRegistration, ClosedRegistrationEntry, KeyRegistration, RegistrationEntry,
+    RegistrationEntryForConcatenation,
 };
 pub use parameters::Parameters;
 pub use participant::{Initializer, Signer};

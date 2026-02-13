@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{MembershipDigest, RegistrationEntry, StmResult};
+use crate::{ClosedRegistrationEntry, MembershipDigest, StmResult};
 
 use super::{SignatureError, SingleSignature};
 
@@ -10,30 +10,51 @@ pub struct SingleSignatureWithRegisteredParty {
     /// Stm signature
     pub sig: SingleSignature,
     /// Registered party
-    pub reg_party: RegistrationEntry,
+    pub reg_party: ClosedRegistrationEntry,
 }
 
 impl SingleSignatureWithRegisteredParty {
     /// Convert `SingleSignatureWithRegisteredParty` to bytes
     /// # Layout
+    /// * RegParty length (u64 big-endian)
     /// * RegParty
+    /// * Signature length (u64 big-endian)
     /// * Signature
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&(self.reg_party.to_bytes()));
-        out.extend_from_slice(&self.sig.to_bytes());
-
+        let reg_party_bytes = self.reg_party.to_bytes();
+        out.extend_from_slice(&(reg_party_bytes.len() as u64).to_be_bytes());
+        out.extend_from_slice(&reg_party_bytes);
+        let sig_bytes = self.sig.to_bytes();
+        out.extend_from_slice(&(sig_bytes.len() as u64).to_be_bytes());
+        out.extend_from_slice(&sig_bytes);
         out
     }
-    ///Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
+    /// Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        let reg_party = RegistrationEntry::from_bytes(
-            bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
+        let mut u64_bytes = [0u8; 8];
+
+        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
+        let size_reg_party = u64::from_be_bytes(u64_bytes) as usize;
+        let reg_party = ClosedRegistrationEntry::from_bytes(
+            bytes
+                .get(8..8 + size_reg_party)
+                .ok_or(SignatureError::SerializationError)?,
         )?;
+
+        let sig_offset = 8 + size_reg_party;
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(sig_offset..sig_offset + 8)
+                .ok_or(SignatureError::SerializationError)?,
+        );
+        let size_sig = u64::from_be_bytes(u64_bytes) as usize;
         let sig = SingleSignature::from_bytes::<D>(
-            bytes.get(104..).ok_or(SignatureError::SerializationError)?,
+            bytes
+                .get(sig_offset + 8..sig_offset + 8 + size_sig)
+                .ok_or(SignatureError::SerializationError)?,
         )?;
 
         Ok(SingleSignatureWithRegisteredParty { sig, reg_party })
@@ -104,12 +125,25 @@ mod tests {
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
             let mut key_reg = KeyRegistration::initialize();
 
-            let entry1 = RegistrationEntry::new(pk_1, 1).unwrap();
+            let entry1 = RegistrationEntry::new(
+                pk_1,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
 
-            let entry2 = RegistrationEntry::new(pk_2, 1).unwrap();
+            let entry2 = RegistrationEntry::new(
+                pk_2,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let total_stake = closed_key_reg.total_stake;
 
             let signer: Signer<MithrilMembershipDigest> = Signer::new(
                 1,
@@ -119,7 +153,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_reg.clone().key_registration.into_merkle_tree(),
+                    closed_key_reg.to_merkle_tree(),
                 ),
                 closed_key_reg.clone(),
                 params,
@@ -128,7 +162,7 @@ mod tests {
             let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {
                 sig: signature,
-                reg_party: entry1,
+                reg_party: (entry1, total_stake).into(),
             }
         }
 

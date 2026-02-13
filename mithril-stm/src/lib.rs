@@ -61,6 +61,7 @@
 //!     let entry = RegistrationEntry::new(
 //!         p.get_verification_key_proof_of_possession_for_concatenation(),
 //!         p.stake,
+//!        #[cfg(feature = "future_snark")] p.schnorr_verification_key,
 //!     )
 //!     .unwrap();
 //!     key_reg.register_by_entry(&entry).unwrap();
@@ -124,9 +125,10 @@ mod signature_scheme;
 pub use proof_system::AggregateVerificationKeyForConcatenation;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
-    AggregationError, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
-    RegisterError, RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer,
-    SingleSignature, SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+    AggregationError, Clerk, ClosedKeyRegistration, ClosedRegistrationEntry, Initializer,
+    KeyRegistration, Parameters, RegisterError, RegistrationEntry,
+    RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };
 pub use signature_scheme::BlsSignatureError;

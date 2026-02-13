@@ -42,7 +42,6 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             .map(|sig| {
                 clerk
                     .closed_key_registration
-                    .key_registration
                     .get_registration_entry_for_index(&sig.signer_index)
                     .map(|reg_party| SingleSignatureWithRegisteredParty {
                         sig: sig.clone(),
@@ -72,8 +71,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
 
         let batch_proof = clerk
             .closed_key_registration
-            .key_registration
-            .into_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
             .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(Self {
@@ -129,7 +127,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let leaves = self
             .signatures
             .iter()
-            .map(|r| r.reg_party.into())
+            .filter_map(|r| r.reg_party.into())
             .collect::<Vec<RegistrationEntryForConcatenation>>();
 
         avk.get_merkle_tree_batch_commitment()
@@ -197,7 +195,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
             let grouped_vks: Vec<VerificationKeyForConcatenation> = sig_group
                 .signatures
                 .iter()
-                .map(|sig_reg| sig_reg.reg_party.get_bls_verification_key())
+                .map(|sig_reg| sig_reg.reg_party.get_verification_key_for_concatenation())
                 .collect();
 
             let (aggr_vk, aggr_sig) = BlsSignature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
@@ -290,7 +288,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let vks = self
             .signatures
             .iter()
-            .map(|sig_reg| sig_reg.reg_party.get_bls_verification_key())
+            .map(|sig_reg| sig_reg.reg_party.get_verification_key_for_concatenation())
             .collect::<Vec<VerificationKeyForConcatenation>>();
 
         (sigs, vks)

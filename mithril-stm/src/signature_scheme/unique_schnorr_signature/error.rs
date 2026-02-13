@@ -33,10 +33,6 @@ pub enum UniqueSchnorrSignatureError {
     #[error("Failed generation of the signature's random scalar")]
     RandomScalarGeneration,
 
-    /// This error occurs when signing key is zero or one.
-    #[error("The signing key is invalid.")]
-    InvalidSigningKey,
-
     /// Given point is not on the curve
     #[error("Given point is not on the curve")]
     PointIsNotOnCurve(Box<PrimeOrderProjectivePoint>),

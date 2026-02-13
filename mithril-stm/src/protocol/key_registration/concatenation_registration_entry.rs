@@ -1,13 +1,15 @@
 use crate::membership_commitment::MerkleTreeConcatenationLeaf;
 
-use super::RegistrationEntry;
+use super::ClosedRegistrationEntry;
 
 /// The type used for committing signer registrations for the Concatenation proof system.
 pub type RegistrationEntryForConcatenation = MerkleTreeConcatenationLeaf;
 
-/// Converts a registration entry into the related registration entry for concatenation proof.
-impl From<RegistrationEntry> for RegistrationEntryForConcatenation {
-    fn from(entry: RegistrationEntry) -> Self {
-        MerkleTreeConcatenationLeaf(entry.get_bls_verification_key(), entry.get_stake())
+impl From<ClosedRegistrationEntry> for Option<RegistrationEntryForConcatenation> {
+    fn from(entry: ClosedRegistrationEntry) -> Option<RegistrationEntryForConcatenation> {
+        Some(MerkleTreeConcatenationLeaf(
+            entry.get_verification_key_for_concatenation(),
+            entry.get_stake(),
+        ))
     }
 }

@@ -4,7 +4,11 @@ use std::collections::BTreeSet;
 use crate::{
     RegisterError, SignerIndex, Stake, StmResult, VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
+    protocol::key_registration::ClosedRegistrationEntry,
 };
+
+#[cfg(feature = "future_snark")]
+use crate::VerificationKeyForSnark;
 
 use super::RegistrationEntry;
 
@@ -31,7 +35,7 @@ impl KeyRegistration {
             self.registration_entries.insert(*entry);
             return Ok(());
         }
-        Err(RegisterError::KeyRegistered(Box::new(entry.get_bls_verification_key())).into())
+        Err(RegisterError::EntryAlreadyRegistered(Box::new(*entry)).into())
     }
 
     /// Registers a new signer with the given verification key proof of possession and stake.
@@ -41,51 +45,22 @@ impl KeyRegistration {
         &mut self,
         stake: Stake,
         vk_pop: &VerificationKeyProofOfPossessionForConcatenation,
+        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<VerificationKeyForSnark>,
     ) -> StmResult<()> {
-        let entry = RegistrationEntry::new(*vk_pop, stake)?;
+        let entry = RegistrationEntry::new(
+            *vk_pop,
+            stake,
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key,
+        )?;
         self.register_by_entry(&entry)
     }
 
-    /// Gets the index of a signer registration entry
-    pub fn get_signer_index_for_registration(
-        &self,
-        entry: &RegistrationEntry,
-    ) -> Option<SignerIndex> {
-        self.registration_entries
-            .iter()
-            .position(|r| r == entry)
-            .map(|s| s as u64)
-    }
-
-    /// Get the registration entry for a given signer index.
-    pub fn get_registration_entry_for_index(
-        &self,
-        signer_index: &SignerIndex,
-    ) -> StmResult<RegistrationEntry> {
-        self.registration_entries
-            .iter()
-            .nth(*signer_index as usize)
-            .cloned()
-            .ok_or_else(|| RegisterError::UnregisteredIndex.into())
-    }
-
-    /// Converts the KeyRegistration into a Merkle tree
-    pub fn into_merkle_tree<
-        D: Digest + FixedOutput,
-        L: From<RegistrationEntry> + MerkleTreeLeaf,
-    >(
-        &self,
-    ) -> MerkleTree<D, L> {
-        MerkleTree::new(
-            &self
-                .registration_entries
-                .iter()
-                .map(|entry| (*entry).into())
-                .collect::<Vec<L>>(),
-        )
-    }
-
-    /// Closes the registration by computing the total stake registered.
+    /// Closes the registration
+    /// Computes the total stake and converts the registration entries into closed registration
+    /// entries.
+    ///
+    /// Returns the `ClosedKeyRegistration`.
     pub fn close_registration(self) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
@@ -98,8 +73,14 @@ impl KeyRegistration {
             }
             res
         });
+        let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
+            .registration_entries
+            .iter()
+            .map(|entry| (*entry, total_stake).into())
+            .collect();
+
         ClosedKeyRegistration {
-            key_registration: self,
+            closed_registration_entries,
             total_stake,
         }
     }
@@ -108,11 +89,50 @@ impl KeyRegistration {
 /// Closed Key Registration
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ClosedKeyRegistration {
-    /// The key registration entries
-    pub key_registration: KeyRegistration,
+    /// The closed key registration entries
+    pub closed_registration_entries: BTreeSet<ClosedRegistrationEntry>,
 
     /// The total stake registered
     pub total_stake: Stake,
+}
+
+impl ClosedKeyRegistration {
+    /// Creates a Merkle tree from the closed registration entries
+    pub fn to_merkle_tree<D: Digest + FixedOutput, L: MerkleTreeLeaf>(&self) -> MerkleTree<D, L>
+    where
+        Option<L>: From<ClosedRegistrationEntry>,
+    {
+        MerkleTree::new(
+            &self
+                .closed_registration_entries
+                .iter()
+                .filter_map(|entry| (*entry).into())
+                .collect::<Vec<L>>(),
+        )
+    }
+
+    /// Gets the index of given closed registration entry.
+    pub fn get_signer_index_for_registration(
+        &self,
+        entry: &ClosedRegistrationEntry,
+    ) -> Option<SignerIndex> {
+        self.closed_registration_entries
+            .iter()
+            .position(|r| r == entry)
+            .map(|s| s as u64)
+    }
+
+    /// Get the closed registration entry for a given signer index.
+    pub fn get_registration_entry_for_index(
+        &self,
+        signer_index: &SignerIndex,
+    ) -> StmResult<ClosedRegistrationEntry> {
+        self.closed_registration_entries
+            .iter()
+            .nth(*signer_index as usize)
+            .cloned()
+            .ok_or_else(|| RegisterError::UnregisteredIndex.into())
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +176,10 @@ mod tests {
                     pk.pop = fake_key.pop;
                 }
 
-                let entry_result = RegistrationEntry::new(pk, stake);
+                let entry_result = RegistrationEntry::new(pk, stake,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                );
 
                 match entry_result {
                     Ok(entry) => {
@@ -166,8 +189,8 @@ mod tests {
                                 assert!(keys.insert(entry));
                             },
                             Err(error) => match error.downcast_ref::<RegisterError>(){
-                                Some(RegisterError::KeyRegistered(e1)) => {
-                                    assert!(e1.as_ref() == &entry.get_bls_verification_key());
+                                Some(RegisterError::EntryAlreadyRegistered(e1)) => {
+                                    assert!(e1.as_ref() == &entry);
                                     assert!(keys.contains(&entry));
                                 },
                                 _ => {panic!("Unexpected error: {error}")}
@@ -175,7 +198,7 @@ mod tests {
                         }
                     },
                     Err(error) =>  match error.downcast_ref::<RegisterError>(){
-                        Some(RegisterError::KeyInvalid(a)) => {
+                        Some(RegisterError::ConcatenationKeyInvalid(a)) => {
                             assert_eq!(fake_it, 0);
                             assert!(pk.verify_proof_of_possession().is_err());
                             assert!(a.as_ref() == &pk.vk);
@@ -187,13 +210,15 @@ mod tests {
 
             if !kr.registration_entries.is_empty() {
                 let closed = kr.close_registration();
-                let retrieved_keys = closed.key_registration.registration_entries;
+                let retrieved_keys = closed.closed_registration_entries.iter()
+                    .map(|entry| (*entry).into())
+                    .collect::<BTreeSet<RegistrationEntry>>();
                 assert!(retrieved_keys == keys);
             }
         }
     }
 
-    mod golden {
+    mod golden_concatenation {
         use blake2::{Blake2b, digest::consts::U32};
 
         use crate::{
@@ -203,9 +228,18 @@ mod tests {
 
         use super::*;
 
+        #[cfg(not(feature = "future_snark"))]
         const GOLDEN_JSON: &str = r#"
         {
-            "root":[4,3,108,183,145,65,166,69,250,202,51,64,90,232,45,103,56,138,102,63,209,245,81,22,120,16,6,96,140,204,210,55],
+            "root":[4, 3, 108, 183, 145, 65, 166, 69, 250, 202, 51, 64, 90, 232, 45, 103, 56, 138, 102, 63, 209, 245, 81, 22, 120, 16, 6, 96, 140, 204, 210, 55],
+            "nr_leaves":4,
+            "hasher":null
+        }"#;
+
+        #[cfg(feature = "future_snark")]
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root":[158, 184, 253, 192, 166, 114, 131, 175, 47, 113, 177, 244, 199, 200, 209, 129, 182, 191, 192, 91, 213, 10, 28, 172, 164, 139, 212, 51, 248, 66, 158, 36],
             "nr_leaves":4,
             "hasher":null
         }"#;
@@ -226,10 +260,58 @@ mod tests {
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod golden_snark {
+
+        use crate::{
+            Initializer, MidnightPoseidonDigest, Parameters,
+            membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+        };
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "root":[180,207,50,12,214,249,187,175,72,186,1,11,41,69,239,106,8,77,206,33,91,119,240,234,0,70,110,7,166,129,187,1],
+            "hasher":null
+        }"#;
+
+        fn golden_value() -> MerkleTreeCommitment<MidnightPoseidonDigest, MerkleTreeSnarkLeaf> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let number_of_parties = 4;
+
+            let mut key_reg = KeyRegistration::initialize();
+            for stake in 0..number_of_parties {
+                let initializer = Initializer::new(params, stake, &mut rng);
+                key_reg.register_by_entry(&initializer.clone().into()).unwrap();
+            }
+
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
             closed_key_reg
-                .key_registration
-                .into_merkle_tree()
-                .to_merkle_tree_batch_commitment()
+                .to_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
+                .to_merkle_tree_commitment()
         }
 
         #[test]

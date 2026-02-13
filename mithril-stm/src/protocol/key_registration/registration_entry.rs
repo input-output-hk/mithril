@@ -3,62 +3,83 @@ use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::VerificationKeyForSnark;
 use crate::{
     Initializer, RegisterError, Stake, StmResult, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };
 
+use super::ClosedRegistrationEntry;
+
 /// Represents a signer registration entry
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
-pub struct RegistrationEntry(VerificationKeyForConcatenation, Stake);
+pub struct RegistrationEntry(
+    VerificationKeyForConcatenation,
+    Stake,
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    Option<VerificationKeyForSnark>,
+);
 
 impl RegistrationEntry {
-    /// Creates a new registration entry. Verifies the proof of possession before creating the
-    /// entry. Fails if the proof of possession is invalid.
+    /// Creates a new registration entry. Verifies the proof of possession of verification key for
+    /// concatenation and validates the schnorr verification key before creating the entry.
     pub fn new(
         bls_verification_key_proof_of_possession: VerificationKeyProofOfPossessionForConcatenation,
         stake: Stake,
+        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<VerificationKeyForSnark>,
     ) -> StmResult<Self> {
         bls_verification_key_proof_of_possession
             .verify_proof_of_possession()
             .map_err(|_| {
-                RegisterError::KeyInvalid(Box::new(bls_verification_key_proof_of_possession.vk))
+                RegisterError::ConcatenationKeyInvalid(Box::new(
+                    bls_verification_key_proof_of_possession.vk,
+                ))
             })?;
+
+        #[cfg(feature = "future_snark")]
+        schnorr_verification_key
+            .map(|schnorr_vk| {
+                schnorr_vk
+                    .is_valid()
+                    .map_err(|_| RegisterError::SnarkKeyInvalid(Box::new(schnorr_vk)))
+            })
+            .transpose()?;
+
         Ok(RegistrationEntry(
             bls_verification_key_proof_of_possession.vk,
             stake,
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key,
         ))
     }
 
-    /// Gets the BLS verification key.
-    pub fn get_bls_verification_key(&self) -> VerificationKeyForConcatenation {
+    /// Gets the verification key for concatenation.
+    pub fn get_verification_key_for_concatenation(&self) -> VerificationKeyForConcatenation {
         self.0
+    }
+
+    #[cfg(feature = "future_snark")]
+    /// Gets the verification key for snark.
+    pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
+        self.2
     }
 
     /// Gets the stake associated with the registration entry.
     pub fn get_stake(&self) -> Stake {
         self.1
     }
+}
 
-    /// Converts the registration entry to bytes.
-    /// Uses 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
-    /// The order is backward compatible with previous implementations.
-    pub(crate) fn to_bytes(self) -> Vec<u8> {
-        let mut result = [0u8; 104];
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..].copy_from_slice(&self.1.to_be_bytes());
-        result.to_vec()
-    }
-
-    /// Creates a registration entry from bytes.
-    /// Expects 96 bytes for the BLS verification key and 8 bytes for the stake (u64 big-endian).
-    /// The order is backward compatible with previous implementations.
-    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bls_verification_key = VerificationKeyForConcatenation::from_bytes(bytes)?;
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[96..]);
-        let stake = Stake::from_be_bytes(u64_bytes);
-        Ok(RegistrationEntry(bls_verification_key, stake))
+impl From<ClosedRegistrationEntry> for RegistrationEntry {
+    fn from(entry: ClosedRegistrationEntry) -> Self {
+        RegistrationEntry(
+            entry.get_verification_key_for_concatenation(),
+            entry.get_stake(),
+            #[cfg(feature = "future_snark")]
+            entry.get_verification_key_for_snark(),
+        )
     }
 }
 
@@ -67,6 +88,8 @@ impl From<Initializer> for RegistrationEntry {
         Self(
             initializer.bls_verification_key_proof_of_possession.vk,
             initializer.stake,
+            #[cfg(feature = "future_snark")]
+            initializer.schnorr_verification_key,
         )
     }
 }
@@ -76,6 +99,8 @@ impl Hash for RegistrationEntry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.1.hash(state);
         self.0.hash(state);
+        #[cfg(feature = "future_snark")]
+        self.2.hash(state);
     }
 
     fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H)
@@ -111,12 +136,27 @@ mod tests {
         VerificationKeyProofOfPossessionForConcatenation, signature_scheme::BlsSigningKey,
     };
 
+    #[cfg(feature = "future_snark")]
+    use crate::{VerificationKeyForSnark, signature_scheme::SchnorrSigningKey};
+
     use super::*;
 
     fn create_registration_entry(rng: &mut ChaCha20Rng, stake: Stake) -> RegistrationEntry {
-        let sk = BlsSigningKey::generate(rng);
-        let pk = VerificationKeyProofOfPossessionForConcatenation::from(&sk);
-        RegistrationEntry::new(pk, stake).unwrap()
+        let bls_sk = BlsSigningKey::generate(rng);
+        let bls_pk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+
+        #[cfg(feature = "future_snark")]
+        let schnorr_verification_key = {
+            let sk = SchnorrSigningKey::generate(rng);
+            VerificationKeyForSnark::new_from_signing_key(sk)
+        };
+        RegistrationEntry::new(
+            bls_pk,
+            stake,
+            #[cfg(feature = "future_snark")]
+            Some(schnorr_verification_key),
+        )
+        .unwrap()
     }
 
     #[test]

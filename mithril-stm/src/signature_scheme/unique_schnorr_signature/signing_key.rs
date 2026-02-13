@@ -16,10 +16,8 @@ pub struct SchnorrSigningKey(pub(crate) ScalarFieldElement);
 
 impl SchnorrSigningKey {
     /// Generate a random scalar value to use as signing key
-    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> StmResult<Self> {
-        let scalar = ScalarFieldElement::new_random_nonzero_scalar(rng)
-            .with_context(|| "Failed to generate a non zero Schnorr signing key.")?;
-        Ok(SchnorrSigningKey(scalar))
+    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        SchnorrSigningKey(ScalarFieldElement::new_random_scalar(rng))
     }
 
     /// This function is an adapted version of the Schnorr signature scheme that includes
@@ -51,8 +49,7 @@ impl SchnorrSigningKey {
     ) -> StmResult<UniqueSchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let prime_order_generator_point = PrimeOrderProjectivePoint::create_generator();
-        let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone())
-            .with_context(|| "Could not generate verification key from signing key.")?;
+        let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone());
 
         // First hashing the message to a scalar then hashing it to a curve point
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg)?;
@@ -121,18 +118,10 @@ mod tests {
     use crate::signature_scheme::SchnorrSigningKey;
 
     #[test]
-    fn generate_signing_key() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng);
-
-        assert!(sk.is_ok(), "Signing key generation should succeed");
-    }
-
-    #[test]
     fn generate_different_keys() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk1 = SchnorrSigningKey::generate(&mut rng).unwrap();
-        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk1 = SchnorrSigningKey::generate(&mut rng);
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
 
         // Keys should be different
         assert_ne!(sk1, sk2, "Different keys should be generated");
@@ -149,7 +138,7 @@ mod tests {
     #[test]
     fn from_bytes_exact_size() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let sk_bytes = sk.to_bytes();
 
         let sk_restored = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
@@ -160,7 +149,7 @@ mod tests {
     #[test]
     fn from_bytes_extra_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
         let sk_bytes = sk.to_bytes();
 
         let mut extended_bytes = sk_bytes.to_vec();
@@ -174,7 +163,7 @@ mod tests {
     #[test]
     fn to_bytes_is_deterministic() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
 
         let bytes1 = sk.to_bytes();
         let bytes2 = sk.to_bytes();
@@ -192,7 +181,7 @@ mod tests {
 
         fn golden_value() -> SchnorrSigningKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            SchnorrSigningKey::generate(&mut rng).unwrap()
+            SchnorrSigningKey::generate(&mut rng)
         }
 
         #[test]
@@ -214,7 +203,7 @@ mod tests {
 
         fn golden_value() -> SchnorrSigningKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            SchnorrSigningKey::generate(&mut rng).unwrap()
+            SchnorrSigningKey::generate(&mut rng)
         }
 
         #[test]
