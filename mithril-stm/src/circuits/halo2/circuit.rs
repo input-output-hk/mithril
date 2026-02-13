@@ -154,12 +154,15 @@ impl Relation for StmCircuit {
                         .expect("Invalid response scalar bytes")
                 }),
             )?;
-            let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| {
-                let bytes = sig.challenge.to_bytes();
-                JubjubBase::from_bytes_le(&bytes)
-                    .into_option()
-                    .expect("Invalid challenge base field bytes")
-            }))?;
+            let c_native = std_lib.assign(
+                layouter,
+                wit.map(|(_, _, sig, _)| {
+                    let bytes = sig.challenge.to_bytes();
+                    JubjubBase::from_bytes_le(&bytes)
+                        .into_option()
+                        .expect("Invalid challenge base field bytes")
+                }),
+            )?;
             let c: AssignedScalarOfNativeCurve<C> =
                 std_lib.jubjub().convert(layouter, &c_native)?;
 
