@@ -14,7 +14,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend"]
+default = ["num-integer-backend"]
 benchmark-internals = [] # For benchmarking
 future_snark = [
     "dep:ff",
