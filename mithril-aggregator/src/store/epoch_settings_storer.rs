@@ -68,6 +68,10 @@ pub trait EpochSettingsStorer:
                             .signed_entity_types_config
                             .cardano_transactions
                             .clone(),
+                        cardano_blocks_transactions_signing_config: epoch_configuration
+                            .signed_entity_types_config
+                            .cardano_blocks_transactions
+                            .clone(),
                     },
                 )
                 .await?;

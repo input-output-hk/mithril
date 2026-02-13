@@ -50,6 +50,10 @@ impl LocalMithrilNetworkConfigurationProvider {
                     .local_configuration_epoch_settings
                     .cardano_transactions_signing_config
                     .clone(),
+                cardano_blocks_transactions_signing_config: self
+                    .local_configuration_epoch_settings
+                    .cardano_blocks_transactions_signing_config
+                    .clone(),
             },
         );
 
@@ -58,6 +62,8 @@ impl LocalMithrilNetworkConfigurationProvider {
             protocol_parameters: epoch_settings.protocol_parameters,
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: epoch_settings.cardano_transactions_signing_config,
+                cardano_blocks_transactions: epoch_settings
+                    .cardano_blocks_transactions_signing_config,
             },
         })
     }
@@ -97,7 +103,10 @@ impl MithrilNetworkConfigurationProvider for LocalMithrilNetworkConfigurationPro
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters},
+        entities::{
+            BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+            ProtocolParameters,
+        },
         test::double::Dummy,
     };
 
@@ -169,6 +178,12 @@ mod tests {
                 security_parameter: BlockNumber(3),
                 step: BlockNumber(30),
             }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(33),
+                    step: BlockNumber(330),
+                },
+            ),
         };
 
         // Nothing stored at 44, should fallback to configuration
@@ -186,6 +201,12 @@ mod tests {
                                 step: BlockNumber(10),
                             },
                         ),
+                        cardano_blocks_transactions_signing_config: Some(
+                            CardanoBlocksTransactionsSigningConfig {
+                                security_parameter: BlockNumber(11),
+                                step: BlockNumber(110),
+                            },
+                        ),
                     },
                 ),
                 (
@@ -196,6 +217,12 @@ mod tests {
                             CardanoTransactionsSigningConfig {
                                 security_parameter: BlockNumber(2),
                                 step: BlockNumber(20),
+                            },
+                        ),
+                        cardano_blocks_transactions_signing_config: Some(
+                            CardanoBlocksTransactionsSigningConfig {
+                                security_parameter: BlockNumber(22),
+                                step: BlockNumber(220),
                             },
                         ),
                     },
@@ -216,6 +243,10 @@ mod tests {
                         security_parameter: BlockNumber(1),
                         step: BlockNumber(10),
                     }),
+                    cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(11),
+                        step: BlockNumber(110),
+                    },),
                 },
             },
             configuration.configuration_for_aggregation
@@ -230,6 +261,10 @@ mod tests {
                         security_parameter: BlockNumber(2),
                         step: BlockNumber(20),
                     }),
+                    cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(22),
+                        step: BlockNumber(220),
+                    },),
                 },
             },
             configuration.configuration_for_next_aggregation
@@ -244,6 +279,10 @@ mod tests {
                         security_parameter: BlockNumber(3),
                         step: BlockNumber(30),
                     }),
+                    cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumber(33),
+                        step: BlockNumber(330),
+                    },),
                 },
             },
             configuration.configuration_for_registration

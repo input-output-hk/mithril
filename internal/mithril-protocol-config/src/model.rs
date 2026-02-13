@@ -4,7 +4,8 @@ use std::collections::BTreeSet;
 
 use mithril_common::{
     entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+        CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, Epoch,
+        ProtocolParameters, SignedEntityTypeDiscriminants,
     },
     messages::ProtocolConfigurationMessage,
 };
@@ -13,8 +14,11 @@ use mithril_common::{
 
 /// Custom configuration for the signed entity types
 pub struct SignedEntityTypeConfiguration {
-    /// Cardano Transactions
+    /// Signing configuration for Cardano transactions
     pub cardano_transactions: Option<CardanoTransactionsSigningConfig>,
+
+    /// Signing configuration for Cardano blocks and transactions
+    pub cardano_blocks_transactions: Option<CardanoBlocksTransactionsSigningConfig>,
 }
 
 /// A Mithril network configuration
@@ -55,6 +59,7 @@ impl From<ProtocolConfigurationMessage> for MithrilNetworkConfigurationForEpoch 
             enabled_signed_entity_types: message.available_signed_entity_types,
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: message.cardano_transactions_signing_config,
+                cardano_blocks_transactions: message.cardano_blocks_transactions_signing_config,
             },
         }
     }

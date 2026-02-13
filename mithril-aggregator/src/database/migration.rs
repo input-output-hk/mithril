@@ -285,5 +285,13 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (5, 'Cardano Blocks and Transactions');
         "#,
         ),
+        // Migration 39
+        // Add `cardano_blocks_transactions_signing_config` column to `epoch_setting` table.
+        SqlMigration::new(
+            39,
+            r#"
+alter table epoch_setting add column cardano_blocks_transactions_signing_config json;
+        "#,
+        ),
     ]
 }

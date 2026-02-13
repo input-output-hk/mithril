@@ -3,7 +3,8 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{
-    CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityTypeDiscriminants,
+    CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, ProtocolParameters,
+    SignedEntityTypeDiscriminants,
 };
 
 /// ProtocolConfiguration represents the protocol configuration of an epoch
@@ -15,6 +16,10 @@ pub struct ProtocolConfigurationMessage {
     /// Cardano transactions signing configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+    /// Cardano blocks and transactions signing configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
 
     /// Aggregator enabled signed entity types
     pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,

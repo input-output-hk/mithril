@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.58
+  version: 0.1.59
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1035,6 +1035,7 @@ components:
         - CardanoStakeDistribution
         - CardanoImmutableFilesFull
         - CardanoTransactions
+        - CardanoBlocksTransactions
         - CardanoDatabase
 
     EpochSettingsMessage:
@@ -1116,6 +1117,8 @@ components:
           $ref: "#/components/schemas/ProtocolParameters"
         cardano_transactions_signing_config:
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
+        cardano_blocks_transactions_signing_config:
+          $ref: "#/components/schemas/CardanoBlocksTransactionsSigningConfig"
         available_signed_entity_types:
           description: Available signed entity types that are signed by the aggregator
           type: array
@@ -1131,7 +1134,8 @@ components:
               [
                 "MithrilStakeDistribution",
                 "CardanoImmutableFilesFull",
-                "CardanoTransactions"
+                "CardanoTransactions",
+                "CardanoBlocksTransactions"
               ]
           }
 
@@ -1173,6 +1177,25 @@ components:
           format: int64
         step:
           description: Number of blocks between signature of Cardano transactions
+          type: integer
+          format: int64
+      examples:
+        - { "security_parameter": 100, "step": 10 }
+
+    CardanoBlocksTransactionsSigningConfig:
+      description: Cardano blocks and transactions signing configuration
+      type: object
+      additionalProperties: false
+      required:
+        - security_parameter
+        - step
+      properties:
+        security_parameter:
+          description: Number of blocks to discard from the tip of the chain when importing Cardano blocks and transactions
+          type: integer
+          format: int64
+        step:
+          description: Number of blocks between signature of Cardano blocks and transactions
           type: integer
           format: int64
       examples:

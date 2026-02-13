@@ -153,8 +153,8 @@ mod tests {
     use mockall::predicate::eq;
 
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
-        SignedEntityTypeDiscriminants,
+        CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, ChainPoint,
+        Epoch, ProtocolMessagePartKey, SignedEntityTypeDiscriminants,
     };
     use mithril_common::test::double::{Dummy, fake_data};
 
@@ -172,6 +172,7 @@ mod tests {
             signed_entity_type_lock: locker.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
+                CardanoBlocksTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
             ..SignerCertifierService::dumb_dependencies()
@@ -194,6 +195,7 @@ mod tests {
             signed_entity_type_lock: locker.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
+                CardanoBlocksTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
             ..SignerCertifierService::dumb_dependencies()
@@ -219,6 +221,7 @@ mod tests {
             signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
+                CardanoBlocksTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
             ..SignerCertifierService::dumb_dependencies()
@@ -253,6 +256,7 @@ mod tests {
             signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
+                CardanoBlocksTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
             ..SignerCertifierService::dumb_dependencies()
@@ -297,6 +301,7 @@ mod tests {
             signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
+                CardanoBlocksTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
             ..SignerCertifierService::dumb_dependencies()
@@ -491,6 +496,7 @@ mod tests {
     }
 
     pub mod tests_tooling {
+        use mithril_common::entities::CardanoBlocksTransactionsSigningConfig;
         use std::collections::BTreeSet;
         use tokio::sync::RwLock;
 
@@ -504,6 +510,7 @@ mod tests {
                     signed_beacon_store: Arc::new(DumbSignedBeaconStore::default()),
                     signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                         CardanoTransactionsSigningConfig::dummy(),
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
                         SignedEntityTypeDiscriminants::all(),
                     )),
                     signed_entity_type_lock: Arc::new(SignedEntityTypeLock::new()),
@@ -520,12 +527,16 @@ mod tests {
 
         impl DumbSignedEntityConfigProvider {
             pub fn new(
-                config: CardanoTransactionsSigningConfig,
+                cardano_transactions_config: CardanoTransactionsSigningConfig,
+                cardano_blocks_transactions_config: CardanoBlocksTransactionsSigningConfig,
                 allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
             ) -> Self {
                 Self {
                     config: SignedEntityConfig {
-                        cardano_transactions_signing_config: Some(config),
+                        cardano_transactions_signing_config: Some(cardano_transactions_config),
+                        cardano_blocks_transactions_signing_config: Some(
+                            cardano_blocks_transactions_config,
+                        ),
                         allowed_discriminants,
                     },
                 }

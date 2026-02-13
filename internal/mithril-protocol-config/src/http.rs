@@ -82,7 +82,10 @@ mod tests {
     use httpmock::MockServer;
     use std::sync::Arc;
 
-    use mithril_common::entities::ProtocolParameters;
+    use mithril_common::entities::{
+        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
+        ProtocolParameters,
+    };
     use mithril_common::messages::ProtocolConfigurationMessage;
     use mithril_common::test::double::Dummy;
 
@@ -95,6 +98,16 @@ mod tests {
      {
         let configuration_epoch_41 = ProtocolConfigurationMessage {
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.1),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(1),
+                step: BlockNumber(10),
+            }),
+            cardano_blocks_transactions_signing_config: Some(
+                CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(11),
+                    step: BlockNumber(110),
+                },
+            ),
             ..Dummy::dummy()
         };
         let configuration_epoch_42 = ProtocolConfigurationMessage {
@@ -139,6 +152,27 @@ mod tests {
         assert_eq!(
             configuration.configuration_for_aggregation.protocol_parameters,
             ProtocolParameters::new(1000, 100, 0.1)
+        );
+        assert_eq!(
+            configuration
+                .configuration_for_aggregation
+                .signed_entity_types_config
+                .cardano_transactions,
+            Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(1),
+                step: BlockNumber(10),
+            })
+        );
+
+        assert_eq!(
+            configuration
+                .configuration_for_aggregation
+                .signed_entity_types_config
+                .cardano_blocks_transactions,
+            Some(CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(11),
+                step: BlockNumber(110),
+            })
         );
 
         assert_eq!(

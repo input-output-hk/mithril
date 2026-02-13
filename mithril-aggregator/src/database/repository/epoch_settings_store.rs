@@ -54,6 +54,8 @@ impl EpochSettingsStorer for EpochSettingsStore {
         let record_to_insert = EpochSettingsRecord {
             epoch_settings_id: epoch,
             cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config: epoch_settings
+                .cardano_blocks_transactions_signing_config,
             protocol_parameters: epoch_settings.protocol_parameters,
         };
         let epoch_settings_record = self

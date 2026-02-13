@@ -181,6 +181,8 @@ jobs:
           mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
           mithril_aggregator_cardano_blocks_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
           mithril_aggregator_cardano_blocks_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_blocks_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+          mithril_aggregator_cardano_blocks_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_BLOCKS_TRANSACTIONS_SIGNING_CONFIG_STEP }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}

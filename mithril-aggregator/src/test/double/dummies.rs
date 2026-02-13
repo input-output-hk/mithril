@@ -43,7 +43,8 @@ mod record {
 
 mod entities {
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ProtocolMessage, SignedEntityType,
+        CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, ProtocolMessage,
+        SignedEntityType,
     };
 
     use crate::entities::{AggregatorEpochSettings, LeaderAggregatorEpochSettings, OpenMessage};
@@ -53,14 +54,13 @@ mod entities {
     impl Dummy for AggregatorEpochSettings {
         /// Create a dummy `AggregatorEpochSettings`
         fn dummy() -> Self {
-            let protocol_parameters = fake_data::protocol_parameters();
-            let cardano_transactions_signing_config =
-                Some(CardanoTransactionsSigningConfig::dummy());
-
             // Aggregator Epoch settings
             AggregatorEpochSettings {
-                protocol_parameters,
-                cardano_transactions_signing_config,
+                protocol_parameters: fake_data::protocol_parameters(),
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                cardano_blocks_transactions_signing_config: Some(
+                    CardanoBlocksTransactionsSigningConfig::dummy(),
+                ),
             }
         }
     }

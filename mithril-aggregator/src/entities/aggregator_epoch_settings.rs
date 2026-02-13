@@ -1,4 +1,6 @@
-use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
+use mithril_common::entities::{
+    CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, ProtocolParameters,
+};
 
 /// AggregatorEpochSettings represents the settings of an epoch
 #[derive(Clone, Debug, PartialEq)]
@@ -8,6 +10,9 @@ pub struct AggregatorEpochSettings {
 
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+    /// Cardano blocks and transactions signing configuration
+    pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
 }
 
 #[cfg(test)]
@@ -32,6 +37,7 @@ mod test_utils {
                 enabled_signed_entity_types,
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: self.cardano_transactions_signing_config,
+                    cardano_blocks_transactions: self.cardano_blocks_transactions_signing_config,
                 },
             }
         }

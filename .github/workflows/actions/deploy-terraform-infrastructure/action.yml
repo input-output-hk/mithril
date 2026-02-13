@@ -158,6 +158,12 @@ inputs:
   mithril_aggregator_cardano_blocks_transactions_database_connection_pool_size:
     description: Mithril aggregator cardano blocks and transactions database connection pool size.
     required: true
+  mithril_aggregator_cardano_blocks_transactions_signing_config_security_parameter:
+    description: Mithril aggregator number of blocks to discard from the tip of the chain when importing Cardano blocks and transactions
+    required: true
+  mithril_aggregator_cardano_blocks_transactions_signing_config_step:
+    description: Mithril aggregator number of blocks between signature of the Cardano blocks and transactions
+    required: true
   mithril_aggregator_cardano_transactions_prover_cache_pool_size:
     description: Mithril aggregator cardano transactions prover cache pool size.
     required: true

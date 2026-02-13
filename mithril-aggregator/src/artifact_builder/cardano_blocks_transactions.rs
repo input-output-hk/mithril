@@ -45,8 +45,8 @@ impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
     ) -> StdResult<CardanoBlocksTransactionsSnapshot> {
         let merkle_root = certificate
             .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::CardanoTransactionsMerkleRoot)
-            .with_context(|| "Can not find CardanoTransactionsMerkleRoot protocol message part in certificate")
+            .get_message_part(&ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot)
+            .with_context(|| "Can not find CardanoBlocksTransactionsMerkleRoot protocol message part in certificate")
             .with_context(|| {
                 format!(
                     "Can not compute CardanoBlocksTransactionsSnapshot artifact for signed_entity: {:?}",
@@ -60,16 +60,16 @@ impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
             .get_network_configuration(certificate.epoch)
             .await?;
 
-        let cardano_transactions = network_configuration
+        let cardano_blocks_transactions = network_configuration
             .configuration_for_aggregation
             .signed_entity_types_config
-            .cardano_transactions; //TODO: use cardano_blocks_transactions instead (when issue 2971 will be done)
+            .cardano_blocks_transactions;
 
-        match cardano_transactions {
-            Some(cardano_transactions) => Ok(CardanoBlocksTransactionsSnapshot::new(
+        match cardano_blocks_transactions {
+            Some(cardano_blocks_transactions) => Ok(CardanoBlocksTransactionsSnapshot::new(
                 merkle_root.to_string(),
                 beacon,
-                cardano_transactions.security_parameter,
+                cardano_blocks_transactions.security_parameter,
             )),
             None => Err(anyhow!(
                 "There is no cardano blocks and transactions signing configuration for aggregation for Epoch {}",
@@ -83,7 +83,7 @@ impl ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>
 mod tests {
     use crate::services::MockProverService;
     use mithril_common::{
-        entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolMessage},
+        entities::{CardanoBlocksTransactionsSigningConfig, Epoch, ProtocolMessage},
         test::double::{Dummy, fake_data},
     };
     use mithril_protocol_config::model::{
@@ -116,10 +116,13 @@ mod tests {
                 Ok(MithrilNetworkConfiguration {
                     configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                         signed_entity_types_config: SignedEntityTypeConfiguration {
-                            cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                                security_parameter: BlockNumber(15),
-                                ..Dummy::dummy()
-                            }),
+                            cardano_blocks_transactions: Some(
+                                CardanoBlocksTransactionsSigningConfig {
+                                    security_parameter: BlockNumber(42),
+                                    ..Dummy::dummy()
+                                },
+                            ),
+                            ..Dummy::dummy()
                         },
                         ..Dummy::dummy()
                     },
@@ -135,7 +138,7 @@ mod tests {
         let certificate_with_merkle_root = {
             let mut protocol_message = ProtocolMessage::new();
             protocol_message.set_message_part(
-                ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+                ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
                 "merkleroot".to_string(),
             );
             Certificate {
@@ -154,7 +157,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "merkleroot".to_string(),
                 beacon,
-                BlockNumber(15)
+                BlockNumber(42)
             ),
             artifact
         );
@@ -180,11 +183,11 @@ mod tests {
         cardano_blocks_transactions_artifact_builder
             .compute_artifact(beacon, &certificate_without_merkle_root)
             .await
-            .expect_err("The artifact building must fail since there is no CardanoTransactionsMerkleRoot part in its message.");
+            .expect_err("The artifact building must fail since there is no CardanoBlocksTransactionsMerkleRoot part in its message.");
     }
 
     #[tokio::test]
-    async fn should_fail_to_compute_artifact_without_cardano_transactions() {
+    async fn should_fail_to_compute_artifact_without_cardano_blocks_transactions() {
         let mut mock_prover = MockProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
         let mut mock_mithril_network_configuration_provider =
@@ -196,7 +199,8 @@ mod tests {
                 Ok(MithrilNetworkConfiguration {
                     configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                         signed_entity_types_config: SignedEntityTypeConfiguration {
-                            cardano_transactions: None,
+                            cardano_blocks_transactions: None,
+                            ..Dummy::dummy()
                         },
                         ..Dummy::dummy()
                     },
@@ -212,7 +216,7 @@ mod tests {
         let certificate_with_merkle_root = {
             let mut protocol_message = ProtocolMessage::new();
             protocol_message.set_message_part(
-                ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+                ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
                 "merkleroot".to_string(),
             );
             Certificate {
@@ -225,6 +229,6 @@ mod tests {
         cardano_blocks_transactions_artifact_builder
             .compute_artifact(beacon, &certificate_with_merkle_root)
             .await
-            .expect_err("The artifact building must fail since there is no CardanoTransaction in MithrilNetworkConfiguration.");
+            .expect_err("The artifact building must fail since there is no CardanoBlocksTransactions in MithrilNetworkConfiguration.");
     }
 }
