@@ -392,11 +392,11 @@ mod tests {
             #[test]
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn following_stake_same_order(
-                phi_f in 0.01..0.5f64,
+                phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
                 stake in 10_000_000..50_000_000u64,
             ) {
-                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                 let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
                 let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
@@ -407,11 +407,11 @@ mod tests {
             #[test]
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn following_small_stake_same_order(
-                phi_f in 0.01..0.5f64,
+                phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
                 stake in 100_000..500_000u64,
             ) {
-                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                 let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
                 let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
@@ -422,11 +422,11 @@ mod tests {
             #[test]
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn same_stake_same_result(
-                phi_f in 0.01..0.5f64,
+                phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
                 stake in 10_000_000..50_000_000u64,
             ) {
-                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                 let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
                 let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
@@ -437,11 +437,11 @@ mod tests {
             #[test]
             #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn same_small_stake_same_result(
-                phi_f in 0.01..0.5f64,
+                phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
                 stake in 100_000..500_000u64,
             ) {
-                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                 let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
                 let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
