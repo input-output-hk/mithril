@@ -10,8 +10,8 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
-use crate::circuits::halo2::off_circuit::utils::split;
 use crate::circuits::halo2::types::{Jubjub, JubjubBase};
+use crate::circuits::halo2::utils::split;
 
 type F = JubjubBase;
 type C = Jubjub;
