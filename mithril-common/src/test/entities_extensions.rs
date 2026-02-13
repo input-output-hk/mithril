@@ -1,14 +1,15 @@
 //! A set of extension traits to add test utilities to this crate `entities`
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::StdResult;
 use crate::crypto_helper::{
     MKMap, MKMapNode, MKTree, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
 };
 use crate::entities::{
-    BlockNumber, BlockRange, CardanoTransactionsSetProof, ProtocolParameters, SingleSignature,
-    SingleSignatureAuthenticationStatus, TransactionHash,
+    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+    CardanoBlocksTransactionsSetProof, CardanoTransactionsSetProof, ProtocolParameters,
+    SingleSignature, SingleSignatureAuthenticationStatus, TransactionHash,
 };
 use crate::test::builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 
@@ -19,6 +20,49 @@ pub trait BlockRangeTestExtension {
 
     /// `TEST ONLY` - Try to add two BlockRanges
     fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange>;
+}
+
+/// Extension trait adding test utilities to [CardanoBlocksTransactionsSetProof]
+pub trait CardanoBlocksTransactionsSetProofTestExtension {
+    /// `TEST ONLY` - Helper to create a proof from a list of blocks
+    fn from_blocks<S: MKTreeStorer>(
+        blocks: &[CardanoBlockWithTransactions],
+    ) -> StdResult<CardanoBlocksTransactionsSetProof>;
+}
+
+impl CardanoBlocksTransactionsSetProofTestExtension for CardanoBlocksTransactionsSetProof {
+    fn from_blocks<S: MKTreeStorer>(
+        blocks: &[CardanoBlockWithTransactions],
+    ) -> StdResult<CardanoBlocksTransactionsSetProof> {
+        let leaves: Vec<_> = blocks.iter().cloned().flat_map(|l| l.into_mk_tree_node()).collect();
+        let mut blocks_and_transactions_by_block_ranges: HashMap<
+            BlockRange,
+            BTreeSet<CardanoBlockTransactionMkTreeNode>,
+        > = HashMap::new();
+        for leaf in leaves.iter().cloned() {
+            let block_range = BlockRange::from_block_number(leaf.block_number());
+            blocks_and_transactions_by_block_ranges
+                .entry(block_range)
+                .or_default()
+                .insert(leaf);
+        }
+
+        let mk_map = MKMap::<_, _, MKTreeStoreInMemory>::new(
+            blocks_and_transactions_by_block_ranges
+                .into_iter()
+                .try_fold(
+                    vec![],
+                    |mut acc, (block_range, nodes)| -> StdResult<Vec<(_, MKMapNode<_, S>)>> {
+                        acc.push((block_range, MKTree::<S>::new_from_iter(nodes)?.into()));
+                        Ok(acc)
+                    },
+                )?
+                .as_slice(),
+        )?;
+
+        let mk_proof = mk_map.compute_proof(&leaves)?;
+        Ok(Self::new(blocks.to_vec(), mk_proof))
+    }
 }
 
 /// Extension trait adding test utilities to [CardanoTransactionsSetProof]

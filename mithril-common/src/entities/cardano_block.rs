@@ -130,6 +130,14 @@ pub enum CardanoBlockTransactionMkTreeNode {
 }
 
 impl CardanoBlockTransactionMkTreeNode {
+    /// Returns the block number of the node.
+    pub fn block_number(&self) -> BlockNumber {
+        match self {
+            Self::Block { block_number, .. } => *block_number,
+            Self::Transaction { block_number, .. } => *block_number,
+        }
+    }
+
     fn leaf_identifier(&self) -> Vec<u8> {
         match self {
             Self::Block {
