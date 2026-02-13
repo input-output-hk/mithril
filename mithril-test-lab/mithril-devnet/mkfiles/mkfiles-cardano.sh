@@ -4,17 +4,6 @@ mkdir -p ${ARTIFACTS_DIR_TEMP}
 # Step 1: Bootstrap the devnet artifacts
 # Adapted from https://github.com/IntersectMBO/cardano-node/blob/master/scripts/babbage/mkfiles.sh
 
-# Is semver on the first argument strictly lower than equal to the second argument?
-version_lt() {
-  VERSION_LHS=$1
-  VERSION_RHS=$2
-  if [ "${VERSION_LHS}" != "${VERSION_RHS}" ] && [ "${VERSION_LHS}" = "`echo -e "${VERSION_LHS}\n${VERSION_RHS}" | sort -V | head -n1`" ]; then
-    echo "true"
-  else
-    echo "false"
-  fi
-}
-
 UNAME=$(uname -s) SED=
 case $UNAME in
   Darwin )      SED="gsed";;
