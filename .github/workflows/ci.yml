@@ -93,7 +93,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         id: eras-test-lab
         run: |
-          ERAS=$(./target/release/mithril-aggregator era list --json)
+          ERAS=$(./target/${{ matrix.musl_target }}/release/mithril-aggregator era list --json)
           echo "Test Lab Eras: $ERAS"
           echo "eras=$ERAS" >> $GITHUB_OUTPUT
 
