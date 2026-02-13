@@ -4,8 +4,7 @@ pub mod circuit;
 pub mod constants;
 pub mod gadgets;
 pub(crate) mod utils;
-#[cfg(test)]
-mod experiments;
+pub(crate) mod error;
 pub mod hash;
 pub mod off_circuit;
 pub mod types;
