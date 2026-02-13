@@ -87,7 +87,7 @@ cfg_num_integer! {
     // Function that computes an approximation of exp(a/b) using a binomial splitting
     // to compute the taylor expansion terms between i and j,
     // i.e. between (a/b)^i * (1/i!) and (a/b)^j * (1/j!)
-    pub fn exponential_approx(i: usize, j: usize, a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+    pub fn exponential_approximation(i: usize, j: usize, a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
         if j - i == 1 {
             if i == 0 {
                 return (BigInt::one(), BigInt::one(), BigInt::one());
@@ -96,8 +96,8 @@ cfg_num_integer! {
         }
 
         let mid = (i + j) / 2;
-        let (numerator_l, denominator_l, auxiliary_value_l) = exponential_approx(i, mid, a, b);
-        let (numerator_r, denominator_r, auxiliary_value_r) = exponential_approx(mid, j, a, b);
+        let (numerator_l, denominator_l, auxiliary_value_l) = exponential_approximation(i, mid, a, b);
+        let (numerator_r, denominator_r, auxiliary_value_r) = exponential_approximation(mid, j, a, b);
 
         let numerator = &numerator_l * &denominator_r + &auxiliary_value_l * &numerator_r;
         let denominator = &denominator_l * &denominator_r;
@@ -106,10 +106,10 @@ cfg_num_integer! {
         (numerator, denominator, auxiliary_value)
     }
 
-    // Function that computes an approximation of ln(1 - a/b) using a taylor expansion
+    // Function that computes an approximation of ln(1 - a/b) using a taylor expension
     // for a given number of iterations
     #[allow(dead_code)]
-    fn ln_1p_approx(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
+    fn ln_1p_approximation(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
         let mut num = a.clone();
         let mut denom = b.clone();
         let mut acc = Ratio::new_raw(a.clone(),b.clone());
@@ -122,15 +122,16 @@ cfg_num_integer! {
         -acc
     }
 
-    /// Computes a Taylor expansion of the exponantial exp(c*w) up to the (N-1)th term
+    /// Computes a Taylor expension of the exponential exp(c*w) up to the (N-1)th term
     pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
         let cw = c * x;
-        let (num, denom, _) = exponential_approx(0, iterations, cw.numer(), cw.denom());
+        let (num, denom, _) = exponential_approximation(0, iterations, cw.numer(), cw.denom());
 
         Ratio::new_raw(num, denom)
     }
 
-
+    /// Compute the target value of a given party as a base field element using
+    /// Taylor expension for the natural log and the exponential functions
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub fn compute_target_bigint(phi_f_ratio: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> BigInt {
@@ -144,7 +145,7 @@ cfg_num_integer! {
         .unwrap();
         let stake_ratio = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
 
-        let ln_one_minus_phi_f = ln_1p_approx(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+        let ln_one_minus_phi_f = ln_1p_approximation(40, phi_f_ratio.numer(), phi_f_ratio.denom());
         let exp_ln_one_minus_phi_f_stake_ratio = compute_exp(ln_one_minus_phi_f.clone(), stake_ratio.clone(), 40);
         let target_as_ratio = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_ln_one_minus_phi_f_stake_ratio.clone();
 
@@ -160,6 +161,9 @@ cfg_num_integer! {
         }
     }
 
+    /// Compute the target value in bytes form given a value phi_f,
+    /// the signer stake and the total stake
+    /// The function approximate phi_f as a ratio to make Taylor expensions easier to compute
     #[allow(dead_code)]
     pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
 
