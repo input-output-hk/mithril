@@ -114,9 +114,9 @@ cfg_num_integer! {
         let mut denom = b.clone();
         let mut acc = Ratio::new_raw(a.clone(),b.clone());
         for i in 2..(iterations + 1) {
-            num = num * a;
-            denom = denom * b;
-            acc = acc + Ratio::new_raw(num.clone(), denom.clone() * i);
+            num *= a;
+            denom *= b;
+            acc += Ratio::new_raw(num.clone(), denom.clone() * i);
         }
 
         -acc
@@ -170,7 +170,7 @@ cfg_num_integer! {
         let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
         let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
 
-        let target_bigint = compute_target_bigint(&&phi_f_ratio, stake, total_stake);
+        let target_bigint = compute_target_bigint(&phi_f_ratio, stake, total_stake);
 
         let (_, bytes) = target_bigint.to_bytes_le();
         bytes
