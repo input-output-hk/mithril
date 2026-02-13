@@ -13,6 +13,7 @@ use crate::{Aggregator, MithrilInfrastructure, assertions};
 pub struct Spec {
     pub infrastructure: Arc<MithrilInfrastructure>,
     is_signing_cardano_transactions: bool,
+    is_signing_cardano_blocks_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
     is_signing_cardano_database: bool,
     next_era: Option<String>,
@@ -28,18 +29,14 @@ impl Spec {
     ) -> Self {
         Self {
             infrastructure,
-            is_signing_cardano_transactions: signed_entity_types.contains(
-                &SignedEntityTypeDiscriminants::CardanoTransactions
-                    .as_ref()
-                    .to_string(),
-            ),
-            is_signing_cardano_stake_distribution: signed_entity_types.contains(
-                &SignedEntityTypeDiscriminants::CardanoStakeDistribution
-                    .as_ref()
-                    .to_string(),
-            ),
+            is_signing_cardano_transactions: signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
+            is_signing_cardano_blocks_transactions: signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string()),
+            is_signing_cardano_stake_distribution: signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string()),
             is_signing_cardano_database: signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.as_ref().to_string()),
+                .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
             next_era,
             regenesis_on_era_switch,
         }
@@ -284,6 +281,26 @@ impl Spec {
             let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
                 .await?;
+        }
+
+        // Verify that Cardano blocks transactions artifacts are produced and signed correctly
+        if self.is_signing_cardano_blocks_transactions {
+            let hash =
+                assertions::assert_node_producing_cardano_blocks_transactions(aggregator).await?;
+            let certificate_hash =
+                assertions::assert_signer_is_signing_cardano_blocks_transactions(
+                    aggregator,
+                    &hash,
+                    expected_epoch_min,
+                )
+                .await?;
+
+            assertions::assert_is_creating_certificate_with_enough_signers(
+                aggregator,
+                &certificate_hash,
+                infrastructure.signers().len(),
+            )
+            .await?;
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
