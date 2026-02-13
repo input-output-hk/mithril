@@ -153,11 +153,14 @@ cfg_num_integer! {
         let (target_as_int, remainder) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
         assert!(target_as_int >= BigInt::zero());
 
+        // Truncate the lower bits
+        let truncated_target: BigInt = (target_as_int >> 185) << 185;
+
         // If exact division and target_as_int > 0, subtract 1
-        if remainder.is_zero() && !target_as_int.is_zero() {
-            target_as_int - 1
+        if remainder.is_zero() && !truncated_target.is_zero() {
+            truncated_target - 1
         } else {
-            target_as_int
+            truncated_target
         }
     }
 
