@@ -1,7 +1,6 @@
 use digest::Digest;
 
-use crate::circuits::halo2::off_circuit::merkle_tree::{MerklePath as Halo2MerklePath, Position};
-use crate::circuits::halo2::types::JubjubBase;
+use crate::circuits::halo2::types::{MerklePath as Halo2MerklePath, Position};
 use crate::circuits::halo2::utils::field_bytes::digest_bytes_to_base;
 use crate::membership_commitment::MerklePath as StmMerklePath;
 

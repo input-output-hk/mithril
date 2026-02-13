@@ -15,8 +15,9 @@ use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
-use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath};
-use crate::circuits::halo2::types::{Jubjub, JubjubBase, JubjubScalar, LotteryIndex, MerkleRoot, Msg};
+use crate::circuits::halo2::types::{
+    Jubjub, JubjubBase, JubjubScalar, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, Msg,
+};
 use crate::signature_scheme::{
     BaseFieldElement, PrimeOrderProjectivePoint, UniqueSchnorrSignature,
 };

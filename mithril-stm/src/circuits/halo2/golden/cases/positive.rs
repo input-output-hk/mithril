@@ -53,11 +53,11 @@ fn indices_from_zero() {
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let (materials, merkle_tree) = create_default_merkle_tree(env.num_signers());
     let merkle_root = merkle_tree.root();
     let indices = vec![0, 1, 2];
     let witness =
-        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+        build_witness_with_indices(&materials, &merkle_tree, merkle_root, msg, &indices);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
@@ -69,14 +69,14 @@ fn indices_to_max() {
     const QUORUM: u32 = 3;
     let msg = JubjubBase::from(42);
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
-    let (sks, leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let (materials, merkle_tree) = create_default_merkle_tree(env.num_signers());
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
     assert!(m >= QUORUM, "num_lotteries must be >= quorum");
     let start = m - QUORUM;
     let indices = (start..m).collect::<Vec<u32>>();
     let witness =
-        build_witness_with_indices(&sks, &leaves, &merkle_tree, merkle_root, msg, &indices);
+        build_witness_with_indices(&materials, &merkle_tree, merkle_root, msg, &indices);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");
@@ -90,7 +90,7 @@ fn merkle_path_all_right() {
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -JubjubBase::ONE;
-    let (sks, leaves, merkle_tree, rightmost_index) =
+    let (materials, merkle_tree, rightmost_index) =
         create_merkle_tree_with_leaf_selector(depth, LeafSelector::RightMost, target);
 
     let merkle_root = merkle_tree.root();
@@ -98,8 +98,7 @@ fn merkle_path_all_right() {
     let indices = vec![4, 12, 25];
     assert!(indices.iter().all(|i| *i < m));
     let witness = build_witness_with_fixed_signer(
-        &sks,
-        &leaves,
+        &materials,
         &merkle_tree,
         rightmost_index,
         merkle_root,
@@ -120,7 +119,7 @@ fn merkle_path_all_left() {
     let env = setup_stm_circuit_env(current_function!(), K, QUORUM);
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -JubjubBase::ONE;
-    let (sks, leaves, merkle_tree, leftmost_index) =
+    let (materials, merkle_tree, leftmost_index) =
         create_merkle_tree_with_leaf_selector(depth, LeafSelector::LeftMost, target);
 
     let merkle_root = merkle_tree.root();
@@ -128,8 +127,7 @@ fn merkle_path_all_left() {
     let indices = vec![5, 13, 21];
     assert!(indices.iter().all(|i| *i < m));
     let witness = build_witness_with_fixed_signer(
-        &sks,
-        &leaves,
+        &materials,
         &merkle_tree,
         leftmost_index,
         merkle_root,
