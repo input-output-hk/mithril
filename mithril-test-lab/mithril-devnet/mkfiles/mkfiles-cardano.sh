@@ -4,17 +4,6 @@ mkdir -p ${ARTIFACTS_DIR_TEMP}
 # Step 1: Bootstrap the devnet artifacts
 # Adapted from https://github.com/IntersectMBO/cardano-node/blob/master/scripts/babbage/mkfiles.sh
 
-# Is semver on the first argument strictly lower than equal to the second argument?
-version_lt() {
-  VERSION_LHS=$1
-  VERSION_RHS=$2
-  if [ "${VERSION_LHS}" != "${VERSION_RHS}" ] && [ "${VERSION_LHS}" = "`echo -e "${VERSION_LHS}\n${VERSION_RHS}" | sort -V | head -n1`" ]; then
-    echo "true"
-  else
-    echo "false"
-  fi
-}
-
 UNAME=$(uname -s) SED=
 case $UNAME in
   Darwin )      SED="gsed";;
@@ -83,10 +72,17 @@ $CARDANO_CLI byron genesis genesis \
   --protocol-parameters-file "${ARTIFACTS_DIR_TEMP}/byron.genesis.spec.json" \
   --genesis-output-dir "${ARTIFACTS_DIR_TEMP}/byron-gen-command"
 
-cp $SCRIPT_DIRECTORY/configuration/babbage/alonzo-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.alonzo.spec.json"
-cp $SCRIPT_DIRECTORY/configuration/babbage/conway-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json"
+if [ "$(version_lt ${CARDANO_NODE_VERSION_RELEASE} 10.6.0)" = "true" ]; then
+  GENESIS_ALONZO_FILE="8.12/alonzo-test-genesis.json"
+  GENESIS_CONWAY_FILE="8.12/conway-test-genesis.json"
+else
+  GENESIS_ALONZO_FILE="10.6/alonzo-test-genesis.json"
+  GENESIS_CONWAY_FILE="10.6/conway-test-genesis.json"
+fi
+cp $SCRIPT_DIRECTORY/configuration/$GENESIS_ALONZO_FILE "${ARTIFACTS_DIR_TEMP}/genesis.alonzo.spec.json"
+cp $SCRIPT_DIRECTORY/configuration/$GENESIS_CONWAY_FILE "${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json"
 
-cp $SCRIPT_DIRECTORY/configuration/byron/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
+cp $SCRIPT_DIRECTORY/configuration/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
 $SED -i "${ARTIFACTS_DIR_TEMP}/configuration.yaml" \
      -e 's/Protocol: RealPBFT/Protocol: Cardano/' \
      -e '/Protocol/ aPBftSignatureThreshold: 0.6' \

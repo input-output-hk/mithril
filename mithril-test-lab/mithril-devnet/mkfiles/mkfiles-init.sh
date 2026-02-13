@@ -7,15 +7,40 @@ case $UNAME in
                 exit 1;;
 esac
 
+# Get the architecture
+UNAME_ARCH=$(uname -m)
+case $UNAME_ARCH in
+  x86_64 )      ARCHITECTURE="amd64";;
+  arm64 )       ARCHITECTURE="arm64";;
+  aarch64 )     ARCHITECTURE="arm64";;
+  * )           echo "Error: Unsupported architecture. Only amd64 and arm64 are supported."
+                exit 1;;
+esac
+
+# Is semver on the first argument strictly lower than equal to the second argument?
+version_lt() {
+  VERSION_LHS=$1
+  VERSION_RHS=$2
+  if [ "${VERSION_LHS}" != "${VERSION_RHS}" ] && [ "${VERSION_LHS}" = "`echo -e "${VERSION_LHS}\n${VERSION_RHS}" | sort -V | head -n1`" ]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
 # Cardano node version
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
-  CARDANO_NODE_VERSION="10.5.1"
+  CARDANO_NODE_VERSION="10.6.2"
 fi
 if [ -z "${CARDANO_NODE_VERSION_RELEASE}" ]; then 
   CARDANO_NODE_VERSION_RELEASE=$(echo "${CARDANO_NODE_VERSION}" | cut -d'-' -f1)
 fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
-  CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
+  if [ "$(version_lt ${CARDANO_NODE_VERSION_RELEASE} 10.6.0)" = "true" ]; then
+    CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
+  else
+    CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}-${ARCHITECTURE}.tar.gz"
+  fi
 fi
 if [ -z "${CARDANO_CLI_ERA}" ]; then
     CARDANO_CLI_ERA=latest

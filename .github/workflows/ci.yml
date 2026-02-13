@@ -387,7 +387,7 @@ jobs:
         mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu.outputs.eras) }}
         next_era: [""]
-        cardano_node_version: ["10.4.1", "10.5.1"]
+        cardano_node_version: ["10.4.1", "10.5.2", "10.6.2"]
         hard_fork_latest_era_at_epoch: [0]
         run_id: ["#1"]
         extra_args: ["--aggregate-signature-type=Concatenation"]

@@ -21,11 +21,12 @@
       "valency": 1
     }
   ],
+  "peerSnapshotFile": "peer-snapshot.json",
   "publicRoots": [
     {
       "accessPoints": [],
       "advertise": false
     }
   ],
-  "useLedgerAfterSlot": 148350000
+  "useLedgerAfterSlot": 177724800
 }
