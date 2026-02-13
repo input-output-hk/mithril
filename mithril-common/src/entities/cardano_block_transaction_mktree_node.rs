@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 
 use crate::crypto_helper::MKTreeNode;
-use crate::entities::{BlockHash, BlockNumber, SlotNumber, TransactionHash};
+use crate::entities::{
+    BlockHash, BlockNumber, CardanoBlock, CardanoTransaction, SlotNumber, TransactionHash,
+};
 
 /// Leaf of the Merkle tree representing blocks and transactions
 ///
@@ -34,6 +36,14 @@ pub enum CardanoBlockTransactionMkTreeNode {
 }
 
 impl CardanoBlockTransactionMkTreeNode {
+    /// Returns the block number of the node.
+    pub fn block_number(&self) -> BlockNumber {
+        match self {
+            Self::Block { block_number, .. } => *block_number,
+            Self::Transaction { block_number, .. } => *block_number,
+        }
+    }
+
     fn leaf_identifier(&self) -> Vec<u8> {
         match self {
             Self::Block {
@@ -48,6 +58,27 @@ impl CardanoBlockTransactionMkTreeNode {
                 slot_number,
             } => format!("Tx/{transaction_hash}/{block_hash}/{block_number}/{slot_number}",)
                 .into_bytes(),
+        }
+    }
+}
+
+impl From<CardanoBlock> for CardanoBlockTransactionMkTreeNode {
+    fn from(value: CardanoBlock) -> Self {
+        Self::Block {
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            slot_number: value.slot_number,
+        }
+    }
+}
+
+impl From<CardanoTransaction> for CardanoBlockTransactionMkTreeNode {
+    fn from(value: CardanoTransaction) -> Self {
+        Self::Transaction {
+            transaction_hash: value.transaction_hash,
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            slot_number: value.slot_number,
         }
     }
 }
@@ -165,6 +196,36 @@ mod tests {
             tx_node!(hash: "tx_hash-10", block_hash: "block_hash-10", block: 9, slot: 13)
                 .leaf_identifier()
         );
+    }
+
+    #[test]
+    fn convert_cardano_block_to_cardano_blocks_transactions_mktree_node() {
+        let block = CardanoBlock::new("block_hash-5", BlockNumber(4), SlotNumber(6));
+
+        assert_eq!(
+            CardanoBlockTransactionMkTreeNode::Block {
+                block_hash: "block_hash-5".to_string(),
+                block_number: BlockNumber(4),
+                slot_number: SlotNumber(6)
+            },
+            block.into()
+        )
+    }
+
+    #[test]
+    fn convert_cardano_transaction_to_cardano_blocks_transactions_mktree_node() {
+        let transaction =
+            CardanoTransaction::new("tx_hash-5", BlockNumber(4), SlotNumber(6), "block_hash-5");
+
+        assert_eq!(
+            CardanoBlockTransactionMkTreeNode::Transaction {
+                transaction_hash: "tx_hash-5".to_string(),
+                block_number: BlockNumber(4),
+                slot_number: SlotNumber(6),
+                block_hash: "block_hash-5".to_string(),
+            },
+            transaction.into()
+        )
     }
 
     #[test]
