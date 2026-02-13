@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_signed_entity_lock::SignedEntityTypeLock;
 use slog::{Logger, debug, info};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
@@ -17,13 +16,16 @@ use mithril_common::{
     logging::LoggerExtensions,
     signable_builder::TransactionsImporter,
 };
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 
-#[cfg(test)]
-use mockall::automock;
+const SIGNED_ENTITIES_TO_LOCK: [SignedEntityTypeDiscriminants; 2] = [
+    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+    SignedEntityTypeDiscriminants::CardanoTransactions,
+];
 
 /// CardanoTransactionsPreloaderChecker gives the ability to determine
 /// if the Cardano Transactions Preloader should import the transactions.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait CardanoTransactionsPreloaderChecker: Send + Sync {
     /// Determine if the Cardano Transactions Preloader should preload.
@@ -49,8 +51,8 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
     }
 }
 
-/// Preload mechanism for Cardano Transaction signed entity, allowing
-/// to compute in advance the Transactions & Block Range Root to be signed.
+/// Preload mechanism for Cardano Transactions and Cardano Blocks Transactions signed entities, allowing
+/// to compute in advance the Blocks, Transactions & Block Range Root to be signed.
 pub struct CardanoTransactionsPreloader {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     importer: Arc<dyn TransactionsImporter>,
@@ -61,7 +63,7 @@ pub struct CardanoTransactionsPreloader {
 }
 
 impl CardanoTransactionsPreloader {
-    /// Create a new instance of `CardanoTransactionPreloader`.
+    /// Create a new instance of `CardanoTransactionsPreloader`.
     pub fn new(
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
         importer: Arc<dyn TransactionsImporter>,
@@ -88,17 +90,17 @@ impl CardanoTransactionsPreloader {
         }
 
         info!(self.logger, "Started");
-        debug!(self.logger, "Locking signed entity type"; "entity_type" => "CardanoTransactions");
-        self.signed_entity_type_lock
-            .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
-            .await;
+        debug!(self.logger, "Locking signed entity types"; "entity_types" => ?SIGNED_ENTITIES_TO_LOCK);
+        for signed_entity_type in SIGNED_ENTITIES_TO_LOCK {
+            self.signed_entity_type_lock.lock(signed_entity_type).await;
+        }
 
         let preload_result = self.do_preload().await;
 
-        debug!(self.logger, "Releasing signed entity type"; "entity_type" => "CardanoTransactions");
-        self.signed_entity_type_lock
-            .release(SignedEntityTypeDiscriminants::CardanoTransactions)
-            .await;
+        debug!(self.logger, "Releasing signed entity types"; "entity_types" => ?SIGNED_ENTITIES_TO_LOCK);
+        for signed_entity_type in SIGNED_ENTITIES_TO_LOCK {
+            self.signed_entity_type_lock.release(signed_entity_type).await;
+        }
         info!(self.logger, "Finished");
 
         preload_result
@@ -122,6 +124,7 @@ impl CardanoTransactionsPreloader {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use async_trait::async_trait;
     use mockall::mock;
     use mockall::predicate::eq;
@@ -129,16 +132,17 @@ mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
     use mithril_common::test::double::Dummy;
+    use mithril_common::test::mock_extensions::MockBuilder;
 
     use crate::test_tools::TestLogger;
 
     use super::*;
 
     mock! {
-        pub TransactionsImporterImpl { }
+        pub TransactionsImporter { }
 
         #[async_trait]
-        impl TransactionsImporter for TransactionsImporterImpl {
+        impl TransactionsImporter for TransactionsImporter {
             async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
         }
     }
@@ -152,6 +156,11 @@ mod tests {
             assert!(
                 self.signed_entity_type_lock
                     .is_locked(SignedEntityTypeDiscriminants::CardanoTransactions)
+                    .await
+            );
+            assert!(
+                self.signed_entity_type_lock
+                    .is_locked(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
                     .await
             );
             Ok(())
@@ -176,16 +185,16 @@ mod tests {
         let (chain_observer, chain_block_number, security_parameter) = build_chain_observer();
         let expected_parsed_block_number = chain_block_number - security_parameter;
 
-        let mut importer = MockTransactionsImporterImpl::new();
-        importer
-            .expect_import()
-            .times(1)
-            .with(eq(expected_parsed_block_number))
-            .returning(|_| Ok(()));
+        let importer = MockBuilder::<MockTransactionsImporter>::configure(|mock| {
+            mock.expect_import()
+                .times(1)
+                .with(eq(expected_parsed_block_number))
+                .returning(|_| Ok(()));
+        });
 
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
-            Arc::new(importer),
+            importer,
             security_parameter,
             Arc::new(chain_observer),
             TestLogger::stdout(),
@@ -198,12 +207,13 @@ mod tests {
     #[tokio::test]
     async fn do_not_call_its_inner_importer_when_is_not_activated() {
         let (chain_observer, _, _) = build_chain_observer();
-        let mut importer = MockTransactionsImporterImpl::new();
-        importer.expect_import().never();
+        let importer = MockBuilder::<MockTransactionsImporter>::configure(|mock| {
+            mock.expect_import().never();
+        });
 
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
-            Arc::new(importer),
+            importer,
             BlockNumber(542),
             Arc::new(chain_observer),
             TestLogger::stdout(),
@@ -216,13 +226,13 @@ mod tests {
     #[tokio::test]
     async fn return_error_when_is_activated_return_error() {
         let (chain_observer, _, _) = build_chain_observer();
-        let mut importer = MockTransactionsImporterImpl::new();
+        let mut importer = MockTransactionsImporter::new();
         importer.expect_import().never();
 
-        let mut preloader_checker = MockCardanoTransactionsPreloaderChecker::new();
-        preloader_checker
-            .expect_is_activated()
-            .returning(|| Err(anyhow::anyhow!("error")));
+        let preloader_checker =
+            MockBuilder::<MockCardanoTransactionsPreloaderChecker>::configure(|mock| {
+                mock.expect_is_activated().returning(|| Err(anyhow::anyhow!("error")));
+            });
 
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
@@ -230,7 +240,7 @@ mod tests {
             BlockNumber(542),
             Arc::new(chain_observer),
             TestLogger::stdout(),
-            Arc::new(preloader_checker),
+            preloader_checker,
         );
 
         preloader
@@ -242,12 +252,13 @@ mod tests {
     #[tokio::test]
     async fn fail_if_chain_point_is_not_available() {
         let chain_observer = FakeChainObserver::new(None);
-        let mut importer = MockTransactionsImporterImpl::new();
-        importer.expect_import().never();
+        let importer = MockBuilder::<MockTransactionsImporter>::configure(|mock| {
+            mock.expect_import().never();
+        });
 
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
-            Arc::new(importer),
+            importer,
             BlockNumber(0),
             Arc::new(chain_observer),
             TestLogger::stdout(),
@@ -280,12 +291,22 @@ mod tests {
                 .is_locked(SignedEntityTypeDiscriminants::CardanoTransactions)
                 .await
         );
+        assert!(
+            !signed_entity_type_lock
+                .is_locked(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+                .await
+        );
 
         preloader.preload().await.unwrap();
 
         assert!(
             !signed_entity_type_lock
                 .is_locked(SignedEntityTypeDiscriminants::CardanoTransactions)
+                .await
+        );
+        assert!(
+            !signed_entity_type_lock
+                .is_locked(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
                 .await
         );
     }
@@ -297,8 +318,8 @@ mod tests {
 
         let preloader = CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
-            Arc::new(ImporterWithSignedEntityTypeLockCheck {
-                signed_entity_type_lock: signed_entity_type_lock.clone(),
+            MockBuilder::<MockTransactionsImporter>::configure(|mock| {
+                mock.expect_import().returning(|_| Err(anyhow!("import failed")));
             }),
             BlockNumber(0),
             Arc::new(chain_observer),
@@ -311,6 +332,11 @@ mod tests {
         assert!(
             !signed_entity_type_lock
                 .is_locked(SignedEntityTypeDiscriminants::CardanoTransactions)
+                .await
+        );
+        assert!(
+            !signed_entity_type_lock
+                .is_locked(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
                 .await
         );
     }
