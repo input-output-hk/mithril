@@ -26,7 +26,6 @@ future_snark = [
     "dep:num-bigint",
     "dep:num-traits",
     "dep:rand",
-    "dep:num-traits",
 ] # For activating snark features
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 rug-backend = ["rug/default"]
