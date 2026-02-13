@@ -2,10 +2,7 @@
 
 use ff::Field;
 
-pub use midnight_curves::{
-    Bls12, Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended as Jubjub,
-    JubjubSubgroup,
-};
+pub use midnight_curves::{Bls12, Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub};
 
 pub type Target = JubjubBase;
 pub type Msg = JubjubBase;

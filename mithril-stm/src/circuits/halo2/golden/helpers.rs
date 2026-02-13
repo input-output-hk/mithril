@@ -14,17 +14,16 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use thiserror::Error;
 
+use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
-use crate::circuits::halo2::utils::field_bytes::digest_bytes_to_base;
-use crate::circuits::halo2::utils::merkle_path::stm_path_to_halo2_path;
+use crate::circuits::halo2::utils::{digest_bytes_to_base, stm_path_to_halo2_path};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::LotteryTargetValue;
 
 /// Base field type used throughout STM circuit golden tests.
 type F = JubjubBase;
@@ -100,12 +99,47 @@ pub(crate) struct SignerLeaf {
 
 impl SignerLeaf {
     fn stm_leaf(&self) -> MerkleTreeSnarkLeaf {
-        MerkleTreeSnarkLeaf(self.vk.clone(), self.target_value)
+        MerkleTreeSnarkLeaf(self.vk, self.target_value)
     }
 
     fn mt_leaf(&self) -> MTLeaf {
         MTLeaf(self.vk.to_bytes(), self.target_field)
     }
+}
+
+fn target_value_from_field(target: F) -> LotteryTargetValue {
+    LotteryTargetValue::from_bytes(&target.to_bytes_le()).expect("Invalid target bytes")
+}
+
+fn generate_signer_leaf(rng: &mut ChaCha20Rng, target: F) -> SignerLeaf {
+    // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
+    // to avoid deterministic-seed flakes in golden vectors.
+    let stm_sk = loop {
+        let stm_sk = SchnorrSigningKey::generate(rng).expect("Failed to generate STM signing key");
+        if SchnorrVerificationKey::new_from_signing_key(stm_sk.clone()).is_ok() {
+            break stm_sk;
+        }
+    };
+    let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone())
+        .expect("Failed to build STM verification key from signing key");
+    let target_value = target_value_from_field(target);
+    SignerLeaf {
+        sk: stm_sk,
+        vk: stm_vk,
+        target_field: target,
+        target_value,
+    }
+}
+
+fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) {
+    let challenge_bytes = sig.challenge.to_bytes();
+    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
+        .into_option()
+        .expect("Invalid challenge bytes");
+    debug_assert_eq!(
+        challenge_native, sig.challenge.0,
+        "Challenge endianness mismatch between BaseFieldElement bytes and JubjubBase"
+    );
 }
 
 /// Selects which leaf index is assigned the controlled target.
@@ -155,36 +189,15 @@ impl StmMerkleTreeWrapper {
 }
 
 /// Build a default Merkle tree with all leaves set to the max target.
-pub(crate) fn create_default_merkle_tree(
-    n: usize,
-) -> (Vec<SignerLeaf>, StmMerkleTreeWrapper) {
+pub(crate) fn create_default_merkle_tree(n: usize) -> (Vec<SignerLeaf>, StmMerkleTreeWrapper) {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-    let mut materials = Vec::with_capacity(n);
+    let mut signer_leaves = Vec::with_capacity(n);
     let mut stm_leaves = Vec::with_capacity(n);
     for _ in 0..n {
-        // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
-        // to avoid deterministic-seed flakes in golden vectors.
-        let stm_sk = loop {
-            let stm_sk = SchnorrSigningKey::generate(&mut rng)
-                .expect("Failed to generate STM signing key");
-            if SchnorrVerificationKey::new_from_signing_key(stm_sk.clone()).is_ok() {
-                break stm_sk;
-            }
-        };
-        let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone())
-            .expect("Failed to build STM verification key from signing key");
-        let target = -F::ONE;
-        let target_value = LotteryTargetValue::from_bytes(&target.to_bytes_le())
-            .expect("Invalid target bytes");
-        let material = SignerLeaf {
-            sk: stm_sk,
-            vk: stm_vk,
-            target_field: target,
-            target_value,
-        };
+        let material = generate_signer_leaf(&mut rng, -F::ONE);
         stm_leaves.push(material.stm_leaf());
-        materials.push(material);
+        signer_leaves.push(material);
     }
     let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
     let root_bytes = stm_tree.to_merkle_tree_commitment().root;
@@ -192,11 +205,11 @@ pub(crate) fn create_default_merkle_tree(
         .as_slice()
         .try_into()
         .expect("STM root bytes must be 32 bytes");
-    let root = digest_bytes_to_base(&root_array)
-        .expect("STM root bytes must decode to a field element");
+    let root =
+        digest_bytes_to_base(&root_array).expect("STM root bytes must decode to a field element");
     let tree = StmMerkleTreeWrapper { stm_tree, root };
 
-    (materials, tree)
+    (signer_leaves, tree)
 }
 
 /// Build a full tree with one controlled leaf selected by `selector` and return its index.
@@ -220,32 +233,14 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
     };
 
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let mut materials = Vec::with_capacity(n);
+    let mut signer_leaves = Vec::with_capacity(n);
     let mut stm_leaves = Vec::with_capacity(n);
 
     for i in 0..n {
-        // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
-        // to avoid deterministic-seed flakes in golden vectors.
-        let stm_sk = loop {
-            let stm_sk = SchnorrSigningKey::generate(&mut rng)
-                .expect("Failed to generate STM signing key");
-            if SchnorrVerificationKey::new_from_signing_key(stm_sk.clone()).is_ok() {
-                break stm_sk;
-            }
-        };
-        let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone())
-            .expect("Failed to build STM verification key from signing key");
         let leaf_target = if i == selected_index { target } else { -F::ONE };
-        let target_value = LotteryTargetValue::from_bytes(&leaf_target.to_bytes_le())
-            .expect("Invalid target bytes");
-        let material = SignerLeaf {
-            sk: stm_sk,
-            vk: stm_vk,
-            target_field: leaf_target,
-            target_value,
-        };
+        let material = generate_signer_leaf(&mut rng, leaf_target);
         stm_leaves.push(material.stm_leaf());
-        materials.push(material);
+        signer_leaves.push(material);
     }
 
     let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
@@ -254,11 +249,11 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
         .as_slice()
         .try_into()
         .expect("STM root bytes must be 32 bytes");
-    let root = digest_bytes_to_base(&root_array)
-        .expect("STM root bytes must decode to a field element");
+    let root =
+        digest_bytes_to_base(&root_array).expect("STM root bytes must decode to a field element");
     let tree = StmMerkleTreeWrapper { stm_tree, root };
 
-    (materials, tree, selected_index)
+    (signer_leaves, tree, selected_index)
 }
 
 /// Construct the STM circuit relation environment and setup keys for a case.
@@ -306,53 +301,45 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
 
 /// Build a witness with default strictly increasing indices [0..quorum).
 pub(crate) fn build_witness(
-    materials: &[SignerLeaf],
+    signer_leaves: &[SignerLeaf],
     merkle_tree: &StmMerkleTreeWrapper,
     merkle_root: F,
     msg: F,
     quorum: u32,
 ) -> Vec<WitnessEntry> {
     let indices: Vec<u32> = (0..quorum).collect();
-    build_witness_with_indices(materials, merkle_tree, merkle_root, msg, &indices)
+    build_witness_with_indices(signer_leaves, merkle_tree, merkle_root, msg, &indices)
 }
 
 /// Build a witness using caller-provided indices without enforcing ordering;
 /// the circuit is responsible for strict ordering checks in negative tests.
 pub(crate) fn build_witness_with_indices(
-    materials: &[SignerLeaf],
+    signer_leaves: &[SignerLeaf],
     merkle_tree: &StmMerkleTreeWrapper,
     merkle_root: F,
     msg: F,
     indices: &[u32],
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
-    let num_signers = materials.len();
+    let num_signers = signer_leaves.len();
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut witness = Vec::new();
 
     for (i, index) in indices.iter().enumerate() {
         let ii = i % num_signers;
-        let material = &materials[ii];
-        let stm_sk = material.sk.clone();
-        let stm_vk = material.vk.clone();
-        let stm_sig = stm_sk
+        let material = &signer_leaves[ii];
+        let stm_sig = material
+            .sk
             .sign(
                 &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
                 &mut rng,
             )
             .expect("STM signature generation failed");
-        let challenge_bytes = stm_sig.challenge.to_bytes();
-        let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
-            .into_option()
-            .expect("Invalid challenge bytes");
-        assert_eq!(
-            challenge_native, stm_sig.challenge.0,
-            "Challenge endianness mismatch between BaseFieldElement bytes and JubjubBase"
-        );
+        assert_challenge_endianness(&stm_sig);
         stm_sig
             .verify(
                 &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-                &stm_vk,
+                &material.vk,
             )
             .expect("STM signature verification failed");
 
@@ -368,13 +355,16 @@ pub(crate) fn build_witness_with_indices(
 /// Find two witness entries with distinct leaves, for negative test construction.
 pub(crate) fn find_two_distinct_witness_entries(witness: &[WitnessEntry]) -> (usize, usize) {
     assert!(witness.len() >= 2, "expected at least two witness entries");
-    if witness[0].0 .0 != witness[1].0 .0 || witness[0].0 .1 != witness[1].0 .1 {
+    let leaf0 = witness[0].0;
+    let leaf1 = witness[1].0;
+    if leaf0.0 != leaf1.0 || leaf0.1 != leaf1.1 {
         return (0, 1);
     }
     for i in 0..witness.len() {
         let leaf_i = witness[i].0;
         for (j, wj) in witness.iter().enumerate().skip(i + 1) {
-            if leaf_i.0 != wj.0 .0 || leaf_i.1 != wj.0 .1 {
+            let leaf_j = wj.0;
+            if leaf_i.0 != leaf_j.0 || leaf_i.1 != leaf_j.1 {
                 return (i, j);
             }
         }
@@ -386,7 +376,7 @@ pub(crate) fn find_two_distinct_witness_entries(witness: &[WitnessEntry]) -> (us
 /// Merkle-path shape in golden vectors; not a realistic lottery model, and any
 /// grinding or signature randomness considerations are out of scope.
 pub(crate) fn build_witness_with_fixed_signer(
-    materials: &[SignerLeaf],
+    signer_leaves: &[SignerLeaf],
     merkle_tree: &StmMerkleTreeWrapper,
     signer_index: usize,
     merkle_root: F,
@@ -395,44 +385,31 @@ pub(crate) fn build_witness_with_fixed_signer(
 ) -> Vec<WitnessEntry> {
     assert!(!indices.is_empty(), "indices must be non-empty");
     assert!(
-        signer_index < materials.len(),
-        "signer_index out of bounds for materials"
+        signer_index < signer_leaves.len(),
+        "signer_index out of bounds for signer_leaves"
     );
     let mut witness = Vec::new();
-    let material = &materials[signer_index];
-    let stm_sk = material.sk.clone();
-    let stm_vk = material.vk.clone();
+    let material = &signer_leaves[signer_index];
     let merkle_path = merkle_tree.get_path(signer_index);
 
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let stm_sig = stm_sk
+    let stm_sig = material
+        .sk
         .sign(
             &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
             &mut rng,
         )
         .expect("STM signature generation failed");
-    let challenge_bytes = stm_sig.challenge.to_bytes();
-    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
-        .into_option()
-        .expect("Invalid challenge bytes");
-    assert_eq!(
-        challenge_native, stm_sig.challenge.0,
-        "Challenge endianness mismatch between BaseFieldElement bytes and JubjubBase"
-    );
+    assert_challenge_endianness(&stm_sig);
     stm_sig
         .verify(
             &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-            &stm_vk,
+            &material.vk,
         )
         .expect("STM signature verification failed");
 
     for index in indices {
-        witness.push((
-            material.mt_leaf(),
-            merkle_path.clone(),
-            stm_sig.clone(),
-            *index,
-        ));
+        witness.push((material.mt_leaf(), merkle_path.clone(), stm_sig, *index));
     }
 
     witness
@@ -500,11 +477,11 @@ pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32)
 /// Run a case with a caller-specified message.
 pub(crate) fn run_stm_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) {
     let env = setup_stm_circuit_env(case_name, k, quorum);
-    let (materials, merkle_tree) = create_default_merkle_tree(env.num_signers());
+    let (signer_leaves, merkle_tree) = create_default_merkle_tree(env.num_signers());
 
     let merkle_root = merkle_tree.root();
 
-    let witness = build_witness(&materials, &merkle_tree, merkle_root, msg, quorum);
+    let witness = build_witness(&signer_leaves, &merkle_tree, merkle_root, msg, quorum);
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
 
     prove_and_verify_result(&env, scenario).expect("Proof generation/verification failed");

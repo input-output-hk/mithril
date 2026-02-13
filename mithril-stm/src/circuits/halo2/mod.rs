@@ -3,11 +3,8 @@
 pub mod circuit;
 pub mod constants;
 pub mod gadgets;
-pub(crate) mod utils;
-pub(crate) mod error;
-pub mod hash;
-pub mod off_circuit;
 pub mod types;
+pub(crate) mod utils;
 
 #[cfg(test)]
 pub(crate) mod golden;
