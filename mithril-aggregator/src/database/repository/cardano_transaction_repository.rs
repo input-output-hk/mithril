@@ -9,7 +9,7 @@ use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
     CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
-use mithril_common::signable_builder::LegacyBlockRangeRootRetriever;
+use mithril_common::signable_builder::{BlockRangeRootRetriever, LegacyBlockRangeRootRetriever};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
@@ -118,6 +118,16 @@ impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for AggregatorCardanoChai
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
         self.inner.retrieve_legacy_block_range_roots_up_to(up_to_beacon).await
+    }
+}
+
+#[async_trait::async_trait]
+impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataRepository {
+    async fn retrieve_block_range_roots<'a>(
+        &'a self,
+        up_to_beacon: BlockNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
+        self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
     }
 }
 
