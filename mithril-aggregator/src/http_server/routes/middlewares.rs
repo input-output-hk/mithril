@@ -198,7 +198,9 @@ pub struct ClientMetadata {
 }
 
 pub mod validators {
-    use crate::http_server::validators::ProverTransactionsHashValidator;
+    use crate::http_server::validators::{
+        ProverBlockHashValidator, ProverTransactionsHashValidator,
+    };
 
     use super::*;
 
@@ -212,6 +214,18 @@ pub mod validators {
             .cardano_transactions_prover_max_hashes_allowed_by_request;
 
         warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))
+    }
+
+    /// With Prover Block Hash Validator
+    pub fn with_prover_block_hash_validator(
+        router_state: &RouterState,
+    ) -> impl Filter<Extract = (ProverBlockHashValidator,), Error = Infallible> + Clone + use<>
+    {
+        let max_hashes = router_state
+            .configuration
+            .cardano_transactions_prover_max_hashes_allowed_by_request;
+
+        warp::any().map(move || ProverBlockHashValidator::new(max_hashes))
     }
 }
 
