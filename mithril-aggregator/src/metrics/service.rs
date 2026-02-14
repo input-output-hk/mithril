@@ -84,6 +84,26 @@ build_metrics_service!(
         "Number of Cardano transaction hashes requested for proof since startup on a Mithril aggregator node",
         &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
     ),
+    proof_v2_cardano_transaction_total_proofs_served_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_proof_v2_cardano_transaction_total_proofs_served_since_startup",
+        "Number of Cardano transaction proofs served by v2 route since startup on a Mithril aggregator node",
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
+    ),
+    proof_v2_cardano_transaction_total_transactions_served_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_proof_v2_cardano_transaction_total_transactions_served_since_startup",
+        "Number of Cardano transaction hashes requested by v2 proof route since startup on a Mithril aggregator node",
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
+    ),
+    proof_v2_cardano_block_total_proofs_served_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_proof_v2_cardano_block_total_proofs_served_since_startup",
+        "Number of Cardano block proofs served by v2 route since startup on a Mithril aggregator node",
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
+    ),
+    proof_v2_cardano_block_total_blocks_served_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_proof_v2_cardano_block_total_blocks_served_since_startup",
+        "Number of Cardano block hashes requested by v2 proof route since startup on a Mithril aggregator node",
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
+    ),
     signer_registration_total_received_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_signer_registration_total_received_since_startup",
         "Number of signer registrations received since startup on a Mithril aggregator node",
