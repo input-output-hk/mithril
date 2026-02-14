@@ -80,6 +80,11 @@ pub trait SignedEntityService: Send + Sync {
         &self,
     ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>>;
 
+    /// Return the last signed Cardano Blocks and Transactions Snapshot.
+    async fn get_last_cardano_blocks_transactions_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoBlocksTransactionsSnapshot>>>;
+
     /// Return a list of signed Cardano stake distribution ordered by creation
     /// date descending.
     async fn get_last_signed_cardano_stake_distributions(
@@ -245,7 +250,7 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            )),
+            ) as Arc<dyn Artifact>),
             SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Arc::new(
                 self.cardano_immutable_files_full_artifact_builder
                     .compute_artifact(beacon.clone(), certificate)
@@ -255,7 +260,7 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            )),
+            ) as Arc<dyn Artifact>),
             SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Arc::new(
                 self.cardano_stake_distribution_artifact_builder
                 .compute_artifact(epoch, certificate)
@@ -264,7 +269,7 @@ impl MithrilSignedEntityService {
                     format!(
                         "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                     )
-                })?)),
+                })?) as Arc<dyn Artifact>),
             SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Arc::new(
                 self.cardano_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
@@ -274,7 +279,7 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            )),
+            ) as Arc<dyn Artifact>),
             SignedEntityType::CardanoBlocksTransactions(_epoch, block_number)  => Ok(Arc::new(
                 self.cardano_blocks_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
@@ -284,7 +289,7 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            )),
+            ) as Arc<dyn Artifact>),
             SignedEntityType::CardanoDatabase(beacon) => Ok(Arc::new(
                 self.cardano_database_artifact_builder
                     .compute_artifact(beacon, certificate)
@@ -294,7 +299,7 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?
-            )),
+            ) as Arc<dyn Artifact>),
         }
     }
 
@@ -494,6 +499,19 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>> {
         let mut signed_entities_records = self
             .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await?;
+
+        match signed_entities_records.pop() {
+            Some(record) => Ok(Some(record.try_into()?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn get_last_cardano_blocks_transactions_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoBlocksTransactionsSnapshot>>> {
+        let mut signed_entities_records = self
+            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
             .await?;
 
         match signed_entities_records.pop() {
