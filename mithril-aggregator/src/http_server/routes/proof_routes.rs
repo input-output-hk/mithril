@@ -22,10 +22,30 @@ impl CardanoTransactionProofQueryParams {
     }
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+struct CardanoBlockProofQueryParams {
+    block_hashes: String,
+}
+
+impl CardanoBlockProofQueryParams {
+    pub fn split_blocks_hashes(&self) -> Vec<String> {
+        self.block_hashes.split(',').map(|s| s.to_string()).collect()
+    }
+
+    pub fn sanitize(&self) -> Vec<String> {
+        let mut block_hashes = self.split_blocks_hashes();
+        block_hashes.sort();
+        block_hashes.dedup();
+        block_hashes
+    }
+}
+
 pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     proof_cardano_transaction(router_state)
+        .or(proof_v2_cardano_transaction(router_state))
+        .or(proof_v2_cardano_block(router_state))
 }
 
 /// GET /proof/cardano-transaction
@@ -44,28 +64,80 @@ fn proof_cardano_transaction(
         .and_then(handlers::proof_cardano_transaction)
 }
 
+/// GET /proof/v2/cardano-transaction
+fn proof_v2_cardano_transaction(
+    router_state: &RouterState,
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
+    warp::path!("proof" / "v2" / "cardano-transaction")
+        .and(warp::get())
+        .and(middlewares::with_client_metadata(router_state))
+        .and(warp::query::<CardanoTransactionProofQueryParams>())
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_signed_entity_service(router_state))
+        .and(middlewares::validators::with_prover_transactions_hash_validator(router_state))
+        .and(middlewares::with_prover_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
+        .and_then(handlers::proof_v2_cardano_transaction)
+}
+
+/// GET /proof/v2/cardano-block
+fn proof_v2_cardano_block(
+    router_state: &RouterState,
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
+    warp::path!("proof" / "v2" / "cardano-block")
+        .and(warp::get())
+        .and(middlewares::with_client_metadata(router_state))
+        .and(warp::query::<CardanoBlockProofQueryParams>())
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_signed_entity_service(router_state))
+        .and(middlewares::validators::with_prover_block_hash_validator(
+            router_state,
+        ))
+        .and(middlewares::with_prover_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
+        .and_then(handlers::proof_v2_cardano_block)
+}
+
 mod handlers {
+    use serde::Serialize;
     use slog::{Logger, debug, warn};
-    use std::{convert::Infallible, sync::Arc};
+    use std::{collections::HashSet, convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
     use mithril_common::{
-        StdResult, entities::CardanoTransactionsSnapshot,
-        messages::CardanoTransactionsProofsMessage, signable_builder::SignedEntity,
+        StdResult,
+        entities::{CardanoBlocksTransactionsSnapshot, CardanoTransactionsSnapshot},
+        messages::{CardanoTransactionsProofsMessage, CardanoTransactionsSetProofMessagePart},
+        signable_builder::SignedEntity,
     };
 
     use crate::{
         MetricsService,
         http_server::{
             routes::{middlewares::ClientMetadata, reply},
-            validators::ProverTransactionsHashValidator,
+            validators::{ProverBlockHashValidator, ProverTransactionsHashValidator},
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
-        services::{LegacyProverService, SignedEntityService},
+        services::{CardanoBlockProof, LegacyProverService, SignedEntityService},
         unwrap_to_internal_server_error,
     };
 
-    use super::CardanoTransactionProofQueryParams;
+    use super::{CardanoBlockProofQueryParams, CardanoTransactionProofQueryParams};
+
+    #[derive(Serialize)]
+    struct CardanoBlockProofMessagePart {
+        block_hash: String,
+        transactions_hashes: Vec<String>,
+        proof: String,
+    }
+
+    #[derive(Serialize)]
+    struct CardanoBlockProofsMessage {
+        certificate_hash: String,
+        certified_blocks: Vec<CardanoBlockProofMessagePart>,
+        non_certified_blocks: Vec<String>,
+        latest_block_number: u64,
+    }
 
     pub async fn proof_cardano_transaction(
         client_metadata: ClientMetadata,
@@ -127,6 +199,132 @@ mod handlers {
         }
     }
 
+    pub async fn proof_v2_cardano_transaction(
+        client_metadata: ClientMetadata,
+        transaction_parameters: CardanoTransactionProofQueryParams,
+        logger: Logger,
+        signed_entity_service: Arc<dyn SignedEntityService>,
+        validator: ProverTransactionsHashValidator,
+        prover_service: Arc<dyn LegacyProverService>,
+        metrics_service: Arc<MetricsService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_proof_v2_cardano_transaction_total_proofs_served_since_startup()
+            .increment(&[
+                client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                client_metadata.client_type.as_deref().unwrap_or_default(),
+            ]);
+
+        let transaction_hashes = transaction_parameters.split_transactions_hashes();
+        debug!(
+            logger, ">> proof_v2_cardano_transaction";
+            "transaction_hashes" => &transaction_parameters.transaction_hashes
+        );
+
+        if let Err(error) = validator.validate(&transaction_hashes) {
+            warn!(logger, "proof_v2_cardano_transaction::bad_request");
+            return Ok(reply::bad_request(error.label, error.message));
+        }
+
+        let sanitized_hashes = transaction_parameters.sanitize();
+        metrics_service
+            .get_proof_v2_cardano_transaction_total_transactions_served_since_startup()
+            .increment_by(
+                &[
+                    client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                    client_metadata.client_type.as_deref().unwrap_or_default(),
+                ],
+                sanitized_hashes.len().try_into().unwrap_or(0),
+            );
+
+        match unwrap_to_internal_server_error!(
+            signed_entity_service
+                .get_last_cardano_blocks_transactions_snapshot()
+                .await,
+            logger => "proof_v2_cardano_transaction::error"
+        ) {
+            Some(signed_entity) => {
+                let message = unwrap_to_internal_server_error!(
+                    build_response_message_for_v2_cardano_transaction(
+                        prover_service,
+                        signed_entity,
+                        sanitized_hashes
+                    )
+                    .await,
+                    logger => "proof_v2_cardano_transaction"
+                );
+                Ok(reply::json(&message, StatusCode::OK))
+            }
+            None => {
+                warn!(logger, "proof_v2_cardano_transaction::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+        }
+    }
+
+    pub async fn proof_v2_cardano_block(
+        client_metadata: ClientMetadata,
+        block_parameters: CardanoBlockProofQueryParams,
+        logger: Logger,
+        signed_entity_service: Arc<dyn SignedEntityService>,
+        validator: ProverBlockHashValidator,
+        prover_service: Arc<dyn LegacyProverService>,
+        metrics_service: Arc<MetricsService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_proof_v2_cardano_block_total_proofs_served_since_startup()
+            .increment(&[
+                client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                client_metadata.client_type.as_deref().unwrap_or_default(),
+            ]);
+
+        let block_hashes = block_parameters.split_blocks_hashes();
+        debug!(
+            logger, ">> proof_v2_cardano_block";
+            "block_hashes" => &block_parameters.block_hashes
+        );
+
+        if let Err(error) = validator.validate(&block_hashes) {
+            warn!(logger, "proof_v2_cardano_block::bad_request");
+            return Ok(reply::bad_request(error.label, error.message));
+        }
+
+        let sanitized_hashes = block_parameters.sanitize();
+        metrics_service
+            .get_proof_v2_cardano_block_total_blocks_served_since_startup()
+            .increment_by(
+                &[
+                    client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                    client_metadata.client_type.as_deref().unwrap_or_default(),
+                ],
+                sanitized_hashes.len().try_into().unwrap_or(0),
+            );
+
+        match unwrap_to_internal_server_error!(
+            signed_entity_service
+                .get_last_cardano_blocks_transactions_snapshot()
+                .await,
+            logger => "proof_v2_cardano_block::error"
+        ) {
+            Some(signed_entity) => {
+                let message = unwrap_to_internal_server_error!(
+                    build_response_message_for_v2_cardano_block(
+                        prover_service,
+                        signed_entity,
+                        sanitized_hashes
+                    )
+                    .await,
+                    logger => "proof_v2_cardano_block"
+                );
+                Ok(reply::json(&message, StatusCode::OK))
+            }
+            None => {
+                warn!(logger, "proof_v2_cardano_block::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+        }
+    }
+
     pub async fn build_response_message(
         prover_service: Arc<dyn LegacyProverService>,
         signed_entity: SignedEntity<CardanoTransactionsSnapshot>,
@@ -146,11 +344,88 @@ mod handlers {
 
         Ok(message)
     }
+
+    async fn build_response_message_for_v2_cardano_transaction(
+        prover_service: Arc<dyn LegacyProverService>,
+        signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
+        transaction_hashes: Vec<String>,
+    ) -> StdResult<CardanoTransactionsProofsMessage> {
+        let transactions_set_proofs = prover_service
+            .compute_transactions_proofs(
+                signed_entity.artifact.block_number_signed,
+                transaction_hashes.as_slice(),
+            )
+            .await?;
+        let certified_transactions = transactions_set_proofs
+            .iter()
+            .flat_map(|proof| proof.transactions_hashes().to_vec())
+            .collect::<Vec<_>>();
+        let non_certified_transactions = transaction_hashes
+            .iter()
+            .filter(|hash| !certified_transactions.contains(hash))
+            .cloned()
+            .collect::<Vec<_>>();
+        let certified_transactions = transactions_set_proofs
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<StdResult<Vec<CardanoTransactionsSetProofMessagePart>>>(
+        )?;
+        let message = CardanoTransactionsProofsMessage::new(
+            &signed_entity.certificate_id,
+            certified_transactions,
+            non_certified_transactions,
+            signed_entity.artifact.block_number_signed,
+        );
+
+        Ok(message)
+    }
+
+    async fn build_response_message_for_v2_cardano_block(
+        prover_service: Arc<dyn LegacyProverService>,
+        signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
+        block_hashes: Vec<String>,
+    ) -> StdResult<CardanoBlockProofsMessage> {
+        let block_proofs = prover_service
+            .compute_blocks_proofs(
+                signed_entity.artifact.block_number_signed,
+                block_hashes.as_slice(),
+            )
+            .await?;
+
+        let certified_blocks = block_proofs
+            .into_iter()
+            .map(|block_proof: CardanoBlockProof| {
+                let proof_message_part: CardanoTransactionsSetProofMessagePart =
+                    block_proof.transactions_set_proof.clone().try_into()?;
+                Ok(CardanoBlockProofMessagePart {
+                    block_hash: block_proof.block_hash,
+                    transactions_hashes: block_proof.transactions_hashes,
+                    proof: proof_message_part.proof,
+                })
+            })
+            .collect::<StdResult<Vec<_>>>()?;
+        let certified_block_hashes = certified_blocks
+            .iter()
+            .map(|proof| proof.block_hash.as_str())
+            .collect::<HashSet<_>>();
+        let non_certified_blocks = block_hashes
+            .into_iter()
+            .filter(|hash| !certified_block_hashes.contains(hash.as_str()))
+            .collect::<Vec<_>>();
+
+        Ok(CardanoBlockProofsMessage {
+            certificate_hash: signed_entity.certificate_id,
+            certified_blocks,
+            non_certified_blocks,
+            latest_block_number: *signed_entity.artifact.block_number_signed,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use chrono::Utc;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use std::vec;
@@ -162,7 +437,10 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
-        entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
+        entities::{
+            BlockNumber, CardanoBlocksTransactionsSnapshot, CardanoTransactionsSetProof,
+            CardanoTransactionsSnapshot, Epoch, SignedEntityType,
+        },
         signable_builder::SignedEntity,
         test::{
             assert_equivalent,
@@ -263,6 +541,99 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_proof_v2_cardano_transaction_increments_proofs_metrics() {
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
+        let initial_proofs_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_v2_cardano_transaction_total_proofs_served_since_startup()
+            .get(&["TEST", "CLI"]);
+        let initial_transactions_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_v2_cardano_transaction_total_transactions_served_since_startup()
+            .get(&["TEST", "CLI"]);
+
+        request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes={},{},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1],
+                fake_data::transaction_hashes()[2]
+            ))
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
+                dependency_manager.clone(),
+                &["TEST"],
+            )))
+            .await;
+
+        assert_eq!(
+            initial_proofs_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_proof_v2_cardano_transaction_total_proofs_served_since_startup()
+                .get(&["TEST", "CLI"])
+        );
+        assert_eq!(
+            initial_transactions_counter_value + 3,
+            dependency_manager
+                .metrics_service
+                .get_proof_v2_cardano_transaction_total_transactions_served_since_startup()
+                .get(&["TEST", "CLI"])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_proof_v2_cardano_block_increments_proofs_metrics() {
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
+        let initial_proofs_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_v2_cardano_block_total_proofs_served_since_startup()
+            .get(&["TEST", "CLI"]);
+        let initial_blocks_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_v2_cardano_block_total_blocks_served_since_startup()
+            .get(&["TEST", "CLI"]);
+        let block_hash_1 = "a".repeat(64);
+        let block_hash_2 = "b".repeat(64);
+        let block_hash_3 = "c".repeat(64);
+
+        request()
+            .method(method)
+            .path(&format!(
+                "{path}?block_hashes={},{},{}",
+                block_hash_1, block_hash_2, block_hash_3
+            ))
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
+                dependency_manager.clone(),
+                &["TEST"],
+            )))
+            .await;
+
+        assert_eq!(
+            initial_proofs_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_proof_v2_cardano_block_total_proofs_served_since_startup()
+                .get(&["TEST", "CLI"])
+        );
+        assert_eq!(
+            initial_blocks_counter_value + 3,
+            dependency_manager
+                .metrics_service
+                .get_proof_v2_cardano_block_total_blocks_served_since_startup()
+                .get(&["TEST", "CLI"])
+        );
+    }
+
+    #[tokio::test]
     async fn proof_cardano_transaction_ok() {
         let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
@@ -287,6 +658,120 @@ mod tests {
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_transaction_ok() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        let signed_entity = SignedEntity::<CardanoBlocksTransactionsSnapshot> {
+            signed_entity_id: "signed-entity-id".to_string(),
+            signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
+                Epoch(123),
+                BlockNumber(123),
+            ),
+            certificate_id: "certificate-id".to_string(),
+            artifact: fake_data::cardano_blocks_transactions_snapshot(
+                BlockNumber(123),
+                BlockNumber(15),
+            ),
+            created_at: Utc::now(),
+        };
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(move || Ok(Some(signed_entity.clone())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let mut mock_prover_service = MockLegacyProverService::new();
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
+            ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_ok() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        let signed_entity = SignedEntity::<CardanoBlocksTransactionsSnapshot> {
+            signed_entity_id: "signed-entity-id".to_string(),
+            signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
+                Epoch(123),
+                BlockNumber(123),
+            ),
+            certificate_id: "certificate-id".to_string(),
+            artifact: fake_data::cardano_blocks_transactions_snapshot(
+                BlockNumber(123),
+                BlockNumber(15),
+            ),
+            created_at: Utc::now(),
+        };
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(move || Ok(Some(signed_entity.clone())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let block_hash = "a".repeat(64);
+        let mut mock_prover_service = MockLegacyProverService::new();
+        mock_prover_service.expect_compute_blocks_proofs().returning({
+            let block_hash = block_hash.clone();
+            move |_, _| {
+                Ok(vec![crate::services::CardanoBlockProof {
+                    block_hash: block_hash.clone(),
+                    transactions_hashes: vec![fake_data::transaction_hashes()[0].to_string()],
+                    transactions_set_proof: CardanoTransactionsSetProof::dummy(),
+                }])
+            }
+        });
+        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{path}?block_hashes={block_hash}"))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
