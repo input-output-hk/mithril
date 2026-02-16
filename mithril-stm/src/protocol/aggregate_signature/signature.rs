@@ -339,6 +339,8 @@ mod tests {
                 closed_key_reg.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
 
             let signer_2: Signer<D> = Signer::new(
@@ -354,6 +356,8 @@ mod tests {
                 closed_key_reg.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();

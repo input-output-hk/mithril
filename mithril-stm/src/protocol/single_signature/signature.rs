@@ -229,6 +229,8 @@ mod tests {
                 closed_key_registration,
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             signer.create_single_signature(&message).unwrap()
         }
@@ -305,6 +307,8 @@ mod tests {
                 closed_key_registration.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             signer.create_single_signature(&message).unwrap()
         }

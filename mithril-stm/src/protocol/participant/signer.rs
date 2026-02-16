@@ -3,6 +3,9 @@ use crate::{
     StmResult, VerificationKeyForConcatenation, proof_system::ConcatenationProofSigner,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SnarkProofSigner;
+
 /// Single signature generator. Contains the signer's registration index and the signature
 /// generators of each proof system. For now, it only includes the signer of concatenation proof.
 #[derive(Debug, Clone)]
@@ -14,6 +17,8 @@ pub struct Signer<D: MembershipDigest> {
     stake: Stake,
     pub closed_key_registration: ClosedKeyRegistration,
     pub parameters: Parameters,
+    #[cfg(feature = "future_snark")]
+    pub(crate) snark_proof_signer: Option<SnarkProofSigner<D>>,
 }
 
 impl<D: MembershipDigest> Signer<D> {
@@ -24,6 +29,7 @@ impl<D: MembershipDigest> Signer<D> {
         closed_key_registration: ClosedKeyRegistration,
         parameters: Parameters,
         stake: Stake,
+        #[cfg(feature = "future_snark")] snark_proof_signer: Option<SnarkProofSigner<D>>,
     ) -> Self {
         Self {
             signer_index,
@@ -31,6 +37,8 @@ impl<D: MembershipDigest> Signer<D> {
             stake,
             closed_key_registration,
             parameters,
+            #[cfg(feature = "future_snark")]
+            snark_proof_signer,
         }
     }
 

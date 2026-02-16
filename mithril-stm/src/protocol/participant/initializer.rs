@@ -9,7 +9,10 @@ use crate::{
     signature_scheme::BlsSigningKey,
 };
 #[cfg(feature = "future_snark")]
-use crate::{VerificationKeyForSnark, signature_scheme::SchnorrSigningKey};
+use crate::{
+    VerificationKeyForSnark, proof_system::SnarkProofSigner, protocol::RegistrationEntryForSnark,
+    signature_scheme::SchnorrSigningKey,
+};
 
 use super::Signer;
 
@@ -90,8 +93,9 @@ impl Initializer {
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
-        let key_registration_commitment = closed_key_registration
-            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
+        let key_registration_commitment_for_concatenation = closed_key_registration
+            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
+        );
 
         // Create concatenation proof signer
         let concatenation_proof_signer = ConcatenationProofSigner::new(
@@ -100,7 +104,19 @@ impl Initializer {
             self.parameters,
             self.bls_signing_key,
             self.bls_verification_key_proof_of_possession.vk,
-            key_registration_commitment,
+            key_registration_commitment_for_concatenation,
+        );
+
+        #[cfg(feature = "future_snark")]
+        let key_registration_commitment_for_snark =
+            closed_key_registration.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
+
+        #[cfg(feature = "future_snark")]
+        let snark_proof_signer = SnarkProofSigner::new(
+            self.parameters,
+            self.schnorr_signing_key.clone().unwrap(),
+            self.schnorr_verification_key.clone().unwrap(),
+            key_registration_commitment_for_snark,
         );
 
         // Create and return signer
@@ -110,6 +126,8 @@ impl Initializer {
             closed_key_registration.clone(),
             self.parameters,
             registration_entry.get_stake(),
+            #[cfg(feature = "future_snark")]
+            Some(snark_proof_signer),
         ))
     }
 
