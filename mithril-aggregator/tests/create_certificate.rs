@@ -3,13 +3,14 @@ mod test_extensions;
 use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
-        StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty, TimePoint,
     },
     temp_dir,
     test::builder::MithrilFixtureBuilder,
 };
+
 use test_extensions::{
     ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
@@ -26,12 +27,17 @@ async fn create_certificate() {
         signed_entity_types: Some(
             [
                 SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
+                SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string(),
                 SignedEntityTypeDiscriminants::CardanoDatabase.to_string(),
             ]
             .join(","),
         ),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
+        }),
+        cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         }),
@@ -142,11 +148,11 @@ async fn create_certificate() {
         .await
         .unwrap();
     cycle!(tester, "signing");
-    let signers_for_transaction = &fixture.signers_fixture()[2..=6];
+    let signers_for_transactions = &fixture.signers_fixture()[2..=6];
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::CardanoTransactions,
-            signers_for_transaction,
+            signers_for_transactions,
         )
         .await
         .unwrap();
@@ -157,12 +163,41 @@ async fn create_certificate() {
         tester,
         ExpectedCertificate::new(
             Epoch(1),
-            &signers_for_transaction
+            &signers_for_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
+        )
+    );
+
+    comment!(
+        "Now the state machine should be signing the same block (179) for CardanoBlocksTransactions"
+    );
+    cycle!(tester, "signing");
+    let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+            signers_for_blocks_transactions,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoBlocksTransactions");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Epoch(1),
+            &signers_for_blocks_transactions
+                .iter()
+                .map(|s| s.signer_with_stake.clone().into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
+            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -176,11 +211,11 @@ async fn create_certificate() {
         .await
         .unwrap();
     cycle!(tester, "signing");
-    let signers_for_transaction = &fixture.signers_fixture()[2..=6];
+    let signers_for_transactions = &fixture.signers_fixture()[2..=6];
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::CardanoTransactions,
-            signers_for_transaction,
+            signers_for_transactions,
         )
         .await
         .unwrap();
@@ -191,12 +226,41 @@ async fn create_certificate() {
         tester,
         ExpectedCertificate::new(
             Epoch(1),
-            &signers_for_transaction
+            &signers_for_transactions
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(119)),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
+        )
+    );
+
+    comment!(
+        "the rollback to block number 149 should also trigger state machine to be sign CardanoBlocksTransactions for block 120"
+    );
+    cycle!(tester, "signing");
+    let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+            signers_for_blocks_transactions,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoBlocksTransactions");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Epoch(1),
+            &signers_for_blocks_transactions
+                .iter()
+                .map(|s| s.signer_with_stake.clone().into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_concatenation_aggregate_verification_key(),
+            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(119)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -212,9 +276,10 @@ async fn create_certificate() {
     assert_metrics_eq!(
         tester.metrics_verifier,
         ExpectedMetrics::new()
-            .certificate_total(4)
+            .certificate_total(6)
             .artifact_cardano_database_total(1)
             .artifact_mithril_stake_distribution_total(1)
             .artifact_cardano_transaction_total(2)
+            .artifact_cardano_blocks_transaction_total(2)
     );
 }
