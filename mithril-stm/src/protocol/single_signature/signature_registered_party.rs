@@ -158,6 +158,8 @@ mod tests {
                 closed_key_reg.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             let signature = signer.create_single_signature(&msg).unwrap();
             SingleSignatureWithRegisteredParty {

@@ -10,6 +10,8 @@ use crate::{
     VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
     signature_scheme::BlsSignature,
 };
+#[cfg(feature = "future_snark")]
+use crate::{LotteryTargetValue, VerificationKeyForSnark, proof_system::SingleSignatureForSnark};
 
 use super::SignatureError;
 
@@ -22,6 +24,9 @@ pub struct SingleSignature {
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
     pub signer_index: LotteryIndex,
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(crate) snark_signature: Option<SingleSignatureForSnark>,
 }
 
 impl SingleSignature {
@@ -35,7 +40,22 @@ impl SingleSignature {
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
+        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<VerificationKeyForSnark>,
+        #[cfg(feature = "future_snark")] lottery_target_value: Option<LotteryTargetValue>,
     ) -> StmResult<()> {
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_signature) = &self.snark_signature {
+            let schnorr_vk = schnorr_verification_key.unwrap();
+            let target_value = lottery_target_value.unwrap();
+            snark_signature.verify(
+                params,
+                &schnorr_vk,
+                msg,
+                &target_value,
+                avk.to_snark_aggregate_verification_key().unwrap(),
+            )?;
+        }
+
         self.concatenation_signature.verify(
             params,
             pk,
@@ -77,6 +97,13 @@ impl SingleSignature {
         output.extend_from_slice(&self.get_concatenation_signature_sigma().to_bytes());
 
         output.extend_from_slice(&self.signer_index.to_be_bytes());
+
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_signature) = &self.snark_signature {
+            let unique_schnorr_signature = snark_signature.get_schnorr_signature();
+            output.extend_from_slice(&unique_schnorr_signature.to_bytes());
+        }
+
         output
     }
 
@@ -111,9 +138,26 @@ impl SingleSignature {
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
+        #[cfg(feature = "future_snark")]
+        let snark_signature = {
+            let snark_offset = offset + 56;
+            if snark_offset < bytes.len() {
+                let schnorr_signature = crate::UniqueSchnorrSignature::from_bytes(
+                    bytes
+                        .get(snark_offset..snark_offset + 96)
+                        .ok_or(SignatureError::SerializationError)?,
+                )?;
+                Some(SingleSignatureForSnark::new(schnorr_signature, vec![]))
+            } else {
+                None
+            }
+        };
+
         Ok(SingleSignature {
             concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
             signer_index,
+            #[cfg(feature = "future_snark")]
+            snark_signature,
         })
     }
 
@@ -320,6 +364,8 @@ mod tests {
                 closed_key_registration,
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             signer.create_single_signature(&message).unwrap()
         }
@@ -396,6 +442,8 @@ mod tests {
                 closed_key_registration.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             signer.create_single_signature(&message).unwrap()
         }
