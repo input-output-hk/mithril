@@ -215,16 +215,6 @@ jobs:
       fail-fast: true
       max-parallel: 1
       matrix:
-        package:
-          [
-            mithril-stm,
-            mithril-build-script,
-            mithril-common,
-            mithril-aggregator-client,
-            mithril-aggregator-discovery,
-            mithril-cardano-node-internal-database,
-            mithril-client,
-          ]
         include:
           - package: mithril-stm
             api_token_secret_name: CRATES_IO_API_TOKEN
@@ -232,6 +222,10 @@ jobs:
             api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_BUILD_SCRIPT
           - package: mithril-common
             api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
+          - package: mithril-aggregator-client,
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_AGGREGATOR_CLIENT
+          - package: mithril-aggregator-discovery,
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_AGGREGATOR_DISCOVERY
           - package: mithril-cardano-node-internal-database
             api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CARDANO_NODE_INTERNAL_DATABASE
           - package: mithril-client
