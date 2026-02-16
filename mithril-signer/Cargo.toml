@@ -14,8 +14,6 @@ repository = { workspace = true }
 ignored = ["reqwest"]
 
 [features]
-default = ["jemallocator"]
-
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
 jemallocator = ["dep:tikv-jemallocator"]
