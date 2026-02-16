@@ -134,9 +134,9 @@ runs:
         echo "Promote '${{ steps.prepare.outputs.package_name }}' package version '${{ steps.prepare.outputs.package_local_version }}' from 'next' to 'latest'"
         if [ "${{ inputs.dry_run }}" == "false" ]; then
           npm whoami
-          npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
-          npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
+          npm dist-tag add ${{ steps.prepare.outputs.package_name }}@${{ steps.prepare.outputs.package_local_version }} latest
+          npm dist-tag rm ${{ steps.prepare.outputs.package_name }}@${{ steps.prepare.outputs.package_local_version }} next
         else
-          echo "Dry run: npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
-          echo "Dry run: npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
+          echo "Dry run: npm dist-tag add ${{ steps.prepare.outputs.package_name }}@${{ steps.prepare.outputs.package_local_version }} latest
+          echo "Dry run: npm dist-tag rm ${{ steps.prepare.outputs.package_name }}@${{ steps.prepare.outputs.package_local_version }} next
         fi
