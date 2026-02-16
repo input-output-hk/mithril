@@ -16,6 +16,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE**:
   - Preliminary support for Cardano Blocks certification:
     - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.
+    - Add a new signed entity type `CardanoBlocksTransactions` designed to certify both the Cardano blocks and the Cardano transactions (not compatible with the previous `CardanoTransactions` signed entity type)
+    - Support for Mithril signer compute and send signatures for the `CardanoBlocksTransactions` signed entity type.
+    - Support for Mithril aggregator verify and aggregate signatures for the `CardanoBlocksTransactions` signed entity type.
   - Added a **DMQ consumer deduplicator** to avoid processing the same message multiple times in case of reconnection to the DMQ server.
 
 | Crate | Version |
