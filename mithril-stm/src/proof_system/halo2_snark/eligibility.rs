@@ -1,108 +1,118 @@
 cfg_num_integer! {
     use num_bigint::BigInt;
+    use num_traits::One;
     use num_rational::Ratio;
 
-    // Description of the math behind the computation we want to do
-    //
-    // poseidon_hash / p < 1 - (1 - phi_f)^w
-    // where p is the modulus of the field, phi_f a parameter constant comprised in (0,1) and w a variable in (0,1)
-    // poseidon_hash < p * (1 - (1 - phi_f)^w)
-    // poseidon_hash < p * (1 - exp( w * ln(1 - phi_f) ) )
-    // let C = ln(1 - phi_f)
-    // poseidon_hash < p * (1 - exp( w * C ) )
-    // We want to use the taylor series to approximate exp( w * C )
-    // exp(C*x) = 1 + C*x + (C*x)^2/2! + (C*x)^3/3! + ... + (C*x)^{N-1}/(N-1}! + O(x^(N))
-    // We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
-    // Hence we stop when |(C*x)^N / N!| < epsilon
-    // We can check instead (C * x)^N < epsilon
-    // which gives us the bound N < log(epsilon) / log(|C*x|)
 
-    #[allow(dead_code)]
-    pub fn compute_exp(x: Ratio<BigInt>, c: Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
-        let mut acc = Ratio::new_raw(BigInt::from(1),BigInt::from(1));
-        let mut numerator = BigInt::from(1);
-        let mut denominator = BigInt::from(1);
-        let x_time_c = x * c;
-        for i in 1..iterations {
-            numerator *= x_time_c.numer();
-            denominator *= i * x_time_c.denom();
-            acc += Ratio::new_raw(numerator.clone(), denominator.clone());
-        }
-        acc
+    /// Computes a Taylor expansion of the exponential exp(c*w) up to the (N-1)th term
+    /// exp(c*x) = 1 + c*x + (c*x)^2/2! + (c*x)^3/3! + ... + (c*x)^{N-1}/(N-1)! + O((c*x)^N)
+    /// We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
+    /// Hence we stop when |(c*x)^N / N!| < epsilon
+    /// We can check instead (c * x)^N < epsilon
+    /// which gives us the bound N < log(epsilon) / log(|c*x|)
+    pub fn compute_exp(x: &Ratio<BigInt>, c: &Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
+        let cw = c * x;
+        let (num, denom, _) = exponential_approximation(0, iterations, cw.numer(), cw.denom());
+
+        Ratio::new_raw(num, denom)
     }
 
+    // ADD COMMENT FOR THIS APPROXIMATION
+    /// Function that computes an approximation of exp(a/b) using a binomial splitting
+    /// to compute the taylor expansion terms between i and j,
+    /// i.e. between (a/b)^first_term * (1/first_term!) and (a/b)^last_term * (1/last_term!)
+    pub fn exponential_approximation(first_term: usize, last_term: usize, a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+        if last_term - first_term == 1 {
+            if first_term == 0 {
+                return (BigInt::one(), BigInt::one(), BigInt::one());
+            }
+            return (a.clone(), b * BigInt::from(first_term), a.clone());
+        }
 
+        let mid = (first_term + last_term) / 2;
+        let (numerator_l, denominator_l, auxiliary_value_l) = exponential_approximation(first_term, mid, a, b);
+        let (numerator_r, denominator_r, auxiliary_value_r) = exponential_approximation(mid, last_term, a, b);
+
+        let numerator = &numerator_l * &denominator_r + &auxiliary_value_l * &numerator_r;
+        let denominator = &denominator_l * &denominator_r;
+        let auxiliary_value = auxiliary_value_l * auxiliary_value_r;
+
+        (numerator, denominator, auxiliary_value)
+    }
+
+    /// Function that computes an approximation of ln(1 - a/b) using a taylor expansion
+    /// for a given number of iterations
+    /// ln(1 - a/b) = -a/b - ((a/b)^2)/2) - ((a/b)^3)/3) - ... - ((a/b)^(N-1))/N-1) + o((a/b)^N)
+    #[allow(dead_code)]
+    fn ln_1p_approximation(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
+        let mut num = a.clone();
+        let mut denom = b.clone();
+        let mut acc = Ratio::new_raw(a.clone(),b.clone());
+        for i in 2..(iterations + 1) {
+            num *= a;
+            denom *= b;
+            acc += Ratio::new_raw(num.clone(), denom.clone() * i);
+        }
+
+        -acc
+    }
+
+    /// Compute the target value of a given party as a base field element using
+    /// Taylor expansion for the natural log and the exponential functions
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
+    #[allow(dead_code)]
+    pub fn compute_target_bigint(phi_f_ratio: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> BigInt {
         use num_integer::Integer;
         use num_traits::{Zero, Num};
 
         let modulus = BigInt::from_str_radix(
             "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-            // "1",
             16,
         )
         .unwrap();
 
-        let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-        let c =
-            Ratio::from_float((-phi_f).ln_1p()).expect("Only fails if the float is infinite or NaN.");
+        let stake_ratio = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
 
-        // With Taylor series 2
-        let exp_wc = compute_exp(c.clone(), w.clone(), 50);
-        let t_taylor = Ratio::from(modulus.clone()) - Ratio::from(modulus.clone()) * exp_wc.clone();
+        // The number of iteration of the ln approximation is set at 40 for now to get
+        // around 92 bits of precision for a value phi_f=0.2
+        let ln_one_minus_phi_f = ln_1p_approximation(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+        // The number of iteration of the exponential approximation is set at 40 for now to get
+        // around 92 bits of precision for a value phi_f=0.2
+        let exp_ln_one_minus_phi_f_stake_ratio = compute_exp(&ln_one_minus_phi_f, &stake_ratio, 40);
+
+        let modulus_ratio = Ratio::from(modulus);
+        let target_as_ratio = modulus_ratio.clone() - modulus_ratio * exp_ln_one_minus_phi_f_stake_ratio;
 
         // Floor division
-        let (t_int, remainder) = t_taylor.numer().div_rem(t_taylor.denom());
-        assert!(t_int >= BigInt::zero());
+        let (target_as_int, remainder) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
+        assert!(target_as_int >= BigInt::zero());
 
-        // If exact division and t_int > 0, subtract 1
-        let target = if remainder.is_zero() && !t_int.is_zero() {
-            t_int - 1
+        // Truncate the lower bits of the target value
+        // The number of truncated bits is set at 163 for now to match the 92 bits precision
+        // of the approximations (255 - 92 = 163)
+        let truncated_target: BigInt = (target_as_int >> 163) << 163;
+
+        // If exact division and truncated_target > 0, subtract 1
+        if remainder.is_zero() && !truncated_target.is_zero() {
+            truncated_target - 1
         } else {
-            t_int
-        };
-
-        let (_, bytes) = target.to_bytes_le();
-        bytes
+            truncated_target
+        }
     }
-}
 
-cfg_rug! {
-    #[cfg(feature = "future_snark")]
-    use rug::{Float, integer::Order, ops::Pow, Integer, float::Round};
-
-    #[cfg(feature = "future_snark")]
-    use std::cmp::Ordering;
-
-    #[cfg(feature = "future_snark")]
+    /// Compute the target value in bytes form given a value phi_f,
+    /// the signer stake and the total stake
+    /// The function approximate phi_f as a ratio to make Taylor expansions easier to compute
+    #[allow(dead_code)]
     pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
-        // JubjubBase modulus
-        let modulus = Integer::from_str_radix(
-            "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-            16,
-        )
-        .unwrap();
 
-        let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
-        let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w.clone());
+        let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
 
-        // increase precision
-        let phi_high = Float::with_val(300, phi.clone());
-        let t = modulus * phi_high;
+        let target_bigint = compute_target_bigint(&phi_f_ratio, stake, total_stake);
 
-        let (t_int, order) = t.to_integer_round(Round::Zero).unwrap();
-        assert!(t_int >= 0);
-
-        let target: Integer = match order {
-            Ordering::Less => t_int,
-            Ordering::Equal => {
-                if t_int == 0 { t_int }
-                else { t_int - 1 }
-            }
-            Ordering::Greater => unreachable!(),
-        };
-        target.to_digits(Order::LsfLe)
+        let (_, bytes) = target_bigint.to_bytes_le();
+        bytes
     }
 }
 
@@ -121,8 +131,24 @@ use crate::{
 /// participant's stake relative to the total stake. A higher stake results in a higher
 /// target value, increasing the probability of eligibility.
 ///
-/// The probability formula follows: `phi = 1 - (1 - phi_f)^(stake/total_stake)`
-/// where `phi_f` is the base probability parameter.
+/// The target value is computed using the following formula:
+///
+/// We need to check that:
+/// signer_lottery_hash / p < 1 - (1 - phi_f)^w
+/// <=> signer_lottery_hash < p * (1 - (1 - phi_f)^w)
+/// where p is the modulus of the field, phi_f a parameter constant comprised in ]0,1], w a variable in ]0,1]
+/// and signer_lottery_hash is the hash computed using the signer's signature and lottery index.
+///
+/// Since the modulus is a 255 bits number, we need to compute (1 - (1 - phi_f)^w) with enough precision
+/// to maintain the lottery functional, i.e. have different targets for different stakes, however close they are.
+///
+/// In order to do that we change the expression:
+/// 1 - (1 - phi_f)^w = 1 - exp(w * ln(1 - phi_f))
+/// and we use Taylor expansion to approximate the exponential and natural logarithm functions to a given precision.
+///
+/// Once the precise expression obtained, we can compute the target value as:
+/// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
+/// and truncate the unecessary bits that are below the precision threshold to ensure more stability in the result.
 pub fn compute_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
     // If phi_f = 1, then we automatically break with true
     if (phi_f - 1.0).abs() < f64::EPSILON {
@@ -183,16 +209,20 @@ pub fn check_index(
 
 #[cfg(test)]
 mod tests {
-
+    use num_bigint::{BigInt, Sign};
+    use num_rational::Ratio;
     use proptest::prelude::*;
     use rand_core::OsRng;
 
-    use crate::LotteryTargetValue;
+    // use crate::LotteryTargetValue;
     #[cfg(feature = "future_snark")]
     use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     #[cfg(feature = "future_snark")]
-    use super::{check_index, compute_target_bytes, compute_target_value, lottery_prefix};
+    use super::{
+        check_index, compute_target_bigint, compute_target_bytes, compute_target_value,
+        lottery_prefix,
+    };
 
     #[cfg(test)]
     mod test_bytes_computation {
@@ -207,7 +237,6 @@ mod tests {
 
             for _ in 0..100 {
                 let target = compute_target_bytes(phi_f, 0, total_stake);
-                println!("{:?}", target);
                 assert!(target == vec![0u8]);
             }
         }
@@ -267,281 +296,344 @@ mod tests {
         println!("Total eligible indices:{:?}", counter);
     }
 
-    #[cfg(feature = "future_snark")]
     #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-    #[test]
-    fn test_following_stake() {
-        let phi_f = 0.05;
-        let total_stake = 1_000_000_000;
-
-        let mut prev_target = compute_target_value(phi_f, 99_999, total_stake);
-        for stake in 100_000..100_100 {
-            let target = compute_target_value(phi_f, stake, total_stake);
-            assert!(prev_target < target);
-            prev_target = target;
-        }
-    }
-
-    #[cfg(feature = "future_snark")]
-    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-    #[test]
-    fn test_greatest_stake_difference() {
-        let phi_f = 0.05;
-        let total_stake = 45_000_000_000;
-
-        let first_target = compute_target_value(phi_f, 1, total_stake);
-        for _ in 0..100 {
-            let target = compute_target_value(phi_f, 1, total_stake);
-            assert!(first_target == target);
-        }
-    }
-
-    #[cfg(feature = "future_snark")]
-    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-    #[test]
-    fn test_minimal_stake_difference() {
-        let phi_f = 0.05;
-        let total_stake = 45_000_000_000;
-        for _ in 0..100 {
-            let zero_target = compute_target_value(phi_f, 0, total_stake);
-            let first_target = compute_target_value(phi_f, 1, total_stake);
-            assert!(zero_target < first_target);
-            let second_target = compute_target_value(phi_f, 2, total_stake);
-            assert!(first_target < second_target);
-        }
-    }
-
-    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-    #[test]
-    fn test_zero_stake() {
-        let phi_f = 0.05;
-        let total_stake = 45_000_000_000;
-
-        for _ in 0..100 {
-            use ff::Field;
-            use midnight_curves::Fq;
-
-            let target = compute_target_value(phi_f, 0, total_stake);
-            assert!(target == BaseFieldElement(Fq::ZERO));
-        }
-    }
-
-    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-    #[test]
-    fn test_full_stake() {
-        let phi_f = 0.05;
-        let total_stake = 45_000_000_000;
-
-        for _ in 0..100 {
-            let target = compute_target_value(phi_f, total_stake, total_stake);
-            println!("{:?}", target);
-        }
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
-
-        #[test]
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[cfg(feature = "future_snark")]
-        fn following_stake_same_order(
-            phi_f in 0.01..0.5f64,
-            total_stake in 100_000_000..1_000_000_000u64,
-            stake in 10_000_000..50_000_000u64,
-        ) {
-            let base_target = compute_target_value(phi_f, stake, total_stake);
-            let next_target = compute_target_value(phi_f, stake + 1, total_stake);
-
-            assert!(base_target < next_target);
-        }
-
-        #[test]
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[cfg(feature = "future_snark")]
-        fn following_small_stake_same_order(
-            phi_f in 0.01..0.5f64,
-            total_stake in 100_000_000..1_000_000_000u64,
-            stake in 100_000..500_000u64,
-        ) {
-            let base_target = compute_target_value(phi_f, stake, total_stake);
-            let next_target = compute_target_value(phi_f, stake + 1, total_stake);
-
-            assert!(base_target < next_target);
-        }
-
-        #[test]
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[cfg(feature = "future_snark")]
-        fn same_stake_same_result(
-            phi_f in 0.01..0.5f64,
-            total_stake in 100_000_000..1_000_000_000u64,
-            stake in 10_000_000..50_000_000u64,
-        ) {
-            let target = compute_target_value(phi_f, stake, total_stake);
-            let same_target = compute_target_value(phi_f, stake, total_stake);
-
-            assert!(target == same_target);
-        }
-
-        #[test]
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[cfg(feature = "future_snark")]
-        fn same_small_stake_same_result(
-            phi_f in 0.01..0.5f64,
-            total_stake in 100_000_000..1_000_000_000u64,
-            stake in 100_000..500_000u64,
-        ) {
-            let target = compute_target_value(phi_f, stake, total_stake);
-            let same_target = compute_target_value(phi_f, stake, total_stake);
-
-            assert!(target == same_target);
-        }
-
-    }
-
-    #[cfg(feature = "future_snark")]
-    #[allow(dead_code)]
-    mod golden {
-
+    #[cfg(test)]
+    mod tests_eligibility_for_snark {
         use super::*;
 
-        const GOLDEN_BYTES: [u8; 32] = [
-            148, 238, 112, 99, 72, 221, 111, 145, 176, 46, 27, 63, 63, 67, 168, 136, 178, 99, 191,
-            162, 138, 191, 134, 41, 213, 234, 22, 52, 148, 172, 129, 7,
-        ];
+        mod stability_tests {
+            use super::*;
 
-        const GOLDEN_VECTOR_BYTES: [[u8; 32]; 20] = [
-            [
-                148, 238, 112, 99, 72, 221, 111, 145, 176, 46, 27, 63, 63, 67, 168, 136, 178, 99,
-                191, 162, 138, 191, 134, 41, 213, 234, 22, 52, 148, 172, 129, 7,
-            ],
-            [
-                233, 21, 27, 137, 13, 104, 201, 190, 31, 24, 237, 214, 185, 44, 180, 245, 13, 165,
-                176, 218, 72, 187, 87, 45, 22, 222, 116, 119, 111, 138, 191, 7,
-            ],
-            [
-                4, 231, 227, 187, 23, 20, 119, 1, 139, 115, 114, 67, 253, 178, 78, 107, 73, 9, 33,
-                181, 8, 194, 249, 95, 158, 213, 18, 123, 253, 68, 253, 7,
-            ],
-            [
-                109, 93, 190, 129, 115, 224, 79, 214, 34, 55, 164, 243, 10, 174, 128, 120, 13, 81,
-                232, 11, 4, 221, 93, 45, 146, 223, 176, 99, 82, 220, 58, 8,
-            ],
-            [
-                120, 148, 65, 138, 176, 179, 129, 224, 33, 31, 137, 207, 125, 246, 201, 4, 1, 213,
-                133, 24, 23, 193, 191, 106, 1, 139, 144, 74, 130, 80, 120, 8,
-            ],
-            [
-                76, 206, 156, 146, 183, 204, 192, 160, 168, 189, 98, 41, 29, 69, 207, 209, 68, 101,
-                126, 109, 47, 254, 144, 96, 236, 118, 123, 61, 161, 161, 181, 8,
-            ],
-            [
-                173, 167, 200, 232, 201, 127, 75, 97, 172, 250, 14, 190, 75, 66, 99, 211, 211, 227,
-                192, 242, 118, 41, 97, 195, 138, 221, 201, 62, 195, 207, 242, 8,
-            ],
-            [
-                18, 84, 26, 107, 215, 191, 118, 255, 199, 20, 173, 88, 59, 191, 186, 246, 213, 209,
-                11, 122, 230, 211, 113, 190, 214, 27, 105, 69, 252, 218, 47, 9,
-            ],
-            [
-                34, 180, 163, 222, 62, 208, 248, 25, 255, 195, 76, 186, 212, 103, 61, 204, 198,
-                109, 154, 67, 127, 45, 109, 49, 94, 53, 226, 60, 96, 195, 108, 9,
-            ],
-            [
-                213, 142, 74, 65, 218, 150, 120, 128, 185, 111, 216, 178, 249, 1, 191, 246, 54, 6,
-                230, 12, 254, 245, 126, 65, 92, 84, 96, 5, 3, 137, 169, 9,
-            ],
-            [
-                246, 24, 65, 141, 23, 205, 200, 22, 233, 237, 118, 172, 124, 133, 169, 241, 135,
-                114, 188, 113, 7, 206, 216, 92, 29, 70, 183, 115, 248, 43, 230, 9,
-            ],
-            [
-                203, 186, 215, 179, 8, 108, 146, 89, 63, 241, 63, 156, 242, 80, 201, 161, 172, 162,
-                248, 43, 47, 31, 117, 206, 175, 243, 105, 81, 84, 172, 34, 10,
-            ],
-            [
-                154, 104, 6, 6, 28, 199, 79, 121, 143, 91, 228, 142, 132, 172, 198, 168, 220, 168,
-                74, 250, 108, 165, 182, 254, 226, 214, 176, 92, 42, 10, 95, 10,
-            ],
-            [
-                153, 241, 128, 114, 9, 226, 92, 211, 45, 175, 46, 106, 166, 147, 147, 23, 59, 109,
-                223, 198, 45, 41, 78, 124, 151, 107, 128, 72, 142, 69, 155, 10,
-            ],
-            [
-                85, 63, 254, 33, 188, 112, 141, 149, 128, 237, 190, 112, 199, 191, 51, 29, 224,
-                219, 31, 97, 209, 45, 156, 231, 97, 157, 143, 188, 147, 94, 215, 10,
-            ],
-            [
-                131, 219, 241, 199, 92, 108, 1, 28, 202, 67, 46, 24, 155, 1, 243, 183, 72, 11, 92,
-                81, 168, 60, 145, 217, 130, 49, 94, 85, 78, 85, 19, 11,
-            ],
-            [
-                145, 133, 1, 46, 45, 76, 15, 247, 209, 13, 46, 165, 135, 82, 107, 94, 106, 232,
-                138, 194, 5, 8, 221, 221, 53, 45, 59, 164, 209, 41, 79, 11,
-            ],
-            [
-                3, 149, 140, 147, 172, 185, 98, 189, 222, 182, 187, 13, 85, 224, 124, 149, 117, 50,
-                2, 55, 83, 228, 10, 151, 89, 56, 75, 47, 49, 220, 138, 11,
-            ],
-            [
-                101, 57, 80, 96, 145, 41, 229, 158, 88, 163, 117, 147, 221, 36, 203, 104, 161, 165,
-                238, 243, 226, 5, 249, 33, 115, 252, 142, 113, 128, 108, 198, 11,
-            ],
-            [
-                233, 239, 235, 236, 174, 118, 1, 10, 113, 133, 116, 112, 156, 16, 105, 234, 111,
-                53, 11, 56, 31, 145, 231, 204, 14, 128, 233, 218, 210, 218, 1, 12,
-            ],
-        ];
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_zero_stake_bytes_stable() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        fn golden_value_num_int() -> LotteryTargetValue {
-            let phi_f = 0.05;
-            let stake = 30;
-            let total_stake = 100;
+                for _ in 0..100 {
+                    let target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
+                    assert!(target == BigInt::ZERO);
+                }
+            }
 
-            compute_target_value(phi_f, stake, total_stake)
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_one_stake_bytes_stable() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+                let first_target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                for _ in 0..100 {
+                    let target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                    assert!(target == first_target);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_full_stake_stable() {
+                // phi_f = 0.65
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(13), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+
+                let full_target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                for _ in 0..100 {
+                    let target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                    assert!(full_target == target);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_minimal_stake_difference_stable() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+                for _ in 0..100 {
+                    let zero_target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
+                    let first_target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                    assert!(zero_target < first_target);
+                    let second_target = compute_target_bigint(&phi_f_ratio, 2, total_stake);
+                    assert!(first_target < second_target);
+                }
+            }
         }
 
-        #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
-        fn golden_value_rug() -> LotteryTargetValue {
-            let phi_f = 0.05;
-            let stake = 30;
-            let total_stake = 100;
+        mod ordering_tests {
+            use super::*;
 
-            compute_target_value(phi_f, stake, total_stake)
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_min_stake_same_order() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
+                for i in 1..=100 {
+                    let target = compute_target_bigint(&phi_f_ratio, i, total_stake);
+                    assert!(prev_target < target);
+                    prev_target = target;
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_stake_same_order() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bigint(&phi_f_ratio, 99_999, total_stake);
+                for stake in 100_000..100_100 {
+                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    assert!(prev_target < target);
+                    prev_target = target;
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn test_following_max_stake_same_order() {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+
+                let mut prev_target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                for i in 1..=100 {
+                    let target = compute_target_bigint(&phi_f_ratio, total_stake - i, total_stake);
+                    assert!(prev_target > target);
+                    prev_target = target;
+                }
+            }
         }
 
-        fn golden_vector() -> Vec<LotteryTargetValue> {
-            let phi_f = 0.2;
-            let total_stake = 100;
-            (30..50)
-                .map(|stake| compute_target_value(phi_f, stake, total_stake))
-                .collect()
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(50))]
+
+            #[test]
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn following_stake_same_order(
+                phi_f in 1..50u64,
+                total_stake in 100_000_000..1_000_000_000u64,
+                stake in 10_000_000..50_000_000u64,
+            ) {
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
+                let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
+
+                assert!(base_target < next_target);
+            }
+
+            #[test]
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn following_small_stake_same_order(
+                phi_f in 1..50u64,
+                total_stake in 100_000_000..1_000_000_000u64,
+                stake in 100_000..500_000u64,
+            ) {
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
+                let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
+
+                assert!(base_target < next_target);
+            }
+
+            #[test]
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn same_stake_same_result(
+                phi_f in 1..50u64,
+                total_stake in 100_000_000..1_000_000_000u64,
+                stake in 10_000_000..50_000_000u64,
+            ) {
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
+                let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+
+                assert!(target == same_target);
+            }
+
+            #[test]
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn same_small_stake_same_result(
+                phi_f in 1..50u64,
+                total_stake in 100_000_000..1_000_000_000u64,
+                stake in 100_000..500_000u64,
+            ) {
+                let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
+                let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+
+                assert!(target == same_target);
+            }
+
         }
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        // #[test]
-        fn golden_check_num_int() {
-            let _golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
-            println!("{:?}", golden_value_num_int());
-            // assert_eq!(golden_target, golden_value_num_int());
-        }
+        #[allow(dead_code)]
+        mod golden {
 
-        #[cfg(not(any(target_family = "wasm", target_env = "musl", windows)))]
-        // #[test]
-        fn golden_check_rug() {
-            let _golden_target = BaseFieldElement::from_bytes(&GOLDEN_BYTES).unwrap();
-            println!("{:?}", golden_value_rug());
+            use num_traits::Num;
 
-            // assert_eq!(golden_target, golden_value_rug());
-        }
-        // #[test]
-        fn golden_vector_check() {
-            let golden_vector = golden_vector();
+            use super::*;
 
-            for (golden_bytes, golden_target) in GOLDEN_VECTOR_BYTES.iter().zip(golden_vector) {
-                let target = BaseFieldElement::from_bytes(golden_bytes).unwrap();
-                assert_eq!(target, golden_target);
+            const GOLDEN_BYTES_ZERO: [u8; 32] = [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0,
+            ];
+
+            const GOLDEN_BYTES_ONE: [u8; 32] = [
+                27, 48, 173, 178, 223, 192, 192, 121, 170, 65, 40, 134, 214, 2, 53, 145, 123, 46,
+                191, 195, 147, 215, 156, 110, 100, 74, 145, 0, 0, 0, 0, 0,
+            ];
+
+            const GOLDEN_BYTES_TWO: [u8; 32] = [
+                137, 195, 57, 199, 124, 159, 238, 181, 189, 47, 128, 105, 4, 191, 232, 76, 181,
+                167, 38, 144, 16, 249, 56, 221, 200, 148, 34, 1, 0, 0, 0, 0,
+            ];
+
+            const GOLDEN_BYTES_MAX_STAKE: [u8; 32] = [
+                9, 38, 93, 151, 8, 144, 186, 241, 181, 159, 51, 71, 83, 107, 160, 234, 47, 37, 82,
+                100, 201, 147, 177, 246, 91, 70, 174, 91, 247, 225, 203, 5,
+            ];
+
+            const GOLDEN_BYTES_MAX_STAKE_MINUS_ONE: [u8; 32] = [
+                27, 109, 86, 146, 19, 122, 192, 25, 95, 249, 227, 17, 232, 123, 152, 70, 56, 53,
+                181, 234, 0, 26, 207, 192, 175, 63, 36, 91, 247, 225, 203, 5,
+            ];
+
+            const GOLDEN_BYTES_MAX_STAKE_MINUS_TWO: [u8; 32] = [
+                243, 79, 224, 18, 113, 92, 32, 249, 151, 225, 83, 134, 17, 78, 22, 178, 195, 189,
+                81, 57, 60, 243, 235, 138, 3, 57, 154, 90, 247, 225, 203, 5,
+            ];
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn golden_value_target_from_stake(stake: u64) -> BigInt {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+
+                compute_target_bigint(&phi_f_ratio, stake, total_stake)
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn golden_value_following_min_stake() -> Vec<BigInt> {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+                let mut golden_values = vec![];
+
+                for stake in 0..500 {
+                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    golden_values.push(target);
+                }
+                golden_values
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn golden_value_following_stake_medium() -> Vec<BigInt> {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+                let mut golden_values = vec![];
+
+                for stake in 100_000..100_500 {
+                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    golden_values.push(target);
+                }
+                golden_values
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            fn golden_value_following_stake_max() -> Vec<BigInt> {
+                // phi_f = 0.05
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let total_stake = 45_000_000_000;
+                let mut golden_values = vec![];
+
+                for i in 0..500 {
+                    let target = compute_target_bigint(&phi_f_ratio, total_stake - i, total_stake);
+                    golden_values.push(target);
+                }
+                golden_values
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn golden_check_small_values() {
+                let _golden_target_0 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_ZERO);
+                let _golden_target_1 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_ONE);
+                let _golden_target_2 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_TWO);
+
+                // assert_eq!(golden_target_0, golden_value_target_from_stake(0));
+                // assert_eq!(golden_target_1, golden_value_target_from_stake(1));
+                // assert_eq!(golden_target_2, golden_value_target_from_stake(2));
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn golden_check_max_values_fail() {
+                let _golden_target_max = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE);
+                let _golden_target_max_1 =
+                    BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_ONE);
+                let _golden_target_max_2 =
+                    BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE_MINUS_TWO);
+
+                // assert!(golden_target_max != golden_value_target_from_stake(44_999_999_998));
+                // assert!(golden_target_max_1 != golden_value_target_from_stake(45_000_000_000));
+                // assert!(golden_target_max_2 != golden_value_target_from_stake(44_999_999_999));
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn golden_check_following_min_stake() {
+                let golden_target_vector = golden_value_following_min_stake();
+
+                let golden_target_from_file = include_str!(
+                    "../../../tests/golden_vector_target_value/golden_vector_min_stake.txt"
+                );
+                for (_t1, t2_hex) in
+                    golden_target_vector.iter().zip(golden_target_from_file.lines())
+                {
+                    let _t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
+                    // assert_eq!(t1, &t2);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn golden_check_following_stake_medium() {
+                let golden_target_vector = golden_value_following_stake_medium();
+
+                let golden_target_from_file = include_str!(
+                    "../../../tests/golden_vector_target_value/golden_vector_medium_stake.txt"
+                );
+                for (_t1, t2_hex) in
+                    golden_target_vector.iter().zip(golden_target_from_file.lines())
+                {
+                    let _t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
+                    // assert_eq!(t1, &t2);
+                }
+            }
+
+            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+            #[test]
+            fn golden_check_following_stake_max() {
+                let golden_target_vector = golden_value_following_stake_max();
+                let golden_target_from_file = include_str!(
+                    "../../../tests/golden_vector_target_value/golden_vector_max_stake.txt"
+                );
+
+                for (_t1, t2_hex) in
+                    golden_target_vector.iter().zip(golden_target_from_file.lines())
+                {
+                    let _t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
+                    // assert_eq!(t1, &t2);
+                }
             }
         }
     }
