@@ -1,4 +1,10 @@
 {
+  "bootstrapPeers": [
+    {
+      "address": "preprod-node.play.dev.cardano.org",
+      "port": 3001
+    }
+  ],
   "localRoots": [
     {
       "accessPoints": [],
@@ -7,12 +13,12 @@
       "valency": 1
     }
   ],
+  "peerSnapshotFile": "peer-snapshot.json",
   "publicRoots": [
     {
       "accessPoints": [],
       "advertise": false
     }
   ],
-  "peerSnapshotFile": "peer-snapshot.json",
-  "useLedgerAfterSlot": 83894000
+  "useLedgerAfterSlot": 112406400
 }
