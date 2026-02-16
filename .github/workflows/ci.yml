@@ -72,6 +72,35 @@ jobs:
           cargo deb --no-build --package mithril-client-cli --target=${{ matrix.musl_target }}
           cargo deb --no-build --package mithril-relay --target=${{ matrix.musl_target }}
 
+      - name: Check binaries are static
+        shell: bash
+        run: |
+          BINARIES=(
+            "mithril-aggregator"
+            "mithril-signer"
+            "mithril-client"
+            "mithril-relay"
+          )
+          for bin in "${BINARIES[@]}"; do
+            BIN_PATH=target/${{ matrix.musl_target }}/release/$bin
+            echo "Checking $bin is statically linked"
+
+            if [ ! -f "$BIN_PATH" ]; then
+              echo "❌ Binary not found!"
+              exit 1
+            fi
+
+            LDD_OUTPUT=$(ldd "$BIN_PATH" 2>&1 || true)
+            echo "$LDD_OUTPUT"
+
+            if ldd "$BIN_PATH" 2>&1 | grep -Eq "\bnot a dynamic executable\b|\bstatically linked\b"; then
+              echo "✅ Binary is static"
+            else
+              echo "❌ Binary is NOT static"
+              exit 1
+            fi
+          done
+      
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
         with:
