@@ -198,7 +198,7 @@ impl<T> TryFrom<SignedEntityRecord> for SignedEntity<T>
 where
     for<'a> T: Artifact + Serialize + Deserialize<'a>,
 {
-    type Error = serde_json::error::Error;
+    type Error = StdError;
 
     fn try_from(other: SignedEntityRecord) -> Result<SignedEntity<T>, Self::Error> {
         let signed_entity = SignedEntity {

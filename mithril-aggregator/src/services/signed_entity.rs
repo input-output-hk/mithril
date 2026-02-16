@@ -80,6 +80,11 @@ pub trait SignedEntityService: Send + Sync {
         &self,
     ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>>;
 
+    /// Return the last signed Cardano Blocks and Transactions Snapshot.
+    async fn get_last_cardano_blocks_transactions_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoBlocksTransactionsSnapshot>>>;
+
     /// Return a list of signed Cardano stake distribution ordered by creation
     /// date descending.
     async fn get_last_signed_cardano_stake_distributions(
@@ -492,14 +497,21 @@ impl SignedEntityService for MithrilSignedEntityService {
     async fn get_last_cardano_transaction_snapshot(
         &self,
     ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>> {
-        let mut signed_entities_records = self
-            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
-            .await?;
+        self.get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await?
+            .pop()
+            .map(|r| r.try_into())
+            .transpose()
+    }
 
-        match signed_entities_records.pop() {
-            Some(record) => Ok(Some(record.try_into()?)),
-            None => Ok(None),
-        }
+    async fn get_last_cardano_blocks_transactions_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoBlocksTransactionsSnapshot>>> {
+        self.get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+            .await?
+            .pop()
+            .map(|r| r.try_into())
+            .transpose()
     }
 
     async fn get_last_signed_cardano_stake_distributions(
