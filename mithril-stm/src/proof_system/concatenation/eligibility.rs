@@ -6,7 +6,6 @@ cfg_num_integer! {
     use num_traits::{One, Signed};
     use std::ops::Neg;
 
-
     /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
     /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
     /// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,

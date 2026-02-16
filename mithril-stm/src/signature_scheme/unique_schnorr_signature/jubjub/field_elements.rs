@@ -18,7 +18,7 @@ impl BaseFieldElement {
         BaseFieldElement(JubjubBase::ONE)
     }
 
-    #[cfg(feature = "future_snark")]
+    #[cfg(all(test, feature = "future_snark"))]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     /// Generates a new random scalar field element
@@ -66,7 +66,7 @@ impl TryFrom<&[u8]> for BaseFieldElement {
 }
 
 impl From<u64> for BaseFieldElement {
-    /// Converts a prime order projective point to its affine representation
+    /// Converts a `u64` integer to a base field element
     fn from(integer: u64) -> Self {
         BaseFieldElement(JubjubBase::from(integer))
     }

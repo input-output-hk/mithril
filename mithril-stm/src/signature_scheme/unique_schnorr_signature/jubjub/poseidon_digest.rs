@@ -12,9 +12,12 @@ pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
 ]);
 
 #[cfg(feature = "future_snark")]
+/// Domain Separation Tag (DST) for the lottery check. It is used as a prefix when computing
+/// the eligibility value of a signature.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
-pub const DST_LOTTERY: BaseFieldElement = BaseFieldElement(JubjubBase::from_raw([3, 3, 0, 0]));
+pub const DOMAIN_SEPARATION_TAG_LOTTERY: BaseFieldElement =
+    BaseFieldElement(JubjubBase::from_raw([3, 3, 0, 0]));
 
 /// Computes a Poseidon digest over the provided base field elements
 /// Returns a scalar field element as the digest
