@@ -92,16 +92,14 @@ jobs:
               exit 1
             fi
 
-            LDD_OUTPUT=$(ldd "$BIN_PATH" 2>&1 || true)
-            echo "$LDD_OUTPUT"
-
-            if ldd "$BIN_PATH" 2>&1 | grep -Eq "\bnot a dynamic executable\b|\bstatically linked\b"; then
-              echo "✅ Binary is static"
-            else
-              echo "❌ Binary is NOT static"
+            if readelf -d "$BIN_PATH" 2>/dev/null | grep -q NEEDED; then
+              echo "❌ $BIN is NOT static (has dynamic dependencies)"
               exit 1
+            else
+              echo "✅ $BIN is fully static"
             fi
-          done
+            done
+            echo "🎉 All binaries are static!"
       
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
