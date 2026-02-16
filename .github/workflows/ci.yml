@@ -161,6 +161,61 @@ jobs:
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
 
+      # macOS
+      - name: Check for static builds on macOS
+        if: matrix.os == 'macos-14'
+        shell: bash
+        run: |
+          BINARIES=(
+            "mithril-client"
+          )
+          for bin in "${BINARIES[@]}"; do
+            BIN_PATH=target/release/$bin
+            echo "Checking $bin is statically linked"
+
+            if [ ! -f "$BIN_PATH" ]; then
+              echo "❌ Binary not found!"
+              exit 1
+            fi
+
+            if otool -L "$BIN_PATH" 2>/dev/null | grep -q "dylib"; then
+              echo "❌ $bin is NOT static (has dynamic dependencies)"
+              echo "Dependencies: $(otool -L "$BIN_PATH")"
+              exit 1
+            else
+              echo "✅ $bin is fully static"
+            fi
+          done
+          echo "🎉 All binaries are static!"
+
+      # Windows
+      - name: Check for static builds on Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $BINARIES = @(
+            "mithril-client.exe"
+          )
+          foreach ($bin in $BINARIES) {
+            $binPath = "target\release\$bin"
+            Write-Host "Checking $bin is statically linked"
+
+            if (-Not (Test-Path $binPath)) {
+              Write-Host "❌ Binary not found!"
+              exit 1
+            }
+
+            $dependencies = & link /dump /dependents $binPath 2>&1
+            if ($dependencies -match "DLL") {
+              Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+              exit 1
+            } else {
+              Write-Host "✅ $bin is fully static"
+            }
+          }
+          Write-Host "🎉 All binaries are static!"
+          exit 0
+
   build-test-wasm:
     runs-on: ubuntu-24.04
     steps:
