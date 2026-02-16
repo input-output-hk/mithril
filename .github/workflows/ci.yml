@@ -22,8 +22,10 @@ jobs:
         include:
           - os: ubuntu-22.04
             musl_target: x86_64-unknown-linux-musl
+            features: bundle_tls,jemallocator,full
           - os: ubuntu-22.04-arm
             musl_target: aarch64-unknown-linux-musl
+            features: bundle_tls,full
     runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
@@ -61,7 +63,7 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_tls,full --target=${{ matrix.musl_target }}
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
 
       - name: Build Debian packages
