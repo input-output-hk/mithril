@@ -319,7 +319,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_blocks_transactions_signable_when_given_cardano_transactions_entity_type() {
+    async fn build_blocks_transactions_signable_when_given_cardano_blocks_transactions_entity_type()
+    {
         let mut mock_container = build_mock_container();
         mock_container
             .mock_cardano_blocks_transactions_signable_builder

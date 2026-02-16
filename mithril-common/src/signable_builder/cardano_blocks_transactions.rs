@@ -10,7 +10,7 @@ use crate::{
     signable_builder::SignableBuilder,
 };
 
-/// Cardano transactions importer
+/// Cardano blocks and transactions importer
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait BlocksTransactionsImporter: Send + Sync {
@@ -46,18 +46,18 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
 
 /// A [CardanoBlocksTransactionsSignableBuilder] builder
 pub struct CardanoBlocksTransactionsSignableBuilder<S: MKTreeStorer> {
-    transaction_importer: Arc<dyn BlocksTransactionsImporter>,
+    blocks_transactions_importer: Arc<dyn BlocksTransactionsImporter>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
 }
 
 impl<S: MKTreeStorer> CardanoBlocksTransactionsSignableBuilder<S> {
     /// Constructor
     pub fn new(
-        transaction_importer: Arc<dyn BlocksTransactionsImporter>,
+        blocks_transactions_importer: Arc<dyn BlocksTransactionsImporter>,
         block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     ) -> Self {
         Self {
-            transaction_importer,
+            blocks_transactions_importer,
             block_range_root_retriever,
         }
     }
@@ -66,7 +66,7 @@ impl<S: MKTreeStorer> CardanoBlocksTransactionsSignableBuilder<S> {
 #[async_trait]
 impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoBlocksTransactionsSignableBuilder<S> {
     async fn compute_protocol_message(&self, beacon: BlockNumber) -> StdResult<ProtocolMessage> {
-        self.transaction_importer.import(beacon).await?;
+        self.blocks_transactions_importer.import(beacon).await?;
 
         let mk_root = self
             .block_range_root_retriever
@@ -116,24 +116,23 @@ mod tests {
         let block_number = BlockNumber(1453);
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
-        let mut transaction_importer = MockBlocksTransactionsImporter::new();
-        transaction_importer.expect_import().return_once(move |_| Ok(()));
+        let mut blocks_transactions_importer = MockBlocksTransactionsImporter::new();
+        blocks_transactions_importer
+            .expect_import()
+            .return_once(move |_| Ok(()));
         let retrieved_transactions = transactions.clone();
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
         block_range_root_retriever
             .expect_compute_merkle_map_from_block_range_roots()
             .return_once(move |_| Ok(compute_mk_map_from_transactions(retrieved_transactions)));
 
-        let cardano_transactions_signable_builder = CardanoBlocksTransactionsSignableBuilder::new(
-            Arc::new(transaction_importer),
+        let signable_builder = CardanoBlocksTransactionsSignableBuilder::new(
+            Arc::new(blocks_transactions_importer),
             Arc::new(block_range_root_retriever),
         );
 
         // Action
-        let signable = cardano_transactions_signable_builder
-            .compute_protocol_message(block_number)
-            .await
-            .unwrap();
+        let signable = signable_builder.compute_protocol_message(block_number).await.unwrap();
 
         // Assert
         let mut signable_expected = ProtocolMessage::new();
@@ -151,20 +150,18 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable_with_no_block_range_root_return_error() {
         let block_number = BlockNumber(50);
-        let mut transaction_importer = MockBlocksTransactionsImporter::new();
-        transaction_importer.expect_import().return_once(|_| Ok(()));
+        let mut blocks_transactions_importer = MockBlocksTransactionsImporter::new();
+        blocks_transactions_importer.expect_import().return_once(|_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
         block_range_root_retriever
             .expect_compute_merkle_map_from_block_range_roots()
             .return_once(move |_| Ok(compute_mk_map_from_transactions(vec![])));
-        let cardano_transactions_signable_builder = CardanoBlocksTransactionsSignableBuilder::new(
-            Arc::new(transaction_importer),
+        let signable_builder = CardanoBlocksTransactionsSignableBuilder::new(
+            Arc::new(blocks_transactions_importer),
             Arc::new(block_range_root_retriever),
         );
 
-        let result = cardano_transactions_signable_builder
-            .compute_protocol_message(block_number)
-            .await;
+        let result = signable_builder.compute_protocol_message(block_number).await;
 
         assert!(result.is_err());
     }

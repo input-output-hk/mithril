@@ -410,7 +410,7 @@ pub async fn assert_node_producing_cardano_blocks_transactions(
         "{}/artifact/cardano-blocks-transactions",
         aggregator.endpoint()
     );
-    info!("Waiting for the aggregator to produce a Cardano blocks transactions artifact"; "aggregator" => &aggregator.name(), "aggregator" => &aggregator.name());
+    info!("Waiting for the aggregator to produce a Cardano blocks transactions artifact"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_cardano_blocks_transactions_snapshot_hash(
         url: String,
