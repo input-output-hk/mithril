@@ -288,6 +288,7 @@ jobs:
           else
             echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
           fi
+          echo "cardano_node_version=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].cardano_node_version')" >> $GITHUB_OUTPUT
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
@@ -313,7 +314,7 @@ jobs:
           fi
 
           ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db \
-                          --cardano-node-version latest --utxo-hd-flavor $UTXO_HD_FLAVOR --commit --json \
+                          --cardano-node-version ${{ steps.last_snapshot.outputs.cardano_node_version }} --utxo-hd-flavor $UTXO_HD_FLAVOR --commit --json \
                           | tee cdb-${{ matrix.backend }}-converter-output.json
 
       - name: Cardano Database V2 Snapshot / verify immutables
@@ -496,6 +497,7 @@ jobs:
           else
             echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
           fi
+          echo "cardano_node_version=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].cardano_node_version')" >> $GITHUB_OUTPUT
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
@@ -505,7 +507,7 @@ jobs:
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary' && matrix.backend == 'v2'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory /app/data/v2/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory /app/data/v2/db --cardano-node-version ${{ steps.last_snapshot.outputs.cardano_node_version }} --utxo-hd-flavor LMDB --commit
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: matrix.backend == 'v2'
