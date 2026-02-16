@@ -3,6 +3,99 @@ cfg_num_integer! {
     use num_traits::One;
     use num_rational::Ratio;
 
+    #[cfg(feature = "future_snark")]
+    use crate::{
+        LotteryIndex, LotteryTargetValue, SignatureError, Stake, StmResult, UniqueSchnorrSignature,
+        signature_scheme::{BaseFieldElement, DST_LOTTERY, compute_poseidon_digest},
+    };
+
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    /// Computes the lottery target value for SNARK proof system as a base field element.
+    ///
+    /// The target value determines the probability of winning the lottery based on the
+    /// participant's stake relative to the total stake. A higher stake results in a higher
+    /// target value, increasing the probability of eligibility.
+    ///
+    /// The target value is computed using the following formula, we need to check that:
+    /// signer_lottery_hash < p * (1 - (1 - phi_f)^w)
+    /// where p is the modulus of the field, phi_f a parameter constant comprised in ]0,1], w a variable in ]0,1]
+    /// and signer_lottery_hash is the hash computed using the signer's signature and lottery index.
+    ///
+    /// Since the modulus is a 255 bits number, we need to compute (1 - (1 - phi_f)^w) with enough precision
+    /// to maintain the lottery functional, i.e. have different targets for different stakes
+    /// and maintain the same order, however close they are.
+    ///
+    /// In order to do that we change the expression:
+    /// 1 - (1 - phi_f)^w = 1 - exp(w * ln(1 - phi_f))
+    /// and we use Taylor expansion to approximate the exponential and natural logarithm functions to a given precision.
+    ///
+    /// Once the precise expression obtained, we can compute the target value as:
+    /// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
+    /// and truncate the unnecessary bits that are below the precision threshold to ensure more stability in the result.
+    ///
+    /// To reduce computation, this function takes ln(1 - phi_f) approximation as input as it is fixed for a given lottery
+    pub fn compute_target_value(ln_one_minus_phi_f: Ratio<BigInt>, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
+        // This block can be moved outside this function as this value is fixed for a given lottery
+        // If phi_f = 1, then we automatically break with true
+        // if (phi_f - 1.0).abs() < f64::EPSILON {
+        //     return -BaseFieldElement::get_one();
+        // }
+        // Approximate the value phi as a Ratio of BigInt
+        // let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        // let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
+        // The number of iteration of the ln approximation is set at 40 for now to get
+        // around 92 bits of precision for a value phi_f=0.2
+        // let ln_one_minus_phi_f = ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+
+        let mut bytes: Vec<u8> = compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake);
+        bytes.resize(32, 0);
+        BaseFieldElement::from_bytes(&bytes).unwrap()
+    }
+
+    /// Compute the target value in bytes form given a value phi_f using
+    /// Taylor expansion for the natural log and the exponential functions
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    pub fn compute_target_bytes(ln_one_minus_phi_f: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> Vec<u8> {
+        use num_integer::Integer;
+        use num_traits::{Zero, Num};
+
+        let modulus = BigInt::from_str_radix(
+            "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+            16,
+        )
+        .unwrap();
+
+        let stake_ratio = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+
+        // The number of iteration of the exponential approximation is set at 40 for now to get
+        // around 92 bits of precision for a value phi_f=0.2
+        let exp_ln_one_minus_phi_f_stake_ratio = compute_exponential_taylor_expansion(ln_one_minus_phi_f, &stake_ratio, 40);
+
+        let modulus_ratio = Ratio::from(modulus);
+        let target_as_ratio = modulus_ratio.clone() - modulus_ratio * exp_ln_one_minus_phi_f_stake_ratio;
+
+        // Floor division
+        let (target_as_int, remainder) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
+        assert!(target_as_int >= BigInt::zero());
+
+        // Truncate the lower bits of the target value
+        // The number of truncated bits is set at 163 for now to match the 92 bits precision
+        // of the approximations (255 - 92 = 163)
+        let truncated_target: BigInt = (target_as_int >> 163) << 163;
+
+        // If exact division and truncated_target > 0, subtract 1
+        let target_bigint = if remainder.is_zero() && !truncated_target.is_zero() {
+            truncated_target - 1
+        } else {
+            truncated_target
+        };
+
+        let (_, bytes) = target_bigint.to_bytes_le();
+        bytes
+    }
 
     /// Computes a Taylor expansion of the exponential exp(c*w) up to the (N-1)th term
     /// exp(c*x) = 1 + c*x + (c*x)^2/2! + (c*x)^3/3! + ... + (c*x)^{N-1}/(N-1)! + O((c*x)^N)
@@ -10,7 +103,7 @@ cfg_num_integer! {
     /// Hence we stop when |(c*x)^N / N!| < epsilon
     /// We can check instead (c * x)^N < epsilon
     /// which gives us the bound N < log(epsilon) / log(|c*x|)
-    pub fn compute_exp(x: &Ratio<BigInt>, c: &Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
+    pub fn compute_exponential_taylor_expansion(x: &Ratio<BigInt>, c: &Ratio<BigInt>, iterations: usize) -> Ratio<BigInt> {
         let cw = c * x;
         let (num, denom, _) = exponential_approximation(0, iterations, cw.numer(), cw.denom());
 
@@ -44,7 +137,7 @@ cfg_num_integer! {
     /// for a given number of iterations
     /// ln(1 - a/b) = -a/b - ((a/b)^2)/2) - ((a/b)^3)/3) - ... - ((a/b)^(N-1))/N-1) + o((a/b)^N)
     #[allow(dead_code)]
-    fn ln_1p_approximation(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
+    fn ln_1p_taylor_expansion(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
         let mut num = a.clone();
         let mut denom = b.clone();
         let mut acc = Ratio::new_raw(a.clone(),b.clone());
@@ -57,156 +150,56 @@ cfg_num_integer! {
         -acc
     }
 
-    /// Compute the target value of a given party as a base field element using
-    /// Taylor expansion for the natural log and the exponential functions
+    #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub fn compute_target_bigint(phi_f_ratio: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> BigInt {
-        use num_integer::Integer;
-        use num_traits::{Zero, Num};
-
-        let modulus = BigInt::from_str_radix(
-            "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-            16,
-        )
-        .unwrap();
-
-        let stake_ratio = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-
-        // The number of iteration of the ln approximation is set at 40 for now to get
-        // around 92 bits of precision for a value phi_f=0.2
-        let ln_one_minus_phi_f = ln_1p_approximation(40, phi_f_ratio.numer(), phi_f_ratio.denom());
-        // The number of iteration of the exponential approximation is set at 40 for now to get
-        // around 92 bits of precision for a value phi_f=0.2
-        let exp_ln_one_minus_phi_f_stake_ratio = compute_exp(&ln_one_minus_phi_f, &stake_ratio, 40);
-
-        let modulus_ratio = Ratio::from(modulus);
-        let target_as_ratio = modulus_ratio.clone() - modulus_ratio * exp_ln_one_minus_phi_f_stake_ratio;
-
-        // Floor division
-        let (target_as_int, remainder) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
-        assert!(target_as_int >= BigInt::zero());
-
-        // Truncate the lower bits of the target value
-        // The number of truncated bits is set at 163 for now to match the 92 bits precision
-        // of the approximations (255 - 92 = 163)
-        let truncated_target: BigInt = (target_as_int >> 163) << 163;
-
-        // If exact division and truncated_target > 0, subtract 1
-        if remainder.is_zero() && !truncated_target.is_zero() {
-            truncated_target - 1
-        } else {
-            truncated_target
+    /// Verifies if a lottery index is eligible based on the signature and target value.
+    ///
+    /// This function checks whether a given index wins the lottery by computing an
+    /// evaluation value from the signature's commitment point and the index, then
+    /// comparing it against the target value. An index is eligible if its
+    /// evaluation value is less than or equal to the target.
+    ///
+    /// The evaluation is computed as: `ev = Poseidon(prefix, sigma_x, sigma_y, index)`
+    /// where `(sigma_x, sigma_y)` are the coordinates of the signature's commitment point.
+    pub fn check_index(
+        signature: &UniqueSchnorrSignature,
+        index: LotteryIndex,
+        m: u64,
+        prefix: BaseFieldElement,
+        target: LotteryTargetValue,
+    ) -> StmResult<()> {
+        if index > m {
+            return Err(SignatureError::IndexBoundFailed(index, m).into());
         }
+
+        let idx = BaseFieldElement::from(index);
+        let (sigma_x, sigma_y) = signature.commitment_point.get_coordinates();
+        let ev = compute_poseidon_digest(&[prefix, sigma_x, sigma_y, idx]);
+
+        // check if ev <= target
+        if ev > target {
+            return Err(SignatureError::LotteryLost.into());
+        }
+
+        Ok(())
     }
 
-    /// Compute the target value in bytes form given a value phi_f,
-    /// the signer stake and the total stake
-    /// The function approximate phi_f as a ratio to make Taylor expansions easier to compute
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub fn compute_target_bytes(phi_f: f64, stake: Stake, total_stake: Stake) -> Vec<u8> {
-
-        let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
-        let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
-
-        let target_bigint = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-
-        let (_, bytes) = target_bigint.to_bytes_le();
-        bytes
+    /// Computes the lottery prefix hash from a message.
+    /// The prefix is computed by prepending `DST_LOTTERY`
+    /// to the message and hashing the result using `compute_poseidon_digest`.
+    pub fn lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
+        let mut prefix = vec![DST_LOTTERY];
+        prefix.extend_from_slice(msg);
+        compute_poseidon_digest(&prefix)
     }
 }
 
+#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 #[cfg(feature = "future_snark")]
-use crate::{
-    LotteryIndex, LotteryTargetValue, SignatureError, Stake, StmResult, UniqueSchnorrSignature,
-    signature_scheme::{BaseFieldElement, DST_LOTTERY, compute_poseidon_digest},
-};
-
-#[cfg(feature = "future_snark")]
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
-/// Computes the lottery target value for SNARK proof system.
-///
-/// The target value determines the probability of winning the lottery based on the
-/// participant's stake relative to the total stake. A higher stake results in a higher
-/// target value, increasing the probability of eligibility.
-///
-/// The target value is computed using the following formula:
-///
-/// We need to check that:
-/// signer_lottery_hash / p < 1 - (1 - phi_f)^w
-/// <=> signer_lottery_hash < p * (1 - (1 - phi_f)^w)
-/// where p is the modulus of the field, phi_f a parameter constant comprised in ]0,1], w a variable in ]0,1]
-/// and signer_lottery_hash is the hash computed using the signer's signature and lottery index.
-///
-/// Since the modulus is a 255 bits number, we need to compute (1 - (1 - phi_f)^w) with enough precision
-/// to maintain the lottery functional, i.e. have different targets for different stakes, however close they are.
-///
-/// In order to do that we change the expression:
-/// 1 - (1 - phi_f)^w = 1 - exp(w * ln(1 - phi_f))
-/// and we use Taylor expansion to approximate the exponential and natural logarithm functions to a given precision.
-///
-/// Once the precise expression obtained, we can compute the target value as:
-/// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
-/// and truncate the unecessary bits that are below the precision threshold to ensure more stability in the result.
-pub fn compute_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
-    // If phi_f = 1, then we automatically break with true
-    if (phi_f - 1.0).abs() < f64::EPSILON {
-        return -BaseFieldElement::get_one();
-    }
-
-    let mut bytes: Vec<u8> = compute_target_bytes(phi_f, stake, total_stake);
-    bytes.resize(32, 0);
-    BaseFieldElement::from_bytes(&bytes).unwrap()
-}
-
-#[cfg(feature = "future_snark")]
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
-/// Computes the lottery prefix hash from a message.
-/// The prefix is computed by prepending `DST_LOTTERY`
-/// to the message and hashing the result using `compute_poseidon_digest`.
-pub fn lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
-    let mut prefix = vec![DST_LOTTERY];
-    prefix.extend_from_slice(msg);
-    compute_poseidon_digest(&prefix)
-}
-
-#[cfg(feature = "future_snark")]
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
-/// Verifies if a lottery index is eligible based on the signature and target value.
-///
-/// This function checks whether a given index wins the lottery by computing an
-/// evaluation value from the signature's commitment point and the index, then
-/// comparing it against the target value. An index is eligible if its
-/// evaluation value is less than or equal to the target.
-///
-/// The evaluation is computed as: `ev = Poseidon(prefix, sigma_x, sigma_y, index)`
-/// where `(sigma_x, sigma_y)` are the coordinates of the signature's commitment point.
-pub fn check_index(
-    signature: &UniqueSchnorrSignature,
-    index: LotteryIndex,
-    m: u64,
-    prefix: BaseFieldElement,
-    target: LotteryTargetValue,
-) -> StmResult<()> {
-    if index > m {
-        return Err(SignatureError::IndexBoundFailed(index, m).into());
-    }
-
-    let idx = BaseFieldElement::from(index);
-    let (sigma_x, sigma_y) = signature.commitment_point.get_coordinates();
-    let ev = compute_poseidon_digest(&[prefix, sigma_x, sigma_y, idx]);
-
-    // check if ev <= target
-    if ev > target {
-        return Err(SignatureError::LotteryLost.into());
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use num_bigint::{BigInt, Sign};
@@ -215,12 +208,10 @@ mod tests {
     use rand_core::OsRng;
 
     // use crate::LotteryTargetValue;
-    #[cfg(feature = "future_snark")]
     use crate::{SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
-    #[cfg(feature = "future_snark")]
     use super::{
-        check_index, compute_target_bigint, compute_target_bytes, compute_target_value,
+        check_index, compute_target_bytes, compute_target_value, ln_1p_taylor_expansion,
         lottery_prefix,
     };
 
@@ -228,61 +219,62 @@ mod tests {
     mod test_bytes_computation {
         use super::*;
 
-        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
-        #[cfg(feature = "future_snark")]
         #[test]
         fn test_zero_stake_bytes() {
-            let phi_f = 0.05;
+            // phi_f = 0.05
+            let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
             let total_stake = 45_000_000_000;
 
             for _ in 0..100 {
-                let target = compute_target_bytes(phi_f, 0, total_stake);
+                let target = compute_target_bytes(&phi_f_ratio, 0, total_stake);
                 assert!(target == vec![0u8]);
             }
         }
     }
 
-    #[cfg(feature = "future_snark")]
-    #[test]
-    fn test_target_phi_f_one() {
-        // Case where `phi_f` is exactly 1
-        let phi_f = 1.0;
-        let stake = 50;
-        let total_stake = 100;
-
-        let result = compute_target_value(phi_f, stake, total_stake);
-
-        // Since `phi_f` is 1, the function should return the maximum target (-F::ONE)
-        assert_eq!(result, -BaseFieldElement::get_one());
-    }
-
-    #[cfg(feature = "future_snark")]
     #[test]
     fn test_target_half_stake() {
         // Case where `stake` is exactly half of `total_stake`
         let phi_f = 0.5;
+        let phi_f_ratio_int: Ratio<i64> =
+            Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let phi_f_ratio = Ratio::new_raw(
+            BigInt::from(*phi_f_ratio_int.numer()),
+            BigInt::from(*phi_f_ratio_int.denom()),
+        );
+        let ln_one_minus_phi_f =
+            ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+
         let stake = 50;
         let total_stake = 100;
 
-        let result = compute_target_value(phi_f, stake, total_stake);
+        let result = compute_target_value(ln_one_minus_phi_f, stake, total_stake);
 
         // Validate that result is in the expected range
         assert!(result != -BaseFieldElement::get_one());
     }
 
-    #[cfg(feature = "future_snark")]
     #[test]
     fn test_check_index() {
         let phi_f = 0.2;
+        let phi_f_ratio_int: Ratio<i64> =
+            Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let phi_f_ratio = Ratio::new_raw(
+            BigInt::from(*phi_f_ratio_int.numer()),
+            BigInt::from(*phi_f_ratio_int.denom()),
+        );
+        let ln_one_minus_phi_f =
+            ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+
         let stake = 30;
         let total_stake = 100;
 
-        let target = compute_target_value(phi_f, stake, total_stake);
+        let target = compute_target_value(ln_one_minus_phi_f, stake, total_stake);
         println!("Target = {:?}", target);
 
-        let sk = SchnorrSigningKey::generate(&mut OsRng).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut OsRng);
         let msg = BaseFieldElement::random(&mut OsRng);
-        let sig = sk.sign(&msg.to_bytes(), &mut OsRng).unwrap();
+        let sig = sk.sign(&[msg], &mut OsRng).unwrap();
 
         let m = 100;
         let mut counter = 0;
@@ -296,7 +288,6 @@ mod tests {
         println!("Total eligible indices:{:?}", counter);
     }
 
-    #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
     #[cfg(test)]
     mod tests_eligibility_for_snark {
         use super::*;
@@ -304,57 +295,86 @@ mod tests {
         mod stability_tests {
             use super::*;
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_zero_stake_bytes_stable() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+
                 let total_stake = 45_000_000_000;
 
                 for _ in 0..100 {
-                    let target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, 0, total_stake),
+                    );
                     assert!(target == BigInt::ZERO);
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_one_stake_bytes_stable() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
-                let first_target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                let first_target = BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, 1, total_stake),
+                );
                 for _ in 0..100 {
-                    let target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, 1, total_stake),
+                    );
                     assert!(target == first_target);
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_full_stake_stable() {
                 // phi_f = 0.65
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(13), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
 
-                let full_target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                let full_target = BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, total_stake, total_stake),
+                );
                 for _ in 0..100 {
-                    let target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, total_stake, total_stake),
+                    );
                     assert!(full_target == target);
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_minimal_stake_difference_stable() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
                 for _ in 0..100 {
-                    let zero_target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
-                    let first_target = compute_target_bigint(&phi_f_ratio, 1, total_stake);
+                    let zero_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, 0, total_stake),
+                    );
+                    let first_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, 1, total_stake),
+                    );
                     assert!(zero_target < first_target);
-                    let second_target = compute_target_bigint(&phi_f_ratio, 2, total_stake);
+                    let second_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, 2, total_stake),
+                    );
                     assert!(first_target < second_target);
                 }
             }
@@ -363,46 +383,67 @@ mod tests {
         mod ordering_tests {
             use super::*;
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_following_min_stake_same_order() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
 
-                let mut prev_target = compute_target_bigint(&phi_f_ratio, 0, total_stake);
+                let mut prev_target = BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, 0, total_stake),
+                );
                 for i in 1..=100 {
-                    let target = compute_target_bigint(&phi_f_ratio, i, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, i, total_stake),
+                    );
                     assert!(prev_target < target);
                     prev_target = target;
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_following_stake_same_order() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
 
-                let mut prev_target = compute_target_bigint(&phi_f_ratio, 99_999, total_stake);
+                let mut prev_target = BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, 99_999, total_stake),
+                );
                 for stake in 100_000..100_100 {
-                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
                     assert!(prev_target < target);
                     prev_target = target;
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn test_following_max_stake_same_order() {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
 
-                let mut prev_target = compute_target_bigint(&phi_f_ratio, total_stake, total_stake);
+                let mut prev_target = BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, total_stake, total_stake),
+                );
                 for i in 1..=100 {
-                    let target = compute_target_bigint(&phi_f_ratio, total_stake - i, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, total_stake - i, total_stake),
+                    );
                     assert!(prev_target > target);
                     prev_target = target;
                 }
@@ -413,7 +454,6 @@ mod tests {
             #![proptest_config(ProptestConfig::with_cases(50))]
 
             #[test]
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn following_stake_same_order(
                 phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
@@ -421,14 +461,21 @@ mod tests {
             ) {
                 let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
-                let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-                let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
+                                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+                let base_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
+                let next_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake + 1, total_stake),
+                    );
 
                 assert!(base_target < next_target);
             }
 
             #[test]
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn following_small_stake_same_order(
                 phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
@@ -436,14 +483,21 @@ mod tests {
             ) {
                 let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
-                let base_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-                let next_target = compute_target_bigint(&phi_f_ratio, stake + 1, total_stake);
+                                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+                let base_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
+                let next_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake + 1, total_stake),
+                    );
 
                 assert!(base_target < next_target);
             }
 
             #[test]
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn same_stake_same_result(
                 phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
@@ -451,14 +505,21 @@ mod tests {
             ) {
                 let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
-                let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-                let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+                let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
+                let same_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
 
                 assert!(target == same_target);
             }
 
             #[test]
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn same_small_stake_same_result(
                 phi_f in 1..50u64,
                 total_stake in 100_000_000..1_000_000_000u64,
@@ -466,9 +527,16 @@ mod tests {
             ) {
                 let phi_f_ratio_int: Ratio<i64> = Ratio::approximate_float(phi_f as f32/100f32).expect("Only fails if the float is infinite or NaN.");
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
-                let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-                let same_target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
-
+                                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+                let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
+                let same_target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
                 assert!(target == same_target);
             }
 
@@ -511,58 +579,73 @@ mod tests {
                 81, 57, 60, 243, 235, 138, 3, 57, 154, 90, 247, 225, 203, 5,
             ];
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn golden_value_target_from_stake(stake: u64) -> BigInt {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
 
-                compute_target_bigint(&phi_f_ratio, stake, total_stake)
+                BigInt::from_bytes_le(
+                    Sign::Plus,
+                    &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                )
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn golden_value_following_min_stake() -> Vec<BigInt> {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
                 let mut golden_values = vec![];
 
                 for stake in 0..500 {
-                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
                     golden_values.push(target);
                 }
                 golden_values
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn golden_value_following_stake_medium() -> Vec<BigInt> {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
                 let mut golden_values = vec![];
 
                 for stake in 100_000..100_500 {
-                    let target = compute_target_bigint(&phi_f_ratio, stake, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, stake, total_stake),
+                    );
                     golden_values.push(target);
                 }
                 golden_values
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             fn golden_value_following_stake_max() -> Vec<BigInt> {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                let ln_one_minus_phi_f =
+                    ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
                 let total_stake = 45_000_000_000;
                 let mut golden_values = vec![];
 
                 for i in 0..500 {
-                    let target = compute_target_bigint(&phi_f_ratio, total_stake - i, total_stake);
+                    let target = BigInt::from_bytes_le(
+                        Sign::Plus,
+                        &compute_target_bytes(&ln_one_minus_phi_f, total_stake - i, total_stake),
+                    );
                     golden_values.push(target);
                 }
                 golden_values
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn golden_check_small_values() {
                 let _golden_target_0 = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_ZERO);
@@ -574,7 +657,6 @@ mod tests {
                 // assert_eq!(golden_target_2, golden_value_target_from_stake(2));
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn golden_check_max_values_fail() {
                 let _golden_target_max = BigInt::from_bytes_le(Sign::Plus, &GOLDEN_BYTES_MAX_STAKE);
@@ -588,7 +670,6 @@ mod tests {
                 // assert!(golden_target_max_2 != golden_value_target_from_stake(44_999_999_999));
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn golden_check_following_min_stake() {
                 let golden_target_vector = golden_value_following_min_stake();
@@ -604,7 +685,6 @@ mod tests {
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn golden_check_following_stake_medium() {
                 let golden_target_vector = golden_value_following_stake_medium();
@@ -620,7 +700,6 @@ mod tests {
                 }
             }
 
-            #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
             #[test]
             fn golden_check_following_stake_max() {
                 let golden_target_vector = golden_value_following_stake_max();
