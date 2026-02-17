@@ -368,8 +368,8 @@ fn leaf_wrong_verification_key() -> Result<(), StmCircuitProofError> {
     let (i, j) = find_two_distinct_witness_entries(&witness)?;
     // Keep target/path/signature/index from i, but swap in j's verification key.
     let target = witness[i].0.1;
-    let vk_bytes = witness[j].0.0;
-    witness[i].0 = crate::circuits::halo2::types::MTLeaf(vk_bytes, target);
+    let verification_key = witness[j].0.0;
+    witness[i].0 = crate::circuits::halo2::types::MTLeaf(verification_key, target);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
     let result = prove_and_verify_result(&env, scenario);

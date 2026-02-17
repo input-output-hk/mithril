@@ -163,7 +163,7 @@ impl From<&SignerLeaf> for MerkleTreeSnarkLeaf {
 
 impl From<&SignerLeaf> for MTLeaf {
     fn from(value: &SignerLeaf) -> Self {
-        MTLeaf(value.vk.to_bytes(), value.target_field)
+        MTLeaf(value.vk, value.target_field)
     }
 }
 

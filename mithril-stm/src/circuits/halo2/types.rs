@@ -3,6 +3,7 @@
 //! This module bridges STM domain concepts (message, lottery index, Merkle proof)
 //! to circuit-oriented types consumed by the Halo2 relation and gadgets.
 
+use crate::signature_scheme::SchnorrVerificationKey;
 use ff::Field;
 
 pub use midnight_curves::{Bls12, Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub};
@@ -18,10 +19,10 @@ pub type LotteryIndex = u32;
 
 /// Merkle-tree leaf material used by Halo2 witness construction.
 ///
-/// The first field stores the serialized verification key bytes, and the second
+/// The first field stores the signer's verification key, and the second
 /// field stores the lottery target value associated with that signer.
 #[derive(Debug, Copy, Clone)]
-pub struct MTLeaf(pub [u8; 64], pub Target);
+pub struct MTLeaf(pub SchnorrVerificationKey, pub Target);
 
 /// Position of a sibling node relative to the current hash in a Merkle path.
 #[derive(Clone, Copy, Debug)]

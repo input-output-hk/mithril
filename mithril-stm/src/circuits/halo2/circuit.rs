@@ -10,18 +10,16 @@ use midnight_circuits::types::{
 use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
+use std::cell::Cell;
 
 use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    Jubjub, JubjubBase, JubjubScalar, LotteryIndex, MTLeaf, MerklePath, MerkleRoot,
-    SignedMessageWithoutPrefix,
+    Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
-use crate::signature_scheme::{
-    PrimeOrderProjectivePoint, SchnorrVerificationKey, UniqueSchnorrSignature,
-};
+use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -97,15 +95,9 @@ impl Relation for StmCircuit {
 
             pre_index = index.clone();
 
-            let vk = std_lib.jubjub().assign(
-                layouter,
-                wit.clone().map(|(x, _, _, _)| {
-                    SchnorrVerificationKey::from_bytes(&x.0)
-                        .expect("Invalid verification key bytes")
-                        .0
-                        .0
-                }),
-            )?;
+            let vk = std_lib
+                .jubjub()
+                .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
 
             let target: AssignedNative<F> =
                 std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1))?;
@@ -134,33 +126,29 @@ impl Relation for StmCircuit {
                 .map(|pos| std_lib.convert(layouter, pos))
                 .collect::<Result<Vec<AssignedBit<F>>, Error>>()?;
 
+            let sigma_invalid = Cell::new(false);
             let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(
                 layouter,
                 wit.clone().map(|(_, _, sig, _)| {
                     let (u, v) = sig.commitment_point.get_coordinates();
-                    PrimeOrderProjectivePoint::from_coordinates(u, v)
-                        .expect("Invalid commitment point: not on curve or not prime order")
-                        .0
+                    match PrimeOrderProjectivePoint::from_coordinates(u, v) {
+                        Ok(point) => point.0,
+                        Err(_) => {
+                            sigma_invalid.set(true);
+                            PrimeOrderProjectivePoint::default().0
+                        }
+                    }
                 }),
             )?;
-            let s: AssignedScalarOfNativeCurve<C> = std_lib.jubjub().assign(
-                layouter,
-                wit.clone().map(|(_, _, sig, _)| {
-                    let bytes = sig.response.to_bytes();
-                    JubjubScalar::from_bytes(&bytes)
-                        .into_option()
-                        .expect("Invalid response scalar bytes")
-                }),
-            )?;
-            let c_native = std_lib.assign(
-                layouter,
-                wit.map(|(_, _, sig, _)| {
-                    let bytes = sig.challenge.to_bytes();
-                    JubjubBase::from_bytes_le(&bytes)
-                        .into_option()
-                        .expect("Invalid challenge base field bytes")
-                }),
-            )?;
+            if sigma_invalid.get() {
+                return Err(Error::Synthesis(
+                    "invalid commitment point: not on curve or not prime order".to_string(),
+                ));
+            }
+            let s: AssignedScalarOfNativeCurve<C> = std_lib
+                .jubjub()
+                .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
+            let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| sig.challenge.0))?;
             let c: AssignedScalarOfNativeCurve<C> =
                 std_lib.jubjub().convert(layouter, &c_native)?;
 
