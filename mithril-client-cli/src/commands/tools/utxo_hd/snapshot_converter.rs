@@ -452,7 +452,6 @@ impl SnapshotConverterCommand {
             converter_bin_config,
         );
 
-        // Convertir l'enum en Box<dyn SnapshotConverter>
         let converter_bin: Box<dyn SnapshotConverter> = match converter_enum {
             SnapshotConverterEnum::New(conv) => Box::new(conv),
             SnapshotConverterEnum::Old(conv) => Box::new(conv),
@@ -832,7 +831,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_6_10_2() {
+        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_10_6_2() {
             let command = SnapshotConverterCommand {
                 cardano_node_version: "10.6.2".to_string(),
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
@@ -849,7 +848,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_6_10_2_or_upper()
+        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_10_6_2_or_upper()
          {
             let command = SnapshotConverterCommand {
                 cardano_node_version: "10.7.7".to_string(),
@@ -1612,7 +1611,7 @@ mod tests {
         }
 
         #[test]
-        fn should_return_snapshot_converter_bin_old_with_cardano_version_bellow_6_10_2() {
+        fn should_return_snapshot_converter_bin_old_with_cardano_version_bellow_10_6_2() {
             let config = SnapshotConverterConfig {
                 converter_bin: PathBuf::new(),
                 config_path: PathBuf::new(),

@@ -307,14 +307,21 @@ jobs:
         working-directory: ./bin
         run: |
           LEDGER_BACKEND="${{ matrix.ledger_backend }}"
+          CARDANO_VERSION="${{ steps.last_snapshot.outputs.cardano_node_version }}"
           if [[ ${LEDGER_BACKEND,,} == "lmdb" ]]; then 
             UTXO_HD_FLAVOR="LMDB"
           elif [[ ${LEDGER_BACKEND,,} == "legacy" ]]; then
             UTXO_HD_FLAVOR="Legacy"
           fi
 
+          if [[ ${LEDGER_BACKEND,,} == "legacy" ]] && \
+          [[ "$(printf '%s\n' "10.6.2" "$CARDANO_VERSION" | sort -V | head -n1)" == "10.6.2" ]]; then
+            echo "Skipping snapshot-converter: Legacy UTXO HD Flavor not supported for Cardano version >= 10.6.2"
+            exit 0
+          fi
+
           ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db \
-                          --cardano-node-version ${{ steps.last_snapshot.outputs.cardano_node_version }} --utxo-hd-flavor $UTXO_HD_FLAVOR --commit --json \
+                          --cardano-node-version $CARDANO_VERSION --utxo-hd-flavor $UTXO_HD_FLAVOR --commit --json \
                           | tee cdb-${{ matrix.backend }}-converter-output.json
 
       - name: Cardano Database V2 Snapshot / verify immutables
