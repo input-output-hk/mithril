@@ -43,6 +43,71 @@ type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCircuit>)
 /// Cache map for verification/proving keys keyed by STM circuit configuration.
 type CircuitKeysCache = HashMap<StmCircuitConfig, Arc<CircuitVerificationAndProvingKeyPair>>;
 
+/// Errors returned by `prove_and_verify_result`.
+#[derive(Debug, Error)]
+pub(crate) enum StmCircuitProofError {
+    /// Merkle tree depth does not fit shift constraints for fixture sizing.
+    #[error("invalid merkle tree depth")]
+    InvalidMerkleTreeDepth,
+    /// Selected leaf index is out of bounds for tree size.
+    #[error("invalid selected leaf index")]
+    InvalidSelectedLeafIndex,
+    /// Empty indices provided where at least one index is required.
+    #[error("empty indices")]
+    EmptyIndices,
+    /// Witness must contain at least two entries.
+    #[error("witness too short")]
+    WitnessTooShort,
+    /// No distinct witness entries were found.
+    #[error("no distinct witness entries")]
+    NoDistinctWitnessEntries,
+    /// Tried to build a witness from an empty signer set.
+    #[error("empty signer leaves")]
+    EmptySignerLeaves,
+    /// Signer leaf index is out of bounds.
+    #[error("invalid signer leaf index")]
+    InvalidSignerLeafIndex,
+    /// Failed to decode LotteryTargetValue from field bytes.
+    #[error("invalid lottery target bytes")]
+    InvalidLotteryTargetBytes,
+    /// Failed to decode challenge bytes into a base field element.
+    #[error("invalid challenge bytes")]
+    InvalidChallengeBytes,
+    /// Challenge bytes decode but do not match the native challenge field value.
+    #[error("challenge endianness mismatch")]
+    ChallengeEndiannessMismatch,
+    /// Merkle root digest has an invalid byte length.
+    #[error("invalid merkle root digest length")]
+    InvalidMerkleRootDigestLength,
+    /// Merkle root digest is not a canonical base field element encoding.
+    #[error("non-canonical merkle root digest")]
+    NonCanonicalMerkleRoot,
+    /// Merkle path adaptation from STM format to Halo2 witness format failed.
+    #[error("merkle path adaptation failed")]
+    MerklePathAdapter(#[from] MerklePathAdapterError),
+    /// Failed to create the local assets directory for persisted circuit params.
+    #[error("failed to create params assets directory: {0}")]
+    ParamsAssetsDirCreate(#[source] std::io::Error),
+    /// In-memory circuit key cache lock is poisoned.
+    #[error("circuit keys cache lock poisoned ({0})")]
+    CircuitKeysCacheLockPoisoned(&'static str),
+    /// Signature generation failed.
+    #[error("signature generation failed")]
+    SignatureGeneration,
+    /// Signature verification failed.
+    #[error("signature verification failed")]
+    SignatureVerification,
+    /// Proof generation failed.
+    #[error("proof generation failed")]
+    ProveFail,
+    /// Proof verification failed.
+    #[error("proof verification failed")]
+    VerifyFail,
+}
+
+/// Result type for STM circuit golden helpers.
+type StmResult<T> = Result<T, StmCircuitProofError>;
+
 /// Cache key derived from the STM circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct StmCircuitConfig {
@@ -79,13 +144,6 @@ pub(crate) struct StmCircuitScenario {
     merkle_root: F,
     msg: F,
     witness: Vec<WitnessEntry>,
-}
-
-/// STM Merkle tree wrapper that exposes Halo2-friendly root and path accessors.
-/// We keep MTLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
-pub(crate) struct StmMerkleTreeWrapper {
-    stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
-    root: F,
 }
 
 /// Leaf material used to build STM Merkle trees and Halo2 witness leaves.
@@ -126,23 +184,12 @@ fn generate_signer_leaf(rng: &mut ChaCha20Rng, target: F) -> StmResult<SignerLea
     })
 }
 
-fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
-    let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
-        .into_option()
-        .ok_or(StmCircuitProofError::InvalidChallengeBytes)?;
-    debug_assert_eq!(
-        challenge_native, sig.challenge.0,
-        "Challenge endianness mismatch between BaseFieldElement bytes and JubjubBase"
-    );
-    Ok(())
-}
-
-fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
-    let root_array: [u8; 32] = root_bytes
-        .try_into()
-        .map_err(|_| StmCircuitProofError::InvalidMerkleRootDigestLength)?;
-    digest_bytes_to_base(&root_array).ok_or(StmCircuitProofError::NonCanonicalMerkleRoot)
+/// STM Merkle tree wrapper that exposes Halo2-friendly root and path accessors.
+/// We keep MTLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
+pub(crate) struct StmMerkleTreeWrapper {
+    stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
+    root: F,
+    signer_leaves: Vec<SignerLeaf>,
 }
 
 /// Selects which leaf index is assigned the controlled target.
@@ -153,6 +200,257 @@ pub(crate) enum LeafSelector {
     RightMost,
     /// Use a specific leaf index.
     Index(usize),
+}
+
+impl StmMerkleTreeWrapper {
+    /// Return the Merkle root as a JubjubBase field element.
+    pub(crate) fn root(&self) -> F {
+        self.root
+    }
+
+    /// Return a Halo2-style Merkle path for the given leaf index.
+    pub(crate) fn get_path(&self, i: usize) -> StmResult<MerklePath> {
+        let stm_path = self.stm_tree.compute_merkle_tree_path(i);
+        (&stm_path).try_into().map_err(Into::into)
+    }
+
+    /// Return signer leaf material at index `i`.
+    fn signer_leaf(&self, i: usize) -> StmResult<&SignerLeaf> {
+        self.signer_leaves
+            .get(i)
+            .ok_or(StmCircuitProofError::InvalidSignerLeafIndex)
+    }
+}
+
+fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
+    let root_array: [u8; 32] = root_bytes
+        .try_into()
+        .map_err(|_| StmCircuitProofError::InvalidMerkleRootDigestLength)?;
+    digest_bytes_to_base(&root_array).ok_or(StmCircuitProofError::NonCanonicalMerkleRoot)
+}
+
+fn build_merkle_tree_wrapper(
+    n: usize,
+    selected_index: Option<usize>,
+    target: F,
+) -> StmResult<StmMerkleTreeWrapper> {
+    if let Some(i) = selected_index
+        && i >= n
+    {
+        return Err(StmCircuitProofError::InvalidSelectedLeafIndex);
+    }
+
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let mut signer_leaves = Vec::with_capacity(n);
+    for i in 0..n {
+        let leaf_target = if selected_index == Some(i) {
+            target
+        } else {
+            -F::ONE
+        };
+        signer_leaves.push(generate_signer_leaf(&mut rng, leaf_target)?);
+    }
+
+    let stm_leaves: Vec<MerkleTreeSnarkLeaf> = signer_leaves.iter().map(Into::into).collect();
+    let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
+    let root_bytes = stm_tree.to_merkle_tree_commitment().root;
+    let root = decode_merkle_root(root_bytes.as_slice())?;
+    Ok(StmMerkleTreeWrapper {
+        stm_tree,
+        root,
+        signer_leaves,
+    })
+}
+
+/// Build a default Merkle tree with all leaves set to the max target.
+pub(crate) fn create_default_merkle_tree(n: usize) -> StmResult<StmMerkleTreeWrapper> {
+    build_merkle_tree_wrapper(n, None, -F::ONE)
+}
+
+/// Build a full tree with one controlled leaf selected by `selector` and return its index.
+pub(crate) fn create_merkle_tree_with_leaf_selector(
+    depth: u32,
+    selector: LeafSelector,
+    target: F,
+) -> StmResult<(StmMerkleTreeWrapper, usize)> {
+    if depth >= usize::BITS {
+        return Err(StmCircuitProofError::InvalidMerkleTreeDepth);
+    }
+    let n = 1usize << depth;
+    let selected_index = match selector {
+        LeafSelector::LeftMost => 0usize,
+        LeafSelector::RightMost => n - 1,
+        LeafSelector::Index(i) => {
+            if i >= n {
+                return Err(StmCircuitProofError::InvalidSelectedLeafIndex);
+            }
+            i
+        }
+    };
+
+    let tree = build_merkle_tree_wrapper(n, Some(selected_index), target)?;
+    Ok((tree, selected_index))
+}
+
+fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
+    [BaseFieldElement(merkle_root), BaseFieldElement(msg)]
+}
+
+fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
+    let challenge_bytes = sig.challenge.to_bytes();
+    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
+        .into_option()
+        .ok_or(StmCircuitProofError::InvalidChallengeBytes)?;
+    if challenge_native != sig.challenge.0 {
+        return Err(StmCircuitProofError::ChallengeEndiannessMismatch);
+    }
+    Ok(())
+}
+
+fn sign_and_verify_lottery_message(
+    material: &SignerLeaf,
+    merkle_root: F,
+    msg: F,
+    rng: &mut ChaCha20Rng,
+) -> StmResult<UniqueSchnorrSignature> {
+    let transcript = transcript_message(merkle_root, msg);
+    let stm_sig = material
+        .sk
+        .sign(&transcript, rng)
+        .map_err(|_| StmCircuitProofError::SignatureGeneration)?;
+    assert_challenge_endianness(&stm_sig)?;
+    stm_sig
+        .verify(&transcript, &material.vk)
+        .map_err(|_| StmCircuitProofError::SignatureVerification)?;
+    Ok(stm_sig)
+}
+
+/// Build a witness with default strictly increasing indices [0..quorum).
+pub(crate) fn build_witness(
+    merkle_tree: &StmMerkleTreeWrapper,
+    merkle_root: F,
+    msg: F,
+    quorum: u32,
+) -> StmResult<Vec<WitnessEntry>> {
+    let indices: Vec<u32> = (0..quorum).collect();
+    build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
+}
+
+/// Build a witness using caller-provided indices without enforcing ordering;
+/// the circuit is responsible for strict ordering checks in negative tests.
+pub(crate) fn build_witness_with_indices(
+    merkle_tree: &StmMerkleTreeWrapper,
+    merkle_root: F,
+    msg: F,
+    indices: &[u32],
+) -> StmResult<Vec<WitnessEntry>> {
+    build_witness_internal(
+        merkle_tree,
+        merkle_root,
+        msg,
+        WitnessBuildMode::Indices(indices),
+    )
+}
+
+/// Reuse the same signer, Merkle path, and signature across indices to stress
+/// Merkle-path shape in golden vectors; not a realistic lottery model, and any
+/// grinding or signature randomness considerations are out of scope.
+pub(crate) fn build_witness_with_fixed_signer(
+    merkle_tree: &StmMerkleTreeWrapper,
+    signer_index: usize,
+    merkle_root: F,
+    msg: F,
+    indices: &[u32],
+) -> StmResult<Vec<WitnessEntry>> {
+    build_witness_internal(
+        merkle_tree,
+        merkle_root,
+        msg,
+        WitnessBuildMode::FixedSigner {
+            signer_index,
+            indices,
+        },
+    )
+}
+
+enum WitnessBuildMode<'a> {
+    Indices(&'a [u32]),
+    FixedSigner {
+        signer_index: usize,
+        indices: &'a [u32],
+    },
+}
+
+fn build_witness_internal(
+    merkle_tree: &StmMerkleTreeWrapper,
+    merkle_root: F,
+    msg: F,
+    mode: WitnessBuildMode<'_>,
+) -> StmResult<Vec<WitnessEntry>> {
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let mut witness = Vec::new();
+
+    match mode {
+        WitnessBuildMode::Indices(indices) => {
+            if indices.is_empty() {
+                return Err(StmCircuitProofError::EmptyIndices);
+            }
+            let num_signers = merkle_tree.signer_leaves.len();
+            if num_signers == 0 {
+                return Err(StmCircuitProofError::EmptySignerLeaves);
+            }
+
+            for (i, index) in indices.iter().enumerate() {
+                let signer_index = i % num_signers;
+                let material = merkle_tree.signer_leaf(signer_index)?;
+                let stm_sig =
+                    sign_and_verify_lottery_message(material, merkle_root, msg, &mut rng)?;
+                let merkle_path = merkle_tree.get_path(signer_index)?;
+                witness.push((material.into(), merkle_path, stm_sig, *index));
+            }
+        }
+        WitnessBuildMode::FixedSigner {
+            signer_index,
+            indices,
+        } => {
+            if indices.is_empty() {
+                return Err(StmCircuitProofError::EmptyIndices);
+            }
+            let material = merkle_tree.signer_leaf(signer_index)?;
+            let merkle_path = merkle_tree.get_path(signer_index)?;
+            let stm_sig = sign_and_verify_lottery_message(material, merkle_root, msg, &mut rng)?;
+            for index in indices {
+                witness.push((material.into(), merkle_path.clone(), stm_sig, *index));
+            }
+        }
+    }
+
+    Ok(witness)
+}
+
+/// Find two witness entries with distinct leaves, for negative test construction.
+pub(crate) fn find_two_distinct_witness_entries(
+    witness: &[WitnessEntry],
+) -> StmResult<(usize, usize)> {
+    fn leaves_differ(a: MTLeaf, b: MTLeaf) -> bool {
+        a.0 != b.0 || a.1 != b.1
+    }
+
+    if witness.len() < 2 {
+        return Err(StmCircuitProofError::WitnessTooShort);
+    }
+    let leaf0 = witness[0].0;
+    let leaf1 = witness[1].0;
+    if leaves_differ(leaf0, leaf1) {
+        return Ok((0, 1));
+    }
+    for (j, wj) in witness.iter().enumerate().skip(2) {
+        let leaf_j = wj.0;
+        if leaves_differ(leaf0, leaf_j) {
+            return Ok((0, j));
+        }
+    }
+    Err(StmCircuitProofError::NoDistinctWitnessEntries)
 }
 
 impl StmCircuitEnv {
@@ -178,82 +476,13 @@ impl StmCircuitScenario {
     }
 }
 
-impl StmMerkleTreeWrapper {
-    /// Return the Merkle root as a JubjubBase field element.
-    pub(crate) fn root(&self) -> F {
-        self.root
-    }
-
-    /// Return a Halo2-style Merkle path for the given leaf index.
-    pub(crate) fn get_path(&self, i: usize) -> Result<MerklePath, MerklePathAdapterError> {
-        let stm_path = self.stm_tree.compute_merkle_tree_path(i);
-        (&stm_path).try_into()
-    }
-}
-
-/// Build a default Merkle tree with all leaves set to the max target.
-pub(crate) fn create_default_merkle_tree(
-    n: usize,
-) -> StmResult<(Vec<SignerLeaf>, StmMerkleTreeWrapper)> {
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-
-    let mut signer_leaves = Vec::with_capacity(n);
-    let mut stm_leaves: Vec<MerkleTreeSnarkLeaf> = Vec::with_capacity(n);
-    for _ in 0..n {
-        let material = generate_signer_leaf(&mut rng, -F::ONE)?;
-        stm_leaves.push((&material).into());
-        signer_leaves.push(material);
-    }
-    let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
-    let root_bytes = stm_tree.to_merkle_tree_commitment().root;
-    let root = decode_merkle_root(root_bytes.as_slice())?;
-    let tree = StmMerkleTreeWrapper { stm_tree, root };
-
-    Ok((signer_leaves, tree))
-}
-
-/// Build a full tree with one controlled leaf selected by `selector` and return its index.
-pub(crate) fn create_merkle_tree_with_leaf_selector(
-    depth: u32,
-    selector: LeafSelector,
-    target: F,
-) -> StmResult<(Vec<SignerLeaf>, StmMerkleTreeWrapper, usize)> {
-    assert!(
-        depth < usize::BITS,
-        "depth must be < usize::BITS to safely compute 1 << depth"
-    );
-    let n = 1usize << depth;
-    let selected_index = match selector {
-        LeafSelector::LeftMost => 0usize,
-        LeafSelector::RightMost => n - 1,
-        LeafSelector::Index(i) => {
-            assert!(i < n, "leaf_index out of bounds for tree size");
-            i
-        }
-    };
-
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let mut signer_leaves = Vec::with_capacity(n);
-    let mut stm_leaves: Vec<MerkleTreeSnarkLeaf> = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let leaf_target = if i == selected_index { target } else { -F::ONE };
-        let material = generate_signer_leaf(&mut rng, leaf_target)?;
-        stm_leaves.push((&material).into());
-        signer_leaves.push(material);
-    }
-
-    let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
-    let root_bytes = stm_tree.to_merkle_tree_commitment().root;
-    let root = decode_merkle_root(root_bytes.as_slice())?;
-    let tree = StmMerkleTreeWrapper { stm_tree, root };
-
-    Ok((signer_leaves, tree, selected_index))
-}
-
 /// Construct the STM circuit relation environment and setup keys for a case.
-pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> StmCircuitEnv {
-    let srs = load_or_generate_params(k);
+pub(crate) fn setup_stm_circuit_env(
+    case_name: &str,
+    k: u32,
+    quorum: u32,
+) -> StmResult<StmCircuitEnv> {
+    let srs = load_or_generate_params(k)?;
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
@@ -275,7 +504,7 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
         num_lotteries,
         merkle_tree_depth: depth,
     };
-    let key_pair = get_or_build_circuit_keys(config, &relation, &srs);
+    let key_pair = get_or_build_circuit_keys(config, &relation, &srs)?;
     let (vk, pk) = (&key_pair.0, &key_pair.1);
 
     {
@@ -286,166 +515,15 @@ pub(crate) fn setup_stm_circuit_env(case_name: &str, k: u32, quorum: u32) -> Stm
         }
     }
 
-    StmCircuitEnv {
+    Ok(StmCircuitEnv {
         srs,
         relation,
         vk: vk.clone(),
         pk: pk.clone(),
         num_signers,
         num_lotteries,
-    }
+    })
 }
-
-/// Build a witness with default strictly increasing indices [0..quorum).
-pub(crate) fn build_witness(
-    signer_leaves: &[SignerLeaf],
-    merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: F,
-    msg: F,
-    quorum: u32,
-) -> StmResult<Vec<WitnessEntry>> {
-    let indices: Vec<u32> = (0..quorum).collect();
-    build_witness_with_indices(signer_leaves, merkle_tree, merkle_root, msg, &indices)
-}
-
-/// Build a witness using caller-provided indices without enforcing ordering;
-/// the circuit is responsible for strict ordering checks in negative tests.
-pub(crate) fn build_witness_with_indices(
-    signer_leaves: &[SignerLeaf],
-    merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: F,
-    msg: F,
-    indices: &[u32],
-) -> StmResult<Vec<WitnessEntry>> {
-    assert!(!indices.is_empty(), "indices must be non-empty");
-    let num_signers = signer_leaves.len();
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let mut witness = Vec::new();
-
-    for (i, index) in indices.iter().enumerate() {
-        let ii = i % num_signers;
-        let material = &signer_leaves[ii];
-        let stm_sig = material
-            .sk
-            .sign(
-                &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-                &mut rng,
-            )
-            .map_err(|_| StmCircuitProofError::SignatureGeneration)?;
-        assert_challenge_endianness(&stm_sig)?;
-        stm_sig
-            .verify(
-                &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-                &material.vk,
-            )
-            .map_err(|_| StmCircuitProofError::SignatureVerification)?;
-
-        let merkle_path = merkle_tree.get_path(ii)?;
-
-        // any index is eligible as target is set to be the maximum
-        witness.push((material.into(), merkle_path, stm_sig, *index));
-    }
-
-    Ok(witness)
-}
-
-/// Find two witness entries with distinct leaves, for negative test construction.
-pub(crate) fn find_two_distinct_witness_entries(witness: &[WitnessEntry]) -> (usize, usize) {
-    assert!(witness.len() >= 2, "expected at least two witness entries");
-    let leaf0 = witness[0].0;
-    let leaf1 = witness[1].0;
-    if leaf0.0 != leaf1.0 || leaf0.1 != leaf1.1 {
-        return (0, 1);
-    }
-    for i in 0..witness.len() {
-        let leaf_i = witness[i].0;
-        for (j, wj) in witness.iter().enumerate().skip(i + 1) {
-            let leaf_j = wj.0;
-            if leaf_i.0 != leaf_j.0 || leaf_i.1 != leaf_j.1 {
-                return (i, j);
-            }
-        }
-    }
-    panic!("expected at least two distinct leaves in witness");
-}
-
-/// Reuse the same signer, Merkle path, and signature across indices to stress
-/// Merkle-path shape in golden vectors; not a realistic lottery model, and any
-/// grinding or signature randomness considerations are out of scope.
-pub(crate) fn build_witness_with_fixed_signer(
-    signer_leaves: &[SignerLeaf],
-    merkle_tree: &StmMerkleTreeWrapper,
-    signer_index: usize,
-    merkle_root: F,
-    msg: F,
-    indices: &[u32],
-) -> StmResult<Vec<WitnessEntry>> {
-    assert!(!indices.is_empty(), "indices must be non-empty");
-    assert!(
-        signer_index < signer_leaves.len(),
-        "signer_index out of bounds for signer_leaves"
-    );
-    let mut witness = Vec::new();
-    let material = &signer_leaves[signer_index];
-    let merkle_path = merkle_tree.get_path(signer_index)?;
-
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let stm_sig = material
-        .sk
-        .sign(
-            &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-            &mut rng,
-        )
-        .map_err(|_| StmCircuitProofError::SignatureGeneration)?;
-    assert_challenge_endianness(&stm_sig)?;
-    stm_sig
-        .verify(
-            &[BaseFieldElement(merkle_root), BaseFieldElement(msg)],
-            &material.vk,
-        )
-        .map_err(|_| StmCircuitProofError::SignatureVerification)?;
-
-    for index in indices {
-        witness.push((material.into(), merkle_path.clone(), stm_sig, *index));
-    }
-
-    Ok(witness)
-}
-
-/// Errors returned by `prove_and_verify_result`.
-#[derive(Debug, Error)]
-pub(crate) enum StmCircuitProofError {
-    /// Failed to decode LotteryTargetValue from field bytes.
-    #[error("invalid lottery target bytes")]
-    InvalidLotteryTargetBytes,
-    /// Failed to decode challenge bytes into a base field element.
-    #[error("invalid challenge bytes")]
-    InvalidChallengeBytes,
-    /// Merkle root digest has an invalid byte length.
-    #[error("invalid merkle root digest length")]
-    InvalidMerkleRootDigestLength,
-    /// Merkle root digest is not a canonical base field element encoding.
-    #[error("non-canonical merkle root digest")]
-    NonCanonicalMerkleRoot,
-    /// Merkle path adaptation from STM format to Halo2 witness format failed.
-    #[error("merkle path adaptation failed")]
-    MerklePathAdapter(#[from] MerklePathAdapterError),
-    /// Signature generation failed.
-    #[error("signature generation failed")]
-    SignatureGeneration,
-    /// Signature verification failed.
-    #[error("signature verification failed")]
-    SignatureVerification,
-    /// Proof generation failed.
-    #[error("proof generation failed")]
-    ProveFail,
-    /// Proof verification failed.
-    #[error("proof verification failed")]
-    VerifyFail,
-}
-
-/// Result type for STM circuit golden helpers.
-type StmResult<T> = Result<T, StmCircuitProofError>;
 
 /// Prove and verify a scenario, returning a typed result for negative tests.
 pub(crate) fn prove_and_verify_result(
@@ -494,29 +572,29 @@ pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32)
 
 /// Run a case with a caller-specified message.
 pub(crate) fn run_stm_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) -> StmResult<()> {
-    let env = setup_stm_circuit_env(case_name, k, quorum);
-    let (signer_leaves, merkle_tree) = create_default_merkle_tree(env.num_signers())?;
+    let env = setup_stm_circuit_env(case_name, k, quorum)?;
+    let merkle_tree = create_default_merkle_tree(env.num_signers())?;
 
     let merkle_root = merkle_tree.root();
 
-    let witness = build_witness(&signer_leaves, &merkle_tree, merkle_root, msg, quorum)?;
+    let witness = build_witness(&merkle_tree, merkle_root, msg, quorum)?;
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
 
     prove_and_verify_result(&env, scenario)
 }
 
 // Load cached KZG params if present; otherwise generate and persist them for reuse.
-fn load_or_generate_params(k: u32) -> ParamsKZG<Bls12> {
+fn load_or_generate_params(k: u32) -> StmResult<ParamsKZG<Bls12>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
     let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
 
     if path.exists() {
-        return load_params(path.to_string_lossy().as_ref());
+        return Ok(load_params(path.to_string_lossy().as_ref()));
     }
 
-    create_dir_all(&assets_dir).unwrap();
-    generate_params(k, path.to_string_lossy().as_ref())
+    create_dir_all(&assets_dir).map_err(StmCircuitProofError::ParamsAssetsDirCreate)?;
+    Ok(generate_params(k, path.to_string_lossy().as_ref()))
 }
 
 /// Get cached verification/proving keys or build and insert them if missing.
@@ -524,11 +602,16 @@ fn get_or_build_circuit_keys(
     config: StmCircuitConfig,
     relation: &StmCircuit,
     srs: &ParamsKZG<Bls12>,
-) -> Arc<CircuitVerificationAndProvingKeyPair> {
+) -> StmResult<Arc<CircuitVerificationAndProvingKeyPair>> {
     static STM_CIRCUIT_KEYS_CACHE: LazyLock<RwLock<CircuitKeysCache>> =
         LazyLock::new(|| RwLock::new(HashMap::new()));
-    if let Some(key_pair) = STM_CIRCUIT_KEYS_CACHE.read().unwrap().get(&config).cloned() {
-        return key_pair;
+    if let Some(key_pair) = STM_CIRCUIT_KEYS_CACHE
+        .read()
+        .map_err(|_| StmCircuitProofError::CircuitKeysCacheLockPoisoned("read"))?
+        .get(&config)
+        .cloned()
+    {
+        return Ok(key_pair);
     }
 
     let start = Instant::now();
@@ -540,7 +623,7 @@ fn get_or_build_circuit_keys(
     let key_pair = Arc::new((vk, pk));
     STM_CIRCUIT_KEYS_CACHE
         .write()
-        .unwrap()
+        .map_err(|_| StmCircuitProofError::CircuitKeysCacheLockPoisoned("write"))?
         .insert(config, key_pair.clone());
-    key_pair
+    Ok(key_pair)
 }
