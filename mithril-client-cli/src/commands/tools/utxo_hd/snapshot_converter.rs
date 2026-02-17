@@ -249,6 +249,18 @@ impl SnapshotConverterCommand {
         } else {
             ProgressOutputType::Tty
         };
+
+        let is_cardano_version_at_least_10_6_2 = match Version::parse(&self.cardano_node_version) {
+            Ok(v) => v >= Version::parse("10.6.2").unwrap(),
+            Err(_) => false,
+        };
+
+        if is_cardano_version_at_least_10_6_2 && self.utxo_hd_flavor == UTxOHDFlavor::Legacy {
+            return Err(anyhow!(
+                "UTxO HD Flavor Legacy is not suported on Cardano node 10.6.2 or upper"
+            ));
+        }
+
         let number_of_steps = if self.commit { 4 } else { 3 };
         let progress_printer = ProgressPrinter::new(progress_output_type, number_of_steps);
 
@@ -316,7 +328,7 @@ impl SnapshotConverterCommand {
                 &work_dir,
                 &distribution_dir,
                 &cardano_network,
-                &self,
+                self,
             )
             .with_context(|| {
                 format!(
@@ -785,6 +797,75 @@ mod tests {
     use mithril_common::temp_dir_create;
 
     use super::*;
+
+    mod execute {
+        use std::path::PathBuf;
+
+        use slog::{Logger, o};
+
+        use crate::{
+            CommandContext, ConfigParameters,
+            commands::tools::{
+                SnapshotConverterCommand, utxo_hd::snapshot_converter::UTxOHDFlavor,
+            },
+        };
+
+        fn fake_command_context() -> CommandContext {
+            CommandContext::new(
+                ConfigParameters::default(),
+                true,
+                true,
+                Logger::root(slog::Discard, o!()),
+            )
+        }
+
+        fn dummy_snapshot_conveter_command() -> SnapshotConverterCommand {
+            #[allow(deprecated)]
+            SnapshotConverterCommand {
+                db_directory: PathBuf::new(),
+                cardano_node_version: "1.0.0".to_string(),
+                commit: false,
+                utxo_hd_flavor: UTxOHDFlavor::Legacy,
+                github_token: None,
+                cardano_network: None,
+            }
+        }
+
+        #[tokio::test]
+        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_6_10_2() {
+            let command = SnapshotConverterCommand {
+                cardano_node_version: "10.6.2".to_string(),
+                utxo_hd_flavor: UTxOHDFlavor::Legacy,
+                ..dummy_snapshot_conveter_command()
+            };
+
+            let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "UTxO HD Flavor Legacy is not suported on Cardano node 10.6.2 or upper"
+            );
+        }
+
+        #[tokio::test]
+        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_6_10_2_or_upper()
+         {
+            let command = SnapshotConverterCommand {
+                cardano_node_version: "10.7.7".to_string(),
+                utxo_hd_flavor: UTxOHDFlavor::Legacy,
+                ..dummy_snapshot_conveter_command()
+            };
+
+            let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "UTxO HD Flavor Legacy is not suported on Cardano node 10.6.2 or upper"
+            );
+        }
+    }
 
     mod download_cardano_node_distribution {
         use mockall::predicate::eq;
