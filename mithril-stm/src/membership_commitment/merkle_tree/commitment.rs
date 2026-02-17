@@ -13,6 +13,9 @@ use super::MerklePath;
 use super::{MerkleBatchPath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
 
 #[cfg(feature = "future_snark")]
+use crate::BaseFieldElement;
+
+#[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 /// `MerkleTree` commitment.
@@ -67,6 +70,18 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
             return Ok(());
         }
         Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
+    }
+
+    /// Builds the message to sign by combining the Merkle tree root with the message,
+    /// both converted to base field elements.
+    pub fn build_snark_message(&self, message: &[u8]) -> StmResult<[BaseFieldElement; 2]> {
+        let root = self.root.as_slice();
+        let root_as_base_field_element = BaseFieldElement::try_from(root)
+            .with_context(|| "Failed to convert Merkle tree root to BaseFieldElement.")?;
+        let message_as_base_field_element = BaseFieldElement::try_from(message)
+            .with_context(|| "Failed to convert message to BaseFieldElement.")?;
+
+        Ok([root_as_base_field_element, message_as_base_field_element])
     }
 
     /// Convert to bytes

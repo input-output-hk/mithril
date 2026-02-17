@@ -3,5 +3,6 @@ mod eligibility;
 mod signer;
 mod single_signature;
 
-#[cfg(feature = "future_snark")]
+pub(crate) use aggregate_key::AggregateVerificationKeyForSnark;
 pub(crate) use signer::SnarkProofSigner;
+pub(crate) use single_signature::SingleSignatureForSnark;

@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SingleSignatureForSnark;
 use crate::{
     AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, Stake, StmResult,
     VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
@@ -22,6 +24,9 @@ pub struct SingleSignature {
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
     pub signer_index: LotteryIndex,
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(crate) snark_signature: Option<SingleSignatureForSnark>,
 }
 
 impl SingleSignature {
@@ -77,6 +82,13 @@ impl SingleSignature {
         output.extend_from_slice(&self.get_concatenation_signature_sigma().to_bytes());
 
         output.extend_from_slice(&self.signer_index.to_be_bytes());
+
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_signature) = &self.snark_signature {
+            let unique_schnorr_signature = snark_signature.get_schnorr_signature();
+            output.extend_from_slice(&unique_schnorr_signature.to_bytes());
+        }
+
         output
     }
 
@@ -111,9 +123,26 @@ impl SingleSignature {
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
+        #[cfg(feature = "future_snark")]
+        let snark_signature = {
+            let snark_offset = offset + 56;
+            if snark_offset < bytes.len() {
+                let schnorr_signature = crate::UniqueSchnorrSignature::from_bytes(
+                    bytes
+                        .get(snark_offset..snark_offset + 96)
+                        .ok_or(SignatureError::SerializationError)?,
+                )?;
+                Some(SingleSignatureForSnark::new(schnorr_signature, vec![]))
+            } else {
+                None
+            }
+        };
+
         Ok(SingleSignature {
             concatenation_signature: SingleSignatureForConcatenation::new(sigma, indexes),
             signer_index,
+            #[cfg(feature = "future_snark")]
+            snark_signature,
         })
     }
 

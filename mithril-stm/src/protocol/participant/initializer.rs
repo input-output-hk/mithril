@@ -10,8 +10,8 @@ use crate::{
 };
 #[cfg(feature = "future_snark")]
 use crate::{
-    VerificationKeyForSnark, proof_system::SnarkProofSigner, protocol::RegistrationEntryForSnark,
-    signature_scheme::SchnorrSigningKey,
+    ClosedRegistrationEntry, VerificationKeyForSnark, proof_system::SnarkProofSigner,
+    protocol::RegistrationEntryForSnark, signature_scheme::SchnorrSigningKey,
 };
 
 use super::Signer;
@@ -112,10 +112,20 @@ impl Initializer {
             closed_key_registration.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
 
         #[cfg(feature = "future_snark")]
+        let closed_registration_entry = ClosedRegistrationEntry::from((
+            registration_entry,
+            closed_key_registration.total_stake,
+        ));
+
+        #[cfg(feature = "future_snark")]
+        let lottery_target_value = closed_registration_entry.get_lottery_target_value();
+
+        #[cfg(feature = "future_snark")]
         let snark_proof_signer = SnarkProofSigner::new(
             self.parameters,
-            self.schnorr_signing_key.clone().unwrap(),
-            self.schnorr_verification_key.clone().unwrap(),
+            self.schnorr_signing_key.unwrap(),
+            self.schnorr_verification_key.unwrap(),
+            lottery_target_value.unwrap(),
             key_registration_commitment_for_snark,
         );
 
