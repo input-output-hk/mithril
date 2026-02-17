@@ -10,7 +10,6 @@ use midnight_circuits::types::{
 use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
-use std::cell::Cell;
 
 use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
@@ -126,25 +125,18 @@ impl Relation for StmCircuit {
                 .map(|pos| std_lib.convert(layouter, pos))
                 .collect::<Result<Vec<AssignedBit<F>>, Error>>()?;
 
-            let sigma_invalid = Cell::new(false);
-            let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(
-                layouter,
-                wit.clone().map(|(_, _, sig, _)| {
+            let sigma_value = wit
+                .clone()
+                .map_with_result(|(_, _, sig, _)| {
                     let (u, v) = sig.commitment_point.get_coordinates();
-                    match PrimeOrderProjectivePoint::from_coordinates(u, v) {
-                        Ok(point) => point.0,
-                        Err(_) => {
-                            sigma_invalid.set(true);
-                            PrimeOrderProjectivePoint::default().0
-                        }
-                    }
-                }),
-            )?;
-            if sigma_invalid.get() {
-                return Err(Error::Synthesis(
-                    "invalid commitment point: not on curve or not prime order".to_string(),
-                ));
-            }
+                    PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
+                })
+                .map_err(|_| {
+                    Error::Synthesis(
+                        "invalid commitment point: not on curve or not prime order".to_string(),
+                    )
+                })?;
+            let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
             let s: AssignedScalarOfNativeCurve<C> = std_lib
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;

@@ -85,6 +85,9 @@ pub(crate) enum StmCircuitProofError {
     /// Merkle path adaptation from STM format to Halo2 witness format failed.
     #[error("merkle path adaptation failed")]
     MerklePathAdapter(#[from] MerklePathAdapterError),
+    /// STM Merkle-path verification failed for the selected leaf.
+    #[error("merkle path verification failed")]
+    MerklePathVerificationFailed,
     /// Failed to create the local assets directory for persisted circuit params.
     #[error("failed to create params assets directory: {0}")]
     ParamsAssetsDirCreate(#[source] std::io::Error),
@@ -211,6 +214,11 @@ impl StmMerkleTreeWrapper {
     /// Return a Halo2-style Merkle path for the given leaf index.
     pub(crate) fn get_path(&self, i: usize) -> StmResult<MerklePath> {
         let stm_path = self.stm_tree.compute_merkle_tree_path(i);
+        let stm_leaf: MerkleTreeSnarkLeaf = self.signer_leaf(i)?.into();
+        self.stm_tree
+            .to_merkle_tree_commitment()
+            .verify_leaf_membership_from_path(&stm_leaf, &stm_path)
+            .map_err(|_| StmCircuitProofError::MerklePathVerificationFailed)?;
         (&stm_path).try_into().map_err(Into::into)
     }
 
@@ -435,21 +443,17 @@ fn build_witness_internal(
 pub(crate) fn find_two_distinct_witness_entries(
     witness: &[WitnessEntry],
 ) -> StmResult<(usize, usize)> {
-    fn leaves_differ(a: MTLeaf, b: MTLeaf) -> bool {
-        a.0 != b.0 || a.1 != b.1
-    }
-
     if witness.len() < 2 {
         return Err(StmCircuitProofError::WitnessTooShort);
     }
     let leaf0 = witness[0].0;
     let leaf1 = witness[1].0;
-    if leaves_differ(leaf0, leaf1) {
+    if leaf0 != leaf1 {
         return Ok((0, 1));
     }
     for (j, wj) in witness.iter().enumerate().skip(2) {
         let leaf_j = wj.0;
-        if leaves_differ(leaf0, leaf_j) {
+        if leaf0 != leaf_j {
             return Ok((0, j));
         }
     }

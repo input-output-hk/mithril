@@ -4476,7 +4476,6 @@ dependencies = [
  "midnight-proofs",
  "midnight-zk-stdlib",
  "num-bigint",
- "num-integer",
  "num-rational",
  "num-traits",
  "proptest",
@@ -4488,7 +4487,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "subtle",
  "thiserror 2.0.17",
 ]
 

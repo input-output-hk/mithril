@@ -21,7 +21,7 @@ pub type LotteryIndex = u32;
 ///
 /// The first field stores the signer's verification key, and the second
 /// field stores the lottery target value associated with that signer.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct MTLeaf(pub SchnorrVerificationKey, pub Target);
 
 /// Position of a sibling node relative to the current hash in a Merkle path.
