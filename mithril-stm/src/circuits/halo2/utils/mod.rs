@@ -29,6 +29,8 @@ use crate::circuits::halo2::types::{JubjubBase, MerklePath as Halo2MerklePath, P
 use crate::membership_commitment::MerklePath as StmMerklePath;
 #[cfg(test)]
 use digest::Digest;
+#[cfg(test)]
+use thiserror::Error;
 
 /// Strictly decode a 32-byte little-endian encoding into a Jubjub base field element.
 /// Returns None on non-canonical encodings.
@@ -44,35 +46,39 @@ pub(crate) fn digest_bytes_to_base(bytes: &[u8; 32]) -> Option<JubjubBase> {
 }
 
 #[cfg(test)]
-#[derive(Debug)]
-pub(crate) enum MerklePathAdapterError {
+#[derive(Debug, Error)]
+pub enum MerklePathAdapterError {
+    #[error("invalid merkle digest length")]
     InvalidDigestLength,
+    #[error("non-canonical merkle digest")]
     NonCanonicalDigest,
 }
 
 #[cfg(test)]
-pub(crate) fn stm_path_to_halo2_path<D: Digest>(
-    stm_path: &StmMerklePath<D>,
-) -> Result<Halo2MerklePath, MerklePathAdapterError> {
-    let mut siblings = Vec::with_capacity(stm_path.values.len());
+impl<D: Digest> TryFrom<&StmMerklePath<D>> for Halo2MerklePath {
+    type Error = MerklePathAdapterError;
 
-    for (i, value) in stm_path.values.iter().enumerate() {
-        let bytes: [u8; 32] = value
-            .as_slice()
-            .try_into()
-            .map_err(|_| MerklePathAdapterError::InvalidDigestLength)?;
-        let node =
-            digest_bytes_to_base(&bytes).ok_or(MerklePathAdapterError::NonCanonicalDigest)?;
-        let bit = (stm_path.index >> i) & 1;
-        // STM uses even idx => H(h || sibling), odd idx => H(sibling || h);
-        // map even to Position::Right so Halo2 folds as H(acc || sibling).
-        let position = if bit == 0 {
-            Position::Right
-        } else {
-            Position::Left
-        };
-        siblings.push((position, node));
+    fn try_from(stm_path: &StmMerklePath<D>) -> Result<Self, Self::Error> {
+        let mut siblings = Vec::with_capacity(stm_path.values.len());
+
+        for (i, value) in stm_path.values.iter().enumerate() {
+            let bytes: [u8; 32] = value
+                .as_slice()
+                .try_into()
+                .map_err(|_| MerklePathAdapterError::InvalidDigestLength)?;
+            let node =
+                digest_bytes_to_base(&bytes).ok_or(MerklePathAdapterError::NonCanonicalDigest)?;
+            let bit = (stm_path.index >> i) & 1;
+            // STM uses even idx => H(h || sibling), odd idx => H(sibling || h);
+            // map even to Position::Right so Halo2 folds as H(acc || sibling).
+            let position = if bit == 0 {
+                Position::Right
+            } else {
+                Position::Left
+            };
+            siblings.push((position, node));
+        }
+
+        Ok(Halo2MerklePath::new(siblings))
     }
-
-    Ok(Halo2MerklePath::new(siblings))
 }

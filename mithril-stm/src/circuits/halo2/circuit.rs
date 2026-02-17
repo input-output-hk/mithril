@@ -16,10 +16,11 @@ use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    Jubjub, JubjubBase, JubjubScalar, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, Msg,
+    Jubjub, JubjubBase, JubjubScalar, LotteryIndex, MTLeaf, MerklePath, MerkleRoot,
+    SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
-    BaseFieldElement, PrimeOrderProjectivePoint, UniqueSchnorrSignature,
+    PrimeOrderProjectivePoint, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 
 type F = JubjubBase;
@@ -45,7 +46,7 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = (MerkleRoot, Msg);
+    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
     type Witness = Vec<(MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex)>;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<F>, Error> {
@@ -99,12 +100,9 @@ impl Relation for StmCircuit {
             let vk = std_lib.jubjub().assign(
                 layouter,
                 wit.clone().map(|(x, _, _, _)| {
-                    let u = BaseFieldElement::from_bytes(&x.0[0..32])
-                        .expect("Invalid VK u-coordinate bytes");
-                    let v = BaseFieldElement::from_bytes(&x.0[32..64])
-                        .expect("Invalid VK v-coordinate bytes");
-                    PrimeOrderProjectivePoint::from_coordinates(u, v)
-                        .expect("Invalid verification key: not on curve or not prime order")
+                    SchnorrVerificationKey::from_bytes(&x.0)
+                        .expect("Invalid verification key bytes")
+                        .0
                         .0
                 }),
             )?;
