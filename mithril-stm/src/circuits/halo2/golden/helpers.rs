@@ -17,7 +17,7 @@ use thiserror::Error;
 use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
-use crate::circuits::halo2::utils::{MerklePathAdapterError, digest_bytes_to_base};
+use crate::circuits::halo2::utils::MerklePathAdapterError;
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -226,7 +226,10 @@ fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
     let root_array: [u8; 32] = root_bytes
         .try_into()
         .map_err(|_| StmCircuitProofError::InvalidMerkleRootDigestLength)?;
-    digest_bytes_to_base(&root_array).ok_or(StmCircuitProofError::NonCanonicalMerkleRoot)
+    BaseFieldElement::from_bytes(&root_array)
+        .ok()
+        .map(|base| base.0)
+        .ok_or(StmCircuitProofError::NonCanonicalMerkleRoot)
 }
 
 fn build_merkle_tree_wrapper(
