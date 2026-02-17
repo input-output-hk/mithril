@@ -46,6 +46,7 @@ reqwest = { workspace = true, features = [
     "deflate",
     "brotli"
 ] }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [

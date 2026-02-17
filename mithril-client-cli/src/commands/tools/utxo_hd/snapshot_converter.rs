@@ -8,6 +8,7 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::{Parser, ValueEnum};
+use semver::Version;
 
 use mithril_client::{
     MithrilError, MithrilResult,
@@ -106,38 +107,92 @@ impl TryFrom<CardanoNetwork> for CardanoNetworkCliArg {
 trait SnapshotConverter {
     fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()>;
 }
-
-struct SnapshotConverterBin {
+#[derive(Clone)]
+struct SnapshotConverterConfig {
     pub converter_bin: PathBuf,
     pub config_path: PathBuf,
     pub utxo_hd_flavor: UTxOHDFlavor,
     pub hide_output: bool,
 }
 
+struct SnapshotConverterBin {
+    config: SnapshotConverterConfig,
+}
+
+struct SnapshotConverterBinNew {
+    config: SnapshotConverterConfig,
+}
+
+enum SnapshotConverterEnum {
+    New(SnapshotConverterBinNew),
+    Old(SnapshotConverterBin),
+}
+
 impl SnapshotConverter for SnapshotConverterBin {
     fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
+        let configuration = &self.config;
+
         // Hide output when JSON output is enabled (as they are not JSON formatted), else
         // redirect to stderr to keep stdout dedicated to the command result.
-        let outputs = if self.hide_output {
+        let outputs = if self.config.hide_output {
             Stdio::null()
         } else {
             std::io::stderr().into()
         };
 
-        let status = Command::new(self.converter_bin.clone())
+        let status = Command::new(configuration.converter_bin.clone())
             .arg("Mem")
             .arg(input_path)
-            .arg(self.utxo_hd_flavor.to_string())
+            .arg(configuration.utxo_hd_flavor.to_string())
             .arg(output_path)
             .arg("cardano")
             .arg("--config")
-            .arg(self.config_path.clone())
+            .arg(configuration.config_path.clone())
             .stdout(outputs)
             .status()
             .with_context(|| {
                 format!(
                     "Failed to execute snapshot-converter binary at {}",
-                    self.converter_bin.display()
+                    configuration.converter_bin.display()
+                )
+            })?;
+
+        if !status.success() {
+            return Err(anyhow!(
+                "Failure while running snapshot-converter binary, exited with status code: {:?}",
+                status.code().map_or(String::from("unknown"), |c| c.to_string())
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+impl SnapshotConverter for SnapshotConverterBinNew {
+    fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
+        let configuration = &self.config;
+
+        // Hide output when JSON output is enabled (as they are not JSON formatted), else
+        // redirect to stderr to keep stdout dedicated to the command result.
+        let outputs = if self.config.hide_output {
+            Stdio::null()
+        } else {
+            std::io::stderr().into()
+        };
+
+        let status = Command::new(configuration.converter_bin.clone())
+            .arg("--mem-in")
+            .arg(input_path)
+            .arg("--lmdb-out")
+            .arg(output_path)
+            .arg("--config")
+            .arg(configuration.config_path.clone())
+            .stdout(outputs)
+            .status()
+            .with_context(|| {
+                format!(
+                    "Failed to execute snapshot-converter binary at {}",
+                    configuration.converter_bin.display()
                 )
             })?;
 
@@ -259,10 +314,9 @@ impl SnapshotConverterCommand {
                 3,
                 &progress_printer,
                 &work_dir,
-                &self.db_directory,
                 &distribution_dir,
                 &cardano_network,
-                &self.utxo_hd_flavor,
+                &self,
             )
             .with_context(|| {
                 format!(
@@ -354,36 +408,50 @@ impl SnapshotConverterCommand {
         step_number: u16,
         progress_printer: &ProgressPrinter,
         work_dir: &Path,
-        db_dir: &Path,
         distribution_dir: &Path,
         cardano_network: &CardanoNetworkCliArg,
-        utxo_hd_flavor: &UTxOHDFlavor,
+        command: &SnapshotConverterCommand,
     ) -> MithrilResult<PathBuf> {
         progress_printer.report_step(
             step_number,
-            &format!("Converting ledger state snapshot to '{utxo_hd_flavor}' flavor"),
+            &format!(
+                "Converting ledger state snapshot to '{}' flavor",
+                command.utxo_hd_flavor
+            ),
         )?;
         let converter_bin =
             Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
         let config_path =
             Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
-        let snapshots = Self::find_most_recent_snapshots(db_dir, CONVERSION_FALLBACK_LIMIT)?;
-        let converter_bin = SnapshotConverterBin {
+        let snapshots =
+            Self::find_most_recent_snapshots(&command.db_directory, CONVERSION_FALLBACK_LIMIT)?;
+        let converter_bin_config = SnapshotConverterConfig {
             converter_bin,
             config_path,
-            utxo_hd_flavor: utxo_hd_flavor.clone(),
+            utxo_hd_flavor: command.utxo_hd_flavor.clone(),
             hide_output: matches!(
                 progress_printer.output_type(),
                 ProgressOutputType::JsonReporter | ProgressOutputType::Hidden
             ),
         };
 
+        let converter_enum = get_snapshot_converter_bin_by_version(
+            &command.cardano_node_version,
+            converter_bin_config,
+        );
+
+        // Convertir l'enum en Box<dyn SnapshotConverter>
+        let converter_bin: Box<dyn SnapshotConverter> = match converter_enum {
+            SnapshotConverterEnum::New(conv) => Box::new(conv),
+            SnapshotConverterEnum::Old(conv) => Box::new(conv),
+        };
+
         Self::try_convert(
             progress_printer,
             work_dir,
-            utxo_hd_flavor,
+            &command.utxo_hd_flavor,
             &snapshots,
-            Box::new(converter_bin),
+            converter_bin,
         )
     }
 
@@ -687,6 +755,26 @@ Snapshot location: {}
         let network = CardanoNetwork::from(id);
 
         CardanoNetworkCliArg::try_from(network)
+    }
+}
+
+fn get_snapshot_converter_bin_by_version(
+    cardano_node_version: &str,
+    converter_bin_config: SnapshotConverterConfig,
+) -> SnapshotConverterEnum {
+    let is_cardano_version_at_least_10_6_2 = match Version::parse(cardano_node_version) {
+        Ok(v) => v >= Version::parse("10.6.2").unwrap(),
+        Err(_) => false,
+    };
+
+    if is_cardano_version_at_least_10_6_2 {
+        SnapshotConverterEnum::New(SnapshotConverterBinNew {
+            config: converter_bin_config,
+        })
+    } else {
+        SnapshotConverterEnum::Old(SnapshotConverterBin {
+            config: converter_bin_config,
+        })
     }
 }
 
@@ -1409,6 +1497,53 @@ mod tests {
                 Box::new(converter),
             )
             .expect_err("Should fail if all conversion attempts fail");
+        }
+    }
+
+    mod get_snapshot_converter_bin_by_version {
+        use std::path::PathBuf;
+
+        use crate::commands::tools::utxo_hd::snapshot_converter::{
+            SnapshotConverterConfig, SnapshotConverterEnum, UTxOHDFlavor,
+            get_snapshot_converter_bin_by_version,
+        };
+
+        #[test]
+        fn should_return_snapshot_converter_bin_new_with_cardano_version_10_6_2_or_upper() {
+            let config = SnapshotConverterConfig {
+                converter_bin: PathBuf::new(),
+                config_path: PathBuf::new(),
+                utxo_hd_flavor: UTxOHDFlavor::Lmdb,
+                hide_output: true,
+            };
+
+            let converter_bin = get_snapshot_converter_bin_by_version("10.6.2", config.clone());
+            assert!(
+                matches!(converter_bin, SnapshotConverterEnum::New(_)),
+                "returned type is not SnapshotConverterBinNew"
+            );
+
+            let converter_bin = get_snapshot_converter_bin_by_version("10.7.0", config.clone());
+            assert!(
+                matches!(converter_bin, SnapshotConverterEnum::New(_)),
+                "returned type is not SnapshotConverterBinNew"
+            );
+        }
+
+        #[test]
+        fn should_return_snapshot_converter_bin_old_with_cardano_version_bellow_6_10_2() {
+            let config = SnapshotConverterConfig {
+                converter_bin: PathBuf::new(),
+                config_path: PathBuf::new(),
+                utxo_hd_flavor: UTxOHDFlavor::Lmdb,
+                hide_output: true,
+            };
+
+            let converter_bin = get_snapshot_converter_bin_by_version("10.6.1", config);
+            assert!(
+                matches!(converter_bin, SnapshotConverterEnum::Old(_)),
+                "returned type is not SnapshotConverterBinOld"
+            );
         }
     }
 }

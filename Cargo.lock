@@ -4150,6 +4150,7 @@ dependencies = [
  "mithril-doc",
  "mockall",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",
