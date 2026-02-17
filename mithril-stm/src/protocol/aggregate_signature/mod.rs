@@ -304,7 +304,7 @@ mod tests {
             let avk: AggregateVerificationKey<D> = clerk.compute_aggregate_verification_key();
 
             if let Ok(sig) = ps[0].create_single_signature(&msg) {
-                assert!(sig.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
+                assert!(sig.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg, #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None).is_ok());
             }
         }
     }
@@ -341,7 +341,7 @@ mod tests {
             if let Ok(sig) = ps[0].create_single_signature(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg, #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None).is_ok());
             }
         }
 

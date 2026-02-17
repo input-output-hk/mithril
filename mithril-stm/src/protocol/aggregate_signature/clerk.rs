@@ -79,6 +79,8 @@ impl<D: MembershipDigest> Clerk<D> {
         AggregateVerificationKey::new(
             self.concatenation_proof_clerk
                 .compute_aggregate_verification_key_for_concatenation(),
+            #[cfg(feature = "future_snark")]
+            None,
         )
     }
 

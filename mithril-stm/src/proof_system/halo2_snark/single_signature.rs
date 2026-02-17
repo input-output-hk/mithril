@@ -2,8 +2,8 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LotteryIndex, LotteryTargetValue, MithrilMembershipDigest, Parameters, SignatureError,
-    StmResult, UniqueSchnorrSignature, VerificationKeyForSnark,
+    LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters, SignatureError, StmResult,
+    UniqueSchnorrSignature, VerificationKeyForSnark,
 };
 
 use super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
@@ -35,13 +35,13 @@ impl SingleSignatureForSnark {
     /// Verify a `SingleSignatureForSnark` by checking:
     /// 1. The Schnorr signature is valid against the verification key
     /// 2. At least one lottery index in `0..m` is won
-    pub(crate) fn verify(
+    pub(crate) fn verify<D: MembershipDigest>(
         &self,
         parameters: &Parameters,
         verification_key: &VerificationKeyForSnark,
         message: &[u8],
         lottery_target_value: &LotteryTargetValue,
-        aggregate_verification_key: &AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
+        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
     ) -> StmResult<()> {
         let message_to_verify = aggregate_verification_key
             .get_merkle_tree_commitment()
@@ -50,7 +50,7 @@ impl SingleSignatureForSnark {
             .verify(&message_to_verify, verification_key)
             .with_context(|| "Single signature verification failed for SNARK proof system.")?;
 
-        if !SnarkProofSigner::<MithrilMembershipDigest>::check_lottery(
+        if !SnarkProofSigner::<D>::check_lottery(
             parameters,
             &message_to_verify,
             &self.schnorr_signature,

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MembershipDigest,
+    ClosedKeyRegistration, MembershipDigest,
     membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+    protocol::RegistrationEntryForSnark,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,5 +18,16 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
         &self,
     ) -> MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
         self.merkle_tree_commitment.clone()
+    }
+}
+
+impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKeyForSnark<D> {
+    fn from(reg: &ClosedKeyRegistration) -> Self {
+        let key_registration_commitment_for_snark =
+            reg.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
+        Self {
+            merkle_tree_commitment: key_registration_commitment_for_snark
+                .to_merkle_tree_commitment(),
+        }
     }
 }
