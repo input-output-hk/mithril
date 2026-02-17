@@ -72,8 +72,13 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
         Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
     }
 
-    /// Builds the message to sign by combining the Merkle tree root with the message,
-    /// both converted to base field elements.
+    /// Build the message with merkle tree root and the given message to be used by the single
+    /// signature of the SNARK proof system. Both the root and the message are converted to
+    /// `BaseFieldElement`. The output is an array of two `BaseFieldElement`s, where the first
+    /// element is the root and the second element is the message.
+    ///
+    /// # Error
+    /// Returns an error if the conversion of the root or the message to `BaseFieldElement` fails.
     pub fn build_snark_message(&self, message: &[u8]) -> StmResult<[BaseFieldElement; 2]> {
         let root = self.root.as_slice();
         let root_as_base_field_element = BaseFieldElement::try_from(root)

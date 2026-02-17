@@ -1,3 +1,5 @@
+#[cfg(feature = "future_snark")]
+use anyhow::Context;
 use anyhow::anyhow;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -70,7 +72,7 @@ impl Initializer {
     /// 1. Verifies that registration is closed (determined by total stake threshold)
     /// 2. Confirms the initializer is registered and retrieves its signer index
     /// 3. Constructs the Merkle tree commitment
-    /// 4. Creates the underlying proof system signer (currently only the concatenation proof system)
+    /// 4. Creates the underlying proof system signer
     ///
     /// # Errors
     /// Returns an error if:
@@ -123,9 +125,15 @@ impl Initializer {
         #[cfg(feature = "future_snark")]
         let snark_proof_signer = SnarkProofSigner::new(
             self.parameters,
-            self.schnorr_signing_key.unwrap(),
-            self.schnorr_verification_key.unwrap(),
-            lottery_target_value.unwrap(),
+            self.schnorr_signing_key
+                .ok_or(RegisterError::SnarkProofSignerCreation)
+                .with_context(|| "missing schnorr signing key")?,
+            self.schnorr_verification_key
+                .ok_or(RegisterError::SnarkProofSignerCreation)
+                .with_context(|| "missing schnorr verification key")?,
+            lottery_target_value
+                .ok_or(RegisterError::SnarkProofSignerCreation)
+                .with_context(|| "missing lottery target value")?,
             key_registration_commitment_for_snark,
         );
 

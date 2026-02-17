@@ -7,7 +7,7 @@ cfg_num_integer! {
     #[cfg(feature = "future_snark")]
     use crate::{
         LotteryIndex, LotteryTargetValue, SignatureError, Stake, StmResult, UniqueSchnorrSignature,
-        signature_scheme::{BaseFieldElement, compute_poseidon_digest, DOMAIN_SEPARATION_TAG_LOTTERY},
+        signature_scheme::{BaseFieldElement, compute_poseidon_digest, DST_LOTTERY},
     };
 
     /// Modulus of the Jubjub Base Field as a hexadecimal number
@@ -194,7 +194,7 @@ cfg_num_integer! {
     /// The prefix is computed by prepending `DST_LOTTERY`
     /// to the message and hashing the result using `compute_poseidon_digest`.
     pub fn compute_lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
-        let mut prefix = vec![DOMAIN_SEPARATION_TAG_LOTTERY];
+        let mut prefix = vec![DST_LOTTERY];
         prefix.extend_from_slice(msg);
         compute_poseidon_digest(&prefix)
     }

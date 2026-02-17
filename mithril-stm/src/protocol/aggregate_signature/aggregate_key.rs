@@ -10,11 +10,13 @@ use crate::proof_system::AggregateVerificationKeyForSnark;
 pub struct AggregateVerificationKey<D: MembershipDigest> {
     /// Concatenation aggregate verification key.
     concatenation_aggregate_verification_key: AggregateVerificationKeyForConcatenation<D>,
+    /// Snark aggregate verification key.
     #[cfg(feature = "future_snark")]
     snark_aggregate_verification_key: Option<AggregateVerificationKeyForSnark<D>>,
 }
 
 impl<D: MembershipDigest> AggregateVerificationKey<D> {
+    /// Creates a new aggregate verification key
     pub fn new(
         concatenation_aggregate_verification_key: AggregateVerificationKeyForConcatenation<D>,
         #[cfg(feature = "future_snark")] snark_aggregate_verification_key: Option<

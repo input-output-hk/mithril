@@ -89,8 +89,6 @@ pub fn operation_phase(
                 &msg,
                 #[cfg(feature = "future_snark")]
                 None,
-                #[cfg(feature = "future_snark")]
-                None
             )
             .is_ok(),
             "Verification failed"

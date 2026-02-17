@@ -6,6 +6,7 @@ use crate::{
     protocol::RegistrationEntryForSnark,
 };
 
+/// Aggregate verification key of the snark proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AggregateVerificationKeyForSnark<D: MembershipDigest> {
     merkle_tree_commitment: MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf>,

@@ -133,7 +133,11 @@ impl Certificate {
     /// Create the aggregate verification key from the certificate.
     pub fn create_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
         let aggregate_verification_key = &self.aggregate_verification_key;
-        ProtocolAggregateVerificationKey::new(aggregate_verification_key.to_owned().into())
+        ProtocolAggregateVerificationKey::new(
+            aggregate_verification_key.to_owned().into(),
+            #[cfg(feature = "future_snark")]
+            None,
+        )
     }
 }
 
@@ -242,6 +246,8 @@ mod tests {
                 )
                 .unwrap()
                 .into(),
+                #[cfg(feature = "future_snark")]
+                None,
             ),
             CertificateSignature::MultiSignature(
                 signed_entity_type.clone(),
@@ -363,6 +369,8 @@ mod tests {
                 )
                 .unwrap()
                 .into(),
+                #[cfg(feature = "future_snark")]
+                None,
             ),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
