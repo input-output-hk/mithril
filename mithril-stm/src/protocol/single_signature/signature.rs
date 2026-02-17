@@ -1,17 +1,16 @@
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
+    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, SignerIndex, Stake,
+    StmResult, VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
     signature_scheme::BlsSignature,
 };
 #[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, VerificationKeyForSnark, proof_system::SingleSignatureForSnark};
+use crate::{RegistrationEntryForSnark, proof_system::SingleSignatureForSnark};
 
 use super::SignatureError;
 
@@ -23,7 +22,8 @@ pub struct SingleSignature {
     #[serde(flatten)]
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
-    pub signer_index: LotteryIndex,
+    pub signer_index: SignerIndex,
+    /// Underlying signature for snark proof system.
     #[cfg(feature = "future_snark")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(crate) snark_signature: Option<SingleSignatureForSnark>,
@@ -31,8 +31,6 @@ pub struct SingleSignature {
 
 impl SingleSignature {
     /// Verify a `SingleSignature` by validating the underlying single signature for proof system.
-    ///
-    /// It only works for concatenation proof system.
     pub fn verify<D: MembershipDigest>(
         &self,
         params: &Parameters,
@@ -40,20 +38,17 @@ impl SingleSignature {
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
-        #[cfg(feature = "future_snark")] schnorr_verification_key: Option<VerificationKeyForSnark>,
-        #[cfg(feature = "future_snark")] lottery_target_value: Option<LotteryTargetValue>,
+        #[cfg(feature = "future_snark")] snark_registration_entry: Option<
+            RegistrationEntryForSnark,
+        >,
     ) -> StmResult<()> {
         #[cfg(feature = "future_snark")]
-        if let Some(snark_signature) = &self.snark_signature {
-            let schnorr_vk = schnorr_verification_key.unwrap();
-            let target_value = lottery_target_value.unwrap();
-            snark_signature.verify(
-                params,
-                &schnorr_vk,
-                msg,
-                &target_value,
-                avk.to_snark_aggregate_verification_key().unwrap(),
-            )?;
+        if let (Some(snark_signature), Some(entry), Some(snark_avk)) = (
+            &self.snark_signature,
+            snark_registration_entry,
+            avk.to_snark_aggregate_verification_key(),
+        ) {
+            snark_signature.verify(params, &entry.0, msg, &entry.1, snark_avk)?;
         }
 
         self.concatenation_signature.verify(
@@ -65,7 +60,7 @@ impl SingleSignature {
         )
     }
 
-    /// Verify that all indices of a signature are valid.
+    /// Verify that all indices of a concatenation signature are valid.
     pub(crate) fn check_indices(
         &self,
         params: &Parameters,
@@ -85,6 +80,9 @@ impl SingleSignature {
     /// *   Indices
     /// *   Sigma
     /// * Merkle index of the signer.
+    /// * (Optional) - `future_snark` Snark proof system single signature bytes:
+    /// *   Schnorr signature bytes
+    /// *   Minimum winning lottery index
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         let indices = self.get_concatenation_signature_indices();
@@ -101,7 +99,9 @@ impl SingleSignature {
         #[cfg(feature = "future_snark")]
         if let Some(snark_signature) = &self.snark_signature {
             let unique_schnorr_signature = snark_signature.get_schnorr_signature();
+            let minimum_winning_lottery_index = snark_signature.get_minimum_winning_lottery_index();
             output.extend_from_slice(&unique_schnorr_signature.to_bytes());
+            output.extend_from_slice(&minimum_winning_lottery_index.to_be_bytes());
         }
 
         output
@@ -147,7 +147,16 @@ impl SingleSignature {
                         .get(snark_offset..snark_offset + 96)
                         .ok_or(SignatureError::SerializationError)?,
                 )?;
-                Some(SingleSignatureForSnark::new(schnorr_signature, vec![]))
+                u64_bytes.copy_from_slice(
+                    bytes
+                        .get(snark_offset + 96..snark_offset + 104)
+                        .ok_or(SignatureError::SerializationError)?,
+                );
+                let minimum_winning_lottery_index = u64::from_be_bytes(u64_bytes);
+                Some(SingleSignatureForSnark::new(
+                    schnorr_signature,
+                    minimum_winning_lottery_index,
+                ))
             } else {
                 None
             }
@@ -171,7 +180,7 @@ impl SingleSignature {
         self.concatenation_signature.get_sigma()
     }
 
-    /// Set the indices of the underlying single signature for proof system.
+    /// Set the indices of the single signature for concatenation proof system.
     pub fn set_concatenation_signature_indices(&mut self, indices: &[LotteryIndex]) {
         self.concatenation_signature.set_indices(indices)
     }
@@ -215,6 +224,12 @@ mod tests {
         MithrilMembershipDigest, Parameters, RegistrationEntry, Signer, SingleSignature,
         VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
         signature_scheme::BlsSigningKey,
+    };
+    #[cfg(feature = "future_snark")]
+    use crate::{
+        ClosedRegistrationEntry, MembershipDigest, VerificationKeyForSnark,
+        proof_system::SnarkProofSigner, protocol::RegistrationEntryForSnark,
+        signature_scheme::SchnorrSigningKey,
     };
 
     type D = MithrilMembershipDigest;
@@ -293,6 +308,8 @@ mod tests {
             closed_key_registration,
             params,
             1,
+            #[cfg(feature = "future_snark")]
+            None,
         );
 
         let clerk = Clerk::new_clerk_from_signer(&signer_1);
@@ -311,12 +328,27 @@ mod tests {
 
         type D = MithrilMembershipDigest;
 
+        #[cfg(not(feature = "future_snark"))]
         const GOLDEN_BYTES: &[u8; 96] = &[
             0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
             0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
             61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
             114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83, 0, 0,
             0, 0, 0, 0, 0, 1,
+        ];
+
+        #[cfg(feature = "future_snark")]
+        const GOLDEN_BYTES: &[u8; 200] = &[
+            0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
+            0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
+            61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
+            114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83, 0, 0,
+            0, 0, 0, 0, 0, 1, 38, 159, 207, 207, 130, 159, 24, 165, 64, 2, 139, 15, 69, 205, 101,
+            166, 100, 45, 22, 225, 113, 161, 32, 186, 193, 17, 159, 158, 47, 139, 78, 169, 7, 184,
+            24, 233, 2, 217, 182, 50, 37, 59, 170, 168, 201, 44, 166, 4, 116, 226, 215, 37, 101, 8,
+            124, 0, 194, 124, 216, 214, 3, 145, 255, 3, 56, 236, 11, 143, 28, 124, 255, 116, 177,
+            19, 148, 255, 229, 226, 85, 103, 170, 181, 124, 105, 71, 188, 44, 85, 205, 222, 230,
+            116, 210, 97, 8, 22, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         fn golden_value() -> SingleSignature {
@@ -332,27 +364,38 @@ mod tests {
             let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
+            #[cfg(feature = "future_snark")]
+            let (schnorr_sk_1, schnorr_vk_1) = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                let vk = VerificationKeyForSnark::new_from_signing_key(sk.clone());
+                (sk, vk)
+            };
+            #[cfg(feature = "future_snark")]
+            let schnorr_vk_2 = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                VerificationKeyForSnark::new_from_signing_key(sk)
+            };
+
             let mut registration = KeyRegistration::initialize();
             let entry1 = RegistrationEntry::new(
                 pk_1,
                 1,
                 #[cfg(feature = "future_snark")]
-                None,
+                Some(schnorr_vk_1),
             )
             .unwrap();
             let entry2 = RegistrationEntry::new(
                 pk_2,
                 1,
                 #[cfg(feature = "future_snark")]
-                None,
+                Some(schnorr_vk_2),
             )
             .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
             let closed_key_registration = registration.close_registration();
 
-            let signer: Signer<MithrilMembershipDigest> = Signer::new(
-                1,
+            let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
                     1,
                     2,
@@ -360,14 +403,39 @@ mod tests {
                     sk_1,
                     pk_1.vk,
                     closed_key_registration.to_merkle_tree(),
-                ),
-                closed_key_registration,
-                params,
-                1,
+                );
+            let concatenation_signature =
+                concatenation_proof_signer.create_single_signature(&message).unwrap();
+
+            #[cfg(feature = "future_snark")]
+            let snark_signature = {
+                let key_registration_commitment = closed_key_registration
+                    .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
+                );
+                let closed_registration_entry =
+                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let lottery_target_value =
+                    closed_registration_entry.get_lottery_target_value().unwrap();
+                let snark_proof_signer = SnarkProofSigner::<D>::new(
+                    params,
+                    schnorr_sk_1,
+                    schnorr_vk_1,
+                    lottery_target_value,
+                    key_registration_commitment,
+                );
+                Some(
+                    snark_proof_signer
+                        .create_single_signature(&message, &mut rng)
+                        .unwrap(),
+                )
+            };
+
+            SingleSignature {
+                concatenation_signature,
+                signer_index: 1,
                 #[cfg(feature = "future_snark")]
-                None,
-            );
-            signer.create_single_signature(&message).unwrap()
+                snark_signature,
+            }
         }
 
         #[test]
@@ -385,6 +453,9 @@ mod tests {
     mod golden_json {
         use super::*;
 
+        type D = MithrilMembershipDigest;
+
+        #[cfg(not(feature = "future_snark"))]
         const GOLDEN_JSON: &str = r#"
         {
             "sigma": [
@@ -394,6 +465,37 @@ mod tests {
             ],
             "indexes": [1, 4, 5, 8],
             "signer_index": 1
+        }"#;
+
+        #[cfg(feature = "future_snark")]
+        const GOLDEN_JSON: &str = r#"
+        {
+            "sigma": [
+                149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203, 61, 78, 77, 98, 161,
+                133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133, 114, 211,
+                153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83
+            ],
+            "indexes": [1, 4, 5, 8],
+            "signer_index": 1,
+            "snark_signature": {
+                "schnorr_signature": {
+                    "commitment_point": [
+                        38, 159, 207, 207, 130, 159, 24, 165, 64, 2, 139, 15, 69, 205, 101,
+                        166, 100, 45, 22, 225, 113, 161, 32, 186, 193, 17, 159, 158, 47, 139,
+                        78, 169
+                    ],
+                    "response": [
+                        7, 184, 24, 233, 2, 217, 182, 50, 37, 59, 170, 168, 201, 44, 166, 4,
+                        116, 226, 215, 37, 101, 8, 124, 0, 194, 124, 216, 214, 3, 145, 255, 3
+                    ],
+                    "challenge": [
+                        56, 236, 11, 143, 28, 124, 255, 116, 177, 19, 148, 255, 229, 226, 85,
+                        103, 170, 181, 124, 105, 71, 188, 44, 85, 205, 222, 230, 116, 210, 97,
+                        8, 22
+                    ]
+                },
+                "minimum_winning_lottery_index": 0
+            }
         }"#;
 
         fn golden_value() -> SingleSignature {
@@ -409,19 +511,31 @@ mod tests {
             let pk_1 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_1);
             let pk_2 = VerificationKeyProofOfPossessionForConcatenation::from(&sk_2);
 
+            #[cfg(feature = "future_snark")]
+            let (schnorr_sk_1, schnorr_vk_1) = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                let vk = VerificationKeyForSnark::new_from_signing_key(sk.clone());
+                (sk, vk)
+            };
+            #[cfg(feature = "future_snark")]
+            let schnorr_vk_2 = {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                VerificationKeyForSnark::new_from_signing_key(sk)
+            };
+
             let mut registration = KeyRegistration::initialize();
             let entry1 = RegistrationEntry::new(
                 pk_1,
                 1,
                 #[cfg(feature = "future_snark")]
-                None,
+                Some(schnorr_vk_1),
             )
             .unwrap();
             let entry2 = RegistrationEntry::new(
                 pk_2,
                 1,
                 #[cfg(feature = "future_snark")]
-                None,
+                Some(schnorr_vk_2),
             )
             .unwrap();
             registration.register_by_entry(&entry1).unwrap();
@@ -429,8 +543,7 @@ mod tests {
 
             let closed_key_registration = registration.close_registration();
 
-            let signer: Signer<MithrilMembershipDigest> = Signer::new(
-                1,
+            let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
                     1,
                     2,
@@ -438,14 +551,39 @@ mod tests {
                     sk_1,
                     pk_1.vk,
                     closed_key_registration.to_merkle_tree(),
-                ),
-                closed_key_registration.clone(),
-                params,
-                1,
+                );
+            let concatenation_signature =
+                concatenation_proof_signer.create_single_signature(&message).unwrap();
+
+            #[cfg(feature = "future_snark")]
+            let snark_signature = {
+                let key_registration_commitment = closed_key_registration
+                    .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
+                );
+                let closed_registration_entry =
+                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let lottery_target_value =
+                    closed_registration_entry.get_lottery_target_value().unwrap();
+                let snark_proof_signer = SnarkProofSigner::<D>::new(
+                    params,
+                    schnorr_sk_1,
+                    schnorr_vk_1,
+                    lottery_target_value,
+                    key_registration_commitment,
+                );
+                Some(
+                    snark_proof_signer
+                        .create_single_signature(&message, &mut rng)
+                        .unwrap(),
+                )
+            };
+
+            SingleSignature {
+                concatenation_signature,
+                signer_index: 1,
                 #[cfg(feature = "future_snark")]
-                None,
-            );
-            signer.create_single_signature(&message).unwrap()
+                snark_signature,
+            }
         }
 
         #[test]
@@ -472,7 +610,15 @@ mod tests {
 
         let params = test_parameters();
         let error = signature
-            .verify(&params, &ctx.vk_2.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .verify(
+                &params,
+                &ctx.vk_2.vk,
+                &1,
+                &ctx.avk,
+                &TEST_MESSAGE,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
             .expect_err("Verification should fail with wrong verification key");
         assert!(
             matches!(
@@ -495,7 +641,15 @@ mod tests {
         signature.set_concatenation_signature_indices(&[params.m + 1]);
 
         let error = signature
-            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .verify(
+                &params,
+                &ctx.vk_1.vk,
+                &1,
+                &ctx.avk,
+                &TEST_MESSAGE,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
             .expect_err("Verification should fail with invalid index");
         assert!(
             matches!(
@@ -517,7 +671,15 @@ mod tests {
 
         let params = test_parameters();
         let error = signature
-            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &wrong_message)
+            .verify(
+                &params,
+                &ctx.vk_1.vk,
+                &1,
+                &ctx.avk,
+                &wrong_message,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
             .expect_err("Verification should fail with wrong message");
         assert!(
             matches!(
@@ -545,6 +707,8 @@ mod tests {
                 &1,
                 &different_registration_ctx.avk,
                 &TEST_MESSAGE,
+                #[cfg(feature = "future_snark")]
+                None,
             )
             .expect_err("Verification should fail with a different registration AVK");
         assert!(

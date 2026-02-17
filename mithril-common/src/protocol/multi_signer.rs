@@ -72,6 +72,8 @@ impl MultiSigner {
                 &stake,
                 &avk,
                 message.to_message().as_bytes(),
+                #[cfg(feature = "future_snark")]
+                None,
             )
             .with_context(|| {
                 format!(

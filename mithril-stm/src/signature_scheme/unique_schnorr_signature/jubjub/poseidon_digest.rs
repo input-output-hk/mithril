@@ -12,9 +12,9 @@ pub(crate) const DOMAIN_SEPARATION_TAG_SIGNATURE: BaseFieldElement =
         0,
     ]));
 
-#[cfg(feature = "future_snark")]
 /// Domain Separation Tag (DST) for the lottery check. It is used as a prefix when computing
 /// the eligibility value of a signature.
+#[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 pub const DOMAIN_SEPARATION_TAG_LOTTERY: BaseFieldElement =

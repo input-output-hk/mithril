@@ -39,13 +39,8 @@ pub enum RegisterError {
     #[error("No registration found for the given index.")]
     UnregisteredIndex,
 
+    /// Snark proof signer creation from initializer failed
     #[cfg(feature = "future_snark")]
-    /// Snark key is none
-    #[error("The verification key for snark is undefined.")]
-    SnarkKeyUndefined,
-
-    #[cfg(feature = "future_snark")]
-    /// Lottery target value is none
-    #[error("The lottery target value is undefined.")]
-    LotteryTargetValueUndefined,
+    #[error("Unable to create SNARK proof signer.")]
+    SnarkProofSignerCreation,
 }

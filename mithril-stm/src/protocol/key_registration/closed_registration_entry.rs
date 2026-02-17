@@ -162,7 +162,7 @@ impl Serialize for ClosedRegistrationEntry {
 
 /// Converts the registration entry into a closed registration entry for given total stake.
 /// This is where we will compute the lottery target value in the future.
-/// `LotteryTargetValue` is set to one for now.
+/// `LotteryTargetValue` is set to (modulus - 1) for now.
 /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
 impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
@@ -170,7 +170,8 @@ impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target = vk.map(|_| LotteryTargetValue::get_one());
+            let target =
+                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
             (vk, target)
         };
 
