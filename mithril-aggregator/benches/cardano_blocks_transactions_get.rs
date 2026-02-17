@@ -50,6 +50,8 @@ async fn init_db(
     println!(
         "Generating a db with {nb_blocks_in_db} blocks, {nb_transactions_per_block} transactions per block ..."
     );
+    let start_instant = tokio::time::Instant::now();
+
     let transactions = generate_blocks_with_transaction(nb_blocks_in_db, nb_transactions_per_block);
     let connection = cardano_tx_db_connection(&format!(
         "cardano_blk-{nb_blocks_in_db}-tx-{nb_transactions_per_block}.db",
@@ -58,6 +60,13 @@ async fn init_db(
         SqliteConnectionPool::build_from_connection(connection),
     ));
     repository.store_blocks_and_transactions(transactions).await.unwrap();
+
+    let generation_duration = start_instant.elapsed();
+    println!(
+        "Database generated in {}s:{:04}ms",
+        generation_duration.as_secs(),
+        generation_duration.subsec_millis()
+    );
 
     repository
 }
@@ -68,13 +77,11 @@ fn run_bench(c: &mut Criterion, nb_blocks_in_db: usize, nb_transactions_per_bloc
         runtime.block_on(async { init_db(nb_blocks_in_db, nb_transactions_per_block).await });
 
     let mut group = c.benchmark_group(format!(
-        "Get blocks with transactions - {nb_blocks_in_db} blocks with each {nb_transactions_per_block} transactions"
+        "Get blocks with transactions - {nb_blocks_in_db} blocks/{nb_transactions_per_block} tx per block"
     ));
     for max_block_number in [100, 10_000, 100_000, 1_000_000] {
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!(
-                "get_blocks_transactions_in_range(0..{max_block_number})"
-            )),
+            BenchmarkId::from_parameter(format!("range(0..{max_block_number})")),
             &max_block_number,
             |b, &max_block_number| {
                 b.to_async(&runtime).iter(|| async {

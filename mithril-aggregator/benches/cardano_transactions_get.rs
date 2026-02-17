@@ -45,12 +45,21 @@ fn generate_blocks_with_one_transaction(
 
 async fn init_db(nb_transaction_in_db: usize) -> AggregatorCardanoChainDataRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
+    let start_instant = tokio::time::Instant::now();
+
     let transactions = generate_blocks_with_one_transaction(nb_transaction_in_db);
     let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
     let repository = AggregatorCardanoChainDataRepository::new(Arc::new(
         SqliteConnectionPool::build_from_connection(connection),
     ));
     repository.store_blocks_and_transactions(transactions).await.unwrap();
+
+    let generation_duration = start_instant.elapsed();
+    println!(
+        "Database generated in {}s:{:04}ms",
+        generation_duration.as_secs(),
+        generation_duration.subsec_millis()
+    );
 
     repository
 }
