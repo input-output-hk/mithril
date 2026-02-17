@@ -112,16 +112,8 @@ fn target_value_from_field(target: F) -> LotteryTargetValue {
 }
 
 fn generate_signer_leaf(rng: &mut ChaCha20Rng, target: F) -> SignerLeaf {
-    // Retry until STM VK derivation succeeds (edge-case scalars); test-only guard
-    // to avoid deterministic-seed flakes in golden vectors.
-    let stm_sk = loop {
-        let stm_sk = SchnorrSigningKey::generate(rng).expect("Failed to generate STM signing key");
-        if SchnorrVerificationKey::new_from_signing_key(stm_sk.clone()).is_ok() {
-            break stm_sk;
-        }
-    };
-    let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone())
-        .expect("Failed to build STM verification key from signing key");
+    let stm_sk = SchnorrSigningKey::generate(rng);
+    let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone());
     let target_value = target_value_from_field(target);
     SignerLeaf {
         sk: stm_sk,

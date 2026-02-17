@@ -208,8 +208,10 @@ mod tests {
     #[test]
     fn from_bytes_signature_exact_size() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let msg_bytes: [u8; 32] = msg[0..32].try_into().unwrap();
+        let base_input = BaseFieldElement::from(&msg_bytes);
         let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -222,8 +224,10 @@ mod tests {
     #[test]
     fn from_bytes_signature_extra_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let msg_bytes: [u8; 32] = msg[0..32].try_into().unwrap();
+        let base_input = BaseFieldElement::from(&msg_bytes);
         let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -239,8 +243,10 @@ mod tests {
     #[test]
     fn to_bytes_is_deterministic() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let msg = vec![1, 2, 3];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let mut msg = vec![1, 2, 3];
+        msg.resize(32, 0);
+        let msg_bytes: [u8; 32] = msg[0..32].try_into().unwrap();
+        let base_input = BaseFieldElement::from(&msg_bytes);
         let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&[base_input], &mut rng).unwrap();
@@ -255,8 +261,10 @@ mod tests {
     #[test]
     fn signature_roundtrip_preserves_verification() {
         let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
-        let msg = vec![5, 6, 7, 8, 9];
-        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let mut msg = vec![5, 6, 7, 8, 9];
+        msg.resize(32, 0);
+        let msg_bytes: [u8; 32] = msg[0..32].try_into().unwrap();
+        let base_input = BaseFieldElement::from(&msg_bytes);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
 
