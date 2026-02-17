@@ -9,6 +9,7 @@ use mithril_common::{
     StdResult,
     entities::{Epoch, EpochSpecifier, TransactionHash},
     messages::{
+        CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
         CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
         CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
@@ -393,6 +394,97 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_cardano_transactions, no response from `{url}`"
+        )),
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
+}
+
+pub async fn assert_node_producing_cardano_blocks_transactions(
+    aggregator: &Aggregator,
+) -> StdResult<String> {
+    let url = format!(
+        "{}/artifact/cardano-blocks-transactions",
+        aggregator.endpoint()
+    );
+    info!("Waiting for the aggregator to produce a Cardano blocks transactions artifact"; "aggregator" => &aggregator.name());
+
+    async fn fetch_last_cardano_blocks_transactions_snapshot_hash(
+        url: String,
+    ) -> StdResult<Option<String>> {
+        match get_json_response::<CardanoBlocksTransactionsSnapshotListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!(
+                "Invalid Cardano blocks transactions artifact body: {err}",
+            )),
+        }
+    }
+
+    match attempt!(30, Duration::from_millis(2000), {
+        fetch_last_cardano_blocks_transactions_snapshot_hash(url.clone()).await
+    }) {
+        AttemptResult::Ok(hash) => {
+            info!("Aggregator produced a Cardano blocks transactions artifact"; "hash" => &hash, "aggregator" => &aggregator.name());
+            Ok(hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_cardano_blocks_transactions, no response from `{url}`"
+        )),
+    }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
+}
+
+pub async fn assert_signer_is_signing_cardano_blocks_transactions(
+    aggregator: &Aggregator,
+    hash: &str,
+    expected_epoch_min: Epoch,
+) -> StdResult<String> {
+    let url = format!(
+        "{}/artifact/cardano-blocks-transactions/{hash}",
+        aggregator.endpoint()
+    );
+    info!(
+        "Asserting the aggregator is signing the Cardano blocks transactions artifact `{}` with an expected min epoch of `{}`",
+        hash,
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
+    );
+
+    async fn fetch_cardano_blocks_transactions_snapshot_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<CardanoBlocksTransactionsSnapshotMessage>> {
+        match get_json_response::<CardanoBlocksTransactionsSnapshotMessage>(url).await? {
+            Ok(artifact) => match artifact.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
+                epoch => Err(anyhow!(
+                    "Minimum expected artifact epoch not reached: {epoch} < {expected_epoch_min}"
+                )),
+            },
+            Err(err) => {
+                Err(anyhow!(err).context("Invalid Cardano blocks transactions artifact body"))
+            }
+        }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_cardano_blocks_transactions_snapshot_message(url.clone(), expected_epoch_min).await
+    }) {
+        AttemptResult::Ok(artifact) => {
+            info!("Signer signed a Cardano blocks transactions artifact"; "certificate_hash" => &artifact.certificate_hash, "aggregator" => &aggregator.name());
+            Ok(artifact.certificate_hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_signer_is_signing_cardano_blocks_transactions, no response from `{url}`"
         )),
     }.with_context(|| {
         format!(

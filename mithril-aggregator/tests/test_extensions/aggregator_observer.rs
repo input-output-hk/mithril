@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use std::sync::Arc;
 
 use mithril_aggregator::{
@@ -137,7 +137,13 @@ impl AggregatorObserver {
                     .map(|s| s.signed_entity_type)
                     .as_ref()),
             SignedEntityType::CardanoBlocksTransactions(..) => {
-                Err(anyhow!("Cardano blocks transactions is not supported yet"))
+                Ok(Some(signed_entity_type_expected)
+                    == self
+                        .signed_entity_service
+                        .get_last_cardano_blocks_transactions_snapshot()
+                        .await?
+                        .map(|s| s.signed_entity_type)
+                        .as_ref())
             }
             SignedEntityType::CardanoStakeDistribution(..) => Ok(Some(signed_entity_type_expected)
                 == self

@@ -1,5 +1,6 @@
 //! The module used for building signables
 
+mod cardano_blocks_transactions;
 mod cardano_stake_distribution;
 mod cardano_transactions;
 mod interface;
@@ -7,6 +8,7 @@ mod mithril_stake_distribution;
 mod signable_builder_service;
 mod signed_entity;
 
+pub use cardano_blocks_transactions::*;
 pub use cardano_stake_distribution::*;
 pub use cardano_transactions::*;
 pub use interface::*;

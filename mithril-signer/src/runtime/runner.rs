@@ -389,6 +389,7 @@ mod tests {
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
         signable_builder::{
+            BlockRangeRootRetriever, CardanoBlocksTransactionsSignableBuilder,
             CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
             LegacyBlockRangeRootRetriever, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
@@ -430,6 +431,23 @@ mod tests {
         #[async_trait]
         impl TickerService for FakeTimePointProvider {
             async fn get_current_time_point(&self) -> StdResult<TimePoint>;
+        }
+    }
+
+    mock! {
+        pub BlockRangeRootRetriever<S: MKTreeStorer> { }
+
+        #[async_trait]
+        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetriever<S> {
+            async fn retrieve_block_range_roots<'a>(
+                &'a self,
+                up_to_beacon: BlockNumber,
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
+
+            async fn compute_merkle_map_from_block_range_roots(
+                &self,
+                up_to_beacon: BlockNumber,
+            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange,S>, S>>;
         }
     }
 
@@ -491,12 +509,19 @@ mod tests {
                 logger.clone(),
             ),
         )));
-        let block_range_root_retriever =
+        let legacy_block_range_root_retriever =
             Arc::new(MockLegacyBlockRangeRootRetriever::<MKTreeStoreInMemory>::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer.clone(),
-            block_range_root_retriever,
+            legacy_block_range_root_retriever,
         ));
+        let block_range_root_retriever =
+            Arc::new(MockBlockRangeRootRetriever::<MKTreeStoreInMemory>::new());
+        let cardano_blocks_transactions_builder =
+            Arc::new(CardanoBlocksTransactionsSignableBuilder::new(
+                transactions_importer.clone(),
+                block_range_root_retriever,
+            ));
         let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
@@ -528,6 +553,7 @@ mod tests {
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
+            cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
         );
