@@ -6,14 +6,18 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::{
+    ProtocolSignerVerificationKeyForSnark, ProtocolSignerVerificationKeySignatureForSnark,
+};
 use crate::{
     StdResult,
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
         ProtocolClosedKeyRegistration, ProtocolGenesisSigner, ProtocolInitializer, ProtocolOpCert,
-        ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
-        ProtocolStakeDistribution,
+        ProtocolSigner, ProtocolSignerVerificationKeyForConcatenation,
+        ProtocolSignerVerificationKeySignatureForConcatenation, ProtocolStakeDistribution,
     },
     entities::{
         Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
@@ -275,7 +279,7 @@ impl SignerFixture {
         self.signer_with_stake.party_id.clone()
     }
 
-    /// Decode this signer operational certificate if any
+    /// Get the operational certificate if any
     pub fn operational_certificate(&self) -> Option<ProtocolOpCert> {
         self.signer_with_stake.operational_certificate.clone()
     }
@@ -289,14 +293,32 @@ impl SignerFixture {
             .compute_protocol_party_id_as_hash()
     }
 
-    /// Decode this signer verification key certificate
-    pub fn verification_key(&self) -> ProtocolSignerVerificationKey {
-        self.signer_with_stake.verification_key
+    /// Get the verification key for concatenation
+    pub fn verification_key_for_concatenation(
+        &self,
+    ) -> ProtocolSignerVerificationKeyForConcatenation {
+        self.signer_with_stake.verification_key_for_concatenation
     }
 
-    /// Decode this signer verification key signature certificate if any
-    pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.signer_with_stake.verification_key_signature
+    /// Get the verification key signature for concatenation if any
+    pub fn verification_key_signature_for_concatenation(
+        &self,
+    ) -> Option<ProtocolSignerVerificationKeySignatureForConcatenation> {
+        self.signer_with_stake.verification_key_signature_for_concatenation
+    }
+
+    /// Get the verification key for snark if any
+    #[cfg(feature = "future_snark")]
+    pub fn verification_key_for_snark(&self) -> Option<ProtocolSignerVerificationKeyForSnark> {
+        self.signer_with_stake.verification_key_for_snark
+    }
+
+    /// Get the verification key signature for snark if any
+    #[cfg(feature = "future_snark")]
+    pub fn verification_key_signature_for_snark(
+        &self,
+    ) -> Option<ProtocolSignerVerificationKeySignatureForSnark> {
+        self.signer_with_stake.verification_key_signature_for_snark
     }
 
     /// Get the path to this signer kes secret key

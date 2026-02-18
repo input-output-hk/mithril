@@ -164,13 +164,18 @@ mod messages {
         fn dummy() -> Self {
             Self {
                 party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-                verification_key: fake_keys::signer_verification_key()[0].to_string(),
-                verification_key_signature: Some(
+                verification_key_for_concatenation: fake_keys::signer_verification_key()[0]
+                    .to_string(),
+                verification_key_signature_for_concatenation: Some(
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
                 kes_evolutions: Some(KesEvolutions(6)),
                 stake: 234,
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }
         }
     }
@@ -180,12 +185,17 @@ mod messages {
         fn dummy() -> Self {
             Self {
                 party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-                verification_key: fake_keys::signer_verification_key()[0].to_string(),
-                verification_key_signature: Some(
+                verification_key_for_concatenation: fake_keys::signer_verification_key()[0]
+                    .to_string(),
+                verification_key_signature_for_concatenation: Some(
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
                 kes_evolutions: Some(KesEvolutions(6)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }
         }
     }
@@ -587,12 +597,17 @@ mod messages {
             Self {
                 epoch: Epoch(1),
                 party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-                verification_key: fake_keys::signer_verification_key()[0].to_string(),
-                verification_key_signature: Some(
+                verification_key_for_concatenation: fake_keys::signer_verification_key()[0]
+                    .to_string(),
+                verification_key_signature_for_concatenation: Some(
                     fake_keys::signer_verification_key_signature()[0].to_string(),
                 ),
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
                 kes_evolutions: Some(KesEvolutions(6)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }
         }
     }

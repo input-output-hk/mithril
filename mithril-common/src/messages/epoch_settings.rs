@@ -98,17 +98,25 @@ mod tests {
             },
             current_signers: vec![SignerMessagePart {
                 party_id: "123".to_string(),
-                verification_key: "key_123".to_string(),
-                verification_key_signature: Some("signature_123".to_string()),
+                verification_key_for_concatenation: "key_123".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
                 kes_evolutions: Some(KesEvolutions(12)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
-                verification_key: "key_456".to_string(),
-                verification_key_signature: Some("signature_456".to_string()),
+                verification_key_for_concatenation: "key_456".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
                 kes_evolutions: Some(KesEvolutions(45)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
@@ -128,17 +136,25 @@ mod tests {
             },
             current_signers: vec![SignerMessagePart {
                 party_id: "123".to_string(),
-                verification_key: "key_123".to_string(),
-                verification_key_signature: Some("signature_123".to_string()),
+                verification_key_for_concatenation: "key_123".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
                 kes_evolutions: Some(KesEvolutions(12)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
-                verification_key: "key_456".to_string(),
-                verification_key_signature: Some("signature_456".to_string()),
+                verification_key_for_concatenation: "key_456".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
                 kes_evolutions: Some(KesEvolutions(45)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
@@ -158,17 +174,25 @@ mod tests {
             }),
             current_signers: vec![SignerMessagePart {
                 party_id: "123".to_string(),
-                verification_key: "key_123".to_string(),
-                verification_key_signature: Some("signature_123".to_string()),
+                verification_key_for_concatenation: "key_123".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_123".to_string()),
                 operational_certificate: Some("certificate_123".to_string()),
                 kes_evolutions: Some(KesEvolutions(12)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             next_signers: vec![SignerMessagePart {
                 party_id: "456".to_string(),
-                verification_key: "key_456".to_string(),
-                verification_key_signature: Some("signature_456".to_string()),
+                verification_key_for_concatenation: "key_456".to_string(),
+                verification_key_signature_for_concatenation: Some("signature_456".to_string()),
                 operational_certificate: Some("certificate_456".to_string()),
                 kes_evolutions: Some(KesEvolutions(45)),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
