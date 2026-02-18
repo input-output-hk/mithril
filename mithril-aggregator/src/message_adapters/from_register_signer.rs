@@ -13,26 +13,41 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
     fn try_adapt(register_signer_message: RegisterSignerMessage) -> StdResult<Signer> {
         Ok(Signer {
             party_id: register_signer_message.party_id,
-            verification_key: register_signer_message.verification_key.try_into().with_context(
+            verification_key_for_concatenation: register_signer_message.verification_key_for_concatenation.try_into().with_context(
                 || "'FromRegisterSignerAdapter' can not convert the verification key",
             )?,
-            verification_key_signature: match register_signer_message.verification_key_signature {
-                Some(verification_key_signature) => {
-                    Some(verification_key_signature.try_into().with_context(|| {
-                        "'FromRegisterSignerAdapter' can not convert the verification key signature"
-                    })?)
-                }
-                _ => None,
-            },
-            operational_certificate: match register_signer_message.operational_certificate {
-                Some(operational_certificate) => {
-                    Some(operational_certificate.try_into().with_context(|| {
-                        "'FromRegisterSignerAdapter' can not convert the operational certificate"
-                    })?)
-                }
-                _ => None,
-            },
+            verification_key_signature_for_concatenation: register_signer_message
+                .verification_key_signature_for_concatenation
+                .map(|verification_key_signature| {
+                    verification_key_signature.try_into().with_context(|| {
+                    "'FromRegisterSignerAdapter' can not convert the verification key signature"
+                })
+                })
+                .transpose()?,
+            operational_certificate: register_signer_message
+                .operational_certificate
+                .map(|operational_certificate| {
+                    operational_certificate.try_into().with_context(|| {
+                    "'FromRegisterSignerAdapter' can not convert the operational certificate"
+                })
+                })
+                .transpose()?,
             kes_evolutions: register_signer_message.kes_evolutions,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: register_signer_message.verification_key_for_snark.map(|verification_key_for_snark| {
+                    verification_key_for_snark.try_into().with_context(|| {
+                    "'FromRegisterSignerAdapter' can not convert the snark verification key"
+                })
+                })
+                .transpose()?,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: register_signer_message
+                .verification_key_signature_for_snark.map(|verification_key_signature_for_snark| {
+                    verification_key_signature_for_snark.try_into().with_context(|| {
+                    "'FromRegisterSignerAdapter' can not convert the snark verification key signature"
+                })
+                })
+                .transpose()?,
         })
     }
 }
