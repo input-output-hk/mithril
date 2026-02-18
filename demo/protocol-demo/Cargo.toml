@@ -9,7 +9,10 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
-future_snark = [] # For activating snark features
+future_snark = [
+    "mithril-stm/future_snark",
+    "mithril-common/future_snark",
+] # For activating snark features
 
 [dependencies]
 clap = { workspace = true }
