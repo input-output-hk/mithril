@@ -18,6 +18,7 @@ bench = false
 default = []
 allow_skip_signer_certification = []
 bundle_tls = ["reqwest/native-tls-vendored"]
+future_snark = ["mithril-common/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }
