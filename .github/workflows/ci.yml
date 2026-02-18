@@ -184,7 +184,7 @@ jobs:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
           - os: ubuntu-24.04
-            test-args: --features future_snark -p mithril-stm
+            test-args: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
             artifact-suffix: -future-snark
           - os: ubuntu-24.04-arm
             test-args: --features full,unstable --workspace
