@@ -868,6 +868,23 @@ mod tests {
                 "UTxO HD Flavor Legacy is not supported on Cardano node 10.6.2 or upper"
             );
         }
+
+        #[tokio::test]
+        async fn should_return_error_if_htx0_hd_flavor_is_legacy_and_cardano_node_version_latest() {
+            let command = SnapshotConverterCommand {
+                cardano_node_version: "latest".to_string(),
+                utxo_hd_flavor: UTxOHDFlavor::Legacy,
+                ..dummy_snapshot_conveter_command()
+            };
+
+            let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "UTxO HD Flavor Legacy is not supported on Cardano node 10.6.2 or upper"
+            );
+        }
     }
 
     mod download_cardano_node_distribution {
