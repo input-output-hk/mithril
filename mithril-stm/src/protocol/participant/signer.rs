@@ -12,11 +12,15 @@ use crate::{LotteryTargetValue, VerificationKeyForSnark, proof_system::SnarkProo
 pub struct Signer<D: MembershipDigest> {
     /// Index of the signer in registration
     pub signer_index: SignerIndex,
-    /// Single signature generation of concatenation proof system
+    /// Single signature generator of concatenation proof system
     pub(crate) concatenation_proof_signer: ConcatenationProofSigner<D>,
+    /// Stake associated with the signer
     stake: Stake,
+    /// Closed key registration containing closed registration entries and total stake
     pub closed_key_registration: ClosedKeyRegistration,
+    /// Parameters of the protocol
     pub parameters: Parameters,
+    /// Single signature generator of the future snark proof system
     #[cfg(feature = "future_snark")]
     pub(crate) snark_proof_signer: Option<SnarkProofSigner<D>>,
 }
@@ -42,10 +46,11 @@ impl<D: MembershipDigest> Signer<D> {
         }
     }
 
-    /// Creates and returns a single signature for the given message.
-    /// First creates a concatenation proof signature, and if the future_snark feature is enabled
-    /// and a snark signer is available, it also creates a snark proof signature if concatenation
-    /// signature generation is successful.
+    /// Creates and returns a single signature for the given message. First tries to create a
+    /// concatenation proof signature. Tries to create a snark proof signature as well if
+    /// * Concatenation proof signature creation is successful,
+    /// * the future snark proof system is enabled,
+    /// * a snark proof signer is available.
     pub fn create_single_signature(&self, message: &[u8]) -> StmResult<SingleSignature> {
         let concatenation_signature =
             self.concatenation_proof_signer.create_single_signature(message)?;

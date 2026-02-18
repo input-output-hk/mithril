@@ -1,17 +1,16 @@
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, Stake, StmResult,
-    VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
+    AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, SignerIndex, Stake,
+    StmResult, VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
     signature_scheme::BlsSignature,
 };
 #[cfg(feature = "future_snark")]
-use crate::{proof_system::SingleSignatureForSnark, protocol::RegistrationEntryForSnark};
+use crate::{RegistrationEntryForSnark, proof_system::SingleSignatureForSnark};
 
 use super::SignatureError;
 
@@ -23,7 +22,8 @@ pub struct SingleSignature {
     #[serde(flatten)]
     pub(crate) concatenation_signature: SingleSignatureForConcatenation,
     /// Merkle tree index of the signer.
-    pub signer_index: LotteryIndex,
+    pub signer_index: SignerIndex,
+    /// Underlying signature for snark proof system.
     #[cfg(feature = "future_snark")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(crate) snark_signature: Option<SingleSignatureForSnark>,
@@ -80,7 +80,9 @@ impl SingleSignature {
     /// *   Indices
     /// *   Sigma
     /// * Merkle index of the signer.
-    /// * (Optional) Snark proof system single signature bytes: Schnorr signature bytes
+    /// * (Optional) - `future_snark` Snark proof system single signature bytes:
+    /// *   Schnorr signature bytes
+    /// *   Minimum winning lottery index
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         let indices = self.get_concatenation_signature_indices();
@@ -97,7 +99,9 @@ impl SingleSignature {
         #[cfg(feature = "future_snark")]
         if let Some(snark_signature) = &self.snark_signature {
             let unique_schnorr_signature = snark_signature.get_schnorr_signature();
+            let minimum_winning_lottery_index = snark_signature.get_minimum_winning_lottery_index();
             output.extend_from_slice(&unique_schnorr_signature.to_bytes());
+            output.extend_from_slice(&minimum_winning_lottery_index.to_be_bytes());
         }
 
         output
@@ -143,7 +147,16 @@ impl SingleSignature {
                         .get(snark_offset..snark_offset + 96)
                         .ok_or(SignatureError::SerializationError)?,
                 )?;
-                Some(SingleSignatureForSnark::new(schnorr_signature, vec![]))
+                u64_bytes.copy_from_slice(
+                    bytes
+                        .get(snark_offset + 96..snark_offset + 104)
+                        .ok_or(SignatureError::SerializationError)?,
+                );
+                let minimum_winning_lottery_index = u64::from_be_bytes(u64_bytes);
+                Some(SingleSignatureForSnark::new(
+                    schnorr_signature,
+                    minimum_winning_lottery_index,
+                ))
             } else {
                 None
             }
@@ -167,7 +180,7 @@ impl SingleSignature {
         self.concatenation_signature.get_sigma()
     }
 
-    /// Set the indices of the underlying single signature for proof system.
+    /// Set the indices of the single signature for concatenation proof system.
     pub fn set_concatenation_signature_indices(&mut self, indices: &[LotteryIndex]) {
         self.concatenation_signature.set_indices(indices)
     }
@@ -232,17 +245,17 @@ mod tests {
         ];
 
         #[cfg(feature = "future_snark")]
-        const GOLDEN_BYTES: &[u8; 192] = &[
+        const GOLDEN_BYTES: &[u8; 200] = &[
             0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0,
             0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8, 149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203,
             61, 78, 77, 98, 161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
             114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83, 0, 0,
-            0, 0, 0, 0, 0, 1, 164, 105, 179, 232, 111, 131, 142, 62, 165, 196, 232, 22, 161, 14, 2,
-            168, 171, 4, 194, 250, 62, 210, 215, 102, 71, 144, 23, 222, 247, 122, 27, 43, 208, 177,
-            187, 175, 32, 180, 42, 148, 209, 28, 134, 47, 82, 186, 5, 194, 32, 170, 129, 156, 1,
-            147, 17, 199, 242, 100, 131, 101, 77, 234, 207, 12, 172, 92, 123, 172, 168, 182, 143,
-            132, 187, 218, 25, 195, 210, 121, 97, 134, 137, 180, 136, 105, 244, 157, 76, 250, 10,
-            163, 35, 89, 199, 181, 126, 51,
+            0, 0, 0, 0, 0, 1, 38, 159, 207, 207, 130, 159, 24, 165, 64, 2, 139, 15, 69, 205, 101,
+            166, 100, 45, 22, 225, 113, 161, 32, 186, 193, 17, 159, 158, 47, 139, 78, 169, 7, 184,
+            24, 233, 2, 217, 182, 50, 37, 59, 170, 168, 201, 44, 166, 4, 116, 226, 215, 37, 101, 8,
+            124, 0, 194, 124, 216, 214, 3, 145, 255, 3, 56, 236, 11, 143, 28, 124, 255, 116, 177,
+            19, 148, 255, 229, 226, 85, 103, 170, 181, 124, 105, 71, 188, 44, 85, 205, 222, 230,
+            116, 210, 97, 8, 22, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         fn golden_value() -> SingleSignature {
@@ -374,22 +387,21 @@ mod tests {
             "snark_signature": {
                 "schnorr_signature": {
                     "commitment_point": [
-                        164, 105, 179, 232, 111, 131, 142, 62, 165, 196, 232, 22, 161, 14, 2,
-                        168, 171, 4, 194, 250, 62, 210, 215, 102, 71, 144, 23, 222, 247, 122,
-                        27, 43
+                        38, 159, 207, 207, 130, 159, 24, 165, 64, 2, 139, 15, 69, 205, 101,
+                        166, 100, 45, 22, 225, 113, 161, 32, 186, 193, 17, 159, 158, 47, 139,
+                        78, 169
                     ],
                     "response": [
-                        208, 177, 187, 175, 32, 180, 42, 148, 209, 28, 134, 47, 82, 186, 5,
-                        194, 32, 170, 129, 156, 1, 147, 17, 199, 242, 100, 131, 101, 77, 234,
-                        207, 12
+                        7, 184, 24, 233, 2, 217, 182, 50, 37, 59, 170, 168, 201, 44, 166, 4,
+                        116, 226, 215, 37, 101, 8, 124, 0, 194, 124, 216, 214, 3, 145, 255, 3
                     ],
                     "challenge": [
-                        172, 92, 123, 172, 168, 182, 143, 132, 187, 218, 25, 195, 210, 121,
-                        97, 134, 137, 180, 136, 105, 244, 157, 76, 250, 10, 163, 35, 89, 199,
-                        181, 126, 51
+                        56, 236, 11, 143, 28, 124, 255, 116, 177, 19, 148, 255, 229, 226, 85,
+                        103, 170, 181, 124, 105, 71, 188, 44, 85, 205, 222, 230, 116, 210, 97,
+                        8, 22
                     ]
                 },
-                "indices": []
+                "minimum_winning_lottery_index": 0
             }
         }"#;
 

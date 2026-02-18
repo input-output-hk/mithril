@@ -12,8 +12,8 @@ use crate::{
 };
 #[cfg(feature = "future_snark")]
 use crate::{
-    ClosedRegistrationEntry, VerificationKeyForSnark, proof_system::SnarkProofSigner,
-    protocol::RegistrationEntryForSnark, signature_scheme::SchnorrSigningKey,
+    ClosedRegistrationEntry, RegistrationEntryForSnark, VerificationKeyForSnark,
+    proof_system::SnarkProofSigner, signature_scheme::SchnorrSigningKey,
 };
 
 use super::Signer;
@@ -71,7 +71,7 @@ impl Initializer {
     /// # Process
     /// 1. Verifies that registration is closed (determined by total stake threshold)
     /// 2. Confirms the initializer is registered and retrieves its signer index
-    /// 3. Constructs the Merkle tree commitment
+    /// 3. Constructs the Merkle tree commitment for each proof system (concatenation and snark)
     /// 4. Creates the underlying proof system signer
     ///
     /// # Errors
@@ -95,11 +95,10 @@ impl Initializer {
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
+        // --- Concatenation proof signer creation ---
         let key_registration_commitment_for_concatenation = closed_key_registration
             .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
         );
-
-        // Create concatenation proof signer
         let concatenation_proof_signer = ConcatenationProofSigner::new(
             registration_entry.get_stake(),
             closed_key_registration.total_stake,
@@ -109,33 +108,30 @@ impl Initializer {
             key_registration_commitment_for_concatenation,
         );
 
+        // ------- Snark proof signer creation -------
         #[cfg(feature = "future_snark")]
-        let key_registration_commitment_for_snark =
-            closed_key_registration.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
-
-        #[cfg(feature = "future_snark")]
-        let closed_registration_entry = ClosedRegistrationEntry::from((
-            registration_entry,
-            closed_key_registration.total_stake,
-        ));
-
-        #[cfg(feature = "future_snark")]
-        let lottery_target_value = closed_registration_entry.get_lottery_target_value();
-
-        #[cfg(feature = "future_snark")]
-        let snark_proof_signer = SnarkProofSigner::new(
-            self.parameters,
-            self.schnorr_signing_key
-                .ok_or(RegisterError::SnarkProofSignerCreation)
-                .with_context(|| "missing schnorr signing key")?,
-            self.schnorr_verification_key
-                .ok_or(RegisterError::SnarkProofSignerCreation)
-                .with_context(|| "missing schnorr verification key")?,
-            lottery_target_value
-                .ok_or(RegisterError::SnarkProofSignerCreation)
-                .with_context(|| "missing lottery target value")?,
-            key_registration_commitment_for_snark,
-        );
+        let snark_proof_signer = {
+            let key_registration_commitment_for_snark =
+                closed_key_registration.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
+            let lottery_target_value = ClosedRegistrationEntry::from((
+                registration_entry,
+                closed_key_registration.total_stake,
+            ))
+            .get_lottery_target_value();
+            SnarkProofSigner::new(
+                self.parameters,
+                self.schnorr_signing_key
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing schnorr signing key")?,
+                self.schnorr_verification_key
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing schnorr verification key")?,
+                lottery_target_value
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing lottery target value")?,
+                key_registration_commitment_for_snark,
+            )
+        };
 
         // Create and return signer
         Ok(Signer::new(

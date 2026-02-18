@@ -2,8 +2,8 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters, SignatureError, StmResult,
-    UniqueSchnorrSignature, VerificationKeyForSnark,
+    LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters, StmResult,
+    UniqueSchnorrSignature, VerificationKeyForSnark, signature_scheme::BaseFieldElement,
 };
 
 use super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
@@ -13,26 +13,27 @@ use super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
 pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
-    /// The index(es) for which the signature is valid
-    indices: Vec<LotteryIndex>,
+    /// The minimum winning lottery index for which the signature is valid
+    minimum_winning_lottery_index: LotteryIndex,
 }
 
 impl SingleSignatureForSnark {
-    /// Create and return a new instance of `SingleSignatureForSnark` for given
-    /// `schnorr_signature` and `index(es)`.
+    /// Create and return a new instance of `SingleSignatureForSnark` for given `schnorr_signature`
+    /// and `minimum_winning_lottery_index`.
     pub(crate) fn new(
         schnorr_signature: UniqueSchnorrSignature,
-        indices: Vec<LotteryIndex>,
+        minimum_winning_lottery_index: LotteryIndex,
     ) -> Self {
         Self {
             schnorr_signature,
-            indices,
+            minimum_winning_lottery_index,
         }
     }
 
-    /// Verify a `SingleSignatureForSnark` by checking:
-    /// 1. The Schnorr signature is valid against the verification key
-    /// 2. At least one lottery index in `0..m` is won
+    /// Verify a `SingleSignatureForSnark`. First try to build the message to verify using the
+    /// provided `AggregateVerificationKeyForSnark` and the input `message`. Then verify the Schnorr
+    /// signature for the built message and the provided `VerificationKeyForSnark`. Finally, verify
+    /// that the lottery index associated with this signature actually won the lottery.
     pub(crate) fn verify<D: MembershipDigest>(
         &self,
         parameters: &Parameters,
@@ -46,32 +47,49 @@ impl SingleSignatureForSnark {
             .build_snark_message(message)?;
         self.schnorr_signature
             .verify(&message_to_verify, verification_key)
-            .with_context(|| "Single signature verification failed for SNARK proof system.")?;
+            .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
 
-        if !SnarkProofSigner::<D>::check_lottery(
-            parameters,
+        self.verify_winning_lottery_index::<D>(
+            lottery_target_value.clone(),
             &message_to_verify,
-            &self.schnorr_signature,
-            *lottery_target_value,
-        ) {
-            return Err(SignatureError::LotteryLost.into());
-        }
+            parameters.m,
+        )?;
 
         Ok(())
     }
 
-    /// Return `indices` of the single signature
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
-        &self.indices
+    /// Verifies that the lottery index associated with this signature actually won the lottery.
+    fn verify_winning_lottery_index<D: MembershipDigest>(
+        &self,
+        lottery_target_value: LotteryTargetValue,
+        message_to_verify: &[BaseFieldElement],
+        m: u64,
+    ) -> StmResult<()> {
+        let lottery_prefix = SnarkProofSigner::<D>::compute_lottery_prefix(message_to_verify);
+        SnarkProofSigner::<D>::verify_lottery_eligibility(
+            &self.schnorr_signature,
+            self.minimum_winning_lottery_index,
+            m,
+            lottery_prefix,
+            lottery_target_value,
+        )
     }
 
-    /// Set `indices` of single signature to given `indices`
+    /// Return `minimum_winning_lottery_index` of the single signature
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub(crate) fn set_indices(&mut self, indices: &[LotteryIndex]) {
-        self.indices = indices.to_vec()
+    pub(crate) fn get_minimum_winning_lottery_index(&self) -> LotteryIndex {
+        self.minimum_winning_lottery_index
+    }
+
+    /// Set `minimum_winning_lottery_index` of single signature to given value
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    pub(crate) fn set_minimum_winning_lottery_index(
+        &mut self,
+        minimum_winning_lottery_index: LotteryIndex,
+    ) {
+        self.minimum_winning_lottery_index = minimum_winning_lottery_index;
     }
 
     /// Return `schnorr_signature` of single signature

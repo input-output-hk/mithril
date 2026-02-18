@@ -41,63 +41,59 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
     }
 
     /// Generates a single signature for the SNARK proof system.
-    ///
     /// Computes a unique Schnorr signature over `[merkle_root, msg]` and checks the
-    /// lottery. Returns `SingleSignatureForSnark` if at least one lottery index is won,
+    /// lottery. Returns `SingleSignatureForSnark` if at least one lottery index won,
     /// or `SignatureError::LotteryLost` otherwise.
     pub fn create_single_signature<R: RngCore + CryptoRng>(
         &self,
         message: &[u8],
         rng: &mut R,
     ) -> StmResult<SingleSignatureForSnark> {
-        let merkle_tree_commitment = self.key_registration_commitment.to_merkle_tree_commitment();
-        let message_to_sign = merkle_tree_commitment.build_snark_message(message)?;
+        let commitment_root = self.key_registration_commitment.to_merkle_tree_commitment();
+        let message_to_sign = commitment_root.build_snark_message(message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
-        // Create an empty list of indices if lottery is won and return signature
-        if Self::check_lottery(
-            &self.parameters,
+        let first_winning_index = Self::check_lottery(
+            self.parameters.m,
             &message_to_sign,
             &signature,
             self.lottery_target_value,
-        ) {
-            let indices: Vec<LotteryIndex> = Vec::new();
-            Ok(SingleSignatureForSnark::new(signature, indices))
-        }
-        // If lottery is lost, return an error
-        else {
-            Err((SignatureError::LotteryLost).into())
-        }
+        )?;
+
+        Ok(SingleSignatureForSnark::new(signature, first_winning_index))
     }
 
     /// Checks the lottery for all indices `0..m`.
     ///
     /// Computes the lottery prefix from the message, then iterates over each index
-    /// to verify eligibility. Returns `true` if at least one index is won.
-    pub(super) fn check_lottery(
-        params: &Parameters,
+    /// to verify eligibility. Returns the first winning index, or
+    /// `SignatureError::LotteryLost` if no index is won.
+    fn check_lottery(
+        m: u64,
         msg: &[BaseFieldElement],
         signature: &UniqueSchnorrSignature,
         lottery_target_value: LotteryTargetValue,
-    ) -> bool {
+    ) -> StmResult<LotteryIndex> {
         let lottery_prefix = Self::compute_lottery_prefix(msg);
 
-        (0..params.m).any(|index| {
-            Self::verify_lottery_eligibility(
-                signature,
-                index,
-                params.m,
-                lottery_prefix,
-                lottery_target_value,
-            )
-            .is_ok()
-        })
+        (0..m)
+            .find(|&index| {
+                Self::verify_lottery_eligibility(
+                    signature,
+                    index,
+                    m,
+                    lottery_prefix,
+                    lottery_target_value,
+                )
+                .is_ok()
+            })
+            .ok_or_else(|| SignatureError::LotteryLost.into())
     }
 
     /// Computes the lottery prefix by hashing the message with the lottery DST.
     /// The prefix is computed by prepending `DST_LOTTERY` to the message and hashing the result
     /// using `compute_poseidon_digest`.
-    fn compute_lottery_prefix(
+    pub(super) fn compute_lottery_prefix(
         message_as_base_field_element: &[BaseFieldElement],
     ) -> BaseFieldElement {
         let mut prefix = vec![DST_LOTTERY];
@@ -115,7 +111,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
     /// The evaluation is computed as:
     /// `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)` where
     /// `(commitment_point_x, commitment_point_y)` are coordinates of signature's commitment point.
-    fn verify_lottery_eligibility(
+    pub(super) fn verify_lottery_eligibility(
         signature: &UniqueSchnorrSignature,
         lottery_index: LotteryIndex,
         m: u64,

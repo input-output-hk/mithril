@@ -152,7 +152,7 @@ pub use signature_scheme::{
 use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "future_snark")]
-pub use protocol::VerificationKeyForSnark;
+pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
