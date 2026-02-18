@@ -10,10 +10,12 @@ use std::path;
 
 use mithril_common::crypto_helper::{key_decode_hex, key_encode_hex};
 
+#[cfg(feature = "future_snark")]
+use crate::types::ProtocolSignerVerificationKeyForSnark;
 use crate::types::{
     ProtocolClerk, ProtocolInitializerNotCertified, ProtocolKeyRegistrationNotCertified,
     ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSigner,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    ProtocolSignerVerificationKeyForConcatenation, ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
@@ -21,8 +23,23 @@ use crate::types::{
 struct PlayerArtifact {
     party_id: ProtocolPartyId,
     stake: ProtocolStake,
-    verification_key: String,
+    verification_key_for_concatenation: String,
+    #[cfg(feature = "future_snark")]
+    verification_key_for_snark: Option<String>,
     initializer: String,
+}
+
+/// Player fixture
+pub struct PlayerFixture {
+    /// The party id of the player
+    party_id: ProtocolPartyId,
+    /// The stake of the player
+    stake: ProtocolStake,
+    /// The verification key for the Concatenation proof system
+    verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
+    /// The verification key for the Snark proof system
+    #[cfg(feature = "future_snark")]
+    verification_key_for_snark: Option<ProtocolSignerVerificationKeyForSnark>,
 }
 
 /// Single Signature artifacts
@@ -86,17 +103,10 @@ impl Party {
     }
 
     /// Register keys
-    pub fn register_keys(
-        &mut self,
-        players_with_keys: &[(
-            ProtocolPartyId,
-            ProtocolStake,
-            ProtocolSignerVerificationKey,
-        )],
-    ) {
+    pub fn register_keys(&mut self, players_with_keys: &[PlayerFixture]) {
         let players = players_with_keys
             .iter()
-            .map(|(party_id, stake, _verification_key)| (party_id.to_owned(), *stake))
+            .map(|player| (player.party_id.to_owned(), player.stake))
             .collect::<Vec<_>>();
         println!(
             "Party #{}: protocol keys registration from {:?}",
@@ -104,13 +114,13 @@ impl Party {
         );
 
         let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
-        for (_party_id, stake, verification_key) in players_with_keys {
+        for player in players_with_keys {
             key_reg
                 .register(
-                    *stake,
-                    verification_key,
+                    player.stake,
+                    &player.verification_key_for_concatenation,
                     #[cfg(feature = "future_snark")]
-                    None,
+                    player.verification_key_for_snark,
                 )
                 .unwrap();
         }
@@ -248,28 +258,32 @@ impl Verifier {
     }
 
     /// Register keys
-    pub fn register_keys(
-        &mut self,
-        players_with_keys: &[(
-            ProtocolPartyId,
-            ProtocolStake,
-            ProtocolSignerVerificationKey,
-        )],
-    ) {
+    pub fn register_keys(&mut self, players_with_keys: &[PlayerFixture]) {
         let players = players_with_keys
             .iter()
-            .map(|(party_id, stake, _verification_key)| (party_id.to_owned(), *stake))
+            .map(
+                |PlayerFixture {
+                     party_id, stake, ..
+                 }| (party_id.to_owned(), *stake),
+            )
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {players:?}");
 
         let mut key_reg = ProtocolKeyRegistrationNotCertified::initialize();
-        for (_party_id, stake, verification_key) in players_with_keys {
+        for PlayerFixture {
+            party_id: _,
+            stake,
+            verification_key_for_concatenation,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark,
+        } in players_with_keys
+        {
             key_reg
                 .register(
                     *stake,
-                    verification_key,
+                    verification_key_for_concatenation,
                     #[cfg(feature = "future_snark")]
-                    None,
+                    verification_key_for_snark.map(|vk| vk.to_owned()),
                 )
                 .unwrap();
         }
@@ -392,29 +406,35 @@ impl ProtocolDemonstrator for Demonstrator {
             players_artifacts.push(PlayerArtifact {
                 party_id: party.clone().party_id,
                 stake: party.stake,
-                verification_key: key_encode_hex(
+                verification_key_for_concatenation: key_encode_hex(
                     protocol_initializer
                         .get_verification_key_proof_of_possession_for_concatenation(),
                 )
                 .unwrap(),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: protocol_initializer
+                    .get_verification_key_for_snark()
+                    .map(|vk| key_encode_hex(vk).unwrap()),
                 initializer: key_encode_hex(protocol_initializer.clone()).unwrap(),
             });
             party.initializer = Some(protocol_initializer);
         }
         let players_with_keys = players_artifacts
             .iter()
-            .map(|player| {
-                (
-                    player.party_id.to_owned(),
-                    player.stake,
-                    key_decode_hex(&player.verification_key).unwrap(),
+            .map(|player| PlayerFixture {
+                party_id: player.party_id.to_owned(),
+                stake: player.stake,
+                verification_key_for_concatenation: key_decode_hex(
+                    &player.verification_key_for_concatenation,
                 )
+                .unwrap(),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: player
+                    .verification_key_for_snark
+                    .as_ref()
+                    .map(|vk| key_decode_hex(vk).unwrap()),
             })
-            .collect::<Vec<(
-                ProtocolPartyId,
-                ProtocolStake,
-                ProtocolSignerVerificationKey,
-            )>>();
+            .collect::<Vec<_>>();
         verifier.register_keys(&players_with_keys);
         for party in self.parties.iter_mut() {
             party.register_keys(&players_with_keys);
