@@ -14,6 +14,7 @@ mod verification_key;
 
 pub use error::*;
 pub use jubjub::BaseFieldElement;
+pub(crate) use jubjub::DST_SIGNATURE;
 pub(crate) use jubjub::*;
 pub use signature::*;
 pub use signing_key::*;

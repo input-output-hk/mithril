@@ -11,13 +11,14 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_UNIQUE_SIGNATURE};
+use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
-use crate::circuits::halo2::off_circuit::merkle_tree::{MTLeaf, MerklePath};
-use crate::circuits::halo2::off_circuit::unique_signature::Signature;
-use crate::circuits::halo2::types::{Jubjub, JubjubBase, LotteryIndex, MerkleRoot, Msg};
+use crate::circuits::halo2::types::{
+    Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
+};
+use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -42,8 +43,8 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = (MerkleRoot, Msg);
-    type Witness = Vec<(MTLeaf, MerklePath, Signature, LotteryIndex)>;
+    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
+    type Witness = Vec<(MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex)>;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<F>, Error> {
         Ok(vec![instance.0, instance.1])
@@ -71,8 +72,7 @@ impl Relation for StmCircuit {
             <C as CircuitCurve>::CryptographicGroup::generator(),
         )?;
 
-        let dst_signature: AssignedNative<_> =
-            std_lib.assign_fixed(layouter, DST_UNIQUE_SIGNATURE)?;
+        let dst_signature: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_SIGNATURE)?;
         let dst_lottery: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_LOTTERY)?;
         let lottery_prefix = std_lib.poseidon(
             layouter,
@@ -96,7 +96,7 @@ impl Relation for StmCircuit {
 
             let vk = std_lib
                 .jubjub()
-                .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0))?;
+                .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
 
             let target: AssignedNative<F> =
                 std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1))?;
@@ -125,13 +125,22 @@ impl Relation for StmCircuit {
                 .map(|pos| std_lib.convert(layouter, pos))
                 .collect::<Result<Vec<AssignedBit<F>>, Error>>()?;
 
-            let sigma: AssignedNativePoint<_> = std_lib
-                .jubjub()
-                .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.sigma))?;
+            let sigma_value = wit
+                .clone()
+                .map_with_result(|(_, _, sig, _)| {
+                    let (u, v) = sig.commitment_point.get_coordinates();
+                    PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
+                })
+                .map_err(|e| {
+                    Error::Synthesis(format!(
+                        "invalid commitment point: not on curve or not prime order: {e:?}"
+                    ))
+                })?;
+            let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
             let s: AssignedScalarOfNativeCurve<C> = std_lib
                 .jubjub()
-                .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.s))?;
-            let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| sig.c))?;
+                .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
+            let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| sig.challenge.0))?;
             let c: AssignedScalarOfNativeCurve<C> =
                 std_lib.jubjub().convert(layouter, &c_native)?;
 

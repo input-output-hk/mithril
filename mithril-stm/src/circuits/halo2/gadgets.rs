@@ -10,8 +10,8 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
-use crate::circuits::halo2::off_circuit::utils::split;
 use crate::circuits::halo2::types::{Jubjub, JubjubBase};
+use crate::circuits::halo2::utils::split_field_element_into_le_limbs;
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -36,7 +36,14 @@ fn decompose_unsafe(
     // Decompose 255-bit value into 127-bit and 128-bit values.
     let x_value = x.value();
     let base127 = F::from_u128(1_u128 << 127);
-    let (x_low, x_high) = x_value.map(|v| split(v, 127)).unzip();
+    let (x_low, x_high) = x_value
+        .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
+        .map_err(|e| {
+            Error::Synthesis(format!(
+                "failed to split field element into little-endian limbs: {e}"
+            ))
+        })?
+        .unzip();
 
     let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low)?;
     let x_high_assigned: AssignedNative<_> = std_lib.assign(layouter, x_high)?;
