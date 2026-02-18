@@ -115,47 +115,32 @@ struct SnapshotConverterConfig {
     pub hide_output: bool,
 }
 
-struct SnapshotConverterBin {
-    config: SnapshotConverterConfig,
-}
-
-struct SnapshotConverterBinNew {
-    config: SnapshotConverterConfig,
-}
-
-enum SnapshotConverterEnum {
-    New(SnapshotConverterBinNew),
-    Old(SnapshotConverterBin),
+enum SnapshotConverterBin {
+    From10_6(SnapshotConverterConfig),
+    UpTo10_5(SnapshotConverterConfig),
 }
 
 impl SnapshotConverter for SnapshotConverterBin {
     fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
-        let configuration = &self.config;
+        let mut command = match self {
+            SnapshotConverterBin::From10_6(cfg) => {
+                build_command_from_10_6(input_path, output_path, cfg.clone())
+            }
 
-        // Hide output when JSON output is enabled (as they are not JSON formatted), else
-        // redirect to stderr to keep stdout dedicated to the command result.
-        let outputs = if self.config.hide_output {
-            Stdio::null()
-        } else {
-            std::io::stderr().into()
+            SnapshotConverterBin::UpTo10_5(cfg) => {
+                build_command_up_to_10_5(input_path, output_path, cfg.clone())
+            }
         };
 
-        let status = Command::new(configuration.converter_bin.clone())
-            .arg("Mem")
-            .arg(input_path)
-            .arg(configuration.utxo_hd_flavor.to_string())
-            .arg(output_path)
-            .arg("cardano")
-            .arg("--config")
-            .arg(configuration.config_path.clone())
-            .stdout(outputs)
-            .status()
-            .with_context(|| {
-                format!(
-                    "Failed to execute snapshot-converter binary at {}",
-                    configuration.converter_bin.display()
-                )
-            })?;
+        let status = command.status().with_context(|| {
+            format!(
+                "Failed to execute snapshot-converter binary at {}",
+                match self {
+                    SnapshotConverterBin::From10_6(cfg) | SnapshotConverterBin::UpTo10_5(cfg) =>
+                        cfg.converter_bin.display(),
+                }
+            )
+        })?;
 
         if !status.success() {
             return Err(anyhow!(
@@ -168,43 +153,53 @@ impl SnapshotConverter for SnapshotConverterBin {
     }
 }
 
-impl SnapshotConverter for SnapshotConverterBinNew {
-    fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
-        let configuration = &self.config;
+fn build_command_from_10_6(
+    input_path: &Path,
+    output_path: &Path,
+    cfg: SnapshotConverterConfig,
+) -> Command {
+    let mut command = Command::new(cfg.converter_bin);
 
-        // Hide output when JSON output is enabled (as they are not JSON formatted), else
-        // redirect to stderr to keep stdout dedicated to the command result.
-        let outputs = if self.config.hide_output {
+    command
+        .arg("--mem-in")
+        .arg(input_path)
+        .arg("--lmdb-out")
+        .arg(output_path)
+        .arg("--config")
+        .arg(cfg.config_path)
+        .stdout(if cfg.hide_output {
+            // Hide output when JSON output is enabled (as they are not JSON formatted)
             Stdio::null()
         } else {
+            // redirect to stderr to keep stdout dedicated to the command result.
             std::io::stderr().into()
-        };
+        });
+    command
+}
 
-        let status = Command::new(configuration.converter_bin.clone())
-            .arg("--mem-in")
-            .arg(input_path)
-            .arg("--lmdb-out")
-            .arg(output_path)
-            .arg("--config")
-            .arg(configuration.config_path.clone())
-            .stdout(outputs)
-            .status()
-            .with_context(|| {
-                format!(
-                    "Failed to execute snapshot-converter binary at {}",
-                    configuration.converter_bin.display()
-                )
-            })?;
+fn build_command_up_to_10_5(
+    input_path: &Path,
+    output_path: &Path,
+    cfg: SnapshotConverterConfig,
+) -> Command {
+    let mut command = Command::new(cfg.converter_bin);
 
-        if !status.success() {
-            return Err(anyhow!(
-                "Failure while running snapshot-converter binary, exited with status code: {:?}",
-                status.code().map_or(String::from("unknown"), |c| c.to_string())
-            ));
-        }
-
-        Ok(())
-    }
+    command
+        .arg("Mem")
+        .arg(input_path)
+        .arg(cfg.utxo_hd_flavor.to_string())
+        .arg(output_path)
+        .arg("cardano")
+        .arg("--config")
+        .arg(cfg.config_path.clone())
+        .stdout(if cfg.hide_output {
+            // Hide output when JSON output is enabled (as they are not JSON formatted)
+            Stdio::null()
+        } else {
+            // redirect to stderr to keep stdout dedicated to the command result.
+            std::io::stderr().into()
+        });
+    command
 }
 
 /// Clap command to convert a restored `InMemory` Mithril snapshot to another flavor.
@@ -444,22 +439,17 @@ impl SnapshotConverterCommand {
             ),
         };
 
-        let converter_enum = get_snapshot_converter_bin_by_version(
+        let converter_bin = get_snapshot_converter_bin_by_version(
             &command.cardano_node_version,
             converter_bin_config,
         );
-
-        let converter_bin: Box<dyn SnapshotConverter> = match converter_enum {
-            SnapshotConverterEnum::New(conv) => Box::new(conv),
-            SnapshotConverterEnum::Old(conv) => Box::new(conv),
-        };
 
         Self::try_convert(
             progress_printer,
             work_dir,
             &command.utxo_hd_flavor,
             &snapshots,
-            converter_bin,
+            Box::new(converter_bin),
         )
     }
 
@@ -769,15 +759,11 @@ Snapshot location: {}
 fn get_snapshot_converter_bin_by_version(
     cardano_node_version: &str,
     converter_bin_config: SnapshotConverterConfig,
-) -> SnapshotConverterEnum {
+) -> SnapshotConverterBin {
     if is_version_at_least_10_6_2_or_latest(cardano_node_version) {
-        SnapshotConverterEnum::New(SnapshotConverterBinNew {
-            config: converter_bin_config,
-        })
+        SnapshotConverterBin::From10_6(converter_bin_config)
     } else {
-        SnapshotConverterEnum::Old(SnapshotConverterBin {
-            config: converter_bin_config,
-        })
+        SnapshotConverterBin::UpTo10_5(converter_bin_config)
     }
 }
 
@@ -1605,7 +1591,7 @@ mod tests {
         use std::path::PathBuf;
 
         use crate::commands::tools::utxo_hd::snapshot_converter::{
-            SnapshotConverterConfig, SnapshotConverterEnum, UTxOHDFlavor,
+            SnapshotConverterBin, SnapshotConverterConfig, UTxOHDFlavor,
             get_snapshot_converter_bin_by_version,
         };
 
@@ -1620,14 +1606,14 @@ mod tests {
 
             let converter_bin = get_snapshot_converter_bin_by_version("10.6.2", config.clone());
             assert!(
-                matches!(converter_bin, SnapshotConverterEnum::New(_)),
-                "returned type is not SnapshotConverterBinNew"
+                matches!(converter_bin, SnapshotConverterBin::From10_6(_)),
+                "returned type is not SnapshotConverterBin::From10_6"
             );
 
             let converter_bin = get_snapshot_converter_bin_by_version("10.7.0", config.clone());
             assert!(
-                matches!(converter_bin, SnapshotConverterEnum::New(_)),
-                "returned type is not SnapshotConverterBinNew"
+                matches!(converter_bin, SnapshotConverterBin::From10_6(_)),
+                "returned type is not SnapshotConverterBin::From10_6"
             );
         }
 
@@ -1642,8 +1628,8 @@ mod tests {
 
             let converter_bin = get_snapshot_converter_bin_by_version("latest", config.clone());
             assert!(
-                matches!(converter_bin, SnapshotConverterEnum::New(_)),
-                "returned type is not SnapshotConverterBinNew"
+                matches!(converter_bin, SnapshotConverterBin::From10_6(_)),
+                "returned type is not SnapshotConverterBin::From10_6"
             );
         }
 
@@ -1658,8 +1644,8 @@ mod tests {
 
             let converter_bin = get_snapshot_converter_bin_by_version("10.6.1", config);
             assert!(
-                matches!(converter_bin, SnapshotConverterEnum::Old(_)),
-                "returned type is not SnapshotConverterBinOld"
+                matches!(converter_bin, SnapshotConverterBin::UpTo10_5(_)),
+                "returned type is not SnapshotConverterBin::UpTo10_5"
             );
         }
     }
