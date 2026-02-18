@@ -293,5 +293,14 @@ insert into signed_entity_type (signed_entity_type_id, name)
 alter table epoch_setting add column cardano_blocks_transactions_signing_config json;
         "#,
         ),
+        // Migration 40
+        // Add SNARK verification key columns to `signer_registration` table.
+        SqlMigration::new(
+            40,
+            r#"
+alter table signer_registration add column verification_key_for_snark text;
+alter table signer_registration add column verification_key_signature_for_snark text;
+        "#,
+        ),
     ]
 }

@@ -56,9 +56,13 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             .register(
                 party_id_register.clone(),
                 signer.operational_certificate.clone(),
-                signer.verification_key_signature,
+                signer.verification_key_signature_for_concatenation,
                 kes_evolutions,
-                signer.verification_key,
+                signer.verification_key_for_concatenation,
+                #[cfg(feature = "future_snark")]
+                signer.verification_key_for_snark.map(Into::into),
+                #[cfg(feature = "future_snark")]
+                signer.verification_key_signature_for_snark,
             )
             .with_context(|| {
                 format!(
@@ -104,7 +108,8 @@ mod tests {
     async fn verify_fails_with_invalid_signer_registration() {
         let fixture = MithrilFixtureBuilder::default().with_signers(2).build();
         let signer_to_register: Signer = Signer {
-            verification_key_signature: fixture.signers()[1].verification_key_signature,
+            verification_key_signature_for_concatenation: fixture.signers()[1]
+                .verification_key_signature_for_concatenation,
             ..fixture.signers()[0].to_owned()
         };
         let signer_registration_verifier = MithrilSignerRegistrationVerifier::new(Arc::new(

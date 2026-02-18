@@ -12,13 +12,13 @@ pub struct InsertOrReplaceSignerRegistrationRecordQuery {
 impl InsertOrReplaceSignerRegistrationRecordQuery {
     pub fn one(signer_registration_record: SignerRegistrationRecord) -> Self {
         let condition = WhereCondition::new(
-            "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
+            "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, verification_key_for_snark, verification_key_signature_for_snark, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_registration_record.signer_id),
                 Value::Integer(signer_registration_record.epoch_settings_id.try_into().unwrap()),
-                Value::String(signer_registration_record.verification_key),
+                Value::String(signer_registration_record.verification_key_for_concatenation),
                 signer_registration_record
-                    .verification_key_signature
+                    .verification_key_signature_for_concatenation
                     .map(Value::String)
                     .unwrap_or(Value::Null),
                 signer_registration_record
@@ -26,13 +26,27 @@ impl InsertOrReplaceSignerRegistrationRecordQuery {
                     .map(Value::String)
                     .unwrap_or(Value::Null),
                 signer_registration_record
-                    .kes_period
+                    .kes_evolutions
                     .map(|k| Value::Integer(i64::try_from(k).unwrap()))
                     .unwrap_or(Value::Null),
                 signer_registration_record
                     .stake
                     .map(|s| Value::Integer(i64::try_from(s).unwrap()))
                     .unwrap_or(Value::Null),
+                #[cfg(feature = "future_snark")]
+                signer_registration_record
+                    .verification_key_for_snark
+                    .map(Value::String)
+                    .unwrap_or(Value::Null),
+                #[cfg(not(feature = "future_snark"))]
+                Value::Null,
+                #[cfg(feature = "future_snark")]
+                signer_registration_record
+                    .verification_key_signature_for_snark
+                    .map(Value::String)
+                    .unwrap_or(Value::Null),
+                #[cfg(not(feature = "future_snark"))]
+                Value::Null,
                 Value::String(signer_registration_record.created_at.to_rfc3339()),
             ],
         );
