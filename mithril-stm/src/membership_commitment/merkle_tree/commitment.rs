@@ -74,7 +74,9 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
 
     /// Build the message with merkle tree root and the given message to be used by the single
     /// signature of the SNARK proof system. Both the root and the message are converted to
-    /// `BaseFieldElement`. The output is an array of two `BaseFieldElement`s, where the first
+    /// `BaseFieldElement` via `BaseFieldElement::try_from(&[u8])`, which SHA-256 hashes the input
+    /// and then applies Montgomery reduction to obtain a field element. This means any message
+    /// length is accepted. The output is an array of two `BaseFieldElement`s, where the first
     /// element is the root and the second element is the message.
     ///
     /// # Error
@@ -109,6 +111,16 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
         })
     }
 }
+
+#[cfg(feature = "future_snark")]
+impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeCommitment<D, L> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
+
+#[cfg(feature = "future_snark")]
+impl<D: Digest, L: MerkleTreeLeaf> Eq for MerkleTreeCommitment<D, L> {}
 
 /// Batch compatible `MerkleTree` commitment .
 /// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree

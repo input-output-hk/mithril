@@ -50,7 +50,7 @@ impl SingleSignatureForSnark {
             .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
 
         self.verify_winning_lottery_index::<D>(
-            lottery_target_value.clone(),
+            *lottery_target_value,
             &message_to_verify,
             parameters.m,
         )?;
@@ -105,3 +105,102 @@ impl PartialEq for SingleSignatureForSnark {
 }
 
 impl Eq for SingleSignatureForSnark {}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        ClosedRegistrationEntry, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
+        Parameters, RegistrationEntry, SignatureError, VerificationKeyForSnark,
+        VerificationKeyProofOfPossessionForConcatenation,
+        protocol::RegistrationEntryForSnark,
+        signature_scheme::{
+            BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
+        },
+    };
+
+    use super::super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
+
+    type D = MithrilMembershipDigest;
+
+    #[test]
+    fn tampered_lottery_index_fails() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.2,
+        };
+
+        // Setup single-party registration with target = p-1 (all indices win)
+        let bls_sk = BlsSigningKey::generate(&mut rng);
+        let bls_vk = VerificationKeyProofOfPossessionForConcatenation::from(&bls_sk);
+        let schnorr_sk = SchnorrSigningKey::generate(&mut rng);
+        let schnorr_vk = VerificationKeyForSnark::new_from_signing_key(schnorr_sk.clone());
+
+        let mut key_reg = KeyRegistration::initialize();
+        let entry = RegistrationEntry::new(
+            bls_vk,
+            1,
+            #[cfg(feature = "future_snark")]
+            Some(schnorr_vk),
+        )
+        .unwrap();
+        key_reg.register_by_entry(&entry).unwrap();
+        let closed_reg = key_reg.close_registration();
+
+        let merkle_tree = closed_reg
+            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>();
+        let target = ClosedRegistrationEntry::from((entry, closed_reg.total_stake))
+            .get_lottery_target_value()
+            .unwrap();
+
+        let signer =
+            SnarkProofSigner::<D>::new(params, schnorr_sk, schnorr_vk, target, merkle_tree);
+        let avk = AggregateVerificationKeyForSnark::<D>::from(&closed_reg);
+
+        let msg = [0u8; 16];
+        let mut sig = signer.create_single_signature(&msg, &mut rng).unwrap();
+        let original_index = sig.get_minimum_winning_lottery_index();
+
+        // Compute evaluation for the original winning index
+        let message_to_verify = avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+        let prefix = SnarkProofSigner::<D>::compute_lottery_prefix(&message_to_verify);
+        let (cx, cy) = sig.get_schnorr_signature().commitment_point.get_coordinates();
+        let ev_original =
+            compute_poseidon_digest(&[prefix, cx, cy, BaseFieldElement::from(original_index)]);
+
+        // Find an index whose evaluation exceeds ev_original
+        let tampered_index = (0..params.m)
+            .find(|&i| {
+                i != original_index && {
+                    let ev = compute_poseidon_digest(&[prefix, cx, cy, BaseFieldElement::from(i)]);
+                    ev > ev_original
+                }
+            })
+            .expect("Should find at least one index with a larger evaluation");
+
+        sig.set_minimum_winning_lottery_index(tampered_index);
+
+        // Verify with target = ev_original: the tampered index's evaluation exceeds the target,
+        // so the lottery check fails while the Schnorr signature remains valid.
+        let err = sig
+            .verify::<D>(
+                &params,
+                &signer.get_verification_key(),
+                &msg,
+                &ev_original,
+                &avk,
+            )
+            .expect_err("Tampered lottery index should fail verification");
+        assert!(
+            matches!(
+                err.downcast_ref::<SignatureError>(),
+                Some(SignatureError::LotteryLost)
+            ),
+            "Expected LotteryLost, got: {err:?}"
+        );
+    }
+}
