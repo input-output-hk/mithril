@@ -120,6 +120,12 @@ impl Initializer {
         self.bls_verification_key_proof_of_possession
     }
 
+    /// Extract the verification key for snark.
+    #[cfg(feature = "future_snark")]
+    pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
+        self.schnorr_verification_key
+    }
+
     /// Convert to bytes
     /// # Layout
     /// * Stake (u64)
