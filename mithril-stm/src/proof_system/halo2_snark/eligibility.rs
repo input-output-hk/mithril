@@ -33,9 +33,8 @@ cfg_num_integer! {
     /// The target value is computed using the following formula, we need to check that:
     /// signer_lottery_hash < p * (1 - (1 - phi_f)^w)
     /// where p is the modulus of the field, phi_f is the protocol security parameter constant comprised in ]0,1],
-    /// w = stake/total_stake
-    /// and signer_lottery_hash = H(DST_LOTTERY || merkle_root || msg || commitment_point || index).
-    ///
+    /// w = stake/total_stake and signer_lottery_hash is the hash computed using the
+    /// signer's signature and the index tested for the lottery.
     /// Since the modulus is a 255 bits number, we need to compute (1 - (1 - phi_f)^w) with enough precision
     /// to maintain the lottery functional, i.e. have different targets for different stakes
     /// and maintain the same order, however close they are.
@@ -86,9 +85,10 @@ cfg_num_integer! {
     /// Computes a Taylor expansion of the exponential exp(c*w) up to the (N-1)th term
     /// where N corresponds to the number of iterations
     /// exp(c*w) = 1 + c*w + (c*w)^2/2! + (c*w)^3/3! + ... + (c*w)^{N-1}/(N-1)! + O((c*w)^N)
-    /// We want to stop when the next term is less than our precision target, that is epsilon = 2^{-128}
+    /// We want to stop when the next term is less than our precision target epsilon
     /// Hence we stop when |(c*w)^N / N!| < epsilon
     /// We can check instead (c * w)^N < epsilon which gives us the bound N < log(epsilon) / log(|c*w|)
+    /// Setting epsilon to a specific precision gives use the number of iterations we need to do
     ///
     /// Since the value c * w is a float between 0 and 1, it is expressed as a Ratio of BigInt and the exponential
     /// approximation is adapted to that form
@@ -206,15 +206,44 @@ cfg_num_integer! {
 mod tests {
     use num_bigint::BigInt;
     use num_rational::Ratio;
+    use num_traits::ToPrimitive;
     use proptest::prelude::*;
     use rand_core::OsRng;
 
     use crate::{LotteryTargetValue, SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     use super::{
-        compute_lottery_prefix, compute_target_value, ln_1p_taylor_expansion,
-        verify_lottery_eligibility,
+        compute_exponential_taylor_expansion, compute_lottery_prefix, compute_target_value,
+        ln_1p_taylor_expansion, verify_lottery_eligibility,
     };
+
+    #[test]
+    fn advantage_small_enough() {
+        let phi_f = 0.2;
+        let phi_f_ratio_int: Ratio<i64> =
+            Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let phi_f_ratio = Ratio::new_raw(
+            BigInt::from(*phi_f_ratio_int.numer()),
+            BigInt::from(*phi_f_ratio_int.denom()),
+        );
+        let ln_one_minus_phi_f =
+            ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
+        let total_stake = 10_000;
+        let stake = 7_500;
+        let split = 10;
+
+        let stake_ratio_full = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+        let phi_full =
+            compute_exponential_taylor_expansion(&ln_one_minus_phi_f, &stake_ratio_full, 40);
+
+        let stake_ratio_split =
+            Ratio::new_raw(BigInt::from(stake / split), BigInt::from(total_stake));
+        let phi_split =
+            compute_exponential_taylor_expansion(&ln_one_minus_phi_f, &stake_ratio_split, 40);
+
+        let adv = phi_full.clone() - phi_split.pow(split);
+        assert!(adv.to_f64().unwrap() < 1e-10);
+    }
 
     mod lottery_computations {
         use super::*;
