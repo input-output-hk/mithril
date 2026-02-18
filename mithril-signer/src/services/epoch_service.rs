@@ -140,11 +140,15 @@ impl MithrilEpochService {
 
             signers_with_stake.push(SignerWithStake::new(
                 signer.party_id.to_owned(),
-                signer.verification_key.to_owned(),
-                signer.verification_key_signature.to_owned(),
+                signer.verification_key_for_concatenation.to_owned(),
+                signer.verification_key_signature_for_concatenation.to_owned(),
                 signer.operational_certificate.to_owned(),
                 signer.kes_evolutions.to_owned(),
                 *stake,
+                #[cfg(feature = "future_snark")]
+                signer.verification_key_for_snark.to_owned(),
+                #[cfg(feature = "future_snark")]
+                signer.verification_key_signature_for_snark.to_owned(),
             ));
             trace!(
                 self.logger,
@@ -162,7 +166,8 @@ impl MithrilEpochService {
     ) -> StdResult<bool> {
         Ok(self.current_signers()?.iter().any(|s| {
             s.party_id == party_id
-                && s.verification_key == protocol_initializer.verification_key().into()
+                && s.verification_key_for_concatenation
+                    == protocol_initializer.verification_key_for_concatenation().into()
         }))
     }
 
