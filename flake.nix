@@ -5,6 +5,10 @@
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
     crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -23,7 +27,31 @@
         ...
       }: let
         inherit (inputs.nixpkgs) lib;
-        craneLib = inputs.crane.mkLib pkgs;
+        
+      pkgs =
+        if system == "x86_64-linux" then
+          import inputs.nixpkgs {
+            inherit system;
+            overlays = [ (import inputs.rust-overlay) ];
+            crossSystem = {
+              config = "x86_64-unknown-linux-musl";
+            };
+          }
+        else
+          import inputs.nixpkgs {
+            inherit system;
+            overlays = [ (import inputs.rust-overlay) ];
+          };
+
+        craneLib =
+        if pkgs.stdenv.isLinux then
+          (inputs.crane.mkLib pkgs).overrideToolchain (p:
+            p.rust-bin.stable.latest.default.override {
+              targets = [ "x86_64-unknown-linux-musl" ];
+            }
+          )
+        else
+          inputs.crane.mkLib pkgs;
 
         clean = root:
           lib.cleanSourceWith {
@@ -46,8 +74,9 @@
         buildInputs =
           [
             pkgs.gnum4
-            pkgs.pkg-config
             pkgs.openssl
+            pkgs.pkg-config
+            pkgs.libiconv
           ]
           ++ lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.libiconv
@@ -74,10 +103,17 @@
               localLibs = "dummy|mithril|stm|multi_sig|size_benches|digester";
             in ''
               shopt -s extglob
-              rm ''${CARGO_TARGET_DIR:-target}/release/deps/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/build/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/.fingerprint/*@(${localLibs})*
+              TARGET_DIR="''${CARGO_TARGET_DIR:-target}"
+              if [ -n "$CARGO_BUILD_TARGET" ]; then
+                PROFILE_DIR="$TARGET_DIR/$CARGO_BUILD_TARGET/release"
+              else
+                PROFILE_DIR="$TARGET_DIR/release"
+              fi
+
+              rm "$PROFILE_DIR/deps/"*@(${localLibs})*
+              rm -r "$PROFILE_DIR/"*@(${localLibs})*
+              rm -r "$PROFILE_DIR/build/"*@(${localLibs})*
+              rm -r "$PROFILE_DIR/.fingerprint/"*@(${localLibs})*
             '';
           });
 
@@ -89,6 +125,16 @@
             }
             // {
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
+            }
+            // lib.optionalAttrs pkgs.stdenv.isLinux {
+              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+              RUSTFLAGS = "-C target-feature=+crt-static";
+              PKG_CONFIG_ALLOW_CROSS = "1";
+              PKG_CONFIG_ALL_STATIC = "1";
+
+              OPENSSL_DIR = "${pkgs.openssl.dev}";
+              OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+              OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
@@ -108,8 +154,8 @@
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
             pname = "mithril-client";
           };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
+          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-aggregator --features bundle_tls"; cargoTestExtraArgs = "--no-default-features"; };
+          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-signer --features bundle_tls"; cargoTestExtraArgs = "--no-default-features"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
         };
 
