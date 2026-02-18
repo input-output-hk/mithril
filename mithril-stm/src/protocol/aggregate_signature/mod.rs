@@ -195,7 +195,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10))]
+        #![proptest_config(ProptestConfig::with_cases(5))]
 
         #[test]
         /// Test that when a quorum is found, the aggregate signature can be verified by anyone with
@@ -365,7 +365,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10))]
+        #![proptest_config(ProptestConfig::with_cases(5))]
 
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum

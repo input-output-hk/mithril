@@ -510,12 +510,7 @@ mod tests {
 
         }
 
-        #[allow(dead_code)]
-        // TODO: Golden tests are ignored for now as the code is not stable, i.e. we need to fix
-        // the precision/number of iterations to get stable value for the golden test
         mod golden {
-
-            use num_traits::Num;
 
             use super::*;
 
@@ -525,36 +520,35 @@ mod tests {
             ];
 
             const GOLDEN_BYTES_ONE: [u8; 32] = [
-                27, 48, 173, 178, 223, 192, 192, 121, 170, 65, 40, 134, 214, 2, 53, 145, 123, 46,
-                191, 195, 147, 215, 156, 110, 100, 74, 145, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 215, 156, 110,
+                100, 74, 145, 0, 0, 0, 0, 0,
             ];
 
             const GOLDEN_BYTES_TWO: [u8; 32] = [
-                137, 195, 57, 199, 124, 159, 238, 181, 189, 47, 128, 105, 4, 191, 232, 76, 181,
-                167, 38, 144, 16, 249, 56, 221, 200, 148, 34, 1, 0, 0, 0, 0,
-            ];
-
-            const GOLDEN_BYTES_MAX_STAKE: [u8; 32] = [
-                9, 38, 93, 151, 8, 144, 186, 241, 181, 159, 51, 71, 83, 107, 160, 234, 47, 37, 82,
-                100, 201, 147, 177, 246, 91, 70, 174, 91, 247, 225, 203, 5,
-            ];
-
-            const GOLDEN_BYTES_MAX_STAKE_MINUS_ONE: [u8; 32] = [
-                27, 109, 86, 146, 19, 122, 192, 25, 95, 249, 227, 17, 232, 123, 152, 70, 56, 53,
-                181, 234, 0, 26, 207, 192, 175, 63, 36, 91, 247, 225, 203, 5,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 249, 56, 221, 200,
+                148, 34, 1, 0, 0, 0, 0,
             ];
 
             const GOLDEN_BYTES_MAX_STAKE_MINUS_TWO: [u8; 32] = [
-                243, 79, 224, 18, 113, 92, 32, 249, 151, 225, 83, 134, 17, 78, 22, 178, 195, 189,
-                81, 57, 60, 243, 235, 138, 3, 57, 154, 90, 247, 225, 203, 5,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 170, 99, 48, 235,
+                56, 154, 90, 247, 225, 203, 5,
             ];
 
-            fn golden_value_target_from_stake(stake: u64) -> BaseFieldElement {
+            const GOLDEN_BYTES_MAX_STAKE_MINUS_ONE: [u8; 32] = [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 209, 70, 102, 151,
+                63, 36, 91, 247, 225, 203, 5,
+            ];
+
+            const GOLDEN_BYTES_MAX_STAKE: [u8; 32] = [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 74, 41, 156, 67,
+                70, 174, 91, 247, 225, 203, 5,
+            ];
+
+            fn golden_value_target_from_stake(stake: u64, total_stake: u64) -> BaseFieldElement {
                 // phi_f = 0.05
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
                 let ln_one_minus_phi_f =
                     ln_1p_taylor_expansion(40, phi_f_ratio.numer(), phi_f_ratio.denom());
-                let total_stake = 45_000_000_000;
 
                 compute_target_value(&ln_one_minus_phi_f, stake, total_stake)
             }
@@ -606,21 +600,26 @@ mod tests {
             }
 
             #[test]
-            #[ignore]
-            // Ignored for now as the precision/iterations is not stable
             fn golden_check_small_values() {
                 let golden_target_0 = BaseFieldElement::from_bytes(&GOLDEN_BYTES_ZERO).unwrap();
                 let golden_target_1 = BaseFieldElement::from_bytes(&GOLDEN_BYTES_ONE).unwrap();
                 let golden_target_2 = BaseFieldElement::from_bytes(&GOLDEN_BYTES_TWO).unwrap();
 
-                assert_eq!(golden_target_0, golden_value_target_from_stake(0));
-                assert_eq!(golden_target_1, golden_value_target_from_stake(1));
-                assert_eq!(golden_target_2, golden_value_target_from_stake(2));
+                assert_eq!(
+                    golden_target_0,
+                    golden_value_target_from_stake(0, 45_000_000_000)
+                );
+                assert_eq!(
+                    golden_target_1,
+                    golden_value_target_from_stake(1, 45_000_000_000)
+                );
+                assert_eq!(
+                    golden_target_2,
+                    golden_value_target_from_stake(2, 45_000_000_000)
+                );
             }
 
             #[test]
-            #[ignore]
-            // Ignored for now as the precision/iterations is not stable
             fn golden_check_max_values_fail() {
                 let golden_target_max =
                     BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE).unwrap();
@@ -629,58 +628,58 @@ mod tests {
                 let golden_target_max_2 =
                     BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE_MINUS_TWO).unwrap();
 
-                assert!(golden_target_max != golden_value_target_from_stake(44_999_999_998));
-                assert!(golden_target_max_1 != golden_value_target_from_stake(45_000_000_000));
-                assert!(golden_target_max_2 != golden_value_target_from_stake(44_999_999_999));
+                assert!(
+                    golden_target_max
+                        != golden_value_target_from_stake(44_999_999_998, 45_000_000_000)
+                );
+                assert!(
+                    golden_target_max_1
+                        != golden_value_target_from_stake(45_000_000_000, 45_000_000_000)
+                );
+                assert!(
+                    golden_target_max_2
+                        != golden_value_target_from_stake(44_999_999_999, 45_000_000_000)
+                );
             }
 
             #[test]
-            #[ignore]
-            // Ignored for now as the precision/iterations is not stable
             fn golden_check_following_min_stake() {
                 let golden_target_vector = golden_value_following_min_stake();
 
                 let golden_target_from_file =
                     include_str!("./golden_vectors/golden_vector_min_stake.txt");
-                for (t1, t2_hex) in golden_target_vector.iter().zip(golden_target_from_file.lines())
+                for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
                 {
-                    let t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
-                    let t2_base_field =
-                        BaseFieldElement::from_bytes(&(t2.to_bytes_le()).1).unwrap();
+                    let t2: Vec<u8> = serde_json::from_str(t2_str).unwrap();
+                    let t2_base_field = BaseFieldElement::from_bytes(&t2).unwrap();
                     assert_eq!(t1, &t2_base_field);
                 }
             }
 
             #[test]
-            #[ignore]
-            // Ignored for now as the precision/iterations is not stable
             fn golden_check_following_stake_medium() {
                 let golden_target_vector = golden_value_following_stake_medium();
 
                 let golden_target_from_file =
-                    include_str!("./golden_vectors//golden_vector_medium_stake.txt");
-                for (t1, t2_hex) in golden_target_vector.iter().zip(golden_target_from_file.lines())
+                    include_str!("./golden_vectors/golden_vector_medium_stake.txt");
+                for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
                 {
-                    let t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
-                    let t2_base_field =
-                        BaseFieldElement::from_bytes(&(t2.to_bytes_le()).1).unwrap();
+                    let t2: Vec<u8> = serde_json::from_str(t2_str).unwrap();
+                    let t2_base_field = BaseFieldElement::from_bytes(&t2).unwrap();
                     assert_eq!(t1, &t2_base_field);
                 }
             }
 
             #[test]
-            #[ignore]
-            // Ignored for now as the precision/iterations is not stable
             fn golden_check_following_stake_max() {
                 let golden_target_vector = golden_value_following_stake_max();
                 let golden_target_from_file =
-                    include_str!("./golden_vectors//golden_vector_max_stake.txt");
+                    include_str!("./golden_vectors/golden_vector_max_stake.txt");
 
-                for (t1, t2_hex) in golden_target_vector.iter().zip(golden_target_from_file.lines())
+                for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
                 {
-                    let t2 = BigInt::from_str_radix(t2_hex.trim(), 16).unwrap();
-                    let t2_base_field =
-                        BaseFieldElement::from_bytes(&(t2.to_bytes_le()).1).unwrap();
+                    let t2: Vec<u8> = serde_json::from_str(t2_str).unwrap();
+                    let t2_base_field = BaseFieldElement::from_bytes(&t2).unwrap();
                     assert_eq!(t1, &t2_base_field);
                 }
             }
