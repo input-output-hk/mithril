@@ -66,7 +66,7 @@ pub(crate) enum StmCircuitProofError {
     EmptySignerLeaves,
     /// Signer leaf index is out of bounds.
     #[error("invalid signer leaf index")]
-    InvalidSignerLeafIndex,
+    InvalidSignerFixtureIndex,
     /// Failed to decode LotteryTargetValue from field bytes.
     #[error("invalid lottery target bytes")]
     InvalidLotteryTargetBytes,
@@ -149,23 +149,23 @@ pub(crate) struct StmCircuitScenario {
     witness: Vec<WitnessEntry>,
 }
 
-/// Leaf material used to build STM Merkle trees and Halo2 witness leaves.
+/// Signer fixture material used to build STM Merkle trees and Halo2 witness leaves.
 #[derive(Clone)]
-pub(crate) struct SignerLeaf {
+pub(crate) struct SignerFixture {
     sk: SchnorrSigningKey,
     vk: SchnorrVerificationKey,
     target_field: F,
     target_value: LotteryTargetValue,
 }
 
-impl From<&SignerLeaf> for MerkleTreeSnarkLeaf {
-    fn from(value: &SignerLeaf) -> Self {
+impl From<&SignerFixture> for MerkleTreeSnarkLeaf {
+    fn from(value: &SignerFixture) -> Self {
         MerkleTreeSnarkLeaf(value.vk, value.target_value)
     }
 }
 
-impl From<&SignerLeaf> for MTLeaf {
-    fn from(value: &SignerLeaf) -> Self {
+impl From<&SignerFixture> for MTLeaf {
+    fn from(value: &SignerFixture) -> Self {
         MTLeaf(value.vk, value.target_field)
     }
 }
@@ -175,11 +175,11 @@ fn target_value_from_field(target: F) -> StmResult<LotteryTargetValue> {
         .map_err(|_| StmCircuitProofError::InvalidLotteryTargetBytes)
 }
 
-fn generate_signer_leaf(rng: &mut ChaCha20Rng, target: F) -> StmResult<SignerLeaf> {
+fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> StmResult<SignerFixture> {
     let stm_sk = SchnorrSigningKey::generate(rng);
     let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone());
     let target_value = target_value_from_field(target)?;
-    Ok(SignerLeaf {
+    Ok(SignerFixture {
         sk: stm_sk,
         vk: stm_vk,
         target_field: target,
@@ -192,7 +192,7 @@ fn generate_signer_leaf(rng: &mut ChaCha20Rng, target: F) -> StmResult<SignerLea
 pub(crate) struct StmMerkleTreeWrapper {
     stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
     root: F,
-    signer_leaves: Vec<SignerLeaf>,
+    signer_fixtures: Vec<SignerFixture>,
 }
 
 /// Selects which leaf index is assigned the controlled target.
@@ -214,7 +214,7 @@ impl StmMerkleTreeWrapper {
     /// Return a Halo2-style Merkle path for the given leaf index.
     pub(crate) fn get_path(&self, i: usize) -> StmResult<MerklePath> {
         let stm_path = self.stm_tree.compute_merkle_tree_path(i);
-        let stm_leaf: MerkleTreeSnarkLeaf = self.signer_leaf(i)?.into();
+        let stm_leaf: MerkleTreeSnarkLeaf = self.signer_fixture(i)?.into();
         self.stm_tree
             .to_merkle_tree_commitment()
             .verify_leaf_membership_from_path(&stm_leaf, &stm_path)
@@ -222,11 +222,11 @@ impl StmMerkleTreeWrapper {
         (&stm_path).try_into().map_err(Into::into)
     }
 
-    /// Return signer leaf material at index `i`.
-    fn signer_leaf(&self, i: usize) -> StmResult<&SignerLeaf> {
-        self.signer_leaves
+    /// Return signer fixture material at index `i`.
+    fn signer_fixture(&self, i: usize) -> StmResult<&SignerFixture> {
+        self.signer_fixtures
             .get(i)
-            .ok_or(StmCircuitProofError::InvalidSignerLeafIndex)
+            .ok_or(StmCircuitProofError::InvalidSignerFixtureIndex)
     }
 }
 
@@ -252,24 +252,24 @@ fn build_merkle_tree_wrapper(
     }
 
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let mut signer_leaves = Vec::with_capacity(n);
+    let mut signer_fixtures = Vec::with_capacity(n);
     for i in 0..n {
         let leaf_target = if selected_index == Some(i) {
             target
         } else {
             -F::ONE
         };
-        signer_leaves.push(generate_signer_leaf(&mut rng, leaf_target)?);
+        signer_fixtures.push(generate_signer_fixture(&mut rng, leaf_target)?);
     }
 
-    let stm_leaves: Vec<MerkleTreeSnarkLeaf> = signer_leaves.iter().map(Into::into).collect();
+    let stm_leaves: Vec<MerkleTreeSnarkLeaf> = signer_fixtures.iter().map(Into::into).collect();
     let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
     let root_bytes = stm_tree.to_merkle_tree_commitment().root;
     let root = decode_merkle_root(root_bytes.as_slice())?;
     Ok(StmMerkleTreeWrapper {
         stm_tree,
         root,
-        signer_leaves,
+        signer_fixtures,
     })
 }
 
@@ -319,19 +319,19 @@ fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
 }
 
 fn sign_and_verify_lottery_message(
-    material: &SignerLeaf,
+    signer_fixture: &SignerFixture,
     merkle_root: F,
     msg: F,
     rng: &mut ChaCha20Rng,
 ) -> StmResult<UniqueSchnorrSignature> {
     let transcript = transcript_message(merkle_root, msg);
-    let stm_sig = material
+    let stm_sig = signer_fixture
         .sk
         .sign(&transcript, rng)
         .map_err(|_| StmCircuitProofError::SignatureGeneration)?;
     assert_challenge_endianness(&stm_sig)?;
     stm_sig
-        .verify(&transcript, &material.vk)
+        .verify(&transcript, &signer_fixture.vk)
         .map_err(|_| StmCircuitProofError::SignatureVerification)?;
     Ok(stm_sig)
 }
@@ -406,18 +406,18 @@ fn build_witness_internal(
             if indices.is_empty() {
                 return Err(StmCircuitProofError::EmptyIndices);
             }
-            let num_signers = merkle_tree.signer_leaves.len();
+            let num_signers = merkle_tree.signer_fixtures.len();
             if num_signers == 0 {
                 return Err(StmCircuitProofError::EmptySignerLeaves);
             }
 
             for (i, index) in indices.iter().enumerate() {
                 let signer_index = i % num_signers;
-                let material = merkle_tree.signer_leaf(signer_index)?;
+                let signer_fixture = merkle_tree.signer_fixture(signer_index)?;
                 let stm_sig =
-                    sign_and_verify_lottery_message(material, merkle_root, msg, &mut rng)?;
+                    sign_and_verify_lottery_message(signer_fixture, merkle_root, msg, &mut rng)?;
                 let merkle_path = merkle_tree.get_path(signer_index)?;
-                witness.push((material.into(), merkle_path, stm_sig, *index));
+                witness.push((signer_fixture.into(), merkle_path, stm_sig, *index));
             }
         }
         WitnessBuildMode::FixedSigner {
@@ -427,11 +427,12 @@ fn build_witness_internal(
             if indices.is_empty() {
                 return Err(StmCircuitProofError::EmptyIndices);
             }
-            let material = merkle_tree.signer_leaf(signer_index)?;
+            let signer_fixture = merkle_tree.signer_fixture(signer_index)?;
             let merkle_path = merkle_tree.get_path(signer_index)?;
-            let stm_sig = sign_and_verify_lottery_message(material, merkle_root, msg, &mut rng)?;
+            let stm_sig =
+                sign_and_verify_lottery_message(signer_fixture, merkle_root, msg, &mut rng)?;
             for index in indices {
-                witness.push((material.into(), merkle_path.clone(), stm_sig, *index));
+                witness.push((signer_fixture.into(), merkle_path.clone(), stm_sig, *index));
             }
         }
     }
@@ -439,7 +440,11 @@ fn build_witness_internal(
     Ok(witness)
 }
 
-/// Find two witness entries with distinct leaves, for negative test construction.
+/// Return the first two witness entries if their leaves are distinct.
+///
+/// This helper assumes callers construct witnesses so entries `0` and `1` come
+/// from different signer fixtures (negative-test precondition). If not, it
+/// returns an error instead of searching later entries.
 pub(crate) fn find_two_distinct_witness_entries(
     witness: &[WitnessEntry],
 ) -> StmResult<(usize, usize)> {
@@ -450,12 +455,6 @@ pub(crate) fn find_two_distinct_witness_entries(
     let leaf1 = witness[1].0;
     if leaf0 != leaf1 {
         return Ok((0, 1));
-    }
-    for (j, wj) in witness.iter().enumerate().skip(2) {
-        let leaf_j = wj.0;
-        if leaf0 != leaf_j {
-            return Ok((0, j));
-        }
     }
     Err(StmCircuitProofError::NoDistinctWitnessEntries)
 }

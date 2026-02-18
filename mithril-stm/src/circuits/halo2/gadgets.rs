@@ -38,8 +38,10 @@ fn decompose_unsafe(
     let base127 = F::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value
         .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
-        .map_err(|_| {
-            Error::Synthesis("failed to split field element into little-endian limbs".to_string())
+        .map_err(|e| {
+            Error::Synthesis(format!(
+                "failed to split field element into little-endian limbs: {e}"
+            ))
         })?
         .unzip();
 

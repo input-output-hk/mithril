@@ -131,10 +131,10 @@ impl Relation for StmCircuit {
                     let (u, v) = sig.commitment_point.get_coordinates();
                     PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
                 })
-                .map_err(|_| {
-                    Error::Synthesis(
-                        "invalid commitment point: not on curve or not prime order".to_string(),
-                    )
+                .map_err(|e| {
+                    Error::Synthesis(format!(
+                        "invalid commitment point: not on curve or not prime order: {e:?}"
+                    ))
                 })?;
             let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
             let s: AssignedScalarOfNativeCurve<C> = std_lib
