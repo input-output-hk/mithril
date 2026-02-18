@@ -222,10 +222,14 @@ impl Runner for SignerRunner {
 
             let signer = Signer::new(
                 self.services.single_signer.get_party_id(),
-                protocol_initializer.verification_key().into(),
-                protocol_initializer.verification_key_signature(),
+                protocol_initializer.verification_key_for_concatenation().into(),
+                protocol_initializer.verification_key_signature_for_concatenation(),
                 protocol_operational_certificate,
                 kes_evolutions,
+                #[cfg(feature = "future_snark")]
+                protocol_initializer.verification_key_for_snark().map(Into::into),
+                #[cfg(feature = "future_snark")]
+                protocol_initializer.verification_key_signature_for_snark(),
             );
             self.services
                 .signer_registration_publisher
