@@ -16,10 +16,18 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
     /// Get the Merkle tree commitment.
     pub(crate) fn get_merkle_tree_commitment(
         &self,
-    ) -> MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
-        self.merkle_tree_commitment.clone()
+    ) -> &MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
+        &self.merkle_tree_commitment
     }
 }
+
+impl<D: MembershipDigest> PartialEq for AggregateVerificationKeyForSnark<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.merkle_tree_commitment == other.merkle_tree_commitment
+    }
+}
+
+impl<D: MembershipDigest> Eq for AggregateVerificationKeyForSnark<D> {}
 
 impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKeyForSnark<D> {
     fn from(reg: &ClosedKeyRegistration) -> Self {

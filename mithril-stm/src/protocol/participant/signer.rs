@@ -95,7 +95,7 @@ impl<D: MembershipDigest> Signer<D> {
             .map(|signer| signer.get_lottery_target_value())
     }
 
-    /// Gets the Schnorr verification key.    
+    /// Gets the Schnorr verification key.
     #[cfg(feature = "future_snark")]
     pub fn get_schnorr_verification_key(&self) -> Option<VerificationKeyForSnark> {
         self.snark_proof_signer

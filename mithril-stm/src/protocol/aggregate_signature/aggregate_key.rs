@@ -48,8 +48,18 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
 
 impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.to_concatenation_aggregate_verification_key()
-            == other.to_concatenation_aggregate_verification_key()
+        let conct_eq = self.to_concatenation_aggregate_verification_key()
+            == other.to_concatenation_aggregate_verification_key();
+
+        #[cfg(feature = "future_snark")]
+        {
+            conct_eq
+                && self.to_snark_aggregate_verification_key()
+                    == other.to_snark_aggregate_verification_key()
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        conct_eq
     }
 }
 

@@ -498,12 +498,6 @@ mod tests {
 
         type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
 
-        impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeCommitment<D, L> {
-            fn eq(&self, other: &Self) -> bool {
-                self.root == other.root
-            }
-        }
-
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeSnarkLeaf>, Vec<MerkleTreeSnarkLeaf>) {
