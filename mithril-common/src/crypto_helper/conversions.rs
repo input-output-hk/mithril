@@ -69,7 +69,7 @@ pub mod tests {
             .with_signers(1)
             .build()
             .signers_with_stake()[0]
-            .verification_key;
+            .verification_key_for_concatenation;
         let signer_with_stake_expected = &entities::SignerWithStake::new(
             "1".to_string(),
             verification_key,
@@ -77,6 +77,10 @@ pub mod tests {
             None,
             None,
             100,
+            #[cfg(feature = "future_snark")]
+            None,
+            #[cfg(feature = "future_snark")]
+            None,
         );
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
