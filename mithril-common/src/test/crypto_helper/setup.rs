@@ -97,11 +97,15 @@ fn setup_signer_with_stake(
 
     SignerWithStake::new(
         party_id.to_owned(),
-        protocol_initializer.verification_key().into(),
-        protocol_initializer.verification_key_signature(),
+        protocol_initializer.verification_key_for_concatenation().into(),
+        protocol_initializer.verification_key_signature_for_concatenation(),
         operational_certificate,
         kes_evolutions,
         stake,
+        #[cfg(feature = "future_snark")]
+        protocol_initializer.verification_key_for_snark().map(|vk| vk.into()),
+        #[cfg(feature = "future_snark")]
+        protocol_initializer.verification_key_signature_for_snark(),
     )
 }
 
@@ -151,9 +155,13 @@ pub fn setup_signers_from_stake_distribution(
             .register(
                 Some(signer_with_stake.party_id.to_owned()),
                 operational_certificate,
-                protocol_initializer.verification_key_signature(),
+                protocol_initializer.verification_key_signature_for_concatenation(),
                 Some(kes_evolutions),
-                protocol_initializer.verification_key().into(),
+                protocol_initializer.verification_key_for_concatenation().into(),
+                #[cfg(feature = "future_snark")]
+                protocol_initializer.verification_key_for_snark(),
+                #[cfg(feature = "future_snark")]
+                protocol_initializer.verification_key_signature_for_snark(),
             )
             .expect("key registration should have succeeded");
 

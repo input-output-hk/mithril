@@ -1,7 +1,11 @@
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::{
+    ProtocolSignerVerificationKeyForSnark, ProtocolSignerVerificationKeySignatureForSnark,
+};
 use crate::{
     crypto_helper::{
-        KesEvolutions, ProtocolOpCert, ProtocolSignerVerificationKey,
-        ProtocolSignerVerificationKeySignature,
+        KesEvolutions, ProtocolOpCert, ProtocolSignerVerificationKeyForConcatenation,
+        ProtocolSignerVerificationKeySignatureForConcatenation,
     },
     entities::{PartyId, Stake},
 };
@@ -18,16 +22,21 @@ pub struct Signer {
     /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
-    /// The public key used to authenticate signer signature
-    pub verification_key: ProtocolSignerVerificationKey,
+    /// The verification key for the Concatenation proof system
+    #[serde(rename = "verification_key")]
+    pub verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
 
-    /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
+    /// The KES signature over the verification key for Concatenation
     ///
     /// None is used only for testing when SPO pool id is not certified
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "verification_key_signature"
+    )]
+    pub verification_key_signature_for_concatenation:
+        Option<ProtocolSignerVerificationKeySignatureForConcatenation>,
 
-    /// The encoded operational certificate of stake pool operator attached to the signer node
+    /// The operational certificate of stake pool operator attached to the signer node
     ///
     /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -36,6 +45,17 @@ pub struct Signer {
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
     #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
     pub kes_evolutions: Option<KesEvolutions>,
+
+    /// The verification key for the SNARK proof system
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub verification_key_for_snark: Option<ProtocolSignerVerificationKeyForSnark>,
+
+    /// The KES signature over the verification key for SNARK
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub verification_key_signature_for_snark:
+        Option<ProtocolSignerVerificationKeySignatureForSnark>,
 }
 
 impl PartialEq for Signer {
@@ -60,17 +80,29 @@ impl Signer {
     /// Signer factory
     pub fn new(
         party_id: PartyId,
-        verification_key: ProtocolSignerVerificationKey,
-        verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
+        verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
+        verification_key_signature_for_concatenation: Option<
+            ProtocolSignerVerificationKeySignatureForConcatenation,
+        >,
         operational_certificate: Option<ProtocolOpCert>,
         kes_evolutions: Option<KesEvolutions>,
+        #[cfg(feature = "future_snark")] verification_key_for_snark: Option<
+            ProtocolSignerVerificationKeyForSnark,
+        >,
+        #[cfg(feature = "future_snark")] verification_key_signature_for_snark: Option<
+            ProtocolSignerVerificationKeySignatureForSnark,
+        >,
     ) -> Signer {
         Signer {
             party_id,
-            verification_key,
-            verification_key_signature,
+            verification_key_for_concatenation,
+            verification_key_signature_for_concatenation,
             operational_certificate,
             kes_evolutions,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark,
         }
     }
 
@@ -83,14 +115,32 @@ impl Signer {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.party_id.as_bytes());
-        hasher.update(self.verification_key.to_json_hex().unwrap().as_bytes());
+        hasher.update(
+            self.verification_key_for_concatenation
+                .to_json_hex()
+                .unwrap()
+                .as_bytes(),
+        );
 
-        if let Some(verification_key_signature) = &self.verification_key_signature {
+        if let Some(verification_key_signature) = &self.verification_key_signature_for_concatenation
+        {
             hasher.update(verification_key_signature.to_json_hex().unwrap().as_bytes());
         }
         if let Some(operational_certificate) = &self.operational_certificate {
             hasher.update(operational_certificate.to_json_hex().unwrap().as_bytes());
         }
+
+        #[cfg(feature = "future_snark")]
+        if let Some(verification_key_for_snark) = &self.verification_key_for_snark {
+            hasher.update(verification_key_for_snark.to_json_hex().unwrap().as_bytes());
+        }
+        #[cfg(feature = "future_snark")]
+        if let Some(verification_key_signature_for_snark) =
+            &self.verification_key_signature_for_snark
+        {
+            hasher.update(verification_key_signature_for_snark.to_json_hex().unwrap().as_bytes());
+        }
+
         hex::encode(hasher.finalize())
     }
 }
@@ -102,21 +152,37 @@ impl Debug for Signer {
         debug.field("party_id", &self.party_id);
 
         match should_be_exhaustive {
-            true => debug
-                .field(
-                    "verification_key",
-                    &format_args!("{:?}", self.verification_key),
-                )
-                .field(
-                    "verification_key_signature",
-                    &format_args!("{:?}", self.verification_key_signature),
-                )
-                .field(
-                    "operational_certificate",
-                    &format_args!("{:?}", self.operational_certificate),
-                )
-                .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions))
-                .finish(),
+            true => {
+                debug
+                    .field(
+                        "verification_key_for_concatenation",
+                        &format_args!("{:?}", self.verification_key_for_concatenation),
+                    )
+                    .field(
+                        "verification_key_signature_for_concatenation",
+                        &format_args!("{:?}", self.verification_key_signature_for_concatenation),
+                    )
+                    .field(
+                        "operational_certificate",
+                        &format_args!("{:?}", self.operational_certificate),
+                    )
+                    .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions));
+
+                #[cfg(feature = "future_snark")]
+                {
+                    debug
+                        .field(
+                            "verification_key_for_snark",
+                            &format_args!("{:?}", self.verification_key_for_snark),
+                        )
+                        .field(
+                            "verification_key_signature_for_snark",
+                            &format_args!("{:?}", self.verification_key_signature_for_snark),
+                        );
+                }
+
+                debug.finish()
+            }
             false => debug.finish_non_exhaustive(),
         }
     }
@@ -126,10 +192,14 @@ impl From<SignerWithStake> for Signer {
     fn from(other: SignerWithStake) -> Self {
         Signer::new(
             other.party_id,
-            other.verification_key,
-            other.verification_key_signature,
+            other.verification_key_for_concatenation,
+            other.verification_key_signature_for_concatenation,
             other.operational_certificate,
             other.kes_evolutions,
+            #[cfg(feature = "future_snark")]
+            other.verification_key_for_snark,
+            #[cfg(feature = "future_snark")]
+            other.verification_key_signature_for_snark,
         )
     }
 }
@@ -142,16 +212,21 @@ pub struct SignerWithStake {
     /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
-    /// The public key used to authenticate signer signature
-    pub verification_key: ProtocolSignerVerificationKey,
+    /// The verification key for the Concatenation proof system
+    #[serde(rename = "verification_key")]
+    pub verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
 
-    /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
+    /// The KES signature over the verification key for Concatenation
     ///
     /// None is used only for testing when SPO pool id is not certified
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "verification_key_signature"
+    )]
+    pub verification_key_signature_for_concatenation:
+        Option<ProtocolSignerVerificationKeySignatureForConcatenation>,
 
-    /// The encoded operational certificate of stake pool operator attached to the signer node
+    /// The operational certificate of stake pool operator attached to the signer node
     ///
     /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -163,6 +238,17 @@ pub struct SignerWithStake {
 
     /// The signer stake
     pub stake: Stake,
+
+    /// The verification key for the SNARK proof system
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub verification_key_for_snark: Option<ProtocolSignerVerificationKeyForSnark>,
+
+    /// The KES signature over the verification key for SNARK (hex encoded)
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub verification_key_signature_for_snark:
+        Option<ProtocolSignerVerificationKeySignatureForSnark>,
 }
 
 impl PartialEq for SignerWithStake {
@@ -185,21 +271,34 @@ impl Ord for SignerWithStake {
 
 impl SignerWithStake {
     /// SignerWithStake factory
+    #[allow(clippy::too_many_arguments)] // TODO: fix this
     pub fn new(
         party_id: PartyId,
-        verification_key: ProtocolSignerVerificationKey,
-        verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
+        verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
+        verification_key_signature_for_concatenation: Option<
+            ProtocolSignerVerificationKeySignatureForConcatenation,
+        >,
         operational_certificate: Option<ProtocolOpCert>,
         kes_evolutions: Option<KesEvolutions>,
         stake: Stake,
+        #[cfg(feature = "future_snark")] verification_key_for_snark: Option<
+            ProtocolSignerVerificationKeyForSnark,
+        >,
+        #[cfg(feature = "future_snark")] verification_key_signature_for_snark: Option<
+            ProtocolSignerVerificationKeySignatureForSnark,
+        >,
     ) -> SignerWithStake {
         SignerWithStake {
             party_id,
-            verification_key,
-            verification_key_signature,
+            verification_key_for_concatenation,
+            verification_key_signature_for_concatenation,
             operational_certificate,
             kes_evolutions,
             stake,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark,
         }
     }
 
@@ -207,11 +306,16 @@ impl SignerWithStake {
     pub fn from_signer(signer: Signer, stake: Stake) -> Self {
         Self {
             party_id: signer.party_id,
-            verification_key: signer.verification_key,
-            verification_key_signature: signer.verification_key_signature,
+            verification_key_for_concatenation: signer.verification_key_for_concatenation,
+            verification_key_signature_for_concatenation: signer
+                .verification_key_signature_for_concatenation,
             operational_certificate: signer.operational_certificate,
             kes_evolutions: signer.kes_evolutions,
             stake,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: signer.verification_key_for_snark,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: signer.verification_key_signature_for_snark,
         }
     }
 
@@ -219,16 +323,33 @@ impl SignerWithStake {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.party_id.as_bytes());
-        hasher.update(self.verification_key.to_json_hex().unwrap().as_bytes());
+        hasher.update(
+            self.verification_key_for_concatenation
+                .to_json_hex()
+                .unwrap()
+                .as_bytes(),
+        );
 
-        if let Some(verification_key_signature) = &self.verification_key_signature {
+        if let Some(verification_key_signature) = &self.verification_key_signature_for_concatenation
+        {
             hasher.update(verification_key_signature.to_json_hex().unwrap().as_bytes());
         }
-
         if let Some(operational_certificate) = &self.operational_certificate {
             hasher.update(operational_certificate.to_json_hex().unwrap().as_bytes());
         }
         hasher.update(self.stake.to_be_bytes());
+
+        #[cfg(feature = "future_snark")]
+        if let Some(verification_key_for_snark) = &self.verification_key_for_snark {
+            hasher.update(verification_key_for_snark.to_json_hex().unwrap().as_bytes());
+        }
+        #[cfg(feature = "future_snark")]
+        if let Some(verification_key_signature_for_snark) =
+            &self.verification_key_signature_for_snark
+        {
+            hasher.update(verification_key_signature_for_snark.to_json_hex().unwrap().as_bytes());
+        }
+
         hex::encode(hasher.finalize())
     }
 }
@@ -240,21 +361,37 @@ impl Debug for SignerWithStake {
         debug.field("party_id", &self.party_id).field("stake", &self.stake);
 
         match should_be_exhaustive {
-            true => debug
-                .field(
-                    "verification_key",
-                    &format_args!("{:?}", self.verification_key),
-                )
-                .field(
-                    "verification_key_signature",
-                    &format_args!("{:?}", self.verification_key_signature),
-                )
-                .field(
-                    "operational_certificate",
-                    &format_args!("{:?}", self.operational_certificate),
-                )
-                .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions))
-                .finish(),
+            true => {
+                debug
+                    .field(
+                        "verification_key_for_concatenation",
+                        &format_args!("{:?}", self.verification_key_for_concatenation),
+                    )
+                    .field(
+                        "verification_key_signature_for_concatenation",
+                        &format_args!("{:?}", self.verification_key_signature_for_concatenation),
+                    )
+                    .field(
+                        "operational_certificate",
+                        &format_args!("{:?}", self.operational_certificate),
+                    )
+                    .field("kes_evolutions", &format_args!("{:?}", self.kes_evolutions));
+
+                #[cfg(feature = "future_snark")]
+                {
+                    debug
+                        .field(
+                            "verification_key_for_snark",
+                            &format_args!("{:?}", self.verification_key_for_snark),
+                        )
+                        .field(
+                            "verification_key_signature_for_snark",
+                            &format_args!("{:?}", self.verification_key_signature_for_snark),
+                        );
+                }
+
+                debug.finish()
+            }
             false => debug.finish_non_exhaustive(),
         }
     }
@@ -272,10 +409,30 @@ mod tests {
             .with_signers(1)
             .build()
             .signers_with_stake()[0]
-            .verification_key;
-        let signer_expected = Signer::new("1".to_string(), verification_key, None, None, None);
-        let signer_with_stake =
-            SignerWithStake::new("1".to_string(), verification_key, None, None, None, 100);
+            .verification_key_for_concatenation;
+        let signer_expected = Signer::new(
+            "1".to_string(),
+            verification_key,
+            None,
+            None,
+            None,
+            #[cfg(feature = "future_snark")]
+            None,
+            #[cfg(feature = "future_snark")]
+            None,
+        );
+        let signer_with_stake = SignerWithStake::new(
+            "1".to_string(),
+            verification_key,
+            None,
+            None,
+            None,
+            100,
+            #[cfg(feature = "future_snark")]
+            None,
+            #[cfg(feature = "future_snark")]
+            None,
+        );
 
         let signer_into: Signer = signer_with_stake.into();
         assert_eq!(signer_expected, signer_into);
@@ -294,6 +451,10 @@ mod tests {
                 None,
                 None,
                 None,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
             )
             .compute_hash()
         );
@@ -304,7 +465,11 @@ mod tests {
                 fake_keys::signer_verification_key()[3].try_into().unwrap(),
                 None,
                 None,
-                None
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
             )
             .compute_hash()
         );
@@ -315,7 +480,11 @@ mod tests {
                 fake_keys::signer_verification_key()[0].try_into().unwrap(),
                 None,
                 None,
-                None
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
+                #[cfg(feature = "future_snark")]
+                None,
             )
             .compute_hash()
         );
@@ -323,8 +492,12 @@ mod tests {
 
     #[test]
     fn test_signer_with_stake_compute_hash() {
+        #[cfg(not(feature = "future_snark"))]
         const EXPECTED_HASH: &str =
             "9a832baccd04aabfc419f57319e3831a1655a95bf3bf5ed96a1167d1e81b5085";
+        #[cfg(feature = "future_snark")]
+        const EXPECTED_HASH: &str =
+            "6158c4f514b1e15dc745845dac9014e710ee6b2f0c5b2b1023d5207cf6b75db9";
         let signers = MithrilFixtureBuilder::default()
             .with_signers(2)
             .build()
@@ -341,7 +514,8 @@ mod tests {
         }
         {
             let mut signer_different_verification_key = signer.clone();
-            signer_different_verification_key.verification_key = signers[1].verification_key;
+            signer_different_verification_key.verification_key_for_concatenation =
+                signers[1].verification_key_for_concatenation;
 
             assert_ne!(
                 EXPECTED_HASH,

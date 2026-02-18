@@ -54,9 +54,13 @@ impl SignerBuilder {
                 .register(
                     Some(signer.party_id.to_owned()),
                     signer.operational_certificate.clone(),
-                    signer.verification_key_signature,
+                    signer.verification_key_signature_for_concatenation,
                     signer.kes_evolutions,
-                    signer.verification_key,
+                    signer.verification_key_for_concatenation,
+                    #[cfg(feature = "future_snark")]
+                    signer.verification_key_for_snark.map(|k| k.into()),
+                    #[cfg(feature = "future_snark")]
+                    signer.verification_key_signature_for_snark,
                 )
                 .with_context(|| {
                     format!("Registration failed for signer: '{}'", signer.party_id)

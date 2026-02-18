@@ -36,11 +36,17 @@ pub type HexEncodedSingleSignature = HexEncodedKey;
 /// Hex encoded Aggregate Verification Key
 pub type HexEncodedAggregateVerificationKey = HexEncodedKey;
 
-/// Hex encoded Verification Key
-pub type HexEncodedVerificationKey = HexEncodedKey;
+/// Hex encoded Verification Key for Concatenation
+pub type HexEncodedVerificationKeyForConcatenation = HexEncodedKey;
 
-/// Hex encoded Verification Key Signature
-pub type HexEncodedVerificationKeySignature = HexEncodedKey;
+/// Hex encoded Verification Key Signature for Concatenation
+pub type HexEncodedVerificationKeySignatureForConcatenation = HexEncodedKey;
+
+/// Hex encoded Verification Key for SNARK
+pub type HexEncodedVerificationKeyForSnark = HexEncodedKey;
+
+/// Hex encoded Verification Key Signature for SNARK
+pub type HexEncodedVerificationKeySignatureForSnark = HexEncodedKey;
 
 /// Hex encoded Operational Certificate
 pub type HexEncodedOpCert = HexEncodedKey;
