@@ -251,7 +251,7 @@ impl SnapshotConverterCommand {
         };
 
         let is_cardano_version_at_least_10_6_2 = match Version::parse(&self.cardano_node_version) {
-            Ok(v) => v >= Version::parse("10.6.2").unwrap(),
+            Ok(v) => v >= Version::new(10, 6, 2),
             Err(_) => false,
         };
 
@@ -774,7 +774,7 @@ fn get_snapshot_converter_bin_by_version(
     converter_bin_config: SnapshotConverterConfig,
 ) -> SnapshotConverterEnum {
     let is_cardano_version_at_least_10_6_2 = match Version::parse(cardano_node_version) {
-        Ok(v) => v >= Version::parse("10.6.2").unwrap(),
+        Ok(v) => v >= Version::new(10, 6, 2),
         Err(_) => false,
     };
 
@@ -843,7 +843,7 @@ mod tests {
             assert!(result.is_err());
             assert_eq!(
                 result.unwrap_err().to_string(),
-                "UTxO HD Flavor Legacy is not suported on Cardano node 10.6.2 or upper"
+                "UTxO HD Flavor Legacy is not supported on Cardano node 10.6.2 or upper"
             );
         }
 
