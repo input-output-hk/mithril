@@ -283,6 +283,23 @@ impl SignerMessagePart {
     pub fn from_signers(signers: Vec<Signer>) -> Vec<Self> {
         signers.into_iter().map(|signer| signer.into()).collect()
     }
+
+    /// Remove SNARK-related fields for backward compatibility with older clients.
+    ///
+    /// This is needed during the Pythagoras era to avoid deserialization failures
+    /// in older signers/aggregators that don't know about the SNARK fields.
+    #[cfg(feature = "future_snark")]
+    pub fn without_snark_fields(mut self) -> Self {
+        self.verification_key_for_snark = None;
+        self.verification_key_signature_for_snark = None;
+        self
+    }
+
+    /// Remove SNARK-related fields from a list of signer message parts for backward compatibility.
+    #[cfg(feature = "future_snark")]
+    pub fn strip_snark_fields(signers: Vec<Self>) -> Vec<Self> {
+        signers.into_iter().map(Self::without_snark_fields).collect()
+    }
 }
 
 impl TryInto<Signer> for SignerMessagePart {
@@ -548,6 +565,82 @@ mod tests {
 
                 assert_eq!(signer_from_json_hex, signer_from_bytes_hex);
             }
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod strip_snark_fields {
+        use super::*;
+
+        fn signer_message_part_with_snark_fields() -> SignerMessagePart {
+            SignerMessagePart {
+                party_id: "party-1".to_string(),
+                verification_key_for_concatenation: "vk-1".to_string(),
+                verification_key_signature_for_concatenation: None,
+                operational_certificate: None,
+                kes_evolutions: None,
+                verification_key_for_snark: Some("snark-vk-1".to_string()),
+                verification_key_signature_for_snark: Some("snark-sig-1".to_string()),
+            }
+        }
+
+        fn signer_message_part_without_snark_fields() -> SignerMessagePart {
+            SignerMessagePart {
+                party_id: "party-1".to_string(),
+                verification_key_for_concatenation: "vk-1".to_string(),
+                verification_key_signature_for_concatenation: None,
+                operational_certificate: None,
+                kes_evolutions: None,
+                verification_key_for_snark: None,
+                verification_key_signature_for_snark: None,
+            }
+        }
+
+        #[test]
+        fn snark_fields_are_cleared_by_without_snark_fields() {
+            let signer = signer_message_part_with_snark_fields();
+            assert!(signer.verification_key_for_snark.is_some());
+            assert!(signer.verification_key_signature_for_snark.is_some());
+
+            let stripped_signer = signer.without_snark_fields();
+
+            assert!(stripped_signer.verification_key_for_snark.is_none());
+            assert!(stripped_signer.verification_key_signature_for_snark.is_none());
+            assert_eq!(signer_message_part_without_snark_fields(), stripped_signer);
+        }
+
+        #[test]
+        fn without_snark_fields_preserves_none_values() {
+            let signer = signer_message_part_without_snark_fields();
+            assert!(signer.verification_key_for_snark.is_none());
+            assert!(signer.verification_key_signature_for_snark.is_none());
+
+            let stripped_signer = signer.without_snark_fields();
+
+            assert!(stripped_signer.verification_key_for_snark.is_none());
+            assert!(stripped_signer.verification_key_signature_for_snark.is_none());
+        }
+
+        #[test]
+        fn strip_snark_fields_clears_all_entries() {
+            let signers = vec![
+                signer_message_part_with_snark_fields(),
+                signer_message_part_without_snark_fields(),
+            ];
+
+            let stripped_signers = SignerMessagePart::strip_snark_fields(signers);
+
+            let expected_stripped_signers = vec![
+                signer_message_part_without_snark_fields(),
+                signer_message_part_without_snark_fields(),
+            ];
+            assert_eq!(expected_stripped_signers, stripped_signers)
+        }
+
+        #[test]
+        fn strip_snark_fields_handles_empty_list() {
+            let stripped_signers = SignerMessagePart::strip_snark_fields(vec![]);
+            assert!(stripped_signers.is_empty());
         }
     }
 }
