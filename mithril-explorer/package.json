@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.7.44",
+  "version": "0.7.45",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
