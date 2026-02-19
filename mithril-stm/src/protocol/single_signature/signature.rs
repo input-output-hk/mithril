@@ -187,8 +187,8 @@ mod tests {
 
     struct SingleSignatureTestContext {
         signer_1: Signer<D>,
-        pk_1: VerificationKeyProofOfPossessionForConcatenation,
-        pk_2: VerificationKeyProofOfPossessionForConcatenation,
+        vk_1: VerificationKeyProofOfPossessionForConcatenation,
+        vk_2: VerificationKeyProofOfPossessionForConcatenation,
         avk: AggregateVerificationKey<D>,
     }
 
@@ -216,7 +216,13 @@ mod tests {
 
         let mut registration = KeyRegistration::initialize();
         for verification_key in &verification_keys {
-            let entry = RegistrationEntry::new(verification_key.clone(), 1).unwrap();
+            let entry = RegistrationEntry::new(
+                *verification_key,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
             registration.register_by_entry(&entry).unwrap();
         }
 
@@ -224,12 +230,12 @@ mod tests {
         let mut signing_keys = signing_keys.into_iter();
         let sk_1 = signing_keys.next().expect("at least one signer exists");
         let mut verification_keys = verification_keys.into_iter();
-        let pk_1 = verification_keys
-            .next()
-            .expect("at least one verification key exists");
-        let pk_2 = verification_keys
-            .next()
-            .expect("at least two verification keys exist");
+        let vk_1 = verification_keys.next().expect(
+            "internal test setup invariant violated: missing first verification key (vk_1)",
+        );
+        let vk_2 = verification_keys.next().expect(
+            "internal test setup invariant violated: missing second verification key (vk_2)",
+        );
         let signer_1: Signer<D> = Signer::new(
             1,
             ConcatenationProofSigner::new(
@@ -237,7 +243,7 @@ mod tests {
                 2,
                 params,
                 sk_1,
-                pk_1.vk,
+                vk_1.vk,
                 closed_key_registration.clone().to_merkle_tree(),
             ),
             closed_key_registration,
@@ -250,8 +256,8 @@ mod tests {
 
         SingleSignatureTestContext {
             signer_1,
-            pk_1,
-            pk_2,
+            vk_1,
+            vk_2,
             avk,
         }
     }
@@ -418,7 +424,7 @@ mod tests {
 
         let params = test_parameters();
         let error = signature
-            .verify(&params, &ctx.pk_2.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .verify(&params, &ctx.vk_2.vk, &1, &ctx.avk, &TEST_MESSAGE)
             .expect_err("Verification should fail with wrong verification key");
         assert!(
             matches!(
@@ -441,7 +447,7 @@ mod tests {
         signature.set_concatenation_signature_indices(&[params.m + 1]);
 
         let error = signature
-            .verify(&params, &ctx.pk_1.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &TEST_MESSAGE)
             .expect_err("Verification should fail with invalid index");
         assert!(
             matches!(
@@ -463,7 +469,7 @@ mod tests {
 
         let params = test_parameters();
         let error = signature
-            .verify(&params, &ctx.pk_1.vk, &1, &ctx.avk, &wrong_message)
+            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &wrong_message)
             .expect_err("Verification should fail with wrong message");
         assert!(
             matches!(
@@ -487,7 +493,7 @@ mod tests {
         let error = signature
             .verify(
                 &params,
-                &signing_ctx.pk_1.vk,
+                &signing_ctx.vk_1.vk,
                 &1,
                 &different_registration_ctx.avk,
                 &TEST_MESSAGE,
