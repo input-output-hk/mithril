@@ -4461,7 +4461,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.9.16"
+version = "0.9.17"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
@@ -4476,6 +4476,7 @@ dependencies = [
  "midnight-proofs",
  "midnight-zk-stdlib",
  "num-bigint",
+ "num-integer",
  "num-rational",
  "num-traits",
  "proptest",

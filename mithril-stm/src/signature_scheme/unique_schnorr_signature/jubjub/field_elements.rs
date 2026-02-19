@@ -4,7 +4,7 @@ use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha256};
 use std::array::TryFromSliceError;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Neg, Sub};
 
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
@@ -16,6 +16,14 @@ impl BaseFieldElement {
     /// Retrieves the multiplicative identity element of the base field
     pub(crate) fn get_one() -> Self {
         BaseFieldElement(JubjubBase::ONE)
+    }
+
+    #[cfg(all(test, feature = "future_snark"))]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    /// Generates a new random scalar field element
+    pub(crate) fn random(rng: &mut (impl RngCore + CryptoRng)) -> Self {
+        BaseFieldElement(JubjubBase::random(rng))
     }
 
     /// Converts the base field element to its byte representation in
@@ -57,12 +65,28 @@ impl TryFrom<&[u8]> for BaseFieldElement {
     }
 }
 
+impl From<u64> for BaseFieldElement {
+    /// Converts a `u64` integer to a base field element
+    fn from(integer: u64) -> Self {
+        BaseFieldElement(JubjubBase::from(integer))
+    }
+}
+
 impl Add for BaseFieldElement {
     type Output = BaseFieldElement;
 
     /// Adds two base field elements
     fn add(self, other: BaseFieldElement) -> BaseFieldElement {
         BaseFieldElement(self.0 + other.0)
+    }
+}
+
+impl Neg for BaseFieldElement {
+    type Output = BaseFieldElement;
+
+    /// Negates a base field element
+    fn neg(self) -> BaseFieldElement {
+        BaseFieldElement(-self.0)
     }
 }
 

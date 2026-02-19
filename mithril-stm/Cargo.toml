@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.9.16"
+version = "0.9.17"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -14,7 +14,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend"]
+default = ["num-integer-backend"]
 benchmark-internals = [] # For benchmarking
 future_snark = [
     "dep:ff",
@@ -28,7 +28,7 @@ future_snark = [
     "dep:rand",
     "dep:sha2",
 ] # For activating snark features
-num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
+num-integer-backend = ["dep:num-bigint", "dep:num-integer", "dep:num-rational", "dep:num-traits"]
 rug-backend = ["rug/default"]
 
 [dependencies]
@@ -44,6 +44,7 @@ midnight-curves = { version = "0.2.0", optional = true }
 midnight-proofs = { version = "0.7.0", optional = true }
 midnight-zk-stdlib = { version = "1.0.0", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
+num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2.19", optional = true }
 rand = { version = "0.9.2", optional = true }
 rand_core = { workspace = true, features = ["std"] }
@@ -55,6 +56,7 @@ thiserror = { workspace = true }
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
 # WASM and Windows don't support rug backend, fallback to num-integer only
 num-bigint = { version = "0.4.6" }
+num-integer = { version = "0.1" }
 num-rational = { version = "0.4.2" }
 num-traits = { version = "0.2.19" }
 
