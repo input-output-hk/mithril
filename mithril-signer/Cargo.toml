@@ -65,11 +65,11 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tikv-jemallocator = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
-criterion = { version = "0.8.1", features = ["html_reports", "async_tokio"] }
-httpmock = "0.8.2"
+criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
+httpmock = "0.8.3"
 mockall = { workspace = true }
 prometheus-parse = "0.2.5"
-slog-scope = "4.4.0"
+slog-scope = "4.4.1"
 slog-term = { workspace = true }
 
 [[bench]]

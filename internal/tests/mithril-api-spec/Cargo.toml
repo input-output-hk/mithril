@@ -9,7 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-jsonschema = { version = "0.38.1" }
+jsonschema = { version = "0.42.1" }
 reqwest = { workspace = true }
 saphyr = "0.0.6"
 serde = { workspace = true }

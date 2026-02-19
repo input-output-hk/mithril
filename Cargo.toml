@@ -49,11 +49,11 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [workspace.dependencies]
-anyhow = "1.0.100"
+anyhow = "1.0.101"
 async-recursion = "1.1.1"
 async-trait = "0.1.89"
-chrono = { version = "0.4.42", features = ["serde"] }
-clap = { version = "4.5.54", features = ["derive", "env"] }
+chrono = { version = "0.4.43", features = ["serde"] }
+clap = { version = "4.5.59", features = ["derive", "env"] }
 config = "0.15.19"
 digest = { version = "0.10.7", features = ["alloc"] }
 hex = "0.4.3"
@@ -70,7 +70,7 @@ slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-term = "2.9.2"
 strum = { version = "0.27.2", features = ["derive"] }
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["rt", "sync", "time"] }
 tracing = "0.1.44"
 warp = { version = "0.4.2", features = ["server", "websocket"] }
