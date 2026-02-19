@@ -366,7 +366,7 @@ mod tests {
                 let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake)).collect::<Vec<MerkleTreeConcatenationLeaf>>();
 
                 let indices: Vec<usize> = (0..size).collect();
-                let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
+                let mut mt_list: Vec<usize> = indices.into_iter().sample(&mut rng, size * 2 / 10 + 1);
                 mt_list.sort_unstable();
 
                 let mut batch_values: Vec<MerkleTreeConcatenationLeaf> = Vec::with_capacity(mt_list.len());
