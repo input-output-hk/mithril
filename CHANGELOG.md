@@ -7,21 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX] - UNRELEASED
+## Mithril Distribution [2608.0] - UNRELEASED
 
 - Support for `Cardano node` `10.6.2` in the signer and the aggregator.
 
-- Update `release-mainnet` to SNARK-friendly protocol parameters.
+- Update `release-mainnet` network configuration to SNARK-friendly protocol parameters.
 
-- Add optional throttling to the Cardano transactions import in the signer and aggregator (enabled by default).
+- Support for optional throttling of the Cardano transactions import in the signer and aggregator (enabled by default).
 
-- **UNSTABLE**:
-  - Preliminary support for Cardano Blocks certification:
-    - Store the Cardano blocks in the signer and aggregator `cardano_tx` sqlite database.
-    - Add a new signed entity type `CardanoBlocksTransactions` designed to certify both the Cardano blocks and the Cardano transactions (not compatible with the previous `CardanoTransactions` signed entity type)
-    - Support for Mithril signer compute and send signatures for the `CardanoBlocksTransactions` signed entity type.
-    - Support for Mithril aggregator verify and aggregate signatures for the `CardanoBlocksTransactions` signed entity type.
-  - Added a **DMQ consumer deduplicator** to avoid processing the same message multiple times in case of reconnection to the DMQ server.
+- Preliminary support for Cardano blocks and transactions certification:
+  - Storage of Cardano blocks in the signer and aggregator `cardano_tx` SQLite database (⚠️ this will reset the `cardano-transaction` database and a new full scan of the Cardano chain will be triggered).
+  - **UNSTABLE**:
+    - Added new `CardanoBlocksTransactions` signed entity type for certifying both Cardano blocks and transactions.
+    - Support for computing and sending signatures for the `CardanoBlocksTransactions` signed entity type in the signer.
+    - Support for verifying and aggregating signatures for the `CardanoBlocksTransactions` signed entity type in the aggregator.
+
+- **UNSTABLE**: Support for **DMQ consumer deduplication** to prevent processing the same message multiple times upon reconnection to the DMQ server.
 
 | Crate | Version |
 | ----- | ------- |
