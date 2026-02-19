@@ -99,7 +99,7 @@ jobs:
               {
                 k     = 5
                 m     = 100
-                phi_f = 0.65
+                phi_f = 0.70
               }
             mithril_signers: |
               {
