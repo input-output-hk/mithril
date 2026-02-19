@@ -4,6 +4,7 @@ pub(crate) mod arithmetic_operation_wrapper;
 mod block_number;
 mod block_range;
 mod cardano_block;
+mod cardano_block_transaction_mktree_node;
 mod cardano_blocks_transactions_snapshot;
 mod cardano_chain_point;
 mod cardano_database;
@@ -39,6 +40,7 @@ mod type_alias;
 pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_block::*;
+pub use cardano_block_transaction_mktree_node::*;
 pub use cardano_blocks_transactions_snapshot::CardanoBlocksTransactionsSnapshot;
 pub use cardano_chain_point::{BlockHash, ChainPoint};
 pub use cardano_database::{
