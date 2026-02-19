@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.12.39"
+version = "0.12.40"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -46,6 +46,7 @@ reqwest = { workspace = true, features = [
     "deflate",
     "brotli"
 ] }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [
