@@ -4476,6 +4476,7 @@ dependencies = [
  "midnight-proofs",
  "midnight-zk-stdlib",
  "num-bigint",
+ "num-integer",
  "num-rational",
  "num-traits",
  "proptest",
