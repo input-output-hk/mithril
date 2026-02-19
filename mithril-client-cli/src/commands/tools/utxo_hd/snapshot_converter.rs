@@ -163,7 +163,10 @@ fn build_command_from_10_6(
     command
         .arg("--mem-in")
         .arg(input_path)
-        .arg("--lmdb-out")
+        .arg(format!(
+            "--{}-out",
+            cfg.utxo_hd_flavor.to_string().to_lowercase()
+        ))
         .arg(output_path)
         .arg("--config")
         .arg(cfg.config_path)
