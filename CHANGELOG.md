@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `10.6.2` in the signer and the aggregator.
 
+- Update `release-mainnet` to SNARK-friendly protocol parameters.
+
 - Add optional throttling to the Cardano transactions import in the signer and aggregator (enabled by default).
 
 - **UNSTABLE**:
