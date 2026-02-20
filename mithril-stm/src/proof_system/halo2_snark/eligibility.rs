@@ -152,52 +152,56 @@ cfg_num_integer! {
         -accumulator
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    /// Verifies if a lottery index is eligible based on the signature and target value.
-    ///
-    /// This function checks whether a given index wins the lottery by computing an
-    /// evaluation value from the signature's commitment point and the index, then
-    /// comparing it against the target value. An index is eligible if its
-    /// evaluation value is less than or equal to the target.
-    ///
-    /// The evaluation is computed as: `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)`
-    /// where `(commitment_point_x, commitment_point_y)` are the coordinates of the signature's commitment point.
-    pub fn verify_lottery_eligibility(
-        signature: &UniqueSchnorrSignature,
-        lottery_index: LotteryIndex,
-        m: u64,
-        prefix: BaseFieldElement,
-        target: LotteryTargetValue,
-    ) -> StmResult<()> {
-        if lottery_index > m {
-            return Err(SignatureError::IndexBoundFailed(lottery_index, m).into());
-        }
+}
 
-        let lottery_index_as_base_field_element = BaseFieldElement::from(lottery_index);
-        let (commitment_point_x, commitment_point_y) = signature.commitment_point.get_coordinates();
-        let lottery_evaluation = compute_poseidon_digest(&[prefix, commitment_point_x, commitment_point_y, lottery_index_as_base_field_element]);
-
-        // check if ev <= target
-        if lottery_evaluation > target {
-            return Err(SignatureError::LotteryLost.into());
-        }
-
-        Ok(())
+/// Verifies if a lottery index is eligible based on the signature and target value.
+///
+/// This function checks whether a given index wins the lottery by computing an
+/// evaluation value from the signature's commitment point and the index, then
+/// comparing it against the target value. An index is eligible if its
+/// evaluation value is less than or equal to the target.
+///
+/// The evaluation is computed as:
+/// `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)` where
+/// `(commitment_point_x, commitment_point_y)` are coordinates of signature's commitment point.
+#[cfg(feature = "future_snark")]
+pub(crate) fn verify_lottery_eligibility(
+    signature: &UniqueSchnorrSignature,
+    lottery_index: LotteryIndex,
+    m: u64,
+    prefix: BaseFieldElement,
+    target: LotteryTargetValue,
+) -> StmResult<()> {
+    if lottery_index >= m {
+        return Err(SignatureError::IndexBoundFailed(lottery_index, m).into());
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    /// Computes the lottery prefix hash from a message.
-    /// The prefix is computed by prepending `DST_LOTTERY`
-    /// to the message and hashing the result using `compute_poseidon_digest`.
-    pub fn compute_lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
-        let mut prefix = vec![DST_LOTTERY];
-        prefix.extend_from_slice(msg);
-        compute_poseidon_digest(&prefix)
+    let lottery_index_as_base_field_element = BaseFieldElement::from(lottery_index);
+    let (commitment_point_x, commitment_point_y) = signature.commitment_point.get_coordinates();
+    let lottery_evaluation = compute_poseidon_digest(&[
+        prefix,
+        commitment_point_x,
+        commitment_point_y,
+        lottery_index_as_base_field_element,
+    ]);
+
+    if lottery_evaluation > target {
+        return Err(SignatureError::LotteryLost.into());
     }
+
+    Ok(())
+}
+
+/// Computes the lottery prefix by hashing the message with the lottery DST.
+/// The prefix is computed by prepending `DST_LOTTERY` to the message and hashing the result
+/// using `compute_poseidon_digest`.
+#[cfg(feature = "future_snark")]
+pub(crate) fn compute_lottery_prefix(
+    message_as_base_field_element: &[BaseFieldElement],
+) -> BaseFieldElement {
+    let mut prefix = vec![DST_LOTTERY];
+    prefix.extend_from_slice(message_as_base_field_element);
+    compute_poseidon_digest(&prefix)
 }
 
 #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]

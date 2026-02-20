@@ -6,7 +6,7 @@ use crate::{
     UniqueSchnorrSignature, VerificationKeyForSnark, signature_scheme::BaseFieldElement,
 };
 
-use super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
+use super::{AggregateVerificationKeyForSnark, compute_lottery_prefix, verify_lottery_eligibility};
 
 /// Single signature for the Snark proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,8 +65,8 @@ impl SingleSignatureForSnark {
         message_to_verify: &[BaseFieldElement],
         m: u64,
     ) -> StmResult<()> {
-        let lottery_prefix = SnarkProofSigner::<D>::compute_lottery_prefix(message_to_verify);
-        SnarkProofSigner::<D>::verify_lottery_eligibility(
+        let lottery_prefix = compute_lottery_prefix(message_to_verify);
+        verify_lottery_eligibility(
             &self.schnorr_signature,
             self.minimum_winning_lottery_index,
             m,
@@ -115,13 +115,14 @@ mod tests {
         ClosedRegistrationEntry, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
         Parameters, RegistrationEntry, SignatureError, VerificationKeyForSnark,
         VerificationKeyProofOfPossessionForConcatenation,
+        proof_system::halo2_snark::SnarkProofSigner,
         protocol::RegistrationEntryForSnark,
         signature_scheme::{
             BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
         },
     };
 
-    use super::super::{AggregateVerificationKeyForSnark, SnarkProofSigner};
+    use super::{AggregateVerificationKeyForSnark, compute_lottery_prefix};
 
     type D = MithrilMembershipDigest;
 
@@ -167,7 +168,7 @@ mod tests {
 
         // Compute evaluation for the original winning index
         let message_to_verify = avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
-        let prefix = SnarkProofSigner::<D>::compute_lottery_prefix(&message_to_verify);
+        let prefix = compute_lottery_prefix(&message_to_verify);
         let (cx, cy) = sig.get_schnorr_signature().commitment_point.get_coordinates();
         let ev_original =
             compute_poseidon_digest(&[prefix, cx, cy, BaseFieldElement::from(original_index)]);

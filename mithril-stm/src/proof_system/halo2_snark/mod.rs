@@ -4,6 +4,7 @@ mod signer;
 mod single_signature;
 
 pub(crate) use aggregate_key::AggregateVerificationKeyForSnark;
+pub(crate) use eligibility::{compute_lottery_prefix, verify_lottery_eligibility};
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
 
@@ -21,7 +22,10 @@ mod tests {
         signature_scheme::{BlsSigningKey, SchnorrSigningKey},
     };
 
-    use super::{AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner};
+    use super::{
+        AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner,
+        compute_lottery_prefix, verify_lottery_eligibility,
+    };
 
     type D = MithrilMembershipDigest;
 
@@ -120,9 +124,9 @@ mod tests {
                 .build_snark_message(&msg)
                 .unwrap();
             let lottery_prefix =
-                SnarkProofSigner::<D>::compute_lottery_prefix(&message_to_verify);
+                compute_lottery_prefix(&message_to_verify);
             for i in 0..sig.get_minimum_winning_lottery_index() {
-                let err = SnarkProofSigner::<D>::verify_lottery_eligibility(
+                let err = verify_lottery_eligibility(
                     &sig.get_schnorr_signature(),
                     i,
                     m,
