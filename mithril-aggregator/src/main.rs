@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use anyhow::anyhow;
 use clap::Parser;
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -30,7 +31,10 @@ pub fn build_logger(args: &MainOpts) -> Logger {
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
-    // Load args
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|e| anyhow!("Failed to install rustls default provider: {e:?}"))?;
+
     let args = MainOpts::parse();
     let root_logger = build_logger(&args);
 

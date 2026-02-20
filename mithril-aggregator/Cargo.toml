@@ -9,10 +9,6 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
-[package.metadata.cargo-machete]
-# `rustls` is used for TLS connections ('aws-lc-rs' feature needs to be activated)
-ignored = ["rustls"]
-
 [features]
 default = ["jemallocator"]
 
