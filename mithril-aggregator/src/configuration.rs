@@ -275,9 +275,11 @@ pub trait ConfigurationSource {
         panic!("preload_security_parameter is not implemented.");
     }
 
-    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
-    fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
-        panic!("cardano_transactions_prover_max_hashes_allowed_by_request is not implemented.");
+    /// Maximum number of hashes allowed by request to the Cardano prover.
+    ///
+    /// This unified limit is applied to both transaction-hash and block-hash proving routes.
+    fn cardano_prover_max_hashes_allowed_by_request(&self) -> usize {
+        panic!("cardano_prover_max_hashes_allowed_by_request is not implemented.");
     }
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
@@ -644,8 +646,10 @@ pub struct ServeCommandConfiguration {
     #[example = "`2160`"]
     pub preload_security_parameter: BlockNumber,
 
-    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
-    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+    /// Maximum number of hashes allowed by request to the Cardano prover.
+    ///
+    /// This unified limit is applied to both transaction-hash and block-hash proving routes.
+    pub cardano_prover_max_hashes_allowed_by_request: usize,
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
@@ -838,7 +842,7 @@ impl ServeCommandConfiguration {
                 },
             ),
             preload_security_parameter: BlockNumber(30),
-            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
             cardano_transactions_block_streamer_throttling_interval: None,
             enable_metrics_server: true,
@@ -1024,8 +1028,8 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.preload_security_parameter
     }
 
-    fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
-        self.cardano_transactions_prover_max_hashes_allowed_by_request
+    fn cardano_prover_max_hashes_allowed_by_request(&self) -> usize {
+        self.cardano_prover_max_hashes_allowed_by_request
     }
 
     fn cardano_transactions_block_streamer_max_roll_forwards_per_poll(&self) -> usize {
@@ -1144,8 +1148,10 @@ pub struct DefaultConfiguration {
     /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload
     pub preload_security_parameter: u64,
 
-    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
-    pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
+    /// Maximum number of hashes allowed by request to the Cardano prover.
+    ///
+    /// This unified limit is applied to both transaction-hash and block-hash proving routes.
+    pub cardano_prover_max_hashes_allowed_by_request: u32,
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
@@ -1202,7 +1208,7 @@ impl Default for DefaultConfiguration {
                 step: BlockNumber(120),
             },
             preload_security_parameter: 2160,
-            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
             cardano_transactions_block_streamer_throttling_interval: 50,
             enable_metrics_server: "false".to_string(),
@@ -1277,7 +1283,7 @@ impl Source for DefaultConfiguration {
         register_config_value!(
             result,
             &namespace,
-            myself.cardano_transactions_prover_max_hashes_allowed_by_request
+            myself.cardano_prover_max_hashes_allowed_by_request
         );
         register_config_value!(
             result,

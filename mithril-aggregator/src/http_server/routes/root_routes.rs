@@ -22,7 +22,7 @@ fn root(
             config.aggregate_signature_type
         }))
         .and(middlewares::extract_config(router_state, |config| {
-            config.cardano_transactions_prover_max_hashes_allowed_by_request
+            config.cardano_prover_max_hashes_allowed_by_request
         }))
         .and_then(handlers::root)
 }
@@ -128,7 +128,7 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
             ]),
-            cardano_transactions_prover_max_hashes_allowed_by_request: 500,
+            cardano_prover_max_hashes_allowed_by_request: 500,
             ..RouterConfig::dummy()
         };
         let dependency_manager = initialize_dependencies!().await;
@@ -195,7 +195,7 @@ mod tests {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]),
-            cardano_transactions_prover_max_hashes_allowed_by_request: 99,
+            cardano_prover_max_hashes_allowed_by_request: 99,
             ..RouterConfig::dummy()
         };
         let dependency_manager = initialize_dependencies!().await;
