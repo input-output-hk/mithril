@@ -273,11 +273,11 @@ mod tests {
         fn from_raw_recover_element_correctly() {
             let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
             let elem = BaseFieldElement::random(&mut rng);
-
             let elem_bytes = elem.to_bytes();
 
             let val1 = BaseFieldElement::from_bytes(&elem_bytes).unwrap();
             let val2 = BaseFieldElement::from_raw(&elem_bytes).unwrap();
+
             assert_eq!(val1, val2);
         }
     }
