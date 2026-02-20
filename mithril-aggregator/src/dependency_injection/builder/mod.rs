@@ -461,9 +461,9 @@ impl DependenciesBuilder {
                 allowed_discriminants: self
                     .configuration
                     .compute_allowed_signed_entity_types_discriminants()?,
-                cardano_transactions_prover_max_hashes_allowed_by_request: self
+                cardano_prover_max_hashes_allowed_by_request: self
                     .configuration
-                    .cardano_transactions_prover_max_hashes_allowed_by_request(),
+                    .cardano_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 max_artifact_epoch_offset: MAX_ARTIFACT_EPOCH_OFFSET,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
