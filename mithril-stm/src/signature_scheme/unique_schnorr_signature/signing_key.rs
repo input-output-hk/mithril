@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-    SchnorrVerificationKey, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
-    compute_poseidon_digest,
+    BaseFieldElement, DST_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
+    ScalarFieldElement, SchnorrVerificationKey, UniqueSchnorrSignature,
+    UniqueSchnorrSignatureError, compute_poseidon_digest,
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
@@ -65,19 +65,21 @@ impl SchnorrSigningKey {
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // The order must be preserved
-        let points_coordinates: Vec<BaseFieldElement> = [
-            msg_hash_point,
-            ProjectivePoint::from(verification_key.0),
-            commitment_point,
-            random_point_1,
-            ProjectivePoint::from(random_point_2),
-        ]
-        .iter()
-        .flat_map(|point| {
-            let (u, v) = point.get_coordinates();
-            [u, v]
-        })
-        .collect();
+        let mut points_coordinates: Vec<BaseFieldElement> = vec![DST_SIGNATURE.into()];
+        points_coordinates.extend(
+            [
+                msg_hash_point,
+                ProjectivePoint::from(verification_key.0),
+                commitment_point,
+                random_point_1,
+                ProjectivePoint::from(random_point_2),
+            ]
+            .iter()
+            .flat_map(|point| {
+                let (u, v) = point.get_coordinates();
+                [u, v]
+            }),
+        );
 
         let challenge = compute_poseidon_digest(&points_coordinates);
         let challenge_times_sk = ScalarFieldElement::from_base_field(&challenge)? * self.0;

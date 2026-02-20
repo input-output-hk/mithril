@@ -334,11 +334,13 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_reg.to_merkle_tree(),
+                    closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment(),
                 ),
                 closed_key_reg.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
 
             let signer_2: Signer<D> = Signer::new(
@@ -349,11 +351,13 @@ mod tests {
                     params,
                     sk_2,
                     pk_2.vk,
-                    closed_key_reg.to_merkle_tree(),
+                    closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment(),
                 ),
                 closed_key_reg.clone(),
                 params,
                 1,
+                #[cfg(feature = "future_snark")]
+                None,
             );
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();

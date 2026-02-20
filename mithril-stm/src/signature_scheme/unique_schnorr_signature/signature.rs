@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-    SchnorrVerificationKey, UniqueSchnorrSignatureError, compute_poseidon_digest,
+    BaseFieldElement, DST_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
+    ScalarFieldElement, SchnorrVerificationKey, UniqueSchnorrSignatureError,
+    compute_poseidon_digest,
 };
 
 /// Structure of the Unique Schnorr signature to use with the SNARK
@@ -69,19 +70,21 @@ impl UniqueSchnorrSignature {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let points_coordinates: Vec<BaseFieldElement> = [
-            msg_hash_point,
-            ProjectivePoint::from(verification_key.0),
-            self.commitment_point,
-            random_point_1_recomputed,
-            ProjectivePoint::from(random_point_2_recomputed),
-        ]
-        .iter()
-        .flat_map(|point| {
-            let (u, v) = point.get_coordinates();
-            [u, v]
-        })
-        .collect();
+        let mut points_coordinates: Vec<BaseFieldElement> = vec![DST_SIGNATURE.into()];
+        points_coordinates.extend(
+            [
+                msg_hash_point,
+                ProjectivePoint::from(verification_key.0),
+                self.commitment_point,
+                random_point_1_recomputed,
+                ProjectivePoint::from(random_point_2_recomputed),
+            ]
+            .iter()
+            .flat_map(|point| {
+                let (u, v) = point.get_coordinates();
+                [u, v]
+            }),
+        );
 
         let challenge_recomputed = compute_poseidon_digest(&points_coordinates);
 

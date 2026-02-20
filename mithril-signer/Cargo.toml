@@ -15,6 +15,7 @@ ignored = ["reqwest"]
 
 [features]
 default = ["jemallocator"]
+future_snark = [] # For activating snark features
 
 bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
