@@ -3,9 +3,9 @@ use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha256};
-use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Neg, Sub};
 
+use crate::StmError;
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
@@ -51,7 +51,7 @@ impl BaseFieldElement {
 
     /// Constructs a base field element from bytes by applying modulus reduction
     /// The underlying JubjubBase conversion function used cannot fail
-    pub(crate) fn from_raw(bytes: &[u8; 32]) -> Result<Self, TryFromSliceError> {
+    pub(crate) fn from_raw(bytes: &[u8; 32]) -> StmResult<Self> {
         Ok(BaseFieldElement(JubjubBase::from_raw([
             u64::from_le_bytes(bytes[0..8].try_into()?),
             u64::from_le_bytes(bytes[8..16].try_into()?),
@@ -64,7 +64,7 @@ impl BaseFieldElement {
 /// Try to convert an arbitrary slice of bytes to a BaseFieldElement by first
 /// hashing the bytes using Sha256 and then converting using modulus reduction
 impl TryFrom<&[u8]> for BaseFieldElement {
-    type Error = TryFromSliceError;
+    type Error = StmError;
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let hashed_input: [u8; 32] = Sha256::digest(value).into();
         BaseFieldElement::from_raw(&hashed_input)
