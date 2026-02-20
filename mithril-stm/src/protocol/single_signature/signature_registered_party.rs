@@ -231,7 +231,7 @@ mod tests {
                     params,
                     sk_1,
                     pk_1.vk,
-                    closed_key_reg.to_merkle_tree(),
+                    closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment(),
                 );
             let concatenation_signature =
                 concatenation_proof_signer.create_single_signature(&message).unwrap();
@@ -240,7 +240,7 @@ mod tests {
             let snark_signature = {
                 let key_registration_commitment = closed_key_reg
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
-                );
+                ).to_merkle_tree_commitment();
                 let closed_registration_entry =
                     ClosedRegistrationEntry::from((entry1, closed_key_reg.total_stake));
                 let lottery_target_value =

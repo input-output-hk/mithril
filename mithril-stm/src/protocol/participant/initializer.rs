@@ -97,8 +97,8 @@ impl Initializer {
 
         // --- Concatenation proof signer creation ---
         let key_registration_commitment_for_concatenation = closed_key_registration
-            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>(
-        );
+            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+            .to_merkle_tree_batch_commitment();
         let concatenation_proof_signer = ConcatenationProofSigner::new(
             registration_entry.get_stake(),
             closed_key_registration.total_stake,
@@ -111,8 +111,9 @@ impl Initializer {
         // ------- Snark proof signer creation -------
         #[cfg(feature = "future_snark")]
         let snark_proof_signer = {
-            let key_registration_commitment_for_snark =
-                closed_key_registration.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
+            let key_registration_commitment_for_snark = closed_key_registration
+                .to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>()
+                .to_merkle_tree_commitment();
             let lottery_target_value = ClosedRegistrationEntry::from((
                 registration_entry,
                 closed_key_registration.total_stake,

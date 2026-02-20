@@ -149,7 +149,8 @@ mod tests {
         let closed_reg = key_reg.close_registration();
 
         let merkle_tree = closed_reg
-            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>();
+            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>()
+            .to_merkle_tree_commitment();
         let target = ClosedRegistrationEntry::from((entry, closed_reg.total_stake))
             .get_lottery_target_value()
             .unwrap();

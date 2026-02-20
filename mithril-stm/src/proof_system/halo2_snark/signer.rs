@@ -3,7 +3,7 @@ use rand_core::{CryptoRng, RngCore};
 use crate::{
     BaseFieldElement, LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters,
     SchnorrSigningKey, SignatureError, StmResult, UniqueSchnorrSignature, VerificationKeyForSnark,
-    membership_commitment::MerkleTree, protocol::RegistrationEntryForSnark,
+    membership_commitment::MerkleTreeCommitment, protocol::RegistrationEntryForSnark,
 };
 
 use super::{SingleSignatureForSnark, compute_lottery_prefix, verify_lottery_eligibility};
@@ -16,7 +16,7 @@ pub(crate) struct SnarkProofSigner<D: MembershipDigest> {
     signing_key: SchnorrSigningKey,
     verification_key: VerificationKeyForSnark,
     lottery_target_value: LotteryTargetValue,
-    key_registration_commitment: MerkleTree<D::SnarkHash, RegistrationEntryForSnark>,
+    key_registration_commitment: MerkleTreeCommitment<D::SnarkHash, RegistrationEntryForSnark>,
 }
 
 impl<D: MembershipDigest> SnarkProofSigner<D> {
@@ -27,7 +27,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         signing_key: SchnorrSigningKey,
         verification_key: VerificationKeyForSnark,
         lottery_target_value: LotteryTargetValue,
-        key_registration_commitment: MerkleTree<D::SnarkHash, RegistrationEntryForSnark>,
+        key_registration_commitment: MerkleTreeCommitment<D::SnarkHash, RegistrationEntryForSnark>,
     ) -> Self {
         Self {
             parameters,
@@ -47,8 +47,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         message: &[u8],
         rng: &mut R,
     ) -> StmResult<SingleSignatureForSnark> {
-        let commitment_root = self.key_registration_commitment.to_merkle_tree_commitment();
-        let message_to_sign = commitment_root.build_snark_message(message)?;
+        let message_to_sign = self.key_registration_commitment.build_snark_message(message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
         let first_winning_index = Self::check_lottery(
@@ -145,7 +144,8 @@ mod tests {
         let closed_reg = key_reg.close_registration();
 
         let merkle_tree = closed_reg
-            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>();
+            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>()
+            .to_merkle_tree_commitment();
 
         SnarkProofSigner::<D>::new(params, schnorr_sk, schnorr_vk, target, merkle_tree)
     }
