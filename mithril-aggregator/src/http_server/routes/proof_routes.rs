@@ -115,7 +115,7 @@ mod handlers {
         MetricsService,
         http_server::{
             routes::{middlewares::ClientMetadata, reply},
-            validators::{ProverBlockHashValidator, ProverTransactionsHashValidator},
+            validators::ProverHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{CardanoBlockProof, LegacyProverService, SignedEntityService},
@@ -144,7 +144,7 @@ mod handlers {
         transaction_parameters: CardanoTransactionProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
-        validator: ProverTransactionsHashValidator,
+        validator: ProverHashValidator,
         prover_service: Arc<dyn LegacyProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -204,7 +204,7 @@ mod handlers {
         transaction_parameters: CardanoTransactionProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
-        validator: ProverTransactionsHashValidator,
+        validator: ProverHashValidator,
         prover_service: Arc<dyn LegacyProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -267,7 +267,7 @@ mod handlers {
         block_parameters: CardanoBlockProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
-        validator: ProverBlockHashValidator,
+        validator: ProverHashValidator,
         prover_service: Arc<dyn LegacyProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
