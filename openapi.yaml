@@ -698,7 +698,7 @@ paths:
               type: string
               format: bytes
               examples:
-                - "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d"
+                - "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0"
           explode: false
       responses:
         "200":
@@ -2888,7 +2888,7 @@ components:
               ],
             "non_certified_transactions":
               [
-                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"
+                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
               ],
             "latest_block_number": 7060000
           }
@@ -2958,7 +2958,7 @@ components:
               ],
             "non_certified_blocks":
               [
-                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"
+                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
               ],
             "latest_block_number": 7060000
           }
