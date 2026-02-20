@@ -164,6 +164,10 @@ impl SignedEntityServiceArtifactsDependencies {
 }
 
 impl MithrilSignedEntityService {
+    fn as_dyn_artifact<T: Artifact + 'static>(artifact: T) -> Arc<dyn Artifact> {
+        Arc::new(artifact)
+    }
+
     /// MithrilSignedEntityService factory
     pub fn new(
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
@@ -241,7 +245,7 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<Arc<dyn Artifact>> {
         match signed_entity_type.clone() {
-            SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Arc::new(
+            SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Self::as_dyn_artifact(
                 self.mithril_stake_distribution_artifact_builder
                     .compute_artifact(epoch, certificate)
                     .await
@@ -250,8 +254,8 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            ) as Arc<dyn Artifact>),
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Arc::new(
+            )),
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Self::as_dyn_artifact(
                 self.cardano_immutable_files_full_artifact_builder
                     .compute_artifact(beacon.clone(), certificate)
                     .await
@@ -260,17 +264,18 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            ) as Arc<dyn Artifact>),
-            SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Arc::new(
+            )),
+            SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Self::as_dyn_artifact(
                 self.cardano_stake_distribution_artifact_builder
-                .compute_artifact(epoch, certificate)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
-                    )
-                })?) as Arc<dyn Artifact>),
-            SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Arc::new(
+                    .compute_artifact(epoch, certificate)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?,
+            )),
+            SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Self::as_dyn_artifact(
                 self.cardano_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
                     .await
@@ -279,8 +284,8 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            ) as Arc<dyn Artifact>),
-            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number)  => Ok(Arc::new(
+            )),
+            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number) => Ok(Self::as_dyn_artifact(
                 self.cardano_blocks_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
                     .await
@@ -289,8 +294,8 @@ impl MithrilSignedEntityService {
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
-            ) as Arc<dyn Artifact>),
-            SignedEntityType::CardanoDatabase(beacon) => Ok(Arc::new(
+            )),
+            SignedEntityType::CardanoDatabase(beacon) => Ok(Self::as_dyn_artifact(
                 self.cardano_database_artifact_builder
                     .compute_artifact(beacon, certificate)
                     .await
@@ -298,8 +303,8 @@ impl MithrilSignedEntityService {
                         format!(
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
-                    })?
-            ) as Arc<dyn Artifact>),
+                    })?,
+            )),
         }
     }
 
@@ -512,19 +517,6 @@ impl SignedEntityService for MithrilSignedEntityService {
             .pop()
             .map(|r| r.try_into())
             .transpose()
-    }
-
-    async fn get_last_cardano_blocks_transactions_snapshot(
-        &self,
-    ) -> StdResult<Option<SignedEntity<CardanoBlocksTransactionsSnapshot>>> {
-        let mut signed_entities_records = self
-            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
-            .await?;
-
-        match signed_entities_records.pop() {
-            Some(record) => Ok(Some(record.try_into()?)),
-            None => Ok(None),
-        }
     }
 
     async fn get_last_signed_cardano_stake_distributions(
