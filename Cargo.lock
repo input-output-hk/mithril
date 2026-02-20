@@ -4406,7 +4406,6 @@ name = "mithril-relay"
 version = "0.2.2"
 dependencies = [
  "anyhow",
- "bincode",
  "clap",
  "config",
  "httpmock",
