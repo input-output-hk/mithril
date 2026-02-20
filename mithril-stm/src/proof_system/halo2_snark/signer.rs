@@ -3,12 +3,10 @@ use rand_core::{CryptoRng, RngCore};
 use crate::{
     BaseFieldElement, LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters,
     SchnorrSigningKey, SignatureError, StmResult, UniqueSchnorrSignature, VerificationKeyForSnark,
-    membership_commitment::MerkleTree,
-    protocol::RegistrationEntryForSnark,
-    signature_scheme::{DST_LOTTERY, compute_poseidon_digest},
+    membership_commitment::MerkleTreeCommitment, protocol::RegistrationEntryForSnark,
 };
 
-use super::SingleSignatureForSnark;
+use super::{SingleSignatureForSnark, compute_lottery_prefix, verify_lottery_eligibility};
 
 /// A signer for the SNARK proof system, responsible for generating signatures
 /// that can be used in SNARK proofs.
@@ -18,7 +16,7 @@ pub(crate) struct SnarkProofSigner<D: MembershipDigest> {
     signing_key: SchnorrSigningKey,
     verification_key: VerificationKeyForSnark,
     lottery_target_value: LotteryTargetValue,
-    key_registration_commitment: MerkleTree<D::SnarkHash, RegistrationEntryForSnark>,
+    key_registration_commitment: MerkleTreeCommitment<D::SnarkHash, RegistrationEntryForSnark>,
 }
 
 impl<D: MembershipDigest> SnarkProofSigner<D> {
@@ -29,7 +27,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         signing_key: SchnorrSigningKey,
         verification_key: VerificationKeyForSnark,
         lottery_target_value: LotteryTargetValue,
-        key_registration_commitment: MerkleTree<D::SnarkHash, RegistrationEntryForSnark>,
+        key_registration_commitment: MerkleTreeCommitment<D::SnarkHash, RegistrationEntryForSnark>,
     ) -> Self {
         Self {
             parameters,
@@ -49,8 +47,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         message: &[u8],
         rng: &mut R,
     ) -> StmResult<SingleSignatureForSnark> {
-        let commitment_root = self.key_registration_commitment.to_merkle_tree_commitment();
-        let message_to_sign = commitment_root.build_snark_message(message)?;
+        let message_to_sign = self.key_registration_commitment.build_snark_message(message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
         let first_winning_index = Self::check_lottery(
@@ -74,11 +71,11 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         signature: &UniqueSchnorrSignature,
         lottery_target_value: LotteryTargetValue,
     ) -> StmResult<LotteryIndex> {
-        let lottery_prefix = Self::compute_lottery_prefix(msg);
+        let lottery_prefix = compute_lottery_prefix(msg);
 
         (0..m)
             .find(|&index| {
-                Self::verify_lottery_eligibility(
+                verify_lottery_eligibility(
                     signature,
                     index,
                     m,
@@ -88,54 +85,6 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
                 .is_ok()
             })
             .ok_or_else(|| SignatureError::LotteryLost.into())
-    }
-
-    /// Computes the lottery prefix by hashing the message with the lottery DST.
-    /// The prefix is computed by prepending `DST_LOTTERY` to the message and hashing the result
-    /// using `compute_poseidon_digest`.
-    pub(super) fn compute_lottery_prefix(
-        message_as_base_field_element: &[BaseFieldElement],
-    ) -> BaseFieldElement {
-        let mut prefix = vec![DST_LOTTERY];
-        prefix.extend_from_slice(message_as_base_field_element);
-        compute_poseidon_digest(&prefix)
-    }
-
-    /// Verifies if a lottery index is eligible based on the signature and target value.
-    ///
-    /// This function checks whether a given index wins the lottery by computing an
-    /// evaluation value from the signature's commitment point and the index, then
-    /// comparing it against the target value. An index is eligible if its
-    /// evaluation value is less than or equal to the target.
-    ///
-    /// The evaluation is computed as:
-    /// `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)` where
-    /// `(commitment_point_x, commitment_point_y)` are coordinates of signature's commitment point.
-    pub(super) fn verify_lottery_eligibility(
-        signature: &UniqueSchnorrSignature,
-        lottery_index: LotteryIndex,
-        m: u64,
-        prefix: BaseFieldElement,
-        target: LotteryTargetValue,
-    ) -> StmResult<()> {
-        if lottery_index >= m {
-            return Err(SignatureError::IndexBoundFailed(lottery_index, m).into());
-        }
-
-        let lottery_index_as_base_field_element = BaseFieldElement::from(lottery_index);
-        let (commitment_point_x, commitment_point_y) = signature.commitment_point.get_coordinates();
-        let lottery_evaluation = compute_poseidon_digest(&[
-            prefix,
-            commitment_point_x,
-            commitment_point_y,
-            lottery_index_as_base_field_element,
-        ]);
-
-        if lottery_evaluation > target {
-            return Err(SignatureError::LotteryLost.into());
-        }
-
-        Ok(())
     }
 
     /// Gets the lottery target value
@@ -157,16 +106,14 @@ mod tests {
     use crate::{
         KeyRegistration, MembershipDigest, MithrilMembershipDigest, Parameters, RegistrationEntry,
         SignatureError, VerificationKeyForSnark, VerificationKeyProofOfPossessionForConcatenation,
-        membership_commitment::MerkleTreeCommitment,
+        membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
         protocol::RegistrationEntryForSnark,
         signature_scheme::{
             BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
         },
     };
 
-    use crate::membership_commitment::MerkleTreeSnarkLeaf;
-
-    use super::SnarkProofSigner;
+    use super::{SnarkProofSigner, compute_lottery_prefix, verify_lottery_eligibility};
 
     type D = MithrilMembershipDigest;
 
@@ -197,7 +144,8 @@ mod tests {
         let closed_reg = key_reg.close_registration();
 
         let merkle_tree = closed_reg
-            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>();
+            .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>()
+            .to_merkle_tree_commitment();
 
         SnarkProofSigner::<D>::new(params, schnorr_sk, schnorr_vk, target, merkle_tree)
     }
@@ -207,12 +155,12 @@ mod tests {
         type SnarkHash = <D as MembershipDigest>::SnarkHash;
 
         let root = [0u8; 32];
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
 
         let commitment =
             MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&root).unwrap();
         let message_to_sign = commitment.build_snark_message(&msg).unwrap();
-        let prefix1 = SnarkProofSigner::<D>::compute_lottery_prefix(&message_to_sign);
+        let prefix1 = compute_lottery_prefix(&message_to_sign);
 
         // Flip bit 0 of the commitment root
         let mut root_flipped = root;
@@ -221,7 +169,7 @@ mod tests {
             MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&root_flipped)
                 .unwrap();
         let message_to_sign_flipped = commitment_flipped.build_snark_message(&msg).unwrap();
-        let prefix2 = SnarkProofSigner::<D>::compute_lottery_prefix(&message_to_sign_flipped);
+        let prefix2 = compute_lottery_prefix(&message_to_sign_flipped);
 
         assert_ne!(prefix1, prefix2);
     }
@@ -237,9 +185,8 @@ mod tests {
         let target = BaseFieldElement::from(u64::MAX);
         let m = 10u64;
 
-        let err =
-            SnarkProofSigner::<D>::verify_lottery_eligibility(&signature, m + 1, m, prefix, target)
-                .expect_err("Index above m should fail");
+        let err = verify_lottery_eligibility(&signature, m + 1, m, prefix, target)
+            .expect_err("Index above m should fail");
         assert!(
             matches!(
                 err.downcast_ref::<SignatureError>(),
@@ -257,7 +204,7 @@ mod tests {
         let msg = [BaseFieldElement::from(42u64)];
         let signature = sk.sign(&msg, &mut rng).unwrap();
 
-        let prefix = SnarkProofSigner::<D>::compute_lottery_prefix(&msg);
+        let prefix = compute_lottery_prefix(&msg);
         let lottery_index = 5u64;
         let m = 10u64;
 
@@ -267,14 +214,7 @@ mod tests {
 
         // With target = ev, the lottery should pass
         assert!(
-            SnarkProofSigner::<D>::verify_lottery_eligibility(
-                &signature,
-                lottery_index,
-                m,
-                prefix,
-                ev,
-            )
-            .is_ok(),
+            verify_lottery_eligibility(&signature, lottery_index, m, prefix, ev,).is_ok(),
             "Lottery should pass when evaluation equals target"
         );
     }
@@ -285,7 +225,7 @@ mod tests {
         let target = BaseFieldElement::from(0u64);
         let signer = setup_signer_with_target(target, &mut rng);
 
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
         let err = signer
             .create_single_signature(&msg, &mut rng)
             .expect_err("Lottery with target = 0 should lose");
@@ -305,7 +245,7 @@ mod tests {
         let target = &BaseFieldElement::from(0u64) - &BaseFieldElement::from(1u64);
         let signer = setup_signer_with_target(target, &mut rng);
 
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
         assert!(
             signer.create_single_signature(&msg, &mut rng).is_ok(),
             "Lottery with target = p - 1 should always win"
