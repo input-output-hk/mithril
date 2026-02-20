@@ -50,7 +50,7 @@ impl BaseFieldElement {
     }
 
     /// Constructs a base field element from bytes by applying modulus reduction
-    /// The JubjubBase conversion function cannot fail
+    /// The JubjubBase conversion function used cannot fail
     pub(crate) fn from_raw(bytes: &[u8; 32]) -> Result<Self, TryFromSliceError> {
         Ok(BaseFieldElement(JubjubBase::from_raw([
             u64::from_le_bytes(bytes[0..8].try_into()?),
@@ -279,6 +279,20 @@ mod tests {
             let val2 = BaseFieldElement::from_raw(&elem_bytes).unwrap();
 
             assert_eq!(val1, val2);
+        }
+
+        #[test]
+        fn from_raw_succeed_for_max_value() {
+            let bytes = [255; 32];
+
+            let value = BaseFieldElement::from_bytes(&bytes);
+            value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+
+            let value = BaseFieldElement::from_raw(&bytes);
+            assert!(
+                value.is_ok(),
+                "The conversion should not fail when using from_raw."
+            );
         }
     }
 
