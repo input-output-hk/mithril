@@ -1576,7 +1576,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab67060fc6b8ef687992d439ca0fa36e7ed17e9a0b16b25b601e8757df720de"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.116",
 ]
 
 [[package]]
@@ -3932,7 +3932,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.25"
+version = "0.8.26"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3971,6 +3971,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest 0.12.28",
+ "rustls",
  "semver",
  "serde",
  "serde_json",
