@@ -11,10 +11,10 @@ repository = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
+future_snark = ["mithril-common/future_snark"] # For activating snark features
 
 [dependencies]
 anyhow = { workspace = true }
-bincode = { version = "=2.0.1" }
 clap = { workspace = true }
 config = { workspace = true }
 libp2p = { version = "0.56.0", features = [

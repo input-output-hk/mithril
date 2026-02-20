@@ -1,3 +1,5 @@
+#[cfg(feature = "future_snark")]
+use mithril_stm::VerificationKeyForSnark;
 use mithril_stm::{
     AggregateSignature, Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
     Signer, SingleSignature, Stake, VerificationKeyProofOfPossessionForConcatenation,
@@ -34,4 +36,9 @@ pub type ProtocolSingleSignature = SingleSignature;
 pub type ProtocolMultiSignature = AggregateSignature<D>;
 
 /// Alias of [MithrilStm:VerificationKeyProofOfPossessionForConcatenation](type@mithril_stm::VerificationKeyProofOfPossessionForConcatenation).
-pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossessionForConcatenation;
+pub type ProtocolSignerVerificationKeyForConcatenation =
+    VerificationKeyProofOfPossessionForConcatenation;
+
+/// Alias of [MithrilStm:VerificationKeyProofOfPossessionForSnark](type@mithril_stm::VerificationKeyProofOfPossessionForSnark).
+#[cfg(feature = "future_snark")]
+pub type ProtocolSignerVerificationKeyForSnark = VerificationKeyForSnark;
