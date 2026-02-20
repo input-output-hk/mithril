@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CardanoDatabaseVerificationError","ImmutableFileRange"],"struct":["CardanoDatabaseClient","DownloadUnpackOptions","ImmutableVerificationResult","VerifiedDigests"],"trait":["CardanoDatabaseAggregatorRequest"]};

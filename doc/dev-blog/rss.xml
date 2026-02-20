@@ -1,0 +1,739 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>Mithril. A complete guide. Blog</title>
+        <link>https://mithril.network/doc/dev-blog</link>
+        <description>Mithril. A complete guide. Blog</description>
+        <lastBuildDate>Thu, 29 Jan 2026 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>en</language>
+        <item>
+            <title><![CDATA[Distribution `2603` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2026/01/29/distribution-2603</link>
+            <guid>https://mithril.network/doc/dev-blog/2026/01/29/distribution-2603</guid>
+            <pubDate>Thu, 29 Jan 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2603 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2603-is-now-available">Distribution <code>2603</code> is now available<a href="https://mithril.network/doc/dev-blog/2026/01/29/distribution-2603#distribution-2603-is-now-available" class="hash-link" aria-label="Direct link to distribution-2603-is-now-available" title="Direct link to distribution-2603-is-now-available" translate="no">​</a></h3>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2603.1" target="_blank" rel="noopener noreferrer" class=""><code>2603.1</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class=""><strong>Breaking changes</strong>: progress bars and spinners in the Mithril client CLI now output to <code>stderr</code> instead of <code>stdout</code></li>
+<li class=""><strong>Deprecations</strong>: deprecated <code>cardano_db</code> function in library/WASM; removed <code>snapshot</code> function from <code>Client</code> struct; deprecated <code>--backend v1</code> flag in the CLI (use <code>--backend v2</code> instead)</li>
+<li class=""><strong>Decentralization support</strong>: introduced a new <code>/protocol-configuration/{epoch}</code> route for fetching aggregator configuration; refactored signer and aggregator to read network configurations from <code>MithrilNetworkConfigurationProvider</code>; follower aggregators can now read configurations from the leader aggregator</li>
+<li class=""><strong>Miscellaneous</strong>: replaced CExplorer API with Blockfrost API for pool names/tickers discovery; introduced support for the new Lagrange Mithril era; applied bug fixes and performance improvements</li>
+<li class=""><strong>Unstable</strong>: added DMQ protocol support in signer, aggregator and relay; implemented aggregator discovery mechanism in client library and CLI</li>
+<li class="">General bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>For those running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade the signer node binary to version <code>0.3.7</code> – no configuration changes are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade the signer node binary to version <code>0.3.7</code> – no configuration changes are required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. By default, it downloads to the current directory, but you can specify a custom folder with the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2603.1</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2603</category>
+        </item>
+        <item>
+            <title><![CDATA[DMQ testing program with SPOs]]></title>
+            <link>https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program</link>
+            <guid>https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program</guid>
+            <pubDate>Tue, 06 Jan 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[DMQ testing program with SPOs]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dmq-testing-program-with-spos">DMQ testing program with SPOs<a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program#dmq-testing-program-with-spos" class="hash-link" aria-label="Direct link to DMQ testing program with SPOs" title="Direct link to DMQ testing program with SPOs" translate="no">​</a></h3>
+<p>We are excited to announce the launch of a testing program for the <strong>Decentralized Message Queue (DMQ)</strong> feature with a group of stake pool operators (SPOs). This program will take place on the <code>pre-release-preview</code> network and aims to gather feedback, identify potential issues, and ensure the robustness of the DMQ implementation before its wider release.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-is-dmq">What is DMQ?<a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program#what-is-dmq" class="hash-link" aria-label="Direct link to What is DMQ?" title="Direct link to What is DMQ?" translate="no">​</a></h4>
+<p>The DMQ protocol, specified in <a href="https://cips.cardano.org/cip/CIP-0137" target="_blank" rel="noopener noreferrer" class="">CIP-0137</a>, is a major step forward for the Mithril network. It enables <strong>multiple aggregators</strong> to operate simultaneously on the same Mithril network, significantly improving <strong>decentralization</strong> and <strong>resilience</strong>. This enhancement reduces single points of failure and strengthens the overall robustness of the certificate production process.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-for-spo-participation">Call for SPO participation<a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program#call-for-spo-participation" class="hash-link" aria-label="Direct link to Call for SPO participation" title="Direct link to Call for SPO participation" translate="no">​</a></h4>
+<p>We invite interested SPOs to join the testing program! The only requirement is to run a Mithril signer on the <code>pre-release-preview</code> network. If you want to participate, please reach out to us on the Mithril Discord channel.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-note-on-adoption">Important note on adoption<a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program#important-note-on-adoption" class="hash-link" aria-label="Direct link to Important note on adoption" title="Direct link to Important note on adoption" translate="no">​</a></h4>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>Once the DMQ adoption has reached the required threshold, running multiple aggregators will be unlocked on the corresponding Mithril network. More information about the testing program for running multiple aggregators is available in this <a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program" target="_blank" rel="noopener noreferrer" class="">post</a>.</p></div></div>
+<p>For the DMQ protocol to operate effectively, a <strong>minimum adoption of 60% of stake</strong> among SPOs is required. During the ramp-up phase, the legacy signature registration mechanism will remain active to ensure continuity and avoid any disruption. Once the vast majority of SPOs have adopted DMQ, the legacy mechanism will be deactivated.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"></path></svg></span>tip</div><div class="admonitionContent_BuS1"><p>The Mithril team will provide dedicated support and guidance to help SPOs set up and operate their DMQ nodes.</p></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="rollout-plan">Rollout plan<a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program#rollout-plan" class="hash-link" aria-label="Direct link to Rollout plan" title="Direct link to Rollout plan" translate="no">​</a></h4>
+<p>The rollout plan of the DMQ network is the following:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2603.1" target="_blank" rel="noopener noreferrer" class="">2603</a></strong>: <code>unstable</code> on the <code>pre-release-preview</code> network<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->DMQ activation on the <code>pre-release-preview</code> network</li>
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Released a <a href="https://mithril.network/doc/manual/operate/run-signer-node/#set-up-the-dmq-node-unstable" target="_blank" rel="noopener noreferrer" class="">guide</a> for setting up a DMQ node in the SPO infrastructure</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->4-6 weeks testing program with selected SPOs</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Distribution +2</strong>: <code>stable</code> on the <code>release-preprod</code> and <code>release-mainnet</code> networks with fallback<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->DMQ activation on the <code>release-preprod</code> and <code>release-mainnet</code> networks</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Activation of the fallback to the legacy signature registration mechanism for all SPOs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Release of an updated guide for setting up a DMQ node in the SPO infrastructure</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Monitoring and support for SPOs running DMQ nodes</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Distribution +3</strong>: <code>stable</code> on the <code>release-preprod</code> and <code>release-mainnet</code> networks<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Deactivation of the fallback to the legacy signature registration mechanism for all SPOs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Monitoring and support for SPOs running DMQ nodes.</li>
+</ul>
+</li>
+</ul>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>DMQ</category>
+            <category>decentralization</category>
+            <category>testing program</category>
+        </item>
+        <item>
+            <title><![CDATA[Multiple aggregators testing program]]></title>
+            <link>https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program</link>
+            <guid>https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program</guid>
+            <pubDate>Tue, 06 Jan 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[Multiple aggregators testing program]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-aggregators-testing-program">Multiple aggregators testing program<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#multiple-aggregators-testing-program" class="hash-link" aria-label="Direct link to Multiple aggregators testing program" title="Direct link to Multiple aggregators testing program" translate="no">​</a></h3>
+<p>The Mithril team is launching a testing program for running <strong>multiple aggregators</strong> on the <code>pre-release-preview</code> network: running multiple aggregators will help increase decentralization and resilience of the Mithril network. This initiative will help collect valuable feedback, identify potential issues, and validate Mithril architecture before broader deployment.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="leaderfollower-architecture">Leader/follower architecture<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#leaderfollower-architecture" class="hash-link" aria-label="Direct link to Leader/follower architecture" title="Direct link to Leader/follower architecture" translate="no">​</a></h4>
+<p>We have introduced a <strong>leader/follower architecture</strong> for aggregators. In this initial phase, only the signature diffusion is decentralized thanks to the <a href="https://cips.cardano.org/cip/CIP-0137" target="_blank" rel="noopener noreferrer" class="">DMQ protocol (CIP-0137)</a>. IOG will continue operating the <strong>leader aggregator</strong>, while anyone will be able to run a <strong>follower aggregator</strong>.</p>
+<p>The leader aggregator serves as the <strong>seed for the certificate chain and the signer registration</strong>. When a follower aggregator joins the Mithril network, it fetches the existing certificate chain from the leader to bootstrap its operations and also relies on the leader aggregator to broadcast the signer registrations.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="public-and-private-aggregators">Public and private aggregators<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#public-and-private-aggregators" class="hash-link" aria-label="Direct link to Public and private aggregators" title="Direct link to Public and private aggregators" translate="no">​</a></h4>
+<p>Aggregators can be either <strong>public</strong> or <strong>private</strong>:</p>
+<ul>
+<li class=""><strong>Public aggregators</strong> are accessible to anyone and contribute to the overall resilience of the network</li>
+<li class=""><strong>Private aggregators</strong> can be operated for internal use cases or specific communities.</li>
+</ul>
+<p>A <strong>discovery mechanism</strong> is also being tested to allow new public aggregators to be easily found and accessible by clients across the network.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="call-for-participation">Call for participation<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#call-for-participation" class="hash-link" aria-label="Direct link to Call for participation" title="Direct link to Call for participation" translate="no">​</a></h4>
+<p>We invite <strong>SPOs and everyone in the Cardano ecosystem</strong> to join this testing program! Whether you want to run a public aggregator to strengthen the network or a private one for your own needs, your participation will help validate and improve the follower aggregator.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"></path></svg></span>tip</div><div class="admonitionContent_BuS1"><p>Running a follower aggregator does not require being an SPO: only a Cardano full node is needed.</p></div></div>
+<p>If you want to participate, please reach out to the team on the Mithril Discord channel.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-requirement">Important requirement<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#important-requirement" class="hash-link" aria-label="Direct link to Important requirement" title="Direct link to Important requirement" translate="no">​</a></h4>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>More information about the testing program for the DMQ network is available in this <a href="https://mithril.network/doc/dev-blog/2026/01/06/dmq-testing-program" target="_blank" rel="noopener noreferrer" class="">post</a>.</p></div></div>
+<p>A <strong>healthy DMQ network operated by at least 60% of the stake</strong> is mandatory for this feature to work. The DMQ protocol enables the decentralized diffusion of signatures, which must occur before any follower aggregator can proceed with the aggregation phase. During the ramp-up phase for the DMQ network, follower aggregators may not be able to produce valid certificates if the DMQ adoption is insufficient.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"></path></svg></span>tip</div><div class="admonitionContent_BuS1"><p>The Mithril team will provide dedicated support and guidance to help participants set up and operate their aggregator nodes.</p></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="rollout-plan">Rollout plan<a href="https://mithril.network/doc/dev-blog/2026/01/06/multiple-aggregators-testing-program#rollout-plan" class="hash-link" aria-label="Direct link to Rollout plan" title="Direct link to Rollout plan" translate="no">​</a></h4>
+<p>The rollout plan of the DMQ network is the following:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2603.1" target="_blank" rel="noopener noreferrer" class="">2603</a></strong>: <code>unstable</code> on the <code>pre-release-preview</code> network<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Activation of the feature on the <code>pre-release-preview</code> network</li>
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Released a <a href="https://mithril.network/doc/manual/operate/run-aggregator-node" target="_blank" rel="noopener noreferrer" class="">guide</a> for setting up a follower aggregator</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Wait for the DMQ adoption to reach the required threshold until aggregators can produce valid certificates</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->4-6 weeks testing program with selected participants</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Distribution +2</strong>: <code>stable</code> on the <code>release-preprod</code> and <code>release-mainnet</code> networks<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Activation of the feature on the <code>release-preprod</code> and <code>release-mainnet</code> networks</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Release of an updated guide for setting up a follower aggregator</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <!-- -->Monitoring and support for operators running follower aggregators.</li>
+</ul>
+</li>
+</ul>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>DMQ</category>
+            <category>decentralization</category>
+            <category>testing program</category>
+            <category>aggregator</category>
+            <category>follower</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2543` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/11/03/distribution-2543</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/11/03/distribution-2543</guid>
+            <pubDate>Mon, 03 Nov 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2543 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2543-is-now-available">Distribution <code>2543</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/11/03/distribution-2543#distribution-2543-is-now-available" class="hash-link" aria-label="Direct link to distribution-2543-is-now-available" title="Direct link to distribution-2543-is-now-available" translate="no">​</a></h3>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>Update 2025/11/10</div><div class="admonitionContent_BuS1"><p>The team released the hotfix <code>2543.1-hotfix</code> to address a bug in the <code>2543.0</code> distribution that could prevent the Mithril signer from signing when (re)started.</p></div></div>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2543.1-hotfix" target="_blank" rel="noopener noreferrer" class=""><code>2543.1-hotfix</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class="">Added support for default incremental backend (v2) for Cardano database restoration in the client library, CLI and WASM</li>
+<li class="">Added support for enhanced verification of a Cardano database which provides a list of tampered and missing files in case of failure in the client library and CLI</li>
+<li class="">Added support for artifacts retrieval by epoch for the Cardano database and Cardano stake distribution in the client library, CLI and WASM</li>
+<li class="">Deprecated the <code>with_aggregator_client</code> and <code>new</code> functions in the <code>ClientBuilder</code> struct of the client library</li>
+<li class="">General bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>For those running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade the signer node binary to version <code>0.2.276</code> – no configuration changes are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade the signer node binary to version <code>0.2.276</code> – no configuration changes are required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. By default, it downloads to the current directory, but you can specify a custom folder with the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2543.1</span><span class="token plain">-hotfix </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2543</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2537` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/09/17/distribution-2537</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/09/17/distribution-2537</guid>
+            <pubDate>Wed, 17 Sep 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2537 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2537-is-now-available">Distribution <code>2537</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/09/17/distribution-2537#distribution-2537-is-now-available" class="hash-link" aria-label="Direct link to distribution-2537-is-now-available" title="Direct link to distribution-2537-is-now-available" translate="no">​</a></h3>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2537.0" target="_blank" rel="noopener noreferrer" class=""><code>2537.0</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class="">Added support for Cardano node <code>v.10.5.1</code> in the signer and aggregator</li>
+<li class="">Added support for the stable <code>cardano_database_v2</code> backend in the <code>mithril-client</code> library</li>
+<li class="">Added support for the stable <code>v2</code> backend of the <code>cardano-db</code> command, with the decommissioning of the <code>cardano-db-v2</code> command in the client CLI</li>
+<li class="">Added support for the stable <code>verify</code> command to validate an existing Cardano database in the client CLI</li>
+<li class="">Added support for the stable UTXO-HD snapshot converter via the tools <code>utxo-hd snapshot-converter</code> command in the client CLI</li>
+<li class="">Provided pre-built Linux ARM binaries for the signer, client CLI, and aggregator</li>
+<li class="">Migrated to the Rust <code>2024</code> edition (from the <code>2021</code> edition)</li>
+<li class="">General bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>For those running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade the signer node binary to version <code>0.2.268</code> – no configuration changes are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade the signer node binary to version <code>0.2.268</code>– no configuration changes are required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. By default, it downloads to the current directory, but you can specify a custom folder with the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2537.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2537</category>
+        </item>
+        <item>
+            <title><![CDATA[Pre-built Linux ARM binaries are now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/09/17/pre-built-linux-arm-binaries</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/09/17/pre-built-linux-arm-binaries</guid>
+            <pubDate>Wed, 17 Sep 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Pre-built Linux ARM binaries are now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre-built-linux-arm-binaries-are-now-available">Pre-built Linux ARM binaries are now available<a href="https://mithril.network/doc/dev-blog/2025/09/17/pre-built-linux-arm-binaries#pre-built-linux-arm-binaries-are-now-available" class="hash-link" aria-label="Direct link to Pre-built Linux ARM binaries are now available" title="Direct link to Pre-built Linux ARM binaries are now available" translate="no">​</a></h3>
+<p>With the release of the <a href="https://github.com/input-output-hk/mithril/releases/tag/2537.0" target="_blank" rel="noopener noreferrer" class=""><code>2537.0</code></a> distribution, <strong>pre-built Linux ARM binaries</strong> are now available for Mithril nodes:</p>
+<ul>
+<li class="">Download the binaries directly (files attached to the GitHub release with the suffix <code>-linux-arm64.tar.gz</code>)</li>
+<li class="">Download the Debian package (files attached to the GitHub release with the suffix <code>-arm64.deb</code>)</li>
+<li class="">Use the <a href="https://mithril.network/doc/dev-blog/2024/11/25/one-line-binaries-installer" target="_blank" rel="noopener noreferrer" class="">one-liner installer</a> to install them.</li>
+</ul>
+<p>To provide a clear overview of supported platforms, the team has added a new 'Platform support' section in the release notes, reproduced below for convenience (note that it may change in the future).</p>
+<table><thead><tr><th>Binary</th><th style="text-align:center">Linux x64</th><th style="text-align:center">Linux arm64</th><th style="text-align:center">macOS arm64</th><th style="text-align:center">Windows x64</th></tr></thead><tbody><tr><td>mithril-aggregator</td><td style="text-align:center">✔</td><td style="text-align:center">✔ ⁽*⁾</td><td style="text-align:center">⛔</td><td style="text-align:center">⛔</td></tr><tr><td>mithril-signer</td><td style="text-align:center">✔</td><td style="text-align:center">✔ ⁽*⁾</td><td style="text-align:center">⛔</td><td style="text-align:center">⛔</td></tr><tr><td>mithril-client</td><td style="text-align:center">✔</td><td style="text-align:center">✔ ⁽*⁾</td><td style="text-align:center">✔</td><td style="text-align:center">✔</td></tr></tbody></table>
+<p>⁽*⁾⚠️ Linux arm64 builds are provided on a best-effort basis and are not officially supported.</p>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2537</category>
+            <category>arm</category>
+            <category>linux</category>
+            <category>pre-built</category>
+            <category>binaries</category>
+        </item>
+        <item>
+            <title><![CDATA[Switching to Cardano database incremental certification]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/06/17/client-cli-cardano-database-backends</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/06/17/client-cli-cardano-database-backends</guid>
+            <pubDate>Tue, 17 Jun 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Switching to Cardano database incremental certification]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-to-cardano-database-incremental-certification">Switching to Cardano database incremental certification<a href="https://mithril.network/doc/dev-blog/2025/06/17/client-cli-cardano-database-backends#switching-to-cardano-database-incremental-certification" class="hash-link" aria-label="Direct link to Switching to Cardano database incremental certification" title="Direct link to Switching to Cardano database incremental certification" translate="no">​</a></h3>
+<p>A new incremental certification process has been introduced for the <strong>Cardano node internal database</strong>. This enhancement is part of ongoing efforts to improve the Mithril protocol and optimize Cardano node bootstrapping.</p>
+<p>More information about the Cardano database certification is available at:</p>
+<ul>
+<li class=""><a href="https://mithril.network/doc/mithril/advanced/mithril-certification/cardano-node-database" target="_blank" rel="noopener noreferrer" class="">Cardano node database</a></li>
+<li class=""><a href="https://mithril.network/doc/mithril/advanced/mithril-certification/cardano-node-database-v2" target="_blank" rel="noopener noreferrer" class="">Cardano node database v2</a>.</li>
+</ul>
+<p>The Cardano node database v2 certification offers incremental verification and greater efficiency compared to the original method. It will progressively replace the current certification process for the Cardano node internal database.</p>
+<p>To facilitate this transition, updates have been made to both the <strong>Mithril client CLI</strong> and the <strong>Mithril client library</strong>. These changes are designed to support the new incremental certification process and ensure a smooth user experience.</p>
+<p>In particular, the <code>cardano-db</code> command in the Mithril client CLI has been updated to support the new incremental certification process and eventually a seamless switch to the new backend. A new <code>--backend</code> option has been added to the command, allowing users to specify the certification version:</p>
+<ul>
+<li class=""><code>--backend v1</code> uses the original Cardano node database certification (this remains the default)</li>
+<li class=""><code>--backend v2</code> enables the new incremental Cardano node database certification.</li>
+</ul>
+<p>To support this transition, both certification versions will remain available during the migration period, allowing users to adapt at their own pace.</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item">
+<p><input type="checkbox" disabled="" checked=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2524.0" target="_blank" rel="noopener noreferrer" class="">2524</a></strong>:</p>
+<ul>
+<li class="">Introduced the <code>--backend</code> parameter in the <code>cardano-db</code> command</li>
+<li class="">The default backend is <code>v1</code>; the <code>v2</code> backend is still considered <strong>unstable</strong></li>
+<li class="">No breaking changes in the client CLI</li>
+<li class="">The <code>v2</code> backend is accessible via the <code>cardano_database_v2</code> function in the client library.</li>
+</ul>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" disabled="" checked=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2537.0" target="_blank" rel="noopener noreferrer" class="">2537</a></strong>:</p>
+<ul>
+<li class="">The <code>v2</code> backend is promoted to <strong>stable</strong> status but will remain optional</li>
+<li class="">The <code>v1</code> backend is still the default.</li>
+</ul>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" disabled="" checked=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2543.0" target="_blank" rel="noopener noreferrer" class="">2543</a></strong>:</p>
+<ul>
+<li class="">The <code>v2</code> backend is the default</li>
+</ul>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" disabled="" checked=""> <strong>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2603.1" target="_blank" rel="noopener noreferrer" class="">2603</a></strong>:</p>
+<ul>
+<li class="">The <code>v1</code> backend is deprecated.</li>
+</ul>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" disabled=""> <strong>Distribution +4</strong>:</p>
+<ul>
+<li class="">The <code>v1</code> backend will be decommissioned and removed from the client CLI and library.</li>
+</ul>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" disabled=""> <strong>Distribution +5</strong>:</p>
+<ul>
+<li class="">The <code>v1</code> backend will be fully removed from the signer and aggregator.</li>
+</ul>
+</li>
+</ul>
+<p>If you have any questions or need assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>mithril client</category>
+            <category>library</category>
+            <category>cli</category>
+            <category>Cardano database</category>
+            <category>Cardano database v2</category>
+            <category>certification</category>
+            <category>backend</category>
+        </item>
+        <item>
+            <title><![CDATA[UTXO-HD ledger state snapshot converter command in client CLI]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/06/16/client-cli-utxo-snapshot-converter-command</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/06/16/client-cli-utxo-snapshot-converter-command</guid>
+            <pubDate>Mon, 16 Jun 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Update 2025/09/17: The command has been promoted to stable and is now available without the --unstable flag.]]></description>
+            <content:encoded><![CDATA[<p><strong>Update 2025/09/17</strong>: The command has been promoted to <code>stable</code> and is now available without the <code>--unstable</code> flag.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="introducing-the-utxo-hd-ledger-state-snapshot-converter-command-in-the-mithril-client-cli">Introducing the UTXO-HD ledger state snapshot converter command in the Mithril client CLI<a href="https://mithril.network/doc/dev-blog/2025/06/16/client-cli-utxo-snapshot-converter-command#introducing-the-utxo-hd-ledger-state-snapshot-converter-command-in-the-mithril-client-cli" class="hash-link" aria-label="Direct link to Introducing the UTXO-HD ledger state snapshot converter command in the Mithril client CLI" title="Direct link to Introducing the UTXO-HD ledger state snapshot converter command in the Mithril client CLI" translate="no">​</a></h3>
+<p>With the release of the new <a href="https://github.com/input-output-hk/mithril/releases/tag/2524.0" target="_blank" rel="noopener noreferrer" class="">2524</a> distribution, the <strong>tools</strong> command has been added to the <strong>Mithril client CLI</strong>.</p>
+<p>Since the release of Cardano node <a href="https://github.com/IntersectMBO/cardano-node/releases/tag/10.4.1" target="_blank" rel="noopener noreferrer" class="">v.10.4.1</a>, the Mithril aggregator node has been producing snapshots of the Cardano database using the <code>InMemory</code> UTXO-HD flavor.</p>
+<p>When restoring a Cardano database snapshot, if the Cardano node is configured to use the on-disk (LMDB) or <code>Legacy</code> format (as in Cardano node v.10.3 and earlier), the ledger state snapshot must be converted before restarting the node.</p>
+<p>The new <code>utxo-hd snapshot-converter</code> subcommand simplifies node bootstrapping by converting the restored ledger state snapshot into the required format (<code>LMDB</code> or <code>Legacy</code>).</p>
+<p>This conversion tool is currently marked as <code>unstable</code> and is available on Linux, macOS, and Windows.</p>
+<p>It operates using the <code>snapshot-converter</code> binary included with the Cardano node distribution.</p>
+<p>Usage:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">mithril-client tools utxo-hd snapshot-converter --db-directory </span><span class="token variable" style="color:#36acaa">$DB_DIRECTORY</span><span class="token plain"> --cardano-node-version </span><span class="token number" style="color:#36acaa">10.1</span><span class="token plain">.4 --utxo-hd-flavor </span><span class="token variable" style="color:#36acaa">$UTXO_HD_FLAVOR</span><br></span></code></pre></div></div>
+<p>Parameters:</p>
+<ul>
+<li class=""><code>--db-directory</code>: path to the Cardano database directory</li>
+<li class=""><code>--cardano-node-version</code>: version used to download the <code>snapshot-converter</code> binary (specific version, eg, <code>10.1.4</code>, <code>latest</code>, or <code>prerelease</code>)</li>
+<li class=""><code>--utxo-hd-flavor</code>: target UTXO-HD flavor (<code>LMDB</code> or <code>Legacy</code>)</li>
+</ul>
+<p>The 'Bootstrap a Cardano node' guide now includes a new optional <a href="https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node#step-5-optional-convert-the-ledger-state-snapshot-to-another-flavor" target="_blank" rel="noopener noreferrer" class="">step</a> that describes how to use the command.</p>
+<p>The documentation for the <strong>client CLI</strong> has been updated accordingly and is available <a href="https://mithril.network/doc/manual/developer-docs/nodes/mithril-client#tools-unstable" target="_blank" rel="noopener noreferrer" class="">here</a>.</p>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>mithril client</category>
+            <category>cli</category>
+            <category>command</category>
+            <category>utxo-hd</category>
+            <category>conversion</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2524` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/06/16/distribution-2524</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/06/16/distribution-2524</guid>
+            <pubDate>Mon, 16 Jun 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2524 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2524-is-now-available">Distribution <code>2524</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/06/16/distribution-2524#distribution-2524-is-now-available" class="hash-link" aria-label="Direct link to distribution-2524-is-now-available" title="Direct link to distribution-2524-is-now-available" translate="no">​</a></h3>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2524.0" target="_blank" rel="noopener noreferrer" class=""><code>2524.0</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class="">Support for Cardano node v.10.4.1 in the signer and aggregator</li>
+<li class="">Support for recording client origin types (library, CLI, WASM) in aggregator metrics</li>
+<li class=""><strong>Unstable</strong> support for UTXO-HD snapshot converter <code>tools utxo-hd snapshot-converter</code> command in the client CLI</li>
+<li class=""><strong>Unstable</strong> support for partial Cardano database restoration using the <code>cardano-database</code> command with the <code>--backend v2</code> parameter</li>
+<li class="">Bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>If running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade the signer node binary to version <code>0.2.249</code> – no configuration changes required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade the signer node binary to version <code>0.2.249</code>– no configuration changes required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. It downloads to the current directory by default, but you can specify a custom folder using the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2524.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2524</category>
+        </item>
+        <item>
+            <title><![CDATA[Mithril Cardano database snapshots security advisory]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/05/07/client-security-advisory</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/05/07/client-security-advisory</guid>
+            <pubDate>Wed, 07 May 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Mithril snapshots for Cardano database could be compromised by an adversary]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mithril-snapshots-for-cardano-database-could-be-compromised-by-an-adversary">Mithril snapshots for Cardano database could be compromised by an adversary<a href="https://mithril.network/doc/dev-blog/2025/05/07/client-security-advisory#mithril-snapshots-for-cardano-database-could-be-compromised-by-an-adversary" class="hash-link" aria-label="Direct link to Mithril snapshots for Cardano database could be compromised by an adversary" title="Direct link to Mithril snapshots for Cardano database could be compromised by an adversary" translate="no">​</a></h3>
+<p>The Mithril team has published a <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-qv97-5qr8-2266" target="_blank" rel="noopener noreferrer" class="">security advisory</a> for users running the Mithril client on the <code>mainnet</code> infrastructure:</p>
+<ul>
+<li class=""><strong>Identifier</strong>: GHSA-qv97-5qr8-2266</li>
+<li class=""><strong>Title</strong>: Mithril snapshots for Cardano database could be compromised by an adversary</li>
+<li class=""><strong>Location</strong>: <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-qv97-5qr8-2266" target="_blank" rel="noopener noreferrer" class="">GHSA-qv97-5qr8-2266</a></li>
+<li class=""><strong>Severity</strong>: Moderate (4.9/10).</li>
+</ul>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"></path></svg></span>danger</div><div class="admonitionContent_BuS1"><p>We strongly encourage all <code>mainnet</code> users running a <strong>client library or client CLI</strong> to update to the latest versions to prevent the issue:</p><ul>
+<li class="">The <strong>Mithril client library</strong> has been fixed with version <code>0.12.2</code> and is available <a href="https://crates.io/crates/mithril-client" target="_blank" rel="noopener noreferrer" class="">here</a></li>
+<li class="">The <strong>Mithril client CLI</strong> has been fixed with version <code>0.12.1</code> and can be downloaded with the following command:</li>
+</ul><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-client </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2517.1</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div><p><strong>Note that all the previous versions must not be used anymore.</strong></p></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>spo</category>
+            <category>mithril client</category>
+            <category>mainnet</category>
+            <category>production</category>
+            <category>beta</category>
+            <category>security</category>
+            <category>cardano-database</category>
+        </item>
+        <item>
+            <title><![CDATA[Breaking changes in client library and CLI]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/05/06/client-breaking-change</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/05/06/client-breaking-change</guid>
+            <pubDate>Tue, 06 May 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Breaking changes in client library and CLI]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="breaking-changes-in-client-library-and-cli">Breaking changes in client library and CLI<a href="https://mithril.network/doc/dev-blog/2025/05/06/client-breaking-change#breaking-changes-in-client-library-and-cli" class="hash-link" aria-label="Direct link to Breaking changes in client library and CLI" title="Direct link to Breaking changes in client library and CLI" translate="no">​</a></h3>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2517.1" target="_blank" rel="noopener noreferrer" class=""><code>2517</code></a> release introduces breaking changes to the <strong>Mithril client CLI</strong> and <strong>library</strong>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-cli">Client CLI<a href="https://mithril.network/doc/dev-blog/2025/05/06/client-breaking-change#client-cli" class="hash-link" aria-label="Direct link to Client CLI" title="Direct link to Client CLI" translate="no">​</a></h4>
+<p>The command for downloading a certified Cardano database using the <strong>Mithril client CLI</strong> has been updated starting from version <code>0.12.1</code>:</p>
+<ul>
+<li class="">The existing command remains functional but no longer downloads ancillary files (ledger state snapshot and last immutable file) by default. As a result, the fast bootstrap feature is disabled, requiring the Cardano node to compute the ledger state from the genesis block during startup:</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">mithril-client cardano-database download latest</span><br></span></code></pre></div></div>
+<ul>
+<li class="">To include ancillary files and enable fast bootstrap, use the new command with the <code>--include-ancillary</code> option:</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">mithril-client cardano-database download latest --include-ancillary --ancillary-verification-key </span><span class="token operator" style="color:#393A34">&lt;</span><span class="token plain">ANCILLARY_VERIFICATION_KEY</span><span class="token operator" style="color:#393A34">&gt;</span><br></span></code></pre></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>The new command requires an <strong>ancillary verification key</strong>. This key can be provided via the <code>--ancillary-verification-key</code> option or the <code>ANCILLARY_VERIFICATION_KEY</code> environment variable. Details are available on the <a href="https://mithril.network/doc/next/manual/getting-started/network-configurations" target="_blank" rel="noopener noreferrer" class="">Networks configuration</a> page.</p></div></div>
+<p>To update the Mithril client CLI, use the following one-line command. By default, it downloads to the current directory. To specify a custom folder, use the <code>-p</code> option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-client </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2517.1</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For more details, refer to the <a href="https://mithril.network/doc/manual/develop/nodes/mithril-client" target="_blank" rel="noopener noreferrer" class="">Mithril client node</a> documentation.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-library">Client Library<a href="https://mithril.network/doc/dev-blog/2025/05/06/client-breaking-change#client-library" class="hash-link" aria-label="Direct link to Client Library" title="Direct link to Client Library" translate="no">​</a></h4>
+<p>The <strong>Mithril client library</strong> has also been updated. By default, it no longer downloads ancillary files (ledger state snapshot and last immutable file), which disables the fast bootstrap feature. Consequently, the Cardano node must compute the ledger state from the genesis block during startup.</p>
+<p>To enable fast bootstrap, use the <code>download_unpack_full</code> function instead of <code>download_unpack</code> and provide the <code>set_ancillary_verification_key</code> parameter:</p>
+<ul>
+<li class="">Set the ancillary verification key using the <code>set_ancillary_verification_key</code> method when building the client:</li>
+</ul>
+<div class="language-rust codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-rust codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token keyword" style="color:#00009f">let</span><span class="token plain"> client </span><span class="token operator" style="color:#393A34">=</span><span class="token plain"> </span><span class="token class-name">ClientBuilder</span><span class="token punctuation" style="color:#393A34">::</span><span class="token function" style="color:#d73a49">aggregator</span><span class="token punctuation" style="color:#393A34">(</span><span class="token constant" style="color:#36acaa">AGGREGATOR_ENDPOINT</span><span class="token punctuation" style="color:#393A34">,</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">GENESIS_VERIFICATION_KEY</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">set_ancillary_verification_key</span><span class="token punctuation" style="color:#393A34">(</span><span class="token constant" style="color:#36acaa">ANCILLARY_VERIFICATION_KEY</span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">to_string</span><span class="token punctuation" style="color:#393A34">(</span><span class="token punctuation" style="color:#393A34">)</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"> </span><span class="token comment" style="color:#999988;font-style:italic">// Added line</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">with_origin_tag</span><span class="token punctuation" style="color:#393A34">(</span><span class="token class-name">Some</span><span class="token punctuation" style="color:#393A34">(</span><span class="token string" style="color:#e3116c">"EXAMPLE"</span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">to_string</span><span class="token punctuation" style="color:#393A34">(</span><span class="token punctuation" style="color:#393A34">)</span><span class="token punctuation" style="color:#393A34">)</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">build</span><span class="token punctuation" style="color:#393A34">(</span><span class="token punctuation" style="color:#393A34">)</span><span class="token operator" style="color:#393A34">?</span><span class="token punctuation" style="color:#393A34">;</span><br></span></code></pre></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>The <strong>ancillary verification key</strong> for the Mithril networks are available on the <a href="https://mithril.network/doc/next/manual/getting-started/network-configurations" target="_blank" rel="noopener noreferrer" class="">Networks configuration</a> page.</p></div></div>
+<ul>
+<li class="">Use the <code>download_unpack_full</code> function to download ancillary files:</li>
+</ul>
+<div class="language-rust codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-rust codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">client</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">cardano_database</span><span class="token punctuation" style="color:#393A34">(</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token function" style="color:#d73a49">download_unpack_full</span><span class="token punctuation" style="color:#393A34">(</span><span class="token operator" style="color:#393A34">&amp;</span><span class="token plain">snapshot</span><span class="token punctuation" style="color:#393A34">,</span><span class="token plain"> target_directory</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token punctuation" style="color:#393A34">.</span><span class="token keyword" style="color:#00009f">await</span><span class="token operator" style="color:#393A34">?</span><span class="token punctuation" style="color:#393A34">;</span><br></span></code></pre></div></div>
+<p>For more information and a complete example, refer to the <a href="https://mithril.network/doc/manual/develop/nodes/mithril-client-library#cardano-database" target="_blank" rel="noopener noreferrer" class="">Mithril client library</a> documentation.</p>
+<p>If you have any questions or need assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>mithril client</category>
+            <category>library</category>
+            <category>cli</category>
+            <category>breaking-change</category>
+            <category>Cardano database</category>
+            <category>ancillary</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2517` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/05/05/distribution-2517</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/05/05/distribution-2517</guid>
+            <pubDate>Mon, 05 May 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2517 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2517-is-now-available">Distribution <code>2517</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/05/05/distribution-2517#distribution-2517-is-now-available" class="hash-link" aria-label="Direct link to distribution-2517-is-now-available" title="Direct link to distribution-2517-is-now-available" translate="no">​</a></h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>warning</div><div class="admonitionContent_BuS1"><ul>
+<li class="">This distribution embeds a fix for the <strong>Mithril snapshots for Cardano database could be compromised by an adversary</strong> security advisory <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-qv97-5qr8-2266" target="_blank" rel="noopener noreferrer" class="">GHSA-qv97-5qr8-2266</a></li>
+<li class="">All users running a <strong>client library or client CLI</strong> are <strong>strongly encouraged</strong> to update to the latest versions.</li>
+</ul></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>Update 2025/05/06</div><div class="admonitionContent_BuS1"><p>The team released the hotfix <code>2517.1</code> to address a bug in the <code>2517.0</code> distribution that caused the Cardano node to fail during startup when using a snapshot downloaded with the Mithril client.</p></div></div>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2517.1" target="_blank" rel="noopener noreferrer" class=""><code>2517.1</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class="">⚠️ <strong>Breaking</strong> changes in Mithril client CLI and library:<!-- -->
+<ul>
+<li class="">To fast bootstrap a Cardano node, the new <code>--include-ancillary</code> option has been added to the <em>Cardano node database</em> command in the Mithril client CLI.</li>
+<li class="">Without this option, only final immutable files are downloaded, and the ledger state must be computed from the genesis block when the Cardano node starts.</li>
+<li class="">The <code>--include-ancillary</code> option requires the usage of an <strong>ancillary verification key</strong> (<code>--ancillary-verification-key</code> or <code>ANCILLARY_VERIFICATION_KEY</code>) which is specified in the <a href="https://mithril.network/doc/manual/getting-started/network-configurations" target="_blank" rel="noopener noreferrer" class="">Networks configuration</a> page.</li>
+<li class="">Clients from distribution [<code>2513</code>] and earlier are <strong>not compatible</strong> with this change and <strong>must be updated</strong>.</li>
+</ul>
+</li>
+<li class="">Support for <code>Cardano node</code> <code>10.3.1</code> in the signer and the aggregator</li>
+<li class="">Support for origin tags in Mithril client library, CLI and WASM to record the origin of client requests.</li>
+<li class="">Bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>If you are running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade your signer node binary to version <code>0.2.243</code> – no configuration updates are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade your signer node binary to version <code>0.2.243</code>– no configuration updates are required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. It downloads to the current directory by default, but you can specify a custom folder using the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2517.1</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2517</category>
+            <category>security-advisory</category>
+        </item>
+        <item>
+            <title><![CDATA[Certification of Cardano node database v2]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/04/14/cardano-node-database-v2-certification</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/04/14/cardano-node-database-v2-certification</guid>
+            <pubDate>Mon, 14 Apr 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Certification of Cardano node database v2]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="certification-of-cardano-node-database-v2">Certification of Cardano node database v2<a href="https://mithril.network/doc/dev-blog/2025/04/14/cardano-node-database-v2-certification#certification-of-cardano-node-database-v2" class="hash-link" aria-label="Direct link to Certification of Cardano node database v2" title="Direct link to Certification of Cardano node database v2" translate="no">​</a></h3>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>Update 2025/05/14</div><div class="admonitionContent_BuS1"><p>We have activated the <strong>Cardano node database v2 certification</strong> on the <code>release-mainnet</code> network.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>Update 2025/04/25</div><div class="admonitionContent_BuS1"><p>We have activated the <strong>Cardano node database v2 certification</strong> on the <code>release-preprod</code> network.</p></div></div>
+<p>With the release of the new distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2513.0" target="_blank" rel="noopener noreferrer" class="">2513</a>, we have started to roll out the certification of the <a href="https://mithril.network/doc/mithril/advanced/mithril-certification/cardano-node-database-v2/" target="_blank" rel="noopener noreferrer" class=""><strong>Cardano node database v2</strong></a> in the Mithril networks.</p>
+<p>Initially, Mithril certified entire database snapshots, requiring clients to download and verify the full database to bootstrap a Cardano node. The Mithril network now provides incremental certification of the Cardano node database, allowing clients to download only the specific range of immutable files needed, accelerating the process of bootstrapping a Cardano node. The key features include:</p>
+<ul>
+<li class="">Certification of the Cardano node database v2 every time a new immutable file is produced</li>
+<li class="">New HTTP routes in the aggregator REST API to access this certified data</li>
+<li class="">Updates to the Mithril client library and CLI for retrieving and verifying Cardano node database v2 (will be made stable one distribution after the activation in <code>release-mainet</code>)</li>
+<li class="">Mithril Explorer now displays certified Cardano node database v2.</li>
+</ul>
+<p>The roll-out plan of the feature is the following:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2513.0" target="_blank" rel="noopener noreferrer" class="">2513</a>:<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Activation of the certification of <strong>Cardano node database v2</strong> in the <code>pre-release-preview</code> network</li>
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Activation of the certification of <strong>Cardano node database v2</strong> in the <code>release-preprod</code> network</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2517.1" target="_blank" rel="noopener noreferrer" class="">2517</a>:<!-- -->
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><input type="checkbox" disabled="" checked=""> <!-- -->Activation of the certification of <strong>Cardano node database v2</strong> in the <code>release-mainnet</code> network.</li>
+</ul>
+</li>
+</ul>
+<p>For any inquiries or assistance, don't hesitate to contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>certification</category>
+            <category>cardano node database v2</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2513` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/03/28/distribution-2513</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/03/28/distribution-2513</guid>
+            <pubDate>Fri, 28 Mar 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2513 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2513-is-now-available">Distribution <code>2513</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/03/28/distribution-2513#distribution-2513-is-now-available" class="hash-link" aria-label="Direct link to distribution-2513-is-now-available" title="Direct link to distribution-2513-is-now-available" translate="no">​</a></h3>
+<p>The <a href="https://github.com/input-output-hk/mithril/releases/tag/2513.0" target="_blank" rel="noopener noreferrer" class=""><code>2513.0</code></a> distribution has been released, introducing the following changes:</p>
+<ul>
+<li class="">⚠️ <strong>Breaking</strong> changes in Mithril nodes:<!-- -->
+<ul>
+<li class="">The <strong>minimum required</strong> <code>glibc</code> version for pre-built Linux binaries has been upgraded from <code>2.31</code> to <code>2.35</code></li>
+<li class="">Mithril signers running versions <code>&lt;=0.2.200</code> <strong>must be updated</strong> due to the removal of Thales era legacy code</li>
+<li class="">The <code>with_snapshot_uploader</code> function in the Mithril client library has been renamed to <code>with_file_uploader</code></li>
+</ul>
+</li>
+<li class="">Added support for Cardano node <code>10.2.1</code> in the signer and aggregator</li>
+<li class="">Ended support for <strong>macOS x64 pre-built binaries</strong> for the client CLI</li>
+<li class="">Bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> on the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>If you are running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade your signer node binary to version <code>0.2.237</code> – no configuration updates are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade your signer node binary to version <code>0.2.237</code>– no configuration updates are required.</li>
+</ul>
+<p>You can update the Mithril signer using the one-line command below. It downloads to the current directory by default, but you can specify a custom folder using the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2513.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2513</category>
+        </item>
+        <item>
+            <title><![CDATA[Ending support for macOS x64 pre-built binaries]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/02/18/end-of-support-macos-x64</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/02/18/end-of-support-macos-x64</guid>
+            <pubDate>Tue, 18 Feb 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Ending support for macOS x64 pre-built binaries]]></description>
+            <content:encoded><![CDATA[<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ending-support-for-macos-x64-pre-built-binaries">Ending support for macOS x64 pre-built binaries<a href="https://mithril.network/doc/dev-blog/2025/02/18/end-of-support-macos-x64#ending-support-for-macos-x64-pre-built-binaries" class="hash-link" aria-label="Direct link to Ending support for macOS x64 pre-built binaries" title="Direct link to Ending support for macOS x64 pre-built binaries" translate="no">​</a></h2>
+<p>Since 2020, macOS has transitioned from <strong>Intel</strong> (x64 architecture) to <strong>Apple Silicon</strong> (arm64 architecture) processors.</p>
+<p>Additionally, Cardano node version <code>10+</code> now supports only Apple Silicon on macOSX.</p>
+<p>As a result, the Mithril team will end support for <strong>macOS x64 pre-built binaries</strong> for the client CLI starting <strong>March 2025</strong>.</p>
+<p>From this date, <strong>CI will no longer build these binaries</strong> for GitHub releases. If you are still using macOS x64, you will need to build the binaries from source.</p>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>macos</category>
+            <category>pre-built</category>
+            <category>binaries</category>
+            <category>apple silicon</category>
+            <category>x64</category>
+            <category>end of support</category>
+            <category>ci</category>
+        </item>
+        <item>
+            <title><![CDATA[Decommissioning the `testing‑sanchonet` network]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/02/18/testing-sanchonet-decommission</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/02/18/testing-sanchonet-decommission</guid>
+            <pubDate>Tue, 18 Feb 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Announcing the decommissioning of the testing‑sanchonet network]]></description>
+            <content:encoded><![CDATA[<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="announcing-the-decommissioning-of-the-testingsanchonet-network">Announcing the decommissioning of the <code>testing‑sanchonet</code> network<a href="https://mithril.network/doc/dev-blog/2025/02/18/testing-sanchonet-decommission#announcing-the-decommissioning-of-the-testingsanchonet-network" class="hash-link" aria-label="Direct link to announcing-the-decommissioning-of-the-testingsanchonet-network" title="Direct link to announcing-the-decommissioning-of-the-testingsanchonet-network" translate="no">​</a></h2>
+<p>The <code>testing-sanchonet</code> Mithril network was introduced a year ago to allow the community to test experimental features and provide feedback to the Mithril team. In particular, it has been a valuable tool for testing the transition to the <strong>Conway</strong> era.</p>
+<p><strong>The Mithril team sincerely appreciates the Mithril pioneer stake pool operators for participating in testing and providing valuable feedback!</strong></p>
+<p>The Cardano SanchoNet network is now being sunset, having served its purpose of introducing governance features from CIP-1694 in a controlled testnet environment.</p>
+<p>In this context, the Mithril team has decided to decommission the <code>testing-sanchonet</code> network:</p>
+<ul>
+<li class="">the aggregator will be terminated by <strong>February 21, 2025</strong></li>
+<li class="">the network will be removed from the <a href="https://mithril.network/explorer/?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator" target="_blank" rel="noopener noreferrer" class="">Mithril explorer</a></li>
+<li class="">the repository code will be cleaned up.</li>
+</ul>
+<p>If you are running a <strong>Mithril signer on this network, you can safely terminate your node</strong> and remove the <code>testing-sanchonet</code> configuration from your setup.</p>
+<p>Available Mithril networks are listed on the <a href="https://mithril.network/doc/manual/getting-started/network-configurations" target="_blank" rel="noopener noreferrer" class="">Network configurations</a> page of the documentation website.</p>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>cardano</category>
+            <category>sanchonet</category>
+            <category>spo</category>
+            <category>testing</category>
+            <category>network</category>
+        </item>
+        <item>
+            <title><![CDATA[Mithril certificate chain security advisory]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/02/14/client-security-advisory</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/02/14/client-security-advisory</guid>
+            <pubDate>Fri, 14 Feb 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Mithril certificate chain could be manipulated by an adversarial signer (security advisory)]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mithril-certificate-chain-could-be-manipulated-by-an-adversarial-signer-security-advisory">Mithril certificate chain could be manipulated by an adversarial signer (security advisory)<a href="https://mithril.network/doc/dev-blog/2025/02/14/client-security-advisory#mithril-certificate-chain-could-be-manipulated-by-an-adversarial-signer-security-advisory" class="hash-link" aria-label="Direct link to Mithril certificate chain could be manipulated by an adversarial signer (security advisory)" title="Direct link to Mithril certificate chain could be manipulated by an adversarial signer (security advisory)" translate="no">​</a></h3>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>The certificate chain of the <code>release-mainnet</code> aggregator has been re-genesised at epoch <strong>539</strong>, and the network has resumed producing a valid chain at epoch <strong>540</strong>.</p></div></div>
+<p>The Mithril team has published a <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-724h-fpm5-4qvr" target="_blank" rel="noopener noreferrer" class="">security advisory</a> for users running the Mithril client on the <code>mainnet</code> infrastructure:</p>
+<ul>
+<li class=""><strong>Identifier</strong>: GHSA-724h-fpm5-4qvr</li>
+<li class=""><strong>Title</strong>: Mithril certificate chain could be manipulated by an adversarial signer</li>
+<li class=""><strong>Location</strong>: <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-724h-fpm5-4qvr" target="_blank" rel="noopener noreferrer" class="">GHSA-724h-fpm5-4qvr</a></li>
+<li class=""><strong>Severity</strong>: High (5.3/10).</li>
+</ul>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"></path></svg></span>danger</div><div class="admonitionContent_BuS1"><p>We strongly encourage all the <code>mainnet</code> users running a <strong>client library, client CLI, or client WASM</strong> to update to the latest versions to prevent the issue:</p><ul>
+<li class="">The <strong>Mithril client library</strong> has been fixed with version <code>0.11.1</code> and is available <a href="https://crates.io/crates/mithril-client" target="_blank" rel="noopener noreferrer" class="">here</a></li>
+<li class="">The <strong>Mithril client WASM</strong> has been fixed with version <code>0.8.1</code> and is available <a href="https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm/v/0.8.1" target="_blank" rel="noopener noreferrer" class="">here</a></li>
+<li class="">The <strong>Mithril client CLI</strong> has been fixed with version <code>0.11.0</code> and can be downloaded with the following command:</li>
+</ul><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-client </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2506.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div><p><strong>Note that all the previous versions must not be used anymore.</strong></p></div></div>
+<p>For any inquiries or assistance, feel free to contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>spo</category>
+            <category>mithril client</category>
+            <category>certificate</category>
+            <category>certificate chain</category>
+            <category>mainnet</category>
+            <category>production</category>
+            <category>beta</category>
+            <category>security</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2506` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/02/14/distribution-2506</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/02/14/distribution-2506</guid>
+            <pubDate>Fri, 14 Feb 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2506 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2506-is-now-available">Distribution <code>2506</code> is now available<a href="https://mithril.network/doc/dev-blog/2025/02/14/distribution-2506#distribution-2506-is-now-available" class="hash-link" aria-label="Direct link to distribution-2506-is-now-available" title="Direct link to distribution-2506-is-now-available" translate="no">​</a></h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>warning</div><div class="admonitionContent_BuS1"><ul>
+<li class="">This distribution embeds a fix for the <strong>Mithril certificate chain could be manipulated by an adversarial signer</strong> security advisory <a href="https://github.com/input-output-hk/mithril/security/advisories/GHSA-724h-fpm5-4qvr" target="_blank" rel="noopener noreferrer" class="">GHSA-724h-fpm5-4qvr</a></li>
+<li class="">All users running a <strong>client library, client CLI, or client WASM</strong> are <strong>strongly encouraged</strong> to update to the latest versions.</li>
+</ul></div></div>
+<p>We have released the <a href="https://github.com/input-output-hk/mithril/releases/tag/2506.0" target="_blank" rel="noopener noreferrer" class=""><code>2506.0</code></a> distribution, which includes the following:</p>
+<ul>
+<li class="">Support for certifying protocol parameters and epochs in the certificate chain in clients</li>
+<li class="">Stable support for <strong>Cardano node v.10.1.4</strong> in the signer and aggregator</li>
+<li class="">Removal of support for the <code>Thales</code> era in the signer and aggregator</li>
+<li class="">Stable support for aggregator HTTP response compression in the signer, aggregator, and clients</li>
+<li class="">Building and publication of both a <a href="https://mithril.network/explorer" target="_blank" rel="noopener noreferrer" class=""><code>stable</code></a> version (for release networks) and an <a href="https://mithril.network/explorer/unstable" target="_blank" rel="noopener noreferrer" class=""><code>unstable</code></a> version (for testing networks) of the explorer.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> of the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>If you are running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade your signer node binary to version <code>0.2.228</code> – no configuration updates are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade your signer node binary to version <code>0.2.228</code> – no configuration updates are required.</li>
+</ul>
+<p>You can easily update the Mithril signer with this one-line command. It downloads to the current directory by default, but a custom folder can be specified using the -p option:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2506.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, feel free to contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2506</category>
+            <category>security-advisory</category>
+        </item>
+        <item>
+            <title><![CDATA[Minimum required `glibc` version bump]]></title>
+            <link>https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change</link>
+            <guid>https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change</guid>
+            <pubDate>Tue, 04 Feb 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2506.0 has been released.]]></description>
+            <content:encoded><![CDATA[<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><p>Distribution <a href="https://github.com/input-output-hk/mithril/releases/tag/2506.0" target="_blank" rel="noopener noreferrer" class=""><code>2506.0</code></a> has been released.
+Consequently, the minimum required <code>glibc</code> version has been bumped to <code>2.35</code>.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><ul>
+<li class="">This change <strong>only affects users who rely on the precompiled Linux binaries</strong> provided by the Mithril team.</li>
+<li class="">If you compile the binaries from source or use a different operating system, you are <strong>not affected</strong>.</li>
+</ul></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background">Background<a href="https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change#background" class="hash-link" aria-label="Direct link to Background" title="Direct link to Background" translate="no">​</a></h2>
+<p>Our <strong>continuous integration (CI)</strong> system uses GitHub Actions to build and test Mithril binaries across different platforms.</p>
+<p>Currently, our CI targets <code>Ubuntu 20.04</code>, which results in a minimum required <code>glibc</code> version <code>2.31</code>. This version is compatible with:</p>
+<ul>
+<li class=""><code>Ubuntu 20.04</code></li>
+<li class=""><code>Debian 11 (Bullseye)</code>.</li>
+</ul>
+<p>However, <strong>GitHub Actions is deprecating Ubuntu 20.04</strong> following the release of <code>Ubuntu 24.04</code>. Since GitHub Actions only supports the last two (LTS) versions, we need to update our CI environment to use a more recent version of Ubuntu.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="upcoming-changes">Upcoming changes<a href="https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change#upcoming-changes" class="hash-link" aria-label="Direct link to Upcoming changes" title="Direct link to Upcoming changes" translate="no">​</a></h2>
+<ul>
+<li class="">Distribution <code>2506</code> will be the last release with a minimum required <code>glibc version 2.31</code></li>
+<li class="">After distribution <code>2506</code>, our CI builds will be updated to Ubuntu <code>22.04</code>, raising the minimum required <code>glibc</code> version for our Linux binaries to <code>2.35</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="impact-for-users">Impact for users<a href="https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change#impact-for-users" class="hash-link" aria-label="Direct link to Impact for users" title="Direct link to Impact for users" translate="no">​</a></h2>
+<p>The new <code>glibc 2.35</code> version is compatible with:</p>
+<ul>
+<li class="">Ubuntu <code>22.04</code></li>
+<li class=""><code>Debian 12 (Bookworm)</code>.</li>
+</ul>
+<p>If your system uses an <strong>older <code>glibc</code> version</strong>, you have two options:</p>
+<ol>
+<li class=""><strong>Upgrade your system</strong> to a version that supports glibc <code>2.35</code></li>
+<li class="">Compile the binaries from source.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="summary">Summary<a href="https://mithril.network/doc/dev-blog/2025/02/04/glibc-minimum-requirement-change#summary" class="hash-link" aria-label="Direct link to Summary" title="Direct link to Summary" translate="no">​</a></h2>
+<ul>
+<li class=""><strong>Current minimum <code>glibc</code> version</strong>: <code>2.31</code>
+<ul>
+<li class="">Compatible with <code>Ubuntu 20.04</code>, <code>Debian 11 (Bullseye)</code></li>
+</ul>
+</li>
+<li class=""><strong>New minimum <code>glibc</code> version</strong>: <strong><code>2.35</code></strong> (effective for distributions released from <strong>March 2025</strong>)<!-- -->
+<ul>
+<li class="">Compatible with <code>Ubuntu 22.04</code>, <code>Debian 12 (Bookworm)</code>.</li>
+</ul>
+</li>
+</ul>
+<p>For any inquiries or assistance, contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>ci</category>
+            <category>glibc</category>
+            <category>breaking-change</category>
+        </item>
+        <item>
+            <title><![CDATA[Distribution `2450` is now available]]></title>
+            <link>https://mithril.network/doc/dev-blog/2024/12/17/distribution-2450</link>
+            <guid>https://mithril.network/doc/dev-blog/2024/12/17/distribution-2450</guid>
+            <pubDate>Tue, 17 Dec 2024 00:00:00 GMT</pubDate>
+            <description><![CDATA[Distribution 2450 is now available]]></description>
+            <content:encoded><![CDATA[<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribution-2450-is-now-available">Distribution <code>2450</code> is now available<a href="https://mithril.network/doc/dev-blog/2024/12/17/distribution-2450#distribution-2450-is-now-available" class="hash-link" aria-label="Direct link to distribution-2450-is-now-available" title="Direct link to distribution-2450-is-now-available" translate="no">​</a></h3>
+<p>We have released the <a href="https://github.com/input-output-hk/mithril/releases/tag/2450.0" target="_blank" rel="noopener noreferrer" class=""><code>2450.0</code></a> distribution, which includes the following:</p>
+<ul>
+<li class="">🔥<!-- --> <strong>Breaking changes</strong> in the Mithril client library, CLI, and WASM:<!-- -->
+<ul>
+<li class="">Removed the deprecated <code>network</code> field from the internal <code>CardanoDbBeacon</code></li>
+<li class="">Mithril certificates of type <code>CardanoImmutableFilesFull</code> cannot be verified with older clients</li>
+<li class="">Clients from distribution <code>2445</code> and earlier <strong>must</strong> be updated</li>
+</ul>
+</li>
+<li class="">Stable support for <strong>Cardano node v.10.1.3</strong> in the signer and aggregator</li>
+<li class="">Stable support for a one-line shell installation script for the Mithril node prebuilt binaries</li>
+<li class="">Various bug fixes and performance improvements.</li>
+</ul>
+<p>This new distribution has been deployed to the <strong>Mithril aggregator</strong> of the <code>release-mainnet</code> and <code>release-preprod</code> networks.</p>
+<p>If you are running a <strong>Mithril signer</strong>:</p>
+<ul>
+<li class=""><strong>pre-release-preview</strong> network: no action is required at this time</li>
+<li class=""><strong>release-preprod</strong> network: upgrade your signer node binary to version <code>0.2.221</code> - no configuration updates are required</li>
+<li class=""><strong>release-mainnet</strong> network: upgrade your signer node binary to version <code>0.2.221</code> - no configuration updates are required.</li>
+</ul>
+<p>You can easily update your Mithril signer with this one-line command (it downloads to the current directory by default; you can specify a custom folder by using the <code>-p</code> option):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token function" style="color:#d73a49">curl</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--proto</span><span class="token plain"> </span><span class="token string" style="color:#e3116c">'=https'</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">--tlsv1.2</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-sSf</span><span class="token plain"> https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh </span><span class="token operator" style="color:#393A34">|</span><span class="token plain"> </span><span class="token function" style="color:#d73a49">sh</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-s</span><span class="token plain"> -- </span><span class="token parameter variable" style="color:#36acaa">-c</span><span class="token plain"> mithril-signer </span><span class="token parameter variable" style="color:#36acaa">-d</span><span class="token plain"> </span><span class="token number" style="color:#36acaa">2450.0</span><span class="token plain"> </span><span class="token parameter variable" style="color:#36acaa">-p</span><span class="token plain"> </span><span class="token variable" style="color:#36acaa">$(</span><span class="token variable builtin class-name" style="color:#36acaa">pwd</span><span class="token variable" style="color:#36acaa">)</span><br></span></code></pre></div></div>
+<p>For any inquiries or assistance, feel free to contact the team on the <a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="">Discord channel</a>.</p>]]></content:encoded>
+            <category>release</category>
+            <category>distribution</category>
+            <category>2450</category>
+            <category>breaking-change</category>
+        </item>
+    </channel>
+</rss>
