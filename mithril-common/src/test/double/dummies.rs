@@ -673,8 +673,8 @@ mod messages {
 
 mod signable_builder {
     use crate::entities::{
-        CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch,
-        MithrilStakeDistribution, SignedEntityType, Snapshot,
+        CardanoBlocksTransactionsSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
+        CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, SignedEntityType, Snapshot,
     };
     use crate::signable_builder::SignedEntity;
 
@@ -724,6 +724,28 @@ mod signable_builder {
                 signed_entity_type: SignedEntityType::CardanoTransactions(Epoch(5), block_number),
                 certificate_id: "certificate-hash-123".to_string(),
                 artifact: CardanoTransactionsSnapshot::new("mkroot123".to_string(), block_number),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            }
+        }
+    }
+
+    impl Dummy for SignedEntity<CardanoBlocksTransactionsSnapshot> {
+        /// Create a dummy [SignedEntity] for [CardanoBlocksTransactionsSnapshot] entity
+        fn dummy() -> Self {
+            let block_number = crate::entities::BlockNumber(50);
+            SignedEntity {
+                signed_entity_id: "snapshot-id-123".to_string(),
+                signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
+                    Epoch(5),
+                    block_number,
+                ),
+                certificate_id: "certificate-hash-123".to_string(),
+                artifact: fake_data::cardano_blocks_transactions_snapshot(
+                    block_number,
+                    crate::entities::BlockNumber(15),
+                ),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),

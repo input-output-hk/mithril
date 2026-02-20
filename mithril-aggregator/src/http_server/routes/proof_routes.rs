@@ -425,7 +425,6 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use chrono::Utc;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use std::vec;
@@ -438,8 +437,7 @@ mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{
-            BlockNumber, CardanoBlocksTransactionsSnapshot, CardanoTransactionsSetProof,
-            CardanoTransactionsSnapshot, Epoch, SignedEntityType,
+            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot,
         },
         signable_builder::SignedEntity,
         test::{
@@ -599,9 +597,9 @@ mod tests {
             .metrics_service
             .get_proof_v2_cardano_block_total_blocks_served_since_startup()
             .get(&["TEST", "CLI"]);
-        let block_hash_1 = "a".repeat(64);
-        let block_hash_2 = "b".repeat(64);
-        let block_hash_3 = "c".repeat(64);
+        let block_hash_1 = fake_data::block_hashes()[0];
+        let block_hash_2 = fake_data::block_hashes()[1];
+        let block_hash_3 = fake_data::block_hashes()[2];
 
         request()
             .method(method)
@@ -679,19 +677,7 @@ mod tests {
     async fn proof_v2_cardano_transaction_ok() {
         let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
-        let signed_entity = SignedEntity::<CardanoBlocksTransactionsSnapshot> {
-            signed_entity_id: "signed-entity-id".to_string(),
-            signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
-                Epoch(123),
-                BlockNumber(123),
-            ),
-            certificate_id: "certificate-id".to_string(),
-            artifact: fake_data::cardano_blocks_transactions_snapshot(
-                BlockNumber(123),
-                BlockNumber(15),
-            ),
-            created_at: Utc::now(),
-        };
+        let signed_entity = SignedEntity::dummy();
         mock_signed_entity_service
             .expect_get_last_cardano_blocks_transactions_snapshot()
             .returning(move || Ok(Some(signed_entity.clone())));
@@ -734,25 +720,13 @@ mod tests {
     async fn proof_v2_cardano_block_ok() {
         let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
-        let signed_entity = SignedEntity::<CardanoBlocksTransactionsSnapshot> {
-            signed_entity_id: "signed-entity-id".to_string(),
-            signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
-                Epoch(123),
-                BlockNumber(123),
-            ),
-            certificate_id: "certificate-id".to_string(),
-            artifact: fake_data::cardano_blocks_transactions_snapshot(
-                BlockNumber(123),
-                BlockNumber(15),
-            ),
-            created_at: Utc::now(),
-        };
+        let signed_entity = SignedEntity::dummy();
         mock_signed_entity_service
             .expect_get_last_cardano_blocks_transactions_snapshot()
             .returning(move || Ok(Some(signed_entity.clone())));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
-        let block_hash = "a".repeat(64);
+        let block_hash = fake_data::block_hashes()[0].to_string();
         let mut mock_prover_service = MockLegacyProverService::new();
         mock_prover_service.expect_compute_blocks_proofs().returning({
             let block_hash = block_hash.clone();
@@ -785,6 +759,190 @@ mod tests {
             &Null,
             &response,
             &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_transaction_not_found() {
+        let dependency_manager = initialize_dependencies!().await;
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
+            ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_transaction_ko() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(|| Err(anyhow!("Error")));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
+            ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_transaction_return_bad_request_with_invalid_hashes() {
+        let dependency_manager = initialize_dependencies!().await;
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
+            ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_not_found() {
+        let dependency_manager = initialize_dependencies!().await;
+        let block_hash = fake_data::block_hashes()[0];
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{path}?block_hashes={block_hash}"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_ko() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(|| Err(anyhow!("Error")));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        let block_hash = fake_data::block_hashes()[0];
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{path}?block_hashes={block_hash}"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_return_bad_request_with_invalid_hashes() {
+        let dependency_manager = initialize_dependencies!().await;
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{path}?block_hashes=invalid%3A%2F%2Fid,,block-456"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::BAD_REQUEST,
         )
         .unwrap();
     }
