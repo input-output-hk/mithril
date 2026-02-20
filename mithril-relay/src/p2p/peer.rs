@@ -11,7 +11,7 @@ use libp2p::{
 };
 use mithril_common::{
     StdResult,
-    crypto_helper::{TryFromBytes, TryToBytes},
+    crypto_helper::{TryFromBytes, TryToBytes, key_decode_hex, key_encode_hex},
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
@@ -63,7 +63,7 @@ pub enum PeerEvent {
 pub type TopicName = String;
 
 /// The broadcast message received from a Gossip sub event
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum BroadcastMessage {
     /// A HTTP signer registration message received from the Gossip sub
     RegisterSignerHttp(RegisterSignerMessage),
@@ -77,17 +77,16 @@ pub enum BroadcastMessage {
 
 impl TryToBytes for BroadcastMessage {
     fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+        let hex_string = key_encode_hex(self)?;
+        Ok(hex_string.into_bytes())
     }
 }
 
 impl TryFromBytes for BroadcastMessage {
     fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-        let (res, _) =
-            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
-                .map_err(|e| anyhow!(e))?;
-
-        Ok(res)
+        let hex_string = std::str::from_utf8(bytes)
+            .with_context(|| "Failed to interpret bytes as UTF-8 hex string")?;
+        key_decode_hex(hex_string).map_err(|e| e.into())
     }
 }
 
