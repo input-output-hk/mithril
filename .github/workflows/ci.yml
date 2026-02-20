@@ -19,7 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-22.04-arm]
+        include:
+          - os: ubuntu-22.04
+            musl_target: x86_64-unknown-linux-musl
+            features: bundle_tls,jemallocator,full
+          - os: ubuntu-22.04-arm
+            musl_target: aarch64-unknown-linux-musl
+            features: bundle_tls,full
     runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
@@ -34,6 +40,20 @@ jobs:
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.musl_target }}
+
+      #Prerequisites for static build with musl
+      - name: Install musl toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            musl-tools \
+            build-essential \
+            pkg-config
+      
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         if: matrix.os == 'ubuntu-22.04'
@@ -43,17 +63,44 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_tls,full
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
 
       - name: Build Debian packages
         shell: bash
         run: |
-          cargo deb --no-build --package mithril-aggregator
-          cargo deb --no-build --package mithril-signer
-          cargo deb --no-build --package mithril-client-cli
-          cargo deb --no-build --package mithril-relay
+          cargo deb --no-build --package mithril-aggregator --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-signer --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-client-cli --target=${{ matrix.musl_target }}
+          cargo deb --no-build --package mithril-relay --target=${{ matrix.musl_target }}
 
+      - name: Check binaries are static
+        shell: bash
+        run: |
+          BINARIES=(
+            "mithril-aggregator"
+            "mithril-signer"
+            "mithril-client"
+            "mithril-relay"
+          )
+          for bin in "${BINARIES[@]}"; do
+            BIN_PATH=target/${{ matrix.musl_target }}/release/$bin
+            echo "Checking $bin is statically linked"
+
+            if [ ! -f "$BIN_PATH" ]; then
+              echo "❌ Binary not found!"
+              exit 1
+            fi
+
+            if readelf -d "$BIN_PATH" 2>/dev/null | grep -q NEEDED; then
+              echo "❌ $BIN is NOT static (has dynamic dependencies)"
+              exit 1
+            else
+              echo "✅ $BIN is fully static"
+            fi
+            done
+            echo "🎉 All binaries are static!"
+      
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
         with:
@@ -75,7 +122,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         id: eras-test-lab
         run: |
-          ERAS=$(./target/release/mithril-aggregator era list --json)
+          ERAS=$(./target/${{ matrix.musl_target }}/release/mithril-aggregator era list --json)
           echo "Test Lab Eras: $ERAS"
           echo "eras=$ERAS" >> $GITHUB_OUTPUT
 
@@ -113,6 +160,61 @@ jobs:
           binaries-build-args: ${{ matrix.binaries-build-args }}
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
+
+      # macOS
+      - name: Check for static builds on macOS
+        if: matrix.os == 'macos-14'
+        shell: bash
+        run: |
+          BINARIES=(
+            "mithril-client"
+          )
+          for bin in "${BINARIES[@]}"; do
+            BIN_PATH=target/release/$bin
+            echo "Checking $bin is statically linked"
+
+            if [ ! -f "$BIN_PATH" ]; then
+              echo "❌ Binary not found!"
+              exit 1
+            fi
+
+            if otool -L "$BIN_PATH" 2>/dev/null | grep -q "dylib"; then
+              echo "❌ $bin is NOT static (has dynamic dependencies)"
+              echo "Dependencies: $(otool -L "$BIN_PATH")"
+              exit 1
+            else
+              echo "✅ $bin is fully static"
+            fi
+          done
+          echo "🎉 All binaries are static!"
+
+      # Windows
+      - name: Check for static builds on Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $BINARIES = @(
+            "mithril-client.exe"
+          )
+          foreach ($bin in $BINARIES) {
+            $binPath = "target\release\$bin"
+            Write-Host "Checking $bin is statically linked"
+
+            if (-Not (Test-Path $binPath)) {
+              Write-Host "❌ Binary not found!"
+              exit 1
+            }
+
+            $dependencies = & link /dump /dependents $binPath 2>&1
+            if ($dependencies -match "DLL") {
+              Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+              exit 1
+            } else {
+              Write-Host "✅ $bin is fully static"
+            }
+          }
+          Write-Host "🎉 All binaries are static!"
+          exit 0
 
   build-test-wasm:
     runs-on: ubuntu-24.04

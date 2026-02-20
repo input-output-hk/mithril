@@ -15,7 +15,7 @@ section = "utility"
 extended-description = """Shows, downloads and verifies certified blockchain artifacts.
 
 Run `mithril-client --help` to display the available options."""
-assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
+assets = [["target/release/mithril-client", "usr/bin/", "755"]]
 
 [[bin]]
 name = "mithril-client"
