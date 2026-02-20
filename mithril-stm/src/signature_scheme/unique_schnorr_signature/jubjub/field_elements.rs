@@ -3,9 +3,9 @@ use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha256};
-use std::array::TryFromSliceError;
 use std::ops::{Add, Mul, Neg, Sub};
 
+use crate::StmError;
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
@@ -48,20 +48,26 @@ impl BaseFieldElement {
             )),
         }
     }
+
+    /// Constructs a base field element from bytes by applying modulus reduction
+    /// The underlying JubjubBase conversion function used cannot fail
+    pub(crate) fn from_raw(bytes: &[u8; 32]) -> StmResult<Self> {
+        Ok(BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(bytes[0..8].try_into()?),
+            u64::from_le_bytes(bytes[8..16].try_into()?),
+            u64::from_le_bytes(bytes[16..24].try_into()?),
+            u64::from_le_bytes(bytes[24..32].try_into()?),
+        ])))
+    }
 }
 
 /// Try to convert an arbitrary slice of bytes to a BaseFieldElement by first
 /// hashing the bytes using Sha256 and then converting using modulus reduction
 impl TryFrom<&[u8]> for BaseFieldElement {
-    type Error = TryFromSliceError;
+    type Error = StmError;
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let hashed_input: [u8; 32] = Sha256::digest(value).into();
-        Ok(BaseFieldElement(JubjubBase::from_raw([
-            u64::from_le_bytes(hashed_input[0..8].try_into()?),
-            u64::from_le_bytes(hashed_input[8..16].try_into()?),
-            u64::from_le_bytes(hashed_input[16..24].try_into()?),
-            u64::from_le_bytes(hashed_input[24..32].try_into()?),
-        ])))
+        BaseFieldElement::from_raw(&hashed_input)
     }
 }
 
@@ -261,6 +267,33 @@ mod tests {
 
             let value = ScalarFieldElement::from_bytes(&bytes);
             value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn from_raw_recover_element_correctly() {
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let elem = BaseFieldElement::random(&mut rng);
+            let elem_bytes = elem.to_bytes();
+
+            let val1 = BaseFieldElement::from_bytes(&elem_bytes).unwrap();
+            let val2 = BaseFieldElement::from_raw(&elem_bytes).unwrap();
+
+            assert_eq!(val1, val2);
+        }
+
+        #[test]
+        fn from_raw_succeed_for_max_value() {
+            let bytes = [255; 32];
+
+            let value = BaseFieldElement::from_bytes(&bytes);
+            value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+
+            let value = BaseFieldElement::from_raw(&bytes);
+            assert!(
+                value.is_ok(),
+                "The conversion should not fail when using from_raw."
+            );
         }
     }
 
