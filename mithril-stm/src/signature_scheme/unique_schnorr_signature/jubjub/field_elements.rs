@@ -48,6 +48,17 @@ impl BaseFieldElement {
             )),
         }
     }
+
+    /// Constructs a base field element from bytes by applying modulus reduction
+    /// The JubjubBase conversion function cannot fail
+    pub(crate) fn from_raw(bytes: &[u8; 32]) -> Result<Self, TryFromSliceError> {
+        Ok(BaseFieldElement(JubjubBase::from_raw([
+            u64::from_le_bytes(bytes[0..8].try_into()?),
+            u64::from_le_bytes(bytes[8..16].try_into()?),
+            u64::from_le_bytes(bytes[16..24].try_into()?),
+            u64::from_le_bytes(bytes[24..32].try_into()?),
+        ])))
+    }
 }
 
 /// Try to convert an arbitrary slice of bytes to a BaseFieldElement by first
@@ -56,12 +67,7 @@ impl TryFrom<&[u8]> for BaseFieldElement {
     type Error = TryFromSliceError;
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let hashed_input: [u8; 32] = Sha256::digest(value).into();
-        Ok(BaseFieldElement(JubjubBase::from_raw([
-            u64::from_le_bytes(hashed_input[0..8].try_into()?),
-            u64::from_le_bytes(hashed_input[8..16].try_into()?),
-            u64::from_le_bytes(hashed_input[16..24].try_into()?),
-            u64::from_le_bytes(hashed_input[24..32].try_into()?),
-        ])))
+        BaseFieldElement::from_raw(&hashed_input)
     }
 }
 
@@ -261,6 +267,18 @@ mod tests {
 
             let value = ScalarFieldElement::from_bytes(&bytes);
             value.expect_err("Bytes conversion should fail because input is higher than modulus.");
+        }
+
+        #[test]
+        fn from_raw_recover_element_correctly() {
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let elem = BaseFieldElement::random(&mut rng);
+
+            let elem_bytes = elem.to_bytes();
+
+            let val1 = BaseFieldElement::from_bytes(&elem_bytes).unwrap();
+            let val2 = BaseFieldElement::from_raw(&elem_bytes).unwrap();
+            assert_eq!(val1, val2);
         }
     }
 
