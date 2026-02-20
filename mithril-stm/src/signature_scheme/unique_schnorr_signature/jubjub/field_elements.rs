@@ -50,7 +50,7 @@ impl BaseFieldElement {
     }
 
     /// Constructs a base field element from bytes by applying modulus reduction
-    /// The JubjubBase conversion function used cannot fail
+    /// The underlying JubjubBase conversion function used cannot fail
     pub(crate) fn from_raw(bytes: &[u8; 32]) -> Result<Self, TryFromSliceError> {
         Ok(BaseFieldElement(JubjubBase::from_raw([
             u64::from_le_bytes(bytes[0..8].try_into()?),
@@ -269,6 +269,7 @@ mod tests {
             value.expect_err("Bytes conversion should fail because input is higher than modulus.");
         }
 
+        #[cfg(feature = "future_snark")]
         #[test]
         fn from_raw_recover_element_correctly() {
             let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
