@@ -155,7 +155,7 @@ mod tests {
         type SnarkHash = <D as MembershipDigest>::SnarkHash;
 
         let root = [0u8; 32];
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
 
         let commitment =
             MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&root).unwrap();
@@ -225,7 +225,7 @@ mod tests {
         let target = BaseFieldElement::from(0u64);
         let signer = setup_signer_with_target(target, &mut rng);
 
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
         let err = signer
             .create_single_signature(&msg, &mut rng)
             .expect_err("Lottery with target = 0 should lose");
@@ -245,7 +245,7 @@ mod tests {
         let target = &BaseFieldElement::from(0u64) - &BaseFieldElement::from(1u64);
         let signer = setup_signer_with_target(target, &mut rng);
 
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
         assert!(
             signer.create_single_signature(&msg, &mut rng).is_ok(),
             "Lottery with target = p - 1 should always win"

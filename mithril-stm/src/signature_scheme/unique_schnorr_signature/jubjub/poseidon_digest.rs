@@ -15,17 +15,14 @@ pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([
 /// the eligibility value of a signature.
 #[cfg(feature = "future_snark")]
 pub const DST_LOTTERY: BaseFieldElement = BaseFieldElement(JubjubBase::from_raw([
-    0x4C4F_5454_4552_5953, // "LOTTERY" (ASCII), little-endian u64
-    0,
-    0,
-    0,
+    3, // Matches the circuit's DST_LOTTERY value
+    3, 0, 0,
 ]));
 
-/// Computes a Poseidon digest over the provided base field elements
-/// Returns a scalar field element as the digest
+/// Computes a Poseidon digest over the provided base field elements.
+/// Returns a base field element as the digest.
 pub(crate) fn compute_poseidon_digest(input: &[BaseFieldElement]) -> BaseFieldElement {
-    let mut poseidon_input = vec![DST_SIGNATURE];
-    poseidon_input.extend(input.iter().map(|i| i.0).collect::<Vec<JubjubBase>>());
+    let poseidon_input: Vec<JubjubBase> = input.iter().map(|i| i.0).collect();
 
     BaseFieldElement(PoseidonChip::<JubjubBase>::hash(&poseidon_input))
 }
@@ -42,8 +39,8 @@ mod test {
         use crate::signature_scheme::{BaseFieldElement, compute_poseidon_digest};
 
         const GOLDEN_BYTES: &[u8; 32] = &[
-            101, 79, 70, 206, 167, 240, 180, 227, 96, 239, 132, 120, 73, 204, 173, 158, 7, 70, 226,
-            165, 250, 3, 119, 186, 80, 22, 132, 135, 21, 128, 227, 98,
+            168, 249, 251, 86, 251, 84, 26, 25, 244, 24, 31, 5, 153, 234, 64, 53, 32, 67, 114, 26,
+            250, 90, 108, 196, 47, 25, 60, 234, 221, 176, 255, 92,
         ];
 
         fn golden_value() -> BaseFieldElement {

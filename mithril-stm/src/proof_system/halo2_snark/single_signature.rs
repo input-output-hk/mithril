@@ -49,17 +49,13 @@ impl SingleSignatureForSnark {
             .verify(&message_to_verify, verification_key)
             .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
 
-        self.verify_winning_lottery_index::<D>(
-            *lottery_target_value,
-            &message_to_verify,
-            parameters.m,
-        )?;
+        self.verify_winning_lottery_index(*lottery_target_value, &message_to_verify, parameters.m)?;
 
         Ok(())
     }
 
     /// Verifies that the lottery index associated with this signature actually won the lottery.
-    fn verify_winning_lottery_index<D: MembershipDigest>(
+    fn verify_winning_lottery_index(
         &self,
         lottery_target_value: LotteryTargetValue,
         message_to_verify: &[BaseFieldElement],
@@ -130,7 +126,7 @@ mod tests {
     fn tampered_lottery_index_fails() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let params = Parameters {
-            m: 10,
+            m: 100,
             k: 5,
             phi_f: 0.2,
         };
@@ -162,7 +158,7 @@ mod tests {
             SnarkProofSigner::<D>::new(params, schnorr_sk, schnorr_vk, target, merkle_tree);
         let avk = AggregateVerificationKeyForSnark::<D>::from(&closed_reg);
 
-        let msg = [0u8; 16];
+        let msg = [0u8; 32];
         let mut sig = signer.create_single_signature(&msg, &mut rng).unwrap();
         let original_index = sig.get_minimum_winning_lottery_index();
 

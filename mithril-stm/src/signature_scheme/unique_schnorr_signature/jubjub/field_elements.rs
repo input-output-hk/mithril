@@ -78,6 +78,13 @@ impl From<u64> for BaseFieldElement {
     }
 }
 
+impl From<JubjubBase> for BaseFieldElement {
+    /// Converts a `JubjubBase` element to a base field element
+    fn from(base: JubjubBase) -> Self {
+        BaseFieldElement(base)
+    }
+}
+
 impl Add for BaseFieldElement {
     type Output = BaseFieldElement;
 

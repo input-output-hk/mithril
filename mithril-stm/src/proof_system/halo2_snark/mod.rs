@@ -90,6 +90,212 @@ mod tests {
         (snark_signer, aggregate_key)
     }
 
+    /// Circuit-compatibility tests for the SNARK signature flow.
+    ///
+    /// These tests verify that CPU-side signature generation and verification
+    /// produce intermediate values compatible with the circuit in
+    /// `circuits::halo2`. They serve as a **compatibility contract**: if the
+    /// CPU code diverges from the circuit's expectations, these tests will
+    /// catch it.
+    mod circuit_compatibility {
+        use super::*;
+        use crate::signature_scheme::{
+            BaseFieldElement, DST_LOTTERY, DST_SIGNATURE, PrimeOrderProjectivePoint,
+            ProjectivePoint, ScalarFieldElement, compute_poseidon_digest,
+        };
+        use sha2::{Digest, Sha256};
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(50))]
+
+            /// Verifies that `build_snark_message` encodes the Merkle root
+            /// consistently with the circuit's public-input encoding.
+            ///
+            /// The circuit golden helpers decode the root via
+            /// `BaseFieldElement::from_bytes`
+            /// (see `circuits::halo2::golden::helpers::decode_merkle_root`),
+            /// while `build_snark_message` uses `BaseFieldElement::from_raw`.
+            /// For Poseidon-produced roots (always canonical field elements),
+            /// both must yield the same field element.
+            #[test]
+            fn message_encoding_matches_circuit(
+                sha_input in any::<[u8; 32]>(),
+                seed in any::<[u8; 32]>(),
+            ) {
+                let mut rng = ChaCha20Rng::from_seed(seed);
+                let params = Parameters {
+                    m: 10,
+                    k: 5,
+                    phi_f: 0.2,
+                };
+                let (_signer, avk) = setup_snark_signer(params, 3, &mut rng);
+
+                let commitment = avk.get_merkle_tree_commitment();
+                let root_bytes = commitment.root.as_slice();
+                let msg: [u8; 32] = Sha256::digest(sha_input).into();
+
+                // CPU encoding via build_snark_message (uses from_raw)
+                let [root_cpu, _] = commitment.build_snark_message(&msg).unwrap();
+
+                // Circuit encoding: golden helpers use from_bytes for the root
+                let root_array: [u8; 32] = root_bytes
+                    .try_into()
+                    .expect("root should be 32 bytes");
+                let root_circuit = BaseFieldElement::from_bytes(&root_array)
+                    .expect("Poseidon root must be canonical");
+
+                assert_eq!(
+                    root_cpu, root_circuit,
+                    "build_snark_message (from_raw) must match the circuit's \
+                     from_bytes for Poseidon roots"
+                );
+            }
+        }
+
+        /// Verifies that the CPU's Schnorr challenge uses the same Poseidon
+        /// input ordering as the circuit's `verify_unique_signature` gadget.
+        ///
+        /// Circuit ordering (`circuits::halo2::gadgets::verify_unique_signature`):
+        /// ```text
+        /// Poseidon(DST_SIG, H_x, H_y, vk_x, vk_y, σ_x, σ_y, R1_x, R1_y, R2_x, R2_y)
+        /// ```
+        /// where `H = hash_to_curve([root, msg])`,
+        ///       `R1 = [s]H + [c]σ`,
+        ///       `R2 = [s]G + [c]vk`.
+        #[test]
+        fn schnorr_challenge_matches_circuit_ordering() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
+            };
+            let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
+
+            let msg = [0u8; 32];
+            let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
+            let schnorr = sig.get_schnorr_signature();
+
+            let message_to_sign =
+                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+
+            // H = hash_to_curve([root, msg])
+            let h = ProjectivePoint::hash_to_projective_point(&message_to_sign).unwrap();
+            let (h_x, h_y) = h.get_coordinates();
+
+            // vk
+            let vk = signer.get_verification_key();
+            let (vk_x, vk_y) = ProjectivePoint::from(vk.0).get_coordinates();
+
+            // σ (commitment_point)
+            let (sigma_x, sigma_y) = schnorr.commitment_point.get_coordinates();
+
+            // R1 = s * H + c * σ
+            let c_scalar = ScalarFieldElement::from_base_field(&schnorr.challenge).unwrap();
+            let r1 = schnorr.response * h + c_scalar * schnorr.commitment_point;
+            let (r1_x, r1_y) = r1.get_coordinates();
+
+            // R2 = s * G + c * vk
+            let g = PrimeOrderProjectivePoint::create_generator();
+            let r2 = schnorr.response * g + c_scalar * vk.0;
+            let (r2_x, r2_y) = ProjectivePoint::from(r2).get_coordinates();
+
+            // Recompute challenge with the circuit's exact input order
+            let challenge_recomputed = compute_poseidon_digest(&[
+                DST_SIGNATURE.into(),
+                h_x,
+                h_y,
+                vk_x,
+                vk_y,
+                sigma_x,
+                sigma_y,
+                r1_x,
+                r1_y,
+                r2_x,
+                r2_y,
+            ]);
+
+            assert_eq!(
+                schnorr.challenge, challenge_recomputed,
+                "CPU challenge must match the circuit's Poseidon input ordering"
+            );
+        }
+
+        /// Verifies the lottery prefix structure matches the circuit's
+        /// computation at `circuits::halo2::circuit` lines 77-79:
+        /// ```text
+        /// prefix = Poseidon(DST_LOTTERY, merkle_root, msg)
+        /// ```
+        #[test]
+        fn lottery_prefix_structure_matches_circuit() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
+            };
+            let (_signer, avk) = setup_snark_signer(params, 3, &mut rng);
+
+            let msg = [0u8; 32];
+            let message_to_sign =
+                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+
+            // CPU's compute_lottery_prefix
+            let cpu_prefix = compute_lottery_prefix(&message_to_sign);
+
+            // Manual reconstruction: Poseidon(DST_LOTTERY, root, msg)
+            let [root, msg_fe] = message_to_sign;
+            let manual_prefix = compute_poseidon_digest(&[DST_LOTTERY, root, msg_fe]);
+
+            assert_eq!(
+                cpu_prefix, manual_prefix,
+                "compute_lottery_prefix must equal Poseidon(DST_LOTTERY, root, msg)"
+            );
+        }
+
+        /// Verifies the lottery evaluation structure matches the circuit's
+        /// `verify_lottery` gadget (`circuits::halo2::gadgets`):
+        /// ```text
+        /// ev = Poseidon(prefix, σ_x, σ_y, index)
+        /// ```
+        /// Cross-checks the manual computation against
+        /// `verify_lottery_eligibility` by setting `target = ev` (which must
+        /// pass under `ev <= target`).
+        #[test]
+        fn lottery_evaluation_structure_matches_circuit() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
+            };
+            let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
+
+            let msg = [0u8; 32];
+            let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
+            let schnorr = sig.get_schnorr_signature();
+            let index = sig.get_minimum_winning_lottery_index();
+
+            let message_to_sign =
+                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+
+            let (sigma_x, sigma_y) = schnorr.commitment_point.get_coordinates();
+            let index_fe = BaseFieldElement::from(index);
+
+            // Verify evaluation structure: ev = Poseidon(prefix, σ_x, σ_y, index)
+            let prefix = compute_lottery_prefix(&message_to_sign);
+            let ev = compute_poseidon_digest(&[prefix, sigma_x, sigma_y, index_fe]);
+
+            // Cross-check: verify_lottery_eligibility must pass
+            // when target = manually computed evaluation
+            assert!(
+                verify_lottery_eligibility(&schnorr, index, params.m, prefix, ev,).is_ok(),
+                "Lottery must pass when target equals the manually \
+                 computed evaluation"
+            );
+        }
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -98,7 +304,7 @@ mod tests {
             nparties in 2_usize..10,
             m in 10_u64..20,
             k in 1_u64..5,
-            msg in any::<[u8; 16]>(),
+            msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
             let params = Parameters { m, k, phi_f: 0.2 };
@@ -149,8 +355,8 @@ mod tests {
             nparties in 2_usize..10,
             m in 10_u64..20,
             k in 1_u64..5,
-            msg1 in any::<[u8; 16]>(),
-            msg2 in any::<[u8; 16]>(),
+            msg1 in any::<[u8; 32]>(),
+            msg2 in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
             prop_assume!(msg1 != msg2);
@@ -175,7 +381,7 @@ mod tests {
             nparties in 2_usize..10,
             m in 10_u64..20,
             k in 1_u64..5,
-            msg in any::<[u8; 16]>(),
+            msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
             let params = Parameters { m, k, phi_f: 0.2 };
@@ -201,7 +407,7 @@ mod tests {
             nparties in 2_usize..10,
             m in 10_u64..20,
             k in 1_u64..5,
-            msg in any::<[u8; 16]>(),
+            msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
             let params = Parameters { m, k, phi_f: 0.2 };

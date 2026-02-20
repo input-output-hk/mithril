@@ -125,28 +125,28 @@ mod tests {
         [
             {
                 "sigma": [
-                    149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203, 61, 78, 77, 98,
-                    161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133, 114,
-                    211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83
+                    140, 18, 156, 86, 86, 16, 179, 117, 148, 17, 195, 177, 207, 235, 93, 252,
+                    78, 244, 112, 94, 47, 18, 158, 15, 78, 76, 80, 43, 116, 242, 116, 205,
+                    252, 21, 194, 58, 162, 117, 201, 62, 40, 190, 21, 183, 178, 186, 196, 136
                 ],
-                "indexes": [1, 4, 5, 8],
+                "indexes": [3, 4, 5, 6, 7],
                 "signer_index": 1,
                 "snark_signature": {
                     "schnorr_signature": {
                         "commitment_point": [
-                            38, 159, 207, 207, 130, 159, 24, 165, 64, 2, 139, 15, 69, 205, 101,
-                            166, 100, 45, 22, 225, 113, 161, 32, 186, 193, 17, 159, 158, 47,
-                            139, 78, 169
+                            198, 195, 131, 147, 143, 246, 147, 31, 112, 104, 4, 197, 184, 150,
+                            239, 16, 122, 195, 82, 217, 135, 174, 163, 231, 197, 102, 37, 57,
+                            253, 182, 126, 72
                         ],
                         "response": [
-                            7, 184, 24, 233, 2, 217, 182, 50, 37, 59, 170, 168, 201, 44, 166,
-                            4, 116, 226, 215, 37, 101, 8, 124, 0, 194, 124, 216, 214, 3, 145,
-                            255, 3
+                            116, 67, 192, 99, 53, 189, 46, 158, 53, 70, 174, 132, 144, 179,
+                            25, 203, 87, 11, 59, 253, 155, 114, 211, 22, 16, 29, 4, 233, 203,
+                            127, 170, 6
                         ],
                         "challenge": [
-                            56, 236, 11, 143, 28, 124, 255, 116, 177, 19, 148, 255, 229, 226,
-                            85, 103, 170, 181, 124, 105, 71, 188, 44, 85, 205, 222, 230, 116,
-                            210, 97, 8, 22
+                            128, 135, 196, 3, 229, 138, 6, 47, 81, 118, 6, 77, 1, 148, 175,
+                            28, 88, 124, 103, 229, 155, 213, 96, 68, 7, 94, 216, 151, 207,
+                            157, 220, 67
                         ]
                     },
                     "minimum_winning_lottery_index": 0
@@ -176,7 +176,12 @@ mod tests {
 
         fn golden_value() -> SingleSignatureWithRegisteredParty {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let msg = [0u8; 16];
+            #[cfg(not(feature = "future_snark"))]
+            let message = [0u8; 16];
+
+            #[cfg(feature = "future_snark")]
+            let message = [0u8; 32];
+
             let params = Parameters {
                 m: 10,
                 k: 5,
@@ -229,7 +234,7 @@ mod tests {
                     closed_key_reg.to_merkle_tree(),
                 );
             let concatenation_signature =
-                concatenation_proof_signer.create_single_signature(&msg).unwrap();
+                concatenation_proof_signer.create_single_signature(&message).unwrap();
 
             #[cfg(feature = "future_snark")]
             let snark_signature = {
@@ -247,7 +252,11 @@ mod tests {
                     lottery_target_value,
                     key_registration_commitment,
                 );
-                Some(snark_proof_signer.create_single_signature(&msg, &mut rng).unwrap())
+                Some(
+                    snark_proof_signer
+                        .create_single_signature(&message, &mut rng)
+                        .unwrap(),
+                )
             };
 
             let signature = SingleSignature {
