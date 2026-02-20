@@ -1134,3 +1134,25 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
           publish_dir: ./github-pages
           force_orphan: true
+
+  snark-flakiness:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ vars.CACHE_VERSION }}
+          cargo-tools: cargo-nextest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attempt to reproduce flakiness in snark tests
+        run: |
+          for i in $(seq 1 20); do
+            echo "=== base run $i ==="
+            RUST_BACKTRACE=full cargo nextest run --profile ci --cargo-profile ci-tests --features future_snark -p mithril-stm || exit 1
+          done
+          echo "base loop passed"
