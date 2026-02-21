@@ -165,11 +165,102 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    use super::SignatureError;
     use crate::{
-        KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-        SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
-        proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
+        AggregateVerificationKey, BlsSignatureError, Clerk, KeyRegistration,
+        MithrilMembershipDigest, Parameters, RegistrationEntry, Signer, SingleSignature,
+        VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+        signature_scheme::BlsSigningKey,
     };
+
+    type D = MithrilMembershipDigest;
+
+    const TEST_MESSAGE: [u8; 16] = [42u8; 16];
+
+    fn test_parameters() -> Parameters {
+        Parameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.8,
+        }
+    }
+
+    struct SingleSignatureTestContext {
+        signer_1: Signer<D>,
+        vk_1: VerificationKeyProofOfPossessionForConcatenation,
+        vk_2: VerificationKeyProofOfPossessionForConcatenation,
+        avk: AggregateVerificationKey<D>,
+    }
+
+    fn build_single_signature_context(
+        number_of_signers: usize,
+        rng_seed: [u8; 32],
+    ) -> SingleSignatureTestContext {
+        assert!(
+            number_of_signers >= 2,
+            "at least 2 signers are required for these tests"
+        );
+
+        let mut rng = ChaCha20Rng::from_seed(rng_seed);
+        let params = test_parameters();
+
+        let mut signing_keys = Vec::with_capacity(number_of_signers);
+        let mut verification_keys = Vec::with_capacity(number_of_signers);
+        for _ in 0..number_of_signers {
+            let signing_key = BlsSigningKey::generate(&mut rng);
+            let verification_key =
+                VerificationKeyProofOfPossessionForConcatenation::from(&signing_key);
+            signing_keys.push(signing_key);
+            verification_keys.push(verification_key);
+        }
+
+        let mut registration = KeyRegistration::initialize();
+        for verification_key in &verification_keys {
+            let entry = RegistrationEntry::new(
+                *verification_key,
+                1,
+                #[cfg(feature = "future_snark")]
+                None,
+            )
+            .unwrap();
+            registration.register_by_entry(&entry).unwrap();
+        }
+
+        let closed_key_registration = registration.close_registration();
+        let mut signing_keys = signing_keys.into_iter();
+        let sk_1 = signing_keys.next().expect("at least one signer exists");
+        let mut verification_keys = verification_keys.into_iter();
+        let vk_1 = verification_keys.next().expect(
+            "internal test setup invariant violated: missing first verification key (vk_1)",
+        );
+        let vk_2 = verification_keys.next().expect(
+            "internal test setup invariant violated: missing second verification key (vk_2)",
+        );
+        let signer_1: Signer<D> = Signer::new(
+            1,
+            ConcatenationProofSigner::new(
+                1,
+                2,
+                params,
+                sk_1,
+                vk_1.vk,
+                closed_key_registration.clone().to_merkle_tree(),
+            ),
+            closed_key_registration,
+            params,
+            1,
+        );
+
+        let clerk = Clerk::new_clerk_from_signer(&signer_1);
+        let avk = clerk.compute_aggregate_verification_key();
+
+        SingleSignatureTestContext {
+            signer_1,
+            vk_1,
+            vk_2,
+            avk,
+        }
+    }
 
     mod golden {
         use super::*;
@@ -321,5 +412,99 @@ mod tests {
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
+    }
+
+    #[test]
+    fn verify_fails_with_wrong_verification_key() {
+        let ctx = build_single_signature_context(2, [0u8; 32]);
+        let signature = ctx
+            .signer_1
+            .create_single_signature(&TEST_MESSAGE)
+            .expect("signature should be created");
+
+        let params = test_parameters();
+        let error = signature
+            .verify(&params, &ctx.vk_2.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .expect_err("Verification should fail with wrong verification key");
+        assert!(
+            matches!(
+                error.downcast_ref::<BlsSignatureError>(),
+                Some(BlsSignatureError::SignatureInvalid(_))
+            ),
+            "Unexpected error variant: {error:?}"
+        );
+    }
+
+    #[test]
+    fn verify_fails_with_out_of_bounds_index() {
+        let ctx = build_single_signature_context(2, [0u8; 32]);
+        let mut signature = ctx
+            .signer_1
+            .create_single_signature(&TEST_MESSAGE)
+            .expect("signature should be created");
+
+        let params = test_parameters();
+        signature.set_concatenation_signature_indices(&[params.m + 1]);
+
+        let error = signature
+            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &TEST_MESSAGE)
+            .expect_err("Verification should fail with invalid index");
+        assert!(
+            matches!(
+                error.downcast_ref::<SignatureError>(),
+                Some(SignatureError::IndexBoundFailed(_, _))
+            ),
+            "Unexpected error variant: {error:?}"
+        );
+    }
+
+    #[test]
+    fn verify_fails_with_wrong_message() {
+        let ctx = build_single_signature_context(2, [0u8; 32]);
+        let signature = ctx
+            .signer_1
+            .create_single_signature(&TEST_MESSAGE)
+            .expect("signature should be created");
+        let wrong_message = [43u8; 16];
+
+        let params = test_parameters();
+        let error = signature
+            .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &wrong_message)
+            .expect_err("Verification should fail with wrong message");
+        assert!(
+            matches!(
+                error.downcast_ref::<BlsSignatureError>(),
+                Some(BlsSignatureError::SignatureInvalid(_))
+            ),
+            "Unexpected error variant: {error:?}"
+        );
+    }
+
+    #[test]
+    fn verify_fails_with_different_registration_avk() {
+        let signing_ctx = build_single_signature_context(2, [0u8; 32]);
+        let different_registration_ctx = build_single_signature_context(3, [0u8; 32]);
+        let signature = signing_ctx
+            .signer_1
+            .create_single_signature(&TEST_MESSAGE)
+            .expect("signature should be created");
+
+        let params = test_parameters();
+        let error = signature
+            .verify(
+                &params,
+                &signing_ctx.vk_1.vk,
+                &1,
+                &different_registration_ctx.avk,
+                &TEST_MESSAGE,
+            )
+            .expect_err("Verification should fail with a different registration AVK");
+        assert!(
+            matches!(
+                error.downcast_ref::<BlsSignatureError>(),
+                Some(BlsSignatureError::SignatureInvalid(_))
+            ),
+            "Unexpected error variant: {error:?}"
+        );
     }
 }
