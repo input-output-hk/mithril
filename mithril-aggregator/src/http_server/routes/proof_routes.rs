@@ -99,9 +99,8 @@ fn proof_v2_cardano_block(
 }
 
 mod handlers {
-    use serde::Serialize;
     use slog::{Logger, debug, warn};
-    use std::{collections::HashSet, convert::Infallible, sync::Arc};
+    use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
     use mithril_common::{
@@ -118,26 +117,11 @@ mod handlers {
             validators::ProverHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
-        services::{CardanoBlockProof, LegacyProverService, SignedEntityService},
+        services::{LegacyProverService, SignedEntityService},
         unwrap_to_internal_server_error,
     };
 
     use super::{CardanoBlockProofQueryParams, CardanoTransactionProofQueryParams};
-
-    #[derive(Serialize)]
-    struct CardanoBlockProofMessagePart {
-        block_hash: String,
-        transactions_hashes: Vec<String>,
-        proof: String,
-    }
-
-    #[derive(Serialize)]
-    struct CardanoBlockProofsMessage {
-        certificate_hash: String,
-        certified_blocks: Vec<CardanoBlockProofMessagePart>,
-        non_certified_blocks: Vec<String>,
-        latest_block_number: u64,
-    }
 
     pub async fn proof_cardano_transaction(
         client_metadata: ClientMetadata,
@@ -384,41 +368,32 @@ mod handlers {
         prover_service: Arc<dyn LegacyProverService>,
         signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
         block_hashes: Vec<String>,
-    ) -> StdResult<CardanoBlockProofsMessage> {
+    ) -> StdResult<CardanoTransactionsProofsMessage> {
         let block_proofs = prover_service
             .compute_blocks_proofs(
                 signed_entity.artifact.block_number_signed,
                 block_hashes.as_slice(),
             )
             .await?;
-
-        let certified_blocks = block_proofs
+        let certified_transactions = block_proofs
             .into_iter()
-            .map(|block_proof: CardanoBlockProof| {
+            .map(|block_proof| {
                 let proof_message_part: CardanoTransactionsSetProofMessagePart =
-                    block_proof.transactions_set_proof.clone().try_into()?;
-                Ok(CardanoBlockProofMessagePart {
-                    block_hash: block_proof.block_hash,
+                    block_proof.transactions_set_proof.try_into()?;
+                Ok(CardanoTransactionsSetProofMessagePart {
                     transactions_hashes: block_proof.transactions_hashes,
                     proof: proof_message_part.proof,
                 })
             })
             .collect::<StdResult<Vec<_>>>()?;
-        let certified_block_hashes = certified_blocks
-            .iter()
-            .map(|proof| proof.block_hash.as_str())
-            .collect::<HashSet<_>>();
-        let non_certified_blocks = block_hashes
-            .into_iter()
-            .filter(|hash| !certified_block_hashes.contains(hash.as_str()))
-            .collect::<Vec<_>>();
+        let non_certified_transactions = block_hashes;
 
-        Ok(CardanoBlockProofsMessage {
-            certificate_hash: signed_entity.certificate_id,
-            certified_blocks,
-            non_certified_blocks,
-            latest_block_number: *signed_entity.artifact.block_number_signed,
-        })
+        Ok(CardanoTransactionsProofsMessage::new(
+            &signed_entity.certificate_id,
+            certified_transactions,
+            non_certified_transactions,
+            signed_entity.artifact.block_number_signed,
+        ))
     }
 }
 
