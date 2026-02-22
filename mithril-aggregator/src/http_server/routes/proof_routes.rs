@@ -369,22 +369,16 @@ mod handlers {
         signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
         block_hashes: Vec<String>,
     ) -> StdResult<CardanoTransactionsProofsMessage> {
-        let block_proofs = prover_service
-            .compute_blocks_proofs(
+        // TODO: replace this temporary legacy call with the new prover once block proofs are available.
+        let transactions_set_proofs = prover_service
+            .compute_transactions_proofs(
                 signed_entity.artifact.block_number_signed,
                 block_hashes.as_slice(),
             )
             .await?;
-        let certified_transactions = block_proofs
+        let certified_transactions = transactions_set_proofs
             .into_iter()
-            .map(|block_proof| {
-                let proof_message_part: CardanoTransactionsSetProofMessagePart =
-                    block_proof.transactions_set_proof.try_into()?;
-                Ok(CardanoTransactionsSetProofMessagePart {
-                    transactions_hashes: block_proof.transactions_hashes,
-                    proof: proof_message_part.proof,
-                })
-            })
+            .map(TryInto::try_into)
             .collect::<StdResult<Vec<_>>>()?;
         let non_certified_transactions = block_hashes;
 
@@ -703,16 +697,9 @@ mod tests {
 
         let block_hash = fake_data::block_hashes()[0].to_string();
         let mut mock_prover_service = MockLegacyProverService::new();
-        mock_prover_service.expect_compute_blocks_proofs().returning({
-            let block_hash = block_hash.clone();
-            move |_, _| {
-                Ok(vec![crate::services::CardanoBlockProof {
-                    block_hash: block_hash.clone(),
-                    transactions_hashes: vec![fake_data::transaction_hashes()[0].to_string()],
-                    transactions_set_proof: CardanoTransactionsSetProof::dummy(),
-                }])
-            }
-        });
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
         dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();

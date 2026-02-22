@@ -6,8 +6,8 @@ use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockHash, BlockNumber, BlockRange, CardanoBlock, CardanoBlockTransactionMkTreeNode,
-    CardanoBlockWithTransactions, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
+    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
+    CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::{BlockRangeRootRetriever, LegacyBlockRangeRootRetriever};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -163,20 +163,6 @@ impl TransactionsRetriever for AggregatorCardanoChainDataRepository {
             })
     }
 
-    async fn get_blocks_by_hashes(&self, hashes: Vec<BlockHash>) -> StdResult<Vec<CardanoBlock>> {
-        let mut blocks = Vec::new();
-        for hash in hashes {
-            if let Some(record) = self.inner.get_block(hash).await? {
-                blocks.push(CardanoBlock::new(
-                    record.block_hash,
-                    record.block_number,
-                    record.slot_number,
-                ));
-            }
-        }
-
-        Ok(blocks)
-    }
 }
 
 #[async_trait::async_trait]
@@ -204,20 +190,6 @@ impl TransactionsRetriever for CardanoTransactionRepository {
         })
     }
 
-    async fn get_blocks_by_hashes(&self, hashes: Vec<BlockHash>) -> StdResult<Vec<CardanoBlock>> {
-        let mut blocks = Vec::new();
-        for hash in hashes {
-            if let Some(record) = self.get_block(hash).await? {
-                blocks.push(CardanoBlock::new(
-                    record.block_hash,
-                    record.block_number,
-                    record.slot_number,
-                ));
-            }
-        }
-
-        Ok(blocks)
-    }
 }
 
 #[cfg(test)]

@@ -11,8 +11,8 @@ use mithril_common::{
     StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStorer},
     entities::{
-        BlockHash, BlockNumber, BlockRange, CardanoBlock, CardanoTransaction,
-        CardanoTransactionsSetProof, TransactionHash,
+        BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof,
+        TransactionHash,
     },
     logging::LoggerExtensions,
     signable_builder::LegacyBlockRangeRootRetriever,
@@ -30,26 +30,8 @@ pub trait LegacyProverService: Sync + Send {
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 
-    /// Compute cryptographic proofs for all transactions contained in the given blocks.
-    async fn compute_blocks_proofs(
-        &self,
-        up_to: BlockNumber,
-        block_hashes: &[BlockHash],
-    ) -> StdResult<Vec<CardanoBlockProof>>;
-
     /// Compute the cache
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()>;
-}
-
-/// Legacy proof payload for one Cardano block.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CardanoBlockProof {
-    /// Hash of the certified Cardano block.
-    pub block_hash: BlockHash,
-    /// Hashes of transactions included in the block.
-    pub transactions_hashes: Vec<TransactionHash>,
-    /// Cryptographic proof of inclusion for all block transactions.
-    pub transactions_set_proof: CardanoTransactionsSetProof,
 }
 
 /// Transactions retriever
@@ -69,8 +51,6 @@ pub trait TransactionsRetriever: Sync + Send {
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransaction>>;
 
-    /// Get blocks by hashes.
-    async fn get_blocks_by_hashes(&self, hashes: Vec<BlockHash>) -> StdResult<Vec<CardanoBlock>>;
 }
 
 /// Legacy Mithril prover
@@ -185,60 +165,6 @@ impl<S: MKTreeStorer> LegacyProverService for LegacyMithrilProverService<S> {
             }
             _ => Ok(vec![]),
         }
-    }
-
-    async fn compute_blocks_proofs(
-        &self,
-        up_to: BlockNumber,
-        block_hashes: &[BlockHash],
-    ) -> StdResult<Vec<CardanoBlockProof>> {
-        let blocks = self
-            .transaction_retriever
-            .get_blocks_by_hashes(block_hashes.to_vec())
-            .await?;
-        let blocks: Vec<CardanoBlock> = blocks
-            .into_iter()
-            .filter(|block| block.block_number <= up_to)
-            .collect();
-
-        let block_ranges = blocks
-            .iter()
-            .map(|block| BlockRange::from_block_number(block.block_number))
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let transactions_in_ranges =
-            self.transaction_retriever.get_by_block_ranges(block_ranges).await?;
-
-        let mut proofs = Vec::new();
-        for block_hash in block_hashes {
-            let block = blocks.iter().find(|block| &block.block_hash == block_hash);
-            if let Some(block) = block {
-                let transactions_hashes = transactions_in_ranges
-                    .iter()
-                    .filter(|tx| tx.block_hash == block.block_hash)
-                    .map(|tx| tx.transaction_hash.clone())
-                    .collect::<Vec<_>>();
-                if transactions_hashes.is_empty() {
-                    continue;
-                }
-
-                if let Some(transactions_set_proof) = self
-                    .compute_transactions_proofs(up_to, &transactions_hashes)
-                    .await?
-                    .into_iter()
-                    .next()
-                {
-                    proofs.push(CardanoBlockProof {
-                        block_hash: block.block_hash.clone(),
-                        transactions_hashes,
-                        transactions_set_proof,
-                    });
-                }
-            }
-        }
-
-        Ok(proofs)
     }
 
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {
