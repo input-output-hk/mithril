@@ -405,9 +405,7 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
-        entities::{
-            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot,
-        },
+        entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
         test::{
             assert_equivalent,
@@ -891,7 +889,9 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("{path}?block_hashes=invalid%3A%2F%2Fid,,block-456"))
+            .path(&format!(
+                "{path}?block_hashes=invalid%3A%2F%2Fid,,block-456"
+            ))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))

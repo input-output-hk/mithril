@@ -11,8 +11,7 @@ use mithril_common::{
     StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStorer},
     entities::{
-        BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof,
-        TransactionHash,
+        BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
     logging::LoggerExtensions,
     signable_builder::LegacyBlockRangeRootRetriever,
@@ -50,7 +49,6 @@ pub trait TransactionsRetriever: Sync + Send {
         &self,
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransaction>>;
-
 }
 
 /// Legacy Mithril prover

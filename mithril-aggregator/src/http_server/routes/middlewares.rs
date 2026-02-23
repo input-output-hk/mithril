@@ -205,8 +205,7 @@ pub mod validators {
     /// With Prover Transactions Hash Validator
     pub fn with_prover_transactions_hash_validator(
         router_state: &RouterState,
-    ) -> impl Filter<Extract = (ProverHashValidator,), Error = Infallible> + Clone + use<>
-    {
+    ) -> impl Filter<Extract = (ProverHashValidator,), Error = Infallible> + Clone + use<> {
         let max_hashes = router_state
             .configuration
             .cardano_prover_max_hashes_allowed_by_request;
@@ -217,8 +216,7 @@ pub mod validators {
     /// With Prover Block Hash Validator
     pub fn with_prover_block_hash_validator(
         router_state: &RouterState,
-    ) -> impl Filter<Extract = (ProverHashValidator,), Error = Infallible> + Clone + use<>
-    {
+    ) -> impl Filter<Extract = (ProverHashValidator,), Error = Infallible> + Clone + use<> {
         let max_hashes = router_state
             .configuration
             .cardano_prover_max_hashes_allowed_by_request;

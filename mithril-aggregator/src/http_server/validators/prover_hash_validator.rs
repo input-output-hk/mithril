@@ -102,7 +102,10 @@ mod tests {
 
         assert_eq!(
             error,
-            ClientError::new("invalid_transaction_hashes", "Transaction hash cannot be empty")
+            ClientError::new(
+                "invalid_transaction_hashes",
+                "Transaction hash cannot be empty"
+            )
         );
     }
 
@@ -148,9 +151,7 @@ mod tests {
         let block_hashes = vec!["a".repeat(64), "b".repeat(64), "c".repeat(64)];
         let validator = ProverHashValidator::new(HashKind::Block, 2);
 
-        let error = validator
-            .validate(&block_hashes)
-            .expect_err("Should return an error");
+        let error = validator.validate(&block_hashes).expect_err("Should return an error");
 
         assert_eq!(
             error,
