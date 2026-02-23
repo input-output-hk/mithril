@@ -162,7 +162,6 @@ impl TransactionsRetriever for AggregatorCardanoChainDataRepository {
                     .collect::<Vec<CardanoTransaction>>()
             })
     }
-
 }
 
 #[async_trait::async_trait]
@@ -189,7 +188,6 @@ impl TransactionsRetriever for CardanoTransactionRepository {
                 .collect::<Vec<CardanoTransaction>>()
         })
     }
-
 }
 
 #[cfg(test)]
