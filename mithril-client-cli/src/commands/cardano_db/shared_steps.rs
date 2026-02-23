@@ -9,7 +9,9 @@ use mithril_client::{
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
 };
 
-use crate::utils::{CardanoDbUtils, LedgerFormat, ProgressPrinter};
+use crate::utils::{
+    CardanoDbUtils, LedgerFormat, ProgressPrinter, is_version_at_least_10_6_2_or_latest,
+};
 
 pub struct ComputeCardanoDatabaseMessageOptions {
     pub db_dir: PathBuf,
@@ -222,14 +224,19 @@ pub fn log_download_information(
                     r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
     {}
+    "###,
+                    snapshot_converter_cmd("LMDB"),
+                );
 
-    Or to 'Legacy' flavor by running the command:
+                if !is_version_at_least_10_6_2_or_latest(cardano_node_version) {
+                    println!(
+                        r###"Or to 'Legacy' flavor by running the command:
 
     {}
     "###,
-                    snapshot_converter_cmd("LMDB"),
-                    snapshot_converter_cmd("Legacy"),
-                );
+                        snapshot_converter_cmd("Legacy"),
+                    );
+                }
             }
         }
     }
