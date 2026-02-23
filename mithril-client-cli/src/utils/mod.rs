@@ -12,6 +12,7 @@ mod github_release_retriever;
 mod http_downloader;
 mod multi_download_progress_reporter;
 mod progress_reporter;
+mod version;
 
 pub use archive_unpacker::*;
 pub use cardano_db::*;
@@ -24,6 +25,7 @@ pub use github_release_retriever::*;
 pub use http_downloader::*;
 pub use multi_download_progress_reporter::*;
 pub use progress_reporter::*;
+pub use version::*;
 
 use anyhow::Context;
 use mithril_client::MithrilResult;
