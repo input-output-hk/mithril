@@ -220,17 +220,23 @@ impl Runner for SignerRunner {
                 current_kes_period,
             )?;
 
-            let signer = Signer::new(
-                self.services.single_signer.get_party_id(),
-                protocol_initializer.verification_key_for_concatenation().into(),
-                protocol_initializer.verification_key_signature_for_concatenation(),
-                protocol_operational_certificate,
+            let signer = Signer {
+                party_id: self.services.single_signer.get_party_id(),
+                verification_key_for_concatenation: protocol_initializer
+                    .verification_key_for_concatenation()
+                    .into(),
+                verification_key_signature_for_concatenation: protocol_initializer
+                    .verification_key_signature_for_concatenation(),
+                operational_certificate: protocol_operational_certificate,
                 kes_evolutions,
                 #[cfg(feature = "future_snark")]
-                protocol_initializer.verification_key_for_snark().map(Into::into),
+                verification_key_for_snark: protocol_initializer
+                    .verification_key_for_snark()
+                    .map(Into::into),
                 #[cfg(feature = "future_snark")]
-                protocol_initializer.verification_key_signature_for_snark(),
-            );
+                verification_key_signature_for_snark: protocol_initializer
+                    .verification_key_signature_for_snark(),
+            };
             self.services
                 .signer_registration_publisher
                 .register_signer(epoch_offset_to_recording_epoch, &signer)
