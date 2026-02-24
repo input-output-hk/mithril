@@ -15,7 +15,6 @@ use wasm_bindgen::prelude::*;
 
 /// A cryptographic proof of a set of items is included in a merkle tree
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(target_family = "wasm", wasm_bindgen(getter_with_clone))]
 pub struct MkSetProofMessagePart<T> {
     /// Hashes of the certified transactions
     pub items: Vec<T>,
@@ -60,6 +59,7 @@ impl<T: IntoMKTreeNode + Clone, U: Into<T>> TryFrom<MkSetProofMessagePart<U>> fo
 
 /// Cardano block message representation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = "CardanoBlock"))]
 pub struct CardanoBlockMessagePart {
     /// Block hash
     #[cfg_attr(target_family = "wasm", wasm_bindgen(getter_with_clone))]
@@ -105,8 +105,9 @@ impl From<CardanoBlockMessagePart> for CardanoBlock {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 /// Cardano transaction message representation
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = "CardanoTransaction"))]
 pub struct CardanoTransactionMessagePart {
     /// Unique hash of the transaction
     #[cfg_attr(target_family = "wasm", wasm_bindgen(getter_with_clone))]
