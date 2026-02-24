@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use mithril_common::entities::ClientError;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The type of hash validated by the prover routes.
 pub enum HashKind {
     Transaction,
     Block,
@@ -26,16 +27,19 @@ impl Display for HashKind {
     }
 }
 
+/// Validates Cardano transaction or block hashes for prover requests.
 pub struct ProverHashValidator {
     kind: HashKind,
     max_hashes: usize,
 }
 
 impl ProverHashValidator {
+    /// Creates a validator for the given hash kind with a maximum number of accepted hashes.
     pub fn new(kind: HashKind, max_hashes: usize) -> Self {
         Self { kind, max_hashes }
     }
 
+    /// Validates hash count and format (non-empty, 64 hexadecimal characters).
     pub fn validate(&self, hashes: &[String]) -> Result<(), ClientError> {
         if hashes.len() > self.max_hashes {
             return Err(ClientError::new(
