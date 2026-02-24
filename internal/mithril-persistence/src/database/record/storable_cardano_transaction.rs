@@ -15,6 +15,10 @@ pub struct StorableCardanoTransactionRecord {
 }
 
 impl StorableCardanoTransactionRecord {
+    /// SQLite max variables per prepared query is `32 766`, given each record needs to binds two variables and to leave some
+    /// room for other variables (i.e. in WHERE clause) we fix this limit.
+    pub const MAX_PER_INSERT: usize = 10_000;
+
     /// StorableCardanoTransactionRecord factory
     pub fn new<T: Into<TransactionHash>, U: Into<BlockHash>>(hash: T, block_hash: U) -> Self {
         Self {

@@ -19,7 +19,7 @@ use crate::database::query::{
 };
 use crate::database::record::{
     BlockRangeRootRecord, CardanoBlockRecord, CardanoBlockTransactionsRecord,
-    CardanoTransactionRecord, IntoRecords,
+    CardanoTransactionRecord, IntoRecords, StorableCardanoTransactionRecord,
 };
 use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
 
@@ -117,9 +117,11 @@ impl CardanoTransactionRepository {
 
         connection.apply(InsertCardanoBlockQuery::insert_many(blocks_records)?)?;
         if !transactions_records.is_empty() {
-            connection.apply(InsertCardanoTransactionQuery::insert_many(
-                transactions_records,
-            )?)?;
+            for chunk in
+                transactions_records.chunks(StorableCardanoTransactionRecord::MAX_PER_INSERT)
+            {
+                connection.apply(InsertCardanoTransactionQuery::insert_many(chunk.to_vec())?)?;
+            }
         }
 
         Ok(())
@@ -268,27 +270,25 @@ from (select max(start) as highest from block_range_root) max_new,
         &self,
         blocks_with_transactions: Vec<CardanoBlockWithTransactions>,
     ) -> StdResult<()> {
-        const DB_TRANSACTION_SIZE: usize = 100000;
+        const BLOCKS_PER_SQL_COMMIT: usize = 100000;
 
         // First chunk to process insert in a sqlite transaction
-        for transaction_chunk in blocks_with_transactions.chunks(DB_TRANSACTION_SIZE) {
+        for transaction_chunk in blocks_with_transactions.chunks(BLOCKS_PER_SQL_COMMIT) {
             let connection = self.connection_pool.connection()?;
             let transaction = connection.begin_transaction()?;
 
-            // Second chunk to avoid an error when we exceed sqlite binding limitations
-            for inner_chunk in transaction_chunk.chunks(100) {
-                self.create_block_and_transactions_with_connection(
-                    &connection,
-                    inner_chunk.to_vec(),
-                )
-                .await
-                .with_context(
-                    || "CardanoTransactionRepository can not store blocks and transactions",
-                )?;
-            }
+            self.create_block_and_transactions_with_connection(
+                &connection,
+                transaction_chunk.to_vec(),
+            )
+            .await
+            .with_context(
+                || "CardanoTransactionRepository can not store blocks and transactions",
+            )?;
 
             transaction.commit()?;
         }
+
         Ok(())
     }
 
@@ -709,7 +709,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_store_blocks_and_transactions_and_get_stored_them_individually() {
+    async fn repository_create_blocks_and_transactions_and_get_stored_them_individually() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
@@ -756,6 +756,36 @@ mod tests {
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_store_blocks_and_transactions_bulk_insert_1_000_blocks_with_500_transactions_per_block()
+     {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+
+        let blocks_to_insert: Vec<_> = (0..1_000)
+            .map(|i| {
+                CardanoBlockWithTransactions::new(
+                    format!("block_hash-{i}"),
+                    BlockNumber(i),
+                    SlotNumber(i * 5),
+                    (0..500).map(|j| format!("tx_hash-{i}-{j}")).collect(),
+                )
+            })
+            .collect();
+
+        repository
+            .store_blocks_and_transactions(blocks_to_insert)
+            .await
+            .unwrap();
+
+        let all_blocks = repository.get_all_blocks().await.unwrap();
+        assert_eq!(1_000, all_blocks.len());
+        let all_transactions = repository.get_all_transactions().await.unwrap();
+        assert_eq!(1_000 * 500, all_transactions.len());
     }
 
     #[tokio::test]
