@@ -4369,7 +4369,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.64"
+version = "0.2.65"
 dependencies = [
  "anyhow",
  "async-trait",
