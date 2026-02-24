@@ -1,4 +1,4 @@
-use super::{MutationPayload, SqLiteEntity, WhereCondition};
+use super::{SqLiteEntity, WhereCondition};
 
 /// Define a query to perform on database and return iterator of a defined entity.
 ///
@@ -12,12 +12,6 @@ pub trait Query {
     /// Return the filters to apply to the query.
     fn filters(&self) -> WhereCondition;
 
-    /// Returns the mutation payload for INSERT/UPDATE operations.
-    fn mutation_payload(&self) -> Option<&dyn MutationPayload> {
-        // Blanket implementation which returns None for read-only queries.
-        None
-    }
-
     /// Return the definition of this query, ie the actual SQL this query performs.
     fn get_definition(&self, condition: &str) -> String;
 }
@@ -27,8 +21,7 @@ mod tests {
     use sqlite::{Connection, Value};
 
     use crate::sqlite::{
-        ConnectionExtensions, FixedColumnPayload, GetAllCondition, Projection, SourceAlias,
-        SqliteConnection,
+        ConnectionExtensions, GetAllCondition, Projection, SourceAlias, SqliteConnection,
     };
 
     use super::super::{SqLiteEntity, entity::HydrationError};
@@ -90,12 +83,12 @@ mod tests {
     }
 
     struct UpdateTestEntityQuery {
-        payload: FixedColumnPayload<4>,
+        condition: WhereCondition,
     }
 
     impl UpdateTestEntityQuery {
-        pub fn new(payload: FixedColumnPayload<4>) -> Self {
-            Self { payload }
+        pub fn new(condition: WhereCondition) -> Self {
+            Self { condition }
         }
     }
 
@@ -103,11 +96,7 @@ mod tests {
         type Entity = TestEntity;
 
         fn filters(&self) -> WhereCondition {
-            WhereCondition::default()
-        }
-
-        fn mutation_payload(&self) -> Option<&dyn MutationPayload> {
-            Some(&self.payload)
+            self.condition.clone()
         }
 
         fn get_definition(&self, _condition: &str) -> String {
@@ -116,15 +105,13 @@ mod tests {
 
             format!(
                 r#"
-insert into query_test ({columns}) values {binding_columns}
+insert into query_test (text_data, real_data, integer_data, maybe_null) values (?1, ?2, ?3, ?4)
   on conflict (text_data) do update set
     real_data = excluded.real_data,
     integer_data = excluded.integer_data,
     maybe_null = excluded.maybe_null 
 returning {projection}
-"#,
-                columns = self.payload.joined_columns(),
-                binding_columns = self.payload.binding_columns(),
+"#
             )
         }
     }
@@ -224,16 +211,16 @@ returning {projection}
     #[test]
     fn test_upsertion() {
         let connection = init_database();
-        let payload =
-            FixedColumnPayload::new(["text_data", "real_data", "integer_data", "maybe_null"])
-                .with_rows(vec![[
-                    Value::String("row 1".to_string()),
-                    Value::Float(1.234),
-                    Value::Integer(0),
-                    Value::Null,
-                ]]);
-
-        let mut cursor = connection.fetch(UpdateTestEntityQuery::new(payload)).unwrap();
+        let params = [
+            Value::String("row 1".to_string()),
+            Value::Float(1.234),
+            Value::Integer(0),
+            Value::Null,
+        ]
+        .to_vec();
+        let mut cursor = connection
+            .fetch(UpdateTestEntityQuery::new(WhereCondition::new("", params)))
+            .unwrap();
 
         let entity = cursor.next().expect("there should be one result, none returned");
         assert_eq!(
@@ -246,29 +233,5 @@ returning {projection}
             entity
         );
         assert!(cursor.next().is_none());
-    }
-
-    #[test]
-    fn test_upsertion_with_more_than_sqlite_binding_limit_automatically_chunk() {
-        // Note: max sqlite binding is 32 766
-        let connection = init_database();
-        let payload =
-            FixedColumnPayload::new(["text_data", "real_data", "integer_data", "maybe_null"])
-                .with_rows(
-                    (1..30_000)
-                        .map(|i| {
-                            [
-                                Value::String(format!("row-{i}")),
-                                Value::Float(1.234),
-                                Value::Integer(0),
-                                Value::Null,
-                            ]
-                        })
-                        .collect(),
-                );
-
-        connection
-            .apply(UpdateTestEntityQuery::new(payload))
-            .expect("should automatically chunk when sqlite binding limit is reached");
     }
 }

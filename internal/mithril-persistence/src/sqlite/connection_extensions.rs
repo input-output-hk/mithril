@@ -57,15 +57,7 @@ impl ConnectionExtensions for SqliteConnection {
     fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<'_, Q::Entity>> {
         let (condition, params) = query.filters().expand();
         let sql = query.get_definition(&condition);
-        let mut cursor = prepare_statement(self, &sql)?.into_iter().bind(&params[..])?;
-
-        if let Some(mutation_payload) = query.mutation_payload() {
-            cursor = cursor.bind(
-                mutation_payload
-                    .bindable_values(0..mutation_payload.number_of_rows())
-                    .as_slice(),
-            )?;
-        }
+        let cursor = prepare_statement(self, &sql)?.into_iter().bind(&params[..])?;
 
         let iterator = EntityCursor::new(cursor);
 
