@@ -82,7 +82,6 @@
           [
             pkgs.gnum4
             pkgsMusl.openssl
-            pkgsMusl.pkg-config
           ]
           ++ lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.libiconv
@@ -135,6 +134,10 @@
             // lib.optionalAttrs pkgs.stdenv.isLinux {
               CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
               RUSTFLAGS = "-C target-feature=+crt-static";
+              
+              CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = 
+                "${pkgsMusl.stdenv.cc}/bin/x86_64-unknown-linux-musl-gcc";
+              
               PKG_CONFIG_ALLOW_CROSS = "1";
               PKG_CONFIG_ALL_STATIC = "1";
               OPENSSL_STATIC = "1";
