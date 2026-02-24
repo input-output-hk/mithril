@@ -8,10 +8,14 @@ use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 /// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct SlotNumber(pub u64);
 
 impl Display for SlotNumber {
