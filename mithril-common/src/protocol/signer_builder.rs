@@ -10,7 +10,7 @@ use crate::{
     crypto_helper::{
         KesPeriod, KesSigner, ProtocolAggregateVerificationKey, ProtocolClerk,
         ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
-        ProtocolStakeDistribution,
+        ProtocolStakeDistribution, SignerRegistrationParameters,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -51,17 +51,19 @@ impl SignerBuilder {
 
         for signer in registered_signers {
             key_registration
-                .register(
-                    Some(signer.party_id.to_owned()),
-                    signer.operational_certificate.clone(),
-                    signer.verification_key_signature_for_concatenation,
-                    signer.kes_evolutions,
-                    signer.verification_key_for_concatenation,
+                .register(SignerRegistrationParameters {
+                    party_id: Some(signer.party_id.to_owned()),
+                    operational_certificate: signer.operational_certificate.clone(),
+                    verification_key_signature_for_concatenation: signer
+                        .verification_key_signature_for_concatenation,
+                    kes_evolutions: signer.kes_evolutions,
+                    verification_key_for_concatenation: signer.verification_key_for_concatenation,
                     #[cfg(feature = "future_snark")]
-                    signer.verification_key_for_snark.map(|k| k.into()),
+                    verification_key_for_snark: signer.verification_key_for_snark,
                     #[cfg(feature = "future_snark")]
-                    signer.verification_key_signature_for_snark,
-                )
+                    verification_key_signature_for_snark: signer
+                        .verification_key_signature_for_snark,
+                })
                 .with_context(|| {
                     format!("Registration failed for signer: '{}'", signer.party_id)
                 })?;
