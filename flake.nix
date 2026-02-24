@@ -28,30 +28,23 @@
       }: let
         inherit (inputs.nixpkgs) lib;
         
-      # pkgs =
-      #   if system == "x86_64-linux" then
-      #     import inputs.nixpkgs {
-      #       inherit system;
-      #       overlays = [ (import inputs.rust-overlay) ];
-      #       crossSystem = {
-      #         config = "x86_64-unknown-linux-musl";
-      #       };
-      #     }
-      #   else
-      #     import inputs.nixpkgs {
-      #       inherit system;
-      #       overlays = [ (import inputs.rust-overlay) ];
-      #     };
-        
-      pkgs = import inputs.nixpkgs {
+      pkgs =
+        if system == "x86_64-linux" then
+          import inputs.nixpkgs {
             inherit system;
             overlays = [ (import inputs.rust-overlay) ];
-        };
-
-      pkgsMusl = pkgs.pkgsCross.musl64;
+            crossSystem = {
+              config = "x86_64-unknown-linux-musl";
+            };
+          }
+        else
+          import inputs.nixpkgs {
+            inherit system;
+            overlays = [ (import inputs.rust-overlay) ];
+          };
 
       craneLib =
-        if pkgs.stdenv.isLinux then
+        if pkgs.stdenv.hostPlatform.isMusl then
           (inputs.crane.mkLib pkgs).overrideToolchain (p:
             p.rust-bin.stable.latest.default.override {
               targets = [ "x86_64-unknown-linux-musl" ];
@@ -81,7 +74,7 @@
         buildInputs =
           [
             pkgs.gnum4
-            pkgsMusl.openssl
+            pkgs.openssl
           ]
           ++ lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.libiconv
@@ -131,20 +124,9 @@
             // {
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
-            // lib.optionalAttrs pkgs.stdenv.isLinux {
-              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+            // lib.optionalAttrs pkgs.stdenv.hostPlatform.isMusl {
               RUSTFLAGS = "-C target-feature=+crt-static";
-              
-              CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = 
-                "${pkgsMusl.stdenv.cc}/bin/x86_64-unknown-linux-musl-gcc";
-              
-              PKG_CONFIG_ALLOW_CROSS = "1";
-              PKG_CONFIG_ALL_STATIC = "1";
               OPENSSL_STATIC = "1";
-
-              # OPENSSL_DIR = "${pkgs.openssl.dev}";
-              # OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-              # OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
