@@ -15,11 +15,6 @@ cfg_num_integer! {
     /// Set the number of iterations of the Taylor expansions. The higher the number, the more precise
     /// the value is. A value of 30 provides ~69 bits precision for phi_f=0.2
     const TAYLOR_EXPANSION_ITERATIONS: usize = 30;
-    /// Set the number of bits to truncate from the target value. It should be in relation
-    /// with the number of iterations as we want to truncate the bits not used for precision.
-    /// A value of 163 matches 92 bits of precision (255 - 92 = 163, where 255 is the
-    /// number of bits of the modulus)
-    const TRUNCATION_BITS: usize = 163;
 
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -47,7 +42,6 @@ cfg_num_integer! {
     ///
     /// Once the precise expression obtained, we can compute the target value as:
     /// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
-    /// and truncate the unnecessary bits that are below the precision threshold to ensure more stability in the result.
     ///
     /// Input: (ln(1 - phi_f) approximation, stake of the signer, total_stake)
     ///
@@ -71,11 +65,7 @@ cfg_num_integer! {
         // Floor division
         let (target_as_int, _) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
 
-        // Truncate the lower bits of the target value
-        // The value TRUNCATION_BITS depends on the precision we have for the approximations
-        let truncated_target: BigInt = (target_as_int >> TRUNCATION_BITS) << TRUNCATION_BITS;
-
-        let (_, mut bytes) = truncated_target.to_bytes_le();
+        let (_, mut bytes) = target_as_int.to_bytes_le();
         bytes.resize(32, 0);
         // It is safe to use .expect() as the value resulting from the computation is always lower than
         // the Jubjub modulus
