@@ -20,6 +20,8 @@ pub struct CardanoTransactionsProofsV2Message {
     pub certificate_hash: String,
 
     /// Transactions that have been certified
+    // Note: Skip in wasm as `wasm_bindgen` don't support generics
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub certified_transactions: Vec<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
 
     /// Hashes of the transactions that could not be certified
@@ -27,6 +29,34 @@ pub struct CardanoTransactionsProofsV2Message {
 
     /// Latest block number that has been certified
     pub latest_block_number: BlockNumber,
+}
+
+#[cfg_attr(
+    target_family = "wasm",
+    wasm_bindgen(js_class = "CardanoTransactionsProofsV2")
+)]
+impl CardanoTransactionsProofsV2Message {
+    /// Cardano transactions that have been certified
+    // Note: Wasm only as rust code can access them through the field directly
+    #[cfg(target_family = "wasm")]
+    #[wasm_bindgen(getter)]
+    pub fn certified_transactions(&self) -> Vec<CardanoTransactionMessagePart> {
+        self.certified_transactions
+            .iter()
+            .flat_map(|cb| &cb.items)
+            .cloned()
+            .collect()
+    }
+
+    /// Hashes of the Cardano transactions that have been certified
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
+    pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
+        self.certified_transactions
+            .iter()
+            .flat_map(|ct| ct.items.iter().map(|t| &t.transaction_hash))
+            .cloned()
+            .collect()
+    }
 }
 
 /// Set of transactions verified by [CardanoTransactionsProofsV2Message::verify].
