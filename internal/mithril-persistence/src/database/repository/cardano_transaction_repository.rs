@@ -113,15 +113,18 @@ impl CardanoTransactionRepository {
         if blocks_with_transactions.is_empty() {
             return Ok(());
         }
-        let (blocks_records, transactions_records) = blocks_with_transactions.into_records();
-
+        let (blocks_records, mut transactions_records) = blocks_with_transactions.into_records();
         connection.apply(InsertCardanoBlockQuery::insert_many(blocks_records)?)?;
-        if !transactions_records.is_empty() {
-            for chunk in
-                transactions_records.chunks(StorableCardanoTransactionRecord::MAX_PER_INSERT)
-            {
-                connection.apply(InsertCardanoTransactionQuery::insert_many(chunk.to_vec())?)?;
-            }
+
+        while !transactions_records.is_empty() {
+            let chunk: Vec<_> = transactions_records
+                .drain(
+                    ..transactions_records
+                        .len()
+                        .min(StorableCardanoTransactionRecord::MAX_PER_INSERT),
+                )
+                .collect();
+            connection.apply(InsertCardanoTransactionQuery::insert_many(chunk)?)?;
         }
 
         Ok(())
@@ -272,19 +275,21 @@ from (select max(start) as highest from block_range_root) max_new,
     ) -> StdResult<()> {
         const BLOCKS_PER_SQL_COMMIT: usize = 100000;
 
-        // First chunk to process insert in a sqlite transaction
-        for transaction_chunk in blocks_with_transactions.chunks(BLOCKS_PER_SQL_COMMIT) {
+        let mut remaining_blocks = blocks_with_transactions;
+
+        while !remaining_blocks.is_empty() {
             let connection = self.connection_pool.connection()?;
             let transaction = connection.begin_transaction()?;
 
-            self.create_block_and_transactions_with_connection(
-                &connection,
-                transaction_chunk.to_vec(),
-            )
-            .await
-            .with_context(
-                || "CardanoTransactionRepository can not store blocks and transactions",
-            )?;
+            let chunk: Vec<_> = remaining_blocks
+                .drain(..remaining_blocks.len().min(BLOCKS_PER_SQL_COMMIT))
+                .collect();
+
+            self.create_block_and_transactions_with_connection(&connection, chunk)
+                .await
+                .with_context(
+                    || "CardanoTransactionRepository can not store blocks and transactions",
+                )?;
 
             transaction.commit()?;
         }
