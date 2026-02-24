@@ -70,18 +70,18 @@ pub mod tests {
             .build()
             .signers_with_stake()[0]
             .verification_key_for_concatenation;
-        let signer_with_stake_expected = &entities::SignerWithStake::new(
-            "1".to_string(),
-            verification_key,
-            None,
-            None,
-            None,
-            100,
+        let signer_with_stake_expected = &entities::SignerWithStake {
+            party_id: "1".to_string(),
+            verification_key_for_concatenation: verification_key,
+            verification_key_signature_for_concatenation: None,
+            operational_certificate: None,
+            kes_evolutions: None,
+            stake: 100,
             #[cfg(feature = "future_snark")]
-            None,
+            verification_key_for_snark: None,
             #[cfg(feature = "future_snark")]
-            None,
-        );
+            verification_key_signature_for_snark: None,
+        };
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
             signer_with_stake_expected.into();

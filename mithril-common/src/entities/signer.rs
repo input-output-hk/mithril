@@ -77,35 +77,6 @@ impl Ord for Signer {
 }
 
 impl Signer {
-    /// Signer factory
-    pub fn new(
-        party_id: PartyId,
-        verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
-        verification_key_signature_for_concatenation: Option<
-            ProtocolSignerVerificationKeySignatureForConcatenation,
-        >,
-        operational_certificate: Option<ProtocolOpCert>,
-        kes_evolutions: Option<KesEvolutions>,
-        #[cfg(feature = "future_snark")] verification_key_for_snark: Option<
-            ProtocolSignerVerificationKeyForSnark,
-        >,
-        #[cfg(feature = "future_snark")] verification_key_signature_for_snark: Option<
-            ProtocolSignerVerificationKeySignatureForSnark,
-        >,
-    ) -> Signer {
-        Signer {
-            party_id,
-            verification_key_for_concatenation,
-            verification_key_signature_for_concatenation,
-            operational_certificate,
-            kes_evolutions,
-            #[cfg(feature = "future_snark")]
-            verification_key_for_snark,
-            #[cfg(feature = "future_snark")]
-            verification_key_signature_for_snark,
-        }
-    }
-
     /// Convert the given values to a vec of signers.
     pub fn vec_from<T: Into<Signer>>(from: Vec<T>) -> Vec<Self> {
         from.into_iter().map(|f| f.into()).collect()
@@ -190,17 +161,18 @@ impl Debug for Signer {
 
 impl From<SignerWithStake> for Signer {
     fn from(other: SignerWithStake) -> Self {
-        Signer::new(
-            other.party_id,
-            other.verification_key_for_concatenation,
-            other.verification_key_signature_for_concatenation,
-            other.operational_certificate,
-            other.kes_evolutions,
+        Self {
+            party_id: other.party_id,
+            verification_key_for_concatenation: other.verification_key_for_concatenation,
+            verification_key_signature_for_concatenation: other
+                .verification_key_signature_for_concatenation,
+            operational_certificate: other.operational_certificate,
+            kes_evolutions: other.kes_evolutions,
             #[cfg(feature = "future_snark")]
-            other.verification_key_for_snark,
+            verification_key_for_snark: other.verification_key_for_snark,
             #[cfg(feature = "future_snark")]
-            other.verification_key_signature_for_snark,
-        )
+            verification_key_signature_for_snark: other.verification_key_signature_for_snark,
+        }
     }
 }
 
@@ -270,38 +242,6 @@ impl Ord for SignerWithStake {
 }
 
 impl SignerWithStake {
-    /// SignerWithStake factory
-    #[allow(clippy::too_many_arguments)] // TODO: fix this
-    pub fn new(
-        party_id: PartyId,
-        verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
-        verification_key_signature_for_concatenation: Option<
-            ProtocolSignerVerificationKeySignatureForConcatenation,
-        >,
-        operational_certificate: Option<ProtocolOpCert>,
-        kes_evolutions: Option<KesEvolutions>,
-        stake: Stake,
-        #[cfg(feature = "future_snark")] verification_key_for_snark: Option<
-            ProtocolSignerVerificationKeyForSnark,
-        >,
-        #[cfg(feature = "future_snark")] verification_key_signature_for_snark: Option<
-            ProtocolSignerVerificationKeySignatureForSnark,
-        >,
-    ) -> SignerWithStake {
-        SignerWithStake {
-            party_id,
-            verification_key_for_concatenation,
-            verification_key_signature_for_concatenation,
-            operational_certificate,
-            kes_evolutions,
-            stake,
-            #[cfg(feature = "future_snark")]
-            verification_key_for_snark,
-            #[cfg(feature = "future_snark")]
-            verification_key_signature_for_snark,
-        }
-    }
-
     /// Turn a [Signer] into a [SignerWithStake].
     pub fn from_signer(signer: Signer, stake: Stake) -> Self {
         Self {
@@ -410,29 +350,29 @@ mod tests {
             .build()
             .signers_with_stake()[0]
             .verification_key_for_concatenation;
-        let signer_expected = Signer::new(
-            "1".to_string(),
-            verification_key,
-            None,
-            None,
-            None,
+        let signer_expected = Signer {
+            party_id: "1".to_string(),
+            verification_key_for_concatenation: verification_key,
+            verification_key_signature_for_concatenation: None,
+            operational_certificate: None,
+            kes_evolutions: None,
             #[cfg(feature = "future_snark")]
-            None,
+            verification_key_for_snark: None,
             #[cfg(feature = "future_snark")]
-            None,
-        );
-        let signer_with_stake = SignerWithStake::new(
-            "1".to_string(),
-            verification_key,
-            None,
-            None,
-            None,
-            100,
+            verification_key_signature_for_snark: None,
+        };
+        let signer_with_stake = SignerWithStake {
+            party_id: "1".to_string(),
+            verification_key_for_concatenation: verification_key,
+            verification_key_signature_for_concatenation: None,
+            operational_certificate: None,
+            kes_evolutions: None,
+            stake: 100,
             #[cfg(feature = "future_snark")]
-            None,
+            verification_key_for_snark: None,
             #[cfg(feature = "future_snark")]
-            None,
-        );
+            verification_key_signature_for_snark: None,
+        };
 
         let signer_into: Signer = signer_with_stake.into();
         assert_eq!(signer_expected, signer_into);
@@ -443,51 +383,23 @@ mod tests {
         const HASH_EXPECTED: &str =
             "02778791113dcd8647b019366e223bfe3aa8a054fa6d9d1918b6b669de485f1c";
 
-        assert_eq!(
-            HASH_EXPECTED,
-            Signer::new(
-                "1".to_string(),
-                fake_keys::signer_verification_key()[3].try_into().unwrap(),
-                None,
-                None,
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-            )
-            .compute_hash()
-        );
-        assert_ne!(
-            HASH_EXPECTED,
-            Signer::new(
-                "0".to_string(),
-                fake_keys::signer_verification_key()[3].try_into().unwrap(),
-                None,
-                None,
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-            )
-            .compute_hash()
-        );
-        assert_ne!(
-            HASH_EXPECTED,
-            Signer::new(
-                "1".to_string(),
-                fake_keys::signer_verification_key()[0].try_into().unwrap(),
-                None,
-                None,
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-                #[cfg(feature = "future_snark")]
-                None,
-            )
-            .compute_hash()
-        );
+        let build_signer = |party_id: &str, key_index: usize| Signer {
+            party_id: party_id.to_string(),
+            verification_key_for_concatenation: fake_keys::signer_verification_key()[key_index]
+                .try_into()
+                .unwrap(),
+            verification_key_signature_for_concatenation: None,
+            operational_certificate: None,
+            kes_evolutions: None,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: None,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: None,
+        };
+
+        assert_eq!(HASH_EXPECTED, build_signer("1", 3).compute_hash());
+        assert_ne!(HASH_EXPECTED, build_signer("0", 3).compute_hash());
+        assert_ne!(HASH_EXPECTED, build_signer("1", 0).compute_hash());
     }
 
     #[test]

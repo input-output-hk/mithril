@@ -95,18 +95,24 @@ fn setup_signer_with_stake(
 ) -> SignerWithStake {
     let kes_evolutions = operational_certificate.as_ref().and(Some(kes_evolutions));
 
-    SignerWithStake::new(
-        party_id.to_owned(),
-        protocol_initializer.verification_key_for_concatenation().into(),
-        protocol_initializer.verification_key_signature_for_concatenation(),
+    SignerWithStake {
+        party_id: party_id.to_owned(),
+        verification_key_for_concatenation: protocol_initializer
+            .verification_key_for_concatenation()
+            .into(),
+        verification_key_signature_for_concatenation: protocol_initializer
+            .verification_key_signature_for_concatenation(),
         operational_certificate,
         kes_evolutions,
         stake,
         #[cfg(feature = "future_snark")]
-        protocol_initializer.verification_key_for_snark().map(|vk| vk.into()),
+        verification_key_for_snark: protocol_initializer
+            .verification_key_for_snark()
+            .map(|vk| vk.into()),
         #[cfg(feature = "future_snark")]
-        protocol_initializer.verification_key_signature_for_snark(),
-    )
+        verification_key_signature_for_snark: protocol_initializer
+            .verification_key_signature_for_snark(),
+    }
 }
 
 fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<ProtocolOpCert> {

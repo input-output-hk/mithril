@@ -138,18 +138,24 @@ impl MithrilEpochService {
                 .get(&*signer.party_id)
                 .ok_or_else(|| RunnerError::NoStakeForSigner(signer.party_id.to_string()))?;
 
-            signers_with_stake.push(SignerWithStake::new(
-                signer.party_id.to_owned(),
-                signer.verification_key_for_concatenation.to_owned(),
-                signer.verification_key_signature_for_concatenation.to_owned(),
-                signer.operational_certificate.to_owned(),
-                signer.kes_evolutions.to_owned(),
-                *stake,
+            signers_with_stake.push(SignerWithStake {
+                party_id: signer.party_id.to_owned(),
+                verification_key_for_concatenation: signer
+                    .verification_key_for_concatenation
+                    .to_owned(),
+                verification_key_signature_for_concatenation: signer
+                    .verification_key_signature_for_concatenation
+                    .to_owned(),
+                operational_certificate: signer.operational_certificate.to_owned(),
+                kes_evolutions: signer.kes_evolutions.to_owned(),
+                stake: *stake,
                 #[cfg(feature = "future_snark")]
-                signer.verification_key_for_snark.to_owned(),
+                verification_key_for_snark: signer.verification_key_for_snark.to_owned(),
                 #[cfg(feature = "future_snark")]
-                signer.verification_key_signature_for_snark.to_owned(),
-            ));
+                verification_key_signature_for_snark: signer
+                    .verification_key_signature_for_snark
+                    .to_owned(),
+            });
             trace!(
                 self.logger,
                 " > Associating signer_id {} with stake {}", signer.party_id, *stake
