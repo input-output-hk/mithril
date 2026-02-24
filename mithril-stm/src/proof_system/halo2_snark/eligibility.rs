@@ -345,58 +345,78 @@ mod tests {
 
             #[test]
             fn one_stake_bytes_stable() {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
-                let first_target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                // phi_f = [0.05, 0.2, 0.65]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                    Ratio::new_raw(BigInt::from(13), BigInt::from(20)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
+                    let first_target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
 
-                for _ in 0..10 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
-                    assert_eq!(target, first_target);
+                    for _ in 0..10 {
+                        let target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                        assert_eq!(target, first_target);
+                    }
                 }
             }
 
             #[test]
             fn full_stake_stable() {
-                // phi_f = 0.65
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(13), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
+                // phi_f = [0.05, 0.2, 0.65]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                    Ratio::new_raw(BigInt::from(13), BigInt::from(20)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
 
-                let full_target =
-                    compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
-                for _ in 0..10 {
-                    let target =
+                    let full_target =
                         compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
-                    assert_eq!(full_target, target);
+                    for _ in 0..10 {
+                        let target =
+                            compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
+                        assert_eq!(full_target, target);
+                    }
                 }
             }
 
             #[test]
             fn minimal_stake_difference_stable() {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
-                for _ in 0..10 {
-                    let zero_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
-                    let first_target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
-                    assert!(zero_target < first_target);
-                    let second_target = compute_target_value(&ln_one_minus_phi_f, 2, total_stake);
-                    assert!(first_target < second_target);
+                // phi_f = [0.05, 0.2, 0.65]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                    Ratio::new_raw(BigInt::from(13), BigInt::from(20)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
+                    for _ in 0..10 {
+                        let zero_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
+                        let first_target =
+                            compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                        assert!(zero_target < first_target);
+                        let second_target =
+                            compute_target_value(&ln_one_minus_phi_f, 2, total_stake);
+                        assert!(first_target < second_target);
+                    }
                 }
             }
         }
@@ -406,61 +426,76 @@ mod tests {
 
             #[test]
             fn following_min_stake_same_order() {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
+                // phi_f = [0.05, 0.2]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
 
-                let mut prev_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
-                for i in 1..=10 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, i, total_stake);
-                    assert!(prev_target < target);
-                    prev_target = target;
+                    let mut prev_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
+                    for i in 1..=10 {
+                        let target = compute_target_value(&ln_one_minus_phi_f, i, total_stake);
+                        assert!(prev_target < target);
+                        prev_target = target;
+                    }
                 }
             }
 
             #[test]
             fn following_stake_same_order() {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
+                // phi_f = [0.05, 0.2]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
 
-                let mut prev_target =
-                    compute_target_value(&ln_one_minus_phi_f, 99_999, total_stake);
-                for stake in 100_000..100_010 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
-                    assert!(prev_target < target);
-                    prev_target = target;
+                    let mut prev_target =
+                        compute_target_value(&ln_one_minus_phi_f, 99_999, total_stake);
+                    for stake in 100_000..100_010 {
+                        let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                        assert!(prev_target < target);
+                        prev_target = target;
+                    }
                 }
             }
 
             #[test]
             fn following_max_stake_same_order() {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
-                let ln_one_minus_phi_f = ln_1p_taylor_expansion(
-                    TAYLOR_EXPANSION_ITERATIONS,
-                    phi_f_ratio.numer(),
-                    phi_f_ratio.denom(),
-                );
-                let total_stake = 45_000_000_000;
+                // phi_f = [0.05, 0.2]
+                let phi_f_ratio = [
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(20)),
+                    Ratio::new_raw(BigInt::from(1), BigInt::from(5)),
+                ];
+                for phi_f in phi_f_ratio {
+                    let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+                        TAYLOR_EXPANSION_ITERATIONS,
+                        phi_f.numer(),
+                        phi_f.denom(),
+                    );
+                    let total_stake = 45_000_000_000;
 
-                let mut prev_target =
-                    compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
-                for i in 1..=10 {
-                    let target =
-                        compute_target_value(&ln_one_minus_phi_f, total_stake - i, total_stake);
-                    assert!(prev_target > target);
-                    prev_target = target;
+                    let mut prev_target =
+                        compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
+                    for i in 1..=10 {
+                        let target =
+                            compute_target_value(&ln_one_minus_phi_f, total_stake - i, total_stake);
+                        assert!(prev_target > target);
+                        prev_target = target;
+                    }
                 }
             }
         }
