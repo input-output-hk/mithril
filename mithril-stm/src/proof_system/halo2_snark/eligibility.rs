@@ -62,7 +62,7 @@ cfg_num_integer! {
         let modulus_ratio = Ratio::from(modulus);
         let target_as_ratio = modulus_ratio.clone() - modulus_ratio * exp_ln_one_minus_phi_f_stake_ratio;
 
-        // Euclidian division
+        // Euclidean division
         let (target_as_int, _) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
 
         let (_, mut bytes) = target_as_int.to_bytes_le();
