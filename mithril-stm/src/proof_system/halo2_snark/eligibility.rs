@@ -62,7 +62,7 @@ cfg_num_integer! {
         let modulus_ratio = Ratio::from(modulus);
         let target_as_ratio = modulus_ratio.clone() - modulus_ratio * exp_ln_one_minus_phi_f_stake_ratio;
 
-        // Floor division
+        // Euclidian division
         let (target_as_int, _) = target_as_ratio.numer().div_rem(target_as_ratio.denom());
 
         let (_, mut bytes) = target_as_int.to_bytes_le();
@@ -578,33 +578,33 @@ mod tests {
             ];
 
             const GOLDEN_BYTES_ONE: [u8; 32] = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 215, 156, 110,
-                100, 74, 145, 0, 0, 0, 0, 0,
+                179, 45, 15, 116, 19, 36, 152, 18, 11, 41, 224, 85, 227, 15, 114, 18, 156, 184,
+                151, 231, 159, 130, 15, 216, 116, 16, 120, 2, 0, 0, 0, 0,
             ];
 
             const GOLDEN_BYTES_TWO: [u8; 32] = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 249, 56, 221, 200,
-                148, 34, 1, 0, 0, 0, 0,
+                147, 250, 142, 161, 183, 0, 114, 249, 93, 8, 141, 100, 78, 15, 83, 103, 154, 33,
+                80, 255, 27, 143, 17, 176, 233, 32, 240, 4, 0, 0, 0, 0,
             ];
 
             const GOLDEN_BYTES_MAX_STAKE_MINUS_TWO: [u8; 32] = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 170, 99, 48, 235,
-                56, 154, 90, 247, 225, 203, 5,
+                174, 6, 231, 91, 182, 16, 137, 143, 32, 112, 129, 229, 79, 207, 99, 163, 149, 223,
+                177, 235, 20, 72, 104, 176, 134, 203, 197, 106, 221, 135, 47, 23,
             ];
 
             const GOLDEN_BYTES_MAX_STAKE_MINUS_ONE: [u8; 32] = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 209, 70, 102, 151,
-                63, 36, 91, 247, 225, 203, 5,
+                64, 217, 106, 30, 192, 114, 136, 29, 221, 79, 72, 130, 1, 140, 208, 41, 185, 29,
+                94, 190, 103, 58, 138, 144, 74, 114, 191, 108, 221, 135, 47, 23,
             ];
 
             const GOLDEN_BYTES_MAX_STAKE: [u8; 32] = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 74, 41, 156, 67,
-                70, 174, 91, 247, 225, 203, 5,
+                181, 176, 137, 113, 82, 84, 146, 101, 7, 185, 10, 232, 206, 1, 209, 8, 240, 217,
+                240, 29, 209, 103, 161, 112, 14, 25, 185, 110, 221, 135, 47, 23,
             ];
 
             fn golden_value_target_from_stake(stake: u64, total_stake: u64) -> BaseFieldElement {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                // phi_f = 0.2
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
                 let ln_one_minus_phi_f = ln_1p_taylor_expansion(
                     TAYLOR_EXPANSION_ITERATIONS,
                     phi_f_ratio.numer(),
@@ -615,8 +615,8 @@ mod tests {
             }
 
             fn golden_value_following_min_stake() -> Vec<BaseFieldElement> {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                // phi_f = 0.2
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
                 let ln_one_minus_phi_f = ln_1p_taylor_expansion(
                     TAYLOR_EXPANSION_ITERATIONS,
                     phi_f_ratio.numer(),
@@ -633,8 +633,8 @@ mod tests {
             }
 
             fn golden_value_following_stake_medium() -> Vec<BaseFieldElement> {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                // phi_f = 0.2
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
                 let ln_one_minus_phi_f = ln_1p_taylor_expansion(
                     TAYLOR_EXPANSION_ITERATIONS,
                     phi_f_ratio.numer(),
@@ -651,8 +651,8 @@ mod tests {
             }
 
             fn golden_value_following_stake_max() -> Vec<BaseFieldElement> {
-                // phi_f = 0.05
-                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(20));
+                // phi_f = 0.2
+                let phi_f_ratio = Ratio::new_raw(BigInt::from(1), BigInt::from(5));
                 let ln_one_minus_phi_f = ln_1p_taylor_expansion(
                     TAYLOR_EXPANSION_ITERATIONS,
                     phi_f_ratio.numer(),
@@ -690,6 +690,29 @@ mod tests {
             }
 
             #[test]
+            fn golden_check_max_values() {
+                let golden_target_max =
+                    BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE).unwrap();
+                let golden_target_max_1 =
+                    BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE_MINUS_ONE).unwrap();
+                let golden_target_max_2 =
+                    BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE_MINUS_TWO).unwrap();
+
+                assert_eq!(
+                    golden_target_max,
+                    golden_value_target_from_stake(45_000_000_000, 45_000_000_000)
+                );
+                assert_eq!(
+                    golden_target_max_1,
+                    golden_value_target_from_stake(44_999_999_999, 45_000_000_000)
+                );
+                assert_eq!(
+                    golden_target_max_2,
+                    golden_value_target_from_stake(44_999_999_998, 45_000_000_000)
+                );
+            }
+
+            #[test]
             fn golden_check_max_values_fail() {
                 let golden_target_max =
                     BaseFieldElement::from_bytes(&GOLDEN_BYTES_MAX_STAKE).unwrap();
@@ -715,7 +738,6 @@ mod tests {
             #[test]
             fn golden_check_following_min_stake() {
                 let golden_target_vector = golden_value_following_min_stake();
-
                 let golden_target_from_file =
                     include_str!("./golden_vectors/golden_vector_min_stake.txt");
                 for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
@@ -729,7 +751,6 @@ mod tests {
             #[test]
             fn golden_check_following_stake_medium() {
                 let golden_target_vector = golden_value_following_stake_medium();
-
                 let golden_target_from_file =
                     include_str!("./golden_vectors/golden_vector_medium_stake.txt");
                 for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
@@ -745,7 +766,6 @@ mod tests {
                 let golden_target_vector = golden_value_following_stake_max();
                 let golden_target_from_file =
                     include_str!("./golden_vectors/golden_vector_max_stake.txt");
-
                 for (t1, t2_str) in golden_target_vector.iter().zip(golden_target_from_file.lines())
                 {
                     let t2: Vec<u8> = serde_json::from_str(t2_str).unwrap();
