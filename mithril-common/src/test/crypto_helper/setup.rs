@@ -8,7 +8,7 @@ use crate::{
     crypto_helper::{
         KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolInitializer,
         ProtocolKeyRegistration, ProtocolOpCert, ProtocolParameters, ProtocolPartyId,
-        ProtocolStakeDistribution, SerDeShelleyFileFormat,
+        ProtocolStakeDistribution, SerDeShelleyFileFormat, SignerRegistrationParameters,
     },
     entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test::{
@@ -158,17 +158,23 @@ pub fn setup_signers_from_stake_distribution(
         );
 
         key_registration
-            .register(
-                Some(signer_with_stake.party_id.to_owned()),
+            .register(SignerRegistrationParameters {
+                party_id: Some(signer_with_stake.party_id.to_owned()),
                 operational_certificate,
-                protocol_initializer.verification_key_signature_for_concatenation(),
-                Some(kes_evolutions),
-                protocol_initializer.verification_key_for_concatenation().into(),
+                verification_key_signature_for_concatenation: protocol_initializer
+                    .verification_key_signature_for_concatenation(),
+                kes_evolutions: Some(kes_evolutions),
+                verification_key_for_concatenation: protocol_initializer
+                    .verification_key_for_concatenation()
+                    .into(),
                 #[cfg(feature = "future_snark")]
-                protocol_initializer.verification_key_for_snark(),
+                verification_key_for_snark: protocol_initializer
+                    .verification_key_for_snark()
+                    .map(Into::into),
                 #[cfg(feature = "future_snark")]
-                protocol_initializer.verification_key_signature_for_snark(),
-            )
+                verification_key_signature_for_snark: protocol_initializer
+                    .verification_key_signature_for_snark(),
+            })
             .expect("key registration should have succeeded");
 
         signers.push((

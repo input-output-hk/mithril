@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
-    crypto_helper::ProtocolKeyRegistration,
+    crypto_helper::{ProtocolKeyRegistration, SignerRegistrationParameters},
     entities::{Signer, SignerWithStake, StakeDistribution},
 };
 
@@ -53,17 +53,18 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             None => None,
         };
         let party_id_registered = key_registration
-            .register(
-                party_id_register.clone(),
-                signer.operational_certificate.clone(),
-                signer.verification_key_signature_for_concatenation,
+            .register(SignerRegistrationParameters {
+                party_id: party_id_register.clone(),
+                operational_certificate: signer.operational_certificate.clone(),
+                verification_key_signature_for_concatenation: signer
+                    .verification_key_signature_for_concatenation,
                 kes_evolutions,
-                signer.verification_key_for_concatenation,
+                verification_key_for_concatenation: signer.verification_key_for_concatenation,
                 #[cfg(feature = "future_snark")]
-                signer.verification_key_for_snark.map(Into::into),
+                verification_key_for_snark: signer.verification_key_for_snark,
                 #[cfg(feature = "future_snark")]
-                signer.verification_key_signature_for_snark,
-            )
+                verification_key_signature_for_snark: signer.verification_key_signature_for_snark,
+            })
             .with_context(|| {
                 format!(
                     "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}', kes_evolutions: '{kes_evolutions:?}'"
