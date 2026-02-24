@@ -48,6 +48,8 @@
             overlays = [ (import inputs.rust-overlay) ];
         };
 
+      pkgsMusl = pkgs.pkgsCross.musl64;
+
       craneLib =
         if pkgs.stdenv.isLinux then
           (inputs.crane.mkLib pkgs).overrideToolchain (p:
@@ -79,9 +81,8 @@
         buildInputs =
           [
             pkgs.gnum4
-            pkgs.openssl
-            pkgs.pkg-config
-            pkgs.libiconv
+            pkgsMusl.openssl
+            pkgsMusl.pkg-config
           ]
           ++ lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.libiconv
