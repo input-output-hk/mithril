@@ -73,18 +73,23 @@
 
         buildInputs =
           [
-            pkgs.gnum4
             pkgs.openssl
           ]
           ++ lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.libiconv
           ];
 
+        nativeBuildInputs =
+          [
+            pkgs.pkg-config
+            pkgs.gnum4
+          ];
+
         commonsArgs = {
           pname = "mithril";
           version = "0.0.1";
           src = clean ./.;
-          inherit buildInputs;
+          inherit buildInputs nativeBuildInputs;
           CARGO_TERM_VERBOSE = "true";
         };
 
