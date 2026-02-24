@@ -369,7 +369,7 @@ mod handlers {
         signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
         block_hashes: Vec<String>,
     ) -> StdResult<CardanoTransactionsProofsMessage> {
-        // TODO: replace this temporary legacy call with the new prover once block proofs are available.
+        // TODO(#2987): replace this temporary legacy call with the new prover once block proofs are available.
         let transactions_set_proofs = prover_service
             .compute_transactions_proofs(
                 signed_entity.artifact.block_number_signed,
