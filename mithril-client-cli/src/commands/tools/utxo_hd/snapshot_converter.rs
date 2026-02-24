@@ -14,12 +14,12 @@ use mithril_client::{
     common::{CardanoNetwork, MagicId},
 };
 
-use crate::CommandContext;
 use crate::utils::{
     ArchiveUnpacker, CardanoDbUtils, GitHubReleaseRetriever, HttpDownloader, LedgerFormat,
-    ProgressOutputType, ProgressPrinter, ReqwestGitHubApiClient, ReqwestHttpDownloader,
-    VERSION_10_6_2, copy_dir, is_version_equal_or_upper, print_simple_warning, remove_dir_contents,
+    ProgressOutputType, ProgressPrinter, ReqwestGitHubApiClient, ReqwestHttpDownloader, copy_dir,
+    is_version_equal_or_upper, print_simple_warning, remove_dir_contents,
 };
+use crate::{CommandContext, utils::CARDANO_NODE_V10_6_2};
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
 const GITHUB_REPOSITORY: &str = "cardano-node";
@@ -770,7 +770,7 @@ fn get_snapshot_converter_bin_by_version(
 }
 
 fn is_version_at_least_10_6_2_or_latest(version: &str) -> bool {
-    is_version_equal_or_upper(version, VERSION_10_6_2)
+    is_version_equal_or_upper(version, CARDANO_NODE_V10_6_2)
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ use mithril_client::{
 };
 
 use crate::utils::{
-    CardanoDbUtils, LedgerFormat, ProgressPrinter, VERSION_10_6_2, is_version_equal_or_upper,
+    CARDANO_NODE_V10_6_2, CardanoDbUtils, LedgerFormat, ProgressPrinter, is_version_equal_or_upper,
 };
 
 pub struct ComputeCardanoDatabaseMessageOptions {
@@ -245,7 +245,7 @@ pub fn log_download_information(
 }
 
 pub fn is_version_at_least_10_6_2_or_latest(version: &str) -> bool {
-    is_version_equal_or_upper(version, VERSION_10_6_2)
+    is_version_equal_or_upper(version, CARDANO_NODE_V10_6_2)
 }
 
 #[cfg(test)]
