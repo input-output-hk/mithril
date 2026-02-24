@@ -28,22 +28,27 @@
       }: let
         inherit (inputs.nixpkgs) lib;
         
-      pkgs =
-        if system == "x86_64-linux" then
-          import inputs.nixpkgs {
+      # pkgs =
+      #   if system == "x86_64-linux" then
+      #     import inputs.nixpkgs {
+      #       inherit system;
+      #       overlays = [ (import inputs.rust-overlay) ];
+      #       crossSystem = {
+      #         config = "x86_64-unknown-linux-musl";
+      #       };
+      #     }
+      #   else
+      #     import inputs.nixpkgs {
+      #       inherit system;
+      #       overlays = [ (import inputs.rust-overlay) ];
+      #     };
+        
+      pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [ (import inputs.rust-overlay) ];
-            crossSystem = {
-              config = "x86_64-unknown-linux-musl";
-            };
-          }
-        else
-          import inputs.nixpkgs {
-            inherit system;
-            overlays = [ (import inputs.rust-overlay) ];
-          };
+        };
 
-        craneLib =
+      craneLib =
         if pkgs.stdenv.isLinux then
           (inputs.crane.mkLib pkgs).overrideToolchain (p:
             p.rust-bin.stable.latest.default.override {
