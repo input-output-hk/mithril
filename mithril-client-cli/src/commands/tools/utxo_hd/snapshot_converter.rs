@@ -8,19 +8,18 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::{Parser, ValueEnum};
-use semver::Version;
 
 use mithril_client::{
     MithrilError, MithrilResult,
     common::{CardanoNetwork, MagicId},
 };
 
-use crate::CommandContext;
 use crate::utils::{
     ArchiveUnpacker, CardanoDbUtils, GitHubReleaseRetriever, HttpDownloader, LedgerFormat,
     ProgressOutputType, ProgressPrinter, ReqwestGitHubApiClient, ReqwestHttpDownloader, copy_dir,
-    print_simple_warning, remove_dir_contents,
+    is_version_equal_or_upper, print_simple_warning, remove_dir_contents,
 };
+use crate::{CommandContext, utils::CARDANO_NODE_V10_6_2};
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
 const GITHUB_REPOSITORY: &str = "cardano-node";
@@ -771,15 +770,7 @@ fn get_snapshot_converter_bin_by_version(
 }
 
 fn is_version_at_least_10_6_2_or_latest(version: &str) -> bool {
-    let normalized_version = version.trim().to_ascii_lowercase();
-    if normalized_version == "latest" {
-        return true;
-    }
-
-    match Version::parse(&normalized_version) {
-        Ok(v) => v >= Version::new(10, 6, 2),
-        Err(_) => false,
-    }
+    is_version_equal_or_upper(version, CARDANO_NODE_V10_6_2)
 }
 
 #[cfg(test)]

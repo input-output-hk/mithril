@@ -494,19 +494,21 @@ For additional security, ancillary files are signed using `Ed25519` and the sign
 You will see that the selected snapshot archive has been downloaded locally unpacked and that the associated certificate is valid:
 
 ```bash
-1/5 - Checking local disk info…
-2/5 - Fetching the certificate and verifying the certificate chain…
+1/7 - Checking local disk info…
+2/7 - Fetching the certificate and verifying the certificate chain…
   Certificate chain validated
-4/5 - Downloading and unpacking the cardano db
-   [00:00:22] [###############################################################################################] 3.14 GiB/3.14 GiB (0.0s)
+3/7 - Downloading and unpacking the cardano db snapshot
+   [00:19:21] [###########################################################################################################] Files: 24,348/24,348 (0.0s)
    [00:00:01] [###########################################################################################] 165.88 MiB/165.88 MiB (0.0s)
-4/5 - Computing the cardano db message
-5/5 - Verifying the cardano db signature…
-Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' has been unpacked and successfully verified with Mithril.
+4/7 - Downloading and verifying digests…
+5/7 - Verifying the cardano database
+6/7 - Computing the cardano db snapshot message
+7/7 - Verifying the cardano db signature
+Cardano database snapshot '188f65fc7d3bbf30a59ab05ce4ec6649cec96a1b51b909ca0d1702555e8605d0' archives have been successfully unpacked. Immutable files have been successfully verified with Mithril.
 
     Files in the directory 'db' can be used to run a Cardano node with version >= 10.6.2.
 
-    If you are using Cardano Docker image, you can restore a Cardano Node with:
+    If you are using the Cardano Docker image, you can restore a Cardano node with:
 
     docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.6.2
 
@@ -514,10 +516,6 @@ Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' ha
 Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
     mithril-client tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.6.2 --utxo-hd-flavor LMDB --commit
-
-    Or to 'Legacy' flavor by running the command:
-
-    mithril-client tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.6.2 --utxo-hd-flavor Legacy --commit
 ```
 
 ### Step 5 (optional): Convert the ledger state snapshot to another flavor
