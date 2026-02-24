@@ -131,10 +131,11 @@
               RUSTFLAGS = "-C target-feature=+crt-static";
               PKG_CONFIG_ALLOW_CROSS = "1";
               PKG_CONFIG_ALL_STATIC = "1";
+              OPENSSL_STATIC = "1";
 
-              OPENSSL_DIR = "${pkgs.openssl.dev}";
-              OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-              OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+              # OPENSSL_DIR = "${pkgs.openssl.dev}";
+              # OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+              # OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
