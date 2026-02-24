@@ -164,10 +164,6 @@ impl SignedEntityServiceArtifactsDependencies {
 }
 
 impl MithrilSignedEntityService {
-    fn as_dyn_artifact<T: Artifact + 'static>(artifact: T) -> Arc<dyn Artifact> {
-        Arc::new(artifact)
-    }
-
     /// MithrilSignedEntityService factory
     pub fn new(
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
@@ -245,7 +241,7 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<Arc<dyn Artifact>> {
         match signed_entity_type.clone() {
-            SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Arc::new(
                 self.mithril_stake_distribution_artifact_builder
                     .compute_artifact(epoch, certificate)
                     .await
@@ -255,7 +251,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Arc::new(
                 self.cardano_immutable_files_full_artifact_builder
                     .compute_artifact(beacon.clone(), certificate)
                     .await
@@ -265,7 +261,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Arc::new(
                 self.cardano_stake_distribution_artifact_builder
                     .compute_artifact(epoch, certificate)
                     .await
@@ -275,7 +271,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Arc::new(
                 self.cardano_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
                     .await
@@ -285,7 +281,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number) => Ok(Arc::new(
                 self.cardano_blocks_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
                     .await
@@ -295,7 +291,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoDatabase(beacon) => Ok(Self::as_dyn_artifact(
+            SignedEntityType::CardanoDatabase(beacon) => Ok(Arc::new(
                 self.cardano_database_artifact_builder
                     .compute_artifact(beacon, certificate)
                     .await
