@@ -1,12 +1,13 @@
 use std::collections::BTreeSet;
 use std::ops::Range;
+
 use tokio::sync::Mutex;
 
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
-    CardanoTransaction, ChainPoint, SlotNumber,
+    BlockHash, BlockNumber, BlockRange, CardanoBlock, CardanoBlockTransactionMkTreeNode,
+    CardanoBlockWithTransactions, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 
@@ -145,6 +146,54 @@ impl InMemoryChainDataStore {
             .map(|r| r.range.clone())
             .collect()
     }
+
+    /// Returns all [CardanoBlock] with the given block hashes.
+    pub async fn get_blocks_by_hashes(&self, block_hashes: &[BlockHash]) -> Vec<CardanoBlock> {
+        let blocks_with_txs = self.blocks_with_txs.lock().await;
+        blocks_with_txs
+            .iter()
+            .filter(|block| block_hashes.contains(&block.block_hash))
+            .cloned()
+            .map(Into::into)
+            .collect()
+    }
+
+    /// Returns all [CardanoTransaction] with the given transaction hashes.
+    pub async fn get_transactions_by_hashes(
+        &self,
+        transaction_hashes: &[TransactionHash],
+    ) -> Vec<CardanoTransaction> {
+        let blocks_with_txs = self.blocks_with_txs.lock().await.clone();
+        blocks_with_txs
+            .into_iter()
+            .flat_map(|block| block.into_transactions())
+            .filter(|tx| transaction_hashes.contains(&tx.transaction_hash))
+            .collect()
+    }
+
+    /// Returns all [CardanoBlockTransactionMkTreeNode] contained in the given block ranges.
+    pub async fn get_blocks_with_transactions_in_block_ranges(
+        &self,
+        block_ranges: &[BlockRange],
+    ) -> BTreeSet<CardanoBlockTransactionMkTreeNode> {
+        let ranges: Vec<Range<BlockNumber>> =
+            block_ranges.iter().map(|range| range.clone().into()).collect();
+        self.get_blocks_with_transactions_in_ranges(&ranges).await
+    }
+
+    /// Returns all [CardanoBlockTransactionMkTreeNode] contained in the given ranges.
+    pub async fn get_blocks_with_transactions_in_ranges(
+        &self,
+        block_ranges: &[Range<BlockNumber>],
+    ) -> BTreeSet<CardanoBlockTransactionMkTreeNode> {
+        let blocks = self.blocks_with_txs.lock().await;
+        blocks
+            .iter()
+            .filter(|block| block_ranges.iter().any(|range| range.contains(&block.block_number)))
+            .cloned()
+            .flat_map(|block| block.into_mk_tree_node())
+            .collect()
+    }
 }
 
 #[async_trait::async_trait]
@@ -179,13 +228,7 @@ impl ChainDataStore for InMemoryChainDataStore {
         &self,
         range: Range<BlockNumber>,
     ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
-        let blocks = self.blocks_with_txs.lock().await;
-        Ok(blocks
-            .iter()
-            .filter(|block| range.contains(&block.block_number))
-            .cloned()
-            .flat_map(|block| block.into_mk_tree_node())
-            .collect())
+        Ok(self.get_blocks_with_transactions_in_ranges(&[range]).await)
     }
 
     async fn get_transactions_in_range(
@@ -747,19 +790,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_blocks_and_transactions_in_range_returns_empty_when_store_empty() {
+    async fn get_blocks_with_transactions_in_ranges_returns_empty_when_store_empty() {
         let store = InMemoryChainDataStore::default();
 
         let transactions = store
-            .get_blocks_and_transactions_in_range(BlockNumber(0)..BlockNumber(100))
-            .await
-            .unwrap();
+            .get_blocks_with_transactions_in_ranges(&[BlockNumber(0)..BlockNumber(100)])
+            .await;
 
         assert!(transactions.is_empty());
     }
 
     #[tokio::test]
-    async fn get_blocks_and_transactions_in_range_filters_correctly() {
+    async fn get_blocks_with_transactions_in_ranges_filters_correctly() {
         fn into_expected_nodes(
             cbtx: &[CardanoBlockWithTransactions],
         ) -> BTreeSet<CardanoBlockTransactionMkTreeNode> {
@@ -790,49 +832,189 @@ mod tests {
             .with_blocks_and_transactions(&blocks_with_tx)
             .build();
 
-        // Range excludes all transactions
+        // One range that include no transactions
         {
             let result = store
-                .get_blocks_and_transactions_in_range(BlockNumber(0)..BlockNumber(10))
-                .await
-                .unwrap();
+                .get_blocks_with_transactions_in_ranges(&[BlockNumber(0)..BlockNumber(10)])
+                .await;
             assert!(result.is_empty());
         }
 
-        // Range after all transactions
+        // One range after all transactions
         {
             let result = store
-                .get_blocks_and_transactions_in_range(BlockNumber(13)..BlockNumber(21))
-                .await
-                .unwrap();
+                .get_blocks_with_transactions_in_ranges(&[BlockNumber(13)..BlockNumber(21)])
+                .await;
             assert!(result.is_empty());
         }
 
-        // Range includes the first two transactions (10, 11)
+        // One range includes the first two transactions (10, 11)
         {
             let result = store
-                .get_blocks_and_transactions_in_range(BlockNumber(9)..BlockNumber(12))
-                .await
-                .unwrap();
+                .get_blocks_with_transactions_in_ranges(&[BlockNumber(9)..BlockNumber(12)])
+                .await;
             assert_eq!(into_expected_nodes(&blocks_with_tx[0..=1]), result);
         }
 
-        // Range includes all transactions
+        // One range includes all transactions
         {
             let result = store
-                .get_blocks_and_transactions_in_range(BlockNumber(10)..BlockNumber(13))
-                .await
-                .unwrap();
+                .get_blocks_with_transactions_in_ranges(&[BlockNumber(10)..BlockNumber(13)])
+                .await;
             assert_eq!(into_expected_nodes(&blocks_with_tx), result);
         }
 
-        // Range includes the last two transactions (11, 12)
+        // One range includes the last two transactions (11, 12)
         {
             let result = store
-                .get_blocks_and_transactions_in_range(BlockNumber(11)..BlockNumber(14))
-                .await
-                .unwrap();
+                .get_blocks_with_transactions_in_ranges(&[BlockNumber(11)..BlockNumber(14)])
+                .await;
             assert_eq!(into_expected_nodes(&blocks_with_tx[1..=2]), result);
+        }
+
+        // Two ranges, one that include the first transaction (10) and the other that include the last transaction (12)
+        {
+            let result = store
+                .get_blocks_with_transactions_in_ranges(&[
+                    BlockNumber(9)..BlockNumber(11),
+                    BlockNumber(12)..BlockNumber(13),
+                ])
+                .await;
+            assert_eq!(
+                into_expected_nodes(&[blocks_with_tx[0].clone(), blocks_with_tx[2].clone()]),
+                result
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn get_blocks_by_hashes_filters_correctly() {
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx-hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx-hash-3"],
+            ),
+        ];
+        let store = InMemoryChainDataStore::builder()
+            .with_blocks_and_transactions(&blocks_with_tx)
+            .build();
+
+        // Get one existing hash
+        {
+            let result = store.get_blocks_by_hashes(&["block-hash-1".to_string()]).await;
+            assert_eq!(
+                vec![CardanoBlock::new("block-hash-1", BlockNumber(10), SlotNumber(50))],
+                result
+            );
+        }
+        // Get one non-existing hash
+        {
+            let result = store.get_blocks_by_hashes(&["block-hash-4".to_string()]).await;
+            assert_eq!(Vec::<CardanoBlock>::new(), result);
+        }
+        // Get two existing hashes and one non-existing hash
+        {
+            let result = store
+                .get_blocks_by_hashes(&[
+                    "block-hash-1".to_string(),
+                    "block-hash-3".to_string(),
+                    "block-hash-4".to_string(),
+                ])
+                .await;
+            assert_eq!(
+                vec![
+                    CardanoBlock::new("block-hash-1", BlockNumber(10), SlotNumber(50)),
+                    CardanoBlock::new("block-hash-3", BlockNumber(12), SlotNumber(52))
+                ],
+                result
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn get_transactions_by_hashes_filters_correctly() {
+        let blocks_with_tx = vec![
+            CardanoBlockWithTransactions::new(
+                "block-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx-hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                vec!["tx-hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                vec!["tx-hash-3"],
+            ),
+        ];
+        let store = InMemoryChainDataStore::builder()
+            .with_blocks_and_transactions(&blocks_with_tx)
+            .build();
+
+        // Get one existing hash
+        {
+            let result = store.get_transactions_by_hashes(&["tx-hash-1".to_string()]).await;
+            assert_eq!(
+                vec![CardanoTransaction::new(
+                    "tx-hash-1",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block-hash-1"
+                )],
+                result
+            );
+        }
+        // Get one non-existing hash
+        {
+            let result = store.get_transactions_by_hashes(&["tx-hash-4".to_string()]).await;
+            assert_eq!(Vec::<CardanoTransaction>::new(), result);
+        }
+        // Get two existing hashes and one non-existing hash
+        {
+            let result = store
+                .get_transactions_by_hashes(&[
+                    "tx-hash-1".to_string(),
+                    "tx-hash-3".to_string(),
+                    "tx-hash-4".to_string(),
+                ])
+                .await;
+            assert_eq!(
+                vec![
+                    CardanoTransaction::new(
+                        "tx-hash-1",
+                        BlockNumber(10),
+                        SlotNumber(50),
+                        "block-hash-1"
+                    ),
+                    CardanoTransaction::new(
+                        "tx-hash-3",
+                        BlockNumber(12),
+                        SlotNumber(52),
+                        "block-hash-3"
+                    )
+                ],
+                result
+            );
         }
     }
 
