@@ -1,8 +1,9 @@
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
