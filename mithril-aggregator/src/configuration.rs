@@ -1204,7 +1204,7 @@ impl Default for DefaultConfiguration {
             preload_security_parameter: 2160,
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
-            cardano_transactions_block_streamer_throttling_interval: 400,
+            cardano_transactions_block_streamer_throttling_interval: 50,
             enable_metrics_server: "false".to_string(),
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
