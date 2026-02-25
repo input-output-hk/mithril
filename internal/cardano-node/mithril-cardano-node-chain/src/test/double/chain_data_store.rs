@@ -1,14 +1,14 @@
 use std::collections::BTreeSet;
 use std::ops::Range;
-
 use tokio::sync::Mutex;
 
 use mithril_common::StdResult;
-use mithril_common::crypto_helper::MKTreeNode;
+use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
     CardanoTransaction, ChainPoint, SlotNumber,
 };
+use mithril_common::signable_builder::BlockRangeRootRetriever;
 
 use crate::chain_importer::ChainDataStore;
 
@@ -252,8 +252,29 @@ impl ChainDataStore for InMemoryChainDataStore {
     }
 }
 
+#[async_trait::async_trait]
+impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for InMemoryChainDataStore {
+    async fn retrieve_block_range_roots<'a>(
+        &'a self,
+        up_to_beacon: BlockNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
+        let block_ranges = self.block_range_roots.lock().await;
+        let result: Vec<_> = block_ranges
+            .iter()
+            .filter(|r| r.range.start < up_to_beacon)
+            .cloned()
+            .map(|r| (r.range, r.merkle_root))
+            .collect();
+        Ok(Box::new(result.into_iter()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use mithril_common::crypto_helper::MKTreeStoreInMemory;
+
     use super::*;
 
     #[tokio::test]
@@ -985,5 +1006,130 @@ mod tests {
 
         let remaining = store.get_all_block_with_txs().await;
         assert_eq!(blocks_with_tx[0..1].to_vec(), remaining);
+    }
+
+    mod retrieve_blocks_range_root {
+        use super::*;
+
+        fn test_data_set() -> Vec<(BlockRange, MKTreeNode)> {
+            vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(15)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(45)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(60)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+            ]
+        }
+
+        #[tokio::test]
+        async fn returns_empty_when_store_empty() {
+            let store = Arc::new(InMemoryChainDataStore::builder().build());
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let iter = retriever
+                .retrieve_block_range_roots(BlockNumber(u64::MAX))
+                .await
+                .unwrap();
+            assert_eq!(
+                Vec::<(BlockRange, MKTreeNode)>::new(),
+                iter.collect::<Vec<_>>()
+            );
+        }
+
+        #[tokio::test]
+        async fn up_to_above_all_stored_ranges_returns_all() {
+            let store = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_block_range_roots(&test_data_set())
+                    .build(),
+            );
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let stored_ranges: Vec<(BlockRange, MKTreeNode)> = retriever
+                .retrieve_block_range_roots(BlockNumber(u64::MAX))
+                .await
+                .unwrap()
+                .collect();
+            assert_eq!(&test_data_set(), &stored_ranges);
+        }
+
+        #[tokio::test]
+        async fn up_to_below_start_of_the_first_range_returns_nothing() {
+            let store = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_block_range_roots(&test_data_set())
+                    .build(),
+            );
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let stored_ranges: Vec<(BlockRange, MKTreeNode)> = retriever
+                .retrieve_block_range_roots(BlockNumber(10))
+                .await
+                .unwrap()
+                .collect();
+            assert_eq!(&Vec::<(BlockRange, MKTreeNode)>::new(), &stored_ranges);
+        }
+
+        #[tokio::test]
+        async fn up_to_right_below_start_of_the_third_range_returns_the_first_two_ranges() {
+            let store = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_block_range_roots(&test_data_set())
+                    .build(),
+            );
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let stored_ranges: Vec<(BlockRange, MKTreeNode)> = retriever
+                .retrieve_block_range_roots(BlockNumber(44))
+                .await
+                .unwrap()
+                .collect();
+            assert_eq!(&test_data_set()[0..2], &stored_ranges);
+        }
+
+        #[tokio::test]
+        async fn up_to_right_at_start_of_the_third_range_returns_the_first_two_ranges() {
+            let store = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_block_range_roots(&test_data_set())
+                    .build(),
+            );
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let stored_ranges: Vec<(BlockRange, MKTreeNode)> = retriever
+                .retrieve_block_range_roots(BlockNumber(45))
+                .await
+                .unwrap()
+                .collect();
+            assert_eq!(&test_data_set()[0..2], &stored_ranges);
+        }
+
+        #[tokio::test]
+        async fn up_to_right_after_start_of_the_third_range_returns_the_first_three_ranges() {
+            let store = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_block_range_roots(&test_data_set())
+                    .build(),
+            );
+            let retriever = store.clone() as Arc<dyn BlockRangeRootRetriever<MKTreeStoreInMemory>>;
+
+            let stored_ranges: Vec<(BlockRange, MKTreeNode)> = retriever
+                .retrieve_block_range_roots(BlockNumber(46))
+                .await
+                .unwrap()
+                .collect();
+            assert_eq!(&test_data_set()[0..3], &stored_ranges);
+        }
     }
 }
