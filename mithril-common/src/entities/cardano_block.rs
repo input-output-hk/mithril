@@ -98,3 +98,13 @@ impl CardanoBlockWithTransactions {
         self.transactions_hashes.len()
     }
 }
+
+impl From<CardanoBlockWithTransactions> for CardanoBlock {
+    fn from(value: CardanoBlockWithTransactions) -> Self {
+        Self {
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            slot_number: value.slot_number,
+        }
+    }
+}
