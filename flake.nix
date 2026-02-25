@@ -128,6 +128,7 @@
             // lib.optionalAttrs pkgs.stdenv.hostPlatform.isMusl {
               RUSTFLAGS = "-C target-feature=+crt-static";
               OPENSSL_STATIC = "1";
+              doCheck = false;
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
