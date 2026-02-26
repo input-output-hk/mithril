@@ -24,6 +24,21 @@ pub enum SqliteCleaningTask {
     ///
     /// see: <https://www.sqlite.org/pragma.html#pragma_wal_checkpoint>
     WalCheckpointTruncate,
+    /// Attempt to optimize the database, running 'ANALYZE' depending on the mode.
+    ///
+    /// see: <https://sqlite.org/pragma.html#pragma_optimize>
+    Optimize(OptimizeMode),
+}
+
+/// Mode when running database optimization.
+#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
+pub enum OptimizeMode {
+    /// Optimize with the default flags: on recent table only and with an analysis limit to prevent
+    /// excess run-time (recommended by SQLite when opening a closing a short-lived connection)
+    Default,
+    /// Optimize all tables without an analysis limit (recommended by SQLite when opening a
+    /// long-lived database connection)
+    AllTables,
 }
 
 impl SqliteCleaningTask {
@@ -33,6 +48,12 @@ impl SqliteCleaningTask {
             SqliteCleaningTask::Vacuum => "Running `vacuum` on the SQLite database",
             SqliteCleaningTask::WalCheckpointTruncate => {
                 "Running `wal_checkpoint(TRUNCATE)` on the SQLite database"
+            }
+            SqliteCleaningTask::Optimize(OptimizeMode::Default) => {
+                "Running `pragma optimize;` on the SQLite database"
+            }
+            SqliteCleaningTask::Optimize(OptimizeMode::AllTables) => {
+                "Running `pragma optimize=10002;` on the SQLite database"
             }
         }
     }
@@ -70,6 +91,22 @@ impl<'a> SqliteCleaner<'a> {
         self
     }
 
+    /// Run the database optimization on the given connection.
+    ///
+    /// Shortcut for
+    /// ```
+    /// # use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, OptimizeMode, ConnectionBuilder};
+    /// #
+    /// # let connection = ConnectionBuilder::open_memory().build().unwrap();
+    /// # let mode = OptimizeMode::Default;
+    /// SqliteCleaner::new(&connection).with_tasks(&[SqliteCleaningTask::Optimize(mode)]).run();
+    /// ```
+    pub fn optimize(connection: &'a SqliteConnection, mode: OptimizeMode) -> StdResult<()> {
+        SqliteCleaner::new(connection)
+            .with_tasks(&[SqliteCleaningTask::Optimize(mode)])
+            .run()
+    }
+
     /// Cleanup the database by performing the defined tasks.
     pub fn run(self) -> StdResult<()> {
         for task in &self.tasks {
@@ -81,6 +118,12 @@ impl<'a> SqliteCleaner<'a> {
                 }
                 SqliteCleaningTask::WalCheckpointTruncate => {
                     self.connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+                }
+                SqliteCleaningTask::Optimize(OptimizeMode::Default) => {
+                    self.connection.execute("PRAGMA optimize;")?;
+                }
+                SqliteCleaningTask::Optimize(OptimizeMode::AllTables) => {
+                    self.connection.execute("PRAGMA optimize=10002;")?;
                 }
             }
         }
@@ -150,6 +193,16 @@ mod tests {
         path.metadata()
             .unwrap_or_else(|_| panic!("Failed to read len of '{}'", path.display()))
             .len()
+    }
+
+    fn tables_to_analyze(connection: &SqliteConnection) -> Vec<String> {
+        // This pragma lists the ANALYZE query that would be performed, one row per table, i.e. `ANALYZE "main"."table"`
+        connection
+            .prepare("PRAGMA optimize(-1);")
+            .unwrap()
+            .iter()
+            .map(|row| row.unwrap().read::<&str, _>(0).to_string())
+            .collect()
     }
 
     #[test]
@@ -267,5 +320,43 @@ mod tests {
             0,
             "db wal file should have been truncated"
         );
+    }
+
+    #[test]
+    fn test_optimize_default() {
+        let db_path = TempDir::create("sqlite_cleaner", current_function!()).join("test.db");
+        let connection = ConnectionBuilder::open_file(&db_path).build().unwrap();
+
+        add_test_table(&connection);
+        // Without an index the "test" table is always marked as a candidate for ANALYZE
+        connection.execute("create index test_text on test(text)").unwrap();
+        // One of the potential conditions to trigger ANALYZE is when a table "has increased or decreased by 10-fold"
+        fill_test_table(&connection, 0..10_000);
+
+        let analyze_candidate = tables_to_analyze(&connection);
+        assert!(!analyze_candidate.is_empty());
+
+        SqliteCleaner::optimize(&connection, OptimizeMode::Default).unwrap();
+
+        assert_eq!(Vec::<String>::new(), tables_to_analyze(&connection));
+    }
+
+    #[test]
+    fn test_optimize_all_tables() {
+        let db_path = TempDir::create("sqlite_cleaner", current_function!()).join("test.db");
+        let connection = ConnectionBuilder::open_file(&db_path).build().unwrap();
+
+        add_test_table(&connection);
+        // Without an index the "test" table is always marked as a candidate for ANALYZE
+        connection.execute("create index test_text on test(text)").unwrap();
+        // One of the potential conditions to trigger ANALYZE is when a table "has increased or decreased by 10-fold"
+        fill_test_table(&connection, 0..10_000);
+
+        let analyze_candidate = tables_to_analyze(&connection);
+        assert!(!analyze_candidate.is_empty());
+
+        SqliteCleaner::optimize(&connection, OptimizeMode::AllTables).unwrap();
+
+        assert_eq!(Vec::<String>::new(), tables_to_analyze(&connection));
     }
 }

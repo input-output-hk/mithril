@@ -14,7 +14,7 @@ mod query;
 mod source_alias;
 mod transaction;
 
-pub use cleaner::{SqliteCleaner, SqliteCleaningTask};
+pub use cleaner::{OptimizeMode, SqliteCleaner, SqliteCleaningTask};
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
 pub use connection_extensions::ConnectionExtensions;
