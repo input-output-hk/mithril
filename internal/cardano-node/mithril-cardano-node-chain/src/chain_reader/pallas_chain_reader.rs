@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -7,7 +8,8 @@ use pallas_network::{
     miniprotocols::chainsync::{BlockContent, NextResponse},
 };
 use pallas_traverse::MultiEraBlock;
-use slog::{Logger, debug};
+use slog::{Logger, debug, warn};
+use tokio::time::timeout;
 
 use mithril_common::StdResult;
 use mithril_common::entities::CardanoNetwork;
@@ -17,11 +19,15 @@ use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
 
 use super::ChainBlockReader;
 
+/// Default timeout duration for Pallas `chainsync` operations.
+const DEFAULT_CHAINSYNC_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// [PallasChainReader] reads blocks with 'chainsync' mini-protocol
 pub struct PallasChainReader {
     socket: PathBuf,
     network: CardanoNetwork,
     client: Option<NodeClient>,
+    chainsync_timeout: Duration,
     logger: Logger,
 }
 
@@ -32,16 +38,35 @@ impl PallasChainReader {
             socket: socket.to_owned(),
             network,
             client: None,
+            chainsync_timeout: DEFAULT_CHAINSYNC_TIMEOUT,
             logger: logger.new_with_component_name::<Self>(),
         }
+    }
+
+    /// Sets the timeout duration for chainsync operations.
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.chainsync_timeout = timeout;
+        self
     }
 
     /// Creates and returns a new `NodeClient` connected to the specified socket.
     async fn new_client(&self) -> StdResult<NodeClient> {
         let magic = self.network.magic_id();
-        NodeClient::connect(&self.socket, magic)
-            .await
-            .with_context(|| "PallasChainReader failed to create a new client")
+        timeout(
+            self.chainsync_timeout,
+            NodeClient::connect(&self.socket, magic),
+        )
+        .await
+        .map_err(|_| {
+            warn!(
+                self.logger,
+                "Timeout elapsed while connecting to the Cardano node";
+                "timeout" => ?self.chainsync_timeout,
+                "socket" => self.socket.display().to_string()
+            );
+            anyhow::anyhow!("PallasChainReader timed out connecting to the Cardano node")
+        })?
+        .with_context(|| "PallasChainReader failed to create a new client")
     }
 
     /// Returns a mutable reference to the client.
@@ -74,12 +99,39 @@ impl PallasChainReader {
     /// Intersects the point of the chain with the given point.
     async fn find_intersect_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
         let logger = self.logger.clone();
+        let chainsync_timeout = self.chainsync_timeout;
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
 
         if chainsync.has_agency() {
             debug!(logger, "Has agency, finding intersect point..."; "point" => ?point);
-            chainsync.find_intersect(vec![point.to_owned().into()]).await?;
+            let result = timeout(
+                chainsync_timeout,
+                chainsync.find_intersect(vec![point.to_owned().into()]),
+            )
+            .await;
+            match result {
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => {
+                    self.drop_client();
+
+                    return Err(anyhow::Error::new(err)
+                        .context("PallasChainReader failed to find intersect point"));
+                }
+                Err(_elapsed) => {
+                    warn!(
+                        logger,
+                        "Timeout elapsed while finding intersect point, dropping connection";
+                        "timeout" => ?chainsync_timeout,
+                        "point" => ?point
+                    );
+                    self.drop_client();
+
+                    return Err(anyhow::anyhow!(
+                        "PallasChainReader timed out finding intersect point"
+                    ));
+                }
+            }
         } else {
             debug!(logger, "Doesn't have agency, no need to find intersect point";);
         }
@@ -118,29 +170,36 @@ impl Drop for PallasChainReader {
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
     async fn set_chain_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
-        match self.find_intersect_point(point).await {
-            Ok(()) => Ok(()),
-            Err(err) => {
-                self.drop_client();
-
-                return Err(err);
-            }
-        }
+        self.find_intersect_point(point).await
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
+        let chainsync_timeout = self.chainsync_timeout;
+        let logger = self.logger.clone();
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
         let next = match chainsync.has_agency() {
-            true => chainsync.request_next().await,
-            false => chainsync.recv_while_must_reply().await,
+            true => timeout(chainsync_timeout, chainsync.request_next()).await,
+            false => timeout(chainsync_timeout, chainsync.recv_while_must_reply()).await,
         };
         match next {
-            Ok(next) => self.process_chain_block_next_action(next).await,
-            Err(err) => {
+            Ok(Ok(response)) => self.process_chain_block_next_action(response).await,
+            Ok(Err(err)) => {
                 self.drop_client();
 
-                return Err(err.into());
+                Err(err.into())
+            }
+            Err(_elapsed) => {
+                warn!(
+                    logger,
+                    "Timeout elapsed while waiting for next chain block from the Cardano node, dropping connection";
+                    "timeout" => ?chainsync_timeout
+                );
+                self.drop_client();
+
+                Err(anyhow::anyhow!(
+                    "PallasChainReader timed out waiting for next chain block from the Cardano node"
+                ))
             }
         }
     }
@@ -450,5 +509,135 @@ mod tests {
             chain_reader
         });
         client.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cached_client_is_dropped_when_get_next_chain_block_times_out() {
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let known_point = get_fake_specific_point();
+        let tip_block_number = get_fake_block_number();
+
+        let server = tokio::spawn({
+            let socket_path = socket_path.clone();
+            async move {
+                if socket_path.exists() {
+                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
+                }
+
+                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
+                let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
+                let chainsync_server = server.chainsync();
+
+                chainsync_server.recv_while_idle().await.unwrap();
+                chainsync_server
+                    .send_intersect_found(
+                        known_point.clone(),
+                        Tip(known_point.clone(), *tip_block_number),
+                    )
+                    .await
+                    .unwrap();
+
+                // Receive the request_next but never respond — simulates a stuck Cardano node
+                chainsync_server.recv_while_idle().await.unwrap();
+
+                // Keep server alive until aborted so the socket does not close
+                std::future::pending::<()>().await;
+                server
+            }
+        });
+
+        let client = tokio::spawn({
+            let socket_path = socket_path.clone();
+            async move {
+                let mut chain_reader = PallasChainReader::new(
+                    socket_path.as_path(),
+                    CardanoNetwork::TestNet(10),
+                    TestLogger::stdout(),
+                )
+                .with_timeout(Duration::from_millis(200));
+
+                chain_reader
+                    .set_chain_point(&RawCardanoPoint::from(get_fake_specific_point()))
+                    .await
+                    .unwrap();
+
+                assert!(
+                    chain_reader.has_client(),
+                    "Client should exist before timeout"
+                );
+
+                let result = chain_reader.get_next_chain_block().await;
+                assert!(result.is_err(), "Expected timeout error");
+
+                assert!(
+                    !chain_reader.has_client(),
+                    "Client should have been dropped after timeout"
+                );
+
+                chain_reader
+            }
+        });
+
+        let client_result = client.await;
+        server.abort();
+        client_result.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cached_client_is_dropped_when_set_chain_point_times_out() {
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+
+        let server = tokio::spawn({
+            let socket_path = socket_path.clone();
+            async move {
+                if socket_path.exists() {
+                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
+                }
+
+                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
+                let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
+                let chainsync_server = server.chainsync();
+
+                // Receive the find_intersect request but never respond
+                chainsync_server.recv_while_idle().await.unwrap();
+
+                // Keep server alive until aborted so the socket does not close
+                std::future::pending::<()>().await;
+                server
+            }
+        });
+
+        let client = tokio::spawn({
+            let socket_path = socket_path.clone();
+            async move {
+                let mut chain_reader = PallasChainReader::new(
+                    socket_path.as_path(),
+                    CardanoNetwork::TestNet(10),
+                    TestLogger::stdout(),
+                )
+                .with_timeout(Duration::from_millis(200));
+
+                assert!(
+                    !chain_reader.has_client(),
+                    "Client should not exist before connection"
+                );
+
+                let result = chain_reader
+                    .set_chain_point(&RawCardanoPoint::from(get_fake_specific_point()))
+                    .await;
+                assert!(result.is_err(), "Expected timeout error");
+
+                assert!(
+                    !chain_reader.has_client(),
+                    "Client should have been dropped after timeout"
+                );
+
+                chain_reader
+            }
+        });
+
+        let client_result = client.await;
+        server.abort();
+        client_result.unwrap();
     }
 }
