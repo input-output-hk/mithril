@@ -28,30 +28,27 @@
       }: let
         inherit (inputs.nixpkgs) lib;
         
-      pkgs =
-        if system == "x86_64-linux" then
-          import inputs.nixpkgs {
-            inherit system;
-            overlays = [ (import inputs.rust-overlay) ];
-            crossSystem = {
-              config = "x86_64-unknown-linux-musl";
-            };
-          }
-        else
-          import inputs.nixpkgs {
-            inherit system;
-            overlays = [ (import inputs.rust-overlay) ];
-          };
+      pkgs = import inputs.nixpkgs {
+        inherit system;
+        overlays = [ (import inputs.rust-overlay) ];
+      };
 
-      craneLib =
-        if pkgs.stdenv.hostPlatform.isMusl then
-          (inputs.crane.mkLib pkgs).overrideToolchain (p:
+      pkgsMusl =
+        if system == "x86_64-linux"
+        then pkgs.pkgsCross.musl64
+        else null;
+
+      craneLib = inputs.crane.mkLib pkgs;
+
+      craneLibMusl =
+        if pkgsMusl != null then
+          (inputs.crane.mkLib pkgsMusl).overrideToolchain (p:
             p.rust-bin.stable.latest.default.override {
               targets = [ "x86_64-unknown-linux-musl" ];
             }
           )
         else
-          inputs.crane.mkLib pkgs;
+          null;
 
         clean = root:
           lib.cleanSourceWith {
@@ -125,13 +122,22 @@
             // {
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
-            // lib.optionalAttrs pkgs.stdenv.hostPlatform.isMusl {
-              RUSTFLAGS = "-C target-feature=+crt-static";
-              OPENSSL_STATIC = "1";
-              doCheck = false;
-            }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
+            }
+            // args);
+
+        buildPackageMusl = cargoToml: baseCargoArtifacts: args:
+          craneLibMusl.buildPackage (commonsArgs
+            // lib.optionalAttrs (cargoToml != null) rec {
+              inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
+              cargoExtraArgs = "-p ${pname}";
+            }
+            // {
+              cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
+              RUSTFLAGS = "-C target-feature=+crt-static";
+              OPENSSL_STATIC = "1";
+              # doCheck = false;
             }
             // args);
 
@@ -148,9 +154,24 @@
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
             pname = "mithril-client";
           };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-aggregator --features bundle_tls"; cargoTestExtraArgs = "--no-default-features"; };
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-signer --features bundle_tls"; cargoTestExtraArgs = "--no-default-features"; };
+          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {cargoTestExtraArgs = "--no-default-features"; };
+          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {cargoTestExtraArgs = "--no-default-features"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
+        
+        } // lib.optionalAttrs (pkgsMusl != null) {
+
+          mithril-aggregator-static =
+            buildPackageMusl ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {
+              cargoExtraArgs = "-p mithril-aggregator --features bundle_tls";
+              cargoTestExtraArgs = "--no-default-features";
+            };
+          mithril-signer-static =
+            buildPackageMusl ./mithril-signer/Cargo.toml mithril.cargoArtifacts {
+              cargoExtraArgs = "-p mithril-signer --features bundle_tls";
+              cargoTestExtraArgs = "--no-default-features";
+            };
+          mithril-client-cli-static =
+            buildPackageMusl ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {};
         };
 
         devShells.default = pkgs.mkShell {
