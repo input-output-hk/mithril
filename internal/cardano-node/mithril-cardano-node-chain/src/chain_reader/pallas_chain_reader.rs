@@ -59,10 +59,8 @@ impl PallasChainReader {
         .await
         .map_err(|_| {
             warn!(
-                self.logger,
-                "Timeout elapsed while connecting to the Cardano node";
-                "timeout" => ?self.chainsync_timeout,
-                "socket" => self.socket.display().to_string()
+                self.logger, "Timeout elapsed while connecting to the Cardano node";
+                "timeout" => ?self.chainsync_timeout, "socket" => self.socket.display().to_string()
             );
             anyhow::anyhow!("PallasChainReader timed out connecting to the Cardano node")
         })?
@@ -115,15 +113,13 @@ impl PallasChainReader {
                 Ok(Err(err)) => {
                     self.drop_client();
 
-                    return Err(anyhow::Error::new(err)
+                    return Err(anyhow::anyhow!(err)
                         .context("PallasChainReader failed to find intersect point"));
                 }
                 Err(_elapsed) => {
                     warn!(
-                        logger,
-                        "Timeout elapsed while finding intersect point, dropping connection";
-                        "timeout" => ?chainsync_timeout,
-                        "point" => ?point
+                        logger, "Timeout elapsed while finding intersect point, dropping connection";
+                        "timeout" => ?chainsync_timeout, "point" => ?point
                     );
                     self.drop_client();
 
