@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use slog::{Logger, debug};
 
 use mithril_common::StdResult;
@@ -6,7 +8,10 @@ use mithril_common::logging::LoggerExtensions;
 use crate::sqlite::SqliteConnection;
 
 /// Tasks that can be performed by the SqliteCleaner
-#[derive(Eq, PartialEq, Copy, Clone)]
+///
+/// Important: For some tasks order matters, Vacuum must be executed before the wal checkpoint else
+/// the database main file will not shrink as the changes are yet to be written to the main file.
+#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
 pub enum SqliteCleaningTask {
     /// Reconstruct the database file, repacking it into a minimal amount of disk space.
     ///
@@ -38,7 +43,7 @@ impl SqliteCleaningTask {
 pub struct SqliteCleaner<'a> {
     connection: &'a SqliteConnection,
     logger: Logger,
-    tasks: Vec<SqliteCleaningTask>,
+    tasks: BTreeSet<SqliteCleaningTask>,
 }
 
 impl<'a> SqliteCleaner<'a> {
@@ -47,7 +52,7 @@ impl<'a> SqliteCleaner<'a> {
         Self {
             connection,
             logger: Logger::root(slog::Discard, slog::o!()),
-            tasks: vec![],
+            tasks: BTreeSet::new(),
         }
     }
 
@@ -59,30 +64,29 @@ impl<'a> SqliteCleaner<'a> {
 
     /// Set the [SqliteCleaningTask] to be performed by the cleaner.
     pub fn with_tasks(mut self, tasks: &[SqliteCleaningTask]) -> Self {
-        for option in tasks {
-            self.tasks.push(*option);
+        for task in tasks {
+            self.tasks.insert(*task);
         }
         self
     }
 
     /// Cleanup the database by performing the defined tasks.
     pub fn run(self) -> StdResult<()> {
-        if self.tasks.contains(&SqliteCleaningTask::Vacuum) {
-            debug!(self.logger, "{}", SqliteCleaningTask::Vacuum.log_message());
-            self.connection.execute("vacuum")?;
+        for task in &self.tasks {
+            debug!(self.logger, "{}", task.log_message());
+
+            match task {
+                SqliteCleaningTask::Vacuum => {
+                    self.connection.execute("vacuum")?;
+                }
+                SqliteCleaningTask::WalCheckpointTruncate => {
+                    self.connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+                }
+            }
         }
 
-        // Important: If WAL is enabled Vacuuming the database will not shrink until a
-        // checkpoint is run, so it must be done after vacuuming.
-        // Note: running a checkpoint when the WAL is disabled is harmless.
-        if self.tasks.contains(&SqliteCleaningTask::WalCheckpointTruncate) {
-            debug!(
-                self.logger,
-                "{}",
-                SqliteCleaningTask::WalCheckpointTruncate.log_message()
-            );
-            self.connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
-        } else {
+        // Run a minimal WAL checkpoint, note: running a checkpoint when the WAL is disabled is harmless.
+        if !self.tasks.contains(&SqliteCleaningTask::WalCheckpointTruncate) {
             self.connection.execute("PRAGMA wal_checkpoint(PASSIVE);")?;
         }
 
@@ -95,6 +99,7 @@ mod tests {
     use std::ops::Range;
     use std::path::Path;
 
+    use mithril_common::current_function;
     use mithril_common::test::TempDir;
 
     use crate::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
@@ -163,11 +168,7 @@ mod tests {
 
     #[test]
     fn cleanup_empty_file_without_wal_db_should_not_crash() {
-        let db_path = TempDir::create(
-            "sqlite_cleaner",
-            "cleanup_empty_file_without_wal_db_should_not_crash",
-        )
-        .join("test.db");
+        let db_path = TempDir::create("sqlite_cleaner", current_function!()).join("test.db");
         let connection = ConnectionBuilder::open_file(&db_path).build().unwrap();
 
         SqliteCleaner::new(&connection)
@@ -182,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_vacuum() {
-        let db_dir = TempDir::create("sqlite_cleaner", "test_vacuum");
+        let db_dir = TempDir::create("sqlite_cleaner", current_function!());
         let (db_path, db_wal_path) = (db_dir.join("test.db"), db_dir.join("test.db-wal"));
         let connection = ConnectionBuilder::open_file(&db_path)
             .with_options(&[ConnectionOptions::EnableWriteAheadLog])
@@ -212,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_truncate_wal() {
-        let db_dir = TempDir::create("sqlite_cleaner", "test_truncate_wal");
+        let db_dir = TempDir::create("sqlite_cleaner", current_function!());
         let (db_path, db_wal_path) = (db_dir.join("test.db"), db_dir.join("test.db-wal"));
         let connection = ConnectionBuilder::open_file(&db_path)
             .with_options(&[ConnectionOptions::EnableWriteAheadLog])
@@ -229,6 +230,35 @@ mod tests {
 
         SqliteCleaner::new(&connection)
             .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
+            .run()
+            .unwrap();
+
+        assert_eq!(
+            file_size(&db_wal_path),
+            0,
+            "db wal file should have been truncated"
+        );
+    }
+
+    #[test]
+    fn test_vacuum_truncate_wal() {
+        let db_dir = TempDir::create("sqlite_cleaner", current_function!());
+        let (db_path, db_wal_path) = (db_dir.join("test.db"), db_dir.join("test.db-wal"));
+        let connection = ConnectionBuilder::open_file(&db_path)
+            .with_options(&[ConnectionOptions::EnableWriteAheadLog])
+            .build()
+            .unwrap();
+
+        // Make "neutral" changes to the db, this will fill the WAL files with some data
+        // but won't change the db size after cleaning up.
+        add_test_table(&connection);
+        fill_test_table(&connection, 0..10_000);
+        delete_test_rows(&connection, 0..10_000);
+
+        assert!(file_size(&db_wal_path) > 0);
+
+        SqliteCleaner::new(&connection)
+            .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate, SqliteCleaningTask::Vacuum])
             .run()
             .unwrap();
 
