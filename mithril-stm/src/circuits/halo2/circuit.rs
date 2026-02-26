@@ -11,14 +11,16 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
     Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
-use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
+use crate::signature_scheme::{
+    DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
+    UniqueSchnorrSignature,
+};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -72,11 +74,17 @@ impl Relation for StmCircuit {
             <C as CircuitCurve>::CryptographicGroup::generator(),
         )?;
 
-        let dst_signature: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_SIGNATURE)?;
-        let dst_lottery: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_LOTTERY)?;
+        let domain_separation_tag_signature: AssignedNative<_> =
+            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_SIGNATURE)?;
+        let domain_separation_tag_lottery: AssignedNative<_> =
+            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_LOTTERY.0)?;
         let lottery_prefix = std_lib.poseidon(
             layouter,
-            &[dst_lottery.clone(), merkle_root.clone(), msg.clone()],
+            &[
+                domain_separation_tag_lottery.clone(),
+                merkle_root.clone(),
+                msg.clone(),
+            ],
         )?;
 
         let witness = witness.transpose_vec(self.quorum as usize);
@@ -157,7 +165,7 @@ impl Relation for StmCircuit {
             verify_unique_signature(
                 std_lib,
                 layouter,
-                &dst_signature,
+                &domain_separation_tag_signature,
                 &generator,
                 &vk,
                 &s,
