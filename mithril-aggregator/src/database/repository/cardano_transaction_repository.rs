@@ -6,14 +6,14 @@ use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, CardanoBlockWithTransactions,
-    CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoBlock, CardanoBlockTransactionMkTreeNode,
+    CardanoBlockWithTransactions, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::{BlockRangeRootRetriever, LegacyBlockRangeRootRetriever};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::SqliteConnectionPool;
 
-use crate::services::TransactionsRetriever;
+use crate::services::{BlocksTransactionsRetriever, TransactionsRetriever};
 
 /// Wrapper around [CardanoTransactionRepository] to allow traits implementations
 pub struct AggregatorCardanoChainDataRepository {
@@ -165,28 +165,36 @@ impl TransactionsRetriever for AggregatorCardanoChainDataRepository {
 }
 
 #[async_trait::async_trait]
-impl TransactionsRetriever for CardanoTransactionRepository {
-    async fn get_by_hashes(
+impl BlocksTransactionsRetriever for AggregatorCardanoChainDataRepository {
+    async fn get_block_by_hashes(
         &self,
-        hashes: Vec<TransactionHash>,
+        block_hashes: Vec<BlockHash>,
         up_to: BlockNumber,
-    ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_hashes(hashes, up_to).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
+    ) -> StdResult<Vec<CardanoBlock>> {
+        todo!()
     }
 
-    async fn get_by_block_ranges(
+    async fn get_transactions_by_hashes(
+        &self,
+        transaction_hashes: Vec<TransactionHash>,
+        up_to: BlockNumber,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let records = self
+            .inner
+            .get_transaction_by_hashes(transaction_hashes, up_to)
+            .await?;
+        Ok(records.into_iter().map(Into::into).collect())
+    }
+
+    async fn get_all_mk_nodes_by_block_ranges(
         &self,
         block_ranges: Vec<BlockRange>,
-    ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_block_ranges(block_ranges).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
+    ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>> {
+        let blocks = self
+            .inner
+            .get_blocks_with_transactions_by_block_ranges(block_ranges)
+            .await?;
+        Ok(blocks.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
     }
 }
 
