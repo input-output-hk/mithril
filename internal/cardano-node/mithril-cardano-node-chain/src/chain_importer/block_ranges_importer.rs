@@ -65,6 +65,11 @@ impl BlockRangeImporter {
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
+                debug!(
+                    self.logger, "Storing block range roots batch";
+                    "start_block" => &block_ranges_with_merkle_root.first().map(|r| *r.0.start),
+                    "end_block" => &block_ranges_with_merkle_root.last().map(|r| *r.0.end),
+                );
                 let block_ranges_with_merkle_root_save =
                     mem::take(&mut block_ranges_with_merkle_root);
                 self.transaction_store
@@ -73,6 +78,11 @@ impl BlockRangeImporter {
             }
         }
 
+        debug!(
+            self.logger, "Storing remaining block range roots";
+            "start_block" => &block_ranges_with_merkle_root.first().map(|r| *r.0.start),
+            "end_block" => &block_ranges_with_merkle_root.last().map(|r| *r.0.end),
+        );
         self.transaction_store
             .store_block_range_roots(block_ranges_with_merkle_root)
             .await
@@ -115,6 +125,11 @@ impl BlockRangeImporter {
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
+                debug!(
+                    self.logger, "Storing legacy block range roots batch";
+                    "start_block" => &block_ranges_with_merkle_root.first().map(|r| *r.0.start),
+                    "end_block" => &block_ranges_with_merkle_root.last().map(|r| *r.0.end),
+                );
                 let block_ranges_with_merkle_root_save =
                     mem::take(&mut block_ranges_with_merkle_root);
                 self.transaction_store
@@ -123,6 +138,11 @@ impl BlockRangeImporter {
             }
         }
 
+        debug!(
+            self.logger, "Storing remaining legacy block range roots";
+            "start_block" => &block_ranges_with_merkle_root.first().map(|r| *r.0.start),
+            "end_block" => &block_ranges_with_merkle_root.last().map(|r| *r.0.end),
+        );
         self.transaction_store
             .store_legacy_block_range_roots(block_ranges_with_merkle_root)
             .await
