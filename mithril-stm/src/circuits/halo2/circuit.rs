@@ -12,6 +12,7 @@ use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
+use crate::circuits::halo2::errors::{CircuitError, CircuitResult};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
@@ -40,6 +41,17 @@ impl StmCircuit {
             merkle_tree_depth,
         }
     }
+
+    pub(crate) fn validate_parameters(&self) -> CircuitResult<()> {
+        if self.quorum >= self.num_lotteries {
+            return Err(CircuitError::InvalidCircuitParameters {
+                quorum: self.quorum,
+                num_lotteries: self.num_lotteries,
+            });
+        }
+
+        Ok(())
+    }
 }
 
 impl Relation for StmCircuit {
@@ -57,7 +69,8 @@ impl Relation for StmCircuit {
         instance: Value<Self::Instance>,
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
-        assert!(self.quorum < self.num_lotteries);
+        self.validate_parameters()
+            .map_err(|error| Error::Synthesis(error.to_string()))?;
 
         let merkle_root: AssignedNative<F> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;
