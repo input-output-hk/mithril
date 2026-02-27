@@ -10,7 +10,9 @@ use super::{
     UpdateDatabaseVersionQuery,
 };
 
-use crate::sqlite::{ConnectionExtensions, SqliteConnection};
+use crate::sqlite::{
+    ConnectionExtensions, OptimizeMode, SqliteCleaner, SqliteCleaningTask, SqliteConnection,
+};
 
 /// Struct to perform application version check in the database.
 pub struct DatabaseVersionChecker<'conn> {
@@ -82,6 +84,13 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                     &self.logger,
                     "Database upgraded to version '{migration_version}'"
                 );
+
+                // Indexes may have changed, optimize the database to ensure the query optimizer is aware of them
+                SqliteCleaner::new(self.connection)
+                    .with_logger(self.logger.clone())
+                    .with_tasks(&[SqliteCleaningTask::Optimize(OptimizeMode::Default)])
+                    .run()
+                    .with_context(|| "Database optimization error")?;
             }
             Ordering::Less => {
                 error!(

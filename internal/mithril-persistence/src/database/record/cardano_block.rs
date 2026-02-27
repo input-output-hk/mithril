@@ -19,6 +19,10 @@ pub struct CardanoBlockRecord {
 }
 
 impl CardanoBlockRecord {
+    /// SQLite max variables per prepared query are `32 766`, given each record needs to bind three variables and to leave some
+    /// room for other variables (i.e. in WHERE clause) we fix this limit to 10k, meaning 30 000 binds at once maximum
+    pub const MAX_PER_INSERT: usize = 10_000;
+
     /// CardanoBlockRecord factory
     pub fn new<T: Into<BlockHash>>(
         block_hash: T,

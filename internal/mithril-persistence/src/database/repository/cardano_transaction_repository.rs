@@ -21,7 +21,9 @@ use crate::database::record::{
     BlockRangeRootRecord, CardanoBlockRecord, CardanoBlockTransactionsRecord,
     CardanoTransactionRecord, IntoRecords, StorableCardanoTransactionRecord,
 };
-use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
+use crate::sqlite::{
+    ConnectionExtensions, OptimizeMode, SqliteCleaner, SqliteConnection, SqliteConnectionPool,
+};
 
 /// ## Cardano transaction repository
 ///
@@ -35,6 +37,13 @@ impl CardanoTransactionRepository {
     /// Instantiate service
     pub fn new(connection_pool: Arc<SqliteConnectionPool>) -> Self {
         Self { connection_pool }
+    }
+
+    /// Perform database optimization (see [SqliteCleaner::optimize] for the applied optimizations)
+    pub fn optimize(&self) -> StdResult<()> {
+        let connection = self.connection_pool.connection()?;
+        SqliteCleaner::optimize(&connection, OptimizeMode::Default)
+            .with_context(|| "Failed to optimize database")
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database.
@@ -273,8 +282,6 @@ from (select max(start) as highest from block_range_root) max_new,
         &self,
         blocks_with_transactions: Vec<CardanoBlockWithTransactions>,
     ) -> StdResult<()> {
-        const BLOCKS_PER_SQL_COMMIT: usize = 100000;
-
         let mut remaining_blocks = blocks_with_transactions;
 
         while !remaining_blocks.is_empty() {
@@ -282,7 +289,7 @@ from (select max(start) as highest from block_range_root) max_new,
             let transaction = connection.begin_transaction()?;
 
             let chunk: Vec<_> = remaining_blocks
-                .drain(..remaining_blocks.len().min(BLOCKS_PER_SQL_COMMIT))
+                .drain(..remaining_blocks.len().min(CardanoBlockRecord::MAX_PER_INSERT))
                 .collect();
 
             self.create_block_and_transactions_with_connection(&connection, chunk)
@@ -330,10 +337,10 @@ from (select max(start) as highest from block_range_root) max_new,
         // Make one query per block range to optimize throughput as asking multiple block ranges at once
         // made SQLite quickly collapse (see PR #1723)
         for block_range in block_ranges {
-            let block_range_transactions: Vec<CardanoTransactionRecord> =
-                self.connection_pool.connection()?.fetch_collect(
-                    GetCardanoTransactionQuery::by_block_ranges(vec![block_range]),
-                )?;
+            let block_range_transactions: Vec<CardanoTransactionRecord> = self
+                .connection_pool
+                .connection()?
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(block_range))?;
             transactions.extend(block_range_transactions);
         }
 
@@ -351,7 +358,7 @@ from (select max(start) as highest from block_range_root) max_new,
         for block_range in block_ranges {
             let block_range_transactions: Vec<CardanoBlockTransactionsRecord> =
                 self.connection_pool.connection()?.fetch_collect(
-                    GetCardanoBlockTransactionsQuery::by_block_ranges(vec![block_range]),
+                    GetCardanoBlockTransactionsQuery::between_blocks(block_range),
                 )?;
             blocks_with_transactions.extend(block_range_transactions);
         }

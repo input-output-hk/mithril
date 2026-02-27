@@ -7,7 +7,9 @@ use mithril_aggregator::database::repository::AggregatorCardanoChainDataReposito
 use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::entities::{BlockNumber, CardanoBlockWithTransactions, SlotNumber};
 use mithril_common::test::TempDir;
-use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, OptimizeMode, SqliteCleaner, SqliteConnectionPool,
+};
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
     let db_path = TempDir::create("aggregator_benches", "bench_get_blocks_and_transactions")
@@ -56,10 +58,15 @@ async fn init_db(
     let connection = cardano_tx_db_connection(&format!(
         "cardano_blk-{nb_blocks_in_db}-tx-{nb_transactions_per_block}.db",
     ));
-    let repository = AggregatorCardanoChainDataRepository::new(Arc::new(
-        SqliteConnectionPool::build_from_connection(connection),
-    ));
+    let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
+    let repository = AggregatorCardanoChainDataRepository::new(connection_pool.clone());
     repository.store_blocks_and_transactions(transactions).await.unwrap();
+
+    SqliteCleaner::optimize(
+        &connection_pool.connection().unwrap(),
+        OptimizeMode::Default,
+    )
+    .unwrap();
 
     let generation_duration = start_instant.elapsed();
     println!(

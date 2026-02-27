@@ -20,6 +20,7 @@ use crate::chain_scanner::BlockScanner;
 pub struct CardanoChainDataImporter {
     blocks_transactions_importer: BlocksTransactionsImporter,
     block_ranges_importer: BlockRangeImporter,
+    transaction_store: Arc<dyn ChainDataStore>,
 }
 
 impl CardanoChainDataImporter {
@@ -36,7 +37,11 @@ impl CardanoChainDataImporter {
                 transaction_store.clone(),
                 logger.clone(),
             ),
-            block_ranges_importer: BlockRangeImporter::new(transaction_store, logger.clone()),
+            block_ranges_importer: BlockRangeImporter::new(
+                transaction_store.clone(),
+                logger.clone(),
+            ),
+            transaction_store,
         }
     }
 }
@@ -48,8 +53,10 @@ impl ChainDataImporter for CardanoChainDataImporter {
         task::spawn_blocking(move || {
             Handle::current().block_on(async move {
                 importer.blocks_transactions_importer.run(up_to_beacon).await?;
+                importer.transaction_store.optimize().await?;
                 importer.block_ranges_importer.run(up_to_beacon).await?;
                 importer.block_ranges_importer.run_legacy(up_to_beacon).await?;
+                importer.transaction_store.optimize().await?;
                 Ok(())
             })
         })
@@ -183,6 +190,11 @@ mod tests {
                 &self,
                 _: SlotNumber,
             ) -> StdResult<()> {
+                self.block_thread();
+                Ok(())
+            }
+
+            async fn optimize(&self) -> StdResult<()> {
                 self.block_thread();
                 Ok(())
             }

@@ -1,7 +1,7 @@
 use sqlite::Value;
 use std::ops::Range;
 
-use mithril_common::entities::{BlockNumber, BlockRange};
+use mithril_common::entities::BlockNumber;
 
 use crate::database::record::CardanoBlockTransactionsRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -26,30 +26,15 @@ impl GetCardanoBlockTransactionsQuery {
         }
     }
 
-    pub fn by_block_ranges(block_ranges: Vec<BlockRange>) -> Self {
-        let mut condition = WhereCondition::new("1 = 0", vec![]);
-        for block_range in block_ranges {
-            condition = condition.or_where(WhereCondition::new(
-                "(block_number >= ?* and block_number < ?*)",
-                vec![
-                    Value::Integer(*block_range.start as i64),
-                    Value::Integer(*block_range.end as i64),
-                ],
-            ))
-        }
-
-        Self { condition }
-    }
-
-    pub fn between_blocks(range: Range<BlockNumber>) -> Self {
+    pub fn between_blocks<T: Into<Range<BlockNumber>>>(range: T) -> Self {
+        let block_range = range.into();
         let condition = WhereCondition::new(
-            "block_number >= ?*",
-            vec![Value::Integer(*range.start as i64)],
-        )
-        .and_where(WhereCondition::new(
-            "block_number < ?*",
-            vec![Value::Integer(*range.end as i64)],
-        ));
+            "(block_number >= ?* and block_number < ?*)",
+            vec![
+                Value::Integer(*block_range.start as i64),
+                Value::Integer(*block_range.end as i64),
+            ],
+        );
 
         Self { condition }
     }
@@ -84,7 +69,6 @@ group by cardano_block.block_hash
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{BlockNumber, CardanoBlockWithTransactions, SlotNumber};
-    use mithril_common::test::entities_extensions::BlockRangeTestExtension;
 
     use crate::database::record::CardanoBlockTransactionsRecord;
     use crate::database::test_helper::{
@@ -132,6 +116,12 @@ mod tests {
                 SlotNumber(70),
                 vec!["tx-7"],
             ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-40",
+                BlockNumber(40),
+                SlotNumber(80),
+                Vec::<String>::new(),
+            ),
         ]
     }
 
@@ -170,7 +160,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_existing_hash() {
+        async fn get_existing_hash_with_transactions() {
             let connection = connection_with_test_data_set();
             let result: Vec<CardanoBlockTransactionsRecord> = connection
                 .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_hash(
@@ -187,120 +177,18 @@ mod tests {
                 result
             );
         }
-    }
-
-    mod get_by_block_ranges {
-        use super::*;
 
         #[tokio::test]
-        async fn get_with_empty_ranges_list() {
+        async fn get_existing_hash_without_transaction() {
             let connection = connection_with_test_data_set();
             let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![]))
-                .unwrap();
-
-            assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), result);
-        }
-
-        #[tokio::test]
-        async fn get_one_range_that_does_not_intersect_any_block() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(100, 200),
-                ]))
-                .unwrap();
-
-            assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), result);
-        }
-
-        #[tokio::test]
-        async fn get_one_range_with_a_block_contained_in_the_range() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(9, 12),
-                ]))
+                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_hash(
+                    "block_hash-40",
+                ))
                 .unwrap();
 
             assert_eq!(
-                vec![blocks_with_txs_record(
-                    BlockNumber(10),
-                    SlotNumber(50),
-                    &["tx-1", "tx-2"]
-                ),],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_one_range_with_a_block_at_start_boundary() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(10, 12),
-                ]))
-                .unwrap();
-
-            assert_eq!(
-                vec![blocks_with_txs_record(
-                    BlockNumber(10),
-                    SlotNumber(50),
-                    &["tx-1", "tx-2"]
-                ),],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_one_range_with_a_block_at_end_boundary() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(14, 15),
-                ]))
-                .unwrap();
-
-            assert_eq!(
-                vec![blocks_with_txs_record(BlockNumber(14), SlotNumber(54), &["tx-3"])],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_in_multiple_not_adjacent_ranges() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(15, 20),
-                    BlockRange::new(30, 35),
-                ]))
-                .unwrap();
-
-            assert_eq!(
-                vec![
-                    blocks_with_txs_record(BlockNumber(15), SlotNumber(55), &["tx-4"]),
-                    blocks_with_txs_record(BlockNumber(30), SlotNumber(70), &["tx-7"]),
-                ],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_in_multiple_adjacent_ranges() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_ranges(vec![
-                    BlockRange::new(20, 25),
-                    BlockRange::new(25, 30),
-                ]))
-                .unwrap();
-
-            assert_eq!(
-                vec![
-                    blocks_with_txs_record(BlockNumber(20), SlotNumber(60), &["tx-5"]),
-                    blocks_with_txs_record(BlockNumber(24), SlotNumber(64), &["tx-6"]),
-                ],
+                vec![blocks_with_txs_record(BlockNumber(40), SlotNumber(80), &[])],
                 result
             );
         }

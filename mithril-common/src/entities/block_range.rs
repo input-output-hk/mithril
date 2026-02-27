@@ -96,6 +96,18 @@ impl Ord for BlockRange {
     }
 }
 
+impl From<BlockRange> for Range<BlockNumber> {
+    fn from(value: BlockRange) -> Self {
+        value.inner_range
+    }
+}
+
+impl From<BlockRange> for Range<u64> {
+    fn from(value: BlockRange) -> Self {
+        *value.inner_range.start..*value.inner_range.end
+    }
+}
+
 impl From<Range<u64>> for BlockRange {
     fn from(other: Range<u64>) -> Self {
         BlockRange {

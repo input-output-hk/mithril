@@ -69,4 +69,7 @@ pub trait ChainDataStore: Send + Sync {
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()>;
+
+    /// Tell the store to perform optimization tasks if it needs them to improve its query performances
+    async fn optimize(&self) -> StdResult<()>;
 }

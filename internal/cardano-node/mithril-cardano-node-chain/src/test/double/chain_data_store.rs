@@ -250,6 +250,10 @@ impl ChainDataStore for InMemoryChainDataStore {
 
         Ok(())
     }
+
+    async fn optimize(&self) -> StdResult<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
