@@ -16,6 +16,7 @@ ignored = ["reqwest"]
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
+rustls-tls = ["reqwest/rustls-tls"]
 jemallocator = ["dep:tikv-jemallocator"]
 
 [dependencies]
@@ -40,7 +41,7 @@ mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 mithril-ticker = { path = "../internal/mithril-ticker" }
 rand_core = { workspace = true }
-reqwest = { workspace = true, features = ["default", "stream", "gzip", "zstd", "deflate", "brotli"] }
+reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "stream", "gzip", "zstd", "deflate", "brotli"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
