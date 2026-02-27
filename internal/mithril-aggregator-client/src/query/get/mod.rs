@@ -1,5 +1,7 @@
 mod get_aggregator_features;
 mod get_aggregator_status;
+mod get_cardano_blocks_transactions;
+mod get_cardano_blocks_transactions_list;
 mod get_cardano_database;
 mod get_cardano_database_list;
 mod get_cardano_stake_distribution;
@@ -18,6 +20,8 @@ mod get_snapshots_list;
 
 pub use get_aggregator_features::*;
 pub use get_aggregator_status::*;
+pub use get_cardano_blocks_transactions::*;
+pub use get_cardano_blocks_transactions_list::*;
 pub use get_cardano_database::*;
 pub use get_cardano_database_list::*;
 pub use get_cardano_stake_distribution::*;
