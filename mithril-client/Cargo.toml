@@ -19,8 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-# Include native-tls in reqwest by default
-default = ["native-tls", "num-integer-backend", "enable-http-compression"]
+default = ["num-integer-backend", "enable-http-compression"]
 
 # Full feature set
 full = ["fs"]

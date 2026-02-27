@@ -23,6 +23,7 @@ path = "src/main.rs"
 
 [features]
 bundle_tls = ["mithril-client/native-tls-vendored"]
+rustls-tls = ["mithril-client/rustls-tls"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -40,7 +41,9 @@ mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 reqwest = { workspace = true, features = [
-    "default",
+    "charset",
+    "http2",
+    "system-proxy",
     "gzip",
     "zstd",
     "deflate",

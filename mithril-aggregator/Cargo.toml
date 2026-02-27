@@ -11,18 +11,20 @@ repository = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
+rustls-tls = ["reqwest/rustls-tls"]
+
 jemallocator = ["dep:tikv-jemallocator"]
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-blockfrost = "1.2.1"
+blockfrost = { version = "1.2.1", default-features = false, features = ["rustls-tls-native-roots"] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
 flate2 = "1.1.9"
-gcloud-kms = { version = "1.4.0", features = ["auth"] }
-gcloud-storage = { version = "1.2.0", features = ["auth"] }
+gcloud-kms = { version = "1.4.0", default-features = false, features = ["auth", "jwt-aws-lc-rs"] }
+gcloud-storage = { version = "1.2.0", default-features = false, features = ["auth", "jwt-aws-lc-rs"] }
 mithril-aggregator-client = { path = "../internal/mithril-aggregator-client" }
 mithril-cardano-node-chain = { path = "../internal/cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database" }
@@ -43,7 +45,9 @@ percent-encoding = "2.3.2"
 rayon = { workspace = true }
 regex = "1.12.3"
 reqwest = { workspace = true, features = [
-    "default",
+    "charset",
+    "http2",
+    "system-proxy",
     "gzip",
     "zstd",
     "deflate",

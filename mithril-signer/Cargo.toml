@@ -15,6 +15,7 @@ ignored = ["reqwest"]
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
+rustls-tls = ["reqwest/rustls-tls"]
 jemallocator = ["dep:tikv-jemallocator"]
 
 [dependencies]
@@ -40,7 +41,9 @@ mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-si
 mithril-ticker = { path = "../internal/mithril-ticker" }
 rand_core = { workspace = true }
 reqwest = { workspace = true, features = [
-    "default",
+    "charset",
+    "http2",
+    "system-proxy",
     "stream",
     "gzip",
     "zstd",
