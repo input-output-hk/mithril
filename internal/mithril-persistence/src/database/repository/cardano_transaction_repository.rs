@@ -21,7 +21,9 @@ use crate::database::record::{
     BlockRangeRootRecord, CardanoBlockRecord, CardanoBlockTransactionsRecord,
     CardanoTransactionRecord, IntoRecords, StorableCardanoTransactionRecord,
 };
-use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
+use crate::sqlite::{
+    ConnectionExtensions, OptimizeMode, SqliteCleaner, SqliteConnection, SqliteConnectionPool,
+};
 
 /// ## Cardano transaction repository
 ///
@@ -35,6 +37,13 @@ impl CardanoTransactionRepository {
     /// Instantiate service
     pub fn new(connection_pool: Arc<SqliteConnectionPool>) -> Self {
         Self { connection_pool }
+    }
+
+    /// Perform database optimization (see [SqliteCleaner::optimize] for the applied optimizations)
+    pub fn optimize(&self) -> StdResult<()> {
+        let connection = self.connection_pool.connection()?;
+        SqliteCleaner::optimize(&connection, OptimizeMode::Default)
+            .with_context(|| "Failed to optimize database")
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database.

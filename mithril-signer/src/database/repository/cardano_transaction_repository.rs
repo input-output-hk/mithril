@@ -109,6 +109,10 @@ impl ChainDataStore for SignerCardanoChainDataRepository {
             .remove_rolled_back_blocks_transactions_and_block_range_by_slot_number(slot_number)
             .await
     }
+
+    async fn optimize(&self) -> StdResult<()> {
+        self.inner.optimize()
+    }
 }
 
 #[async_trait::async_trait]
