@@ -3932,7 +3932,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.28"
+version = "0.8.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4078,7 +4078,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-chain"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4229,7 +4229,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.52"
+version = "0.6.53"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4369,7 +4369,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.65"
+version = "0.2.66"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4465,7 +4465,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "anyhow",
  "async-trait",
