@@ -33,6 +33,44 @@ pub enum CircuitError {
     CircuitExecutionFailed,
 }
 
+impl CircuitError {
+    /// Reconstruct typed circuit errors from the raw synthesis payload emitted
+    /// by `StmCircuit::circuit(...)` before Midnight wraps it in `plonk::Error`.
+    pub fn from_synthesis_message(message: &str) -> Option<Self> {
+        parse_length_mismatch(
+            message,
+            "witness length mismatch: expected quorum ",
+            ", got ",
+        )
+        .map(|(expected_quorum, actual)| CircuitError::WitnessLengthMismatch {
+            expected_quorum,
+            actual,
+        })
+        .or_else(|| {
+            parse_length_mismatch(
+                message,
+                "merkle sibling length mismatch: expected depth ",
+                ", got ",
+            )
+            .map(|(expected_depth, actual)| CircuitError::MerkleSiblingLengthMismatch {
+                expected_depth,
+                actual,
+            })
+        })
+        .or_else(|| {
+            parse_length_mismatch(
+                message,
+                "merkle position length mismatch: expected depth ",
+                ", got ",
+            )
+            .map(|(expected_depth, actual)| CircuitError::MerklePositionLengthMismatch {
+                expected_depth,
+                actual,
+            })
+        })
+    }
+}
+
 /// Proving-side error categories for Halo2 STM.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ProvingError {
@@ -62,3 +100,13 @@ pub type CircuitResult<T> = Result<T, CircuitError>;
 
 /// Result alias for Halo2 proving/verification operations.
 pub type StmProofResult<T> = Result<T, StmProofError>;
+
+fn parse_length_mismatch(
+    message: &str,
+    prefix: &str,
+    separator: &str,
+) -> Option<(usize, usize)> {
+    let remainder = message.strip_prefix(prefix)?;
+    let (expected, actual) = remainder.split_once(separator)?;
+    Some((expected.parse().ok()?, actual.parse().ok()?))
+}
