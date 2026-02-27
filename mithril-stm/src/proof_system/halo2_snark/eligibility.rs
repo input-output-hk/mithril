@@ -144,6 +144,33 @@ cfg_num_integer! {
 
 }
 
+/// Checks the lottery for all indices `0..m`.
+///
+/// Computes the lottery prefix from the message, then iterates over each index to verify
+/// eligibility. Returns all winning indices, or `SignatureError::LotteryLost` if no index is won.
+#[cfg(feature = "future_snark")]
+pub(crate) fn compute_winning_lottery_indices(
+    m: u64,
+    msg: &[BaseFieldElement],
+    signature: &UniqueSchnorrSignature,
+    lottery_target_value: LotteryTargetValue,
+) -> StmResult<Vec<LotteryIndex>> {
+    let lottery_prefix = compute_lottery_prefix(msg);
+
+    let winning_indices: Vec<LotteryIndex> = (0..m)
+        .filter(|&index| {
+            verify_lottery_eligibility(signature, index, m, lottery_prefix, lottery_target_value)
+                .is_ok()
+        })
+        .collect();
+
+    if winning_indices.is_empty() {
+        Err(SignatureError::LotteryLost.into())
+    } else {
+        Ok(winning_indices)
+    }
+}
+
 /// Verifies if a lottery index is eligible based on the signature and target value.
 ///
 /// This function checks whether a given index wins the lottery by computing an

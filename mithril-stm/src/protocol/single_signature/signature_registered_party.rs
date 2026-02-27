@@ -149,7 +149,7 @@ mod tests {
                             157, 220, 67
                         ]
                     },
-                    "minimum_winning_lottery_index": 0
+                    "indices": []
                 }
             },
             [

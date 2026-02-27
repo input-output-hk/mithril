@@ -48,7 +48,7 @@ impl SingleSignature {
             snark_registration_entry,
             avk.to_snark_aggregate_verification_key(),
         ) {
-            snark_signature.verify(params, &entry.0, msg, &entry.1, snark_avk)?;
+            snark_signature.verify(&entry.0, msg, snark_avk)?;
         }
 
         self.concatenation_signature.verify(
@@ -86,7 +86,8 @@ impl SingleSignature {
     /// * Merkle index of the signer.
     /// * (Optional) - `future_snark` Snark proof system single signature bytes:
     /// *   Schnorr signature bytes
-    /// *   Minimum winning lottery index
+    /// *   Length of indices
+    /// *   Indices
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         let indices = self.get_concatenation_signature_indices();
@@ -103,9 +104,12 @@ impl SingleSignature {
         #[cfg(feature = "future_snark")]
         if let Some(snark_signature) = &self.snark_signature {
             let unique_schnorr_signature = snark_signature.get_schnorr_signature();
-            let minimum_winning_lottery_index = snark_signature.get_minimum_winning_lottery_index();
+            let snark_indices = snark_signature.get_indices();
             output.extend_from_slice(&unique_schnorr_signature.to_bytes());
-            output.extend_from_slice(&minimum_winning_lottery_index.to_be_bytes());
+            output.extend_from_slice(&(snark_indices.len() as u64).to_be_bytes());
+            for index in snark_indices {
+                output.extend_from_slice(&index.to_be_bytes());
+            }
         }
 
         output
@@ -151,15 +155,28 @@ impl SingleSignature {
                         .get(snark_offset..snark_offset + 96)
                         .ok_or(SignatureError::SerializationError)?,
                 )?;
+                let mut snark_idx_offset = snark_offset + 96;
                 u64_bytes.copy_from_slice(
                     bytes
-                        .get(snark_offset + 96..snark_offset + 104)
+                        .get(snark_idx_offset..snark_idx_offset + 8)
                         .ok_or(SignatureError::SerializationError)?,
                 );
-                let minimum_winning_lottery_index = u64::from_be_bytes(u64_bytes);
+                let nr_snark_indices = u64::from_be_bytes(u64_bytes) as usize;
+                snark_idx_offset += 8;
+
+                let mut snark_indices = Vec::with_capacity(nr_snark_indices);
+                for i in 0..nr_snark_indices {
+                    u64_bytes.copy_from_slice(
+                        bytes
+                            .get(snark_idx_offset + i * 8..snark_idx_offset + (i + 1) * 8)
+                            .ok_or(SignatureError::SerializationError)?,
+                    );
+                    snark_indices.push(u64::from_be_bytes(u64_bytes));
+                }
+
                 Some(SingleSignatureForSnark::new(
                     schnorr_signature,
-                    minimum_winning_lottery_index,
+                    snark_indices,
                 ))
             } else {
                 None
@@ -307,7 +324,9 @@ mod tests {
                 params,
                 sk_1,
                 vk_1.vk,
-                closed_key_registration.clone().to_merkle_tree(),
+                closed_key_registration
+                    .to_merkle_tree()
+                    .to_merkle_tree_batch_commitment(),
             ),
             closed_key_registration,
             params,
@@ -506,7 +525,7 @@ mod tests {
                         220, 67
                     ]
                 },
-                "minimum_winning_lottery_index": 0
+                "indices": []
             }
         }"#;
 
