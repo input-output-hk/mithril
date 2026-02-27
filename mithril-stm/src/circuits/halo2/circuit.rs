@@ -110,12 +110,10 @@ impl Relation for StmCircuit {
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
         self.validate_parameters().map_err(synthesis_error)?;
-        let witness = witness
-            .map_with_result(|witness| -> Result<_, Error> {
-                self.validate_witness_length(witness.len())
-                    .map_err(synthesis_error)?;
-                Ok(witness)
-            })?;
+        let witness = witness.map_with_result(|witness| -> Result<_, Error> {
+            self.validate_witness_length(witness.len()).map_err(synthesis_error)?;
+            Ok(witness)
+        })?;
 
         let merkle_root: AssignedNative<F> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;

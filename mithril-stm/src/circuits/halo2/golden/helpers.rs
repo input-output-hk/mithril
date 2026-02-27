@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::fs::create_dir_all;
-use std::path::PathBuf;
 use std::panic::{self, AssertUnwindSafe};
+use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use ff::Field;
-use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::plonk::Error as PlonkError;
+use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
@@ -16,9 +16,7 @@ use thiserror::Error;
 
 use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
-use crate::circuits::halo2::errors::{
-    CircuitError, ProvingError, StmProofError, StmProofResult,
-};
+use crate::circuits::halo2::errors::{CircuitError, ProvingError, StmProofError, StmProofResult};
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
 use crate::circuits::halo2::utils::MerklePathAdapterError;
 use crate::circuits::test_utils::setup::{generate_params, load_params};

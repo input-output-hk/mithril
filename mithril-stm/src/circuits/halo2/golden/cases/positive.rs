@@ -1,10 +1,10 @@
 use ff::Field;
 
 use crate::circuits::halo2::golden::helpers::{
-    LeafSelector, StmCircuitScenario, build_witness_with_fixed_signer, build_witness_with_indices,
-    create_default_merkle_tree, create_merkle_tree_with_leaf_selector, prove_and_verify_result,
-    run_stm_circuit_case, run_stm_circuit_case_default, setup_stm_circuit_env,
-    LOTTERIES_PER_QUORUM,
+    LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, build_witness_with_fixed_signer,
+    build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
+    prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
+    setup_stm_circuit_env,
 };
 use crate::circuits::halo2::types::SignedMessageWithoutPrefix;
 
@@ -63,8 +63,13 @@ fn indices_from_zero() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM, QUORUM * LOTTERIES_PER_QUORUM)
-        .expect("indices_from_zero env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("indices_from_zero env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_from_zero tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -81,8 +86,13 @@ fn indices_to_max() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM, QUORUM * LOTTERIES_PER_QUORUM)
-        .expect("indices_to_max env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("indices_to_max env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_to_max tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -102,8 +112,13 @@ fn merkle_path_all_right() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM, QUORUM * LOTTERIES_PER_QUORUM)
-        .expect("merkle_path_all_right env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_all_right env setup should succeed");
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -SignedMessageWithoutPrefix::ONE;
     let (merkle_tree, rightmost_index) =
@@ -129,8 +144,13 @@ fn merkle_path_all_left() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM, QUORUM * LOTTERIES_PER_QUORUM)
-        .expect("merkle_path_all_left env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_all_left env setup should succeed");
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let target = -SignedMessageWithoutPrefix::ONE;
     let (merkle_tree, leftmost_index) =

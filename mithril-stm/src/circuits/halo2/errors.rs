@@ -4,7 +4,9 @@ use thiserror::Error;
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum CircuitError {
     /// Invalid relation parameters: quorum must be strictly lower than number of lotteries.
-    #[error("invalid circuit parameters: quorum ({quorum}) must be lower than num_lotteries ({num_lotteries})")]
+    #[error(
+        "invalid circuit parameters: quorum ({quorum}) must be lower than num_lotteries ({num_lotteries})"
+    )]
     InvalidCircuitParameters { quorum: u32, num_lotteries: u32 },
 
     /// Witness vector length does not match the configured quorum.
@@ -42,19 +44,23 @@ impl CircuitError {
             "witness length mismatch: expected quorum ",
             ", got ",
         )
-        .map(|(expected_quorum, actual)| CircuitError::WitnessLengthMismatch {
-            expected_quorum,
-            actual,
-        })
+        .map(
+            |(expected_quorum, actual)| CircuitError::WitnessLengthMismatch {
+                expected_quorum,
+                actual,
+            },
+        )
         .or_else(|| {
             parse_length_mismatch(
                 message,
                 "merkle sibling length mismatch: expected depth ",
                 ", got ",
             )
-            .map(|(expected_depth, actual)| CircuitError::MerkleSiblingLengthMismatch {
-                expected_depth,
-                actual,
+            .map(|(expected_depth, actual)| {
+                CircuitError::MerkleSiblingLengthMismatch {
+                    expected_depth,
+                    actual,
+                }
             })
         })
         .or_else(|| {
@@ -63,9 +69,11 @@ impl CircuitError {
                 "merkle position length mismatch: expected depth ",
                 ", got ",
             )
-            .map(|(expected_depth, actual)| CircuitError::MerklePositionLengthMismatch {
-                expected_depth,
-                actual,
+            .map(|(expected_depth, actual)| {
+                CircuitError::MerklePositionLengthMismatch {
+                    expected_depth,
+                    actual,
+                }
             })
         })
     }
@@ -101,11 +109,7 @@ pub type CircuitResult<T> = Result<T, CircuitError>;
 /// Result alias for Halo2 proving/verification operations.
 pub type StmProofResult<T> = Result<T, StmProofError>;
 
-fn parse_length_mismatch(
-    message: &str,
-    prefix: &str,
-    separator: &str,
-) -> Option<(usize, usize)> {
+fn parse_length_mismatch(message: &str, prefix: &str, separator: &str) -> Option<(usize, usize)> {
     let remainder = message.strip_prefix(prefix)?;
     let (expected, actual) = remainder.split_once(separator)?;
     Some((expected.parse().ok()?, actual.parse().ok()?))
