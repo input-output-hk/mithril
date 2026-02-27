@@ -1,7 +1,7 @@
 use sqlite::Value;
 use std::ops::Range;
 
-use mithril_common::entities::{BlockNumber, BlockRange};
+use mithril_common::entities::BlockNumber;
 
 use crate::database::record::CardanoBlockTransactionsRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -26,7 +26,8 @@ impl GetCardanoBlockTransactionsQuery {
         }
     }
 
-    pub fn by_block_range(block_range: BlockRange) -> Self {
+    pub fn between_blocks<T: Into<Range<BlockNumber>>>(range: T) -> Self {
+        let block_range = range.into();
         let condition = WhereCondition::new(
             "(block_number >= ?* and block_number < ?*)",
             vec![
@@ -34,19 +35,6 @@ impl GetCardanoBlockTransactionsQuery {
                 Value::Integer(*block_range.end as i64),
             ],
         );
-
-        Self { condition }
-    }
-
-    pub fn between_blocks(range: Range<BlockNumber>) -> Self {
-        let condition = WhereCondition::new(
-            "block_number >= ?*",
-            vec![Value::Integer(*range.start as i64)],
-        )
-        .and_where(WhereCondition::new(
-            "block_number < ?*",
-            vec![Value::Integer(*range.end as i64)],
-        ));
 
         Self { condition }
     }
@@ -81,7 +69,6 @@ group by cardano_block.block_hash
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{BlockNumber, CardanoBlockWithTransactions, SlotNumber};
-    use mithril_common::test::entities_extensions::BlockRangeTestExtension;
 
     use crate::database::record::CardanoBlockTransactionsRecord;
     use crate::database::test_helper::{
@@ -202,75 +189,6 @@ mod tests {
 
             assert_eq!(
                 vec![blocks_with_txs_record(BlockNumber(40), SlotNumber(80), &[])],
-                result
-            );
-        }
-    }
-
-    mod get_by_block_range {
-        use super::*;
-
-        #[tokio::test]
-        async fn get_a_range_that_does_not_intersect_any_block() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_range(
-                    BlockRange::new(100, 200),
-                ))
-                .unwrap();
-
-            assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), result);
-        }
-
-        #[tokio::test]
-        async fn get_a_range_with_a_block_contained_in_the_range() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_range(
-                    BlockRange::new(9, 12),
-                ))
-                .unwrap();
-
-            assert_eq!(
-                vec![blocks_with_txs_record(
-                    BlockNumber(10),
-                    SlotNumber(50),
-                    &["tx-1", "tx-2"]
-                ),],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_a_range_with_a_block_at_start_boundary() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_range(
-                    BlockRange::new(10, 12),
-                ))
-                .unwrap();
-
-            assert_eq!(
-                vec![blocks_with_txs_record(
-                    BlockNumber(10),
-                    SlotNumber(50),
-                    &["tx-1", "tx-2"]
-                ),],
-                result
-            );
-        }
-
-        #[tokio::test]
-        async fn get_a_range_with_a_block_at_end_boundary() {
-            let connection = connection_with_test_data_set();
-            let result: Vec<CardanoBlockTransactionsRecord> = connection
-                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_range(
-                    BlockRange::new(14, 15),
-                ))
-                .unwrap();
-
-            assert_eq!(
-                vec![blocks_with_txs_record(BlockNumber(14), SlotNumber(54), &["tx-3"])],
                 result
             );
         }

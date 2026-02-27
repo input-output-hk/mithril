@@ -337,10 +337,10 @@ from (select max(start) as highest from block_range_root) max_new,
         // Make one query per block range to optimize throughput as asking multiple block ranges at once
         // made SQLite quickly collapse (see PR #1723)
         for block_range in block_ranges {
-            let block_range_transactions: Vec<CardanoTransactionRecord> =
-                self.connection_pool.connection()?.fetch_collect(
-                    GetCardanoTransactionQuery::by_block_ranges(vec![block_range]),
-                )?;
+            let block_range_transactions: Vec<CardanoTransactionRecord> = self
+                .connection_pool
+                .connection()?
+                .fetch_collect(GetCardanoTransactionQuery::between_blocks(block_range))?;
             transactions.extend(block_range_transactions);
         }
 
@@ -356,9 +356,10 @@ from (select max(start) as highest from block_range_root) max_new,
         // Make one query per block range to optimize throughput as asking multiple block ranges at once
         // made SQLite quickly collapse (see PR #1723)
         for block_range in block_ranges {
-            let query = GetCardanoBlockTransactionsQuery::by_block_range(block_range);
             let block_range_transactions: Vec<CardanoBlockTransactionsRecord> =
-                self.connection_pool.connection()?.fetch_collect(query)?;
+                self.connection_pool.connection()?.fetch_collect(
+                    GetCardanoBlockTransactionsQuery::between_blocks(block_range),
+                )?;
             blocks_with_transactions.extend(block_range_transactions);
         }
 
