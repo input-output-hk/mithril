@@ -95,7 +95,6 @@ impl Initializer {
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
-        // --- Concatenation proof signer creation ---
         let key_registration_commitment_for_concatenation = closed_key_registration
             .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
             .to_merkle_tree_batch_commitment();
@@ -108,7 +107,6 @@ impl Initializer {
             key_registration_commitment_for_concatenation,
         );
 
-        // ------- Snark proof signer creation -------
         #[cfg(feature = "future_snark")]
         let snark_proof_signer = {
             let key_registration_commitment_for_snark = closed_key_registration

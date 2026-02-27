@@ -74,9 +74,8 @@ impl<D: MembershipDigest> Clerk<D> {
 
     /// Compute the aggregate verification key.
     /// It computes only the concatenation aggregate verification key for now.
-    /// Needs to be revised when implementing SNARK aggregation primitives
-    /// TODO: Replace None with the actual SNARK verification key when implementing
-    /// SNARK aggregation primitives.
+    // TODO: Replace None with the actual SNARK verification key when implementing
+    // SNARK aggregation primitives.
     pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::new(
             self.concatenation_proof_clerk

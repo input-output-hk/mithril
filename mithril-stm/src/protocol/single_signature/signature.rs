@@ -60,7 +60,11 @@ impl SingleSignature {
         )
     }
 
-    /// Verify that all indices of a concatenation signature are valid.
+    /// Verify that all lottery indices of the concatenation signature are valid.
+    ///
+    /// This only applies to the concatenation proof system, which checks that the signature indices
+    /// won the lottery and are within the valid range. The SNARK proof system does not need
+    /// equivalent checking here, its lottery validity is handled during the aggregation process.
     pub(crate) fn check_indices(
         &self,
         params: &Parameters,

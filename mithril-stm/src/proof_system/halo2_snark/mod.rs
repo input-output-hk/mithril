@@ -139,10 +139,8 @@ mod tests {
                 let [root_cpu, _] = commitment.build_snark_message(&msg).unwrap();
 
                 // Circuit encoding: golden helpers use from_bytes for the root
-                let root_array: [u8; 32] = root_bytes
-                    .try_into()
-                    .expect("root should be 32 bytes");
-                let root_circuit = BaseFieldElement::from_bytes(&root_array)
+                assert_eq!(32, root_bytes.len());
+                let root_circuit = BaseFieldElement::from_bytes(&root_bytes)
                     .expect("Poseidon root must be canonical");
 
                 assert_eq!(
