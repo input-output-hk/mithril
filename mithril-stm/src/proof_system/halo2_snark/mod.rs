@@ -46,7 +46,7 @@ pub(crate) fn build_snark_message(
 ///
 /// Computes the lottery prefix from the message, then iterates over each index to verify
 /// eligibility. Returns all winning indices, or `SignatureError::LotteryLost` if no index is won.
-pub(crate) fn check_lottery(
+pub(crate) fn compute_winning_lottery_indices(
     m: u64,
     msg: &[BaseFieldElement],
     signature: &UniqueSchnorrSignature,
@@ -84,7 +84,8 @@ mod tests {
 
     use super::{
         AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner,
-        build_snark_message, check_lottery, compute_lottery_prefix, verify_lottery_eligibility,
+        build_snark_message, compute_lottery_prefix, compute_winning_lottery_indices,
+        verify_lottery_eligibility,
     };
 
     type D = MithrilMembershipDigest;
@@ -338,7 +339,7 @@ mod tests {
                 build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
 
             // Obtain a winning indices via check_lottery
-            let winning_indices = check_lottery(
+            let winning_indices = compute_winning_lottery_indices(
                 params.m,
                 &message_to_sign,
                 &schnorr,
@@ -491,8 +492,9 @@ mod tests {
             build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
         let target = signer.get_lottery_target_value();
 
-        let winning_indices = check_lottery(params.m, &message_to_sign, &schnorr, target)
-            .expect("check_lottery should find at least one winning index");
+        let winning_indices =
+            compute_winning_lottery_indices(params.m, &message_to_sign, &schnorr, target)
+                .expect("check_lottery should find at least one winning index");
 
         let prefix = compute_lottery_prefix(&message_to_sign);
 

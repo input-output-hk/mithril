@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters, StmResult,
-    UniqueSchnorrSignature, VerificationKeyForSnark, proof_system::halo2_snark::check_lottery,
+    UniqueSchnorrSignature, VerificationKeyForSnark,
+    proof_system::halo2_snark::compute_winning_lottery_indices,
 };
 
 use super::{AggregateVerificationKeyForSnark, build_snark_message};
@@ -50,7 +51,7 @@ impl SingleSignatureForSnark {
             .verify(&message_to_verify, verification_key)
             .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
 
-        check_lottery(
+        compute_winning_lottery_indices(
             parameters.m,
             &message_to_verify,
             &self.schnorr_signature,

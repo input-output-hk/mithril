@@ -6,7 +6,7 @@ use crate::{
     protocol::RegistrationEntryForSnark,
 };
 
-use super::{SingleSignatureForSnark, build_snark_message, check_lottery};
+use super::{SingleSignatureForSnark, build_snark_message, compute_winning_lottery_indices};
 
 /// A signer for the SNARK proof system, responsible for generating signatures
 /// that can be used in SNARK proofs.
@@ -50,7 +50,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         let message_to_sign = build_snark_message(&self.key_registration_commitment.root, message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
-        check_lottery(
+        compute_winning_lottery_indices(
             self.parameters.m,
             &message_to_sign,
             &signature,
