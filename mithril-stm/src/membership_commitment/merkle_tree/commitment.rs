@@ -13,9 +13,6 @@ use super::MerklePath;
 use super::{MerkleBatchPath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
 
 #[cfg(feature = "future_snark")]
-use crate::BaseFieldElement;
-
-#[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 /// `MerkleTree` commitment.
@@ -70,32 +67,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
             return Ok(());
         }
         Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
-    }
-
-    /// Build the message with merkle tree root and the given message to be used by the single
-    /// signature of the SNARK proof system. Both the root and the message are converted to
-    /// `BaseFieldElement` via `from_raw`, which interprets the bytes as a little-endian integer
-    /// and applies modular reduction.
-    ///
-    /// # Error
-    /// Returns an error if the root or the message is not exactly 32 bytes or either cannot be
-    /// converted to a `BaseFieldElement`.
-    pub fn build_snark_message(&self, message: &[u8]) -> StmResult<[BaseFieldElement; 2]> {
-        let root = self.root.as_slice();
-
-        let root_bytes: [u8; 32] = root
-            .try_into()
-            .with_context(|| "Merkle tree root must be exactly 32 bytes.")?;
-        let root_as_base_field_element = BaseFieldElement::from_raw(&root_bytes)
-            .with_context(|| "Failed to convert Merkle tree root to BaseFieldElement.")?;
-
-        let msg_bytes: [u8; 32] = message
-            .try_into()
-            .with_context(|| "Message must be exactly 32 bytes.")?;
-        let message_as_base_field_element = BaseFieldElement::from_raw(&msg_bytes)
-            .with_context(|| "Failed to convert message to BaseFieldElement.")?;
-
-        Ok([root_as_base_field_element, message_as_base_field_element])
     }
 
     /// Convert to bytes

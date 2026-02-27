@@ -8,6 +8,37 @@ pub(crate) use eligibility::{compute_lottery_prefix, verify_lottery_eligibility}
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
 
+use anyhow::Context;
+
+use crate::{StmResult, signature_scheme::BaseFieldElement};
+
+/// Build the SNARK message from a Merkle tree root and a raw message.
+///
+/// Both the root and the message are converted to `BaseFieldElement` via `from_raw`, which
+/// interprets the bytes as a little-endian integer and applies modular reduction.
+///
+/// # Error
+/// Returns an error if the root or the message is not exactly 32 bytes or either cannot be
+/// converted to a `BaseFieldElement`.
+pub(crate) fn build_snark_message(
+    merkle_root: &[u8],
+    message: &[u8],
+) -> StmResult<[BaseFieldElement; 2]> {
+    let root_bytes: [u8; 32] = merkle_root
+        .try_into()
+        .with_context(|| "Merkle tree root must be exactly 32 bytes.")?;
+    let root_as_base_field_element = BaseFieldElement::from_raw(&root_bytes)
+        .with_context(|| "Failed to convert Merkle tree root to BaseFieldElement.")?;
+
+    let msg_bytes: [u8; 32] = message
+        .try_into()
+        .with_context(|| "Message must be exactly 32 bytes.")?;
+    let message_as_base_field_element = BaseFieldElement::from_raw(&msg_bytes)
+        .with_context(|| "Failed to convert message to BaseFieldElement.")?;
+
+    Ok([root_as_base_field_element, message_as_base_field_element])
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -24,7 +55,7 @@ mod tests {
 
     use super::{
         AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner,
-        compute_lottery_prefix, verify_lottery_eligibility,
+        build_snark_message, compute_lottery_prefix, verify_lottery_eligibility,
     };
 
     type D = MithrilMembershipDigest;
@@ -136,11 +167,11 @@ mod tests {
                 let msg: [u8; 32] = Sha256::digest(sha_input).into();
 
                 // CPU encoding via build_snark_message (uses from_raw)
-                let [root_cpu, _] = commitment.build_snark_message(&msg).unwrap();
+                let [root_cpu, _] = build_snark_message(&commitment.root, &msg).unwrap();
 
                 // Circuit encoding: golden helpers use from_bytes for the root
                 assert_eq!(32, root_bytes.len());
-                let root_circuit = BaseFieldElement::from_bytes(&root_bytes)
+                let root_circuit = BaseFieldElement::from_bytes(root_bytes)
                     .expect("Poseidon root must be canonical");
 
                 assert_eq!(
@@ -176,7 +207,7 @@ mod tests {
             let schnorr = sig.get_schnorr_signature();
 
             let message_to_sign =
-                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+                build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
 
             // H = hash_to_curve([root, msg])
             let h = ProjectivePoint::hash_to_projective_point(&message_to_sign).unwrap();
@@ -237,7 +268,7 @@ mod tests {
 
             let msg = [0u8; 32];
             let message_to_sign =
-                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+                build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
 
             // CPU's compute_lottery_prefix
             let cpu_prefix = compute_lottery_prefix(&message_to_sign);
@@ -276,7 +307,7 @@ mod tests {
             let index = sig.get_minimum_winning_lottery_index();
 
             let message_to_sign =
-                avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+                build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
 
             let (sigma_x, sigma_y) = schnorr.commitment_point.get_coordinates();
             let index_fe = BaseFieldElement::from(index);
@@ -324,10 +355,8 @@ mod tests {
             assert!(sig.get_minimum_winning_lottery_index() < m);
 
             // Check winning index is minimal, no smaller index should win the lottery
-            let message_to_verify = avk
-                .get_merkle_tree_commitment()
-                .build_snark_message(&msg)
-                .unwrap();
+            let message_to_verify =
+                build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
             let lottery_prefix =
                 compute_lottery_prefix(&message_to_verify);
             for i in 0..sig.get_minimum_winning_lottery_index() {
