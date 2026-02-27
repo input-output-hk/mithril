@@ -3,13 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters, StmResult,
-    UniqueSchnorrSignature, VerificationKeyForSnark, signature_scheme::BaseFieldElement,
+    UniqueSchnorrSignature, VerificationKeyForSnark, proof_system::halo2_snark::check_lottery,
 };
 
-use super::{
-    AggregateVerificationKeyForSnark, build_snark_message, compute_lottery_prefix,
-    verify_lottery_eligibility,
-};
+use super::{AggregateVerificationKeyForSnark, build_snark_message};
 
 /// Single signature for the Snark proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,7 +14,7 @@ pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
     /// The minimum winning lottery index for which the signature is valid
-    minimum_winning_lottery_index: LotteryIndex,
+    indices: Vec<LotteryIndex>,
 }
 
 impl SingleSignatureForSnark {
@@ -25,11 +22,11 @@ impl SingleSignatureForSnark {
     /// and `minimum_winning_lottery_index`.
     pub(crate) fn new(
         schnorr_signature: UniqueSchnorrSignature,
-        minimum_winning_lottery_index: LotteryIndex,
+        indices: Vec<LotteryIndex>,
     ) -> Self {
         Self {
             schnorr_signature,
-            minimum_winning_lottery_index,
+            indices,
         }
     }
 
@@ -53,43 +50,28 @@ impl SingleSignatureForSnark {
             .verify(&message_to_verify, verification_key)
             .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
 
-        self.verify_winning_lottery_index(*lottery_target_value, &message_to_verify, parameters.m)?;
+        check_lottery(
+            parameters.m,
+            &message_to_verify,
+            &self.schnorr_signature,
+            *lottery_target_value,
+        )?;
 
         Ok(())
     }
 
-    /// Verifies that the lottery index associated with this signature actually won the lottery.
-    fn verify_winning_lottery_index(
-        &self,
-        lottery_target_value: LotteryTargetValue,
-        message_to_verify: &[BaseFieldElement],
-        m: u64,
-    ) -> StmResult<()> {
-        let lottery_prefix = compute_lottery_prefix(message_to_verify);
-        verify_lottery_eligibility(
-            &self.schnorr_signature,
-            self.minimum_winning_lottery_index,
-            m,
-            lottery_prefix,
-            lottery_target_value,
-        )
-    }
-
-    /// Return `minimum_winning_lottery_index` of the single signature
+    /// Return `indices` of the single signature
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub(crate) fn get_minimum_winning_lottery_index(&self) -> LotteryIndex {
-        self.minimum_winning_lottery_index
+    pub(crate) fn get_indices(&self) -> Vec<LotteryIndex> {
+        self.indices.clone()
     }
 
-    /// Set `minimum_winning_lottery_index` of single signature to given value
+    /// Set `indices` of single signature to given value
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub(crate) fn set_minimum_winning_lottery_index(
-        &mut self,
-        minimum_winning_lottery_index: LotteryIndex,
-    ) {
-        self.minimum_winning_lottery_index = minimum_winning_lottery_index;
+    pub(crate) fn set_indices(&mut self, indices: Vec<LotteryIndex>) {
+        self.indices = indices;
     }
 
     /// Return `schnorr_signature` of single signature
@@ -117,17 +99,15 @@ mod tests {
         VerificationKeyProofOfPossessionForConcatenation,
         proof_system::halo2_snark::SnarkProofSigner,
         protocol::RegistrationEntryForSnark,
-        signature_scheme::{
-            BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
-        },
+        signature_scheme::{BaseFieldElement, BlsSigningKey, SchnorrSigningKey},
     };
 
-    use super::{AggregateVerificationKeyForSnark, build_snark_message, compute_lottery_prefix};
+    use super::AggregateVerificationKeyForSnark;
 
     type D = MithrilMembershipDigest;
 
     #[test]
-    fn tampered_lottery_index_fails() {
+    fn lottery_check_enforced_during_verification() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let params = Parameters {
             m: 100,
@@ -164,40 +144,24 @@ mod tests {
         let avk = AggregateVerificationKeyForSnark::<D>::from(&closed_reg);
 
         let msg = [0u8; 32];
-        let mut sig = signer.create_single_signature(&msg, &mut rng).unwrap();
-        let original_index = sig.get_minimum_winning_lottery_index();
+        let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
 
-        // Compute evaluation for the original winning index
-        let message_to_verify =
-            build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
-        let prefix = compute_lottery_prefix(&message_to_verify);
-        let (cx, cy) = sig.get_schnorr_signature().commitment_point.get_coordinates();
-        let ev_original =
-            compute_poseidon_digest(&[prefix, cx, cy, BaseFieldElement::from(original_index)]);
+        // Verification should pass with the original (generous) target
+        sig.verify::<D>(&params, &signer.get_verification_key(), &msg, &target, &avk)
+            .expect("Verification should pass with the original target");
 
-        // Find an index whose evaluation exceeds ev_original
-        let tampered_index = (0..params.m)
-            .find(|&i| {
-                i != original_index && {
-                    let ev = compute_poseidon_digest(&[prefix, cx, cy, BaseFieldElement::from(i)]);
-                    ev > ev_original
-                }
-            })
-            .expect("Should find at least one index with a larger evaluation");
-
-        sig.set_minimum_winning_lottery_index(tampered_index);
-
-        // Verify with target = ev_original: the tampered index's evaluation exceeds the target,
-        // so the lottery check fails while the Schnorr signature remains valid.
+        // Verification fails with target = 0: the Schnorr signature remains valid
+        // but no lottery index can win, proving verify enforces the lottery.
+        let zero_target = BaseFieldElement::from(0u64);
         let err = sig
             .verify::<D>(
                 &params,
                 &signer.get_verification_key(),
                 &msg,
-                &ev_original,
+                &zero_target,
                 &avk,
             )
-            .expect_err("Tampered lottery index should fail verification");
+            .expect_err("Valid Schnorr signature should still fail with target = 0");
         assert!(
             matches!(
                 err.downcast_ref::<SignatureError>(),

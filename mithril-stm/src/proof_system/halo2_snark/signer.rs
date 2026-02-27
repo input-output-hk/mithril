@@ -1,15 +1,12 @@
 use rand_core::{CryptoRng, RngCore};
 
 use crate::{
-    BaseFieldElement, LotteryIndex, LotteryTargetValue, MembershipDigest, Parameters,
-    SchnorrSigningKey, SignatureError, StmResult, UniqueSchnorrSignature, VerificationKeyForSnark,
-    membership_commitment::MerkleTreeCommitment, protocol::RegistrationEntryForSnark,
+    LotteryTargetValue, MembershipDigest, Parameters, SchnorrSigningKey, StmResult,
+    VerificationKeyForSnark, membership_commitment::MerkleTreeCommitment,
+    protocol::RegistrationEntryForSnark,
 };
 
-use super::{
-    SingleSignatureForSnark, build_snark_message, compute_lottery_prefix,
-    verify_lottery_eligibility,
-};
+use super::{SingleSignatureForSnark, build_snark_message, check_lottery};
 
 /// A signer for the SNARK proof system, responsible for generating signatures
 /// that can be used in SNARK proofs.
@@ -53,41 +50,14 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         let message_to_sign = build_snark_message(&self.key_registration_commitment.root, message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
-        let first_winning_index = Self::check_lottery(
+        check_lottery(
             self.parameters.m,
             &message_to_sign,
             &signature,
             self.lottery_target_value,
         )?;
 
-        Ok(SingleSignatureForSnark::new(signature, first_winning_index))
-    }
-
-    /// Checks the lottery for all indices `0..m`.
-    ///
-    /// Computes the lottery prefix from the message, then iterates over each index
-    /// to verify eligibility. Returns the first winning index, or
-    /// `SignatureError::LotteryLost` if no index is won.
-    fn check_lottery(
-        m: u64,
-        msg: &[BaseFieldElement],
-        signature: &UniqueSchnorrSignature,
-        lottery_target_value: LotteryTargetValue,
-    ) -> StmResult<LotteryIndex> {
-        let lottery_prefix = compute_lottery_prefix(msg);
-
-        (0..m)
-            .find(|&index| {
-                verify_lottery_eligibility(
-                    signature,
-                    index,
-                    m,
-                    lottery_prefix,
-                    lottery_target_value,
-                )
-                .is_ok()
-            })
-            .ok_or_else(|| SignatureError::LotteryLost.into())
+        Ok(SingleSignatureForSnark::new(signature, vec![]))
     }
 
     /// Gets the lottery target value
@@ -110,15 +80,14 @@ mod tests {
         KeyRegistration, MembershipDigest, MithrilMembershipDigest, Parameters, RegistrationEntry,
         SignatureError, VerificationKeyForSnark, VerificationKeyProofOfPossessionForConcatenation,
         membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+        proof_system::halo2_snark::{compute_lottery_prefix, verify_lottery_eligibility},
         protocol::RegistrationEntryForSnark,
         signature_scheme::{
             BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
         },
     };
 
-    use super::{
-        SnarkProofSigner, build_snark_message, compute_lottery_prefix, verify_lottery_eligibility,
-    };
+    use super::{SnarkProofSigner, build_snark_message};
 
     type D = MithrilMembershipDigest;
 

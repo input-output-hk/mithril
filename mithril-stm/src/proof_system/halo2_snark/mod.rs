@@ -10,7 +10,10 @@ pub(crate) use single_signature::SingleSignatureForSnark;
 
 use anyhow::Context;
 
-use crate::{StmResult, signature_scheme::BaseFieldElement};
+use crate::{
+    LotteryIndex, LotteryTargetValue, SignatureError, StmResult,
+    signature_scheme::{BaseFieldElement, UniqueSchnorrSignature},
+};
 
 /// Build the SNARK message from a Merkle tree root and a raw message.
 ///
@@ -39,6 +42,32 @@ pub(crate) fn build_snark_message(
     Ok([root_as_base_field_element, message_as_base_field_element])
 }
 
+/// Checks the lottery for all indices `0..m`.
+///
+/// Computes the lottery prefix from the message, then iterates over each index to verify
+/// eligibility. Returns all winning indices, or `SignatureError::LotteryLost` if no index is won.
+pub(crate) fn check_lottery(
+    m: u64,
+    msg: &[BaseFieldElement],
+    signature: &UniqueSchnorrSignature,
+    lottery_target_value: LotteryTargetValue,
+) -> StmResult<Vec<LotteryIndex>> {
+    let lottery_prefix = compute_lottery_prefix(msg);
+
+    let winning_indices: Vec<LotteryIndex> = (0..m)
+        .filter(|&index| {
+            verify_lottery_eligibility(signature, index, m, lottery_prefix, lottery_target_value)
+                .is_ok()
+        })
+        .collect();
+
+    if winning_indices.is_empty() {
+        Err(SignatureError::LotteryLost.into())
+    } else {
+        Ok(winning_indices)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -55,7 +84,7 @@ mod tests {
 
     use super::{
         AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner,
-        build_snark_message, compute_lottery_prefix, verify_lottery_eligibility,
+        build_snark_message, check_lottery, compute_lottery_prefix, verify_lottery_eligibility,
     };
 
     type D = MithrilMembershipDigest;
@@ -304,10 +333,19 @@ mod tests {
             let msg = [0u8; 32];
             let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
             let schnorr = sig.get_schnorr_signature();
-            let index = sig.get_minimum_winning_lottery_index();
 
             let message_to_sign =
                 build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
+
+            // Obtain a winning indices via check_lottery
+            let winning_indices = check_lottery(
+                params.m,
+                &message_to_sign,
+                &schnorr,
+                signer.get_lottery_target_value(),
+            )
+            .expect("check_lottery should find at least one winning index");
+            let index = winning_indices[0];
 
             let (sigma_x, sigma_y) = schnorr.commitment_point.get_coordinates();
             let index_fe = BaseFieldElement::from(index);
@@ -319,7 +357,7 @@ mod tests {
             // Cross-check: verify_lottery_eligibility must pass
             // when target = manually computed evaluation
             assert!(
-                verify_lottery_eligibility(&schnorr, index, params.m, prefix, ev,).is_ok(),
+                verify_lottery_eligibility(&schnorr, index, params.m, prefix, ev).is_ok(),
                 "Lottery must pass when target equals the manually \
                  computed evaluation"
             );
@@ -349,33 +387,8 @@ mod tests {
                 &msg,
                 &signer.get_lottery_target_value(),
                 &avk,
-            ).unwrap();
-
-            // Check winning index is in bounds
-            assert!(sig.get_minimum_winning_lottery_index() < m);
-
-            // Check winning index is minimal, no smaller index should win the lottery
-            let message_to_verify =
-                build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
-            let lottery_prefix =
-                compute_lottery_prefix(&message_to_verify);
-            for i in 0..sig.get_minimum_winning_lottery_index() {
-                let err = verify_lottery_eligibility(
-                    &sig.get_schnorr_signature(),
-                    i,
-                    m,
-                    lottery_prefix,
-                    signer.get_lottery_target_value(),
-                )
-                .expect_err("Index below minimum should not win the lottery");
-                assert!(
-                    matches!(
-                        err.downcast_ref::<SignatureError>(),
-                        Some(SignatureError::LotteryLost)
-                    ),
-                    "Expected LotteryLost for index {i}, got: {err:?}"
-                );
-            }
+            )
+            .expect("sign then verify roundtrip should succeed");
         }
 
         #[test]
@@ -454,9 +467,61 @@ mod tests {
                 deserialized.get_schnorr_signature()
             );
             assert_eq!(
-                sig.get_minimum_winning_lottery_index(),
-                deserialized.get_minimum_winning_lottery_index()
+                sig.get_indices(),
+                deserialized.get_indices()
             );
+        }
+    }
+
+    #[test]
+    fn check_lottery_returns_all_winning_indices() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.2,
+        };
+        let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
+
+        let msg = [0u8; 32];
+        let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
+        let schnorr = sig.get_schnorr_signature();
+
+        let message_to_sign =
+            build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
+        let target = signer.get_lottery_target_value();
+
+        let winning_indices = check_lottery(params.m, &message_to_sign, &schnorr, target)
+            .expect("check_lottery should find at least one winning index");
+
+        let prefix = compute_lottery_prefix(&message_to_sign);
+
+        // Every returned index must pass verify_lottery_eligibility
+        for &index in &winning_indices {
+            assert!(
+                index < params.m,
+                "Winning index {index} should be less than m={}",
+                params.m
+            );
+            assert!(
+                verify_lottery_eligibility(&schnorr, index, params.m, prefix, target).is_ok(),
+                "Winning index {index} should pass verify_lottery_eligibility"
+            );
+        }
+
+        // Every index NOT in the winning set must fail verify_lottery_eligibility
+        for index in 0..params.m {
+            if !winning_indices.contains(&index) {
+                let err = verify_lottery_eligibility(&schnorr, index, params.m, prefix, target)
+                    .expect_err(&format!("Non-winning index {index} should fail"));
+                assert!(
+                    matches!(
+                        err.downcast_ref::<SignatureError>(),
+                        Some(SignatureError::LotteryLost)
+                    ),
+                    "Expected LotteryLost for index {index}, got: {err:?}"
+                );
+            }
         }
     }
 }
