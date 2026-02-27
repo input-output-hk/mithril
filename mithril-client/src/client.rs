@@ -25,6 +25,7 @@ use crate::MithrilResult;
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
+use crate::cardano_transaction_v2_client::CardanoTransactionV2Client;
 #[cfg(feature = "unstable")]
 use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
@@ -151,6 +152,7 @@ pub struct Client {
     snapshot_client: Arc<SnapshotClient>,
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
+    cardano_transaction_v2_client: Arc<CardanoTransactionV2Client>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
     mithril_era_client: Arc<MithrilEraClient>,
 }
@@ -180,6 +182,11 @@ impl Client {
     /// Get the client that fetches and verifies Mithril Cardano transaction proof.
     pub fn cardano_transaction(&self) -> Arc<CardanoTransactionClient> {
         self.cardano_transaction_client.clone()
+    }
+
+    /// Get the client that fetches and verifies Mithril Cardano transaction v2 proof.
+    pub fn cardano_transaction_v2(&self) -> Arc<CardanoTransactionV2Client> {
+        self.cardano_transaction_v2_client.clone()
     }
 
     /// Get the client that fetches Cardano stake distributions.
@@ -404,6 +411,9 @@ impl ClientBuilder {
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
 
+        let cardano_transaction_v2_client =
+            Arc::new(CardanoTransactionV2Client::new(aggregator_client.clone()));
+
         let cardano_stake_distribution_client =
             Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
 
@@ -413,6 +423,7 @@ impl ClientBuilder {
             snapshot_client,
             cardano_database_client,
             cardano_transaction_client,
+            cardano_transaction_v2_client,
             cardano_stake_distribution_client,
             mithril_era_client,
         })

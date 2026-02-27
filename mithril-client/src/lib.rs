@@ -170,6 +170,7 @@ mod aggregator_client;
 pub mod cardano_database_client;
 pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;
+pub mod cardano_transaction_v2_client;
 pub mod certificate_client;
 mod client;
 pub mod era;
