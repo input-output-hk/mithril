@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use ff::Field;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
+use midnight_proofs::plonk::Error as PlonkError;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
@@ -547,11 +548,7 @@ pub(crate) fn prove_and_verify_result(
         scenario.witness,
         &mut rng,
     )
-    .map_err(|_| {
-        StmProofError::ProvingFailed(ProvingError::Circuit(
-            CircuitError::CircuitExecutionFailed,
-        ))
-    })?;
+    .map_err(map_proving_backend_error)?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
@@ -572,6 +569,18 @@ pub(crate) fn prove_and_verify_result(
     } else {
         Err(StmProofError::VerificationFailed.into())
     }
+}
+
+fn map_proving_backend_error(error: PlonkError) -> StmCircuitProofError {
+    // Midnight collapses circuit-side validation failures into `Error::Synthesis(String)`.
+    // Rebuild the typed circuit error when the synthesis payload matches one of our guards.
+    let circuit_error = match error {
+        PlonkError::Synthesis(message) => CircuitError::from_synthesis_message(&message)
+            .unwrap_or(CircuitError::CircuitExecutionFailed),
+        _ => CircuitError::CircuitExecutionFailed,
+    };
+
+    StmProofError::ProvingFailed(ProvingError::Circuit(circuit_error)).into()
 }
 
 /// Run a case using the default message (F::from(DEFAULT_TEST_MSG)).

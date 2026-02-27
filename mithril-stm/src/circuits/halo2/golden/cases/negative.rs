@@ -288,7 +288,6 @@ fn merkle_path_flip_position() {
     assert_verification_failed(prove_and_verify_result(&env, scenario));
 }
 
-#[should_panic]
 #[test]
 fn merkle_path_length_short() {
     const K: u32 = 13;
@@ -298,6 +297,7 @@ fn merkle_path_length_short() {
         .expect("merkle_path_length_short env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_short tree creation should succeed");
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros() as usize;
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -309,10 +309,18 @@ fn merkle_path_length_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
+            ProvingError::Circuit(CircuitError::MerkleSiblingLengthMismatch {
+                expected_depth: expected,
+                actual: found,
+            })
+        ))) if expected == expected_depth && found == expected_depth - 1
+    ));
 }
 
-#[should_panic]
 #[test]
 fn merkle_path_length_long() {
     const K: u32 = 13;
@@ -322,6 +330,7 @@ fn merkle_path_length_long() {
         .expect("merkle_path_length_long env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_long tree creation should succeed");
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros() as usize;
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -335,7 +344,16 @@ fn merkle_path_length_long() {
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
+            ProvingError::Circuit(CircuitError::MerkleSiblingLengthMismatch {
+                expected_depth: expected,
+                actual: found,
+            })
+        ))) if expected == expected_depth && found == expected_depth + 1
+    ));
 }
 
 #[test]
@@ -443,7 +461,6 @@ fn target_less_than_evaluation() {
     assert_verification_failed(prove_and_verify_result(&env, scenario));
 }
 
-#[should_panic]
 #[test]
 fn witness_length_short() {
     const K: u32 = 13;
@@ -460,10 +477,18 @@ fn witness_length_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
+            ProvingError::Circuit(CircuitError::WitnessLengthMismatch {
+                expected_quorum,
+                actual: 2,
+            })
+        ))) if expected_quorum == QUORUM as usize
+    ));
 }
 
-#[should_panic]
 #[test]
 fn witness_length_long() {
     const K: u32 = 13;
@@ -484,7 +509,16 @@ fn witness_length_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    let result = prove_and_verify_result(&env, scenario);
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
+            ProvingError::Circuit(CircuitError::WitnessLengthMismatch {
+                expected_quorum,
+                actual: 4,
+            })
+        ))) if expected_quorum == QUORUM as usize
+    ));
 }
 
 #[test]
