@@ -9,6 +9,7 @@ use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
+use crate::sqlite::{OptimizeMode, SqliteCleaner};
 
 /// Builder of SQLite connection
 pub struct ConnectionBuilder {
@@ -134,6 +135,10 @@ impl ConnectionBuilder {
             }
 
             db_checker.apply().with_context(|| "Database migration error")?;
+
+            // Indexes may have changed, optimize the database to ensure the query optimizer is aware of them
+            SqliteCleaner::optimize(connection, OptimizeMode::Default)
+                .with_context(|| "Database optimization error")?;
         }
 
         Ok(())
