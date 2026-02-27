@@ -34,7 +34,7 @@ pub enum SqliteCleaningTask {
 #[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
 pub enum OptimizeMode {
     /// Optimize with the default flags: on recent table only and with an analysis limit to prevent
-    /// excess run-time (recommended by SQLite when opening a closing a short-lived connection)
+    /// excess run-time (recommended by SQLite before closing a short-lived connection)
     Default,
     /// Optimize all tables without an analysis limit (recommended by SQLite when opening a
     /// long-lived database connection)
@@ -53,7 +53,7 @@ impl SqliteCleaningTask {
                 "Running `pragma optimize;` on the SQLite database"
             }
             SqliteCleaningTask::Optimize(OptimizeMode::AllTables) => {
-                "Running `pragma optimize=10002;` on the SQLite database"
+                "Running `pragma optimize=0x10002;` on the SQLite database"
             }
         }
     }
@@ -84,6 +84,12 @@ impl<'a> SqliteCleaner<'a> {
     }
 
     /// Set the [SqliteCleaningTask] to be performed by the cleaner.
+    ///
+    /// **Important** Tasks are deduplicated and reordered based on a [BTreeSet] meaning:
+    /// - The order of the variants of the [SqliteCleaningTask] enum is used: [SqliteCleaningTask::Vacuum]
+    ///   will be performed before [SqliteCleaningTask::WalCheckpointTruncate] even if they are given in the reverse order.
+    /// - if the cleaner already had one of the given tasks, the new one will be ignored.
+    /// - if a task is twice in the given tasks, only the first occurrence will be kept.
     pub fn with_tasks(mut self, tasks: &[SqliteCleaningTask]) -> Self {
         for task in tasks {
             self.tasks.insert(*task);
@@ -97,9 +103,13 @@ impl<'a> SqliteCleaner<'a> {
     /// ```
     /// # use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, OptimizeMode, ConnectionBuilder};
     /// #
-    /// # let connection = ConnectionBuilder::open_memory().build().unwrap();
-    /// # let mode = OptimizeMode::Default;
-    /// SqliteCleaner::new(&connection).with_tasks(&[SqliteCleaningTask::Optimize(mode)]).run();
+    /// # fn main() -> mithril_common::StdResult<()> {
+    /// #   let connection = ConnectionBuilder::open_memory().build().unwrap();
+    /// #   let mode = OptimizeMode::Default;
+    /// #
+    /// SqliteCleaner::new(&connection).with_tasks(&[SqliteCleaningTask::Optimize(mode)]).run()?;
+    /// #   Ok(())
+    /// # }
     /// ```
     pub fn optimize(connection: &'a SqliteConnection, mode: OptimizeMode) -> StdResult<()> {
         SqliteCleaner::new(connection)
@@ -108,6 +118,8 @@ impl<'a> SqliteCleaner<'a> {
     }
 
     /// Cleanup the database by performing the defined tasks.
+    ///
+    /// **Important**: Tasks running order is based on the order of the variants of the [SqliteCleaningTask] enum.
     pub fn run(self) -> StdResult<()> {
         for task in &self.tasks {
             debug!(self.logger, "{}", task.log_message());
@@ -123,7 +135,7 @@ impl<'a> SqliteCleaner<'a> {
                     self.connection.execute("PRAGMA optimize;")?;
                 }
                 SqliteCleaningTask::Optimize(OptimizeMode::AllTables) => {
-                    self.connection.execute("PRAGMA optimize=10002;")?;
+                    self.connection.execute("PRAGMA optimize=0x10002;")?;
                 }
             }
         }
@@ -196,7 +208,7 @@ mod tests {
     }
 
     fn tables_to_analyze(connection: &SqliteConnection) -> Vec<String> {
-        // This pragma lists the ANALYZE query that would be performed, one row per table, i.e. `ANALYZE "main"."table"`
+        // This pragma lists the ANALYZE queries that would be performed, one row per table, i.e. `ANALYZE "main"."table"`
         connection
             .prepare("PRAGMA optimize(-1);")
             .unwrap()
