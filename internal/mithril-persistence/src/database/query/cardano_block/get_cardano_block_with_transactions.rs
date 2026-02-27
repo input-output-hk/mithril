@@ -72,7 +72,7 @@ select {projection}
 from cardano_block
     left join cardano_tx on cardano_block.block_hash = cardano_tx.block_hash
 where {condition}
-group by cardano_tx.block_hash
+group by cardano_block.block_hash
 "#
         )
     }
