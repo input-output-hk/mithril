@@ -1,4 +1,3 @@
-use blake2::{Blake2b, digest::consts::U64};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
@@ -59,15 +58,6 @@ where
         aggr.to_bytes().len(),
     );
 }
-/// Only for size benches
-#[derive(Clone, Debug, Default)]
-pub struct MembershipDigestU64 {}
-
-impl MembershipDigest for MembershipDigestU64 {
-    type ConcatenationHash = Blake2b<U64>;
-    #[cfg(feature = "future_snark")]
-    type SnarkHash = Blake2b<U64>;
-}
 
 fn main() {
     println!("+-------------------+");
@@ -78,7 +68,7 @@ fn main() {
 
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
-        size::<MembershipDigestU64>(k, m, nparties, "Blake2b 512");
+        size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 512");
         size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 256");
     }
     println!("+-------------------------+");

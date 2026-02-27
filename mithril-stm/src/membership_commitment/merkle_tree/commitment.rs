@@ -21,7 +21,7 @@ use crate::BaseFieldElement;
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
@@ -118,16 +118,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
         })
     }
 }
-
-#[cfg(feature = "future_snark")]
-impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeCommitment<D, L> {
-    fn eq(&self, other: &Self) -> bool {
-        self.root == other.root
-    }
-}
-
-#[cfg(feature = "future_snark")]
-impl<D: Digest, L: MerkleTreeLeaf> Eq for MerkleTreeCommitment<D, L> {}
 
 /// Batch compatible `MerkleTree` commitment .
 /// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree

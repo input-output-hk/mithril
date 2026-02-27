@@ -6,7 +6,7 @@ use crate::{
 use crate::proof_system::AggregateVerificationKeyForSnark;
 
 /// Aggregate verification key
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AggregateVerificationKey<D: MembershipDigest> {
     /// Concatenation aggregate verification key.
     concatenation_aggregate_verification_key: AggregateVerificationKeyForConcatenation<D>,
@@ -45,25 +45,6 @@ impl<D: MembershipDigest> AggregateVerificationKey<D> {
         self.snark_aggregate_verification_key.as_ref()
     }
 }
-
-impl<D: MembershipDigest> PartialEq for AggregateVerificationKey<D> {
-    fn eq(&self, other: &Self) -> bool {
-        let conct_eq = self.to_concatenation_aggregate_verification_key()
-            == other.to_concatenation_aggregate_verification_key();
-
-        #[cfg(feature = "future_snark")]
-        {
-            conct_eq
-                && self.to_snark_aggregate_verification_key()
-                    == other.to_snark_aggregate_verification_key()
-        }
-
-        #[cfg(not(feature = "future_snark"))]
-        conct_eq
-    }
-}
-
-impl<D: MembershipDigest> Eq for AggregateVerificationKey<D> {}
 
 impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKey<D> {
     fn from(reg: &ClosedKeyRegistration) -> Self {

@@ -180,11 +180,11 @@ pub type LotteryTargetValue = crate::signature_scheme::BaseFieldElement;
 pub trait MembershipDigest: Clone {
     type ConcatenationHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
     #[cfg(feature = "future_snark")]
-    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
+    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync + Eq + PartialEq;
 }
 
 /// Default Mithril Membership Digest
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MithrilMembershipDigest {}
 
 /// Default implementation of MembershipDigest for Mithril

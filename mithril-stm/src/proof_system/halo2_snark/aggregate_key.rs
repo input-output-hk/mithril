@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Aggregate verification key of the snark proof system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AggregateVerificationKeyForSnark<D: MembershipDigest> {
     merkle_tree_commitment: MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf>,
 }
@@ -20,14 +20,6 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
         &self.merkle_tree_commitment
     }
 }
-
-impl<D: MembershipDigest> PartialEq for AggregateVerificationKeyForSnark<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.merkle_tree_commitment == other.merkle_tree_commitment
-    }
-}
-
-impl<D: MembershipDigest> Eq for AggregateVerificationKeyForSnark<D> {}
 
 impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKeyForSnark<D> {
     fn from(reg: &ClosedKeyRegistration) -> Self {
