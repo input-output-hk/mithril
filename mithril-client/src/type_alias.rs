@@ -52,6 +52,10 @@ pub use mithril_common::messages::VerifiedCardanoTransactions;
 
 pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
 
+pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotMessage as CardanoBlocksTransactionsSnapshot;
+
+pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotListItemMessage as CardanoBlocksTransactionsSnapshotListItem;
+
 /// A snapshot that allow to know up to which [point of time][common::CardanoDbBeacon] Mithril have certified Cardano transactions.
 pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
 
