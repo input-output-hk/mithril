@@ -356,10 +356,9 @@ from (select max(start) as highest from block_range_root) max_new,
         // Make one query per block range to optimize throughput as asking multiple block ranges at once
         // made SQLite quickly collapse (see PR #1723)
         for block_range in block_ranges {
+            let query = GetCardanoBlockTransactionsQuery::by_block_range(block_range);
             let block_range_transactions: Vec<CardanoBlockTransactionsRecord> =
-                self.connection_pool.connection()?.fetch_collect(
-                    GetCardanoBlockTransactionsQuery::by_block_ranges(vec![block_range]),
-                )?;
+                self.connection_pool.connection()?.fetch_collect(query)?;
             blocks_with_transactions.extend(block_range_transactions);
         }
 
