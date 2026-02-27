@@ -129,6 +129,12 @@ mod tests {
                 SlotNumber(70),
                 vec!["tx-7"],
             ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-40",
+                BlockNumber(40),
+                SlotNumber(80),
+                Vec::<String>::new(),
+            ),
         ]
     }
 
@@ -167,7 +173,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_existing_hash() {
+        async fn get_existing_hash_with_transactions() {
             let connection = connection_with_test_data_set();
             let result: Vec<CardanoBlockTransactionsRecord> = connection
                 .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_hash(
@@ -181,6 +187,21 @@ mod tests {
                     SlotNumber(50),
                     &["tx-1", "tx-2"]
                 )],
+                result
+            );
+        }
+
+        #[tokio::test]
+        async fn get_existing_hash_without_transaction() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoBlockTransactionsRecord> = connection
+                .fetch_collect(GetCardanoBlockTransactionsQuery::by_block_hash(
+                    "block_hash-40",
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![blocks_with_txs_record(BlockNumber(40), SlotNumber(80), &[])],
                 result
             );
         }
