@@ -6,7 +6,10 @@ use crate::{
     UniqueSchnorrSignature, VerificationKeyForSnark, signature_scheme::BaseFieldElement,
 };
 
-use super::{AggregateVerificationKeyForSnark, compute_lottery_prefix, verify_lottery_eligibility};
+use super::{
+    AggregateVerificationKeyForSnark, build_snark_message, compute_lottery_prefix,
+    verify_lottery_eligibility,
+};
 
 /// Single signature for the Snark proof system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,9 +45,10 @@ impl SingleSignatureForSnark {
         lottery_target_value: &LotteryTargetValue,
         aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
     ) -> StmResult<()> {
-        let message_to_verify = aggregate_verification_key
-            .get_merkle_tree_commitment()
-            .build_snark_message(message)?;
+        let message_to_verify = build_snark_message(
+            &aggregate_verification_key.get_merkle_tree_commitment().root,
+            message,
+        )?;
         self.schnorr_signature
             .verify(&message_to_verify, verification_key)
             .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
@@ -118,7 +122,7 @@ mod tests {
         },
     };
 
-    use super::{AggregateVerificationKeyForSnark, compute_lottery_prefix};
+    use super::{AggregateVerificationKeyForSnark, build_snark_message, compute_lottery_prefix};
 
     type D = MithrilMembershipDigest;
 
@@ -164,7 +168,8 @@ mod tests {
         let original_index = sig.get_minimum_winning_lottery_index();
 
         // Compute evaluation for the original winning index
-        let message_to_verify = avk.get_merkle_tree_commitment().build_snark_message(&msg).unwrap();
+        let message_to_verify =
+            build_snark_message(&avk.get_merkle_tree_commitment().root, &msg).unwrap();
         let prefix = compute_lottery_prefix(&message_to_verify);
         let (cx, cy) = sig.get_schnorr_signature().commitment_point.get_coordinates();
         let ev_original =

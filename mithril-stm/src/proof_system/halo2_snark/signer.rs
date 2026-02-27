@@ -6,7 +6,10 @@ use crate::{
     membership_commitment::MerkleTreeCommitment, protocol::RegistrationEntryForSnark,
 };
 
-use super::{SingleSignatureForSnark, compute_lottery_prefix, verify_lottery_eligibility};
+use super::{
+    SingleSignatureForSnark, build_snark_message, compute_lottery_prefix,
+    verify_lottery_eligibility,
+};
 
 /// A signer for the SNARK proof system, responsible for generating signatures
 /// that can be used in SNARK proofs.
@@ -47,7 +50,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         message: &[u8],
         rng: &mut R,
     ) -> StmResult<SingleSignatureForSnark> {
-        let message_to_sign = self.key_registration_commitment.build_snark_message(message)?;
+        let message_to_sign = build_snark_message(&self.key_registration_commitment.root, message)?;
         let signature = self.signing_key.sign(&message_to_sign, rng)?;
 
         let first_winning_index = Self::check_lottery(
@@ -113,7 +116,9 @@ mod tests {
         },
     };
 
-    use super::{SnarkProofSigner, compute_lottery_prefix, verify_lottery_eligibility};
+    use super::{
+        SnarkProofSigner, build_snark_message, compute_lottery_prefix, verify_lottery_eligibility,
+    };
 
     type D = MithrilMembershipDigest;
 
@@ -159,7 +164,7 @@ mod tests {
 
         let commitment =
             MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&root).unwrap();
-        let message_to_sign = commitment.build_snark_message(&msg).unwrap();
+        let message_to_sign = build_snark_message(&commitment.root, &msg).unwrap();
         let prefix1 = compute_lottery_prefix(&message_to_sign);
 
         // Flip bit 0 of the commitment root
@@ -168,7 +173,7 @@ mod tests {
         let commitment_flipped =
             MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&root_flipped)
                 .unwrap();
-        let message_to_sign_flipped = commitment_flipped.build_snark_message(&msg).unwrap();
+        let message_to_sign_flipped = build_snark_message(&commitment_flipped.root, &msg).unwrap();
         let prefix2 = compute_lottery_prefix(&message_to_sign_flipped);
 
         assert_ne!(prefix1, prefix2);
