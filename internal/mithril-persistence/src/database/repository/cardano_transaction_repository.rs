@@ -282,8 +282,6 @@ from (select max(start) as highest from block_range_root) max_new,
         &self,
         blocks_with_transactions: Vec<CardanoBlockWithTransactions>,
     ) -> StdResult<()> {
-        const BLOCKS_PER_SQL_COMMIT: usize = 100000;
-
         let mut remaining_blocks = blocks_with_transactions;
 
         while !remaining_blocks.is_empty() {
@@ -291,7 +289,7 @@ from (select max(start) as highest from block_range_root) max_new,
             let transaction = connection.begin_transaction()?;
 
             let chunk: Vec<_> = remaining_blocks
-                .drain(..remaining_blocks.len().min(BLOCKS_PER_SQL_COMMIT))
+                .drain(..remaining_blocks.len().min(CardanoBlockRecord::MAX_PER_INSERT))
                 .collect();
 
             self.create_block_and_transactions_with_connection(&connection, chunk)
