@@ -646,6 +646,76 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /proof/v2/cardano-transaction:
+    get:
+      summary: Get the proofs of a Cardano transaction list from Cardano Blocks and Transactions snapshots
+      description: |
+        Returns the transaction hashes and the corresponding proofs from the latest
+        Cardano Blocks and Transactions signed entity.
+      parameters:
+        - name: transaction_hashes
+          in: query
+          description: Hashes of the Cardano transactions to retrieve proofs for
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: bytes
+              examples:
+                - "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
+          explode: false
+      responses:
+        "200":
+          description: Cardano transaction proofs found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoTransactionProofMessage"
+        "404":
+          description: No Cardano Blocks and Transactions snapshot available
+        default:
+          description: Cardano transaction proofs retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /proof/v2/cardano-block:
+    get:
+      summary: Get the proofs of a Cardano block list
+      description: |
+        Returns block hashes and associated transaction proofs from the latest
+        Cardano Blocks and Transactions signed entity.
+      parameters:
+        - name: block_hashes
+          in: query
+          description: Hashes of the Cardano blocks to retrieve proofs for
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: bytes
+              examples:
+                - "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0"
+          explode: false
+      responses:
+        "200":
+          description: Cardano block proofs found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoTransactionProofMessage"
+        "404":
+          description: No Cardano Blocks and Transactions snapshot available
+        default:
+          description: Cardano block proofs retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /signers/registered/{epoch}:
     get:
       summary: Get registered signers for an epoch
@@ -2818,7 +2888,7 @@ components:
               ],
             "non_certified_transactions":
               [
-                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"
+                "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
               ],
             "latest_block_number": 7060000
           }

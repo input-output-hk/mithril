@@ -263,13 +263,14 @@ impl MithrilSignedEntityService {
             )),
             SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Arc::new(
                 self.cardano_stake_distribution_artifact_builder
-                .compute_artifact(epoch, certificate)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
-                    )
-                })?)),
+                    .compute_artifact(epoch, certificate)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?,
+            )),
             SignedEntityType::CardanoTransactions(_epoch, block_number) => Ok(Arc::new(
                 self.cardano_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
@@ -280,7 +281,7 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number)  => Ok(Arc::new(
+            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number) => Ok(Arc::new(
                 self.cardano_blocks_transactions_artifact_builder
                     .compute_artifact(block_number, certificate)
                     .await
@@ -298,7 +299,7 @@ impl MithrilSignedEntityService {
                         format!(
                             "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
-                    })?
+                    })?,
             )),
         }
     }
