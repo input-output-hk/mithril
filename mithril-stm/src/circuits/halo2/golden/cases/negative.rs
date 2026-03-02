@@ -357,7 +357,7 @@ fn merkle_path_length_short() {
     .expect("merkle_path_length_short env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_short tree creation should succeed");
-    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros() as usize;
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros();
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -395,7 +395,7 @@ fn merkle_path_length_long() {
     .expect("merkle_path_length_long env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_long tree creation should succeed");
-    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros() as usize;
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros();
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -575,7 +575,7 @@ fn witness_length_short() {
                 expected_quorum,
                 actual: 2,
             })
-        ))) if expected_quorum == QUORUM as usize
+        ))) if expected_quorum == QUORUM
     ));
 }
 
@@ -612,7 +612,7 @@ fn witness_length_long() {
                 expected_quorum,
                 actual: 4,
             })
-        ))) if expected_quorum == QUORUM as usize
+        ))) if expected_quorum == QUORUM
     ));
 }
 

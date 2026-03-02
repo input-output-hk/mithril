@@ -67,8 +67,8 @@ impl StmCircuit {
         let expected_quorum = self.quorum as usize;
         if actual != expected_quorum {
             return Err(CircuitError::WitnessLengthMismatch {
-                expected_quorum,
-                actual,
+                expected_quorum: self.quorum,
+                actual: actual as u32,
             });
         }
 
@@ -82,8 +82,8 @@ impl StmCircuit {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
             return Err(CircuitError::MerkleSiblingLengthMismatch {
-                expected_depth,
-                actual,
+                expected_depth: self.merkle_tree_depth,
+                actual: actual as u32,
             });
         }
 
@@ -97,8 +97,8 @@ impl StmCircuit {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
             return Err(CircuitError::MerklePositionLengthMismatch {
-                expected_depth,
-                actual,
+                expected_depth: self.merkle_tree_depth,
+                actual: actual as u32,
             });
         }
 

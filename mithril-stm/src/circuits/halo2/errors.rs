@@ -11,33 +11,28 @@ pub enum CircuitError {
 
     /// Witness vector length does not match the configured quorum.
     #[error("witness length mismatch: expected quorum {expected_quorum}, got {actual}")]
-    WitnessLengthMismatch {
-        expected_quorum: usize,
-        actual: usize,
-    },
+    WitnessLengthMismatch { expected_quorum: u32, actual: u32 },
 
     /// Merkle sibling path length does not match the configured Merkle depth.
     #[error("merkle sibling length mismatch: expected depth {expected_depth}, got {actual}")]
-    MerkleSiblingLengthMismatch {
-        expected_depth: usize,
-        actual: usize,
-    },
+    MerkleSiblingLengthMismatch { expected_depth: u32, actual: u32 },
 
     /// Merkle position path length does not match the configured Merkle depth.
     #[error("merkle position length mismatch: expected depth {expected_depth}, got {actual}")]
-    MerklePositionLengthMismatch {
-        expected_depth: usize,
-        actual: usize,
-    },
+    MerklePositionLengthMismatch { expected_depth: u32, actual: u32 },
 
     /// The proving backend returned an error while executing this circuit.
-    #[error("circuit execution failed in proving backend")]
-    CircuitExecutionFailed,
+    #[error("circuit execution failed in proving backend: {0}")]
+    CircuitExecutionFailed(String),
 }
 
 impl CircuitError {
     /// Reconstruct typed circuit errors from the raw synthesis payload emitted
     /// by `StmCircuit::circuit(...)` before Midnight wraps it in `plonk::Error`.
+    ///
+    /// This is a workaround: Midnight currently erases typed circuit errors and
+    /// returns only `Error::Synthesis(String)`. We re-hydrate known validation failures
+    /// from message patterns. This may change when upstream error typing changes.
     pub fn from_synthesis_message(message: &str) -> Option<Self> {
         parse_length_mismatch(
             message,
@@ -109,7 +104,7 @@ pub type CircuitResult<T> = Result<T, CircuitError>;
 /// Result alias for Halo2 proving/verification operations.
 pub type StmProofResult<T> = Result<T, StmProofError>;
 
-fn parse_length_mismatch(message: &str, prefix: &str, separator: &str) -> Option<(usize, usize)> {
+fn parse_length_mismatch(message: &str, prefix: &str, separator: &str) -> Option<(u32, u32)> {
     let remainder = message.strip_prefix(prefix)?;
     let (expected, actual) = remainder.split_once(separator)?;
     Some((expected.parse().ok()?, actual.parse().ok()?))
