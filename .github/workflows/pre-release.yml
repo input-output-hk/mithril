@@ -5,9 +5,22 @@ on:
     tags:
       - "[0-9][0-9][0-9][0-9].[0-9]+"
       - "[0-9][0-9][0-9][0-9].[0-9]+-**"
+  workflow_dispatch:
+    inputs:
+      mithril_image_id:
+        description: |
+          Mithril Docker image id of a distribution to deploy. (Must exist in the Docker images registry)
+        required: true
+        type: string
+      dry_run:
+        description: Dry run will not deploy the distribution to the Mithril network
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   create-pre-release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -105,6 +118,7 @@ jobs:
           append_body: true
 
   build-push-docker:
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -222,6 +236,10 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-push-docker
+    # The 'needs' field ensures ordering on push (wait for Docker build).
+    # On workflow_dispatch, build-push-docker is skipped which would skip this job too.
+    # The '!cancelled()' override prevents that while still respecting cancellation.
+    if: "!cancelled() && (github.event_name == 'push' && needs.build-push-docker.result == 'success' || github.event_name == 'workflow_dispatch')"
     defaults:
       run:
         working-directory: mithril-infra
@@ -230,12 +248,17 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Get Docker image id
-        run: echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "DOCKER_IMAGE_ID=${{ inputs.mithril_image_id }}" >> $GITHUB_ENV
+          else
+            echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          fi
 
-      - name: Deploy terraform infrastructure
+      - name: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'Plan' || 'Apply' }} terraform infrastructure
         uses: ./.github/workflows/actions/deploy-terraform-infrastructure
         with:
-          dry_run: "false"
+          dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
           terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
           environment_prefix: ${{ matrix.environment_prefix }}
           environment: ${{ matrix.environment }}
@@ -296,6 +319,7 @@ jobs:
           loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
 
   publish-crate-test:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -328,6 +352,7 @@ jobs:
           package: ${{ matrix.package }}
 
   publish-next-wasm-package:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       max-parallel: 1
