@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.20 (03-02-2026)
+
+### Changed
+
+- Changed the number of iterations of the Taylor expansions used to compute the lottery target value.
+
 ## 0.9.19 (02-25-2026)
 
 ### Fixed
