@@ -46,6 +46,9 @@ impl StmCircuit {
         }
     }
 
+    /// Validates global circuit parameters before synthesis.
+    /// Enforces `quorum < num_lotteries` returning
+    /// `CircuitError::InvalidCircuitParameters` when violated.
     pub(crate) fn validate_parameters(&self) -> CircuitResult<()> {
         if self.quorum >= self.num_lotteries {
             return Err(CircuitError::InvalidCircuitParameters {
@@ -57,6 +60,9 @@ impl StmCircuit {
         Ok(())
     }
 
+    /// Validates that witness vector length matches the configured quorum.
+    /// This precondition prevents shape mismatches; failures return
+    /// `CircuitError::WitnessLengthMismatch`.
     pub(crate) fn validate_witness_length(&self, actual: usize) -> CircuitResult<()> {
         let expected_quorum = self.quorum as usize;
         if actual != expected_quorum {
@@ -69,6 +75,9 @@ impl StmCircuit {
         Ok(())
     }
 
+    /// Validates Merkle sibling path length against `merkle_tree_depth`.
+    /// This guards against inconsistent witness paths and returns
+    /// `CircuitError::MerkleSiblingLengthMismatch` on mismatch.
     pub(crate) fn validate_merkle_sibling_length(&self, actual: usize) -> CircuitResult<()> {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
@@ -81,6 +90,9 @@ impl StmCircuit {
         Ok(())
     }
 
+    /// Validates Merkle position bits length against `merkle_tree_depth`.
+    /// Under the current witness shape, this cannot fail independently from sibling-length
+    /// validation because both lengths derive from `x.siblings`; returns `CircuitError::MerklePositionLengthMismatch`.
     pub(crate) fn validate_merkle_position_length(&self, actual: usize) -> CircuitResult<()> {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
