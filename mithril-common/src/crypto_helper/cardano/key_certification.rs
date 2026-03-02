@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use kes_summed_ed25519::kes::Sum6KesSig;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -60,7 +60,7 @@ pub enum ProtocolRegistrationErrorWrapper {
 
     /// Error raised when a KES Signature verification fails
     #[error("KES signature verification error: KesEvolutions={0}, StartKesPeriod={1}")]
-    KesSignatureInvalid(KesEvolutions, KesPeriod),
+    KesSignatureInvalid(KesEvolutions, KesPeriod, #[source] StdError),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -382,6 +382,28 @@ impl KeyRegWrapper {
         }
     }
 
+    /// Verify a KES signature over a message.
+    ///
+    /// Returns an error if the signature is missing or invalid.
+    fn verify_kes_signature(
+        &self,
+        message: &[u8],
+        kes_sig: Option<Sum6KesSig>,
+        opcert: &ProtocolOpCert,
+        kes_evolutions: KesEvolutions,
+    ) -> Result<(), ProtocolRegistrationErrorWrapper> {
+        let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
+        self.kes_verifier
+            .verify(message, &signature, opcert, kes_evolutions)
+            .map_err(|e| {
+                ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
+                    kes_evolutions,
+                    opcert.get_start_kes_period(),
+                    e,
+                )
+            })
+    }
+
     /// Register a new party. For a successful registration, the registrar needs to
     /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
     /// Mithril key (with its corresponding Proof of Possession).
@@ -392,68 +414,46 @@ impl KeyRegWrapper {
         &mut self,
         parameters: SignerRegistrationParameters,
     ) -> StdResult<ProtocolPartyId> {
-        let pool_id_bech32: ProtocolPartyId = if let Some(opcert) =
-            &parameters.operational_certificate
-        {
-            let verification_key_signature_for_concatenation = parameters
-                .verification_key_signature_for_concatenation
-                .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-            let kes_evolutions = parameters
-                .kes_evolutions
-                .ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
-            if self
-                .kes_verifier
-                .verify(
+        let pool_id_bech32: ProtocolPartyId =
+            if let Some(opcert) = &parameters.operational_certificate {
+                let kes_evolutions = parameters
+                    .kes_evolutions
+                    .ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
+
+                self.verify_kes_signature(
                     &parameters.verification_key_for_concatenation.to_bytes(),
-                    &verification_key_signature_for_concatenation,
+                    parameters
+                        .verification_key_signature_for_concatenation
+                        .map(|s| s.into_inner()),
                     opcert,
                     kes_evolutions,
                 )
-                .is_ok()
-            {
+                .with_context(|| "invalid KES signature for Concatenation")?;
+
                 #[cfg(feature = "future_snark")]
                 if let Some(verification_key_for_snark) = &parameters.verification_key_for_snark {
-                    let verification_key_signature_for_snark = parameters
-                        .verification_key_signature_for_snark
-                        .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-                    if self
-                        .kes_verifier
-                        .verify(
-                            &verification_key_for_snark.to_bytes(),
-                            &verification_key_signature_for_snark,
-                            opcert,
-                            kes_evolutions,
-                        )
-                        .is_err()
-                    {
-                        return Err(anyhow!(
-                            ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                                kes_evolutions,
-                                opcert.get_start_kes_period(),
-                            )
-                        ));
-                    }
+                    self.verify_kes_signature(
+                        &verification_key_for_snark.to_bytes(),
+                        parameters
+                            .verification_key_signature_for_snark
+                            .map(|s| s.into_inner()),
+                        opcert,
+                        kes_evolutions,
+                    )
+                    .with_context(|| "invalid KES signature for SNARK")?;
                 }
 
                 opcert
                     .compute_protocol_party_id()
                     .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
             } else {
-                return Err(anyhow!(
-                    ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                        kes_evolutions,
-                        opcert.get_start_kes_period(),
-                    )
-                ));
-            }
-        } else {
-            if cfg!(not(feature = "allow_skip_signer_certification")) {
-                Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
-            }
-            parameters
-                .party_id
-                .ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
-        };
+                if cfg!(not(feature = "allow_skip_signer_certification")) {
+                    Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
+                }
+                parameters
+                    .party_id
+                    .ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
+            };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             self.stm_key_reg.register(
