@@ -11,14 +11,16 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
     Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
-use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
+use crate::signature_scheme::{
+    DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
+    UniqueSchnorrSignature,
+};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -72,11 +74,17 @@ impl Relation for StmCircuit {
             <C as CircuitCurve>::CryptographicGroup::generator(),
         )?;
 
-        let dst_signature: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_SIGNATURE)?;
-        let dst_lottery: AssignedNative<_> = std_lib.assign_fixed(layouter, DST_LOTTERY)?;
+        let domain_separation_tag_signature: AssignedNative<_> =
+            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_SIGNATURE)?;
+        let domain_separation_tag_lottery: AssignedNative<_> =
+            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_LOTTERY.0)?;
         let lottery_prefix = std_lib.poseidon(
             layouter,
-            &[dst_lottery.clone(), merkle_root.clone(), msg.clone()],
+            &[
+                domain_separation_tag_lottery.clone(),
+                merkle_root.clone(),
+                msg.clone(),
+            ],
         )?;
 
         let witness = witness.transpose_vec(self.quorum as usize);
@@ -157,7 +165,7 @@ impl Relation for StmCircuit {
             verify_unique_signature(
                 std_lib,
                 layouter,
-                &dst_signature,
+                &domain_separation_tag_signature,
                 &generator,
                 &vk,
                 &s,
@@ -222,5 +230,72 @@ impl Relation for StmCircuit {
             num_lotteries,
             merkle_tree_depth,
         })
+    }
+}
+
+#[cfg(test)]
+mod dst_alignment_tests {
+    use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
+    use midnight_curves::Fq as JubjubBase;
+
+    use crate::signature_scheme::{
+        BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
+        compute_poseidon_digest,
+    };
+
+    const HARD_CODED_SIGNATURE_DOMAIN_TAG: JubjubBase =
+        JubjubBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]);
+    const HARD_CODED_LOTTERY_DOMAIN_TAG: JubjubBase =
+        JubjubBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]);
+
+    #[test]
+    fn signature_and_lottery_domain_tags_do_not_collide() {
+        assert_ne!(
+            DOMAIN_SEPARATION_TAG_SIGNATURE, DOMAIN_SEPARATION_TAG_LOTTERY.0,
+            "signature and lottery domain separation tags must be distinct"
+        );
+    }
+
+    #[test]
+    fn signature_digest_matches_hard_coded_signature_domain_tag_formula() {
+        let signature_transcript_inputs = vec![
+            BaseFieldElement::from(11),
+            BaseFieldElement::from(22),
+            BaseFieldElement::from(33),
+            BaseFieldElement::from(44),
+        ];
+
+        let signature_digest_via_stm = compute_poseidon_digest(&signature_transcript_inputs);
+
+        let mut signature_digest_manual_inputs = vec![HARD_CODED_SIGNATURE_DOMAIN_TAG];
+        signature_digest_manual_inputs
+            .extend(signature_transcript_inputs.iter().map(|value| value.0));
+
+        let signature_digest_via_hard_coded_formula = BaseFieldElement(
+            PoseidonChip::<JubjubBase>::hash(&signature_digest_manual_inputs),
+        );
+
+        assert_eq!(
+            signature_digest_via_stm, signature_digest_via_hard_coded_formula,
+            "signature digest computed via STM helper must match hard-coded signature-domain formula"
+        );
+    }
+
+    #[test]
+    fn lottery_prefix_matches_hard_coded_lottery_domain_tag_formula() {
+        let merkle_root = JubjubBase::from(123u64);
+        let msg = JubjubBase::from(456u64);
+
+        let lottery_prefix_via_stm_constant =
+            PoseidonChip::<JubjubBase>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
+
+        let lottery_prefix_via_hard_coded_formula =
+            PoseidonChip::<JubjubBase>::hash(&[HARD_CODED_LOTTERY_DOMAIN_TAG, merkle_root, msg]);
+
+        assert_eq!(
+            BaseFieldElement(lottery_prefix_via_stm_constant),
+            BaseFieldElement(lottery_prefix_via_hard_coded_formula),
+            "lottery prefix must use the lottery domain separation tag as first Poseidon input"
+        );
     }
 }
