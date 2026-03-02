@@ -80,9 +80,7 @@ mod tests {
         KeyRegistration, MembershipDigest, MithrilMembershipDigest, Parameters, RegistrationEntry,
         SignatureError, VerificationKeyForSnark, VerificationKeyProofOfPossessionForConcatenation,
         membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
-        proof_system::halo2_snark::eligibility::{
-            compute_lottery_prefix, verify_lottery_eligibility,
-        },
+        proof_system::halo2_snark::eligibility::{check_lottery_for_index, compute_lottery_prefix},
         protocol::RegistrationEntryForSnark,
         signature_scheme::{
             BaseFieldElement, BlsSigningKey, SchnorrSigningKey, compute_poseidon_digest,
@@ -161,7 +159,7 @@ mod tests {
         let target = BaseFieldElement::from(u64::MAX);
         let m = 10u64;
 
-        let err = verify_lottery_eligibility(&signature, m + 1, m, prefix, target)
+        let err = check_lottery_for_index(&signature, m + 1, m, prefix, target)
             .expect_err("Index above m should fail");
         assert!(
             matches!(
@@ -190,7 +188,7 @@ mod tests {
 
         // With target = ev, the lottery should pass
         assert!(
-            verify_lottery_eligibility(&signature, lottery_index, m, prefix, ev,).is_ok(),
+            check_lottery_for_index(&signature, lottery_index, m, prefix, ev).unwrap(),
             "Lottery should pass when evaluation equals target"
         );
     }

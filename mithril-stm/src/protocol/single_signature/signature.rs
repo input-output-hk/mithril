@@ -104,8 +104,8 @@ impl SingleSignature {
         #[cfg(feature = "future_snark")]
         if let Some(snark_signature) = &self.snark_signature {
             let unique_schnorr_signature = snark_signature.get_schnorr_signature();
-            let snark_indices = snark_signature.get_indices();
             output.extend_from_slice(&unique_schnorr_signature.to_bytes());
+            let snark_indices = snark_signature.get_indices();
             output.extend_from_slice(&(snark_indices.len() as u64).to_be_bytes());
             for index in snark_indices {
                 output.extend_from_slice(&index.to_be_bytes());

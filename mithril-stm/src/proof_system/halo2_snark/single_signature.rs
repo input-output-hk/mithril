@@ -12,13 +12,13 @@ use super::{AggregateVerificationKeyForSnark, build_snark_message};
 pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
-    /// The minimum winning lottery index for which the signature is valid
+    /// The vector of winning lottery indices for which the signature is valid
     indices: Vec<LotteryIndex>,
 }
 
 impl SingleSignatureForSnark {
     /// Create and return a new instance of `SingleSignatureForSnark` for given `schnorr_signature`
-    /// and `minimum_winning_lottery_index`.
+    /// and `indices`.
     pub(crate) fn new(
         schnorr_signature: UniqueSchnorrSignature,
         indices: Vec<LotteryIndex>,
