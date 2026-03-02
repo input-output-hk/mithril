@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+#[cfg(feature = "future_snark")]
+use mithril_common::entities::SupportedEra;
 use mithril_common::{
     StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
@@ -187,6 +189,8 @@ impl MessageService for MithrilMessageService {
             epoch_service.signer_registration_protocol_parameters()?.clone();
         let current_signers = epoch_service.current_signers()?;
         let next_signers = epoch_service.next_signers()?;
+        #[cfg(feature = "future_snark")]
+        let mithril_era = epoch_service.mithril_era()?;
 
         let cardano_transactions_discriminant =
             allowed_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
@@ -196,12 +200,25 @@ impl MessageService for MithrilMessageService {
             .transpose()?
             .cloned();
 
+        let current_signer_parts = SignerMessagePart::from_signers(current_signers.to_vec());
+        let next_signer_parts = SignerMessagePart::from_signers(next_signers.to_vec());
+
+        #[cfg(feature = "future_snark")]
+        let (current_signer_parts, next_signer_parts) = if mithril_era == SupportedEra::Pythagoras {
+            (
+                SignerMessagePart::strip_snark_fields(current_signer_parts),
+                SignerMessagePart::strip_snark_fields(next_signer_parts),
+            )
+        } else {
+            (current_signer_parts, next_signer_parts)
+        };
+
         #[allow(deprecated)]
         let epoch_settings_message = EpochSettingsMessage {
             epoch,
             signer_registration_protocol_parameters: Some(signer_registration_protocol_parameters),
-            current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
-            next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
+            current_signers: current_signer_parts,
+            next_signers: next_signer_parts,
             cardano_transactions_signing_config: signed_entity_config
                 .and_then(|c| c.cardano_transactions_signing_config),
         };
@@ -697,6 +714,99 @@ mod tests {
                 message.cardano_transactions_signing_config,
                 Some(expected_ctx_config),
             );
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod snark_backward_compatibility {
+            use mithril_common::entities::SupportedEra;
+
+            use super::*;
+
+            #[tokio::test]
+            async fn snark_fields_are_stripped_in_pythagoras_era() {
+                let epoch_service = FakeEpochServiceBuilder {
+                    mithril_era: SupportedEra::Pythagoras,
+                    current_signers_with_stake: fake_data::signers_with_stakes(2),
+                    next_signers_with_stake: fake_data::signers_with_stakes(2),
+                    ..FakeEpochServiceBuilder::dummy(Epoch(1))
+                }
+                .build();
+                let message_service = MessageServiceBuilder::new()
+                    .with_epoch_service(epoch_service)
+                    .build()
+                    .await;
+
+                let message = message_service
+                    .get_epoch_settings_message(SignedEntityTypeDiscriminants::all())
+                    .await
+                    .unwrap();
+
+                assert!(!message.current_signers.is_empty());
+                assert!(!message.next_signers.is_empty());
+                for signer in &message.current_signers {
+                    assert!(
+                        signer.verification_key_for_snark.is_none(),
+                        "SNARK verification key should be stripped in Pythagoras era"
+                    );
+                    assert!(
+                        signer.verification_key_signature_for_snark.is_none(),
+                        "SNARK verification key signature should be stripped in Pythagoras era"
+                    );
+                }
+                for signer in &message.next_signers {
+                    assert!(
+                        signer.verification_key_for_snark.is_none(),
+                        "SNARK verification key should be stripped in Pythagoras era"
+                    );
+                    assert!(
+                        signer.verification_key_signature_for_snark.is_none(),
+                        "SNARK verification key signature should be stripped in Pythagoras era"
+                    );
+                }
+            }
+
+            #[tokio::test]
+            async fn snark_fields_are_preserved_in_lagrange_era() {
+                let epoch_service = FakeEpochServiceBuilder {
+                    mithril_era: SupportedEra::Lagrange,
+                    current_signers_with_stake: fake_data::signers_with_stakes(2),
+                    next_signers_with_stake: fake_data::signers_with_stakes(2),
+                    ..FakeEpochServiceBuilder::dummy(Epoch(1))
+                }
+                .build();
+                let message_service = MessageServiceBuilder::new()
+                    .with_epoch_service(epoch_service)
+                    .build()
+                    .await;
+
+                let message = message_service
+                    .get_epoch_settings_message(SignedEntityTypeDiscriminants::all())
+                    .await
+                    .unwrap();
+
+                assert!(!message.current_signers.is_empty());
+                assert!(!message.next_signers.is_empty());
+                for signer in &message.current_signers {
+                    assert!(
+                        signer.verification_key_for_snark.is_some(),
+                        "SNARK verification key should be preserved in Lagrange era"
+                    );
+                    assert!(
+                        signer.verification_key_signature_for_snark.is_some(),
+                        "SNARK verification key signature should be preserved in Lagrange era"
+                    );
+                }
+                for signer in &message.next_signers {
+                    assert!(
+                        signer.verification_key_for_snark.is_some(),
+                        "SNARK verification key should be preserved in Lagrange era"
+                    );
+                    assert!(
+                        signer.verification_key_signature_for_snark.is_some(),
+                        "SNARK verification key signature should be preserved in Lagrange era"
+                    );
+                }
+            }
         }
     }
 

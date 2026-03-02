@@ -159,13 +159,18 @@ mod tests {
         (1..=nb)
             .map(|party_idx| SignerWithStake {
                 party_id: format!("party_id:{party_idx}"),
-                verification_key: verification_keys[(party_idx % nb_keys) as usize]
+                verification_key_for_concatenation: verification_keys
+                    [(party_idx % nb_keys) as usize]
                     .try_into()
                     .unwrap(),
-                verification_key_signature: None,
+                verification_key_signature_for_concatenation: None,
                 operational_certificate: None,
                 kes_evolutions: None,
                 stake: 10,
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             })
             .collect()
     }
@@ -197,7 +202,9 @@ mod tests {
                     '5b5b5b3138362c39352c3232362c3137342c3132352c3235302c31302c3232322c3130322c3234302c36352c3235352c34372c3133382c38392c3131302c31342c3131302c32322c3138322c33322c3136362c3231312c392c32302c32302c35352c35382c3232392c3132302c3235302c37315d2c312c3136352c5b3130352c35342c3234352c35362c3231352c3130362c3133392c3231322c3137342c3232332c39302c3234392c3138372c34372c3134382c35302c34302c31352c3131372c3231372c3134392c3132362c3231382c3232352c3133362c36352c3231392c3136302c3134382c39332c3232382c3235312c31392c3231332c3136382c332c3233362c38392c3132302c3135392c3139382c38302c3234342c3138302c33332c3131392c3132382c3230312c3138362c3132302c32312c3130322c36322c3232392c32382c3135352c37362c31392c3235322c3232312c3234372c3137342c3135392c365d5d2c5b3234312c32372c31332c34342c3131342c37382c3138392c3234392c3135302c3135302c35332c3134342c3233362c3135312c38382c3134302c3132382c3136322c36302c3232382c38382c3131312c392c3134342c3233322c38332c39342c3231302c3135362c3136382c33352c3234325d5d',
                     29,
                     9497629046,
-                    '2023-08-12T00:03:51.236860002+00:00'
+                    '2023-08-12T00:03:51.236860002+00:00',
+                    null,
+                    null
                 );
             "#,
             )
@@ -241,11 +248,17 @@ mod tests {
                 Epoch(0),
                 SignerWithStake {
                     party_id: "0".to_string(),
-                    verification_key: fake_keys::signer_verification_key()[0].try_into().unwrap(),
-                    verification_key_signature: None,
+                    verification_key_for_concatenation: fake_keys::signer_verification_key()[0]
+                        .try_into()
+                        .unwrap(),
+                    verification_key_signature_for_concatenation: None,
                     operational_certificate: None,
                     kes_evolutions: None,
                     stake: 10,
+                    #[cfg(feature = "future_snark")]
+                    verification_key_for_snark: None,
+                    #[cfg(feature = "future_snark")]
+                    verification_key_signature_for_snark: None,
                 },
             )
             .await
@@ -266,11 +279,17 @@ mod tests {
                 Epoch(1),
                 SignerWithStake {
                     party_id: first_signer.party_id.clone(),
-                    verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
-                    verification_key_signature: None,
+                    verification_key_for_concatenation: fake_keys::signer_verification_key()[2]
+                        .try_into()
+                        .unwrap(),
+                    verification_key_signature_for_concatenation: None,
                     operational_certificate: None,
                     kes_evolutions: None,
                     stake: 10,
+                    #[cfg(feature = "future_snark")]
+                    verification_key_for_snark: None,
+                    #[cfg(feature = "future_snark")]
+                    verification_key_signature_for_snark: None,
                 },
             )
             .await
@@ -279,11 +298,17 @@ mod tests {
         assert_eq!(
             Some(SignerWithStake {
                 party_id: first_signer.party_id.clone(),
-                verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
-                verification_key_signature: None,
+                verification_key_for_concatenation: fake_keys::signer_verification_key()[2]
+                    .try_into()
+                    .unwrap(),
+                verification_key_signature_for_concatenation: None,
                 operational_certificate: None,
                 kes_evolutions: None,
                 stake: 10,
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: None,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: None,
             }),
             res,
         );

@@ -14,6 +14,7 @@ default = ["jemallocator"]
 
 bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
+future_snark = ["mithril-common/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }

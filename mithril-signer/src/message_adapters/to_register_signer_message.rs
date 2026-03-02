@@ -16,17 +16,17 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
         let message = RegisterSignerMessage {
             epoch,
             party_id: signer.party_id,
-            verification_key: signer.verification_key.try_into().with_context(|| {
+            verification_key_for_concatenation: signer.verification_key_for_concatenation.try_into().with_context(|| {
                 format!(
                     "'ToRegisterSignerMessageAdapter' can not convert the verification key: '{:?}'",
-                    signer.verification_key
+                    signer.verification_key_for_concatenation
                 )
             })?,
-            verification_key_signature: match signer.verification_key_signature {
+            verification_key_signature_for_concatenation: match signer.verification_key_signature_for_concatenation {
                 Some(k) => Some(k.try_into().with_context(|| {
                     format!(
                         "'ToRegisterSignerMessageAdapter' can not convert the verification key signature: '{:?}'",
-                        signer.verification_key_signature
+                        signer.verification_key_signature_for_concatenation
                     )
                 })?),
                 None => None,
@@ -38,6 +38,20 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
                 None => None,
             },
             kes_evolutions: signer.kes_evolutions,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: signer.verification_key_for_snark.map(TryInto::try_into).transpose().with_context(|| {
+                format!(
+                    "'ToRegisterSignerMessageAdapter' can not convert the SNARK verification key: '{:?}'",
+                    signer.verification_key_for_snark
+                )
+            })?,
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: signer.verification_key_signature_for_snark.map(TryInto::try_into).transpose().with_context(|| {
+                format!(
+                    "'ToRegisterSignerMessageAdapter' can not convert the SNARK verification key signature: '{:?}'",
+                    signer.verification_key_signature_for_snark
+                )
+            })?,
         };
 
         Ok(message)

@@ -379,11 +379,14 @@ pub fn insert_signer_registrations(
                         2,
                         Value::Integer(*signer_registration_record.epoch_settings_id as i64),
                     ),
-                    (3, signer_registration_record.verification_key.into()),
+                    (
+                        3,
+                        signer_registration_record.verification_key_for_concatenation.into(),
+                    ),
                     (
                         4,
                         signer_registration_record
-                            .verification_key_signature
+                            .verification_key_signature_for_concatenation
                             .map(Value::String)
                             .unwrap_or(Value::Null),
                     ),
@@ -397,7 +400,7 @@ pub fn insert_signer_registrations(
                     (
                         6,
                         signer_registration_record
-                            .kes_period
+                            .kes_evolutions
                             .map(|k| Value::Integer(k.try_into().unwrap()))
                             .unwrap_or(Value::Null),
                     ),
@@ -408,7 +411,24 @@ pub fn insert_signer_registrations(
                             .map(|s| Value::Integer(s.try_into().unwrap()))
                             .unwrap_or(Value::Null),
                     ),
-                    (8, signer_registration_record.created_at.to_rfc3339().into()),
+                    (
+                        8,
+                        signer_registration_record
+                            .verification_key_for_snark
+                            .map(Value::String)
+                            .unwrap_or(Value::Null),
+                    ),
+                    (
+                        9,
+                        signer_registration_record
+                            .verification_key_signature_for_snark
+                            .map(Value::String)
+                            .unwrap_or(Value::Null),
+                    ),
+                    (
+                        10,
+                        signer_registration_record.created_at.to_rfc3339().into(),
+                    ),
                 ])
                 .unwrap();
 

@@ -39,14 +39,25 @@ pub fn generate_register_signer_message(
         .map(|signer| RegisterSignerMessage {
             epoch,
             party_id: signer.party_id,
-            verification_key: signer.verification_key.to_json_hex().unwrap(),
-            verification_key_signature: signer
-                .verification_key_signature
+            verification_key_for_concatenation: signer
+                .verification_key_for_concatenation
+                .to_json_hex()
+                .unwrap(),
+            verification_key_signature_for_concatenation: signer
+                .verification_key_signature_for_concatenation
                 .map(|k| k.to_json_hex().unwrap()),
             operational_certificate: signer
                 .operational_certificate
                 .map(|o| o.to_json_hex().unwrap()),
             kes_evolutions: signer.kes_evolutions,
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: signer
+                .verification_key_for_snark
+                .map(|k| k.to_json_hex().unwrap()),
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: signer
+                .verification_key_signature_for_snark
+                .map(|s| s.to_json_hex().unwrap()),
         })
         .collect::<Vec<_>>()
 }

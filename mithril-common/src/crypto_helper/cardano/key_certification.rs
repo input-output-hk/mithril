@@ -11,19 +11,25 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "future_snark")]
+use mithril_stm::VerificationKeyForSnark;
 use mithril_stm::{
     ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
     RegisterError, Signer, Stake, VerificationKeyProofOfPossessionForConcatenation,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::types::{
+    ProtocolSignerVerificationKeyForSnark, ProtocolSignerVerificationKeySignatureForSnark,
+};
 use crate::{
     StdError, StdResult,
     crypto_helper::{
         KesEvolutions, KesPeriod, ProtocolOpCert,
         cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
-            ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
-            ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+            ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKeyForConcatenation,
+            ProtocolSignerVerificationKeySignatureForConcatenation, ProtocolStakeDistribution,
         },
     },
 };
@@ -97,10 +103,16 @@ pub struct StmInitializerWrapper {
     /// The Initializer
     stm_initializer: Initializer,
 
-    /// The KES signature over the Mithril key
+    /// The KES signature over the verification key for the concatenation proof system
     ///
     /// None is used only for testing when SPO pool id is not certified
-    kes_signature: Option<Sum6KesSig>,
+    #[serde(rename = "kes_signature")]
+    kes_signature_for_concatenation: Option<Sum6KesSig>,
+
+    /// The KES signature over the verification key for the SNARK proof system
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    kes_signature_for_snark: Option<Sum6KesSig>,
 }
 
 impl StmInitializerWrapper {
@@ -115,37 +127,80 @@ impl StmInitializerWrapper {
         rng: &mut R,
     ) -> StdResult<Self> {
         let stm_initializer = Initializer::new(params, stake, rng);
-        let kes_signature = if let Some(kes_signer) = kes_signer {
+        let kes_signature;
+        #[cfg(feature = "future_snark")]
+        let kes_signature_for_snark;
+
+        if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer
                     .get_verification_key_proof_of_possession_for_concatenation()
                     .to_bytes(),
                 current_kes_period.unwrap_or_default(),
             )?;
+            kes_signature = Some(signature);
 
-            Some(signature)
+            #[cfg(feature = "future_snark")]
+            {
+                kes_signature_for_snark = if let Some(schnorr_verification_key) =
+                    &stm_initializer.schnorr_verification_key
+                {
+                    let (signature, _op_cert) = kes_signer.sign(
+                        &schnorr_verification_key.to_bytes(),
+                        current_kes_period.unwrap_or_default(),
+                    )?;
+
+                    Some(signature)
+                } else {
+                    None
+                };
+            }
         } else {
             println!(
                 "WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!"
             );
-            None
+            kes_signature = None;
+            #[cfg(feature = "future_snark")]
+            {
+                kes_signature_for_snark = None;
+            }
         };
 
         Ok(Self {
             stm_initializer,
-            kes_signature,
+            kes_signature_for_concatenation: kes_signature,
+            #[cfg(feature = "future_snark")]
+            kes_signature_for_snark,
         })
     }
 
-    /// Extract the verification key.
-    pub fn verification_key(&self) -> VerificationKeyProofOfPossessionForConcatenation {
+    /// Extract the verification key for the concatenation proof system.
+    pub fn verification_key_for_concatenation(
+        &self,
+    ) -> VerificationKeyProofOfPossessionForConcatenation {
         self.stm_initializer
             .get_verification_key_proof_of_possession_for_concatenation()
     }
 
     /// Extract the verification key signature.
-    pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.kes_signature.map(|k| k.into())
+    pub fn verification_key_signature_for_concatenation(
+        &self,
+    ) -> Option<ProtocolSignerVerificationKeySignatureForConcatenation> {
+        self.kes_signature_for_concatenation.map(|k| k.into())
+    }
+
+    /// Extract the verification key for the SNARK proof system.
+    #[cfg(feature = "future_snark")]
+    pub fn verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
+        self.stm_initializer.schnorr_verification_key
+    }
+
+    /// Extract the KES signature over the Schnorr verification key.
+    #[cfg(feature = "future_snark")]
+    pub fn verification_key_signature_for_snark(
+        &self,
+    ) -> Option<ProtocolSignerVerificationKeySignatureForSnark> {
+        self.kes_signature_for_snark.map(|k| k.into())
     }
 
     /// Extract the protocol parameters of the initializer
@@ -175,14 +230,28 @@ impl StmInitializerWrapper {
     }
 
     /// Convert to bytes
-    /// # Layout
-    /// * StmInitialiser
-    /// * KesSignature
+    ///
+    /// * Length-prefixed STM Initializer (dynamic size)
+    /// * Optional KES signature for the concatenation proof system (fixed size)
+    /// * Optional KES signature for the SNARK proof system (fixed size, when `future_snark` feature is enabled and if some KES signature for concatenation)
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(&self.stm_initializer.to_bytes());
-        if let Some(kes_signature) = &self.kes_signature {
-            out.extend_from_slice(&kes_signature.to_bytes());
+
+        let stm_initializer_bytes = self.stm_initializer.to_bytes();
+        out.extend_from_slice(
+            &u64::try_from(stm_initializer_bytes.len())
+                .expect("STM initializer byte length should always fit in u64")
+                .to_be_bytes(),
+        );
+        out.extend_from_slice(&stm_initializer_bytes);
+
+        if let Some(kes_signature_for_concatenation) = &self.kes_signature_for_concatenation {
+            out.extend_from_slice(&kes_signature_for_concatenation.to_bytes());
+
+            #[cfg(feature = "future_snark")]
+            if let Some(kes_signature_for_snark) = &self.kes_signature_for_snark {
+                out.extend_from_slice(&kes_signature_for_snark.to_bytes());
+            }
         }
 
         out
@@ -192,20 +261,101 @@ impl StmInitializerWrapper {
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
-        let stm_initializer =
-            Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
-        let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
-        let kes_signature = if bytes.is_empty() {
-            None
+        let mut bytes_index = 0;
+
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(bytes_index..bytes_index + 8)
+                .ok_or(RegisterError::SerializationError)?,
+        );
+        let stm_initializer_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| RegisterError::SerializationError)?;
+
+        let stm_initializer = Initializer::from_bytes(
+            bytes
+                .get(bytes_index + 8..bytes_index + 8 + stm_initializer_size)
+                .ok_or(RegisterError::SerializationError)?,
+        )?;
+        bytes_index += 8 + stm_initializer_size;
+
+        let kes_signature_for_concatenation;
+        #[cfg(feature = "future_snark")]
+        let kes_signature_for_snark;
+        if let Some(kes_signature) = bytes.get(bytes_index..bytes_index + Sum6KesSig::SIZE) {
+            kes_signature_for_concatenation = Some(
+                Sum6KesSig::from_bytes(kes_signature)
+                    .map_err(|_| RegisterError::SerializationError)?,
+            );
+
+            #[cfg(feature = "future_snark")]
+            {
+                bytes_index += Sum6KesSig::SIZE;
+                kes_signature_for_snark = if let Some(snark_kes_signature) =
+                    bytes.get(bytes_index..bytes_index + Sum6KesSig::SIZE)
+                {
+                    let snark_kes_signature = Sum6KesSig::from_bytes(snark_kes_signature)
+                        .map_err(|_| RegisterError::SerializationError)?;
+
+                    Some(snark_kes_signature)
+                } else {
+                    None
+                };
+            }
         } else {
-            Some(Sum6KesSig::from_bytes(bytes).map_err(|_| RegisterError::SerializationError)?)
-        };
+            kes_signature_for_concatenation = None;
+            #[cfg(feature = "future_snark")]
+            {
+                kes_signature_for_snark = None;
+            }
+        }
 
         Ok(Self {
             stm_initializer,
-            kes_signature,
+            kes_signature_for_concatenation,
+            #[cfg(feature = "future_snark")]
+            kes_signature_for_snark,
         })
     }
+}
+
+/// Parameters required for registering a signer with the key registration service.
+///
+/// Groups the verification keys, their KES signatures, and the operational certificate
+/// that together prove a signer's identity and authorization.
+#[derive(Debug, Clone)]
+pub struct SignerRegistrationParameters {
+    /// The party identifier of the signer
+    ///
+    /// Used only for testing when SPO pool id is not certified
+    pub party_id: Option<ProtocolPartyId>,
+
+    /// The operational certificate of the stake pool operator
+    ///
+    /// Used only for testing when SPO pool id is not certified
+    pub operational_certificate: Option<ProtocolOpCert>,
+
+    /// The verification key for the Concatenation proof system
+    pub verification_key_for_concatenation: ProtocolSignerVerificationKeyForConcatenation,
+
+    /// The KES signature over the verification key for Concatenation
+    ///
+    /// None is used only for testing when SPO pool id is not certified
+    pub verification_key_signature_for_concatenation:
+        Option<ProtocolSignerVerificationKeySignatureForConcatenation>,
+
+    /// The number of evolutions of the KES key since the start KES period of the
+    /// operational certificate at the time of signature
+    pub kes_evolutions: Option<KesEvolutions>,
+
+    /// The verification key for the SNARK proof system
+    #[cfg(feature = "future_snark")]
+    pub verification_key_for_snark: Option<ProtocolSignerVerificationKeyForSnark>,
+
+    /// The KES signature over the verification key for SNARK
+    #[cfg(feature = "future_snark")]
+    pub verification_key_signature_for_snark:
+        Option<ProtocolSignerVerificationKeySignatureForSnark>,
 }
 
 /// Wrapper structure for [MithrilStm:KeyRegistration](mithril_stm::key_reg::KeyRegistration).
@@ -236,24 +386,55 @@ impl KeyRegWrapper {
     /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
     /// Mithril key (with its corresponding Proof of Possession).
     ///
-    /// kes_evolutions: The number of evolutions since the start KES period of the operational certificate.
+    /// When the `future_snark` feature is enabled, an optional Schnorr verification key
+    /// and its KES signature can be provided for SNARK proof system authentication.
     pub fn register(
         &mut self,
-        party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
-        opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
-        kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_evolutions: Option<KesEvolutions>,
-        pk: ProtocolSignerVerificationKey,
+        parameters: SignerRegistrationParameters,
     ) -> StdResult<ProtocolPartyId> {
-        let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
-            let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-            let kes_evolutions =
-                kes_evolutions.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
+        let pool_id_bech32: ProtocolPartyId = if let Some(opcert) =
+            &parameters.operational_certificate
+        {
+            let verification_key_signature_for_concatenation = parameters
+                .verification_key_signature_for_concatenation
+                .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
+            let kes_evolutions = parameters
+                .kes_evolutions
+                .ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
             if self
                 .kes_verifier
-                .verify(&pk.to_bytes(), &signature, &opcert, kes_evolutions)
+                .verify(
+                    &parameters.verification_key_for_concatenation.to_bytes(),
+                    &verification_key_signature_for_concatenation,
+                    opcert,
+                    kes_evolutions,
+                )
                 .is_ok()
             {
+                #[cfg(feature = "future_snark")]
+                if let Some(verification_key_for_snark) = &parameters.verification_key_for_snark {
+                    let verification_key_signature_for_snark = parameters
+                        .verification_key_signature_for_snark
+                        .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
+                    if self
+                        .kes_verifier
+                        .verify(
+                            &verification_key_for_snark.to_bytes(),
+                            &verification_key_signature_for_snark,
+                            opcert,
+                            kes_evolutions,
+                        )
+                        .is_err()
+                    {
+                        return Err(anyhow!(
+                            ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
+                                kes_evolutions,
+                                opcert.get_start_kes_period(),
+                            )
+                        ));
+                    }
+                }
+
                 opcert
                     .compute_protocol_party_id()
                     .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
@@ -269,15 +450,17 @@ impl KeyRegWrapper {
             if cfg!(not(feature = "allow_skip_signer_certification")) {
                 Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
             }
-            party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
+            parameters
+                .party_id
+                .ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             self.stm_key_reg.register(
                 stake,
-                &pk.into(),
+                &parameters.verification_key_for_concatenation.into(),
                 #[cfg(feature = "future_snark")]
-                None,
+                parameters.verification_key_for_snark.map(|k| k.into()),
             )?;
             return Ok(pool_id_bech32);
         }
@@ -363,16 +546,22 @@ mod test {
             .expect("opcert deserialization should not fail")
             .into();
 
-        let key_registration_1 = key_reg.register(
-            None,
-            Some(opcert1),
-            initializer_1.verification_key_signature(),
-            Some(KesEvolutions(0)),
-            initializer_1
+        let key_registration_1 = key_reg.register(SignerRegistrationParameters {
+            party_id: None,
+            operational_certificate: Some(opcert1),
+            verification_key_signature_for_concatenation: initializer_1
+                .verification_key_signature_for_concatenation(),
+            kes_evolutions: Some(KesEvolutions(0)),
+            verification_key_for_concatenation: initializer_1
                 .stm_initializer
                 .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
-        );
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: initializer_1.verification_key_for_snark().map(Into::into),
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: initializer_1
+                .verification_key_signature_for_snark(),
+        });
         assert!(key_registration_1.is_ok());
 
         let initializer_2 = StmInitializerWrapper::setup(
@@ -391,16 +580,22 @@ mod test {
             .expect("opcert deserialization should not fail")
             .into();
 
-        let key_registration_2 = key_reg.register(
-            None,
-            Some(opcert2),
-            initializer_2.verification_key_signature(),
-            Some(KesEvolutions(0)),
-            initializer_2
+        let key_registration_2 = key_reg.register(SignerRegistrationParameters {
+            party_id: None,
+            operational_certificate: Some(opcert2),
+            verification_key_signature_for_concatenation: initializer_2
+                .verification_key_signature_for_concatenation(),
+            kes_evolutions: Some(KesEvolutions(0)),
+            verification_key_for_concatenation: initializer_2
                 .stm_initializer
                 .get_verification_key_proof_of_possession_for_concatenation()
                 .into(),
-        );
+            #[cfg(feature = "future_snark")]
+            verification_key_for_snark: initializer_2.verification_key_for_snark().map(Into::into),
+            #[cfg(feature = "future_snark")]
+            verification_key_signature_for_snark: initializer_2
+                .verification_key_signature_for_snark(),
+        });
         assert!(key_registration_2.is_ok())
     }
 
@@ -478,11 +673,14 @@ mod test {
         );
 
         let mut stm_initializer_wrapper_from_json = stm_initializer_wrapper_from_json;
-        stm_initializer_wrapper_from_json.kes_signature = None;
+        stm_initializer_wrapper_from_json.kes_signature_for_concatenation = None;
 
         let stm_initializer_wrapper_from_bytes =
             StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_from_json.to_bytes())
                 .expect("Deserializing a StmInitializerWrapper from bytes should not fail");
-        assert_eq!(None, stm_initializer_wrapper_from_bytes.kes_signature);
+        assert_eq!(
+            None,
+            stm_initializer_wrapper_from_bytes.kes_signature_for_concatenation
+        );
     }
 }
