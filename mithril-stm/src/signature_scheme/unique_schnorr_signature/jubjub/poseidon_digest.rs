@@ -17,7 +17,12 @@ pub(crate) const DOMAIN_SEPARATION_TAG_SIGNATURE: JubjubBase = JubjubBase::from_
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 pub const DOMAIN_SEPARATION_TAG_LOTTERY: BaseFieldElement =
-    BaseFieldElement(JubjubBase::from_raw([3, 3, 0, 0]));
+    BaseFieldElement(JubjubBase::from_raw([
+        0x4C4F_5454_5F44_5354, // "LOTT_DST" (ASCII), little-endian u64
+        0,
+        0,
+        0,
+    ]));
 
 /// Computes a Poseidon digest over the provided base field elements
 /// Returns a scalar field element as the digest

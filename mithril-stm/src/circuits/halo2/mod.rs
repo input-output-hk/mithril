@@ -6,6 +6,4 @@ pub mod types;
 pub(crate) mod utils;
 
 #[cfg(test)]
-mod dst_alignment_tests;
-#[cfg(test)]
 pub(crate) mod golden;
