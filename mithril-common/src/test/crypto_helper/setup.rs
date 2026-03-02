@@ -8,7 +8,7 @@ use crate::{
     crypto_helper::{
         KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolInitializer,
         ProtocolKeyRegistration, ProtocolOpCert, ProtocolParameters, ProtocolPartyId,
-        ProtocolStakeDistribution, SerDeShelleyFileFormat,
+        ProtocolStakeDistribution, SerDeShelleyFileFormat, SignerRegistrationParameters,
     },
     entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test::{
@@ -95,14 +95,24 @@ fn setup_signer_with_stake(
 ) -> SignerWithStake {
     let kes_evolutions = operational_certificate.as_ref().and(Some(kes_evolutions));
 
-    SignerWithStake::new(
-        party_id.to_owned(),
-        protocol_initializer.verification_key().into(),
-        protocol_initializer.verification_key_signature(),
+    SignerWithStake {
+        party_id: party_id.to_owned(),
+        verification_key_for_concatenation: protocol_initializer
+            .verification_key_for_concatenation()
+            .into(),
+        verification_key_signature_for_concatenation: protocol_initializer
+            .verification_key_signature_for_concatenation(),
         operational_certificate,
         kes_evolutions,
         stake,
-    )
+        #[cfg(feature = "future_snark")]
+        verification_key_for_snark: protocol_initializer
+            .verification_key_for_snark()
+            .map(|vk| vk.into()),
+        #[cfg(feature = "future_snark")]
+        verification_key_signature_for_snark: protocol_initializer
+            .verification_key_signature_for_snark(),
+    }
 }
 
 fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<ProtocolOpCert> {
@@ -148,13 +158,23 @@ pub fn setup_signers_from_stake_distribution(
         );
 
         key_registration
-            .register(
-                Some(signer_with_stake.party_id.to_owned()),
+            .register(SignerRegistrationParameters {
+                party_id: Some(signer_with_stake.party_id.to_owned()),
                 operational_certificate,
-                protocol_initializer.verification_key_signature(),
-                Some(kes_evolutions),
-                protocol_initializer.verification_key().into(),
-            )
+                verification_key_signature_for_concatenation: protocol_initializer
+                    .verification_key_signature_for_concatenation(),
+                kes_evolutions: Some(kes_evolutions),
+                verification_key_for_concatenation: protocol_initializer
+                    .verification_key_for_concatenation()
+                    .into(),
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: protocol_initializer
+                    .verification_key_for_snark()
+                    .map(Into::into),
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: protocol_initializer
+                    .verification_key_signature_for_snark(),
+            })
             .expect("key registration should have succeeded");
 
         signers.push((

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
-    crypto_helper::ProtocolKeyRegistration,
+    crypto_helper::{ProtocolKeyRegistration, SignerRegistrationParameters},
     entities::{Signer, SignerWithStake, StakeDistribution},
 };
 
@@ -53,13 +53,18 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             None => None,
         };
         let party_id_registered = key_registration
-            .register(
-                party_id_register.clone(),
-                signer.operational_certificate.clone(),
-                signer.verification_key_signature,
+            .register(SignerRegistrationParameters {
+                party_id: party_id_register.clone(),
+                operational_certificate: signer.operational_certificate.clone(),
+                verification_key_signature_for_concatenation: signer
+                    .verification_key_signature_for_concatenation,
                 kes_evolutions,
-                signer.verification_key,
-            )
+                verification_key_for_concatenation: signer.verification_key_for_concatenation,
+                #[cfg(feature = "future_snark")]
+                verification_key_for_snark: signer.verification_key_for_snark,
+                #[cfg(feature = "future_snark")]
+                verification_key_signature_for_snark: signer.verification_key_signature_for_snark,
+            })
             .with_context(|| {
                 format!(
                     "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}', kes_evolutions: '{kes_evolutions:?}'"
@@ -104,7 +109,8 @@ mod tests {
     async fn verify_fails_with_invalid_signer_registration() {
         let fixture = MithrilFixtureBuilder::default().with_signers(2).build();
         let signer_to_register: Signer = Signer {
-            verification_key_signature: fixture.signers()[1].verification_key_signature,
+            verification_key_signature_for_concatenation: fixture.signers()[1]
+                .verification_key_signature_for_concatenation,
             ..fixture.signers()[0].to_owned()
         };
         let signer_registration_verifier = MithrilSignerRegistrationVerifier::new(Arc::new(

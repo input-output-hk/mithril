@@ -14,7 +14,8 @@ pub use cardano::ColdKeyGenerator;
 pub use cardano::{
     KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard,
     KesVerifyError, OpCert, OpCertWithoutColdVerificationKey, ProtocolInitializerErrorWrapper,
-    ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat, Sum6KesBytes,
+    ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat, SignerRegistrationParameters,
+    Sum6KesBytes,
 };
 pub use codec::*;
 pub use ed25519_alias::{era::*, genesis::*, manifest::*};

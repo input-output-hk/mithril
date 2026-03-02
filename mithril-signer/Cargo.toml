@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.3.20"
+version = "0.3.21"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -17,6 +17,7 @@ ignored = ["reqwest"]
 default = ["jemallocator"]
 
 bundle_tls = ["reqwest/native-tls-vendored"]
+future_snark = ["mithril-common/future_snark"]
 jemallocator = ["dep:tikv-jemallocator"]
 
 [dependencies]
