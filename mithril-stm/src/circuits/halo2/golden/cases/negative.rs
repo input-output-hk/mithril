@@ -1,13 +1,30 @@
 use ff::Field;
 
+use crate::circuits::halo2::errors::CircuitError;
 use crate::circuits::halo2::golden::helpers::{
-    LeafSelector, StmCircuitProofError, StmCircuitScenario, build_witness,
-    build_witness_with_fixed_signer, build_witness_with_indices, create_default_merkle_tree,
-    create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
-    prove_and_verify_result, setup_stm_circuit_env,
+    LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
+    assert_proving_circuit_error, build_witness, build_witness_with_fixed_signer,
+    build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
+    find_two_distinct_witness_entries, prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
+
+#[test]
+fn quorum_not_less_than_num_lotteries() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    const NUM_LOTTERIES: u32 = 3;
+    let result = setup_stm_circuit_env(current_function!(), K, QUORUM, NUM_LOTTERIES);
+    let error = assert_proving_circuit_error(result);
+    assert!(matches!(
+        error,
+        CircuitError::InvalidCircuitParameters {
+            quorum: QUORUM,
+            num_lotteries: NUM_LOTTERIES,
+        }
+    ));
+}
 
 #[test]
 fn message_mismatch() {
@@ -15,8 +32,13 @@ fn message_mismatch() {
     const QUORUM: u32 = 3;
     let msg0 = SignedMessageWithoutPrefix::from(42);
     let msg1 = SignedMessageWithoutPrefix::from(43);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("message_mismatch env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("message_mismatch env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("message_mismatch tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -24,8 +46,7 @@ fn message_mismatch() {
         .expect("message_mismatch witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -33,8 +54,13 @@ fn merkle_root_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("merkle_root_mismatch env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_root_mismatch env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_root_mismatch tree creation should succeed");
     let merkle_root_0 = merkle_tree.root();
@@ -43,8 +69,7 @@ fn merkle_root_mismatch() {
         .expect("merkle_root_mismatch witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root_1, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -53,8 +78,13 @@ fn signature_other_message() {
     const QUORUM: u32 = 3;
     let msg0 = SignedMessageWithoutPrefix::from(42);
     let msg1 = SignedMessageWithoutPrefix::from(43);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("signature_other_message env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("signature_other_message env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("signature_other_message tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -73,8 +103,7 @@ fn signature_other_message() {
     }
 
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -82,8 +111,13 @@ fn signature_verification_key_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("signature_verification_key_mismatch env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("signature_verification_key_mismatch env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("signature_verification_key_mismatch tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -100,8 +134,7 @@ fn signature_verification_key_mismatch() {
     witness[i].2 = sig_j;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -109,8 +142,13 @@ fn signature_bad_challenge() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("signature_bad_challenge env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("signature_bad_challenge env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("signature_bad_challenge tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -123,8 +161,7 @@ fn signature_bad_challenge() {
     witness[0].2.challenge = witness[0].2.challenge + BaseFieldElement::get_one();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -132,8 +169,13 @@ fn signature_bad_response() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("signature_bad_response env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("signature_bad_response env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("signature_bad_response tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -148,8 +190,7 @@ fn signature_bad_response() {
             .expect("signature_bad_response response scalar conversion should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -157,8 +198,13 @@ fn signature_bad_commitment() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("signature_bad_commitment env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("signature_bad_commitment env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("signature_bad_commitment tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -171,8 +217,7 @@ fn signature_bad_commitment() {
     witness[0].2.commitment_point = witness[1].2.commitment_point;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -180,8 +225,13 @@ fn indices_not_increasing() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("indices_not_increasing env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("indices_not_increasing env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_not_increasing tree creation should succeed");
 
@@ -193,8 +243,7 @@ fn indices_not_increasing() {
         .expect("indices_not_increasing witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -202,8 +251,13 @@ fn index_out_of_bounds() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("index_out_of_bounds env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("index_out_of_bounds env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("index_out_of_bounds tree creation should succeed");
 
@@ -214,8 +268,7 @@ fn index_out_of_bounds() {
         .expect("index_out_of_bounds witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -223,8 +276,13 @@ fn merkle_path_corrupt_sibling() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("merkle_path_corrupt_sibling env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_corrupt_sibling env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_corrupt_sibling tree creation should succeed");
 
@@ -240,8 +298,7 @@ fn merkle_path_corrupt_sibling() {
     witness[0].1.siblings[d].1 += SignedMessageWithoutPrefix::ONE;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -249,8 +306,13 @@ fn merkle_path_flip_position() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("merkle_path_flip_position env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_flip_position env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_flip_position tree creation should succeed");
 
@@ -268,20 +330,24 @@ fn merkle_path_flip_position() {
     };
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
-#[should_panic]
 #[test]
 fn merkle_path_length_short() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("merkle_path_length_short env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_length_short env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_short tree creation should succeed");
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros();
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -293,20 +359,31 @@ fn merkle_path_length_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
+    assert!(matches!(
+        error,
+        CircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: expected,
+            actual: found,
+        } if expected == expected_depth && found == expected_depth - 1
+    ));
 }
 
-#[should_panic]
 #[test]
 fn merkle_path_length_long() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("merkle_path_length_long env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("merkle_path_length_long env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("merkle_path_length_long tree creation should succeed");
+    let expected_depth = env.num_signers().next_power_of_two().trailing_zeros();
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
@@ -320,8 +397,14 @@ fn merkle_path_length_long() {
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
+    assert!(matches!(
+        error,
+        CircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: expected,
+            actual: found,
+        } if expected == expected_depth && found == expected_depth + 1
+    ));
 }
 
 #[test]
@@ -329,8 +412,13 @@ fn leaf_swap_keep_merkle_path() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("leaf_swap_keep_merkle_path env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("leaf_swap_keep_merkle_path env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("leaf_swap_keep_merkle_path tree creation should succeed");
 
@@ -346,8 +434,7 @@ fn leaf_swap_keep_merkle_path() {
     witness[i].0 = witness[j].0;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -355,8 +442,13 @@ fn leaf_merkle_path_mismatch() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("leaf_merkle_path_mismatch env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("leaf_merkle_path_mismatch env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("leaf_merkle_path_mismatch tree creation should succeed");
 
@@ -372,8 +464,7 @@ fn leaf_merkle_path_mismatch() {
     witness[i].1 = witness[j].1.clone();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -381,8 +472,13 @@ fn leaf_wrong_verification_key() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("leaf_wrong_verification_key env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("leaf_wrong_verification_key env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("leaf_wrong_verification_key tree creation should succeed");
 
@@ -400,8 +496,7 @@ fn leaf_wrong_verification_key() {
     witness[i].0 = crate::circuits::halo2::types::MTLeaf(verification_key, target);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -409,8 +504,13 @@ fn target_less_than_evaluation() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("target_less_than_evaluation env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("target_less_than_evaluation env setup should succeed");
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
     let signer_index = 0usize;
     let (merkle_tree, _) = create_merkle_tree_with_leaf_selector(
@@ -429,18 +529,21 @@ fn target_less_than_evaluation() {
             .expect("target_less_than_evaluation witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
-#[should_panic]
 #[test]
 fn witness_length_short() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("witness_length_short env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("witness_length_short env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("witness_length_short tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -450,18 +553,28 @@ fn witness_length_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
+    assert!(matches!(
+        error,
+        CircuitError::WitnessLengthMismatch {
+            expected_quorum,
+            actual: 2,
+        } if expected_quorum == QUORUM
+    ));
 }
 
-#[should_panic]
 #[test]
 fn witness_length_long() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("witness_length_long env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("witness_length_long env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("witness_length_long tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -475,8 +588,14 @@ fn witness_length_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
+    assert!(matches!(
+        error,
+        CircuitError::WitnessLengthMismatch {
+            expected_quorum,
+            actual: 4,
+        } if expected_quorum == QUORUM
+    ));
 }
 
 #[test]
@@ -484,8 +603,13 @@ fn witness_duplicate_entry() {
     const K: u32 = 13;
     const QUORUM: u32 = 3;
     let msg = SignedMessageWithoutPrefix::from(42);
-    let env = setup_stm_circuit_env(current_function!(), K, QUORUM)
-        .expect("witness_duplicate_entry env setup should succeed");
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("witness_duplicate_entry env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("witness_duplicate_entry tree creation should succeed");
     let merkle_root = merkle_tree.root();
@@ -498,6 +622,5 @@ fn witness_duplicate_entry() {
     witness[1] = witness[0].clone();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
-    assert!(matches!(result, Err(StmCircuitProofError::VerifyFail)));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }

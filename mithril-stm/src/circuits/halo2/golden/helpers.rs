@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::fs::create_dir_all;
-use std::io::Cursor;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use ff::Field;
+use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
-use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
@@ -16,6 +16,7 @@ use thiserror::Error;
 
 use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
+use crate::circuits::halo2::errors::{CircuitError, ProvingError, StmProofError, StmProofResult};
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
 use crate::circuits::halo2::utils::MerklePathAdapterError;
 use crate::circuits::test_utils::setup::{generate_params, load_params};
@@ -34,7 +35,7 @@ type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, u32);
 /// Default number of signers used in golden test environments.
 const DEFAULT_NUM_SIGNERS: usize = 3000;
 /// Lottery count multiplier per quorum size used in golden test environments.
-const LOTTERIES_PER_QUORUM: u32 = 10;
+pub(crate) const LOTTERIES_PER_QUORUM: u32 = 10;
 /// Default message value used by golden test cases.
 const DEFAULT_TEST_MSG: u64 = 42;
 
@@ -100,16 +101,44 @@ pub(crate) enum StmCircuitProofError {
     /// Signature verification failed.
     #[error("signature verification failed")]
     SignatureVerification,
-    /// Proof generation failed.
-    #[error("proof generation failed")]
-    ProveFail,
-    /// Proof verification failed.
-    #[error("proof verification failed")]
-    VerifyFail,
+    /// Proving/verification failures shared with Halo2 error model.
+    #[error(transparent)]
+    Proof(#[from] StmProofError),
 }
 
 /// Result type for STM circuit golden helpers.
 type StmResult<T> = Result<T, StmCircuitProofError>;
+
+/// Assert that proving succeeded but the verifier rejected the generated proof.
+pub(crate) fn assert_proof_rejected_by_verifier(result: Result<(), StmCircuitProofError>) {
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(
+            StmProofError::VerificationFailed
+        ))
+    ));
+}
+
+/// Extract the circuit-level proving failure from a prove+verify result.
+///
+/// Panics when the result is not a circuit proving failure.
+pub(crate) fn assert_proving_circuit_error<T>(
+    result: Result<T, StmCircuitProofError>,
+) -> CircuitError {
+    match result {
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(ProvingError::Circuit(
+            error,
+        )))) => error,
+        _ => panic!("expected circuit proving failure"),
+    }
+}
+
+fn validate_relation_for_setup(relation: &StmCircuit) -> StmProofResult<()> {
+    relation
+        .validate_parameters()
+        .map_err(ProvingError::from)
+        .map_err(StmProofError::from)
+}
 
 /// Cache key derived from the STM circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -487,13 +516,14 @@ pub(crate) fn setup_stm_circuit_env(
     case_name: &str,
     k: u32,
     quorum: u32,
+    num_lotteries: u32,
 ) -> StmResult<StmCircuitEnv> {
     let srs = load_or_generate_params(k)?;
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
-    let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
     let relation = StmCircuit::new(quorum, num_lotteries, depth);
+    validate_relation_for_setup(&relation)?;
 
     {
         let stm_circuit = MidnightCircuit::from_relation(&relation);
@@ -512,14 +542,6 @@ pub(crate) fn setup_stm_circuit_env(
     };
     let key_pair = get_or_build_circuit_keys(config, &relation, &srs)?;
     let (vk, pk) = (&key_pair.0, &key_pair.1);
-
-    {
-        let mut buffer = Cursor::new(Vec::new());
-        match vk.write(&mut buffer, SerdeFormat::RawBytes) {
-            Ok(()) => println!("vk length {:?}", buffer.get_ref().len()),
-            Err(error) => println!("failed to serialize vk for debug length: {error:?}"),
-        }
-    }
 
     Ok(StmCircuitEnv {
         srs,
@@ -548,7 +570,7 @@ pub(crate) fn prove_and_verify_result(
         scenario.witness,
         &mut rng,
     )
-    .map_err(|_| StmCircuitProofError::ProveFail)?;
+    .map_err(map_proving_backend_error)?;
     let duration = start.elapsed();
     println!("\nProof generation took: {:?}", duration);
     println!("Proof size: {:?}", proof.len());
@@ -567,8 +589,20 @@ pub(crate) fn prove_and_verify_result(
     if verify_result.is_ok() {
         Ok(())
     } else {
-        Err(StmCircuitProofError::VerifyFail)
+        Err(StmProofError::VerificationFailed.into())
     }
+}
+
+fn map_proving_backend_error(error: PlonkError) -> StmCircuitProofError {
+    // Midnight collapses circuit-side validation failures into `Error::Synthesis(String)`.
+    // Rebuild the typed circuit error when the synthesis payload matches one of our guards.
+    let circuit_error = match error {
+        PlonkError::Synthesis(message) => CircuitError::from_synthesis_message(&message)
+            .unwrap_or(CircuitError::CircuitExecutionFailed(message)),
+        other => CircuitError::CircuitExecutionFailed(other.to_string()),
+    };
+
+    StmProofError::ProvingFailed(ProvingError::Circuit(circuit_error)).into()
 }
 
 /// Run a case using the default message (F::from(DEFAULT_TEST_MSG)).
@@ -578,7 +612,8 @@ pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32)
 
 /// Run a case with a caller-specified message.
 pub(crate) fn run_stm_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) -> StmResult<()> {
-    let env = setup_stm_circuit_env(case_name, k, quorum)?;
+    let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
+    let env = setup_stm_circuit_env(case_name, k, quorum, num_lotteries)?;
     let merkle_tree = create_default_merkle_tree(env.num_signers())?;
 
     let merkle_root = merkle_tree.root();
@@ -621,8 +656,12 @@ fn get_or_build_circuit_keys(
     }
 
     let start = Instant::now();
-    let vk = zk::setup_vk(srs, relation);
-    let pk = zk::setup_pk(relation, &vk);
+    let (vk, pk) = panic::catch_unwind(AssertUnwindSafe(|| {
+        let vk = zk::setup_vk(srs, relation);
+        let pk = zk::setup_pk(relation, &vk);
+        (vk, pk)
+    }))
+    .map_err(|_| StmProofError::ProvingFailed(ProvingError::MidnightSetupFailed))?;
     let duration = start.elapsed();
     println!("\nvk pk generation took: {:?}", duration);
 

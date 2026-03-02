@@ -12,6 +12,7 @@ use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 use crate::circuits::halo2::constants::{DST_LOTTERY, DST_SIGNATURE};
+use crate::circuits::halo2::errors::{CircuitError, CircuitResult};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
@@ -22,6 +23,10 @@ use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature}
 
 type F = JubjubBase;
 type C = Jubjub;
+
+fn synthesis_error(error: CircuitError) -> Error {
+    Error::Synthesis(error.to_string())
+}
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -40,6 +45,65 @@ impl StmCircuit {
             merkle_tree_depth,
         }
     }
+
+    /// Validates global circuit parameters before synthesis.
+    /// Enforces `quorum < num_lotteries` returning
+    /// `CircuitError::InvalidCircuitParameters` when violated.
+    pub(crate) fn validate_parameters(&self) -> CircuitResult<()> {
+        if self.quorum >= self.num_lotteries {
+            return Err(CircuitError::InvalidCircuitParameters {
+                quorum: self.quorum,
+                num_lotteries: self.num_lotteries,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Validates that witness vector length matches the configured quorum.
+    /// This precondition prevents shape mismatches; failures return
+    /// `CircuitError::WitnessLengthMismatch`.
+    pub(crate) fn validate_witness_length(&self, actual: usize) -> CircuitResult<()> {
+        let expected_quorum = self.quorum as usize;
+        if actual != expected_quorum {
+            return Err(CircuitError::WitnessLengthMismatch {
+                expected_quorum: self.quorum,
+                actual: actual as u32,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Validates Merkle sibling path length against `merkle_tree_depth`.
+    /// This guards against inconsistent witness paths and returns
+    /// `CircuitError::MerkleSiblingLengthMismatch` on mismatch.
+    pub(crate) fn validate_merkle_sibling_length(&self, actual: usize) -> CircuitResult<()> {
+        let expected_depth = self.merkle_tree_depth as usize;
+        if actual != expected_depth {
+            return Err(CircuitError::MerkleSiblingLengthMismatch {
+                expected_depth: self.merkle_tree_depth,
+                actual: actual as u32,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Validates Merkle position bits length against `merkle_tree_depth`.
+    /// Under the current witness shape, this cannot fail independently from sibling-length
+    /// validation because both lengths derive from `x.siblings`; returns `CircuitError::MerklePositionLengthMismatch`.
+    pub(crate) fn validate_merkle_position_length(&self, actual: usize) -> CircuitResult<()> {
+        let expected_depth = self.merkle_tree_depth as usize;
+        if actual != expected_depth {
+            return Err(CircuitError::MerklePositionLengthMismatch {
+                expected_depth: self.merkle_tree_depth,
+                actual: actual as u32,
+            });
+        }
+
+        Ok(())
+    }
 }
 
 impl Relation for StmCircuit {
@@ -57,7 +121,11 @@ impl Relation for StmCircuit {
         instance: Value<Self::Instance>,
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
-        assert!(self.quorum < self.num_lotteries);
+        self.validate_parameters().map_err(synthesis_error)?;
+        let witness = witness.map_with_result(|witness| -> Result<_, Error> {
+            self.validate_witness_length(witness.len()).map_err(synthesis_error)?;
+            Ok(witness)
+        })?;
 
         let merkle_root: AssignedNative<F> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;
@@ -105,7 +173,11 @@ impl Relation for StmCircuit {
             let assigned_merkle_siblings = std_lib.assign_many(
                 layouter,
                 wit.clone()
-                    .map(|(_, x, _, _)| x.siblings.iter().map(|x| x.1).collect::<Vec<_>>())
+                    .map_with_result(|(_, x, _, _)| -> Result<_, Error> {
+                        self.validate_merkle_sibling_length(x.siblings.len())
+                            .map_err(synthesis_error)?;
+                        Ok(x.siblings.iter().map(|sibling| sibling.1).collect::<Vec<_>>())
+                    })?
                     .transpose_vec(self.merkle_tree_depth as usize)
                     .as_slice(),
             )?;
@@ -114,7 +186,11 @@ impl Relation for StmCircuit {
             let assigned_merkle_positions = std_lib.assign_many(
                 layouter,
                 wit.clone()
-                    .map(|(_, x, _, _)| x.siblings.iter().map(|x| x.0.into()).collect::<Vec<_>>())
+                    .map_with_result(|(_, x, _, _)| -> Result<_, Error> {
+                        self.validate_merkle_position_length(x.siblings.len())
+                            .map_err(synthesis_error)?;
+                        Ok(x.siblings.iter().map(|sibling| sibling.0.into()).collect::<Vec<_>>())
+                    })?
                     .transpose_vec(self.merkle_tree_depth as usize)
                     .as_slice(),
             )?;
