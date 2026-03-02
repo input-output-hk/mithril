@@ -18,6 +18,9 @@ pub use parameters::Parameters;
 pub use participant::{Initializer, Signer};
 pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};
 
+#[cfg(feature = "future_snark")]
+pub use key_registration::RegistrationEntryForSnark;
+
 /// Wrapper of the Concatenation proof Verification key with proof of possession
 pub type VerificationKeyProofOfPossessionForConcatenation =
     crate::signature_scheme::BlsVerificationKeyProofOfPossession;

@@ -18,7 +18,7 @@ use super::{MerkleBatchPath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MerkleTreeCommitment<D: Digest, L: MerkleTreeLeaf> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,

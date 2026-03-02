@@ -9,7 +9,7 @@ use midnight_curves::Fq as JubjubBase;
 ///
 /// This implementation differs from the usual behavior of the digest
 /// update as documented in the update implementation.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct MidnightPoseidonDigest {
     buffer: Vec<u8>,
 }

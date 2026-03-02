@@ -149,12 +149,12 @@ mod tests {
     struct ProofTest {
         msig: StmResult<Sig>,
         clerk: Clerk<D>,
-        msg: [u8; 16],
+        msg: [u8; 32],
     }
     /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
     /// The following tests mutate this aggregation so that the proof is no longer valid.
     fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
-        any::<[u8; 16]>().prop_flat_map(move |msg| {
+        any::<[u8; 32]>().prop_flat_map(move |msg| {
             (2..max_parties).prop_map(move |n| {
                 let params = Parameters {
                     m: 5,
@@ -176,7 +176,7 @@ mod tests {
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
     where
-        F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 16]),
+        F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 32]),
     {
         match tc.msig {
             Ok(mut aggr) => {
@@ -203,7 +203,7 @@ mod tests {
         fn test_aggregate_sig(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
-                              msg in any::<[u8;16]>()) {
+                              msg in any::<[u8;32]>()) {
             let params = Parameters { m, k, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
@@ -297,14 +297,14 @@ mod tests {
 
         #[test]
         /// Test that when a party creates a signature it can be verified
-        fn test_sig(msg in any::<[u8;16]>()) {
+        fn test_sig(msg in any::<[u8;32]>()) {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
             let avk: AggregateVerificationKey<D> = clerk.compute_aggregate_verification_key();
 
             if let Ok(sig) = ps[0].create_single_signature(&msg) {
-                assert!(sig.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
+                assert!(sig.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg, #[cfg(feature = "future_snark")] None).is_ok());
             }
         }
     }
@@ -332,7 +332,7 @@ mod tests {
         }
 
         #[test]
-        fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
+        fn test_sig_serialize_deserialize(msg in any::<[u8;32]>()) {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
@@ -341,13 +341,13 @@ mod tests {
             if let Ok(sig) = ps[0].create_single_signature(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg, #[cfg(feature = "future_snark")] None).is_ok());
             }
         }
 
         #[test]
         fn test_multisig_serialize_deserialize(nparties in 2_usize..10,
-                                          msg in any::<[u8;16]>()) {
+                                          msg in any::<[u8;32]>()) {
             let params = Parameters { m: 10, k: 5, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
@@ -371,7 +371,7 @@ mod tests {
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
         fn test_adversary_quorum(
             (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
-            msg in any::<[u8;16]>(),
+            msg in any::<[u8;32]>(),
         ) {
             // Test sanity check:
             // Check that the adversarial party has less than 40% of the total stake.

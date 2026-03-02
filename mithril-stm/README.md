@@ -131,7 +131,7 @@ let avk: AggregateVerificationKey<D>  = clerk.compute_aggregate_verification_key
 // Check all parties can verify every sig
 for s in sigs.iter() {
     let entry = closed_reg.get_registration_entry_for_index(&s.signer_index).unwrap();
-    assert!(s.verify::<D>(&params, &entry.get_verification_key_for_concatenation(), &entry.get_stake(), &avk, &msg).is_ok(), "Verification failed");
+    assert!(s.verify::<D>(&params, &entry.get_verification_key_for_concatenation(), &entry.get_stake(), &avk, &msg, #[cfg(feature = "future_snark")] None).is_ok(), "Verification failed");
 }
 
 // Aggregate a concatenation proof with random parties

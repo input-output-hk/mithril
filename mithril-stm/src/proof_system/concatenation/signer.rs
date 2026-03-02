@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use crate::{
     MembershipDigest, Parameters, RegistrationEntryForConcatenation, SignatureError, Stake,
     StmResult, VerificationKeyForConcatenation,
-    membership_commitment::MerkleTree,
+    membership_commitment::MerkleTreeBatchCommitment,
     signature_scheme::{BlsSignature, BlsSigningKey},
 };
 
@@ -21,7 +21,7 @@ pub(crate) struct ConcatenationProofSigner<D: MembershipDigest> {
     signing_key: BlsSigningKey,
     verification_key: VerificationKeyForConcatenation,
     key_registration_commitment:
-        MerkleTree<D::ConcatenationHash, RegistrationEntryForConcatenation>,
+        MerkleTreeBatchCommitment<D::ConcatenationHash, RegistrationEntryForConcatenation>,
 }
 
 impl<D: MembershipDigest> ConcatenationProofSigner<D> {
@@ -32,7 +32,7 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
         parameters: Parameters,
         signing_key: BlsSigningKey,
         verification_key: VerificationKeyForConcatenation,
-        key_registration_commitment: MerkleTree<
+        key_registration_commitment: MerkleTreeBatchCommitment<
             D::ConcatenationHash,
             RegistrationEntryForConcatenation,
         >,
@@ -56,10 +56,8 @@ impl<D: MembershipDigest> ConcatenationProofSigner<D> {
         &self,
         message: &[u8],
     ) -> StmResult<SingleSignatureForConcatenation> {
-        let message_with_commitment = self
-            .key_registration_commitment
-            .to_merkle_tree_batch_commitment()
-            .concatenate_with_message(message);
+        let message_with_commitment =
+            self.key_registration_commitment.concatenate_with_message(message);
 
         let sigma = self.signing_key.sign(&message_with_commitment);
         let indices = self.check_lottery(&message_with_commitment, &sigma);
