@@ -28,8 +28,6 @@ pub struct SignerRegistrationRecord {
     pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The number of evolutions of the KES key since the start KES period of the operational certificate at the time of signature.
-    ///
-    /// Note: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
     pub kes_evolutions: Option<KesEvolutions>,
 
     /// The stake associated to the signer
@@ -211,6 +209,7 @@ impl SqLiteEntity for SignerRegistrationRecord {
             "{:signer_registration:}.operational_certificate",
             "text",
         );
+        // TODO: the naming 'kes_period' lacks clarity and should be renamed to 'kes_evolutions'
         projection.add_field(
             "kes_evolutions",
             "{:signer_registration:}.kes_period",

@@ -20,32 +20,32 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
                 .verification_key_signature_for_concatenation
                 .map(|verification_key_signature| {
                     verification_key_signature.try_into().with_context(|| {
-                    "'FromRegisterSignerAdapter' can not convert the verification key signature"
-                })
+                        "'FromRegisterSignerAdapter' can not convert the verification key signature"
+                    })
                 })
                 .transpose()?,
             operational_certificate: register_signer_message
                 .operational_certificate
                 .map(|operational_certificate| {
                     operational_certificate.try_into().with_context(|| {
-                    "'FromRegisterSignerAdapter' can not convert the operational certificate"
-                })
+                        "'FromRegisterSignerAdapter' can not convert the operational certificate"
+                    })
                 })
                 .transpose()?,
             kes_evolutions: register_signer_message.kes_evolutions,
             #[cfg(feature = "future_snark")]
             verification_key_for_snark: register_signer_message.verification_key_for_snark.map(|verification_key_for_snark| {
                     verification_key_for_snark.try_into().with_context(|| {
-                    "'FromRegisterSignerAdapter' can not convert the snark verification key"
-                })
+                        "'FromRegisterSignerAdapter' can not convert the snark verification key"
+                    })
                 })
                 .transpose()?,
             #[cfg(feature = "future_snark")]
             verification_key_signature_for_snark: register_signer_message
                 .verification_key_signature_for_snark.map(|verification_key_signature_for_snark| {
                     verification_key_signature_for_snark.try_into().with_context(|| {
-                    "'FromRegisterSignerAdapter' can not convert the snark verification key signature"
-                })
+                        "'FromRegisterSignerAdapter' can not convert the snark verification key signature"
+                    })
                 })
                 .transpose()?,
         })

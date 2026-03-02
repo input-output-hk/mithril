@@ -22,21 +22,15 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
                     signer.verification_key_for_concatenation
                 )
             })?,
-            verification_key_signature_for_concatenation: match signer.verification_key_signature_for_concatenation {
-                Some(k) => Some(k.try_into().with_context(|| {
-                    format!(
+            verification_key_signature_for_concatenation: signer.verification_key_signature_for_concatenation.map(TryInto::try_into).transpose().with_context(|| {
+                format!(
                         "'ToRegisterSignerMessageAdapter' can not convert the verification key signature: '{:?}'",
                         signer.verification_key_signature_for_concatenation
                     )
-                })?),
-                None => None,
-            },
-            operational_certificate: match signer.operational_certificate {
-                Some(o) => Some(o.try_into().with_context(|| {
-                    "'ToRegisterSignerMessageAdapter' can not convert the operational certificate"
-                })?),
-                None => None,
-            },
+            })?,
+            operational_certificate:  signer.operational_certificate.map(TryInto::try_into).transpose().with_context(|| {
+                "'ToRegisterSignerMessageAdapter' can not convert the operational certificate"
+            })?,
             kes_evolutions: signer.kes_evolutions,
             #[cfg(feature = "future_snark")]
             verification_key_for_snark: signer.verification_key_for_snark.map(TryInto::try_into).transpose().with_context(|| {

@@ -440,5 +440,30 @@ mod tests {
 
             assert_ne!(EXPECTED_HASH, signer_different_stake.compute_hash());
         }
+
+        #[cfg(feature = "future_snark")]
+        {
+            let mut signer_different_verification_key_for_snark = signer.clone();
+            signer_different_verification_key_for_snark.verification_key_for_snark =
+                signers[1].verification_key_for_snark;
+
+            assert_ne!(
+                EXPECTED_HASH,
+                signer_different_verification_key_for_snark.compute_hash()
+            );
+        }
+
+        #[cfg(feature = "future_snark")]
+        {
+            let mut signer_different_verification_key_signature_for_snark = signer.clone();
+            signer_different_verification_key_signature_for_snark
+                .verification_key_signature_for_snark =
+                signers[1].verification_key_signature_for_snark;
+
+            assert_ne!(
+                EXPECTED_HASH,
+                signer_different_verification_key_signature_for_snark.compute_hash()
+            );
+        }
     }
 }

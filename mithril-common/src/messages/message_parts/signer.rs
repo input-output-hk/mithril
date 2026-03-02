@@ -193,7 +193,7 @@ impl Debug for SignerWithStakeMessagePart {
 
         match should_be_exhaustive {
             true => {
-                let mut debug = debug
+                debug
                     .field(
                         "verification_key_for_concatenation",
                         &format_args!("{:?}", self.verification_key_for_concatenation),
@@ -210,7 +210,7 @@ impl Debug for SignerWithStakeMessagePart {
 
                 #[cfg(feature = "future_snark")]
                 {
-                    debug = debug
+                    debug
                         .field(
                             "verification_key_for_snark",
                             &format_args!("{:?}", self.verification_key_for_snark),
@@ -410,7 +410,7 @@ impl Debug for SignerMessagePart {
 
         match should_be_exhaustive {
             true => {
-                let mut debug = debug
+                debug
                     .field(
                         "verification_key_for_concatenation",
                         &format_args!("{:?}", self.verification_key_for_concatenation),
@@ -427,7 +427,7 @@ impl Debug for SignerMessagePart {
 
                 #[cfg(feature = "future_snark")]
                 {
-                    debug = debug
+                    debug
                         .field(
                             "verification_key_for_snark",
                             &format_args!("{:?}", self.verification_key_for_snark),
