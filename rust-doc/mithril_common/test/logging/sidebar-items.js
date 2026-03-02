@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["define_test_logger"],"struct":["MemoryDrainForTest","MemoryDrainForTestInspector"]};

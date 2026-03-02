@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["string_or_struct","string_or_struct_optional"]};

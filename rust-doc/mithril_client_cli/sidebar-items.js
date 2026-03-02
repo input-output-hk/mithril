@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConfigError"],"mod":["commands"],"struct":["CommandContext","ConfigParameters"],"trait":["ConfigSource"],"type":["ClapError"]};

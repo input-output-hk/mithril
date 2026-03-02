@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["register_config_value","register_config_value_bool","register_config_value_option"],"mod":["serde_deserialization","source_config"]};

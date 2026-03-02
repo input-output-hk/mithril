@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RequiredAggregatorCapabilities"],"mod":["test"],"struct":["AggregatorEndpoint","CapableAggregatorDiscoverer","HttpConfigAggregatorDiscoverer","ShuffleAggregatorDiscoverer"],"trait":["AggregatorDiscoverer"]};

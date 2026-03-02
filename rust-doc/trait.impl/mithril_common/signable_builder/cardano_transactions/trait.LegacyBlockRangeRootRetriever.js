@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["mithril_aggregator",[["impl&lt;S: <a class=\"trait\" href=\"mithril_common/crypto_helper/merkle_tree/trait.MKTreeStorer.html\" title=\"trait mithril_common::crypto_helper::merkle_tree::MKTreeStorer\">MKTreeStorer</a>&gt; <a class=\"trait\" href=\"mithril_common/signable_builder/cardano_transactions/trait.LegacyBlockRangeRootRetriever.html\" title=\"trait mithril_common::signable_builder::cardano_transactions::LegacyBlockRangeRootRetriever\">LegacyBlockRangeRootRetriever</a>&lt;S&gt; for <a class=\"struct\" href=\"mithril_aggregator/database/repository/struct.AggregatorCardanoChainDataRepository.html\" title=\"struct mithril_aggregator::database::repository::AggregatorCardanoChainDataRepository\">AggregatorCardanoChainDataRepository</a>"]]],["mithril_signer",[["impl&lt;S: <a class=\"trait\" href=\"mithril_common/crypto_helper/merkle_tree/trait.MKTreeStorer.html\" title=\"trait mithril_common::crypto_helper::merkle_tree::MKTreeStorer\">MKTreeStorer</a>&gt; <a class=\"trait\" href=\"mithril_common/signable_builder/cardano_transactions/trait.LegacyBlockRangeRootRetriever.html\" title=\"trait mithril_common::signable_builder::cardano_transactions::LegacyBlockRangeRootRetriever\">LegacyBlockRangeRootRetriever</a>&lt;S&gt; for <a class=\"struct\" href=\"mithril_signer/database/repository/struct.SignerCardanoChainDataRepository.html\" title=\"struct mithril_signer::database::repository::SignerCardanoChainDataRepository\">SignerCardanoChainDataRepository</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[751,728]}

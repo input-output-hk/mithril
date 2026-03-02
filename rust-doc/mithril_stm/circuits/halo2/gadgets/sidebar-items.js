@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["verify_lottery","verify_merkle_path","verify_unique_signature"]};

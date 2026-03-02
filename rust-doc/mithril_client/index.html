@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Define all the tooling necessary to manipulate Mithril certified types from a Mithril Aggregator."><title>mithril_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="mithril_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate mithril_client</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../mithril_client/index.html">mithril_<wbr>client</a><span class="version">0.13.3</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a><ul><li><a href="#optional-features" title="Optional Features">Optional Features</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>mithril_<wbr>client</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/mithril_client/lib.rs.html#1-194">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Define all the tooling necessary to manipulate Mithril certified types from a
+<a href="https://mithril.network/rust-doc/mithril_aggregator/index.html">Mithril Aggregator</a>.</p>
+<p>It handles the different types that can be queried to a Mithril aggregator:</p>
+<ul>
+<li><a href="snapshot_client/index.html" title="mod mithril_client::snapshot_client">Cardano Database v1 (aka Snapshot)</a>: list, get, download archive and record statistics.</li>
+<li><a href="cardano_database_client/index.html" title="mod mithril_client::cardano_database_client">Cardano Database v2</a> list, get, download archive and record statistics.</li>
+<li><a href="cardano_transaction_client/index.html" title="mod mithril_client::cardano_transaction_client">Cardano transactions</a> list &amp; get snapshot, get proofs.</li>
+<li><a href="cardano_stake_distribution_client/index.html" title="mod mithril_client::cardano_stake_distribution_client">Cardano stake distribution</a> list, get and get by epoch.</li>
+<li><a href="mithril_stake_distribution_client/index.html" title="mod mithril_client::mithril_stake_distribution_client">Mithril stake distribution</a> list and get.</li>
+<li><a href="certificate_client/index.html" title="mod mithril_client::certificate_client">Certificates</a> list, get, and chain validation.</li>
+<li><a href="era/index.html" title="mod mithril_client::era">MithrilEraClient</a>: retrieve the current Mithril era.</li>
+</ul>
+<p>The <a href="struct.Client.html" title="struct mithril_client::Client">Client</a> aggregates the queries of all of those types.</p>
+<p><strong>NOTE:</strong> Snapshot download and Certificate chain validation can take quite some time even with a fast
+computer and network.
+For those a feedback mechanism is available, more details on it in the <a href="feedback/index.html" title="mod mithril_client::feedback">feedback</a> submodule.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<p>Below is an example describing the usage of most of the library’s functions together:</p>
+<p><strong>Note:</strong> <em>Snapshot download and the compute snapshot message functions are available using crate feature</em> <strong>fs</strong>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_client::{ClientBuilder, MessageBuilder};
+<span class="kw">use </span>mithril_client::cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange};
+<span class="kw">use </span>std::path::Path;
+
+<span class="kw">let </span>client =
+    ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>)
+        .build()<span class="question-mark">?</span>;
+<span class="kw">let </span>cardano_database_snapshot = client
+    .cardano_database_v2()
+    .get(<span class="string">"CARDANO_DATABASE_HASH"</span>)
+    .<span class="kw">await</span><span class="question-mark">?
+    </span>.unwrap();
+
+<span class="kw">let </span>certificate = client
+    .certificate()
+    .verify_chain(<span class="kw-2">&amp;</span>cardano_database_snapshot.certificate_hash)
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="comment">// Note: the directory must already exist, and the user running the binary must have read/write access to it.
+</span><span class="kw">let </span>target_directory = Path::new(<span class="string">"/home/user/download/"</span>);
+<span class="kw">let </span>immutable_file_range = ImmutableFileRange::Range(<span class="number">3</span>, <span class="number">6</span>);
+<span class="kw">let </span>download_unpack_options = DownloadUnpackOptions {
+    allow_override: <span class="bool-val">true</span>,
+    include_ancillary: <span class="bool-val">true</span>,
+    ..DownloadUnpackOptions::default()
+};
+client
+    .cardano_database_v2()
+    .download_unpack(
+        <span class="kw-2">&amp;</span>cardano_database_snapshot,
+        <span class="kw-2">&amp;</span>immutable_file_range,
+        <span class="kw-2">&amp;</span>target_directory,
+        download_unpack_options,
+    )
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">let </span>verified_digests = client
+    .cardano_database_v2()
+    .download_and_verify_digests(<span class="kw-2">&amp;</span>certificate, <span class="kw-2">&amp;</span>cardano_database_snapshot)
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">let </span>full_restoration = immutable_file_range == ImmutableFileRange::Full;
+<span class="kw">let </span>include_ancillary = download_unpack_options.include_ancillary;
+<span class="kw">let </span>number_of_immutable_files_restored =
+    immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number);
+<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = client
+    .cardano_database_v2()
+    .add_statistics(
+        full_restoration,
+        include_ancillary,
+        number_of_immutable_files_restored,
+    )
+    .<span class="kw">await
+</span>{
+    <span class="macro">println!</span>(<span class="string">"Could not increment snapshot download statistics: {error:?}"</span>);
+}
+
+<span class="kw">let </span>allow_missing_immutables_files = <span class="bool-val">false</span>;
+<span class="kw">let </span>merkle_proof = client
+    .cardano_database_v2()
+    .verify_cardano_database(
+        <span class="kw-2">&amp;</span>certificate,
+        <span class="kw-2">&amp;</span>cardano_database_snapshot,
+        <span class="kw-2">&amp;</span>immutable_file_range,
+        allow_missing_immutables_files,
+        <span class="kw-2">&amp;</span>target_directory,
+        <span class="kw-2">&amp;</span>verified_digests,
+    )
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">let </span>message = MessageBuilder::new()
+    .compute_cardano_database_message(<span class="kw-2">&amp;</span>certificate, <span class="kw-2">&amp;</span>merkle_proof)
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="macro">assert!</span>(certificate.match_message(<span class="kw-2">&amp;</span>message));</code></pre></div><h3 id="optional-features"><a class="doc-anchor" href="#optional-features">§</a>Optional Features</h3>
+<p>The following are a list of <a href="https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section">Cargo features</a> that can be
+enabled or disabled:</p>
+<ul>
+<li><strong>fs</strong>: Enables file system related functionalities.</li>
+<li><strong>unstable</strong>: Enables experimental or in-development <code>mithril-client</code> features that may change.</li>
+<li><strong>rug-backend</strong> <em>(enabled by default)</em>: Enables usage of <code>rug</code> numerical backend in <code>mithril-stm</code> (dependency of <code>mithril-common</code>).</li>
+<li><strong>num-integer-backend</strong>: Enables usage of <code>num-integer</code> numerical backend in <code>mithril-stm</code> (dependency of <code>mithril-common</code>).</li>
+</ul>
+<p>To allow fine tuning of the http queries, the following <a href="https://docs.rs/reqwest/latest/reqwest/#optional-features">Reqwest</a> features are re-exported:</p>
+<ul>
+<li><strong>native-tls</strong> <em>(enabled by default)</em>: Enables TLS functionality provided by <code>native-tls</code>.</li>
+<li><strong>native-tls-vendored</strong>: Enables the <code>vendored</code> feature of <code>native-tls</code>.</li>
+<li><strong>native-tls-alpn</strong>: Enables the <code>alpn</code> feature of <code>native-tls</code>.</li>
+<li><strong>rustls-tls</strong>: Enables TLS functionality provided by <code>rustls</code>.
+Equivalent to <code>rustls-tls-webpki-roots</code>.</li>
+<li><strong>rustls-tls-manual-roots</strong>: Enables TLS functionality provided by <code>rustls</code>,
+without setting any root certificates. Roots have to be specified manually.</li>
+<li><strong>rustls-tls-webpki-roots</strong>: Enables TLS functionality provided by <code>rustls</code>,
+while using root certificates from the <code>webpki-roots</code> crate.</li>
+<li><strong>rustls-tls-native-roots</strong>: Enables TLS functionality provided by <code>rustls</code>,
+while using root certificates from the <code>rustls-native-certs</code> crate.</li>
+<li><strong>enable-http-compression</strong> <em>(enabled by default)</em>: Enables compressed traffic with <code>reqwest</code>.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="cardano_database_client/index.html" title="mod mithril_client::cardano_database_client">cardano_<wbr>database_<wbr>client</a></dt><dd>A client to retrieve Cardano databases data from an aggregator.</dd><dt><a class="mod" href="cardano_stake_distribution_client/index.html" title="mod mithril_client::cardano_stake_distribution_client">cardano_<wbr>stake_<wbr>distribution_<wbr>client</a></dt><dd>A client to retrieve Cardano stake distributions data from an aggregator.</dd><dt><a class="mod" href="cardano_transaction_client/index.html" title="mod mithril_client::cardano_transaction_client">cardano_<wbr>transaction_<wbr>client</a></dt><dd>A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano transactions.</dd><dt><a class="mod" href="certificate_client/index.html" title="mod mithril_client::certificate_client">certificate_<wbr>client</a></dt><dd>A client which retrieves and validates certificates from an aggregator.</dd><dt><a class="mod" href="common/index.html" title="mod mithril_client::common">common</a></dt><dd><code>mithril-common</code> re-exports</dd><dt><a class="mod" href="era/index.html" title="mod mithril_client::era">era</a></dt><dd>A client to retrieve the current Mithril era.</dd><dt><a class="mod" href="feedback/index.html" title="mod mithril_client::feedback">feedback</a></dt><dd>Long task feedbacks</dd><dt><a class="mod" href="file_downloader/index.html" title="mod mithril_client::file_downloader">file_<wbr>downloader</a></dt><dd>File downloader module.</dd><dt><a class="mod" href="mithril_stake_distribution_client/index.html" title="mod mithril_client::mithril_stake_distribution_client">mithril_<wbr>stake_<wbr>distribution_<wbr>client</a></dt><dd>A client to retrieve Mithril stake distributions data from an aggregator.</dd><dt><a class="mod" href="snapshot_client/index.html" title="mod mithril_client::snapshot_client">snapshot_<wbr>client</a></dt><dd>A client to retrieve snapshots data from an aggregator.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CardanoDatabaseSnapshot.html" title="struct mithril_client::CardanoDatabaseSnapshot">Cardano<wbr>Database<wbr>Snapshot</a></dt><dd>A Cardano node database snapshot</dd><dt><a class="struct" href="struct.CardanoDatabaseSnapshotListItem.html" title="struct mithril_client::CardanoDatabaseSnapshotListItem">Cardano<wbr>Database<wbr>Snapshot<wbr>List<wbr>Item</a></dt><dd>List items of Cardano node database snapshot</dd><dt><a class="struct" href="struct.CardanoStakeDistribution.html" title="struct mithril_client::CardanoStakeDistribution">Cardano<wbr>Stake<wbr>Distribution</a></dt><dd>A Cardano stake distribution.
+Message structure of a Cardano Stake Distribution</dd><dt><a class="struct" href="struct.CardanoStakeDistributionListItem.html" title="struct mithril_client::CardanoStakeDistributionListItem">Cardano<wbr>Stake<wbr>Distribution<wbr>List<wbr>Item</a></dt><dd>List item of Cardano stake distributions.
+Message structure of a Cardano Stake Distribution list item</dd><dt><a class="struct" href="struct.CardanoTransactionSnapshot.html" title="struct mithril_client::CardanoTransactionSnapshot">Cardano<wbr>Transaction<wbr>Snapshot</a></dt><dd>A snapshot that allow to know up to which <a href="common/struct.CardanoDbBeacon.html" title="struct mithril_client::common::CardanoDbBeacon">point of time</a> Mithril have certified Cardano transactions.
+Message structure of a Cardano Transactions snapshot</dd><dt><a class="struct" href="struct.CardanoTransactionSnapshotListItem.html" title="struct mithril_client::CardanoTransactionSnapshotListItem">Cardano<wbr>Transaction<wbr>Snapshot<wbr>List<wbr>Item</a></dt><dd>List item of a Cardano transaction snapshot.
+Message structure of a Cardano Transactions Snapshot list item</dd><dt><a class="struct" href="struct.CardanoTransactionsProofs.html" title="struct mithril_client::CardanoTransactionsProofs">Cardano<wbr>Transactions<wbr>Proofs</a></dt><dd>A cryptographic proof for a set of Cardano transactions</dd><dt><a class="struct" href="struct.CardanoTransactionsSetProof.html" title="struct mithril_client::CardanoTransactionsSetProof">Cardano<wbr>Transactions<wbr>SetProof</a></dt><dd>A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set</dd><dt><a class="struct" href="struct.Client.html" title="struct mithril_client::Client">Client</a></dt><dd>Structure that aggregates the available clients for each of the Mithril types of certified data.</dd><dt><a class="struct" href="struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">Client<wbr>Builder</a></dt><dd>Builder that can be used to create a <a href="struct.Client.html" title="struct mithril_client::Client">Client</a> easily or with custom dependencies.</dd><dt><a class="struct" href="struct.ClientOptions.html" title="struct mithril_client::ClientOptions">Client<wbr>Options</a></dt><dd>Options that can be used to configure the client.</dd><dt><a class="struct" href="struct.MessageBuilder.html" title="struct mithril_client::MessageBuilder">Message<wbr>Builder</a></dt><dd>A <a href="struct.MessageBuilder.html" title="struct mithril_client::MessageBuilder">MessageBuilder</a> can be used to compute the message of Mithril artifacts.</dd><dt><a class="struct" href="struct.MithrilCertificate.html" title="struct mithril_client::MithrilCertificate">Mithril<wbr>Certificate</a></dt><dd>A Mithril certificate.</dd><dt><a class="struct" href="struct.MithrilCertificateListItem.html" title="struct mithril_client::MithrilCertificateListItem">Mithril<wbr>Certificate<wbr>List<wbr>Item</a></dt><dd>List item of Mithril certificates</dd><dt><a class="struct" href="struct.MithrilCertificateListItemMetadata.html" title="struct mithril_client::MithrilCertificateListItemMetadata">Mithril<wbr>Certificate<wbr>List<wbr>Item<wbr>Metadata</a></dt><dd>CertificateListItemMessage represents the metadata associated to a CertificateListItemMessage</dd><dt><a class="struct" href="struct.MithrilCertificateMetadata.html" title="struct mithril_client::MithrilCertificateMetadata">Mithril<wbr>Certificate<wbr>Metadata</a></dt><dd>CertificateMetadata represents the metadata associated to a Certificate</dd><dt><a class="struct" href="struct.MithrilSigner.html" title="struct mithril_client::MithrilSigner">Mithril<wbr>Signer</a></dt><dd>An individual signer of a <a href="struct.MithrilCertificate.html" title="struct mithril_client::MithrilCertificate">Mithril certificate</a></dd><dt><a class="struct" href="struct.MithrilStakeDistribution.html" title="struct mithril_client::MithrilStakeDistribution">Mithril<wbr>Stake<wbr>Distribution</a></dt><dd>A Mithril stake distribution.</dd><dt><a class="struct" href="struct.MithrilStakeDistributionListItem.html" title="struct mithril_client::MithrilStakeDistributionListItem">Mithril<wbr>Stake<wbr>Distribution<wbr>List<wbr>Item</a></dt><dd>List item of Mithril stake distributions.</dd><dt><a class="struct" href="struct.Snapshot.html" title="struct mithril_client::Snapshot">Snapshot</a></dt><dd>A Mithril snapshot of a Cardano Node database.</dd><dt><a class="struct" href="struct.SnapshotListItem.html" title="struct mithril_client::SnapshotListItem">Snapshot<wbr>List<wbr>Item</a></dt><dd>List item of Mithril snapshots</dd><dt><a class="struct" href="struct.VerifiedCardanoTransactions.html" title="struct mithril_client::VerifiedCardanoTransactions">Verified<wbr>Cardano<wbr>Transactions</a></dt><dd>Set of transactions verified by <a href="struct.CardanoTransactionsProofs.html#method.verify" title="method mithril_client::CardanoTransactionsProofs::verify">CardanoTransactionsProofsMessage::verify</a>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AggregatorDiscoveryType.html" title="enum mithril_client::AggregatorDiscoveryType">Aggregator<wbr>Discovery<wbr>Type</a></dt><dd>The type of discovery to use to find the aggregator to connect to.</dd><dt><a class="enum" href="enum.GenesisVerificationKey.html" title="enum mithril_client::GenesisVerificationKey">Genesis<wbr>Verification<wbr>Key</a></dt><dd>The genesis verification key.</dd><dt><a class="enum" href="enum.RequiredAggregatorCapabilities.html" title="enum mithril_client::RequiredAggregatorCapabilities">Required<wbr>Aggregator<wbr>Capabilities</a></dt><dd>Required capabilities for an aggregator.
+Required capabilities for an aggregator.</dd><dt><a class="enum" href="enum.VerifyCardanoTransactionsProofsError.html" title="enum mithril_client::VerifyCardanoTransactionsProofsError">Verify<wbr>Cardano<wbr>Transactions<wbr>Proofs<wbr>Error</a></dt><dd>Error encountered or produced by the <a href="struct.CardanoTransactionsProofs.html#method.verify" title="method mithril_client::CardanoTransactionsProofs::verify">cardano transaction proof verification</a>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.MithrilError.html" title="type mithril_client::MithrilError">Mithril<wbr>Error</a></dt><dd>Mithril error type, an alias of <a href="https://docs.rs/anyhow/1.0.101/anyhow/struct.Error.html" title="struct anyhow::Error">anyhow::Error</a></dd><dt><a class="type" href="type.MithrilResult.html" title="type mithril_client::MithrilResult">Mithril<wbr>Result</a></dt><dd>Mithril result type, an alias of <a href="https://docs.rs/anyhow/1.0.101/anyhow/type.Result.html" title="type anyhow::Result">anyhow::Result</a></dd></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>]</div>","&mut Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&mut [u8]":"<h3>Notable traits for <code>&amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for &amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main></body></html>

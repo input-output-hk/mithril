@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["generate_open_api_versions_mapping","list_all_open_api_spec_files"]};

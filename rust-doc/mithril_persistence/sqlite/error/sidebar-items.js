@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SQLITE_BUSY"],"type":["SqliteError"]};

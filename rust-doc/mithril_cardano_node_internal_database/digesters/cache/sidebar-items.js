@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ImmutableDigesterCacheGetError","ImmutableDigesterCacheProviderError","ImmutableDigesterCacheStoreError"],"struct":["JsonImmutableFileDigestCacheProvider","JsonImmutableFileDigestCacheProviderBuilder","MemoryImmutableFileDigestCacheProvider"],"trait":["ImmutableFileDigestCacheProvider"],"type":["CacheProviderResult"]};

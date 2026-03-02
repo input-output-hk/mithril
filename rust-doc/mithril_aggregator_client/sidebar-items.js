@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregatorHttpClientError"],"macro":["test_http_compression_is_enabled"],"mod":["query"],"struct":["AggregatorClientBuilder","AggregatorHttpClient"],"type":["AggregatorHttpClientResult"]};

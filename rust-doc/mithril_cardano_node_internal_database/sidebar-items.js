@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["IMMUTABLE_DIR","LEDGER_DIR","VOLATILE_DIR"],"enum":["ImmutableFileObserverError"],"fn":["immutable_trio_names"],"mod":["digesters","entities","signable_builder","test"],"struct":["ImmutableFileSystemObserver"],"trait":["ImmutableFileObserver"]};

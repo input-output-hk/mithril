@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkmithril_doc=globalThis.webpackChunkmithril_doc||[]).push([[4391],{98888(e){e.exports=JSON.parse('{"tags":[{"label":"Accepted","permalink":"/doc/adr/tags/accepted","count":9},{"label":"Superseded","permalink":"/doc/adr/tags/superseded","count":1}]}')}}]);

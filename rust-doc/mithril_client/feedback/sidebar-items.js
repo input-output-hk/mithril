@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MithrilEvent","MithrilEventCardanoDatabase"],"struct":["FeedbackSender","SlogFeedbackReceiver","StackFeedbackReceiver"],"trait":["FeedbackReceiver"]};
