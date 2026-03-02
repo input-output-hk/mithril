@@ -57,7 +57,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
         }
     }
 
-    match attempt!(30, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_secs(3), {
         fetch_last_mithril_stake_distribution_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
