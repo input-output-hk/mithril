@@ -243,6 +243,11 @@ mod dst_alignment_tests {
         compute_poseidon_digest,
     };
 
+    const HARD_CODED_SIGNATURE_DOMAIN_TAG: JubjubBase =
+        JubjubBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]);
+    const HARD_CODED_LOTTERY_DOMAIN_TAG: JubjubBase =
+        JubjubBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]);
+
     #[test]
     fn signature_and_lottery_domain_tags_do_not_collide() {
         assert_ne!(
@@ -262,9 +267,7 @@ mod dst_alignment_tests {
 
         let signature_digest_via_stm = compute_poseidon_digest(&signature_transcript_inputs);
 
-        let hard_coded_signature_domain_tag =
-            JubjubBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]);
-        let mut signature_digest_manual_inputs = vec![hard_coded_signature_domain_tag];
+        let mut signature_digest_manual_inputs = vec![HARD_CODED_SIGNATURE_DOMAIN_TAG];
         signature_digest_manual_inputs
             .extend(signature_transcript_inputs.iter().map(|value| value.0));
 
@@ -286,9 +289,8 @@ mod dst_alignment_tests {
         let lottery_prefix_via_stm_constant =
             PoseidonChip::<JubjubBase>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
 
-        let hard_coded_lottery_domain_tag = JubjubBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]);
         let lottery_prefix_via_hard_coded_formula =
-            PoseidonChip::<JubjubBase>::hash(&[hard_coded_lottery_domain_tag, merkle_root, msg]);
+            PoseidonChip::<JubjubBase>::hash(&[HARD_CODED_LOTTERY_DOMAIN_TAG, merkle_root, msg]);
 
         assert_eq!(
             BaseFieldElement(lottery_prefix_via_stm_constant),
