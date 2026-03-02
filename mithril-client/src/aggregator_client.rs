@@ -9,10 +9,10 @@ use mithril_aggregator_client::query::{
     GetAggregatorStatusQuery, GetCardanoBlocksTransactionsListQuery,
     GetCardanoBlocksTransactionsQuery, GetCardanoDatabaseListQuery, GetCardanoDatabaseQuery,
     GetCardanoStakeDistributionQuery, GetCardanoStakeDistributionsListQuery,
-    GetCardanoTransactionProofQuery, GetCardanoTransactionQuery, GetCardanoTransactionsListQuery,
-    GetCertificateQuery, GetCertificatesListQuery, GetMithrilStakeDistributionQuery,
-    GetMithrilStakeDistributionsListQuery, GetSnapshotQuery, GetSnapshotsListQuery,
-    PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery,
+    GetCardanoTransactionProofQuery, GetCardanoTransactionProofV2Query, GetCardanoTransactionQuery,
+    GetCardanoTransactionsListQuery, GetCertificateQuery, GetCertificatesListQuery,
+    GetMithrilStakeDistributionQuery, GetMithrilStakeDistributionsListQuery, GetSnapshotQuery,
+    GetSnapshotsListQuery, PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery,
     PostIncrementCardanoDatabaseImmutablesRestoredStatisticQuery,
     PostIncrementCardanoDatabaseRestorationStatisticQuery,
     PostIncrementSnapshotDownloadStatisticQuery,
@@ -156,7 +156,16 @@ impl CardanoTransactionAggregatorRequest for AggregatorHttpClient {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CardanoTransactionV2AggregatorRequest for AggregatorHttpClient {
-    //TODO proof
+    async fn get_proof(
+        &self,
+        hashes: &[String],
+    ) -> MithrilResult<Option<CardanoTransactionsProofs>> {
+        self.send(GetCardanoTransactionProofV2Query::for_hashes(hashes))
+            .await
+            .with_context(|| {
+                format!("Failed to get Cardano transactions proofs for hashes '{hashes:?}'")
+            })
+    }
 
     async fn list_latest_snapshots(
         &self,
