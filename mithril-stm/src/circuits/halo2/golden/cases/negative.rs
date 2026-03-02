@@ -1,23 +1,14 @@
 use ff::Field;
 
-use crate::circuits::halo2::errors::{CircuitError, ProvingError, StmProofError};
+use crate::circuits::halo2::errors::CircuitError;
 use crate::circuits::halo2::golden::helpers::{
-    LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitProofError, StmCircuitScenario, build_witness,
-    build_witness_with_fixed_signer, build_witness_with_indices, create_default_merkle_tree,
-    create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
-    prove_and_verify_result, setup_stm_circuit_env,
+    LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
+    assert_proving_circuit_error, build_witness, build_witness_with_fixed_signer,
+    build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
+    find_two_distinct_witness_entries, prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
-
-fn assert_verification_failed(result: Result<(), StmCircuitProofError>) {
-    assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(
-            StmProofError::VerificationFailed
-        ))
-    ));
-}
 
 #[test]
 fn quorum_not_less_than_num_lotteries() {
@@ -25,14 +16,13 @@ fn quorum_not_less_than_num_lotteries() {
     const QUORUM: u32 = 3;
     const NUM_LOTTERIES: u32 = 3;
     let result = setup_stm_circuit_env(current_function!(), K, QUORUM, NUM_LOTTERIES);
+    let error = assert_proving_circuit_error(result);
     assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
-            ProvingError::Circuit(CircuitError::InvalidCircuitParameters {
-                quorum: QUORUM,
-                num_lotteries: NUM_LOTTERIES,
-            })
-        )))
+        error,
+        CircuitError::InvalidCircuitParameters {
+            quorum: QUORUM,
+            num_lotteries: NUM_LOTTERIES,
+        }
     ));
 }
 
@@ -56,7 +46,7 @@ fn message_mismatch() {
         .expect("message_mismatch witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -79,7 +69,7 @@ fn merkle_root_mismatch() {
         .expect("merkle_root_mismatch witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root_1, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -113,7 +103,7 @@ fn signature_other_message() {
     }
 
     let scenario = StmCircuitScenario::new(merkle_root, msg1, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -144,7 +134,7 @@ fn signature_verification_key_mismatch() {
     witness[i].2 = sig_j;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -171,7 +161,7 @@ fn signature_bad_challenge() {
     witness[0].2.challenge = witness[0].2.challenge + BaseFieldElement::get_one();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -200,7 +190,7 @@ fn signature_bad_response() {
             .expect("signature_bad_response response scalar conversion should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -227,7 +217,7 @@ fn signature_bad_commitment() {
     witness[0].2.commitment_point = witness[1].2.commitment_point;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -253,7 +243,7 @@ fn indices_not_increasing() {
         .expect("indices_not_increasing witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -278,7 +268,7 @@ fn index_out_of_bounds() {
         .expect("index_out_of_bounds witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -308,7 +298,7 @@ fn merkle_path_corrupt_sibling() {
     witness[0].1.siblings[d].1 += SignedMessageWithoutPrefix::ONE;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -340,7 +330,7 @@ fn merkle_path_flip_position() {
     };
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -369,15 +359,13 @@ fn merkle_path_length_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
     assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
-            ProvingError::Circuit(CircuitError::MerkleSiblingLengthMismatch {
-                expected_depth: expected,
-                actual: found,
-            })
-        ))) if expected == expected_depth && found == expected_depth - 1
+        error,
+        CircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: expected,
+            actual: found,
+        } if expected == expected_depth && found == expected_depth - 1
     ));
 }
 
@@ -409,15 +397,13 @@ fn merkle_path_length_long() {
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
     assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
-            ProvingError::Circuit(CircuitError::MerkleSiblingLengthMismatch {
-                expected_depth: expected,
-                actual: found,
-            })
-        ))) if expected == expected_depth && found == expected_depth + 1
+        error,
+        CircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: expected,
+            actual: found,
+        } if expected == expected_depth && found == expected_depth + 1
     ));
 }
 
@@ -448,7 +434,7 @@ fn leaf_swap_keep_merkle_path() {
     witness[i].0 = witness[j].0;
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -478,7 +464,7 @@ fn leaf_merkle_path_mismatch() {
     witness[i].1 = witness[j].1.clone();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -510,7 +496,7 @@ fn leaf_wrong_verification_key() {
     witness[i].0 = crate::circuits::halo2::types::MTLeaf(verification_key, target);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -543,7 +529,7 @@ fn target_less_than_evaluation() {
             .expect("target_less_than_evaluation witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }
 
 #[test]
@@ -567,15 +553,13 @@ fn witness_length_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
     assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
-            ProvingError::Circuit(CircuitError::WitnessLengthMismatch {
-                expected_quorum,
-                actual: 2,
-            })
-        ))) if expected_quorum == QUORUM
+        error,
+        CircuitError::WitnessLengthMismatch {
+            expected_quorum,
+            actual: 2,
+        } if expected_quorum == QUORUM
     ));
 }
 
@@ -604,15 +588,13 @@ fn witness_length_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let result = prove_and_verify_result(&env, scenario);
+    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
     assert!(matches!(
-        result,
-        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(
-            ProvingError::Circuit(CircuitError::WitnessLengthMismatch {
-                expected_quorum,
-                actual: 4,
-            })
-        ))) if expected_quorum == QUORUM
+        error,
+        CircuitError::WitnessLengthMismatch {
+            expected_quorum,
+            actual: 4,
+        } if expected_quorum == QUORUM
     ));
 }
 
@@ -640,5 +622,5 @@ fn witness_duplicate_entry() {
     witness[1] = witness[0].clone();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_verification_failed(prove_and_verify_result(&env, scenario));
+    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
 }

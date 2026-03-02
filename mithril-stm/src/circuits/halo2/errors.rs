@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 /// Circuit-scoped errors for Halo2 STM validation and execution.
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum CircuitError {
     /// Invalid relation parameters: quorum must be strictly lower than number of lotteries.
@@ -33,6 +34,7 @@ impl CircuitError {
     /// This is a workaround: Midnight currently erases typed circuit errors and
     /// returns only `Error::Synthesis(String)`. We re-hydrate known validation failures
     /// from message patterns. This may change when upstream error typing changes.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn from_synthesis_message(message: &str) -> Option<Self> {
         parse_length_mismatch(
             message,
@@ -75,6 +77,7 @@ impl CircuitError {
 }
 
 /// Proving-side error categories for Halo2 STM.
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ProvingError {
     /// Midnight setup panicked during key generation for this relation.
@@ -87,6 +90,7 @@ pub enum ProvingError {
 }
 
 /// Top-level proof-system errors grouped by proving vs verification phases.
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum StmProofError {
     /// Proving-side failure with typed reason.
@@ -102,10 +106,65 @@ pub enum StmProofError {
 pub type CircuitResult<T> = Result<T, CircuitError>;
 
 /// Result alias for Halo2 proving/verification operations.
+#[cfg_attr(not(test), allow(dead_code))]
 pub type StmProofResult<T> = Result<T, StmProofError>;
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn parse_length_mismatch(message: &str, prefix: &str, separator: &str) -> Option<(u32, u32)> {
     let remainder = message.strip_prefix(prefix)?;
     let (expected, actual) = remainder.split_once(separator)?;
     Some((expected.parse().ok()?, actual.parse().ok()?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CircuitError;
+
+    #[test]
+    fn round_trip_witness_length_mismatch() {
+        let error = CircuitError::WitnessLengthMismatch {
+            expected_quorum: 3,
+            actual: 2,
+        };
+        let message = error.to_string();
+        assert_eq!(Some(error), CircuitError::from_synthesis_message(&message));
+    }
+
+    #[test]
+    fn round_trip_merkle_sibling_length_mismatch() {
+        let error = CircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: 10,
+            actual: 9,
+        };
+        let message = error.to_string();
+        assert_eq!(Some(error), CircuitError::from_synthesis_message(&message));
+    }
+
+    #[test]
+    fn round_trip_merkle_position_length_mismatch() {
+        let error = CircuitError::MerklePositionLengthMismatch {
+            expected_depth: 10,
+            actual: 11,
+        };
+        let message = error.to_string();
+        assert_eq!(Some(error), CircuitError::from_synthesis_message(&message));
+    }
+
+    #[test]
+    fn invalid_circuit_parameters_is_not_rehydrated_from_synthesis_message() {
+        let message = CircuitError::InvalidCircuitParameters {
+            quorum: 3,
+            num_lotteries: 3,
+        }
+        .to_string();
+        assert_eq!(None, CircuitError::from_synthesis_message(&message));
+    }
+
+    #[test]
+    fn unknown_synthesis_message_is_not_rehydrated() {
+        assert_eq!(
+            None,
+            CircuitError::from_synthesis_message("unknown backend synthesis failure")
+        );
+    }
 }
