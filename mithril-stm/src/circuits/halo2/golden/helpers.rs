@@ -574,8 +574,8 @@ fn map_proving_backend_error(error: PlonkError) -> StmCircuitProofError {
     // Rebuild the typed circuit error when the synthesis payload matches one of our guards.
     let circuit_error = match error {
         PlonkError::Synthesis(message) => CircuitError::from_synthesis_message(&message)
-            .unwrap_or(CircuitError::CircuitExecutionFailed),
-        _ => CircuitError::CircuitExecutionFailed,
+            .unwrap_or(CircuitError::CircuitExecutionFailed(message)),
+        other => CircuitError::CircuitExecutionFailed(other.to_string()),
     };
 
     StmProofError::ProvingFailed(ProvingError::Circuit(circuit_error)).into()
