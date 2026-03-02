@@ -48,10 +48,28 @@ impl AggregatorDiscoveryCommand {
         } else {
             let lines = lines
                 .into_iter()
-                .map(|endpoint| vec![endpoint.cell()])
+                .map(|endpoint| {
+                    let endpoint_clone = endpoint.clone();
+                    let capabilities = endpoint_clone.capabilities();
+                    vec![
+                        endpoint.cell(),
+                        capabilities.aggregate_signature_type.cell(),
+                        capabilities
+                            .signed_entity_types
+                            .iter()
+                            .map(|signed_entity_type| signed_entity_type.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                            .cell(),
+                    ]
+                })
                 .collect::<Vec<_>>()
                 .table()
-                .title(vec!["Aggregator Endpoint".cell()]);
+                .title(vec![
+                    "Aggregator Endpoint".cell(),
+                    "Aggregate Signature Type".cell(),
+                    "Signed Entity Types".cell(),
+                ]);
             print_stdout(lines)?;
         }
 
