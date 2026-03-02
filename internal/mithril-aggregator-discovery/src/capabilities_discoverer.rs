@@ -289,7 +289,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            let next_aggregator = aggregators.next().map(|endpoint| endpoint.into());
+            let next_aggregator = aggregators.next().map(Into::into);
             aggregator_server_mock.assert();
             assert_eq!(
                 Some(AggregatorEndpoint::new(aggregator_server.url("/"))),
