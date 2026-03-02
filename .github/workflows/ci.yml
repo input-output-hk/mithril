@@ -212,6 +212,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Disk space usage
+        if: runner.os != 'Windows'
+        run: df -h
+
       - name: Checkout sources
         uses: actions/checkout@v5
 
@@ -224,6 +228,10 @@ jobs:
 
       - name: Build tests
         run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
+
+      - name: Disk space usage
+        if: runner.os != 'Windows' && (success() || failure())
+        run: df -h
 
       - name: Run tests
         run: cargo nextest run --profile ci --cargo-profile ci-tests ${{ matrix.test-args }}
@@ -246,6 +254,10 @@ jobs:
         with:
           name: test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}
           path: ./test-results-*.xml
+
+      - name: Disk space usage
+        if: runner.os != 'Windows' && (success() || failure())
+        run: df -h
 
   check:
     runs-on: ubuntu-24.04
