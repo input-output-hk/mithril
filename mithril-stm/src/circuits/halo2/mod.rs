@@ -2,7 +2,7 @@
 
 pub mod circuit;
 pub mod constants;
-pub mod errors;
+pub(crate) mod errors;
 pub mod gadgets;
 pub mod types;
 pub(crate) mod utils;

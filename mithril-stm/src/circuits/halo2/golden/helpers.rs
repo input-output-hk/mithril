@@ -109,6 +109,30 @@ pub(crate) enum StmCircuitProofError {
 /// Result type for STM circuit golden helpers.
 type StmResult<T> = Result<T, StmCircuitProofError>;
 
+/// Assert that proving succeeded but the verifier rejected the generated proof.
+pub(crate) fn assert_proof_rejected_by_verifier(result: Result<(), StmCircuitProofError>) {
+    assert!(matches!(
+        result,
+        Err(StmCircuitProofError::Proof(
+            StmProofError::VerificationFailed
+        ))
+    ));
+}
+
+/// Extract the circuit-level proving failure from a prove+verify result.
+///
+/// Panics when the result is not a circuit proving failure.
+pub(crate) fn assert_proving_circuit_error<T>(
+    result: Result<T, StmCircuitProofError>,
+) -> CircuitError {
+    match result {
+        Err(StmCircuitProofError::Proof(StmProofError::ProvingFailed(ProvingError::Circuit(
+            error,
+        )))) => error,
+        _ => panic!("expected circuit proving failure"),
+    }
+}
+
 fn validate_relation_for_setup(relation: &StmCircuit) -> StmProofResult<()> {
     relation
         .validate_parameters()
