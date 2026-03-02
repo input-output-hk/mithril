@@ -122,6 +122,12 @@ mod tests {
                 SlotNumber(80),
                 Vec::<String>::new(),
             ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-50",
+                BlockNumber(50),
+                SlotNumber(100),
+                Vec::<String>::new(),
+            ),
         ]
     }
 
@@ -207,6 +213,24 @@ mod tests {
                 .unwrap();
 
             assert_eq!(Vec::<CardanoBlockTransactionsRecord>::new(), result);
+        }
+
+        #[tokio::test]
+        async fn range_that_contains_two_blocks_with_no_transactions() {
+            let connection = connection_with_test_data_set();
+            let result: Vec<CardanoBlockTransactionsRecord> = connection
+                .fetch_collect(GetCardanoBlockTransactionsQuery::between_blocks(
+                    BlockNumber(35)..BlockNumber(55),
+                ))
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    blocks_with_txs_record(BlockNumber(40), SlotNumber(80), &[]),
+                    blocks_with_txs_record(BlockNumber(50), SlotNumber(100), &[])
+                ],
+                result
+            );
         }
 
         #[tokio::test]
