@@ -35,6 +35,8 @@ pub enum ConnectionOptions {
 }
 
 impl ConnectionBuilder {
+    pub(crate) const APPLY_MIGRATIONS_LOG: &str = "Applying database migrations";
+
     /// Builder of file SQLite connection
     pub fn open_file(path: &Path) -> Self {
         Self {
@@ -78,7 +80,24 @@ impl ConnectionBuilder {
     }
 
     /// Build a connection based on the builder configuration
-    pub fn build(self) -> StdResult<ConnectionThreadSafe> {
+    pub fn build(&self) -> StdResult<ConnectionThreadSafe> {
+        let connection = self.build_without_migrations()?;
+
+        let migrations = self.sql_migrations.clone();
+        self.apply_migrations(&connection, migrations)?;
+        if self.options.contains(&ConnectionOptions::ForceDisableForeignKeys) {
+            connection
+                .execute("pragma foreign_keys=false")
+                .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
+        }
+
+        Ok(connection)
+    }
+
+    /// Build a connection based on the builder configuration without applying any defined migrations
+    ///
+    /// Useful for connections built after the database is already initialized
+    pub fn build_without_migrations(&self) -> StdResult<ConnectionThreadSafe> {
         let logger = self.base_logger.new_with_component_name::<Self>();
 
         debug!(logger, "Opening SQLite connection"; "path" => self.connection_path.display(), "options" => ?self.options);
@@ -102,13 +121,6 @@ impl ConnectionBuilder {
                 .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
         }
 
-        let migrations = self.sql_migrations.clone();
-        self.apply_migrations(&connection, migrations)?;
-        if self.options.contains(&ConnectionOptions::ForceDisableForeignKeys) {
-            connection
-                .execute("pragma foreign_keys=false")
-                .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
-        }
         Ok(connection)
     }
 
@@ -122,7 +134,7 @@ impl ConnectionBuilder {
 
         if sql_migrations.is_empty().not() {
             // Check database migrations
-            debug!(logger, "Applying database migrations");
+            debug!(logger, "{}", Self::APPLY_MIGRATIONS_LOG);
             let mut db_checker = DatabaseVersionChecker::new(
                 self.base_logger.clone(),
                 self.node_type.clone(),
@@ -130,7 +142,7 @@ impl ConnectionBuilder {
             );
 
             for migration in sql_migrations {
-                db_checker.add_migration(migration.clone());
+                db_checker.add_migration(migration);
             }
 
             db_checker.apply().with_context(|| "Database migration error")?;
