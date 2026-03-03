@@ -167,11 +167,17 @@ pub type LotteryIndex = u64;
 /// Index of the signer in the key registration
 pub type SignerIndex = u64;
 
-/// Mithril-stm error type
-pub type StmError = anyhow::Error;
+/// Standard crate-wide error type.
+pub type StdError = anyhow::Error;
+
+/// Standard crate-wide result type.
+pub type StdResult<T> = anyhow::Result<T, StdError>;
+
+/// Backward-compatible Mithril-stm error alias.
+pub type StmError = StdError;
 
 /// Mithril-stm result type
-pub type StmResult<T> = anyhow::Result<T, StmError>;
+pub type StmResult<T> = StdResult<T>;
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated

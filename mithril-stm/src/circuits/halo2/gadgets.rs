@@ -10,6 +10,7 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
+use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::{Jubjub, JubjubBase};
 use crate::circuits::halo2::utils::split_field_element_into_le_limbs;
 
@@ -39,9 +40,9 @@ fn decompose_unsafe(
     let (x_low, x_high) = x_value
         .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
         .map_err(|e| {
-            Error::Synthesis(format!(
-                "failed to split field element into little-endian limbs: {e}"
-            ))
+            Error::from(StmCircuitError::CircuitExecutionFailed(format!(
+                "gadgets::decompose_unsafe failed to split field element into little-endian limbs: {e}"
+            )))
         })?
         .unzip();
 

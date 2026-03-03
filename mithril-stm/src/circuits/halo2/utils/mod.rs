@@ -7,10 +7,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Halo2UtilsError {
     /// Parsing the field modulus constant failed.
-    #[error("failed to parse prime field modulus from hex")]
+    #[error("Failed to parse prime field modulus from hex")]
     FieldModulusParse,
     /// Converting a reduced integer to a field element failed.
-    #[error("failed to convert reduced integer to field element")]
+    #[error("Failed to convert reduced integer to field element")]
     FieldElementConversion,
 }
 
@@ -57,9 +57,9 @@ mod merkle_path_adapter {
 
     #[derive(Debug, Error)]
     pub enum MerklePathAdapterError {
-        #[error("invalid merkle digest length")]
+        #[error("Invalid merkle digest length")]
         InvalidDigestLength,
-        #[error("non-canonical merkle digest")]
+        #[error("Non-canonical merkle digest")]
         NonCanonicalDigest,
     }
 

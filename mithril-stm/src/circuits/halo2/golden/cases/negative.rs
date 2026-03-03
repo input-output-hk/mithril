@@ -1,11 +1,12 @@
 use ff::Field;
 
-use crate::circuits::halo2::errors::CircuitError;
+use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
-    assert_proving_circuit_error, build_witness, build_witness_with_fixed_signer,
-    build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
-    find_two_distinct_witness_entries, prove_and_verify_result, setup_stm_circuit_env,
+    assert_proving_backend_message_contains, assert_proving_circuit_error, build_witness,
+    build_witness_with_fixed_signer, build_witness_with_indices, create_default_merkle_tree,
+    create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
+    prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
@@ -19,7 +20,7 @@ fn quorum_not_less_than_num_lotteries() {
     let error = assert_proving_circuit_error(result);
     assert!(matches!(
         error,
-        CircuitError::InvalidCircuitParameters {
+        StmCircuitError::InvalidCircuitParameters {
             quorum: QUORUM,
             num_lotteries: NUM_LOTTERIES,
         }
@@ -359,14 +360,13 @@ fn merkle_path_length_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
-    assert!(matches!(
-        error,
-        CircuitError::MerkleSiblingLengthMismatch {
-            expected_depth: expected,
-            actual: found,
-        } if expected == expected_depth && found == expected_depth - 1
-    ));
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!(
+            "Circuit::validate_merkle_sibling_length failed: expected depth {expected_depth}, got {}",
+            expected_depth - 1
+        ),
+    );
 }
 
 #[test]
@@ -397,14 +397,13 @@ fn merkle_path_length_long() {
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
-    assert!(matches!(
-        error,
-        CircuitError::MerkleSiblingLengthMismatch {
-            expected_depth: expected,
-            actual: found,
-        } if expected == expected_depth && found == expected_depth + 1
-    ));
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!(
+            "Circuit::validate_merkle_sibling_length failed: expected depth {expected_depth}, got {}",
+            expected_depth + 1
+        ),
+    );
 }
 
 #[test]
@@ -553,14 +552,10 @@ fn witness_length_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
-    assert!(matches!(
-        error,
-        CircuitError::WitnessLengthMismatch {
-            expected_quorum,
-            actual: 2,
-        } if expected_quorum == QUORUM
-    ));
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!("Circuit::validate_witness_length failed: expected quorum {QUORUM}, got 2"),
+    );
 }
 
 #[test]
@@ -588,14 +583,10 @@ fn witness_length_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    let error = assert_proving_circuit_error(prove_and_verify_result(&env, scenario));
-    assert!(matches!(
-        error,
-        CircuitError::WitnessLengthMismatch {
-            expected_quorum,
-            actual: 4,
-        } if expected_quorum == QUORUM
-    ));
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!("Circuit::validate_witness_length failed: expected quorum {QUORUM}, got 4"),
+    );
 }
 
 #[test]
