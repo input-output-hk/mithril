@@ -148,8 +148,11 @@ pub use signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 
-#[cfg(feature = "future_snark")]
+#[cfg(all(feature = "future_snark", not(feature = "benchmark-internals")))]
 use hash::poseidon::MidnightPoseidonDigest;
+
+#[cfg(feature = "benchmark-internals")]
+pub use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "future_snark")]
 pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};

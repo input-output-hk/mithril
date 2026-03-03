@@ -12,7 +12,7 @@ use super::{AggregateVerificationKeyForSnark, build_snark_message};
 pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
-    /// The vector of winning lottery indices for which the signature is valid
+    /// Winning lottery indices. Empty at signing time; populated later during aggregation.
     indices: Vec<LotteryIndex>,
 }
 
@@ -52,17 +52,15 @@ impl SingleSignatureForSnark {
     }
 
     /// Return `indices` of the single signature
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    pub(crate) fn get_indices(&self) -> Vec<LotteryIndex> {
-        self.indices.clone()
+    pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
+        &self.indices
     }
 
     /// Set `indices` of single signature to given value
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub(crate) fn set_indices(&mut self, indices: Vec<LotteryIndex>) {
-        self.indices = indices;
+    pub(crate) fn set_indices(&mut self, indices: &[LotteryIndex]) {
+        self.indices = indices.to_vec();
     }
 
     /// Return `schnorr_signature` of single signature

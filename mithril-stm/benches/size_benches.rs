@@ -1,3 +1,4 @@
+use blake2::{Blake2b, digest::consts::U64};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
@@ -7,6 +8,9 @@ use mithril_stm::{
     AggregateSignatureType, Clerk, Initializer, KeyRegistration, MembershipDigest,
     MithrilMembershipDigest, Parameters, Signer, SingleSignature,
 };
+
+#[cfg(feature = "future_snark")]
+use mithril_stm::MidnightPoseidonDigest;
 
 fn size<D>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
@@ -59,6 +63,16 @@ where
     );
 }
 
+/// Only for size benches. It only overrides the concatenation hash type.
+#[derive(Clone, Debug, Default)]
+pub struct MembershipDigestConcatenationHashU64 {}
+
+impl MembershipDigest for MembershipDigestConcatenationHashU64 {
+    type ConcatenationHash = Blake2b<U64>;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash = MidnightPoseidonDigest;
+}
+
 fn main() {
     println!("+-------------------+");
     println!("|   Size of proofs  |");
@@ -68,7 +82,7 @@ fn main() {
 
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
-        size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 512");
+        size::<MembershipDigestConcatenationHashU64>(k, m, nparties, "Blake2b 512");
         size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 256");
     }
     println!("+-------------------------+");

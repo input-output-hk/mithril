@@ -70,8 +70,7 @@ impl UniqueSchnorrSignature {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let mut points_coordinates: Vec<BaseFieldElement> =
-            vec![DOMAIN_SEPARATION_TAG_SIGNATURE.into()];
+        let mut points_coordinates: Vec<BaseFieldElement> = vec![DOMAIN_SEPARATION_TAG_SIGNATURE];
         points_coordinates.extend(
             [
                 msg_hash_point,

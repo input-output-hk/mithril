@@ -59,10 +59,7 @@ impl<D: MembershipDigest> Signer<D> {
         #[cfg(feature = "future_snark")]
         let snark_signature = if let Some(snark_signer) = &self.snark_proof_signer {
             let mut rng = rand_core::OsRng;
-            match snark_signer.create_single_signature(message, &mut rng) {
-                Ok(signature) => Some(signature),
-                Err(_) => None,
-            }
+            snark_signer.create_single_signature(message, &mut rng).ok()
         } else {
             None
         };
