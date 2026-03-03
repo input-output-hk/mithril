@@ -1,6 +1,7 @@
 mod test_extensions;
 
 use mithril_common::{
+    current_function,
     entities::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch,
         SignedEntityType::{
@@ -10,7 +11,7 @@ use mithril_common::{
     },
     test::{builder::MithrilFixtureBuilder, crypto_helper},
 };
-use test_extensions::StateMachineTester;
+use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
@@ -32,9 +33,9 @@ async fn test_create_cardano_transaction_single_signature() {
             block_hash: "block_hash-100".to_string(),
         },
     };
-    let mut tester = StateMachineTester::init(&signers_with_stake, initial_time_point)
-        .await
-        .expect("state machine tester init should not fail");
+    let mut tester =
+        StateMachineTester::init(&get_test_dir(current_function!()), &signers_with_stake, initial_time_point)
+            .await.expect("state machine tester init should not fail");
     let total_signer_registrations_expected = 3;
     let total_signature_registrations_expected = 4;
 

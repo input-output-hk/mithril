@@ -65,11 +65,6 @@ impl SqliteConnectionPool {
         let connection = self.builder.build_without_migrations()?;
         Ok(SqlitePooledConnection::new(token, connection))
     }
-
-    /// Returns a single resource pool connection
-    pub fn build_from_connection(_connection: SqliteConnection) -> Self {
-        todo!("remove")
-    }
 }
 
 #[cfg(test)]
