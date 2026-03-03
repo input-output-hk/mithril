@@ -99,7 +99,7 @@ fn indices_to_max() {
     let m = env.num_lotteries();
     assert!(m >= QUORUM, "num_lotteries must be >= quorum");
     let start = m - QUORUM;
-    let indices = (start..m).collect::<Vec<u32>>();
+    let indices = (start as u64..m as u64).collect::<Vec<u64>>();
     let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("indices_to_max witness build should succeed");
 
@@ -127,8 +127,8 @@ fn merkle_path_all_right() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices = vec![4, 12, 25];
-    assert!(indices.iter().all(|i| *i < m));
+    let indices: Vec<u64> = vec![4, 12, 25];
+    assert!(indices.iter().all(|i| *i < m as u64));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, rightmost_index, merkle_root, msg, &indices)
             .expect("merkle_path_all_right witness build should succeed");
@@ -159,8 +159,8 @@ fn merkle_path_all_left() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices = vec![5, 13, 21];
-    assert!(indices.iter().all(|i| *i < m));
+    let indices: Vec<u64> = vec![5, 13, 21];
+    assert!(indices.iter().all(|i| *i < m as u64));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, leftmost_index, merkle_root, msg, &indices)
             .expect("merkle_path_all_left witness build should succeed");

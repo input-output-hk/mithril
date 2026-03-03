@@ -12,21 +12,19 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
+use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
+    Jubjub, JubjubBase, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
 use crate::{StmError, StmResult};
-
-type F = JubjubBase;
-type C = Jubjub;
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -130,20 +128,28 @@ impl StmCircuit {
 
         Ok(())
     }
+
+    pub fn try_new(quorum: u64, num_lotteries: u64, merkle_tree_depth: usize) -> Self {
+        Self {
+            quorum: quorum as u32,
+            num_lotteries: num_lotteries as u32,
+            merkle_tree_depth: merkle_tree_depth as u32,
+        }
+    }
 }
 
 impl Relation for StmCircuit {
     type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
     type Witness = Vec<(MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex)>;
 
-    fn format_instance(instance: &Self::Instance) -> Result<Vec<F>, Error> {
+    fn format_instance(instance: &Self::Instance) -> Result<Vec<JubjubBase>, Error> {
         Ok(vec![instance.0, instance.1])
     }
 
     fn circuit(
         &self,
         std_lib: &ZkStdLib,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<JubjubBase>,
         instance: Value<Self::Instance>,
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
@@ -156,17 +162,17 @@ impl Relation for StmCircuit {
             .map_err(Self::synthesis_error)?
             .transpose_vec(self.quorum as usize);
 
-        let merkle_root: AssignedNative<F> =
+        let merkle_root: AssignedNative<JubjubBase> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;
-        let msg: AssignedNative<F> =
+        let msg: AssignedNative<JubjubBase> =
             std_lib.assign_as_public_input(layouter, instance.map(|(_, x)| x))?;
 
         // Compute H_1(merkle_root, msg)
         let hash = std_lib.hash_to_curve(layouter, &[merkle_root.clone(), msg.clone()])?;
 
-        let generator: AssignedNativePoint<C> = std_lib.jubjub().assign_fixed(
+        let generator: AssignedNativePoint<Jubjub> = std_lib.jubjub().assign_fixed(
             layouter,
-            <C as CircuitCurve>::CryptographicGroup::generator(),
+            <Jubjub as CircuitCurve>::CryptographicGroup::generator(),
         )?;
 
         let domain_separation_tag_signature: AssignedNative<_> =
@@ -182,10 +188,13 @@ impl Relation for StmCircuit {
             ],
         )?;
 
-        let mut pre_index: AssignedNative<_> = std_lib.assign(layouter, Value::known(F::ZERO))?;
+        let mut pre_index: AssignedNative<_> =
+            std_lib.assign(layouter, Value::known(JubjubBase::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
-            let index: AssignedNative<F> =
-                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i as u64)))?;
+            let index: AssignedNative<JubjubBase> = std_lib.assign(
+                layouter,
+                wit.clone().map(|(_, _, _, i)| JubjubBase::from(i)),
+            )?;
 
             // Check index order
             if i > 0 {
@@ -199,7 +208,7 @@ impl Relation for StmCircuit {
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
 
-            let target: AssignedNative<F> =
+            let target: AssignedNative<JubjubBase> =
                 std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1))?;
 
             // Assign sibling Values.
@@ -232,7 +241,7 @@ impl Relation for StmCircuit {
             let assigned_merkle_positions = assigned_merkle_positions
                 .iter()
                 .map(|pos| std_lib.convert(layouter, pos))
-                .collect::<Result<Vec<AssignedBit<F>>, Error>>()?;
+                .collect::<Result<Vec<AssignedBit<JubjubBase>>, Error>>()?;
 
             let sigma_value = wit
                 .clone()
@@ -242,11 +251,11 @@ impl Relation for StmCircuit {
                 })
                 .map_err(Self::synthesis_error)?;
             let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
-            let s: AssignedScalarOfNativeCurve<C> = std_lib
+            let s: AssignedScalarOfNativeCurve<Jubjub> = std_lib
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
             let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| sig.challenge.0))?;
-            let c: AssignedScalarOfNativeCurve<C> =
+            let c: AssignedScalarOfNativeCurve<Jubjub> =
                 std_lib.jubjub().convert(layouter, &c_native)?;
 
             verify_merkle_path(
@@ -276,7 +285,7 @@ impl Relation for StmCircuit {
         }
 
         // m can be put as a public instance or a constant
-        let m = std_lib.assign_fixed(layouter, F::from(self.num_lotteries as u64))?;
+        let m = std_lib.assign_fixed(layouter, JubjubBase::from(self.num_lotteries as u64))?;
         let is_less = std_lib.lower_than(layouter, &pre_index, &m, 32)?;
 
         std_lib.assert_true(layouter, &is_less)
@@ -306,7 +315,7 @@ impl Relation for StmCircuit {
     }
 
     fn read_relation<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        // Buffers to read 4 bytes for each `u32` field.
+        // Buffers to read 4 bytes for each 'u32' field.
         let mut quorum_bytes = [0u8; 4];
         let mut num_lotteries_bytes = [0u8; 4];
         let mut merkle_tree_depth_bytes = [0u8; 4];
@@ -316,7 +325,7 @@ impl Relation for StmCircuit {
         reader.read_exact(&mut num_lotteries_bytes)?;
         reader.read_exact(&mut merkle_tree_depth_bytes)?;
 
-        // Convert the byte arrays back into `u32` values.
+        // Convert the byte arrays back into 'u32' values.
         let quorum = u32::from_le_bytes(quorum_bytes);
         let num_lotteries = u32::from_le_bytes(num_lotteries_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
