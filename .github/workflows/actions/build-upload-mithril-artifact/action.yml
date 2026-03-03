@@ -10,6 +10,10 @@ inputs:
   common-build-args:
     description: Arguments that will be passed to both bin & lib 'cargo build'
     required: false
+  binaries-build-target:
+    description: Build target directory name (e.g., x86_64-unknown-linux-musl). Leave empty for default target/release
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -17,6 +21,16 @@ runs:
       id: label
       shell: bash
       run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+    - name: Resolve build target path
+      id: build-path
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.binaries-build-target }}" ]; then
+          echo "path=target/release" >> $GITHUB_OUTPUT
+        else
+          echo "path=target/${{ inputs.binaries-build-target }}/release" >> $GITHUB_OUTPUT
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -45,12 +59,12 @@ runs:
         path: |
           target/release/libmithril_stm.*
           target/release/libmithril_client.*
-          target/release/mithril-aggregator
-          target/release/mithril-aggregator.exe
-          target/release/mithril-client
-          target/release/mithril-client.exe
-          target/release/mithril-signer
-          target/release/mithril-signer.exe
-          target/release/mithril-relay
-          target/release/mithril-relay.exe
+          ${{ steps.build-path.outputs.path }}/mithril-aggregator
+          ${{ steps.build-path.outputs.path }}/mithril-aggregator.exe
+          ${{ steps.build-path.outputs.path }}/mithril-client
+          ${{ steps.build-path.outputs.path }}/mithril-client.exe
+          ${{ steps.build-path.outputs.path }}/mithril-signer
+          ${{ steps.build-path.outputs.path }}/mithril-signer.exe
+          ${{ steps.build-path.outputs.path }}/mithril-relay
+          ${{ steps.build-path.outputs.path }}/mithril-relay.exe
         if-no-files-found: error
