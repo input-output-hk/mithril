@@ -75,3 +75,7 @@ In case of a blocking issue (following a distribution release) on the release en
 1. In the release GitHub interface, edit the newly generated release, uncheck the `This is a pre-release` checkbox.
 1. The CI gets the built artifacts associated with this commit and generates a named release which is deployed on `release`.
 1. Merge the hotfix branch on main branch (and adapt the changes if they are not compatible with the current main branch).
+
+### Infrastructure-only Redeployment
+
+When a change only affects the infrastructure (e.g. a Cardano node upgrade compatible with the current Mithril distribution), it is possible to redeploy without creating a new distribution. See [ADR 11](/adr/11) for details.
