@@ -43,7 +43,12 @@ impl CardanoTransactionRepository {
     pub fn optimize(&self) -> StdResult<()> {
         let connection = self.connection_pool.connection()?;
         SqliteCleaner::optimize(&connection, OptimizeMode::Default)
-            .with_context(|| "Failed to optimize database")
+            .with_context(|| "Failed to optimize database")?;
+        self.connection_pool
+            .schedule_reset()
+            .with_context(|| "Failed to schedule connection pool reset")?;
+
+        Ok(())
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database.
