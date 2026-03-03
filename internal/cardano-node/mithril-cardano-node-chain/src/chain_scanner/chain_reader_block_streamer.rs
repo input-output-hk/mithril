@@ -34,7 +34,7 @@ pub struct ChainReaderBlockStreamer {
 #[async_trait]
 impl BlockStreamer for ChainReaderBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
-        debug!(self.logger, ">> poll_next");
+        debug!(self.logger, ">> poll_next"; "last_polled_point" => ?self.last_polled_point);
 
         let chain_scanned_blocks: ChainScannedBlocks;
         let mut roll_forwards = vec![];
@@ -114,6 +114,11 @@ impl ChainReaderBlockStreamer {
             let mut chain_reader_inner = chain_reader.try_lock()?;
             chain_reader_inner.set_chain_point(&from).await?;
         }
+        debug!(
+            logger, "starting ChainReaderBlockStreamer";
+            "from" => ?from, "until" => ?until, "max_roll_forwards_per_poll" => max_roll_forwards_per_poll
+        );
+
         Ok(Self {
             chain_reader,
             from,
