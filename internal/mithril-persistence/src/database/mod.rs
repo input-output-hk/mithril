@@ -44,7 +44,7 @@ pub(crate) mod test_helper {
         cardano_tx_db_connection_builder(dir_path).build()
     }
 
-    /// In-memory sqlite database with foreign key support and cardano db migrations applied
+    /// File sqlite database with foreign key support and cardano db migrations applied
     pub fn cardano_tx_db_connection_builder(dir_path: &Path) -> ConnectionBuilder {
         ConnectionBuilder::open_file(&dir_path.join("cardano_tx.db"))
             .with_options(&[ConnectionOptions::EnableForeignKeys])
