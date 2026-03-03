@@ -192,41 +192,44 @@ impl<'a> DependenciesBuilder<'a> {
         &self,
         sqlite_file_name: &str,
     ) -> StdResult<SqliteConnection> {
-        self.build_sqlite_connection(
+        self.setup_sqlite_connection_builder(
             sqlite_file_name,
             crate::database::migration::get_migrations(),
             &[],
-        )
+        )?
+        .build()
+        .with_context(|| "Main database connection initialisation error")
     }
 
-    /// Build an SQLite connection for the Cardano transactions database.
-    pub async fn build_cardano_tx_sqlite_connection(
+    /// Build an SQLite connection pool for the Cardano transactions database.
+    pub async fn build_cardano_tx_sqlite_connection_pool(
         &self,
         sqlite_file_name: &str,
-    ) -> StdResult<SqliteConnection> {
-        self.build_sqlite_connection(
+        pool_size: usize,
+    ) -> StdResult<SqliteConnectionPool> {
+        self.setup_sqlite_connection_builder(
             sqlite_file_name,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             &[ConnectionOptions::EnableForeignKeys],
-        )
+        )?
+        .build_pool(pool_size)
+        .with_context(|| "'cardano_tx' Database connection initialisation error")
     }
 
-    fn build_sqlite_connection(
+    fn setup_sqlite_connection_builder(
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
         options: &[ConnectionOptions],
-    ) -> StdResult<SqliteConnection> {
+    ) -> StdResult<ConnectionBuilder> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
-        let connection = ConnectionBuilder::open_file(&sqlite_db_path)
+        let builder = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
             .with_migrations(migrations)
             .with_options(options)
-            .with_logger(self.root_logger())
-            .build()
-            .with_context(|| "Database connection initialisation error")?;
+            .with_logger(self.root_logger());
 
-        Ok(connection)
+        Ok(builder)
     }
 
     fn build_aggregator_client(
@@ -259,11 +262,9 @@ impl<'a> DependenciesBuilder<'a> {
 
         let network = self.config.get_network()?;
         let sqlite_connection = Arc::new(self.build_main_sqlite_connection(SQLITE_FILE).await?);
-        let transaction_sqlite_connection = self
-            .build_cardano_tx_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION)
-            .await?;
         let sqlite_connection_cardano_transaction_pool = Arc::new(
-            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
+            self.build_cardano_tx_sqlite_connection_pool(SQLITE_FILE_CARDANO_TRANSACTION, 1)
+                .await?,
         );
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());

@@ -9,6 +9,7 @@ use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
+use crate::sqlite::SqliteConnectionPool;
 
 /// Builder of SQLite connection
 pub struct ConnectionBuilder {
@@ -94,6 +95,14 @@ impl ConnectionBuilder {
         Ok(connection)
     }
 
+    /// Build a connection pool based on the builder configuration
+    pub fn build_pool(self, pool_size: usize) -> StdResult<SqliteConnectionPool> {
+        self.build()
+            .with_context(|| "SQLite initialization: failed to initialize connection")?;
+
+        SqliteConnectionPool::build(pool_size, self)
+    }
+
     /// Build a connection based on the builder configuration without applying any defined migrations
     ///
     /// Useful for connections built after the database is already initialized
@@ -156,6 +165,7 @@ impl ConnectionBuilder {
 mod tests {
     use sqlite::Value;
 
+    use mithril_common::temp_dir_create;
     use mithril_common::test::TempDir;
 
     use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
@@ -281,6 +291,20 @@ mod tests {
         );
 
         assert_eq!(Value::String("first,second".to_string()), tables_list);
+    }
+
+    #[test]
+    fn building_pool_apply_given_migrations() {
+        let temp_dir = temp_dir_create!();
+        let pool = ConnectionBuilder::open_file(&temp_dir.join("db.sqlite"))
+            .with_migrations(vec![SqlMigration::new(1, "create table test(id integer);")])
+            .build_pool(1)
+            .unwrap();
+
+        let connection = pool.connection().unwrap();
+        connection
+            .execute("SELECT * from test;")
+            .expect("Migrations should have created the 'test' table");
     }
 
     #[test]

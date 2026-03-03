@@ -49,11 +49,13 @@ pub fn cardano_tx_db_connection() -> StdResult<SqliteConnection> {
     build_cardano_tx_db_connection(builder)
 }
 
-/// File sqlite database without foreign key support with cardano db migrations applied and WAL activated
-pub fn cardano_tx_db_file_connection(db_path: &Path) -> StdResult<SqliteConnection> {
-    let builder = ConnectionBuilder::open_file(db_path)
-        .with_options(&[ConnectionOptions::EnableWriteAheadLog]);
-    build_cardano_tx_db_connection(builder)
+/// File sqlite database with foreign key support and cardano db migrations applied
+pub fn cardano_tx_db_connection_builder(db_path: &Path) -> ConnectionBuilder {
+    ConnectionBuilder::open_file(db_path)
+        .with_options(&[ConnectionOptions::EnableForeignKeys])
+        .with_migrations(
+            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+        )
 }
 
 fn build_cardano_tx_db_connection(

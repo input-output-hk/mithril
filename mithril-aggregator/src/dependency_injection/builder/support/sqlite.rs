@@ -13,11 +13,11 @@ use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError,
 use crate::{ExecutionEnvironment, get_dependency};
 
 impl DependenciesBuilder {
-    fn build_sqlite_connection(
+    fn setup_connection_builder(
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-    ) -> Result<SqliteConnection> {
+    ) -> ConnectionBuilder {
         let logger = self.root_logger();
         let connection_builder = match self.configuration.environment() {
             ExecutionEnvironment::Test
@@ -30,7 +30,7 @@ impl DependenciesBuilder {
             ),
         };
 
-        let connection = connection_builder
+        connection_builder
             .with_node_type(ApplicationNodeType::Aggregator)
             .with_options(&[
                 ConnectionOptions::EnableForeignKeys,
@@ -38,13 +38,19 @@ impl DependenciesBuilder {
             ])
             .with_logger(logger.clone())
             .with_migrations(migrations)
+    }
+
+    fn build_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+        migrations: Vec<SqlMigration>,
+    ) -> Result<SqliteConnection> {
+        self.setup_connection_builder(sqlite_file_name, migrations)
             .build()
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: failed to build connection.".to_string(),
                 error: Some(e),
-            })?;
-
-        Ok(connection)
+            })
     }
 
     /// Execute cleanup operations on SQLite connections
@@ -85,22 +91,17 @@ impl DependenciesBuilder {
         let connection_pool_size = self
             .configuration
             .cardano_transactions_database_connection_pool_size();
-        // little hack to apply migrations to the cardano transaction database
-        // todo: add capacity to create a connection pool to the `ConnectionBuilder`
-        let _connection = self.build_sqlite_connection(
+
+        let connection_pool = self.setup_connection_builder(
             SQLITE_FILE_CARDANO_TRANSACTION,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-            // Don't vacuum the Cardano transactions database as it can be very large
-        )?;
+        ).build_pool(connection_pool_size)
+            .with_context(|| {
+                "Dependencies Builder can not build SQLite connection pool for Cardano transactions"
+            })
+            ?;
 
-        let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
-            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![])
-                .with_context(|| {
-                    "Dependencies Builder can not build SQLite connection for Cardano transactions"
-                })
-        })?);
-
-        Ok(connection_pool)
+        Ok(Arc::new(connection_pool))
     }
 
     /// Get SQLite connection pool for the cardano transactions store

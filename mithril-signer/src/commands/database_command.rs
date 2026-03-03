@@ -71,7 +71,7 @@ impl MigrateCommand {
             .with_context(|| "Dependencies Builder can not get sqlite connection")?;
 
         services
-            .build_cardano_tx_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION)
+            .build_cardano_tx_sqlite_connection_pool(SQLITE_FILE_CARDANO_TRANSACTION, 1)
             .await
             .with_context(
                 || "Dependencies Builder can not get cardano transaction pool sqlite connection",
