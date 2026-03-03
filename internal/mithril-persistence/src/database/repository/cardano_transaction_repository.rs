@@ -429,15 +429,20 @@ from (select max(start) as highest from block_range_root) max_new,
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::temp_dir_create;
+
     use crate::database::query::GetLegacyBlockRangeRootQuery;
-    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::database::test_helper::{
+        cardano_tx_db_connection, cardano_tx_db_connection_builder,
+    };
 
     use super::*;
 
     #[tokio::test]
     async fn repository_create_and_get_blocks_and_transactions() {
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -489,8 +494,9 @@ mod tests {
     #[tokio::test]
     async fn repository_create_and_get_blocks_and_transactions_dont_fail_if_empty_or_no_transactions()
      {
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository.create_block_and_transactions(vec![]).await.unwrap();
@@ -507,8 +513,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_by_hashes() {
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -1803,8 +1810,9 @@ mod tests {
             )
         }
 
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
