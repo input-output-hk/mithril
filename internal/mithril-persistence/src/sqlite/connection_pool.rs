@@ -1,7 +1,8 @@
 use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+
+use anyhow::anyhow;
 
 use mithril_common::StdResult;
 use mithril_resource_pool::{Reset, ResourcePool, ResourcePoolItem};
@@ -12,16 +13,19 @@ use crate::sqlite::{ConnectionBuilder, SqliteConnection};
 pub struct SqlitePooledConnection {
     connection: SqliteConnection,
     actual_version: u64,
-    pool_version: Arc<AtomicU64>,
+    pool_version: Arc<RwLock<u64>>,
     builder: Arc<ConnectionBuilder>,
 }
 
 impl Reset for SqlitePooledConnection {
     fn reset(&mut self) -> StdResult<()> {
-        let pool_version = self.pool_version.load(Ordering::Acquire);
-        if self.actual_version < pool_version {
+        let pool_version = self
+            .pool_version
+            .read()
+            .map_err(|e| anyhow!(e.to_string()).context("Failed to acquire pool version lock"))?;
+        if self.actual_version < *pool_version {
             self.connection = self.builder.build_without_migrations()?;
-            self.actual_version = pool_version;
+            self.actual_version = *pool_version;
         }
 
         Ok(())
@@ -33,7 +37,7 @@ impl SqlitePooledConnection {
     fn new(
         connection: SqliteConnection,
         initial_version: u64,
-        pool_version: Arc<AtomicU64>,
+        pool_version: Arc<RwLock<u64>>,
         builder: Arc<ConnectionBuilder>,
     ) -> Self {
         Self {
@@ -56,7 +60,7 @@ impl Deref for SqlitePooledConnection {
 /// Pool of Sqlite connections
 pub struct SqliteConnectionPool {
     connections: ResourcePool<SqlitePooledConnection>,
-    pool_version: Arc<AtomicU64>,
+    pool_version: Arc<RwLock<u64>>,
 }
 
 impl SqliteConnectionPool {
@@ -64,7 +68,7 @@ impl SqliteConnectionPool {
     pub fn build(size: usize, builder: ConnectionBuilder) -> StdResult<Self> {
         let mut connections: Vec<SqlitePooledConnection> = Vec::with_capacity(size);
         let initial_version = 0;
-        let pool_version = Arc::new(AtomicU64::new(initial_version));
+        let pool_version = Arc::new(RwLock::new(initial_version));
         let builder = Arc::new(builder);
 
         for _count in 0..size {
@@ -104,13 +108,17 @@ impl SqliteConnectionPool {
     }
 
     fn schedule_renew_for_all_connections(&self) -> StdResult<()> {
-        self.pool_version.fetch_add(1, Ordering::SeqCst);
+        let mut pool_version = self.pool_version.write().map_err(|e| {
+            anyhow!(e.to_string()).context("Failed to schedule connections renewal")
+        })?;
+        *pool_version += 1;
+
         Ok(())
     }
 
     #[cfg(test)]
     fn pool_version(&self) -> u64 {
-        self.pool_version.load(Ordering::SeqCst)
+        *self.pool_version.read().unwrap()
     }
 }
 
