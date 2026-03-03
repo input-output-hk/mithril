@@ -432,9 +432,7 @@ mod tests {
     use mithril_common::temp_dir_create;
 
     use crate::database::query::GetLegacyBlockRangeRootQuery;
-    use crate::database::test_helper::{
-        cardano_tx_db_connection, cardano_tx_db_connection_builder,
-    };
+    use crate::database::test_helper::cardano_tx_db_connection_builder;
 
     use super::*;
 
@@ -632,9 +630,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_ignore_further_blocks_when_exists() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let base_block = CardanoBlockWithTransactions::new(
             "block_hash-1",
@@ -695,9 +693,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_ignore_further_transactions_when_exists() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let base_block_with_txs = CardanoBlockWithTransactions::new(
             "block_hash-1",
@@ -729,9 +727,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_blocks_and_transactions_and_get_stored_them_individually() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -780,9 +778,9 @@ mod tests {
     #[tokio::test]
     async fn repository_store_blocks_and_transactions_bulk_insert_1_000_blocks_with_500_transactions_per_block()
      {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks_to_insert: Vec<_> = (0..1_000)
@@ -809,9 +807,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_all_stored_blocks() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -852,9 +850,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_all_stored_transactions() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -889,9 +887,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_highest_chain_point_without_blocks_in_db() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let highest_beacon = repository.get_transaction_highest_chain_point().await.unwrap();
@@ -900,9 +898,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_highest_chain_point_with_blocks_in_db() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -936,9 +934,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transactions_in_range_blocks() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1010,9 +1008,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_blocks_with_transactions_in_range_blocks() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1081,9 +1079,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transactions_by_block_ranges() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1183,9 +1181,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_blocks_with_transactions_by_block_ranges() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1281,9 +1279,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_closest_block_number_by_slot_number() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1315,8 +1313,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_legacy_block_range() {
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(cardano_tx_db_connection().unwrap()),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -1353,9 +1352,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_legacy_block_range_with_existing_hash_doesnt_erase_existing_data() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let range = BlockRange::from_block_number(BlockNumber(0));
 
@@ -1391,10 +1390,11 @@ mod tests {
 
     #[tokio::test]
     async fn repository_retrieve_legacy_block_range_roots_up_to() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
+
         let block_range_roots = vec![
             (
                 BlockRange::from_block_number(BlockNumber(15)),
@@ -1426,10 +1426,11 @@ mod tests {
 
     #[tokio::test]
     async fn repository_retrieve_highest_legacy_block_range_roots() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
+
         let block_range_roots = vec![
             BlockRangeRootRecord {
                 range: BlockRange::from_block_number(BlockNumber(15)),
@@ -1456,8 +1457,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_block_range() {
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(cardano_tx_db_connection().unwrap()),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         repository
@@ -1494,9 +1496,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let range = BlockRange::from_block_number(BlockNumber(0));
 
@@ -1526,9 +1528,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_retrieve_block_range_roots_up_to() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let block_range_roots = vec![
             (
@@ -1561,9 +1563,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_retrieve_highest_block_range_roots() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
         let block_range_roots = vec![
             BlockRangeRootRecord {
@@ -1590,9 +1592,9 @@ mod tests {
 
     #[tokio::test]
     async fn repository_prune_blocks_and_transactions() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![
@@ -1659,9 +1661,9 @@ mod tests {
 
     #[tokio::test]
     async fn get_prune_blocks_threshold() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         // Nothing stored
@@ -1717,9 +1719,9 @@ mod tests {
 
     #[tokio::test]
     async fn remove_blocks_transactions_and_block_ranges_greater_than_given_block_number() {
-        let connection = cardano_tx_db_connection().unwrap();
+        let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
         ));
 
         let blocks = vec![

@@ -1,11 +1,12 @@
 mod test_extensions;
 
 use mithril_common::{
+    current_function,
     entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, SupportedEra, TimePoint},
     test::{builder::MithrilFixtureBuilder, crypto_helper, double::Dummy},
 };
 use mithril_era::EraMarker;
-use test_extensions::StateMachineTester;
+use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
@@ -22,8 +23,9 @@ async fn era_fail_at_startup() {
             block_hash: "block_hash-100".to_string(),
         },
     };
-    let mut tester = StateMachineTester::init(&signers_with_stake, initial_time_point)
-        .await.expect("state machine tester init should not fail");
+    let mut tester =
+        StateMachineTester::init(&get_test_dir(current_function!()), &signers_with_stake, initial_time_point)
+            .await.expect("state machine tester init should not fail");
     tester.set_era_markers(vec![EraMarker::new("whatever", Some(Epoch(0)))]);
 
     tester

@@ -1,13 +1,12 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use sqlite::ConnectionThreadSafe;
 use std::sync::Arc;
 
 use mithril_common::entities::{BlockNumber, CardanoBlockWithTransactions, SlotNumber};
 use mithril_common::test::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
+use mithril_persistence::sqlite::ConnectionBuilder;
 
-fn cardano_tx_db_connection() -> ConnectionThreadSafe {
+fn cardano_tx_db_connection_builder() -> ConnectionBuilder {
     let db_path =
         TempDir::create("aggregator_benches", "bench_store_transactions").join("cardano_tx.db");
 
@@ -15,12 +14,9 @@ fn cardano_tx_db_connection() -> ConnectionThreadSafe {
         std::fs::remove_file(db_path.clone()).unwrap();
     }
 
-    ConnectionBuilder::open_file(&db_path)
-        .with_migrations(
-            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-        )
-        .build()
-        .unwrap()
+    ConnectionBuilder::open_file(&db_path).with_migrations(
+        mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+    )
 }
 
 fn generate_blocks_with_one_transactions(
@@ -46,10 +42,8 @@ fn bench_store_blocks_and_transactions(c: &mut Criterion) {
     let mut group = c.benchmark_group("Store transactions");
     group.bench_function("store_transactions", |bencher| {
         bencher.to_async(&runtime).iter(|| async {
-            let connection = cardano_tx_db_connection();
-            let repository = CardanoTransactionRepository::new(Arc::new(
-                SqliteConnectionPool::build_from_connection(connection),
-            ));
+            let pool = cardano_tx_db_connection_builder().build_pool(1).unwrap();
+            let repository = CardanoTransactionRepository::new(Arc::new(pool));
             repository.store_blocks_and_transactions(transactions.clone()).await
         });
     });

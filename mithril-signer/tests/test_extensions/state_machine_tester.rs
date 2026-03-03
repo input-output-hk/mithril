@@ -47,7 +47,7 @@ use mithril_common::{
     test::double::{Dummy, fake_data},
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
-use mithril_persistence::{sqlite::SqliteConnectionPool, store::StakeStorer};
+use mithril_persistence::store::StakeStorer;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
@@ -123,6 +123,7 @@ fn stdout_logger() -> slog::Logger {
 
 impl StateMachineTester {
     pub async fn init(
+        work_folder: &Path,
         signers_with_stake: &[SignerWithStake],
         initial_time_point: TimePoint,
     ) -> Result<Self> {
@@ -130,25 +131,22 @@ impl StateMachineTester {
             TestError::AssertFailed("there should be at least one signer with stakes".to_string())
         })?;
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
-        let config = Configuration::new_sample(&selected_signer_party_id);
+        let config = Configuration {
+            db_directory: work_folder.join("db"),
+            data_stores_directory: work_folder.join("stores"),
+            ..Configuration::new_sample(&selected_signer_party_id)
+        };
 
         let logger = stdout_logger();
         let logs_guard = slog_scope::set_global_logger(logger.clone());
 
         let dependencies_builder = DependenciesBuilder::new(&config, logger.clone());
-        let sqlite_connection = Arc::new(
-            dependencies_builder
-                .build_main_sqlite_connection(":memory:")
-                .await
-                .unwrap(),
-        );
-        let transaction_sqlite_connection = dependencies_builder
-            .build_cardano_tx_sqlite_connection(":memory:")
+        let sqlite_connection =
+            Arc::new(dependencies_builder.build_main_sqlite_connection("signer.db").await?);
+        let sqlite_connection_cardano_transaction_pool = dependencies_builder
+            .build_cardano_tx_sqlite_connection_pool("cardano_tx.db", 1)
             .await
-            .unwrap();
-        let sqlite_connection_cardano_transaction_pool = Arc::new(
-            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
-        );
+            .map(Arc::new)?;
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
