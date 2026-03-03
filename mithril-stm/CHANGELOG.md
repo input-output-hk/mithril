@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.23 (03-03-2026)
+
+### Changed
+
+- Renamed `DST_SIGNATURE` to `DOMAIN_SEPARATION_TAG_SIGNATURE` in STM signature scheme exports and usage chain.
+- Updated Halo2 circuit code to use STM-level `DOMAIN_SEPARATION_TAG_LOTTERY` and `DOMAIN_SEPARATION_TAG_SIGNATURE` directly.
+
+### Removed
+
+- Removed `circuits/halo2/constants.rs` as DST constants are now sourced from STM signature scheme constants.
+
+### Added
+
+- Added Halo2 DST alignment unit tests for:
+  - collision guard (`signature DST != lottery DST`),
+  - reference signature DST formula check vs STM computation,
+  - reference lottery DST formula check vs STM computation.
+
 ## 0.9.22 (03-03-2026)
 
 ### Added
