@@ -189,12 +189,14 @@ impl UpkeepService for AggregatorUpkeepService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir_create};
+    use std::path::Path;
+
     use mockall::predicate::eq;
 
+    use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir_create};
+
     use crate::database::test_helper::{
-        cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
-        main_db_file_connection,
+        cardano_tx_db_connection_builder, main_db_connection, main_db_file_connection,
     };
     use crate::event_store::database::test_helper::{
         event_store_db_connection, event_store_db_file_connection,
@@ -212,10 +214,13 @@ mod tests {
         Arc::new(task_mock)
     }
 
-    fn default_upkeep_service() -> AggregatorUpkeepService {
+    fn default_upkeep_service(dir: &Path) -> AggregatorUpkeepService {
         AggregatorUpkeepService::new(
             Arc::new(main_db_connection().unwrap()),
-            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            cardano_tx_db_connection_builder(&dir.join("cardano_tx.db"))
+                .build_pool(1)
+                .map(Arc::new)
+                .unwrap(),
             Arc::new(event_store_db_connection().unwrap()),
             Arc::new(SignedEntityTypeLock::default()),
             vec![],
@@ -236,14 +241,12 @@ mod tests {
         };
 
         let main_db_connection = main_db_file_connection(&main_db_path).unwrap();
-        let cardano_tx_connection = cardano_tx_db_file_connection(&ctx_db_path).unwrap();
+        let cardano_tx_conn_builder = cardano_tx_db_connection_builder(&ctx_db_path);
         let event_store_connection = event_store_db_file_connection(&event_store_db_path).unwrap();
 
         let service = AggregatorUpkeepService::new(
             Arc::new(main_db_connection),
-            Arc::new(SqliteConnectionPool::build_from_connection(
-                cardano_tx_connection,
-            )),
+            Arc::new(cardano_tx_conn_builder.build_pool(1).unwrap()),
             Arc::new(event_store_connection),
             Arc::new(SignedEntityTypeLock::default()),
             vec![],
@@ -269,6 +272,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_doesnt_cleanup_db_if_any_entity_is_locked() {
+        let db_dir = temp_dir_create!();
         let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
@@ -279,7 +283,7 @@ mod tests {
         let service = AggregatorUpkeepService {
             signed_entity_type_lock: signed_entity_type_lock.clone(),
             logger,
-            ..default_upkeep_service()
+            ..default_upkeep_service(&db_dir)
         };
         service.run(Epoch(5)).await.expect("Upkeep service failed");
 
@@ -291,6 +295,7 @@ mod tests {
     }
     #[tokio::test]
     async fn test_execute_all_pruning_tasks() {
+        let db_dir = temp_dir_create!();
         let task1 = mock_epoch_pruning_task(|mock| {
             mock.expect_prune().once().with(eq(Epoch(14))).returning(|_| Ok(()));
         });
@@ -300,7 +305,7 @@ mod tests {
 
         let service = AggregatorUpkeepService {
             pruning_tasks: vec![task1, task2],
-            ..default_upkeep_service()
+            ..default_upkeep_service(&db_dir)
         };
 
         service.run(Epoch(14)).await.expect("Upkeep service failed");
@@ -308,6 +313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_doesnt_vacuum_db_if_any_entity_is_locked() {
+        let db_dir = temp_dir_create!();
         let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
@@ -318,7 +324,7 @@ mod tests {
         let service = AggregatorUpkeepService {
             signed_entity_type_lock: signed_entity_type_lock.clone(),
             logger,
-            ..default_upkeep_service()
+            ..default_upkeep_service(&db_dir)
         };
         service.vacuum().await.expect("Vacuum failed");
 
@@ -331,6 +337,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_vacuum_database() {
+        let db_dir = temp_dir_create!();
         let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
@@ -340,7 +347,7 @@ mod tests {
 
         let service = AggregatorUpkeepService {
             logger,
-            ..default_upkeep_service()
+            ..default_upkeep_service(&db_dir)
         };
         service.vacuum().await.expect("Vacuum failed");
 

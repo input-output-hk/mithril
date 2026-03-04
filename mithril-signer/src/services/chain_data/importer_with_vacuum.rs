@@ -53,11 +53,11 @@ impl ChainDataImporter for ChainDataImporterWithVacuum {
 #[cfg(test)]
 mod tests {
     use mockall::mock;
-    use sqlite::Connection;
 
     use mithril_common::test::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
 
+    use crate::database::test_helper::cardano_tx_db_connection_builder;
     use crate::test::TestLogger;
 
     use super::*;
@@ -110,18 +110,26 @@ mod tests {
     #[tokio::test]
     async fn test_database_size_shrink_after_import() {
         let db_path = TempDir::create("mithril-persistence", "test_vacuum").join("test.db");
-        let connection = Connection::open_thread_safe(&db_path).unwrap();
-        // make the database size grow
-        mangle_db(&connection);
+        let pool = Arc::new(cardano_tx_db_connection_builder(&db_path).build_pool(1).unwrap());
+        let importer = ChainDataImporterWithVacuum::new_with_mock(pool.clone(), |mock| {
+            mock.expect_import().once().returning(|_| Ok(()));
+        });
 
-        let importer = ChainDataImporterWithVacuum::new_with_mock(
-            Arc::new(SqliteConnectionPool::build_from_connection(connection)),
-            |mock| {
-                mock.expect_import().once().returning(|_| Ok(()));
-            },
-        );
+        // Disable auto-vacuum to ensure vacuum is triggered manually by the system under test
+        pool.connection()
+            .unwrap()
+            .execute("pragma auto_vacuum = none; vacuum;")
+            .unwrap();
 
         let initial_size = db_path.metadata().unwrap().len();
+
+        // make the database size grow
+        mangle_db(&pool.connection().unwrap());
+        let mangled_size = db_path.metadata().unwrap().len();
+        assert!(
+            mangled_size > initial_size,
+            "Database size did not grow after mangling"
+        );
 
         importer
             .import(BlockNumber(100))
@@ -131,9 +139,9 @@ mod tests {
         let after_import_size = db_path.metadata().unwrap().len();
 
         assert!(
-            initial_size > after_import_size,
+            mangled_size > after_import_size,
             "Database size did not shrink after import: \
-            initial_size: {initial_size} -> after_import_size: {after_import_size}"
+            initial_size: {mangled_size} -> after_import_size: {after_import_size}"
         );
     }
 }

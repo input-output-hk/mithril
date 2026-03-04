@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use sqlite::ConnectionThreadSafe;
 
 use mithril_aggregator::database::repository::AggregatorCardanoChainDataRepository;
 use mithril_cardano_node_chain::chain_importer::ChainDataStore;
 use mithril_common::entities::{BlockNumber, CardanoBlockWithTransactions, SlotNumber};
 use mithril_common::test::TempDir;
-use mithril_persistence::sqlite::{
-    ConnectionBuilder, OptimizeMode, SqliteCleaner, SqliteConnectionPool,
-};
+use mithril_persistence::sqlite::{ConnectionBuilder, OptimizeMode, SqliteCleaner};
 
-fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
+fn cardano_tx_db_connection_builder(db_file_name: &str) -> ConnectionBuilder {
     let db_path =
         TempDir::create("aggregator_benches", "bench_get_transactions").join(db_file_name);
 
@@ -19,12 +16,9 @@ fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
         std::fs::remove_file(db_path.clone()).unwrap();
     }
 
-    ConnectionBuilder::open_file(&db_path)
-        .with_migrations(
-            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-        )
-        .build()
-        .unwrap()
+    ConnectionBuilder::open_file(&db_path).with_migrations(
+        mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+    )
 }
 
 fn generate_blocks_with_one_transaction(
@@ -50,8 +44,11 @@ async fn init_db(nb_transaction_in_db: usize) -> AggregatorCardanoChainDataRepos
     let start_instant = tokio::time::Instant::now();
 
     let transactions = generate_blocks_with_one_transaction(nb_transaction_in_db);
-    let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
-    let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
+    let connection_pool = Arc::new(
+        cardano_tx_db_connection_builder(&format!("cardano_tx-{nb_transaction_in_db}.db",))
+            .build_pool(1)
+            .unwrap(),
+    );
     let repository = AggregatorCardanoChainDataRepository::new(connection_pool.clone());
     repository.store_blocks_and_transactions(transactions).await.unwrap();
 
