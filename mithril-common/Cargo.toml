@@ -45,10 +45,7 @@ digest = { workspace = true }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 fixed = "1.30.0"
 hex = { workspace = true }
-kes-summed-ed25519 = { version = "0.2.1", features = [
-    "serde_enabled",
-    "sk_clone_enabled",
-] }
+kes-summed-ed25519 = { version = "0.2.1", features = ["serde_enabled", "sk_clone_enabled"] }
 mithril-stm = { path = "../mithril-stm", version = ">=0.5", default-features = false }
 nom = "8.0.0"
 rand_chacha = { workspace = true }

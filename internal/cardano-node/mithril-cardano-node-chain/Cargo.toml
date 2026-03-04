@@ -28,10 +28,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process"] }
 
 [dev-dependencies]
-kes-summed-ed25519 = { version = "0.2.1", features = [
-    "serde_enabled",
-    "sk_clone_enabled",
-] }
+kes-summed-ed25519 = { version = "0.2.1", features = ["serde_enabled", "sk_clone_enabled"] }
 mockall = { workspace = true }
 pallas-crypto = "0.35.0"
 slog-async = { workspace = true }

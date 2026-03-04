@@ -45,21 +45,12 @@ paste = "1.0.15"
 percent-encoding = "2.3.2"
 rayon = { workspace = true }
 regex = "1.12.3"
-reqwest = { workspace = true, features = [
-    "default",
-    "gzip",
-    "zstd",
-    "deflate",
-    "brotli"
-] }
+reqwest = { workspace = true, features = ["default", "gzip", "zstd", "deflate", "brotli"] }
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-slog = { workspace = true, features = [
-    "max_level_trace",
-    "release_max_level_debug",
-] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 sqlite = { version = "0.37.0", features = ["bundled"] }
@@ -67,11 +58,7 @@ tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.18", features = ["codec"] }
-uuid = { version = "1.21.0", features = [
-    "v4",
-    "fast-rng",
-    "macro-diagnostics",
-] }
+uuid = { version = "1.21.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 

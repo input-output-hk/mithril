@@ -33,10 +33,7 @@ reqwest = { workspace = true, features = ["default"] }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-slog = { workspace = true, features = [
-    "max_level_trace",
-    "release_max_level_trace",
-] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_trace"] }
 slog-async = { workspace = true }
 slog-scope = "4.4.1"
 slog-term = { workspace = true }
