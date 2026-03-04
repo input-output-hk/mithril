@@ -198,24 +198,19 @@
           default = mithril;
           inherit mithril mithril-stm mithril-common;
           mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features full"; };
-          mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
-            pname = "mithril-client";
-          };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-aggregator --features rustls-tls,jemallocator"; cargoTestExtraArgs = "--no-default-features"; };
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-signer --features rustls-tls,jemallocator"; cargoTestExtraArgs = "--no-default-features"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
 
         } // lib.optionalAttrs (pkgsMusl != null) {
 
-          mithril-aggregator-static =
+          mithril-aggregator =
             buildPackageMusl ./mithril-aggregator/Cargo.toml mithril-common-musl.cargoArtifacts {
               cargoExtraArgs = "-p mithril-aggregator --features rustls-tls,jemallocator";
             };
-          mithril-signer-static =
+          mithril-signer =
             buildPackageMusl ./mithril-signer/Cargo.toml mithril-common-musl.cargoArtifacts {
               cargoExtraArgs = "-p mithril-signer --features rustls-tls,jemallocator";
             };
-          mithril-client-cli-static =
+          mithril-client-cli =
             buildPackageMusl ./mithril-client-cli/Cargo.toml mithril-common-musl.cargoArtifacts {
               pname = "mithril-client";
               cargoExtraArgs = "-p mithril-client-cli --features rustls-tls";
