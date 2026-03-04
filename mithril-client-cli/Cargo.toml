@@ -39,20 +39,11 @@ indicatif = { version = "0.18.4", features = ["tokio"] }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { workspace = true, features = [
-    "default",
-    "gzip",
-    "zstd",
-    "deflate",
-    "brotli"
-] }
+reqwest = { workspace = true, features = ["default", "gzip", "zstd", "deflate", "brotli"] }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-slog = { workspace = true, features = [
-    "max_level_trace",
-    "release_max_level_debug",
-] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 slog-term = { workspace = true }
