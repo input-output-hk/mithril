@@ -1,5 +1,8 @@
 use std::collections::BTreeSet;
 use std::ops::{Deref, Range};
+use std::sync::Arc;
+
+use slog::Logger;
 use tokio::sync::Mutex;
 
 use mithril_common::StdResult;
@@ -10,7 +13,7 @@ use mithril_common::entities::{
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 
-use crate::chain_importer::ChainDataStore;
+use crate::chain_importer::{BlockRangeImporter, ChainDataStore};
 
 /// In memory Block range root representation, for testing purposes.
 #[derive(Debug, PartialEq, Clone)]
@@ -57,7 +60,7 @@ pub struct InMemoryChainDataStoreBuilder {
 }
 
 impl InMemoryChainDataStoreBuilder {
-    /// Set the initial blocks and transactions for the store.
+    /// Set the initial blocks and transactions for the store, replacing any existing data.
     pub fn with_blocks_and_transactions<T: Into<CardanoBlockWithTransactions> + Clone>(
         mut self,
         transactions: &[T],
@@ -66,7 +69,7 @@ impl InMemoryChainDataStoreBuilder {
         self
     }
 
-    /// Set the initial block range roots for the store.
+    /// Set the initial block range roots for the store, replacing any existing data.
     pub fn with_block_range_roots<T: Into<InMemoryBlockRangeRoot> + Clone>(
         mut self,
         block_range_roots: &[T],
@@ -75,13 +78,39 @@ impl InMemoryChainDataStoreBuilder {
         self
     }
 
-    /// Set the initial block range roots for the store.
+    /// Set the initial block range roots for the store, replacing any existing data.
     pub fn with_legacy_block_range_roots<T: Into<InMemoryBlockRangeRoot> + Clone>(
         mut self,
         block_range_roots: &[T],
     ) -> Self {
         self.legacy_block_range_roots =
             block_range_roots.iter().map(|brr| brr.clone().into()).collect();
+        self
+    }
+
+    /// Computes the block ranges roots, new and legacy, up to the block range that includes the given
+    /// block number and based on the blocks given in [Self::with_blocks_and_transactions]
+    ///
+    /// Replace any existing block ranges roots and legacy block ranges roots.
+    pub async fn compute_block_ranges(
+        mut self,
+        up_to_block_range_that_include: BlockNumber,
+    ) -> Self {
+        // Leverage tested `BlockRangeImporter` to compute the block ranges roots.
+        let worker_store = Arc::new(InMemoryChainDataStore {
+            blocks_with_txs: Mutex::new(self.blocks_with_txs.clone()),
+            block_range_roots: Default::default(),
+            legacy_block_range_roots: Default::default(),
+        });
+
+        let discard_logger = Logger::root(slog::Discard, slog::o!());
+        let importer = BlockRangeImporter::new(worker_store.clone(), discard_logger);
+        importer.run(up_to_block_range_that_include).await.unwrap();
+        importer.run_legacy(up_to_block_range_that_include).await.unwrap();
+
+        self.block_range_roots = worker_store.get_all_block_range_root().await;
+        self.legacy_block_range_roots = worker_store.get_all_legacy_block_range_root().await;
+
         self
     }
 
@@ -324,6 +353,62 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeStoreInMemory;
 
     use super::*;
+
+    #[tokio::test]
+    async fn builder_can_compute_block_range_roots() {
+        let expected_computed_ranges = vec![
+            BlockRange::from_block_number(BlockNumber(10)),
+            BlockRange::from_block_number(BlockNumber(25)),
+        ];
+        let builder = InMemoryChainDataStore::builder().with_blocks_and_transactions(&[
+            CardanoBlockWithTransactions::new(
+                "block_hash-10",
+                BlockNumber(10),
+                SlotNumber(50),
+                vec!["tx_hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-25",
+                BlockNumber(25),
+                SlotNumber(51),
+                vec!["tx_hash-2", "tx_hash-3"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-20",
+                BlockNumber(30),
+                SlotNumber(52),
+                vec!["tx_hash-4", "tx_hash-5"],
+            ),
+        ]);
+
+        assert_eq!(
+            Vec::<InMemoryBlockRangeRoot>::new(),
+            builder.block_range_roots
+        );
+        assert_eq!(
+            Vec::<InMemoryBlockRangeRoot>::new(),
+            builder.legacy_block_range_roots
+        );
+
+        let builder = builder.compute_block_ranges(BlockNumber(29)).await;
+
+        assert_eq!(
+            expected_computed_ranges,
+            builder
+                .block_range_roots
+                .iter()
+                .map(|b| b.range.clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            expected_computed_ranges,
+            builder
+                .legacy_block_range_roots
+                .iter()
+                .map(|b| b.range.clone())
+                .collect::<Vec<_>>()
+        );
+    }
 
     #[tokio::test]
     async fn default_store_is_empty() {

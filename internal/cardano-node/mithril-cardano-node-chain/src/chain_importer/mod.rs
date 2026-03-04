@@ -9,6 +9,7 @@ mod importer_with_pruner;
 mod service;
 
 pub use api::*;
+pub(crate) use block_ranges_importer::*;
 pub use importer_by_chunk::*;
 pub use importer_with_pruner::*;
 pub use service::*;
