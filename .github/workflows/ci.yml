@@ -66,6 +66,7 @@ jobs:
           binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           binaries-build-target: ${{ matrix.musl_target }}
+          os: ${{ matrix.os }}
 
       - name: Build Debian packages
         shell: bash
@@ -74,13 +75,6 @@ jobs:
           cargo deb --no-build --package mithril-signer --target=${{ matrix.musl_target }}
           cargo deb --no-build --package mithril-client-cli --target=${{ matrix.musl_target }}
           cargo deb --no-build --package mithril-relay --target=${{ matrix.musl_target }}
-
-      - name: Check binaries are static
-        uses: ./.github/workflows/actions/check-static-binaries
-        with:
-          binaries: mithril-aggregator,mithril-signer,mithril-client,mithril-relay
-          target-path: target/${{ matrix.musl_target }}/release
-          os: linux
 
       - name: Publish Debian packages
         uses: actions/upload-artifact@v5
@@ -141,24 +135,7 @@ jobs:
           binaries-build-args: ${{ matrix.binaries-build-args }}
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
-
-      # macOS
-      - name: Check for static builds on macOS
-        if: matrix.os == 'macos-14'
-        uses: ./.github/workflows/actions/check-static-binaries
-        with:
-          binaries: mithril-client
-          target-path: target/release
-          os: macos
-
-      # Windows
-      - name: Check for static builds on Windows
-        if: matrix.os == 'windows-latest'
-        uses: ./.github/workflows/actions/check-static-binaries
-        with:
-          binaries: mithril-client
-          target-path: target/release
-          os: windows
+          os: ${{ matrix.os }}
 
   build-test-wasm:
     runs-on: ubuntu-24.04
