@@ -9,9 +9,6 @@ inputs:
     description: "Path to the directory containing the binaries"
     required: true
     default: "target/release"
-  os:
-    description: "Operating system"
-    required: true
 
 runs:
   using: composite
@@ -21,7 +18,7 @@ runs:
       run: |
         $BINARIES = "${{ inputs.binaries }}"
         $TARGET_PATH = "${{ inputs.target-path }}"
-        $OS = "${{ inputs.os }}"
+        $OS = "${{ runner.os }}"
 
         $MACOS_ALLOWED_DEPS = @(
           "/System/Library/Frameworks/Security.framework",
@@ -41,10 +38,12 @@ runs:
           return $false
         }
 
+        Write-Host "OS is : $OS"
+
         foreach ($bin in $BINARIES -split ",") {
           $bin = $bin.Trim()
           
-          if ($OS -eq "windows-latest") {
+          if ($OS -eq "Windows") {
             $BIN_PATH = "$TARGET_PATH/$bin.exe"
           } else {
             $BIN_PATH = "$TARGET_PATH/$bin"
@@ -58,7 +57,7 @@ runs:
           }
           
           switch ($OS) {
-            "ubuntu-22.04" {
+            "Linux" {
               $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
               if ($output) {
                 Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
@@ -66,7 +65,7 @@ runs:
               }
               Write-Host "✅ $bin is fully static"
             }
-            "macos-14" {
+            "macOS" {
               $disallowed_deps = @()
               $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
               
@@ -91,7 +90,7 @@ runs:
               }
               Write-Host "✅ $bin is fully static (or has only whitelisted system dependencies)"
             }
-            "windows-latest" {
+            "Windows" {
               $output = & link /dump /dependents $BIN_PATH 2>&1
               if ($output -match "\.dll") {
                 Write-Host "❌ $bin is NOT static (has dynamic dependencies)"

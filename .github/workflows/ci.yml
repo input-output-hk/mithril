@@ -66,7 +66,6 @@ jobs:
           binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           binaries-build-target: ${{ matrix.musl_target }}
-          os: ${{ matrix.os }}
 
       - name: Build Debian packages
         shell: bash
@@ -135,7 +134,6 @@ jobs:
           binaries-build-args: ${{ matrix.binaries-build-args }}
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
-          os: ${{ matrix.os }}
 
   build-test-wasm:
     runs-on: ubuntu-24.04
