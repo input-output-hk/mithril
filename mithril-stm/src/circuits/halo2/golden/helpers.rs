@@ -116,7 +116,7 @@ pub(crate) enum StmCircuitProofError {
     #[error("Proof flow failed: {source}")]
     Proof {
         #[source]
-        source: crate::StdError,
+        source: anyhow::Error,
     },
 }
 
@@ -165,7 +165,7 @@ pub(crate) fn assert_proving_backend_message_contains<T>(
     }
 }
 
-fn validate_relation_for_setup(relation: &StmCircuit) -> crate::StdResult<()> {
+fn validate_relation_for_setup(relation: &StmCircuit) -> crate::StmResult<()> {
     relation
         .validate_parameters()
         .context("Circuit parameter validation failed before setup")
@@ -183,6 +183,7 @@ struct StmCircuitConfig {
 /// Shared environment for STM circuit golden cases (SRS, relation, keys, sizing).
 pub(crate) struct StmCircuitEnv {
     /// Structured reference string used by the Halo2/KZG proving system.
+    ///
     /// Generated or loaded once per test case.
     srs: ParamsKZG<Bls12>,
 
@@ -251,6 +252,7 @@ fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> GoldenResult<Sig
 }
 
 /// STM Merkle tree wrapper that exposes Halo2-friendly root and path accessors.
+///
 /// We keep MTLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
 pub(crate) struct StmMerkleTreeWrapper {
     stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
@@ -644,7 +646,7 @@ fn map_proving_backend_error(error: PlonkError) -> StmCircuitProofError {
         other => StmCircuitError::CircuitExecutionFailed(format!("proving backend error: {other}")),
     };
 
-    let source = crate::StdError::new(circuit_error).context("Proving step failed");
+    let source = anyhow::Error::new(circuit_error).context("Proving step failed");
     StmCircuitProofError::Proof { source }
 }
 

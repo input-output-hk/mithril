@@ -49,6 +49,7 @@ impl StmCircuit {
     }
 
     /// Validates global circuit parameters before synthesis.
+    ///
     /// Enforces `quorum < num_lotteries` returning
     /// `StmCircuitError::InvalidCircuitParameters` when violated.
     pub(crate) fn validate_parameters(&self) -> StmCircuitResult<()> {
@@ -63,6 +64,7 @@ impl StmCircuit {
     }
 
     /// Validates that witness vector length matches the configured quorum.
+    ///
     /// This precondition prevents shape mismatches; failures return
     /// `StmCircuitError::WitnessLengthMismatch`.
     pub(crate) fn validate_witness_length(&self, actual: usize) -> StmCircuitResult<()> {
@@ -78,6 +80,7 @@ impl StmCircuit {
     }
 
     /// Validates Merkle sibling path length against `merkle_tree_depth`.
+    ///
     /// This guards against inconsistent witness paths and returns
     /// `StmCircuitError::MerkleSiblingLengthMismatch` on mismatch.
     pub(crate) fn validate_merkle_sibling_length(&self, actual: usize) -> StmCircuitResult<()> {
@@ -93,6 +96,7 @@ impl StmCircuit {
     }
 
     /// Validates Merkle position bits length against `merkle_tree_depth`.
+    ///
     /// Under the current witness shape, this cannot fail independently from sibling-length
     /// validation because both lengths derive from `x.siblings`; returns `StmCircuitError::MerklePositionLengthMismatch`.
     pub(crate) fn validate_merkle_position_length(&self, actual: usize) -> StmCircuitResult<()> {
@@ -124,10 +128,12 @@ impl Relation for StmCircuit {
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
         self.validate_parameters().map_err(Error::from)?;
-        let witness = witness.map_with_result(|witness| -> Result<_, Error> {
-            self.validate_witness_length(witness.len()).map_err(Error::from)?;
-            Ok(witness)
-        })?;
+        let witness = witness
+            .map_with_result(|witness| -> Result<_, Error> {
+                self.validate_witness_length(witness.len()).map_err(Error::from)?;
+                Ok(witness)
+            })?
+            .transpose_vec(self.quorum as usize);
 
         let merkle_root: AssignedNative<F> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;
@@ -154,8 +160,6 @@ impl Relation for StmCircuit {
                 msg.clone(),
             ],
         )?;
-
-        let witness = witness.transpose_vec(self.quorum as usize);
 
         let mut pre_index: AssignedNative<_> = std_lib.assign(layouter, Value::known(F::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
