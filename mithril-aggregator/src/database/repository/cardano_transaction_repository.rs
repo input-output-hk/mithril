@@ -195,8 +195,9 @@ mod tests {
     use mithril_cardano_node_chain::chain_importer::{CardanoChainDataImporter, ChainDataImporter};
     use mithril_cardano_node_chain::entities::ScannedBlock;
     use mithril_cardano_node_chain::test::double::DumbBlockScanner;
+    use mithril_common::temp_dir_create;
 
-    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::database::test_helper::cardano_tx_db_connection_builder;
     use crate::test::TestLogger;
 
     use super::*;
@@ -208,6 +209,7 @@ mod tests {
     #[tokio::test]
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order()
      {
+        let temp_db = temp_dir_create!().join("test.db");
         let blocks = vec![
             ScannedBlock::new(
                 "block_hash-1",
@@ -226,8 +228,8 @@ mod tests {
         let transactions = into_transactions(&blocks);
 
         let (importer, repository) = {
-            let connection = cardano_tx_db_connection().unwrap();
-            let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
+            let connection_pool =
+                Arc::new(cardano_tx_db_connection_builder(&temp_db).build_pool(1).unwrap());
             let repository = Arc::new(AggregatorCardanoChainDataRepository::new(connection_pool));
             let importer = CardanoChainDataImporter::new(
                 Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),

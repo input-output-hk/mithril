@@ -41,11 +41,14 @@ pub(crate) mod test_helper {
     /// In-memory sqlite database with foreign key support and cardano db migrations applied
     #[allow(unused)] // Useful for debugging
     pub fn cardano_tx_db_connection_file(dir_path: &Path) -> StdResult<SqliteConnection> {
-        let connection = ConnectionBuilder::open_file(&dir_path.join("cardano_tx.db"))
+        cardano_tx_db_connection_builder(dir_path).build()
+    }
+
+    /// File sqlite database with foreign key support and cardano db migrations applied
+    pub fn cardano_tx_db_connection_builder(dir_path: &Path) -> ConnectionBuilder {
+        ConnectionBuilder::open_file(&dir_path.join("cardano_tx.db"))
             .with_options(&[ConnectionOptions::EnableForeignKeys])
             .with_migrations(crate::database::cardano_transaction_migration::get_migrations())
-            .build()?;
-        Ok(connection)
     }
 
     #[cfg(test)]

@@ -115,6 +115,21 @@ impl<T: Reset + Send + Sync> ResourcePool<T> {
         Ok(())
     }
 
+    /// Trigger the [reset][Reset::reset] of all resources that are available in the pool
+    pub fn reset_available_resources(&self) -> StdResult<()> {
+        let mut resources = self
+            .resources
+            .lock()
+            .map_err(|_| ResourcePoolError::PoisonedLock)
+            .with_context(|| "Resource pool 'reset_available_resources' failed locking Mutex")?;
+
+        for resource in resources.iter_mut() {
+            resource.reset()?;
+        }
+
+        Ok(())
+    }
+
     /// Clear the pool
     pub fn clear(&self) {
         let mut resources = self.resources.lock().unwrap();
@@ -412,5 +427,24 @@ mod tests {
         // Acquire the resource again and make sure it has been reseted
         let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
         assert!(resource_item.reset);
+    }
+
+    #[tokio::test]
+    async fn test_resource_available_pool_items_are_reset_when_reset_all_available_is_run() {
+        let pool = ResourcePool::<TestResetResource>::new(
+            2,
+            vec![TestResetResource::default(), TestResetResource::default()],
+        );
+
+        let resource_item_that_should_not_be_reset =
+            pool.acquire_resource(Duration::from_millis(10)).unwrap();
+
+        pool.reset_available_resources().unwrap();
+
+        let resource_that_should_have_been_reset =
+            pool.acquire_resource(Duration::from_millis(10)).unwrap();
+
+        assert!(!resource_item_that_should_not_be_reset.reset);
+        assert!(resource_that_should_have_been_reset.reset);
     }
 }
