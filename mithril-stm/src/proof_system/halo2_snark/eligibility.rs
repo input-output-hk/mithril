@@ -208,7 +208,7 @@ pub(crate) fn check_lottery_for_index(
 }
 
 /// Computes the lottery prefix by hashing the message with the lottery DST.
-/// The prefix is computed by prepending `DST_LOTTERY` to the message and hashing the result
+/// The prefix is computed by prepending `DOMAIN_SEPARATION_TAG_LOTTERY` to the message and hashing the result
 /// using `compute_poseidon_digest`.
 #[cfg(feature = "future_snark")]
 pub(crate) fn compute_lottery_prefix(

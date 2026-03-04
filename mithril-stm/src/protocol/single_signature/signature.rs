@@ -239,19 +239,21 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use super::SignatureError;
-    use crate::{
-        AggregateVerificationKey, BlsSignatureError, Clerk, KeyRegistration,
-        MithrilMembershipDigest, Parameters, RegistrationEntry, Signer, SingleSignature,
-        VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
-        signature_scheme::BlsSigningKey,
-    };
     #[cfg(feature = "future_snark")]
     use crate::{
         ClosedRegistrationEntry, MembershipDigest, VerificationKeyForSnark,
         proof_system::SnarkProofSigner, protocol::RegistrationEntryForSnark,
         signature_scheme::SchnorrSigningKey,
     };
+
+    use crate::{
+        AggregateVerificationKey, BlsSignatureError, Clerk, KeyRegistration,
+        MithrilMembershipDigest, Parameters, RegistrationEntry, Signer, SingleSignature,
+        VerificationKeyProofOfPossessionForConcatenation, proof_system::ConcatenationProofSigner,
+        signature_scheme::BlsSigningKey,
+    };
+
+    use super::SignatureError;
 
     type D = MithrilMembershipDigest;
 
