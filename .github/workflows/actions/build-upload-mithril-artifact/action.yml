@@ -14,6 +14,10 @@ inputs:
     description: Build target directory name (e.g., x86_64-unknown-linux-musl). Leave empty for default target/release
     required: false
     default: ""
+  os:
+    description: Target OS for static build check
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -52,6 +56,13 @@ runs:
       # Build only the libraries for the crates that are published to crates.io
       run: cargo build --lib --release ${{ inputs.libraries-build-args }} ${{ inputs.common-build-args }}
 
+    - name: Check for static builds
+      uses: ./.github/workflows/actions/check-static-binaries
+      with:
+        binaries: mithril-client
+        target-path: ${{ steps.build-path.outputs.path }}
+        os: ${{ inputs.os }}
+    
     - name: Move binaries before upload
       shell: bash
       # Put all binaries in a single folder to avoid upload-artifact action keeping the least common ancestor as the root directory
