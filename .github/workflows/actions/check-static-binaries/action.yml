@@ -10,7 +10,7 @@ inputs:
     required: true
     default: "target/release"
   os:
-    description: "Operating system (linux, macos, windows)"
+    description: "Operating system"
     required: true
 
 runs:
@@ -44,7 +44,7 @@ runs:
         foreach ($bin in $BINARIES -split ",") {
           $bin = $bin.Trim()
           
-          if ($OS -eq "windows") {
+          if ($OS -eq "windows-latest") {
             $BIN_PATH = "$TARGET_PATH/$bin.exe"
           } else {
             $BIN_PATH = "$TARGET_PATH/$bin"
@@ -58,7 +58,7 @@ runs:
           }
           
           switch ($OS) {
-            "linux" {
+            "ubuntu-22.04" {
               $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
               if ($output) {
                 Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
@@ -66,7 +66,7 @@ runs:
               }
               Write-Host "✅ $bin is fully static"
             }
-            "macos" {
+            "macos-14" {
               $disallowed_deps = @()
               $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
               
@@ -91,7 +91,7 @@ runs:
               }
               Write-Host "✅ $bin is fully static (or has only whitelisted system dependencies)"
             }
-            "windows" {
+            "windows-latest" {
               $output = & link /dump /dependents $BIN_PATH 2>&1
               if ($output -match "\.dll") {
                 Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
