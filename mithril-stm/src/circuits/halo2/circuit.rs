@@ -265,7 +265,9 @@ mod dst_alignment_tests {
             BaseFieldElement::from(44),
         ];
 
-        let signature_digest_via_stm = compute_poseidon_digest(&signature_transcript_inputs);
+        let mut stm_inputs = vec![DOMAIN_SEPARATION_TAG_SIGNATURE];
+        stm_inputs.extend_from_slice(&signature_transcript_inputs);
+        let signature_digest_via_stm = compute_poseidon_digest(&stm_inputs);
 
         let mut signature_digest_manual_inputs = vec![REFERENCE_SIGNATURE_DOMAIN_TAG.0];
         signature_digest_manual_inputs

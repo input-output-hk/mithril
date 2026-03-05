@@ -233,7 +233,9 @@ mod tests {
                     &current_signer.protocol_signer.get_bls_verification_key(),
                     &current_signer.protocol_signer.get_stake(),
                     &avk,
-                    &expected_message
+                    &expected_message,
+                    #[cfg(feature = "future_snark")]
+                    None,
                 )
                 .is_ok(),
             "produced single signature should be valid"

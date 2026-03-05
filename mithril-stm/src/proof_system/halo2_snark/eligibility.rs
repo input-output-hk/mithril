@@ -142,52 +142,81 @@ cfg_num_integer! {
         -accumulator
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    /// Verifies if a lottery index is eligible based on the signature and target value.
-    ///
-    /// This function checks whether a given index wins the lottery by computing an
-    /// evaluation value from the signature's commitment point and the index, then
-    /// comparing it against the target value. An index is eligible if its
-    /// evaluation value is less than or equal to the target.
-    ///
-    /// The evaluation is computed as: `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)`
-    /// where `(commitment_point_x, commitment_point_y)` are the coordinates of the signature's commitment point.
-    pub fn verify_lottery_eligibility(
-        signature: &UniqueSchnorrSignature,
-        lottery_index: LotteryIndex,
-        m: u64,
-        prefix: BaseFieldElement,
-        target: LotteryTargetValue,
-    ) -> StmResult<()> {
-        if lottery_index > m {
-            return Err(SignatureError::IndexBoundFailed(lottery_index, m).into());
-        }
+}
 
-        let lottery_index_as_base_field_element = BaseFieldElement::from(lottery_index);
-        let (commitment_point_x, commitment_point_y) = signature.commitment_point.get_coordinates();
-        let lottery_evaluation = compute_poseidon_digest(&[prefix, commitment_point_x, commitment_point_y, lottery_index_as_base_field_element]);
+/// Computes all winning lottery indices in `0..m` for a given signature and target value.
+///
+/// Derives the lottery prefix from the message, then checks each index via
+/// [`check_lottery_for_index`]. Returns the collected winning indices, or
+/// `SignatureError::LotteryLost` if none win.
+#[cfg(feature = "future_snark")]
+pub(crate) fn compute_winning_lottery_indices(
+    m: u64,
+    msg: &[BaseFieldElement],
+    signature: &UniqueSchnorrSignature,
+    lottery_target_value: LotteryTargetValue,
+) -> StmResult<Vec<LotteryIndex>> {
+    let lottery_prefix = compute_lottery_prefix(msg);
 
-        // check if ev <= target
-        if lottery_evaluation > target {
-            return Err(SignatureError::LotteryLost.into());
-        }
+    let winning_indices: Vec<LotteryIndex> = (0..m)
+        .filter(|&index| {
+            matches!(
+                check_lottery_for_index(signature, index, m, lottery_prefix, lottery_target_value),
+                Ok(true)
+            )
+        })
+        .collect();
 
-        Ok(())
+    if winning_indices.is_empty() {
+        Err(SignatureError::LotteryLost.into())
+    } else {
+        Ok(winning_indices)
+    }
+}
+
+/// Checks whether a single lottery index wins the lottery.
+///
+/// Computes an evaluation value from the signature's commitment point and the index,
+/// then compares it against the target value. An index wins if its evaluation value
+/// is less than or equal to the target.
+///
+/// The evaluation is computed as:
+/// `ev = Poseidon(prefix, commitment_point_x, commitment_point_y, index)` where
+/// `(commitment_point_x, commitment_point_y)` are coordinates of signature's commitment point.
+#[cfg(feature = "future_snark")]
+pub(crate) fn check_lottery_for_index(
+    signature: &UniqueSchnorrSignature,
+    lottery_index: LotteryIndex,
+    m: u64,
+    prefix: BaseFieldElement,
+    target: LotteryTargetValue,
+) -> StmResult<bool> {
+    if lottery_index >= m {
+        return Err(SignatureError::IndexBoundFailed(lottery_index, m).into());
     }
 
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    /// Computes the lottery prefix hash from a message.
-    /// The prefix is computed by prepending `DST_LOTTERY`
-    /// to the message and hashing the result using `compute_poseidon_digest`.
-    pub fn compute_lottery_prefix(msg: &[BaseFieldElement]) -> BaseFieldElement {
-        let mut prefix = vec![DOMAIN_SEPARATION_TAG_LOTTERY];
-        prefix.extend_from_slice(msg);
-        compute_poseidon_digest(&prefix)
-    }
+    let lottery_index_as_base_field_element = BaseFieldElement::from(lottery_index);
+    let (commitment_point_x, commitment_point_y) = signature.commitment_point.get_coordinates();
+    let lottery_evaluation = compute_poseidon_digest(&[
+        prefix,
+        commitment_point_x,
+        commitment_point_y,
+        lottery_index_as_base_field_element,
+    ]);
+
+    Ok(lottery_evaluation <= target)
+}
+
+/// Computes the lottery prefix by hashing the message with the lottery DST.
+/// The prefix is computed by prepending `DOMAIN_SEPARATION_TAG_LOTTERY` to the message and hashing the result
+/// using `compute_poseidon_digest`.
+#[cfg(feature = "future_snark")]
+pub(crate) fn compute_lottery_prefix(
+    message_as_base_field_element: &[BaseFieldElement],
+) -> BaseFieldElement {
+    let mut prefix = vec![DOMAIN_SEPARATION_TAG_LOTTERY];
+    prefix.extend_from_slice(message_as_base_field_element);
+    compute_poseidon_digest(&prefix)
 }
 
 #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
@@ -203,8 +232,8 @@ mod tests {
     use crate::{LotteryTargetValue, SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     use super::{
-        TAYLOR_EXPANSION_ITERATIONS, compute_exponential_taylor_expansion, compute_lottery_prefix,
-        compute_target_value, ln_1p_taylor_expansion, verify_lottery_eligibility,
+        TAYLOR_EXPANSION_ITERATIONS, check_lottery_for_index, compute_exponential_taylor_expansion,
+        compute_lottery_prefix, compute_target_value, ln_1p_taylor_expansion,
     };
 
     #[test]
@@ -277,7 +306,10 @@ mod tests {
             let mut counter = 0;
             let prefix = compute_lottery_prefix(&[msg]);
             for i in 0..m {
-                if verify_lottery_eligibility(&sig, i, m, prefix, lottery_target_value).is_ok() {
+                if matches!(
+                    check_lottery_for_index(&sig, i, m, prefix, lottery_target_value),
+                    Ok(true)
+                ) {
                     println!("Index: {}", i);
                     counter += 1;
                 }
@@ -295,8 +327,11 @@ mod tests {
             let prefix = compute_lottery_prefix(&[msg]);
 
             for i in 0..m {
-                let result = verify_lottery_eligibility(&sig, i, m, prefix, lottery_target_value);
-                result.expect_err("Lottery eligibility should always fail if target is 0.");
+                let result = check_lottery_for_index(&sig, i, m, prefix, lottery_target_value);
+                assert!(
+                    !result.unwrap(),
+                    "Lottery should always lose if target is 0."
+                );
             }
         }
 
@@ -310,7 +345,7 @@ mod tests {
             let prefix = compute_lottery_prefix(&[msg]);
 
             for i in (m + 1)..(m + 50) {
-                let result = verify_lottery_eligibility(&sig, i, m, prefix, lottery_target_value);
+                let result = check_lottery_for_index(&sig, i, m, prefix, lottery_target_value);
                 result.expect_err(
                     "Lottery eligibility should always fail if index is greater than m.",
                 );

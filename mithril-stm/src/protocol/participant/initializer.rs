@@ -1,3 +1,5 @@
+#[cfg(feature = "future_snark")]
+use anyhow::Context;
 use anyhow::anyhow;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,10 @@ use crate::{
     signature_scheme::BlsSigningKey,
 };
 #[cfg(feature = "future_snark")]
-use crate::{VerificationKeyForSnark, signature_scheme::SchnorrSigningKey};
+use crate::{
+    ClosedRegistrationEntry, RegistrationEntryForSnark, VerificationKeyForSnark,
+    proof_system::SnarkProofSigner, signature_scheme::SchnorrSigningKey,
+};
 
 use super::Signer;
 
@@ -66,8 +71,8 @@ impl Initializer {
     /// # Process
     /// 1. Verifies that registration is closed (determined by total stake threshold)
     /// 2. Confirms the initializer is registered and retrieves its signer index
-    /// 3. Constructs the Merkle tree commitment
-    /// 4. Creates the underlying proof system signer (currently only the concatenation proof system)
+    /// 3. Constructs the Merkle tree commitment for each proof system (concatenation and snark)
+    /// 4. Creates the underlying proof system signer
     ///
     /// # Errors
     /// Returns an error if:
@@ -90,18 +95,42 @@ impl Initializer {
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
-        let key_registration_commitment = closed_key_registration
-            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>();
-
-        // Create concatenation proof signer
+        let key_registration_commitment_for_concatenation = closed_key_registration
+            .to_merkle_tree::<D::ConcatenationHash, RegistrationEntryForConcatenation>()
+            .to_merkle_tree_batch_commitment();
         let concatenation_proof_signer = ConcatenationProofSigner::new(
             registration_entry.get_stake(),
             closed_key_registration.total_stake,
             self.parameters,
             self.bls_signing_key,
             self.bls_verification_key_proof_of_possession.vk,
-            key_registration_commitment,
+            key_registration_commitment_for_concatenation,
         );
+
+        #[cfg(feature = "future_snark")]
+        let snark_proof_signer = {
+            let key_registration_commitment_for_snark = closed_key_registration
+                .to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>()
+                .to_merkle_tree_commitment();
+            let lottery_target_value = ClosedRegistrationEntry::from((
+                registration_entry,
+                closed_key_registration.total_stake,
+            ))
+            .get_lottery_target_value();
+            SnarkProofSigner::new(
+                self.parameters,
+                self.schnorr_signing_key
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing schnorr signing key")?,
+                self.schnorr_verification_key
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing schnorr verification key")?,
+                lottery_target_value
+                    .ok_or(RegisterError::SnarkProofSignerCreation)
+                    .with_context(|| "missing lottery target value")?,
+                key_registration_commitment_for_snark,
+            )
+        };
 
         // Create and return signer
         Ok(Signer::new(
@@ -110,6 +139,8 @@ impl Initializer {
             closed_key_registration.clone(),
             self.parameters,
             registration_entry.get_stake(),
+            #[cfg(feature = "future_snark")]
+            Some(snark_proof_signer),
         ))
     }
 

@@ -1,29 +1,33 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MembershipDigest, Stake,
+    ClosedKeyRegistration, MembershipDigest,
     membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+    protocol::RegistrationEntryForSnark,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Aggregate verification key of the snark proof system.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AggregateVerificationKeyForSnark<D: MembershipDigest> {
     merkle_tree_commitment: MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf>,
-    // TODO: Change to EligibilityValue once PR1 is merged
-    target_value: Stake,
 }
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
+
 impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
     /// Get the Merkle tree commitment.
     pub(crate) fn get_merkle_tree_commitment(
         &self,
-    ) -> MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
-        self.merkle_tree_commitment.clone()
+    ) -> &MerkleTreeCommitment<D::SnarkHash, MerkleTreeSnarkLeaf> {
+        &self.merkle_tree_commitment
     }
+}
 
-    /// Get the total stake.
-    // TODO: Change to EligibilityValue once PR1 is merged
-    pub fn get_target_value(&self) -> Stake {
-        self.target_value
+impl<D: MembershipDigest> From<&ClosedKeyRegistration> for AggregateVerificationKeyForSnark<D> {
+    fn from(reg: &ClosedKeyRegistration) -> Self {
+        let key_registration_commitment_for_snark =
+            reg.to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>();
+        Self {
+            merkle_tree_commitment: key_registration_commitment_for_snark
+                .to_merkle_tree_commitment(),
+        }
     }
 }

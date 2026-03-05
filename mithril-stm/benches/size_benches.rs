@@ -9,6 +9,9 @@ use mithril_stm::{
     MithrilMembershipDigest, Parameters, Signer, SingleSignature,
 };
 
+#[cfg(feature = "future_snark")]
+use mithril_stm::MidnightPoseidonDigest;
+
 fn size<D>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
     D: MembershipDigest,
@@ -59,14 +62,15 @@ where
         aggr.to_bytes().len(),
     );
 }
-/// Only for size benches
-#[derive(Clone, Debug, Default)]
-pub struct MembershipDigestU64 {}
 
-impl MembershipDigest for MembershipDigestU64 {
+/// Only for size benches. It only overrides the concatenation hash type.
+#[derive(Clone, Debug, Default)]
+pub struct MembershipDigestConcatenationHashU64 {}
+
+impl MembershipDigest for MembershipDigestConcatenationHashU64 {
     type ConcatenationHash = Blake2b<U64>;
     #[cfg(feature = "future_snark")]
-    type SnarkHash = Blake2b<U64>;
+    type SnarkHash = MidnightPoseidonDigest;
 }
 
 fn main() {
@@ -78,7 +82,7 @@ fn main() {
 
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
-        size::<MembershipDigestU64>(k, m, nparties, "Blake2b 512");
+        size::<MembershipDigestConcatenationHashU64>(k, m, nparties, "Blake2b 512");
         size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 256");
     }
     println!("+-------------------------+");

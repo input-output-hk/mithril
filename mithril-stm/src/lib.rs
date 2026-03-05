@@ -148,11 +148,14 @@ pub use signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 
-#[cfg(feature = "future_snark")]
+#[cfg(all(feature = "future_snark", not(feature = "benchmark-internals")))]
 use hash::poseidon::MidnightPoseidonDigest;
 
+#[cfg(feature = "benchmark-internals")]
+pub use hash::poseidon::MidnightPoseidonDigest;
+
 #[cfg(feature = "future_snark")]
-pub use protocol::VerificationKeyForSnark;
+pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -180,11 +183,11 @@ pub type LotteryTargetValue = crate::signature_scheme::BaseFieldElement;
 pub trait MembershipDigest: Clone {
     type ConcatenationHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
     #[cfg(feature = "future_snark")]
-    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
+    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync + Eq + PartialEq;
 }
 
 /// Default Mithril Membership Digest
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MithrilMembershipDigest {}
 
 /// Default implementation of MembershipDigest for Mithril
