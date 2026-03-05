@@ -129,12 +129,13 @@ impl StmCircuit {
         Ok(())
     }
 
-    pub fn try_new(quorum: u64, num_lotteries: u64, merkle_tree_depth: usize) -> Self {
-        Self {
-            quorum: quorum as u32,
-            num_lotteries: num_lotteries as u32,
-            merkle_tree_depth: merkle_tree_depth as u32,
-        }
+    // Tries to create a new circuit but fails in the variables overflow the u32 limit
+    pub fn try_new(quorum: u64, num_lotteries: u64, merkle_tree_depth: usize) -> StmResult<Self> {
+        Ok(Self {
+            quorum: quorum.try_into()?,
+            num_lotteries: num_lotteries.try_into()?,
+            merkle_tree_depth: merkle_tree_depth.try_into()?,
+        })
     }
 }
 
