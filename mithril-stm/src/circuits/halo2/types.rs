@@ -137,7 +137,7 @@ impl From<Position> for CircuitBaseField {
 /// Merkle authentication path used by the Halo2 circuit witness.
 ///
 /// Each entry stores sibling position and sibling hash value for one tree level.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerklePath {
     /// Ordered list of `(position, sibling_hash)` from leaf level to root level.
     pub siblings: Vec<(Position, CircuitBaseField)>,

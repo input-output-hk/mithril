@@ -179,6 +179,8 @@ impl TryFrom<(RegistrationEntry, Stake, PhiFValue)> for ClosedRegistrationEntry 
         let (entry, total_stake, phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
+            // use crate::proof_system::compute_lottery_target_value;
+
             let vk = entry.get_verification_key_for_snark();
             let target = vk
                 .is_some()
