@@ -14,7 +14,7 @@ use super::{
 /// This signature includes a value `commitment_point` which depends only on
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
 pub struct UniqueSchnorrSignature {
     /// Deterministic value depending on the message and signing key
     pub(crate) commitment_point: ProjectivePoint,

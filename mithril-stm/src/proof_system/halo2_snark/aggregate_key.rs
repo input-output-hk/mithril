@@ -137,8 +137,11 @@ mod tests {
         ];
 
         fn golden_value() -> AggregateVerificationKeyForSnark<D> {
-            let (_parameters, closed_registration) = setup_closed_registration(2);
-            let clerk = SnarkClerk::new_clerk_from_closed_key_registration(&closed_registration);
+            let (parameters, closed_registration) = setup_closed_registration(2);
+            let clerk = SnarkClerk::new_clerk_from_closed_key_registration(
+                &parameters,
+                &closed_registration,
+            );
 
             clerk.compute_aggregate_verification_key_for_snark()
         }
@@ -170,8 +173,11 @@ mod tests {
         "#;
 
         fn golden_value() -> AggregateVerificationKeyForSnark<D> {
-            let (_parameters, closed_registration) = setup_closed_registration(2);
-            let clerk = SnarkClerk::new_clerk_from_closed_key_registration(&closed_registration);
+            let (parameters, closed_registration) = setup_closed_registration(2);
+            let clerk = SnarkClerk::new_clerk_from_closed_key_registration(
+                &parameters,
+                &closed_registration,
+            );
 
             clerk.compute_aggregate_verification_key_for_snark()
         }
