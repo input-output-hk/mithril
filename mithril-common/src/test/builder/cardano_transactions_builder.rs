@@ -31,7 +31,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///     );
 /// ```
 ///
-/// # Example 'build_block_ranges'
+/// # Example 'build_transactions_for_block_ranges'
 ///
 /// ```
 ///     use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
@@ -40,7 +40,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///     let txs = CardanoTransactionsBuilder::new()
 ///         .max_transactions_per_block(3)
 ///         .blocks_per_block_range(2)
-///         .build_block_ranges(2);
+///         .build_transactions_for_block_ranges(2);
 ///
 ///     assert_eq!(3 * 2 * 2, txs.len());
 ///     assert_eq!(
@@ -114,7 +114,10 @@ impl CardanoTransactionsBuilder {
     }
 
     /// Build a list of transactions to get the number of block range requested.
-    pub fn build_block_ranges(self, block_ranges_count: usize) -> Vec<CardanoTransaction> {
+    pub fn build_transactions_for_block_ranges(
+        self,
+        block_ranges_count: usize,
+    ) -> Vec<CardanoTransaction> {
         let nb_txs =
             block_ranges_count * self.max_blocks_per_block_range * self.max_transactions_per_block;
 
@@ -153,187 +156,180 @@ mod test {
 
     use super::*;
 
-    fn count_distinct_values<T, R>(list: &[T], extract_value: &dyn Fn(&T) -> R) -> usize
+    fn count_distinct_values<T, R>(list: &[T], extract_value: &dyn Fn(T) -> R) -> usize
     where
+        T: Clone,
         R: Eq + std::hash::Hash,
     {
-        list.iter().map(extract_value).collect::<HashSet<R>>().len()
+        list.iter().cloned().map(extract_value).collect::<HashSet<R>>().len()
     }
 
-    fn group_by<'a, T, R>(list: &'a [T], extract_value: &dyn Fn(&T) -> R) -> HashMap<R, Vec<&'a T>>
+    fn group_by<'a, T, R>(list: &'a [T], extract_value: &dyn Fn(T) -> R) -> HashMap<R, Vec<&'a T>>
     where
+        T: Clone,
         R: Eq + std::hash::Hash,
     {
         let mut grouped_by_block = HashMap::new();
         for t in list {
-            grouped_by_block.entry(extract_value(t)).or_insert(Vec::new()).push(t);
+            grouped_by_block
+                .entry(extract_value(t.clone()))
+                .or_insert(Vec::new())
+                .push(t);
         }
         grouped_by_block
-    }
-
-    #[test]
-    fn return_given_number_of_transactions_with_distinct_values() {
-        let txs = CardanoTransactionsBuilder::new().build_transactions(3);
-
-        assert_eq!(txs.len(), 3);
-
-        assert_eq!(
-            3,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.slot_number));
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.block_hash.clone()));
-    }
-
-    #[test]
-    fn return_all_transactions_in_same_block_when_ask_less_transactions_than_transactions_per_block()
-     {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(10)
-            .build_transactions(3);
-
-        assert_eq!(txs.len(), 3);
-
-        assert_eq!(
-            3,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-        assert_eq!(1, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(1, count_distinct_values(&txs, &|t| t.block_hash.clone()));
-    }
-
-    #[test]
-    fn return_no_more_transactions_in_a_same_block_than_number_per_block_requested() {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(3)
-            .build_transactions(12);
-
-        assert_eq!(txs.len(), 12);
-
-        assert_eq!(
-            12,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-        assert_eq!(4, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(4, count_distinct_values(&txs, &|t| t.block_hash.clone()));
-    }
-
-    #[test]
-    fn only_the_last_block_is_not_full_when_we_can_not_fill_all_blocks() {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(5)
-            .build_transactions(12);
-
-        assert_eq!(txs.len(), 12);
-
-        assert_eq!(
-            12,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
-
-        let grouped_by_block = group_by(&txs, &|t| t.block_number);
-        let mut txs_per_block: Vec<_> = grouped_by_block.values().map(|v| v.len()).collect();
-        txs_per_block.sort();
-        assert_eq!(vec![2, 5, 5], txs_per_block);
-    }
-
-    #[test]
-    fn generate_one_block_range_return_one_transaction_by_default() {
-        let txs = CardanoTransactionsBuilder::new().build_block_ranges(1);
-        assert_eq!(txs.len(), 1);
-    }
-
-    #[test]
-    fn build_block_ranges_return_the_number_of_block_ranges_requested() {
-        let block_ranges = 3;
-        let txs = CardanoTransactionsBuilder::new().build_block_ranges(block_ranges);
-
-        assert_eq!(txs.len(), 3);
-
-        assert_eq!(
-            3,
-            count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
-        );
-    }
-
-    #[test]
-    fn build_block_ranges_return_many_transactions_per_block_when_requested() {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(5)
-            .build_block_ranges(3);
-
-        assert_eq!(txs.len(), 3 * 5);
-
-        assert_eq!(
-            3 * 5,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-
-        assert_eq!(
-            3,
-            count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
-        );
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.block_hash.clone()));
-    }
-
-    #[test]
-    fn build_block_ranges_with_many_blocks_per_block_ranges() {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(5)
-            .blocks_per_block_range(2)
-            .build_block_ranges(3);
-
-        assert_eq!(txs.len(), 3 * 2 * 5);
-
-        assert_eq!(
-            3 * 2 * 5,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-
-        assert_eq!(
-            3,
-            count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
-        );
-        assert_eq!(3 * 2, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(
-            3 * 2,
-            count_distinct_values(&txs, &|t| t.block_hash.clone())
-        );
-    }
-
-    #[test]
-    fn build_transactions_with_many_blocks_per_block_ranges() {
-        let txs = CardanoTransactionsBuilder::new()
-            .max_transactions_per_block(5)
-            .blocks_per_block_range(2)
-            .build_transactions(18);
-
-        // block range 1 - block 0  - 1, 2, 3, 4, 5
-        // block range 1 - block 1  - 6, 7, 8, 7, 10
-        // block range 2 - block 15 - 11, 12, 13, 14, 15
-        // block range 2 - block 16 - 16, 17, 18
-
-        assert_eq!(txs.len(), 18);
-
-        assert_eq!(
-            18,
-            count_distinct_values(&txs, &|t| t.transaction_hash.clone())
-        );
-
-        assert_eq!(
-            2,
-            count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
-        );
-        assert_eq!(4, count_distinct_values(&txs, &|t| t.block_number));
-        assert_eq!(4, count_distinct_values(&txs, &|t| t.block_hash.clone()));
     }
 
     #[test]
     #[should_panic]
     fn should_panic_when_too_many_blocks_per_block_range() {
         CardanoTransactionsBuilder::new().blocks_per_block_range(*BlockRange::LENGTH as usize + 1);
+    }
+
+    mod build_transactions {
+        use super::*;
+
+        #[test]
+        fn return_given_number_of_transactions_with_distinct_values() {
+            let txs = CardanoTransactionsBuilder::new().build_transactions(3);
+
+            assert_eq!(txs.len(), 3);
+
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.transaction_hash));
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.slot_number));
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.block_hash));
+        }
+
+        #[test]
+        fn return_all_transactions_in_same_block_when_ask_less_transactions_than_transactions_per_block()
+         {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(10)
+                .build_transactions(3);
+
+            assert_eq!(txs.len(), 3);
+
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.transaction_hash));
+            assert_eq!(1, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(1, count_distinct_values(&txs, &|t| t.block_hash));
+        }
+
+        #[test]
+        fn return_no_more_transactions_in_a_same_block_than_number_per_block_requested() {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(3)
+                .build_transactions(12);
+
+            assert_eq!(txs.len(), 12);
+
+            assert_eq!(12, count_distinct_values(&txs, &|t| t.transaction_hash));
+            assert_eq!(4, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(4, count_distinct_values(&txs, &|t| t.block_hash));
+        }
+
+        #[test]
+        fn only_the_last_block_is_not_full_when_we_can_not_fill_all_blocks() {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(5)
+                .build_transactions(12);
+
+            assert_eq!(txs.len(), 12);
+
+            assert_eq!(12, count_distinct_values(&txs, &|t| t.transaction_hash));
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
+
+            let grouped_by_block = group_by(&txs, &|t| t.block_number);
+            let mut txs_per_block: Vec<_> = grouped_by_block.values().map(|v| v.len()).collect();
+            txs_per_block.sort();
+            assert_eq!(vec![2, 5, 5], txs_per_block);
+        }
+
+        #[test]
+        fn build_transactions_with_many_blocks_per_block_ranges() {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(5)
+                .blocks_per_block_range(2)
+                .build_transactions(18);
+
+            // block range 1 - block 0  - 1, 2, 3, 4, 5
+            // block range 1 - block 1  - 6, 7, 8, 7, 10
+            // block range 2 - block 15 - 11, 12, 13, 14, 15
+            // block range 2 - block 16 - 16, 17, 18
+
+            assert_eq!(txs.len(), 18);
+
+            assert_eq!(18, count_distinct_values(&txs, &|t| t.transaction_hash));
+
+            assert_eq!(
+                2,
+                count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
+            );
+            assert_eq!(4, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(4, count_distinct_values(&txs, &|t| t.block_hash));
+        }
+    }
+
+    mod build_transactions_for_block_ranges {
+        use super::*;
+
+        #[test]
+        fn generate_transactions_for_one_block_range_return_one_transaction_by_default() {
+            let txs = CardanoTransactionsBuilder::new().build_transactions_for_block_ranges(1);
+            assert_eq!(txs.len(), 1);
+        }
+
+        #[test]
+        fn build_transactions_for_block_ranges_return_the_number_of_block_ranges_requested() {
+            let block_ranges = 3;
+            let txs =
+                CardanoTransactionsBuilder::new().build_transactions_for_block_ranges(block_ranges);
+
+            assert_eq!(txs.len(), 3);
+
+            assert_eq!(
+                3,
+                count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
+            );
+        }
+
+        #[test]
+        fn build_transactions_for_block_ranges_return_many_transactions_per_block_when_requested() {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(5)
+                .build_transactions_for_block_ranges(3);
+
+            assert_eq!(txs.len(), 3 * 5);
+
+            assert_eq!(3 * 5, count_distinct_values(&txs, &|t| t.transaction_hash));
+
+            assert_eq!(
+                3,
+                count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
+            );
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(3, count_distinct_values(&txs, &|t| t.block_hash));
+        }
+
+        #[test]
+        fn build_transactions_for_block_ranges_with_many_blocks_per_block_ranges() {
+            let txs = CardanoTransactionsBuilder::new()
+                .max_transactions_per_block(5)
+                .blocks_per_block_range(2)
+                .build_transactions_for_block_ranges(3);
+
+            assert_eq!(txs.len(), 3 * 2 * 5);
+
+            assert_eq!(
+                3 * 2 * 5,
+                count_distinct_values(&txs, &|t| t.transaction_hash)
+            );
+
+            assert_eq!(
+                3,
+                count_distinct_values(&txs, &|t| BlockRange::start(t.block_number))
+            );
+            assert_eq!(3 * 2, count_distinct_values(&txs, &|t| t.block_number));
+            assert_eq!(3 * 2, count_distinct_values(&txs, &|t| t.block_hash));
+        }
     }
 }
