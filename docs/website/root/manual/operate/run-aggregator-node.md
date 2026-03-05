@@ -997,6 +997,26 @@ sudo mkdir -p /opt/dmq
 sudo mv dmq-node /opt/dmq
 ```
 
+#### Create the DMQ node socket directory
+
+Create the directory that will hold the DMQ node IPC socket file:
+
+```bash
+sudo mkdir -p $(dirname **YOUR_DMQ_NODE_SOCKET_PATH**)
+sudo chown cardano:cardano $(dirname **YOUR_DMQ_NODE_SOCKET_PATH**)
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo mkdir -p $(dirname /dmq/ipc/node.socket)
+sudo chown cardano:cardano $(dirname /dmq/ipc/node.socket)
+```
+
+:::
+
 #### Prepare the configuration file of the DMQ node
 
 Create a `/opt/dmq/config.json` configuration file:
@@ -1005,7 +1025,7 @@ Create a `/opt/dmq/config.json` configuration file:
 bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
-  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": true,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
@@ -1036,7 +1056,7 @@ Here is an example of the aforementioned command created with the example set fo
 bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": 2,
-  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": true,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,

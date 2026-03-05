@@ -911,6 +911,27 @@ The DMQ node follows the same deployment model as the Mithril signer node and th
 
 If you choose the **production** deployment, you will need to install and configure the DMQ node on both the **Cardano block producer** machine and the **Cardano relay** machine, following the same steps.
 
+:::info
+
+**Which deployment should I use?**
+
+In this section, **production deployment** refers only to the recommended **two-machine deployment model** (Cardano block producer + Cardano relay), not to the maturity or production-readiness of the **DMQ** itself. The earlier warning that the DMQ setup is **not suitable for production use on mainnet** still applies.
+
+On **testnet**, we recommend the **production** deployment model, but you can use the **naive** deployment for testing purposes only.
+
+:::
+
+:::info
+
+**Which DMQ node socket path should I use in the Mithril signer configuration?**
+
+The Mithril signer must connect to the DMQ node socket that is on the **same machine** where the signer is running:
+
+- For **production** deployment: use the **block-producer** DMQ node socket path (since the Mithril signer runs on the block producer machine)
+- For **naive** deployment: use the **relay** DMQ node socket path (since the Mithril signer runs on the relay machine).
+
+:::
+
 :::caution
 
 - Here is the needed information to set up a DMQ node:
@@ -993,6 +1014,26 @@ sudo mkdir -p /opt/dmq
 sudo mv dmq-node /opt/dmq
 ```
 
+#### Create the DMQ node socket directory
+
+Create the directory that will hold the DMQ node IPC socket file:
+
+```bash
+sudo mkdir -p $(dirname **YOUR_DMQ_NODE_SOCKET_PATH**)
+sudo chown cardano:cardano $(dirname **YOUR_DMQ_NODE_SOCKET_PATH**)
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `pre-release-preview`:
+
+```bash
+sudo mkdir -p $(dirname /dmq/ipc/node.socket)
+sudo chown cardano:cardano $(dirname /dmq/ipc/node.socket)
+```
+
+:::
+
 #### Prepare the configuration file of the DMQ node
 
 - For a **DMQ node on the relay machine**, create a `/opt/dmq/config-relay.json` configuration file:
@@ -1001,7 +1042,7 @@ sudo mv dmq-node /opt/dmq
 bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
-  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": true,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
@@ -1032,7 +1073,7 @@ Here is an example of the aforementioned command created with the example set fo
 bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
   "CardanoNetworkMagic": 2,
-  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": true,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
@@ -1063,7 +1104,7 @@ EOF'
 bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
-  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**"
+  "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": false,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
@@ -1094,7 +1135,7 @@ Here is an example of the aforementioned command created with the example set fo
 bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": 2,
-  "CardanoNodeSocket": "/cardano/ipc/node.socket"
+  "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": false,
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
@@ -1124,6 +1165,15 @@ EOF'
 :::tip
 
 The DMQ node's topology file follows a similar format to the Cardano node's topology file. More information is available at [Cardano node topology](https://developers.cardano.org/docs/get-started/infrastructure/node/topology/).
+
+:::
+
+:::info
+
+**Which peers should be configured for each DMQ node?**
+
+- The **relay** DMQ node connects to the **DMQ bootstrap peer** from the [Mithril networks](../getting-started/network-configurations.md) table. This is how your relay discovers and communicates with the rest of the DMQ network.
+- The **block producer** DMQ node connects **only** to your own **relay** DMQ node (using the relay's **internal** IP address). The block producer should **never** connect directly to external bootstrap peers.
 
 :::
 
@@ -1418,7 +1468,10 @@ tail -f /var/log/syslog | grep dmq-bp
 
 ### Update the configuration of the Mithril signer
 
-The Mithril signer node must be configured to use the DMQ node (use the **block-producer** DMQ node socket path for the **production** deployment):
+The Mithril signer node must be configured to use the DMQ node. The socket path to use depends on your deployment model:
+
+- For **production** deployment: use the **block-producer** DMQ node socket path (the Mithril signer runs on the block producer machine)
+- For **naive** deployment: use the **relay** DMQ node socket path (the Mithril signer runs on the relay machine).
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
