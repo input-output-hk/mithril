@@ -4,6 +4,7 @@ mod eligibility;
 mod message;
 mod signer;
 mod single_signature;
+mod witness;
 
 pub(crate) use aggregate_key::AggregateVerificationKeyForSnark;
 pub(crate) use clerk::SnarkClerk;
