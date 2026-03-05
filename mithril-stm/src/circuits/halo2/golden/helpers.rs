@@ -13,13 +13,11 @@ use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use thiserror::Error;
 
 use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
-use crate::circuits::halo2::utils::MerklePathAdapterError;
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -45,88 +43,21 @@ type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCircuit>)
 /// Cache map for verification/proving keys keyed by STM circuit configuration.
 type CircuitKeysCache = HashMap<StmCircuitConfig, Arc<CircuitVerificationAndProvingKeyPair>>;
 
-/// Errors returned by `prove_and_verify_result`.
-#[derive(Debug, Error)]
-pub(crate) enum StmCircuitProofError {
-    /// Merkle tree depth does not fit shift constraints for fixture sizing.
-    #[error("Invalid merkle tree depth")]
-    InvalidMerkleTreeDepth,
-    /// Selected leaf index is out of bounds for tree size.
-    #[error("Invalid selected leaf index")]
-    InvalidSelectedLeafIndex,
-    /// Empty indices provided where at least one index is required.
-    #[error("Empty indices")]
-    EmptyIndices,
-    /// Witness must contain at least two entries.
-    #[error("Witness too short")]
-    WitnessTooShort,
-    /// No distinct witness entries were found.
-    #[error("No distinct witness entries")]
-    NoDistinctWitnessEntries,
-    /// Tried to build a witness from an empty signer set.
-    #[error("Empty signer leaves")]
-    EmptySignerLeaves,
-    /// Signer leaf index is out of bounds.
-    #[error("Invalid signer leaf index")]
-    InvalidSignerFixtureIndex,
-    /// Failed to decode LotteryTargetValue from field bytes.
-    #[error("Invalid lottery target bytes: {details}")]
-    InvalidLotteryTargetBytes { details: String },
-    /// Failed to decode challenge bytes into a base field element.
-    #[error("Invalid challenge bytes")]
-    InvalidChallengeBytes,
-    /// Challenge bytes decode but do not match the native challenge field value.
-    #[error("Challenge endianness mismatch")]
-    ChallengeEndiannessMismatch,
-    /// Merkle root digest has an invalid byte length.
-    #[error("Invalid merkle root digest length: expected 32, got {actual}")]
-    InvalidMerkleRootDigestLength { actual: usize },
-    /// Merkle root digest is not a canonical base field element encoding.
-    #[error("Non-canonical merkle root digest")]
-    NonCanonicalMerkleRoot,
-    /// Merkle path adaptation from STM format to Halo2 witness format failed.
-    #[error("Merkle path adaptation failed")]
-    MerklePathAdapter(#[from] MerklePathAdapterError),
-    /// STM Merkle-path verification failed for the selected leaf.
-    #[error("Merkle path verification failed: {details}")]
-    MerklePathVerificationFailed { details: String },
-    /// Failed to create the local assets directory for persisted circuit params.
-    #[error("Failed to create params assets directory at '{path}': {source}")]
-    ParamsAssetsDirCreate {
-        path: String,
-        #[source]
-        source: std::io::Error,
-    },
-    /// In-memory circuit key cache lock is poisoned.
-    #[error("Circuit keys cache lock poisoned ({operation}): {details}")]
-    CircuitKeysCacheLockPoisoned {
-        operation: &'static str,
-        details: String,
-    },
-    /// Signature generation failed.
-    #[error("Signature generation failed: {details}")]
-    SignatureGeneration { details: String },
-    /// Signature verification failed.
-    #[error("Signature verification failed: {details}")]
-    SignatureVerification { details: String },
-    /// Proof verification failed after proof generation.
-    #[error("Proof verification rejected")]
-    VerificationRejected,
-    /// Proving/verification failures propagated with context via anyhow.
-    #[error("Proof flow failed: {source}")]
-    Proof {
-        #[source]
-        source: anyhow::Error,
-    },
-}
-
-/// Result type for STM circuit golden helpers.
-type GoldenResult<T> = Result<T, StmCircuitProofError>;
-
 /// Assert that proving succeeded but the verifier rejected the generated proof.
-pub(crate) fn assert_proof_rejected_by_verifier(result: Result<(), StmCircuitProofError>) {
+pub(crate) fn assert_proof_rejected_by_verifier(result: crate::StmResult<()>) {
     match result {
-        Err(StmCircuitProofError::VerificationRejected) => {}
+        Err(error) => {
+            let has_verification_rejected = error.chain().any(|err| {
+                matches!(
+                    err.downcast_ref::<StmCircuitError>(),
+                    Some(StmCircuitError::VerificationRejected)
+                )
+            });
+            assert!(
+                has_verification_rejected,
+                "expected verification failure, got: {error}"
+            );
+        }
         other => panic!("expected verification failure, got: {other:?}"),
     }
 }
@@ -134,15 +65,13 @@ pub(crate) fn assert_proof_rejected_by_verifier(result: Result<(), StmCircuitPro
 /// Extract the circuit-level proving failure from a prove+verify result.
 ///
 /// Panics when the result is not a circuit proving failure.
-pub(crate) fn assert_proving_circuit_error<T>(
-    result: Result<T, StmCircuitProofError>,
-) -> StmCircuitError {
+pub(crate) fn assert_proving_circuit_error<T>(result: crate::StmResult<T>) -> StmCircuitError {
     match result {
-        Err(StmCircuitProofError::Proof { source }) => source
+        Err(error) => error
             .chain()
             .find_map(|err| err.downcast_ref::<StmCircuitError>())
             .cloned()
-            .unwrap_or_else(|| panic!("expected StmCircuitError in source chain, got: {source}")),
+            .unwrap_or_else(|| panic!("expected StmCircuitError in source chain, got: {error}")),
         _ => panic!("expected circuit proving failure"),
     }
 }
@@ -150,18 +79,27 @@ pub(crate) fn assert_proving_circuit_error<T>(
 /// Assert proving failed with a backend synthesis message containing `expected`.
 ///
 /// This is intended for test-only checks when Midnight returns untyped synthesis strings.
+/// At the relation boundary, typed `StmCircuitError` guard failures are flattened into
+/// `PlonkError::Synthesis(String)`, so message checks are the only robust assertion path.
 pub(crate) fn assert_proving_backend_message_contains<T>(
-    result: Result<T, StmCircuitProofError>,
+    result: crate::StmResult<T>,
     expected: &str,
 ) {
-    match assert_proving_circuit_error(result) {
-        StmCircuitError::CircuitExecutionFailed(message) => {
+    match result {
+        Err(error) => {
+            let message = error.chain().find_map(|err| match err.downcast_ref::<PlonkError>() {
+                Some(PlonkError::Synthesis(message)) => Some(message),
+                _ => None,
+            });
+            let message = message.unwrap_or_else(|| {
+                panic!("expected PlonkError::Synthesis in source chain, got: {error}")
+            });
             assert!(
                 message.contains(expected),
                 "expected backend message to contain '{expected}', got '{message}'"
             );
         }
-        other => panic!("expected CircuitExecutionFailed, got: {other:?}"),
+        _ => panic!("expected circuit proving failure"),
     }
 }
 
@@ -231,15 +169,12 @@ impl From<&SignerFixture> for MTLeaf {
     }
 }
 
-fn target_value_from_field(target: F) -> GoldenResult<LotteryTargetValue> {
-    LotteryTargetValue::from_bytes(&target.to_bytes_le()).map_err(|e| {
-        StmCircuitProofError::InvalidLotteryTargetBytes {
-            details: format!("{e}"),
-        }
-    })
+fn target_value_from_field(target: F) -> crate::StmResult<LotteryTargetValue> {
+    LotteryTargetValue::from_bytes(&target.to_bytes_le())
+        .map_err(|e| anyhow!("Invalid lottery target bytes: {e}"))
 }
 
-fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> GoldenResult<SignerFixture> {
+fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> crate::StmResult<SignerFixture> {
     let stm_sk = SchnorrSigningKey::generate(rng);
     let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone());
     let target_value = target_value_from_field(target)?;
@@ -277,46 +212,44 @@ impl StmMerkleTreeWrapper {
     }
 
     /// Return a Halo2-style Merkle path for the given leaf index.
-    pub(crate) fn get_path(&self, i: usize) -> GoldenResult<MerklePath> {
+    pub(crate) fn get_path(&self, i: usize) -> crate::StmResult<MerklePath> {
         let stm_path = self.stm_tree.compute_merkle_tree_path(i);
         let stm_leaf: MerkleTreeSnarkLeaf = self.signer_fixture(i)?.into();
         self.stm_tree
             .to_merkle_tree_commitment()
             .verify_leaf_membership_from_path(&stm_leaf, &stm_path)
-            .map_err(|e| StmCircuitProofError::MerklePathVerificationFailed {
-                details: format!("{e}"),
-            })?;
+            .map_err(|e| anyhow!("Merkle path verification failed: {e}"))?;
         (&stm_path).try_into().map_err(Into::into)
     }
 
     /// Return signer fixture material at index `i`.
-    fn signer_fixture(&self, i: usize) -> GoldenResult<&SignerFixture> {
+    fn signer_fixture(&self, i: usize) -> crate::StmResult<&SignerFixture> {
         self.signer_fixtures
             .get(i)
-            .ok_or(StmCircuitProofError::InvalidSignerFixtureIndex)
+            .ok_or_else(|| anyhow!("Invalid signer leaf index"))
     }
 }
 
-fn decode_merkle_root(root_bytes: &[u8]) -> GoldenResult<F> {
+fn decode_merkle_root(root_bytes: &[u8]) -> crate::StmResult<F> {
     let actual = root_bytes.len();
     let root_array: [u8; 32] = root_bytes
         .try_into()
-        .map_err(|_| StmCircuitProofError::InvalidMerkleRootDigestLength { actual })?;
+        .map_err(|_| anyhow!("Invalid merkle root digest length: expected 32, got {actual}"))?;
     BaseFieldElement::from_bytes(&root_array)
         .ok()
         .map(|base| base.0)
-        .ok_or(StmCircuitProofError::NonCanonicalMerkleRoot)
+        .ok_or_else(|| anyhow!("Non-canonical merkle root digest"))
 }
 
 fn build_merkle_tree_wrapper(
     n: usize,
     selected_index: Option<usize>,
     target: F,
-) -> GoldenResult<StmMerkleTreeWrapper> {
+) -> crate::StmResult<StmMerkleTreeWrapper> {
     if let Some(i) = selected_index
         && i >= n
     {
-        return Err(StmCircuitProofError::InvalidSelectedLeafIndex);
+        return Err(anyhow!("Invalid selected leaf index"));
     }
 
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -342,7 +275,7 @@ fn build_merkle_tree_wrapper(
 }
 
 /// Build a default Merkle tree with all leaves set to the max target.
-pub(crate) fn create_default_merkle_tree(n: usize) -> GoldenResult<StmMerkleTreeWrapper> {
+pub(crate) fn create_default_merkle_tree(n: usize) -> crate::StmResult<StmMerkleTreeWrapper> {
     build_merkle_tree_wrapper(n, None, -F::ONE)
 }
 
@@ -351,9 +284,9 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
     depth: u32,
     selector: LeafSelector,
     target: F,
-) -> GoldenResult<(StmMerkleTreeWrapper, usize)> {
+) -> crate::StmResult<(StmMerkleTreeWrapper, usize)> {
     if depth >= usize::BITS {
-        return Err(StmCircuitProofError::InvalidMerkleTreeDepth);
+        return Err(anyhow!("Invalid merkle tree depth"));
     }
     let n = 1usize << depth;
     let selected_index = match selector {
@@ -361,7 +294,7 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
         LeafSelector::RightMost => n - 1,
         LeafSelector::Index(i) => {
             if i >= n {
-                return Err(StmCircuitProofError::InvalidSelectedLeafIndex);
+                return Err(anyhow!("Invalid selected leaf index"));
             }
             i
         }
@@ -375,13 +308,13 @@ fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
     [BaseFieldElement(merkle_root), BaseFieldElement(msg)]
 }
 
-fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> GoldenResult<()> {
+fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> crate::StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
     let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
         .into_option()
-        .ok_or(StmCircuitProofError::InvalidChallengeBytes)?;
+        .ok_or_else(|| anyhow!("Invalid challenge bytes"))?;
     if challenge_native != sig.challenge.0 {
-        return Err(StmCircuitProofError::ChallengeEndiannessMismatch);
+        return Err(anyhow!("Challenge endianness mismatch"));
     }
     Ok(())
 }
@@ -391,19 +324,16 @@ fn sign_and_verify_lottery_message(
     merkle_root: F,
     msg: F,
     rng: &mut ChaCha20Rng,
-) -> GoldenResult<UniqueSchnorrSignature> {
+) -> crate::StmResult<UniqueSchnorrSignature> {
     let transcript = transcript_message(merkle_root, msg);
-    let stm_sig = signer_fixture.sk.sign(&transcript, rng).map_err(|e| {
-        StmCircuitProofError::SignatureGeneration {
-            details: format!("{e}"),
-        }
-    })?;
+    let stm_sig = signer_fixture
+        .sk
+        .sign(&transcript, rng)
+        .map_err(|e| anyhow!("Signature generation failed: {e}"))?;
     assert_challenge_endianness(&stm_sig)?;
-    stm_sig.verify(&transcript, &signer_fixture.vk).map_err(|e| {
-        StmCircuitProofError::SignatureVerification {
-            details: format!("{e}"),
-        }
-    })?;
+    stm_sig
+        .verify(&transcript, &signer_fixture.vk)
+        .map_err(|e| anyhow!("Signature verification failed: {e}"))?;
     Ok(stm_sig)
 }
 
@@ -413,7 +343,7 @@ pub(crate) fn build_witness(
     merkle_root: F,
     msg: F,
     quorum: u32,
-) -> GoldenResult<Vec<WitnessEntry>> {
+) -> crate::StmResult<Vec<WitnessEntry>> {
     let indices: Vec<u32> = (0..quorum).collect();
     build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
 }
@@ -425,7 +355,7 @@ pub(crate) fn build_witness_with_indices(
     merkle_root: F,
     msg: F,
     indices: &[u32],
-) -> GoldenResult<Vec<WitnessEntry>> {
+) -> crate::StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
         merkle_root,
@@ -443,7 +373,7 @@ pub(crate) fn build_witness_with_fixed_signer(
     merkle_root: F,
     msg: F,
     indices: &[u32],
-) -> GoldenResult<Vec<WitnessEntry>> {
+) -> crate::StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
         merkle_root,
@@ -468,18 +398,18 @@ fn build_witness_internal(
     merkle_root: F,
     msg: F,
     mode: WitnessBuildMode<'_>,
-) -> GoldenResult<Vec<WitnessEntry>> {
+) -> crate::StmResult<Vec<WitnessEntry>> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut witness = Vec::new();
 
     match mode {
         WitnessBuildMode::Indices(indices) => {
             if indices.is_empty() {
-                return Err(StmCircuitProofError::EmptyIndices);
+                return Err(anyhow!("Empty indices"));
             }
             let num_signers = merkle_tree.signer_fixtures.len();
             if num_signers == 0 {
-                return Err(StmCircuitProofError::EmptySignerLeaves);
+                return Err(anyhow!("Empty signer leaves"));
             }
 
             for (i, index) in indices.iter().enumerate() {
@@ -496,7 +426,7 @@ fn build_witness_internal(
             indices,
         } => {
             if indices.is_empty() {
-                return Err(StmCircuitProofError::EmptyIndices);
+                return Err(anyhow!("Empty indices"));
             }
             let signer_fixture = merkle_tree.signer_fixture(signer_index)?;
             let merkle_path = merkle_tree.get_path(signer_index)?;
@@ -518,16 +448,16 @@ fn build_witness_internal(
 /// returns an error instead of searching later entries.
 pub(crate) fn find_two_distinct_witness_entries(
     witness: &[WitnessEntry],
-) -> GoldenResult<(usize, usize)> {
+) -> crate::StmResult<(usize, usize)> {
     if witness.len() < 2 {
-        return Err(StmCircuitProofError::WitnessTooShort);
+        return Err(anyhow!("Witness too short"));
     }
     let leaf0 = witness[0].0;
     let leaf1 = witness[1].0;
     if leaf0 != leaf1 {
         return Ok((0, 1));
     }
-    Err(StmCircuitProofError::NoDistinctWitnessEntries)
+    Err(anyhow!("No distinct witness entries"))
 }
 
 impl StmCircuitEnv {
@@ -559,14 +489,13 @@ pub(crate) fn setup_stm_circuit_env(
     k: u32,
     quorum: u32,
     num_lotteries: u32,
-) -> GoldenResult<StmCircuitEnv> {
+) -> crate::StmResult<StmCircuitEnv> {
     let srs = load_or_generate_params(k)?;
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let relation = StmCircuit::new(quorum, num_lotteries, depth);
-    validate_relation_for_setup(&relation)
-        .map_err(|source| StmCircuitProofError::Proof { source })?;
+    validate_relation_for_setup(&relation)?;
 
     {
         let stm_circuit = MidnightCircuit::from_relation(&relation);
@@ -596,11 +525,11 @@ pub(crate) fn setup_stm_circuit_env(
     })
 }
 
-/// Prove and verify a scenario, returning a typed result for negative tests.
+/// Prove and verify a scenario, returning `StmResult` for negative tests.
 pub(crate) fn prove_and_verify_result(
     env: &StmCircuitEnv,
     scenario: StmCircuitScenario,
-) -> GoldenResult<()> {
+) -> crate::StmResult<()> {
     let instance = (scenario.merkle_root, scenario.msg);
 
     let start = Instant::now();
@@ -632,22 +561,13 @@ pub(crate) fn prove_and_verify_result(
     if verify_result.is_ok() {
         Ok(())
     } else {
-        Err(StmCircuitProofError::VerificationRejected)
+        Err(anyhow!(StmCircuitError::VerificationRejected)
+            .context(format!("Proof verification step failed: {verify_result:?}")))
     }
 }
 
-fn map_proving_backend_error(error: PlonkError) -> StmCircuitProofError {
-    // Midnight collapses circuit-side validation failures into `Error::Synthesis(String)`.
-    // Forward backend text with context instead of parsing it at runtime.
-    let circuit_error = match error {
-        PlonkError::Synthesis(message) => {
-            StmCircuitError::CircuitExecutionFailed(format!("Synthesis error: {message}"))
-        }
-        other => StmCircuitError::CircuitExecutionFailed(format!("proving backend error: {other}")),
-    };
-
-    let source = anyhow::Error::new(circuit_error).context("Proving step failed");
-    StmCircuitProofError::Proof { source }
+fn map_proving_backend_error(error: PlonkError) -> crate::StmError {
+    anyhow::Error::new(error).context("Proving step failed")
 }
 
 /// Run a case using the default message (F::from(DEFAULT_TEST_MSG)).
@@ -655,7 +575,7 @@ pub(crate) fn run_stm_circuit_case_default(
     case_name: &str,
     k: u32,
     quorum: u32,
-) -> GoldenResult<()> {
+) -> crate::StmResult<()> {
     run_stm_circuit_case(case_name, k, quorum, F::from(DEFAULT_TEST_MSG))
 }
 
@@ -665,7 +585,7 @@ pub(crate) fn run_stm_circuit_case(
     k: u32,
     quorum: u32,
     msg: F,
-) -> GoldenResult<()> {
+) -> crate::StmResult<()> {
     let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
     let env = setup_stm_circuit_env(case_name, k, quorum, num_lotteries)?;
     let merkle_tree = create_default_merkle_tree(env.num_signers())?;
@@ -679,7 +599,7 @@ pub(crate) fn run_stm_circuit_case(
 }
 
 // Load cached KZG params if present; otherwise generate and persist them for reuse.
-fn load_or_generate_params(k: u32) -> GoldenResult<ParamsKZG<Bls12>> {
+fn load_or_generate_params(k: u32) -> crate::StmResult<ParamsKZG<Bls12>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
     let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
@@ -688,9 +608,11 @@ fn load_or_generate_params(k: u32) -> GoldenResult<ParamsKZG<Bls12>> {
         return Ok(load_params(path.to_string_lossy().as_ref()));
     }
 
-    create_dir_all(&assets_dir).map_err(|source| StmCircuitProofError::ParamsAssetsDirCreate {
-        path: assets_dir.to_string_lossy().into_owned(),
-        source,
+    create_dir_all(&assets_dir).with_context(|| {
+        format!(
+            "Failed to create params assets directory at '{}'",
+            assets_dir.to_string_lossy()
+        )
     })?;
     Ok(generate_params(k, path.to_string_lossy().as_ref()))
 }
@@ -700,15 +622,12 @@ fn get_or_build_circuit_keys(
     config: StmCircuitConfig,
     relation: &StmCircuit,
     srs: &ParamsKZG<Bls12>,
-) -> GoldenResult<Arc<CircuitVerificationAndProvingKeyPair>> {
+) -> crate::StmResult<Arc<CircuitVerificationAndProvingKeyPair>> {
     static STM_CIRCUIT_KEYS_CACHE: LazyLock<RwLock<CircuitKeysCache>> =
         LazyLock::new(|| RwLock::new(HashMap::new()));
     if let Some(key_pair) = STM_CIRCUIT_KEYS_CACHE
         .read()
-        .map_err(|e| StmCircuitProofError::CircuitKeysCacheLockPoisoned {
-            operation: "read",
-            details: format!("{e}"),
-        })?
+        .map_err(|e| anyhow!("Circuit keys cache lock poisoned (read): {e}"))?
         .get(&config)
         .cloned()
     {
@@ -721,18 +640,21 @@ fn get_or_build_circuit_keys(
         let pk = zk::setup_pk(relation, &vk);
         (vk, pk)
     }))
-    .map_err(|_| anyhow!("Midnight setup failed before proving"))
-    .map_err(|source| StmCircuitProofError::Proof { source })?;
+    .map_err(|panic_payload| {
+        let details = panic_payload
+            .downcast_ref::<&str>()
+            .map(|msg| (*msg).to_owned())
+            .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "non-string panic payload".to_string());
+        anyhow!("Midnight setup panicked before proving: {details}")
+    })?;
     let duration = start.elapsed();
     println!("\nvk pk generation took: {:?}", duration);
 
     let key_pair = Arc::new((vk, pk));
     STM_CIRCUIT_KEYS_CACHE
         .write()
-        .map_err(|e| StmCircuitProofError::CircuitKeysCacheLockPoisoned {
-            operation: "write",
-            details: format!("{e}"),
-        })?
+        .map_err(|e| anyhow!("Circuit keys cache lock poisoned (write): {e}"))?
         .insert(config, key_pair.clone());
     Ok(key_pair)
 }

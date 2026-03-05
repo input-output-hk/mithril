@@ -45,9 +45,6 @@ fn big_unsigned_integer_to_field_element<F: PrimeField>(e: BigUint) -> Result<F,
 }
 
 #[cfg(test)]
-pub(crate) use merkle_path_adapter::MerklePathAdapterError;
-
-#[cfg(test)]
 mod merkle_path_adapter {
     use crate::circuits::halo2::types::{MerklePath as Halo2MerklePath, Position};
     use crate::membership_commitment::MerklePath as StmMerklePath;

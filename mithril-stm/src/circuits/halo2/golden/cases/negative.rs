@@ -360,6 +360,7 @@ fn merkle_path_length_short() {
     witness[0].1.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    // Relation boundary flattens this typed guard error into `PlonkError::Synthesis(String)`.
     assert_proving_backend_message_contains(
         prove_and_verify_result(&env, scenario),
         &format!(
@@ -397,6 +398,7 @@ fn merkle_path_length_long() {
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    // Relation boundary flattens this typed guard error into `PlonkError::Synthesis(String)`.
     assert_proving_backend_message_contains(
         prove_and_verify_result(&env, scenario),
         &format!(
@@ -552,6 +554,7 @@ fn witness_length_short() {
     witness.pop();
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    // Relation boundary flattens this typed guard error into `PlonkError::Synthesis(String)`.
     assert_proving_backend_message_contains(
         prove_and_verify_result(&env, scenario),
         &format!("Circuit::validate_witness_length failed: expected quorum {QUORUM}, got 2"),
@@ -583,6 +586,7 @@ fn witness_length_long() {
     witness.push(extra);
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    // Relation boundary flattens this typed guard error into `PlonkError::Synthesis(String)`.
     assert_proving_backend_message_contains(
         prove_and_verify_result(&env, scenario),
         &format!("Circuit::validate_witness_length failed: expected quorum {QUORUM}, got 4"),
