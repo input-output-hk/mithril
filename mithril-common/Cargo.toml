@@ -26,7 +26,6 @@ rug-backend = ["mithril-stm/rug-backend"]
 # Enables `num-integer-backend` features for `mithril-stm` dependency
 num-integer-backend = ["mithril-stm/num-integer-backend"]
 
-
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 

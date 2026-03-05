@@ -9,6 +9,11 @@ homepage = "https://mithril.network"
 license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
+[features]
+default = ["rustls-tls"]
+bundle_tls = ["mithril-client/native-tls-vendored"]
+rustls-tls = ["mithril-client/rustls-tls"]
+
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }

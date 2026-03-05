@@ -197,23 +197,23 @@
         packages = {
           default = mithril;
           inherit mithril mithril-stm mithril-common;
-          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features full"; };
+          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features rustls-tls,full"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
 
         } // lib.optionalAttrs (pkgsMusl != null) {
 
           mithril-aggregator =
             buildPackageMusl ./mithril-aggregator/Cargo.toml mithril-common-musl.cargoArtifacts {
-              cargoExtraArgs = "-p mithril-aggregator --features rustls-tls,jemallocator";
+              cargoExtraArgs = "-p mithril-aggregator --features jemallocator";
             };
           mithril-signer =
             buildPackageMusl ./mithril-signer/Cargo.toml mithril-common-musl.cargoArtifacts {
-              cargoExtraArgs = "-p mithril-signer --features rustls-tls,jemallocator";
+              cargoExtraArgs = "-p mithril-signer --features jemallocator";
             };
           mithril-client-cli =
             buildPackageMusl ./mithril-client-cli/Cargo.toml mithril-common-musl.cargoArtifacts {
               pname = "mithril-client";
-              cargoExtraArgs = "-p mithril-client-cli --features rustls-tls";
+              cargoExtraArgs = "-p mithril-client-cli";
             };
         };
 
