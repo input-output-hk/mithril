@@ -14,8 +14,10 @@ use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
     CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, Epoch, PartyId,
     ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants, Signer, SignerWithStake,
+    SupportedEra,
 };
 use mithril_common::logging::LoggerExtensions;
+use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
 
 /// Errors dedicated to the EpochService.
@@ -40,6 +42,9 @@ pub trait EpochService: Sync + Send {
         current_signers: Vec<Signer>,
         next_signers: Vec<Signer>,
     ) -> StdResult<()>;
+
+    /// Get the current Mithril era.
+    fn mithril_era(&self) -> StdResult<SupportedEra>;
 
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -82,6 +87,7 @@ pub trait EpochService: Sync + Send {
 }
 
 pub(crate) struct EpochData {
+    pub mithril_era: SupportedEra,
     pub epoch: Epoch,
     pub registration_protocol_parameters: ProtocolParameters,
     pub protocol_initializer: Option<ProtocolInitializer>,
@@ -94,6 +100,7 @@ pub(crate) struct EpochData {
 
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
+    era_checker: Arc<EraChecker>,
     stake_storer: Arc<dyn StakeStorer>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     epoch_data: Option<EpochData>,
@@ -103,11 +110,13 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
+        era_checker: Arc<EraChecker>,
         stake_storer: Arc<dyn StakeStorer>,
         protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
         logger: Logger,
     ) -> Self {
         Self {
+            era_checker,
             stake_storer,
             protocol_initializer_store,
             epoch_data: None,
@@ -220,7 +229,10 @@ impl EpochService for MithrilEpochService {
         let cardano_blocks_transactions_signing_config =
             signed_entity_types_config.cardano_blocks_transactions.clone();
 
+        let mithril_era = self.era_checker.current_era();
+
         self.epoch_data = Some(EpochData {
+            mithril_era,
             epoch: aggregator_signer_registration_epoch,
             registration_protocol_parameters,
             protocol_initializer,
@@ -232,6 +244,10 @@ impl EpochService for MithrilEpochService {
         });
 
         Ok(())
+    }
+
+    fn mithril_era(&self) -> StdResult<SupportedEra> {
+        Ok(self.unwrap_data()?.mithril_era)
     }
 
     fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -358,13 +374,17 @@ impl MithrilEpochService {
         use crate::database::repository::StakePoolStore;
         use crate::database::test_helper::main_db_connection;
         use crate::test::TestLogger;
+        use mithril_common::entities::Epoch;
+        use mithril_common::test::double::Dummy;
 
         let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(sqlite_connection, None));
+        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy(), Epoch::default()));
 
         Self::new(
+            era_checker,
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -374,9 +394,10 @@ impl MithrilEpochService {
     /// `TEST ONLY` - Set all data to either default values, empty values, or fake values
     /// if no default/empty can be set.
     pub fn set_data_to_default_or_fake(mut self, epoch: Epoch) -> Self {
-        use mithril_common::test::double::fake_data;
+        use mithril_common::test::double::{Dummy, fake_data};
 
         let epoch_data = EpochData {
+            mithril_era: SupportedEra::dummy(),
             epoch,
             registration_protocol_parameters: fake_data::protocol_parameters(),
             protocol_initializer: None,
@@ -417,6 +438,8 @@ pub(crate) mod mock_epoch_service {
                 current_signers: Vec<Signer>,
                 next_signers: Vec<Signer>,
             ) -> StdResult<()>;
+
+            fn mithril_era(&self) -> StdResult<SupportedEra>;
 
             fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
@@ -480,6 +503,10 @@ mod tests {
 
     use super::*;
 
+    fn build_era_checker() -> Arc<EraChecker> {
+        Arc::new(EraChecker::new(SupportedEra::dummy(), Epoch::default()))
+    }
+
     #[test]
     fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set()
      {
@@ -496,6 +523,7 @@ mod tests {
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
         let service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -532,6 +560,7 @@ mod tests {
         let next_signers = signers[2..5].to_vec();
 
         let mut service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -680,6 +709,7 @@ mod tests {
 
         // Build service and register epoch settings
         let service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -722,6 +752,7 @@ mod tests {
 
         // Build service and register epoch settings
         let mut service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -836,6 +867,7 @@ mod tests {
 
         // Build service and register epoch settings
         let mut service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -890,6 +922,7 @@ mod tests {
             .unwrap();
 
         let mut service = MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
@@ -923,6 +956,7 @@ mod tests {
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            build_era_checker(),
             stake_store,
             protocol_initializer_store,
             TestLogger::stdout(),
