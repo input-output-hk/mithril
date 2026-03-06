@@ -3,6 +3,7 @@ use crate::{
     membership_commitment::{MerklePath, MerkleTreeSnarkLeaf},
 };
 
+#[allow(dead_code)]
 pub(crate) struct SignerWitness<D: MembershipDigest> {
     merkle_tree_leaf: MerkleTreeSnarkLeaf,
     merkle_path: MerklePath<D::SnarkHash>,
@@ -10,6 +11,7 @@ pub(crate) struct SignerWitness<D: MembershipDigest> {
     lottery_index: LotteryIndex,
 }
 
+#[allow(dead_code)]
 impl<D: MembershipDigest> SignerWitness<D> {
     pub(crate) fn new(
         merkle_tree_leaf: MerkleTreeSnarkLeaf,
