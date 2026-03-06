@@ -60,10 +60,16 @@ pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
 pub(crate) use dependency_injection::tests::initialize_dependencies;
 
 // Memory allocator (to handle properly memory fragmentation)
-#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 

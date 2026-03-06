@@ -34,10 +34,16 @@ const SQLITE_FILE: &str = "signer.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 
 // Memory allocator (to handle properly memory fragmentation)
-#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
