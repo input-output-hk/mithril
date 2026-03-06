@@ -202,13 +202,23 @@ mod tests {
         };
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
-        let epoch_service =
-            MithrilEpochService::new(stake_store, protocol_initializer_store, logger.clone())
-                .set_data_to_default_or_fake(Epoch(10))
-                .alter_data(|data| {
-                    data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
-                    data.current_signers = fixture.signers();
-                });
+        let era_checker = {
+            use mithril_common::entities::SupportedEra;
+            use mithril_common::test::double::Dummy;
+            use mithril_era::EraChecker;
+            Arc::new(EraChecker::new(SupportedEra::dummy(), Epoch::default()))
+        };
+        let epoch_service = MithrilEpochService::new(
+            era_checker,
+            stake_store,
+            protocol_initializer_store,
+            logger.clone(),
+        )
+        .set_data_to_default_or_fake(Epoch(10))
+        .alter_data(|data| {
+            data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
+            data.current_signers = fixture.signers();
+        });
 
         let single_signer = MithrilSingleSigner::new(
             current_signer.party_id(),
