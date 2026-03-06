@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.25 (03-06-2026)
+
+### Changed
+
+- Removed panic-based failure paths from the Halo2 SNARK circuit prototype and switched to structured `Result`-based error handling.
+- Replaced `assert!(self.quorum < self.num_lotteries)` with explicit validation returning a typed circuit error.
+- Added pre-validation guards to reject malformed witnesses and inconsistent Merkle path shapes before Midnight stdlib panics.
+- Reworked remaining failure paths in `circuits/halo2/circuit.rs` and `circuits/halo2/gadgets.rs` to return structured errors.
+- Updated Halo2 negative tests to assert structured errors rather than using `#[should_panic]`.
+
 ## 0.9.24 (03-04-2026)
 
 ### Added
