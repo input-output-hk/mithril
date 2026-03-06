@@ -1,4 +1,7 @@
-use crate::{ClosedKeyRegistration, MembershipDigest, Parameters, Signer};
+use crate::{
+    ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters, RegistrationEntryForSnark,
+    Signer, StmResult,
+};
 
 use super::AggregateVerificationKeyForSnark;
 
@@ -37,5 +40,16 @@ impl SnarkClerk {
         &self,
     ) -> AggregateVerificationKeyForSnark<D> {
         AggregateVerificationKeyForSnark::from(&self.closed_key_registration)
+    }
+
+    /// Get the SNARK registration entry for a given signer index.
+    pub fn get_snark_registration_entry(
+        &self,
+        signer_index: LotteryIndex,
+    ) -> StmResult<Option<RegistrationEntryForSnark>> {
+        let closed_registration_entry = self
+            .closed_key_registration
+            .get_registration_entry_for_index(&signer_index)?;
+        Ok(closed_registration_entry.into())
     }
 }

@@ -15,4 +15,10 @@ pub enum MerkleTreeError {
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
     BatchPathInvalid(Vec<u8>),
+
+    /// Leaf not found in the merkle tree
+    #[cfg(feature = "future_snark")]
+    #[allow(dead_code)]
+    #[error("Leaf not found in the merkle tree")]
+    LeafNotFound,
 }
