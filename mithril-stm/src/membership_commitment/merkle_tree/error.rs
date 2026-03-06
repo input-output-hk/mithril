@@ -18,6 +18,7 @@ pub enum MerkleTreeError {
 
     /// Leaf not found in the merkle tree
     #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     #[error("Leaf not found in the merkle tree")]
     LeafNotFound,

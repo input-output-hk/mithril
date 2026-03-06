@@ -43,9 +43,4 @@ pub enum RegisterError {
     #[cfg(feature = "future_snark")]
     #[error("Unable to create SNARK proof signer.")]
     SnarkProofSignerCreation,
-
-    /// Missing SNARK registration entry for the given signer index.
-    #[cfg(feature = "future_snark")]
-    #[error("Missing SNARK registration entry for signer index {0}.")]
-    MissingSnarkRegistrationEntry(u64),
 }

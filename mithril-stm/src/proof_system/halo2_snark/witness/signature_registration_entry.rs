@@ -1,5 +1,6 @@
 use crate::{LotteryIndex, RegistrationEntryForSnark, proof_system::SingleSignatureForSnark};
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub(crate) struct SignatureRegistrationEntry {
@@ -7,6 +8,7 @@ pub(crate) struct SignatureRegistrationEntry {
     registration_entry: RegistrationEntryForSnark,
 }
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 impl SignatureRegistrationEntry {
     pub(crate) fn new(

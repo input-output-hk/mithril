@@ -3,6 +3,7 @@ use crate::{
     membership_commitment::{MerklePath, MerkleTreeSnarkLeaf},
 };
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 pub(crate) struct SignerWitness<D: MembershipDigest> {
     merkle_tree_leaf: MerkleTreeSnarkLeaf,
@@ -11,6 +12,7 @@ pub(crate) struct SignerWitness<D: MembershipDigest> {
     lottery_index: LotteryIndex,
 }
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 impl<D: MembershipDigest> SignerWitness<D> {
     pub(crate) fn new(
