@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ff::Field;
 use group::Group;
 use midnight_circuits::ecc::curves::CircuitCurve;
@@ -24,7 +24,7 @@ use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
-use crate::{StmError, StmResult};
+use crate::{Parameters, StmError, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -130,11 +130,16 @@ impl StmCircuit {
     }
 
     // Tries to create a new circuit but fails in the variables overflow the u32 limit
-    pub fn try_new(quorum: u64, num_lotteries: u64, merkle_tree_depth: usize) -> StmResult<Self> {
+    pub fn try_new(stm_params: Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         Ok(Self {
-            quorum: quorum.try_into()?,
-            num_lotteries: num_lotteries.try_into()?,
-            merkle_tree_depth: merkle_tree_depth.try_into()?,
+            quorum: stm_params
+                .k
+                .try_into()
+                .with_context(|| "Failed to cast quorum as a u32. Its value is too large.")?,
+            num_lotteries: stm_params.m.try_into().with_context(
+                || "Failed to cast number of lotteries as a u32. Its value is too large.",
+            )?,
+            merkle_tree_depth: merkle_tree_depth,
         })
     }
 }
