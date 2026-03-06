@@ -133,7 +133,7 @@ impl StmCircuit {
             num_lotteries: stm_params.m.try_into().with_context(
                 || "Failed to cast number of lotteries as a u32. Its value is too large.",
             )?,
-            merkle_tree_depth: merkle_tree_depth,
+            merkle_tree_depth,
         })
     }
 }
@@ -425,7 +425,7 @@ mod circuit_creation_tests {
     #[test]
     fn circuit_creation_large_num_lotteries() {
         let stm_params = crate::Parameters {
-            m: 1 << 32 + 1,
+            m: (1 << 32) + 1,
             k: 10,
             phi_f: 0.2,
         };
@@ -440,7 +440,7 @@ mod circuit_creation_tests {
     fn circuit_creation_large_quorum() {
         let stm_params = crate::Parameters {
             m: 100,
-            k: 1 << 32 + 1,
+            k: (1 << 32) + 1,
             phi_f: 0.2,
         };
         let merkle_tree_depth = 13;
