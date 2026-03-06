@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ff::Field;
 use group::Group;
 use midnight_circuits::ecc::curves::CircuitCurve;
@@ -17,13 +17,13 @@ use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    Jubjub, JubjubBase, LotteryIndex, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
+    Jubjub, JubjubBase, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
-use crate::{StmError, StmResult};
+use crate::{LotteryIndex, Parameters, StmError, StmResult};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -58,14 +58,6 @@ impl StmCircuit {
 
     fn checked_len_u32(actual: usize) -> u32 {
         u32::try_from(actual).unwrap_or(u32::MAX)
-    }
-
-    pub fn new(quorum: u32, num_lotteries: u32, merkle_tree_depth: u32) -> Self {
-        Self {
-            quorum,
-            num_lotteries,
-            merkle_tree_depth,
-        }
     }
 
     /// Validates global circuit parameters before synthesis.
@@ -130,6 +122,35 @@ impl StmCircuit {
 
         Ok(())
     }
+
+    /// Constructs a new `StmCircuit` from Mithril `Parameters`.  
+    ///  
+    /// This constructor only validates that the quorum `k` and the number of lotteries `m`  
+    /// fit into a `u32` by performing fallible `u64 -> u32` conversions. If either value  
+    /// exceeds `u32::MAX`, it returns an error.  
+    ///  
+    /// It does **not** enforce semantic constraints such as `k < m` or other parameter  
+    /// relationships; those invariants are validated later during circuit synthesis via  
+    /// `validate_parameters`.
+    pub fn try_new(stm_params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
+        Ok(Self {
+            quorum: stm_params
+                .k
+                .try_into()
+                .with_context(|| format!(
+                    "Failed to cast quorum as a u32. Its value ({}) is too large for the circuit.", 
+                    stm_params.k)
+                )?,
+            num_lotteries: stm_params
+                .m
+                .try_into()
+                .with_context(|| format!(
+                    "Failed to cast number of lotteries as a u32. Its value ({}) is too large for the circuit.", 
+                    stm_params.m),
+                )?,
+            merkle_tree_depth,
+        })
+    }
 }
 
 impl Relation for StmCircuit {
@@ -185,7 +206,7 @@ impl Relation for StmCircuit {
         let mut pre_index: AssignedNative<_> = std_lib.assign(layouter, Value::known(F::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
             let index: AssignedNative<F> =
-                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i as u64)))?;
+                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i)))?;
 
             // Check index order
             if i > 0 {
@@ -396,5 +417,50 @@ mod dst_alignment_tests {
             BaseFieldElement(lottery_prefix_via_reference_formula),
             "lottery prefix must use the lottery domain separation tag as first Poseidon input"
         );
+    }
+}
+
+#[cfg(test)]
+mod circuit_creation_tests {
+    use crate::circuits::halo2::circuit::StmCircuit;
+
+    #[test]
+    fn correct_circuit_creation() {
+        let stm_params = crate::Parameters {
+            m: 100,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        StmCircuit::try_new(&stm_params, merkle_tree_depth).unwrap();
+    }
+
+    #[test]
+    fn circuit_creation_large_num_lotteries() {
+        let stm_params = crate::Parameters {
+            m: u32::MAX as u64 + 1,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
+
+        circuit.expect_err("Creation should have failed with number of lotteries too large.");
+    }
+
+    #[test]
+    fn circuit_creation_large_quorum() {
+        let stm_params = crate::Parameters {
+            m: 100,
+            k: u32::MAX as u64 + 1,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
+
+        circuit.expect_err("Creation should have failed with quorum too large.");
     }
 }
