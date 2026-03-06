@@ -140,6 +140,8 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
         protocol_message,
         signed_message: "".to_string(),
         aggregate_verification_key,
+        #[cfg(feature = "future_snark")]
+        aggregate_verification_key_snark: None,
         signature: CertificateSignature::MultiSignature(
             SignedEntityType::CardanoImmutableFilesFull(beacon),
             multi_signature,

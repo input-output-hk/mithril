@@ -43,6 +43,11 @@ pub trait SignableSeedBuilder: Send + Sync {
         &self,
     ) -> StdResult<ProtocolMessagePartValue>;
 
+    /// Compute next aggregate verification key for SNARK protocol message part value
+    async fn compute_next_aggregate_verification_key_for_snark(
+        &self,
+    ) -> StdResult<Option<ProtocolMessagePartValue>>;
+
     /// Compute next protocol parameters protocol message part value
     async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue>;
 
