@@ -109,7 +109,7 @@ mod tests {
         let params = Parameters {
             m: 100,
             k: 1,
-            phi_f: 0.95,
+            phi_f: 0.2,
         };
 
         let message = [0u8; 32];
