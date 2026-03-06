@@ -1,5 +1,6 @@
 use ff::Field;
 
+use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
@@ -90,8 +91,8 @@ fn signature_other_message() {
         .expect("signature_other_message tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness0 = build_witness_with_indices(&merkle_tree, merkle_root, msg0, &indices)
         .expect("signature_other_message witness0 build should succeed");
     let witness1 = build_witness_with_indices(&merkle_tree, merkle_root, msg1, &indices)
@@ -123,8 +124,8 @@ fn signature_verification_key_mismatch() {
         .expect("signature_verification_key_mismatch tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("signature_verification_key_mismatch witness build should succeed");
 
@@ -154,8 +155,8 @@ fn signature_bad_challenge() {
         .expect("signature_bad_challenge tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("signature_bad_challenge witness build should succeed");
 
@@ -181,8 +182,8 @@ fn signature_bad_response() {
         .expect("signature_bad_response tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("signature_bad_response witness build should succeed");
 
@@ -210,8 +211,8 @@ fn signature_bad_commitment() {
         .expect("signature_bad_commitment tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("signature_bad_commitment witness build should succeed");
 
@@ -238,8 +239,8 @@ fn indices_not_increasing() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 14];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 14];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("indices_not_increasing witness build should succeed");
 
@@ -264,7 +265,7 @@ fn index_out_of_bounds() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices = vec![6, 14, m as u64];
+    let indices = vec![6, 14, m as LotteryIndex];
     let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("index_out_of_bounds witness build should succeed");
 
@@ -289,8 +290,8 @@ fn merkle_path_corrupt_sibling() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("merkle_path_corrupt_sibling witness build should succeed");
     let d = 0usize;
@@ -319,8 +320,8 @@ fn merkle_path_flip_position() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("merkle_path_flip_position witness build should succeed");
     let d = 1usize;
@@ -352,8 +353,8 @@ fn merkle_path_length_short() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("merkle_path_length_short witness build should succeed");
     assert!(!witness[0].1.siblings.is_empty());
@@ -388,8 +389,8 @@ fn merkle_path_length_long() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("merkle_path_length_long witness build should succeed");
     witness[0]
@@ -425,8 +426,8 @@ fn leaf_swap_keep_merkle_path() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("leaf_swap_keep_merkle_path witness build should succeed");
     let (i, j) = find_two_distinct_witness_entries(&witness)
@@ -455,8 +456,8 @@ fn leaf_merkle_path_mismatch() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("leaf_merkle_path_mismatch witness build should succeed");
     let (i, j) = find_two_distinct_witness_entries(&witness)
@@ -485,8 +486,8 @@ fn leaf_wrong_verification_key() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("leaf_wrong_verification_key witness build should succeed");
     let (i, j) = find_two_distinct_witness_entries(&witness)
@@ -523,8 +524,8 @@ fn target_less_than_evaluation() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![5, 17, 25];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![5, 17, 25];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, signer_index, merkle_root, msg, &indices)
             .expect("target_less_than_evaluation witness build should succeed");
@@ -609,8 +610,8 @@ fn witness_duplicate_entry() {
         .expect("witness_duplicate_entry tree creation should succeed");
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<u64> = vec![6, 14, 22];
-    assert!(indices.iter().all(|i| *i < m as u64));
+    let indices: Vec<LotteryIndex> = vec![6, 14, 22];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let mut witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("witness_duplicate_entry witness build should succeed");
 
