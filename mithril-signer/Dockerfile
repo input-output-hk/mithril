@@ -33,7 +33,7 @@ RUN /app/target/release/mithril-signer --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM debian:12-slim
+FROM debian:13-slim
 
 # Args
 ARG CARDANO_NODE_VERSION=10.6.2
