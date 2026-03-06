@@ -256,7 +256,9 @@ mod tests {
             let mut key_reg = KeyRegistration::initialize();
             for stake in 0..number_of_parties {
                 let initializer = Initializer::new(params, stake, &mut rng);
-                key_reg.register_by_entry(&initializer.clone().into()).unwrap();
+                key_reg
+                    .register_by_entry(&initializer.clone().try_into().unwrap())
+                    .unwrap();
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
@@ -305,7 +307,9 @@ mod tests {
             let mut key_reg = KeyRegistration::initialize();
             for stake in 0..number_of_parties {
                 let initializer = Initializer::new(params, stake, &mut rng);
-                key_reg.register_by_entry(&initializer.clone().into()).unwrap();
+                key_reg
+                    .register_by_entry(&initializer.clone().try_into().unwrap())
+                    .unwrap();
             }
 
             let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();

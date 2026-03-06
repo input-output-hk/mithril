@@ -31,7 +31,7 @@ where
     let mut key_reg = KeyRegistration::initialize();
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg.register_by_entry(&p.clone().into()).unwrap();
+        key_reg.register_by_entry(&p.clone().try_into().unwrap()).unwrap();
         ps.push(p);
     }
 
