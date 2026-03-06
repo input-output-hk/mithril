@@ -22,7 +22,7 @@ cfg_num_integer! {
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub fn compute_lottery_target_value(stake: Stake, total_stake: Stake) -> LotteryTargetValue{
-        let phi_f = 0.2;
+        let phi_f = 0.5;
         let phi_f_ratio_int: Ratio<i64> =
             Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
         let phi_f_ratio = Ratio::new_raw(

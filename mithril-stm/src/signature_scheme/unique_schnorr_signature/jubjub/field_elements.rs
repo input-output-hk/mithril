@@ -3,6 +3,7 @@ use ff::Field;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha256};
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use crate::StmError;
@@ -131,7 +132,7 @@ impl Mul for &BaseFieldElement {
 }
 
 /// Represents an element in the scalar field of the Jubjub curve
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ScalarFieldElement(pub(crate) JubjubScalar);
 
 impl ScalarFieldElement {
@@ -228,6 +229,12 @@ impl Sub for ScalarFieldElement {
     /// Subtracts one scalar field element from another
     fn sub(self, other: ScalarFieldElement) -> ScalarFieldElement {
         ScalarFieldElement(self.0 - other.0)
+    }
+}
+
+impl Hash for ScalarFieldElement {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_bytes().hash(state);
     }
 }
 
