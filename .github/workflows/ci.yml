@@ -22,7 +22,7 @@ jobs:
         include:
           - os: ubuntu-22.04
             musl_target: x86_64-unknown-linux-musl
-            features: bundle_tls,jemallocator,full
+            features: bundle_tls,full
           - os: ubuntu-22.04-arm
             musl_target: aarch64-unknown-linux-musl
             features: bundle_tls,full
@@ -372,8 +372,6 @@ jobs:
           - deny-args: "--features rug-backend"
             manifest-path: ./Cargo.toml
           - deny-args: "--features num-integer-backend"
-            manifest-path: ./Cargo.toml
-          - deny-args: "--features jemallocator"
             manifest-path: ./Cargo.toml
           - deny-args: "--features bundle_tls"
             manifest-path: ./Cargo.toml
