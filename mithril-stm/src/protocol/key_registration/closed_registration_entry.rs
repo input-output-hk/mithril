@@ -168,11 +168,11 @@ impl Serialize for ClosedRegistrationEntry {
 /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
 impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
-        let (entry, total_stake) = entry_total_stake;
+        let (entry, _total_stake) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target = vk.map(|_| compute_lottery_target_value(entry.get_stake(), total_stake));
+            let target = vk.map(|_| compute_lottery_target_value(entry.get_stake(), _total_stake));
             (vk, target)
         };
 
