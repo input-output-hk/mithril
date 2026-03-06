@@ -13,7 +13,6 @@ repository = { workspace = true }
 bundle_tls = ["reqwest/native-tls-vendored"]
 rustls-tls = ["reqwest/rustls-tls"]
 
-jemallocator = ["dep:tikv-jemallocator"]
 future_snark = ["mithril-common/future_snark"]
 
 [dependencies]
@@ -62,8 +61,8 @@ uuid = { version = "1.21.0", features = ["v4", "fast-rng", "macro-diagnostics"] 
 warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.6.1", optional = true }
+[target.'cfg(all(not(target_os = "windows"), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
+tikv-jemallocator = { version = "0.6.1" }
 
 [dev-dependencies]
 axum = { version = "0.8.8", features = ["json"] }
