@@ -1,5 +1,7 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
 #[cfg(feature = "future_snark")]
+use mithril_stm::AggregateVerificationKeyForSnark;
+#[cfg(feature = "future_snark")]
 use mithril_stm::VerificationKeyForSnark;
 use mithril_stm::{
     AggregateSignature, AggregateVerificationKey, AggregateVerificationKeyForConcatenation,
@@ -44,6 +46,11 @@ pub type ProtocolAggregateVerificationKey = AggregateVerificationKey<ProtocolMem
 pub type ProtocolAggregateVerificationKeyForConcatenation =
     ProtocolKey<AggregateVerificationKeyForConcatenation<ProtocolMembershipDigest>>;
 
+/// Wrapper of [MithrilStm:AggregateVerificationKeyForSnark](struct@AggregateVerificationKeyForSnark).
+#[cfg(feature = "future_snark")]
+pub type ProtocolAggregateVerificationKeyForSnark =
+    ProtocolKey<AggregateVerificationKeyForSnark<ProtocolMembershipDigest>>;
+
 /// Wrapper of [MKProof] to add serialization utilities.
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
@@ -58,5 +65,10 @@ impl_codec_and_type_conversions_for_protocol_key!(
 
 #[cfg(feature = "future_snark")]
 impl_codec_and_type_conversions_for_protocol_key!(
-    bytes_hex_codec => VerificationKeyForSnark
+    json_hex_codec => VerificationKeyForSnark
+);
+
+#[cfg(feature = "future_snark")]
+impl_codec_and_type_conversions_for_protocol_key!(
+    json_hex_codec => AggregateVerificationKeyForSnark<ProtocolMembershipDigest>
 );

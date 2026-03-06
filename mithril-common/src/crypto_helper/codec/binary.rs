@@ -141,6 +141,20 @@ mod binary_mithril_stm {
         }
     }
 
+    #[cfg(feature = "future_snark")]
+    impl TryToBytes for mithril_stm::AggregateVerificationKeyForSnark<D> {
+        fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+            Ok(self.to_bytes())
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    impl TryFromBytes for mithril_stm::AggregateVerificationKeyForSnark<D> {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes)
+        }
+    }
+
     impl TryToBytes for Initializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
