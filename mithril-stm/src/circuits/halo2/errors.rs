@@ -1,3 +1,5 @@
+use crate::StmError;
+use midnight_proofs::plonk::Error as PlonkError;
 use thiserror::Error;
 
 /// Circuit-scoped errors for Halo2 STM validation and execution.
@@ -27,6 +29,14 @@ pub enum StmCircuitError {
         "Circuit::validate_merkle_position_length failed: expected depth {expected_depth}, got {actual}"
     )]
     MerklePositionLengthMismatch { expected_depth: u32, actual: u32 },
+
+    /// Failed to parse the prime field modulus while splitting field limbs.
+    #[error("Gadgets field modulus parse failed")]
+    GadgetsFieldModulusParse,
+
+    /// Failed to convert a reduced integer into a prime field element.
+    #[error("Gadgets field element conversion failed")]
+    GadgetsFieldElementConversion,
 
     /// Merkle tree depth does not fit fixture sizing constraints.
     #[error("Invalid merkle tree depth ({depth})")]
@@ -99,4 +109,19 @@ pub enum StmCircuitError {
     /// Proof was generated but rejected by the verifier.
     #[error("Proof verification rejected")]
     VerificationRejected,
+}
+
+/// Convert STM-layer errors to Midnight synthesis errors at relation boundaries.
+pub(crate) fn to_synthesis_error(error: StmError) -> PlonkError {
+    let error = match error.downcast::<PlonkError>() {
+        Ok(plonk_error) => return plonk_error,
+        Err(error) => error,
+    };
+
+    let error = match error.downcast::<StmCircuitError>() {
+        Ok(stm_error) => return PlonkError::Synthesis(stm_error.to_string()),
+        Err(error) => error,
+    };
+
+    PlonkError::Synthesis(error.to_string())
 }

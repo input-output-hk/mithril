@@ -1,6 +1,3 @@
-use ff::Field;
-
-use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
