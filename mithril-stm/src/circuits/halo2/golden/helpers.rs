@@ -207,7 +207,7 @@ pub(crate) enum LeafSelector {
 }
 
 impl StmMerkleTreeWrapper {
-    /// Return the Merkle root as a F field element.
+    /// Return the Merkle root as a JubjubBase field element.
     pub(crate) fn root(&self) -> F {
         self.root
     }
@@ -598,7 +598,6 @@ pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32)
 pub(crate) fn run_stm_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) -> StmResult<()> {
     let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
     let env = setup_stm_circuit_env(case_name, k, quorum, num_lotteries)?;
-
     let merkle_tree = create_default_merkle_tree(env.num_signers())?;
 
     let merkle_root = merkle_tree.root();

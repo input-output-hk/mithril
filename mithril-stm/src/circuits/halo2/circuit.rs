@@ -339,7 +339,7 @@ impl Relation for StmCircuit {
 #[cfg(test)]
 mod dst_alignment_tests {
     use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
-    use midnight_curves::Fq as F;
+    use midnight_curves::Fq as JubjubBase;
 
     use crate::signature_scheme::{
         BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
@@ -347,9 +347,9 @@ mod dst_alignment_tests {
     };
 
     const REFERENCE_SIGNATURE_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(F::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]));
+        BaseFieldElement(JubjubBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]));
     const REFERENCE_LOTTERY_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(F::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]));
+        BaseFieldElement(JubjubBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]));
 
     #[test]
     fn signature_and_lottery_domain_tags_do_not_collide() {
@@ -376,8 +376,9 @@ mod dst_alignment_tests {
         signature_digest_manual_inputs
             .extend(signature_transcript_inputs.iter().map(|value| value.0));
 
-        let signature_digest_via_reference_formula =
-            BaseFieldElement(PoseidonChip::<F>::hash(&signature_digest_manual_inputs));
+        let signature_digest_via_reference_formula = BaseFieldElement(
+            PoseidonChip::<JubjubBase>::hash(&signature_digest_manual_inputs),
+        );
 
         assert_eq!(
             signature_digest_via_stm, signature_digest_via_reference_formula,
@@ -387,14 +388,14 @@ mod dst_alignment_tests {
 
     #[test]
     fn lottery_prefix_matches_reference_lottery_domain_tag_formula() {
-        let merkle_root = F::from(123u64);
-        let msg = F::from(456u64);
+        let merkle_root = JubjubBase::from(123u64);
+        let msg = JubjubBase::from(456u64);
 
         let lottery_prefix_via_stm_constant =
-            PoseidonChip::<F>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
+            PoseidonChip::<JubjubBase>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
 
         let lottery_prefix_via_reference_formula =
-            PoseidonChip::<F>::hash(&[REFERENCE_LOTTERY_DOMAIN_TAG.0, merkle_root, msg]);
+            PoseidonChip::<JubjubBase>::hash(&[REFERENCE_LOTTERY_DOMAIN_TAG.0, merkle_root, msg]);
 
         assert_eq!(
             BaseFieldElement(lottery_prefix_via_stm_constant),
