@@ -123,16 +123,31 @@ impl StmCircuit {
         Ok(())
     }
 
-    // Tries to create a new circuit but fails in the variables overflow the u32 limit
+    /// Constructs a new `StmCircuit` from Mithril `Parameters`.  
+    ///  
+    /// This constructor only validates that the quorum `k` and the number of lotteries `m`  
+    /// fit into a `u32` by performing fallible `u64 -> u32` conversions. If either value  
+    /// exceeds `u32::MAX`, it returns an error.  
+    ///  
+    /// It does **not** enforce semantic constraints such as `k < m` or other parameter  
+    /// relationships; those invariants are validated later during circuit synthesis via  
+    /// `validate_parameters`.
     pub fn try_new(stm_params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         Ok(Self {
             quorum: stm_params
                 .k
                 .try_into()
-                .with_context(|| "Failed to cast quorum as a u32. Its value is too large for the circuit.")?,
-            num_lotteries: stm_params.m.try_into().with_context(
-                || "Failed to cast number of lotteries as a u32. Its value is too large for the circuit.",
-            )?,
+                .with_context(|| format!(
+                    "Failed to cast quorum as a u32. Its value ({}) is too large for the circuit.", 
+                    stm_params.k)
+                )?,
+            num_lotteries: stm_params
+                .m
+                .try_into()
+                .with_context(|| format!(
+                    "Failed to cast number of lotteries as a u32. Its value ({}) is too large for the circuit.", 
+                    stm_params.m),
+                )?,
             merkle_tree_depth,
         })
     }
