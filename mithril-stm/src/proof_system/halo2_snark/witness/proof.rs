@@ -8,12 +8,14 @@ use crate::{
 
 use super::{Instance, SignatureRegistrationEntry, SignerWitness};
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 pub struct SnarkProof<D: MembershipDigest> {
     instance: Instance,
     witness: Vec<SignerWitness<D>>,
 }
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 impl<D: MembershipDigest> SnarkProof<D> {
     pub fn aggregate_signatures(

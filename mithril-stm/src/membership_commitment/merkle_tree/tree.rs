@@ -192,6 +192,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// Find the index of a leaf in the Merkle tree.
     /// Returns the index if the leaf is found, or an error otherwise.
     #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub(crate) fn find_leaf_index(&self, leaf: &L) -> StmResult<usize> {
         let leaf_hash = D::digest(leaf.as_bytes_for_merkle_tree()).to_vec();
