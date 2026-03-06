@@ -10,15 +10,24 @@ use crate::{
     proof_system::{ConcatenationClerk, ConcatenationProof},
 };
 
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SnarkClerk;
+
 use super::{AggregateSignature, AggregateSignatureType};
 
 #[cfg(feature = "future_snark")]
 use super::AggregationError;
 
 /// Clerk for aggregate signatures.
+///
+/// Manages both the concatenation proof clerk and, when the `future_snark`
+/// feature is enabled, the SNARK proof clerk. Provides methods for signature
+/// aggregation and aggregate verification key computation.
 #[derive(Debug, Clone)]
 pub struct Clerk<D: MembershipDigest> {
     concatenation_proof_clerk: ConcatenationClerk,
+    #[cfg(feature = "future_snark")]
+    snark_proof_clerk: Option<SnarkClerk>,
     phantom_data: PhantomData<D>,
 }
 
@@ -27,6 +36,11 @@ impl<D: MembershipDigest> Clerk<D> {
     pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
         Self {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_signer(signer),
+            #[cfg(feature = "future_snark")]
+            snark_proof_clerk: signer
+                .closed_key_registration
+                .has_snark_verification_keys()
+                .then(|| SnarkClerk::new_clerk_from_signer(signer)),
             phantom_data: PhantomData,
         }
     }
@@ -34,15 +48,21 @@ impl<D: MembershipDigest> Clerk<D> {
     /// Create a Clerk from a closed key registration.
     pub fn new_clerk_from_closed_key_registration(
         parameters: &Parameters,
-        closed_reg: &ClosedKeyRegistration,
+        closed_registration: &ClosedKeyRegistration,
     ) -> Self {
         Self {
             concatenation_proof_clerk: ConcatenationClerk::new_clerk_from_closed_key_registration(
-                parameters, closed_reg,
+                parameters,
+                closed_registration,
             ),
+            #[cfg(feature = "future_snark")]
+            snark_proof_clerk: closed_registration.has_snark_verification_keys().then(|| {
+                SnarkClerk::new_clerk_from_closed_key_registration(parameters, closed_registration)
+            }),
             phantom_data: PhantomData,
         }
     }
+
     /// Aggregate a set of signatures with a given proof type.
     pub fn aggregate_signatures_with_type(
         &self,
@@ -72,16 +92,15 @@ impl<D: MembershipDigest> Clerk<D> {
         &self.concatenation_proof_clerk
     }
 
-    /// Compute the aggregate verification key.
-    /// It computes only the concatenation aggregate verification key for now.
-    // TODO: Replace None with the actual SNARK verification key when implementing
-    // SNARK aggregation primitives.
+    /// Compute the aggregate verification key covering both proof systems.
     pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::new(
             self.concatenation_proof_clerk
                 .compute_aggregate_verification_key_for_concatenation(),
             #[cfg(feature = "future_snark")]
-            None,
+            self.snark_proof_clerk
+                .as_ref()
+                .map(|clerk| clerk.compute_aggregate_verification_key_for_snark()),
         )
     }
 

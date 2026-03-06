@@ -16,6 +16,9 @@ use mithril_common::{
     signable_builder::SignableSeedBuilder,
 };
 
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::ProtocolKey;
+
 use crate::{services::EpochService, store::ProtocolInitializerStorer};
 
 /// SignableSeedBuilder signer implementation
@@ -58,6 +61,36 @@ impl SignerSignableSeedBuilder {
 
         Ok(encoded_avk)
     }
+
+    #[cfg(feature = "future_snark")]
+    fn compute_encode_snark_avk(
+        &self,
+        protocol_initializer: ProtocolInitializer,
+        signers_with_stake: &[SignerWithStake],
+    ) -> StdResult<Option<String>> {
+        let signer_builder = SignerBuilder::new(
+            signers_with_stake,
+            &protocol_initializer.get_protocol_parameters().into(),
+        )
+        .with_context(
+            || "SignerSignableSeedBuilder can not compute SNARK aggregate verification key",
+        )?;
+
+        let aggregate_verification_key = signer_builder.compute_aggregate_verification_key();
+        let snark_avk = aggregate_verification_key
+            .to_snark_aggregate_verification_key()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SNARK aggregate verification key is unavailable during Lagrange era"
+                )
+            })?;
+        let snark_avk_encoded =
+            ProtocolKey::new(snark_avk.to_owned()).to_bytes_hex().with_context(
+                || "SignerSignableSeedBuilder can not serialize SNARK aggregate verification key",
+            )?;
+
+        Ok(Some(snark_avk_encoded))
+    }
 }
 
 #[async_trait]
@@ -80,6 +113,43 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
             self.compute_encode_avk(next_protocol_initializer, &next_signers_with_stake)?;
 
         Ok(next_aggregate_verification_key)
+    }
+
+    async fn compute_next_aggregate_verification_key_for_snark(
+        &self,
+    ) -> StdResult<Option<ProtocolMessagePartValue>> {
+        #[cfg(feature = "future_snark")]
+        {
+            use mithril_common::entities::SupportedEra;
+
+            let epoch_service = self.epoch_service.read().await;
+
+            if epoch_service.mithril_era()? != SupportedEra::Lagrange {
+                return Ok(None);
+            }
+
+            let epoch = (*epoch_service).epoch_of_current_data()?;
+            let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+            let next_protocol_initializer = self
+                .protocol_initializer_store
+                .get_protocol_initializer(next_signer_retrieval_epoch)
+                .await?
+                .with_context(|| {
+                    format!(
+                        "can not get protocol_initializer at epoch {next_signer_retrieval_epoch}"
+                    )
+                })?;
+            let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
+            let next_snark_aggregate_verification_key =
+                self.compute_encode_snark_avk(next_protocol_initializer, &next_signers_with_stake)?;
+
+            Ok(next_snark_aggregate_verification_key)
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        {
+            Ok(None)
+        }
     }
 
     async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue> {

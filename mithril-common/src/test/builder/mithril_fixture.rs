@@ -8,7 +8,8 @@ use std::{
 
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    ProtocolSignerVerificationKeyForSnark, ProtocolSignerVerificationKeySignatureForSnark,
+    ProtocolKey, ProtocolSignerVerificationKeyForSnark,
+    ProtocolSignerVerificationKeySignatureForSnark,
 };
 use crate::{
     StdResult,
@@ -203,6 +204,23 @@ impl MithrilFixture {
     ) -> HexEncodedAggregateVerificationKey {
         let aggregate_verification_key = self.compute_concatenation_aggregate_verification_key();
         aggregate_verification_key.to_json_hex().unwrap()
+    }
+
+    /// Compute the SNARK Aggregate Verification Key for this fixture, if available.
+    #[cfg(feature = "future_snark")]
+    pub fn compute_snark_aggregate_verification_key(
+        &self,
+    ) -> Option<crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark> {
+        self.compute_aggregate_verification_key()
+            .to_snark_aggregate_verification_key()
+            .map(|key| ProtocolKey::new(key.to_owned()))
+    }
+
+    /// Compute the SNARK Aggregate Verification Key for this fixture and returns it as a hex-encoded string.
+    #[cfg(feature = "future_snark")]
+    pub fn compute_and_encode_snark_aggregate_verification_key(&self) -> Option<String> {
+        self.compute_snark_aggregate_verification_key()
+            .map(|avk| avk.to_bytes_hex().unwrap())
     }
 
     /// Create a genesis certificate using the fixture signers for the given beacon

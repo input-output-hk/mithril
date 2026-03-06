@@ -52,6 +52,13 @@ pub enum ProtocolMessagePartKey {
     /// The ProtocolMessage part key associated to the Cardano database Merkle root
     #[serde(rename = "cardano_database_merkle_root")]
     CardanoDatabaseMerkleRoot,
+
+    /// The ProtocolMessage part key associated to the Next epoch SNARK aggregate verification key
+    ///
+    /// The SNARK AVK that will be allowed to be used to sign during the next epoch
+    /// aka AVKS(n-1)
+    #[serde(rename = "next_aggregate_verification_key_snark")]
+    NextSnarkAggregateVerificationKey,
 }
 
 impl Display for ProtocolMessagePartKey {
@@ -71,6 +78,9 @@ impl Display for ProtocolMessagePartKey {
                 write!(f, "cardano_stake_distribution_merkle_root")
             }
             Self::CardanoDatabaseMerkleRoot => write!(f, "cardano_database_merkle_root"),
+            Self::NextSnarkAggregateVerificationKey => {
+                write!(f, "next_aggregate_verification_key_snark")
+            }
         }
     }
 }
@@ -234,6 +244,20 @@ mod tests {
         protocol_message_modified.set_message_part(
             ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
             "cardano-database-merkle-root-456".to_string(),
+        );
+
+        assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_next_snark_aggregate_verification_key() {
+        let protocol_message = ProtocolMessage::new();
+        let hash_before_change = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+            "next-snark-avk-456".to_string(),
         );
 
         assert_ne!(hash_before_change, protocol_message_modified.compute_hash());

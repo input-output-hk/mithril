@@ -40,6 +40,9 @@ pub struct CertificateRecord {
     /// Note: used only if signature is a multi-signature
     pub aggregate_verification_key: HexEncodedAggregateVerificationKey,
 
+    /// Aggregate verification key for SNARK
+    pub aggregate_verification_key_snark: Option<HexEncodedKey>,
+
     /// Epoch of creation of the certificate.
     pub epoch: Epoch,
 
@@ -109,6 +112,7 @@ impl CertificateRecord {
             aggregate_verification_key: fake_keys::aggregate_verification_key_for_concatenation()
                 [0]
             .to_owned(),
+            aggregate_verification_key_snark: None,
             epoch,
             network: fake_data::network().to_string(),
             signed_entity_type,
@@ -142,12 +146,22 @@ impl TryFrom<Certificate> for CertificateRecord {
             }
         };
 
+        #[cfg(feature = "future_snark")]
+        let aggregate_verification_key_snark = other
+            .aggregate_verification_key_snark
+            .as_ref()
+            .map(|avk| avk.to_bytes_hex())
+            .transpose()?;
+        #[cfg(not(feature = "future_snark"))]
+        let aggregate_verification_key_snark: Option<HexEncodedKey> = None;
+
         let certificate_record = CertificateRecord {
             certificate_id: other.hash,
             parent_certificate_id,
             message: other.signed_message,
             signature,
             aggregate_verification_key: other.aggregate_verification_key.to_json_hex()?,
+            aggregate_verification_key_snark,
             epoch: other.epoch,
             network: other.metadata.network,
             signed_entity_type,
@@ -189,6 +203,14 @@ impl TryFrom<CertificateRecord> for Certificate {
             ),
         };
 
+        #[cfg(feature = "future_snark")]
+        let aggregate_verification_key_snark = other
+            .aggregate_verification_key_snark
+            .map(|hex| hex.as_str().try_into())
+            .transpose()?;
+        #[cfg(not(feature = "future_snark"))]
+        let _ = other.aggregate_verification_key_snark;
+
         let certificate = Certificate {
             hash: other.certificate_id,
             previous_hash,
@@ -197,6 +219,8 @@ impl TryFrom<CertificateRecord> for Certificate {
             signed_message: other.protocol_message.compute_hash(),
             protocol_message: other.protocol_message,
             aggregate_verification_key: other.aggregate_verification_key.try_into()?,
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark,
             signature,
         };
 
@@ -219,6 +243,8 @@ impl From<CertificateRecord> for CertificateMessage {
         } else {
             (value.signature, String::new())
         };
+        #[cfg(not(feature = "future_snark"))]
+        let _ = value.aggregate_verification_key_snark;
 
         CertificateMessage {
             hash: value.certificate_id,
@@ -229,6 +255,8 @@ impl From<CertificateRecord> for CertificateMessage {
             protocol_message: value.protocol_message,
             signed_message: value.message,
             aggregate_verification_key: value.aggregate_verification_key,
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: value.aggregate_verification_key_snark,
             multi_signature,
             genesis_signature,
         }
@@ -269,16 +297,18 @@ impl SqLiteEntity for CertificateRecord {
         let message = row.read::<&str, _>(2).to_string();
         let signature = row.read::<&str, _>(3).to_string();
         let aggregate_verification_key = row.read::<&str, _>(4).to_string();
-        let epoch_int = row.read::<i64, _>(5);
-        let network = row.read::<&str, _>(6).to_string();
-        let signed_entity_type_id = row.read::<i64, _>(7);
-        let signed_entity_beacon_string = Hydrator::read_signed_entity_beacon_column(&row, 8);
-        let protocol_version = row.read::<&str, _>(9).to_string();
-        let protocol_parameters_string = row.read::<&str, _>(10);
-        let protocol_message_string = row.read::<&str, _>(11);
-        let signers_string = row.read::<&str, _>(12);
-        let initiated_at = row.read::<&str, _>(13);
-        let sealed_at = row.read::<&str, _>(14);
+        let aggregate_verification_key_snark: Option<String> =
+            row.read::<Option<&str>, _>(5).map(|s| s.to_owned());
+        let epoch_int = row.read::<i64, _>(6);
+        let network = row.read::<&str, _>(7).to_string();
+        let signed_entity_type_id = row.read::<i64, _>(8);
+        let signed_entity_beacon_string = Hydrator::read_signed_entity_beacon_column(&row, 9);
+        let protocol_version = row.read::<&str, _>(10).to_string();
+        let protocol_parameters_string = row.read::<&str, _>(11);
+        let protocol_message_string = row.read::<&str, _>(12);
+        let signers_string = row.read::<&str, _>(13);
+        let initiated_at = row.read::<&str, _>(14);
+        let sealed_at = row.read::<&str, _>(15);
 
         let certificate_record = Self {
             certificate_id,
@@ -286,6 +316,7 @@ impl SqLiteEntity for CertificateRecord {
             message,
             signature,
             aggregate_verification_key,
+            aggregate_verification_key_snark,
             epoch: Epoch(epoch_int.try_into().map_err(|e| {
                 HydrationError::InvalidData(format!(
                     "Could not cast i64 ({epoch_int}) to u64. Error: '{e}'"
@@ -356,6 +387,11 @@ impl SqLiteEntity for CertificateRecord {
             "{:certificate:}.aggregate_verification_key",
             "text",
         );
+        projection.add_field(
+            "aggregate_verification_key_snark",
+            "{:certificate:}.aggregate_verification_key_snark",
+            "text",
+        );
         projection.add_field("epoch", "{:certificate:}.epoch", "integer");
         projection.add_field("network", "{:certificate:}.network", "text");
         projection.add_field(
@@ -418,5 +454,83 @@ mod tests {
         let certificate: Certificate = record.try_into().unwrap();
 
         assert_eq!(expected_hash, &certificate.hash);
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod snark_aggregate_verification_key {
+        use super::*;
+
+        #[test]
+        fn certificate_to_record_preserves_snark_aggregate_verification_key() {
+            let chain = setup_certificate_chain(5, 2);
+            let certificate = chain
+                .certificates_chained
+                .iter()
+                .find(|c| c.aggregate_verification_key_snark.is_some())
+                .expect("At least one certificate should have a SNARK AVK");
+
+            let record: CertificateRecord = certificate.clone().try_into().unwrap();
+
+            assert!(
+                record.aggregate_verification_key_snark.is_some(),
+                "CertificateRecord should preserve SNARK AVK from Certificate"
+            );
+        }
+
+        #[test]
+        fn record_to_certificate_preserves_snark_aggregate_verification_key() {
+            let chain = setup_certificate_chain(5, 2);
+            let original_certificate = chain
+                .certificates_chained
+                .iter()
+                .find(|c| c.aggregate_verification_key_snark.is_some())
+                .expect("At least one certificate should have a SNARK AVK");
+
+            let record: CertificateRecord = original_certificate.clone().try_into().unwrap();
+            let restored_certificate: Certificate = record.try_into().unwrap();
+
+            assert_eq!(
+                original_certificate.aggregate_verification_key_snark,
+                restored_certificate.aggregate_verification_key_snark,
+            );
+        }
+
+        #[test]
+        fn certificate_to_record_roundtrip_with_none_snark_aggregate_verification_key() {
+            let chain = setup_certificate_chain(5, 2);
+            let mut certificate = chain
+                .certificates_chained
+                .first()
+                .expect("Chain should have at least one certificate")
+                .clone();
+            certificate.aggregate_verification_key_snark = None;
+            certificate.hash = certificate.compute_hash();
+
+            let record: CertificateRecord = certificate.clone().try_into().unwrap();
+            assert!(record.aggregate_verification_key_snark.is_none());
+
+            let restored: Certificate = record.try_into().unwrap();
+            assert_eq!(
+                certificate.aggregate_verification_key_snark,
+                restored.aggregate_verification_key_snark,
+            );
+        }
+
+        #[test]
+        fn certificate_message_preserves_snark_aggregate_verification_key() {
+            let chain = setup_certificate_chain(5, 2);
+            let certificate = chain
+                .certificates_chained
+                .iter()
+                .find(|c| c.aggregate_verification_key_snark.is_some())
+                .expect("At least one certificate should have a SNARK AVK");
+
+            let record: CertificateRecord = certificate.clone().try_into().unwrap();
+            let expected_snark_avk = record.aggregate_verification_key_snark.clone();
+
+            let message: CertificateMessage = record.into();
+
+            assert_eq!(expected_snark_avk, message.aggregate_verification_key_snark,);
+        }
     }
 }

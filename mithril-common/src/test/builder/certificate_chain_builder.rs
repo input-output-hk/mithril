@@ -66,6 +66,9 @@ impl<'a> CertificateChainBuilderContext<'a> {
     }
 
     /// Computes the protocol message seed.
+    ///
+    /// Note: SNARK AVK is not included because the default test era is Pythagoras,
+    /// which does not activate SNARK features at runtime.
     pub fn compute_protocol_message_seed(&self) -> ProtocolMessage {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -73,6 +76,18 @@ impl<'a> CertificateChainBuilderContext<'a> {
             self.next_fixture
                 .compute_and_encode_concatenation_aggregate_verification_key(),
         );
+
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_avk) = self
+            .next_fixture
+            .compute_and_encode_snark_aggregate_verification_key()
+        {
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                snark_avk,
+            );
+        }
+
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             self.next_fixture.protocol_parameters().compute_hash(),
@@ -467,6 +482,10 @@ impl<'a> CertificateChainBuilder<'a> {
                 .to_concatenation_aggregate_verification_key()
                 .to_owned()
                 .into(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: avk
+                .to_snark_aggregate_verification_key()
+                .map(|snark_avk| snark_avk.to_owned().into()),
             previous_hash: "".to_string(),
             protocol_message,
             signed_message,
@@ -708,6 +727,14 @@ mod test {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             expected_next_avk_part_value,
         );
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_avk) = next_fixture.compute_and_encode_snark_aggregate_verification_key()
+        {
+            expected_protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                snark_avk,
+            );
+        }
         expected_protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             expected_next_protocol_parameters_part_value,
