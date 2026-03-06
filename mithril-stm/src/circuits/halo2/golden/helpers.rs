@@ -23,8 +23,7 @@ use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkL
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::{LotteryIndex, LotteryTargetValue};
-use crate::{StmError, StmResult};
+use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
 
 /// Base field type used throughout STM circuit golden tests.
 
@@ -512,7 +511,12 @@ pub(crate) fn setup_stm_circuit_env(
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
-    let relation = StmCircuit::new(quorum, num_lotteries, depth);
+    let stm_params = Parameters {
+        k: quorum as u64,
+        m: num_lotteries as u64,
+        phi_f: 0.2,
+    };
+    let relation = StmCircuit::try_new(stm_params, depth).unwrap();
     validate_relation_for_setup(&relation)?;
 
     {

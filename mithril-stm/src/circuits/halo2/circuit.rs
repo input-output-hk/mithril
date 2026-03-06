@@ -12,7 +12,6 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
@@ -24,7 +23,7 @@ use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
-use crate::{Parameters, StmError, StmResult};
+use crate::{LotteryIndex, Parameters, StmError, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -56,14 +55,6 @@ impl StmCircuit {
 
     fn checked_len_u32(actual: usize) -> u32 {
         u32::try_from(actual).unwrap_or(u32::MAX)
-    }
-
-    pub fn new(quorum: u32, num_lotteries: u32, merkle_tree_depth: u32) -> Self {
-        Self {
-            quorum,
-            num_lotteries,
-            merkle_tree_depth,
-        }
     }
 
     /// Validates global circuit parameters before synthesis.
