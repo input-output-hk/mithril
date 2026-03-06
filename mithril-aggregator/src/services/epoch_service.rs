@@ -855,10 +855,29 @@ mod tests {
         total_stake: Option<Stake>,
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone)]
     struct ExpectedComputedEpochData {
         aggregate_verification_key: ProtocolAggregateVerificationKey,
         next_aggregate_verification_key: ProtocolAggregateVerificationKey,
+    }
+
+    impl PartialEq for ExpectedComputedEpochData {
+        fn eq(&self, other: &Self) -> bool {
+            let avk_eq = self
+                .aggregate_verification_key
+                .to_concatenation_aggregate_verification_key()
+                == other
+                    .aggregate_verification_key
+                    .to_concatenation_aggregate_verification_key();
+            let next_avk_eq = self
+                .next_aggregate_verification_key
+                .to_concatenation_aggregate_verification_key()
+                == other
+                    .next_aggregate_verification_key
+                    .to_concatenation_aggregate_verification_key();
+
+            avk_eq && next_avk_eq
+        }
     }
 
     impl ExpectedEpochData {
@@ -1312,8 +1331,12 @@ mod tests {
         );
 
         assert_eq!(
-            next_avk,
-            service.computed_epoch_data.unwrap().next_aggregate_verification_key
+            next_avk.to_concatenation_aggregate_verification_key(),
+            service
+                .computed_epoch_data
+                .unwrap()
+                .next_aggregate_verification_key
+                .to_concatenation_aggregate_verification_key()
         );
     }
 

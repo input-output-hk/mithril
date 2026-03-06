@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{PROTOCOL_VERSION, ProtocolGenesisVerifier};
+#[cfg(feature = "future_snark")]
+use mithril_common::entities::SupportedEra;
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignature, StakeDistributionParty,
@@ -347,6 +349,16 @@ impl CertifierService for MithrilCertifierService {
             epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
         );
+
+        #[cfg(feature = "future_snark")]
+        let certificate = {
+            let mut certificate = certificate;
+            if epoch_service.mithril_era()? != SupportedEra::Lagrange {
+                certificate.strip_snark_aggregate_verification_key();
+            }
+
+            certificate
+        };
 
         self.certificate_verifier
             .verify_certificate(&certificate, &self.genesis_verifier.to_verification_key())

@@ -14,6 +14,7 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
         message, \
         signature, \
         aggregate_verification_key, \
+        aggregate_verification_key_snark, \
         epoch, \
         network, \
         signed_entity_type_id, \
@@ -25,7 +26,7 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
         initiated_at, \
         sealed_at)";
     let values_columns: Vec<&str> = repeat_n(
-        "(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
+        "(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
         certificates_records.len(),
     )
     .collect();
@@ -33,6 +34,15 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
     let values: Vec<Value> = certificates_records
         .into_iter()
         .flat_map(|certificate_record| {
+            #[cfg(feature = "future_snark")]
+            let aggregate_verification_key_snark =
+                match certificate_record.aggregate_verification_key_snark {
+                    Some(key) => Value::String(key),
+                    None => Value::Null,
+                };
+            #[cfg(not(feature = "future_snark"))]
+            let aggregate_verification_key_snark = Value::Null;
+
             vec![
                 Value::String(certificate_record.certificate_id),
                 match certificate_record.parent_certificate_id {
@@ -42,6 +52,7 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
                 Value::String(certificate_record.message),
                 Value::String(certificate_record.signature),
                 Value::String(certificate_record.aggregate_verification_key),
+                aggregate_verification_key_snark,
                 Value::Integer(certificate_record.epoch.try_into().unwrap()),
                 Value::String(certificate_record.network),
                 Value::Integer(certificate_record.signed_entity_type.index() as i64),
