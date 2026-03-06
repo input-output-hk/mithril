@@ -281,6 +281,8 @@ mod tests {
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: String::new(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: None,
             multi_signature: String::new(),
             genesis_signature: String::new(),
         }
