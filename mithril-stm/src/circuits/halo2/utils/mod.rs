@@ -7,10 +7,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Halo2UtilsError {
     /// Parsing the field modulus constant failed.
-    #[error("failed to parse prime field modulus from hex")]
+    #[error("Failed to parse prime field modulus from hex")]
     FieldModulusParse,
     /// Converting a reduced integer to a field element failed.
-    #[error("failed to convert reduced integer to field element")]
+    #[error("Failed to convert reduced integer to field element")]
     FieldElementConversion,
 }
 
@@ -45,9 +45,6 @@ fn big_unsigned_integer_to_field_element<F: PrimeField>(e: BigUint) -> Result<F,
 }
 
 #[cfg(test)]
-pub(crate) use merkle_path_adapter::MerklePathAdapterError;
-
-#[cfg(test)]
 mod merkle_path_adapter {
     use crate::circuits::halo2::types::{MerklePath as Halo2MerklePath, Position};
     use crate::membership_commitment::MerklePath as StmMerklePath;
@@ -57,9 +54,9 @@ mod merkle_path_adapter {
 
     #[derive(Debug, Error)]
     pub enum MerklePathAdapterError {
-        #[error("invalid merkle digest length")]
+        #[error("Invalid merkle digest length")]
         InvalidDigestLength,
-        #[error("non-canonical merkle digest")]
+        #[error("Non-canonical merkle digest")]
         NonCanonicalDigest,
     }
 
