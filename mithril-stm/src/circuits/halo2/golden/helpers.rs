@@ -6,7 +6,6 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use anyhow::{Context, anyhow};
-use ff::Field;
 use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk;
@@ -15,9 +14,14 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use crate::LotteryTargetValue;
+use crate::circuits::halo2::adapters::field_test_adapters::{
+    from_backend_base, from_stm_base_field_element, to_stm_base_field_element,
+};
+use crate::circuits::halo2::adapters::to_backend_base;
+use crate::circuits::halo2::backend_reexports::{BackendJubjubBase, Bls12};
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
+use crate::circuits::halo2::types::{MTLeaf, MerklePath, SignedMessageWithoutPrefix as F};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -25,9 +29,6 @@ use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 use crate::{StmError, StmResult};
-
-/// Base field type used throughout STM circuit golden tests.
-type F = JubjubBase;
 
 /// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, u32);
@@ -172,7 +173,7 @@ impl From<&SignerFixture> for MTLeaf {
 }
 
 fn target_value_from_field(target: F) -> StmResult<LotteryTargetValue> {
-    LotteryTargetValue::from_bytes(&target.to_bytes_le())
+    LotteryTargetValue::from_bytes(&to_backend_base(target).to_bytes_le())
         .map_err(|_| anyhow!(StmCircuitError::InvalidLotteryTargetBytes))
 }
 
@@ -208,7 +209,7 @@ pub(crate) enum LeafSelector {
 }
 
 impl StmMerkleTreeWrapper {
-    /// Return the Merkle root as a JubjubBase field element.
+    /// Return the Merkle root used by Halo2 as a circuit wrapper field value.
     pub(crate) fn root(&self) -> F {
         self.root
     }
@@ -244,7 +245,7 @@ fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
     })?;
     BaseFieldElement::from_bytes(&root_array)
         .ok()
-        .map(|base| base.0)
+        .map(from_stm_base_field_element)
         .ok_or_else(|| anyhow!(StmCircuitError::NonCanonicalMerkleRootDigest))
 }
 
@@ -318,15 +319,15 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
 }
 
 fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
-    [BaseFieldElement(merkle_root), BaseFieldElement(msg)]
+    [to_stm_base_field_element(merkle_root), to_stm_base_field_element(msg)]
 }
 
 fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
+    let challenge_native = BackendJubjubBase::from_bytes_le(&challenge_bytes)
         .into_option()
         .ok_or_else(|| anyhow!(StmCircuitError::InvalidChallengeBytes))?;
-    if challenge_native != sig.challenge.0 {
+    if from_backend_base(challenge_native) != from_backend_base(sig.challenge.0) {
         return Err(anyhow!(StmCircuitError::ChallengeEndiannessMismatch));
     }
     Ok(())

@@ -1,10 +1,11 @@
 //! Halo2 prototype integration (feature-gated by `future_snark`).
 
+pub(crate) mod adapters;
+pub(crate) mod backend_reexports;
 pub mod circuit;
 pub(crate) mod errors;
-pub mod gadgets;
+pub(crate) mod gadgets;
 pub mod types;
-pub(crate) mod utils;
 
 #[cfg(test)]
 pub(crate) mod golden;

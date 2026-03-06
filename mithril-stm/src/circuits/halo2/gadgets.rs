@@ -1,20 +1,40 @@
-use ff::{Field, PrimeField};
-use midnight_circuits::instructions::{
-    ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
+use anyhow::anyhow;
+
+use crate::StmResult;
+use crate::circuits::halo2::backend_reexports::{
+    ArithInstructions, AssertionInstructions, AssignedBit, AssignedNative, AssignedNativePoint,
+    AssignedScalarOfNativeCurve, AssignmentInstructions, BinaryInstructions,
     ControlFlowInstructions, DecompositionInstructions, EccInstructions, EqualityInstructions,
+    Error, Layouter, ZkStdLib,
 };
-use midnight_circuits::types::{
-    AssignedBit, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-};
-use midnight_proofs::circuit::Layouter;
-use midnight_proofs::plonk::Error;
-use midnight_zk_stdlib::ZkStdLib;
+use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
+use crate::circuits::halo2::types::{CircuitBase as F, CircuitCurve as C};
+use ff::{Field, PrimeField};
+use num_bigint::BigUint;
+use num_traits::{Num, One};
 
-use crate::circuits::halo2::types::{Jubjub, JubjubBase};
-use crate::circuits::halo2::utils::split_field_element_into_le_limbs;
+/// Splits a field element into `(lower, upper)` limbs at `num_bits` using LE encoding.
+fn split_field_element_into_le_limbs<F: PrimeField>(value: &F, num_bits: u32) -> StmResult<(F, F)> {
+    let value_big = BigUint::from_bytes_le(value.to_repr().as_ref());
+    let lower_mask = (BigUint::one() << num_bits) - BigUint::one();
+    let lower_big = value_big.clone() & &lower_mask;
+    let upper_big = value_big >> num_bits;
+    let lower = big_unsigned_integer_to_field_element::<F>(lower_big)?;
+    let upper = big_unsigned_integer_to_field_element::<F>(upper_big)?;
+    Ok((lower, upper))
+}
 
-type F = JubjubBase;
-type C = Jubjub;
+fn field_modulus_as_biguint<F: PrimeField>() -> StmResult<BigUint> {
+    BigUint::from_str_radix(&F::MODULUS[2..], 16)
+        .map_err(|_| anyhow!(StmCircuitError::GadgetsFieldModulusParse))
+}
+
+fn big_unsigned_integer_to_field_element<F: PrimeField>(e: BigUint) -> StmResult<F> {
+    let modulus = field_modulus_as_biguint::<F>()?;
+    let e = e % modulus;
+    F::from_str_vartime(&e.to_str_radix(10)[..])
+        .ok_or_else(|| anyhow!(StmCircuitError::GadgetsFieldElementConversion))
+}
 
 fn assert_equal_parity(
     std_lib: &ZkStdLib,
@@ -38,11 +58,7 @@ fn decompose_unsafe(
     let base127 = F::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value
         .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
-        .map_err(|e| {
-            Error::Synthesis(format!(
-                "gadgets::decompose_unsafe failed to split field element into little-endian limbs: {e}"
-            ))
-        })?
+        .map_err(to_synthesis_error)?
         .unzip();
 
     let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low)?;

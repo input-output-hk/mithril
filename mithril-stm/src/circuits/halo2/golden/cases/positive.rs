@@ -1,5 +1,3 @@
-use ff::Field;
-
 use crate::circuits::halo2::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, build_witness_with_fixed_signer,
     build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
