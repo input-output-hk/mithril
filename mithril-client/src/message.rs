@@ -134,9 +134,10 @@ impl MessageBuilder {
                     || "Could not compute message: aggregate verification key computation failed",
                 )?;
 
+        let aggregate_verification_key = signer_builder.compute_aggregate_verification_key();
+
         let avk = ProtocolKey::new(
-            signer_builder
-                .compute_aggregate_verification_key()
+            aggregate_verification_key
                 .to_concatenation_aggregate_verification_key()
                 .to_owned(),
         )
@@ -145,6 +146,30 @@ impl MessageBuilder {
 
         let mut message = certificate.protocol_message.clone();
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
+
+        #[cfg(feature = "future_snark")]
+        if certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
+            .is_some()
+        {
+            let snark_avk = aggregate_verification_key
+                .to_snark_aggregate_verification_key()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Could not compute message: SNARK aggregate verification key is unavailable"
+                    )
+                })?;
+            let snark_avk_encoded = ProtocolKey::new(snark_avk.to_owned())
+                .to_bytes_hex()
+                .with_context(|| {
+                    "Could not compute message: SNARK aggregate verification key encoding failed"
+                })?;
+            message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                snark_avk_encoded,
+            );
+        }
 
         Ok(message)
     }
