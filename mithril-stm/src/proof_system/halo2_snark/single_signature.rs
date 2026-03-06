@@ -8,7 +8,7 @@ use crate::{
 use super::{AggregateVerificationKeyForSnark, build_snark_message};
 
 /// Single signature for the Snark proof system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
@@ -52,8 +52,8 @@ impl SingleSignatureForSnark {
     }
 
     /// Return `indices` of the single signature
-    pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
-        &self.indices
+    pub(crate) fn get_indices(&self) -> Vec<LotteryIndex> {
+        self.indices.to_vec()
     }
 
     /// Set `indices` of single signature to given value
