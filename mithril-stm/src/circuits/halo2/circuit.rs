@@ -23,6 +23,7 @@ use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
+use crate::{StmError, StmResult};
 
 type F = JubjubBase;
 type C = Jubjub;
@@ -41,7 +42,7 @@ impl StmCircuit {
     ///
     /// Internal code uses `StmResult` with typed `StmCircuitError`, while the Midnight relation
     /// API requires returning `plonk::Error`.
-    fn synthesis_error(error: crate::StmError) -> Error {
+    fn synthesis_error(error: StmError) -> Error {
         let error = match error.downcast::<Error>() {
             Ok(plonk_error) => return plonk_error,
             Err(error) => error,
@@ -71,7 +72,7 @@ impl StmCircuit {
     ///
     /// Enforces `quorum < num_lotteries` returning
     /// `StmCircuitError::InvalidCircuitParameters` when violated.
-    pub(crate) fn validate_parameters(&self) -> crate::StmResult<()> {
+    pub(crate) fn validate_parameters(&self) -> StmResult<()> {
         if self.quorum >= self.num_lotteries {
             return Err(anyhow!(StmCircuitError::InvalidCircuitParameters {
                 quorum: self.quorum,
@@ -86,7 +87,7 @@ impl StmCircuit {
     ///
     /// This precondition prevents shape mismatches; failures return
     /// `StmCircuitError::WitnessLengthMismatch`.
-    pub(crate) fn validate_witness_length(&self, actual: usize) -> crate::StmResult<()> {
+    pub(crate) fn validate_witness_length(&self, actual: usize) -> StmResult<()> {
         let expected_quorum = self.quorum as usize;
         if actual != expected_quorum {
             return Err(anyhow!(StmCircuitError::WitnessLengthMismatch {
@@ -102,7 +103,7 @@ impl StmCircuit {
     ///
     /// This guards against inconsistent witness paths and returns
     /// `StmCircuitError::MerkleSiblingLengthMismatch` on mismatch.
-    pub(crate) fn validate_merkle_sibling_length(&self, actual: usize) -> crate::StmResult<()> {
+    pub(crate) fn validate_merkle_sibling_length(&self, actual: usize) -> StmResult<()> {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
             return Err(anyhow!(StmCircuitError::MerkleSiblingLengthMismatch {
@@ -118,7 +119,7 @@ impl StmCircuit {
     ///
     /// Under the current witness shape, this cannot fail independently from sibling-length
     /// validation because both lengths derive from `x.siblings`; returns `StmCircuitError::MerklePositionLengthMismatch`.
-    pub(crate) fn validate_merkle_position_length(&self, actual: usize) -> crate::StmResult<()> {
+    pub(crate) fn validate_merkle_position_length(&self, actual: usize) -> StmResult<()> {
         let expected_depth = self.merkle_tree_depth as usize;
         if actual != expected_depth {
             return Err(anyhow!(StmCircuitError::MerklePositionLengthMismatch {
@@ -148,7 +149,7 @@ impl Relation for StmCircuit {
     ) -> Result<(), Error> {
         self.validate_parameters().map_err(Self::synthesis_error)?;
         let witness = witness
-            .map_with_result(|witness| -> crate::StmResult<_> {
+            .map_with_result(|witness| -> StmResult<_> {
                 self.validate_witness_length(witness.len())?;
                 Ok(witness)
             })
@@ -205,7 +206,7 @@ impl Relation for StmCircuit {
             let assigned_merkle_siblings = std_lib.assign_many(
                 layouter,
                 wit.clone()
-                    .map_with_result(|(_, x, _, _)| -> crate::StmResult<_> {
+                    .map_with_result(|(_, x, _, _)| -> StmResult<_> {
                         self.validate_merkle_sibling_length(x.siblings.len())?;
                         Ok(x.siblings.iter().map(|sibling| sibling.1).collect::<Vec<_>>())
                     })
@@ -218,7 +219,7 @@ impl Relation for StmCircuit {
             let assigned_merkle_positions = std_lib.assign_many(
                 layouter,
                 wit.clone()
-                    .map_with_result(|(_, x, _, _)| -> crate::StmResult<_> {
+                    .map_with_result(|(_, x, _, _)| -> StmResult<_> {
                         self.validate_merkle_position_length(x.siblings.len())?;
                         Ok(x.siblings.iter().map(|sibling| sibling.0.into()).collect::<Vec<_>>())
                     })
