@@ -5,7 +5,9 @@ use std::hash::Hash;
 use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, VerificationKeyForSnark};
+use crate::{
+    LotteryTargetValue, VerificationKeyForSnark, proof_system::compute_lottery_target_value,
+};
 
 /// Represents a registration entry of a closed key registration.
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Deserialize)]
@@ -166,12 +168,11 @@ impl Serialize for ClosedRegistrationEntry {
 /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
 impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
-        let (entry, _total_stake) = entry_total_stake;
+        let (entry, total_stake) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target =
-                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+            let target = vk.map(|_| compute_lottery_target_value(entry.get_stake(), total_stake));
             (vk, target)
         };
 
