@@ -13,11 +13,14 @@ use midnight_zk_stdlib::ZkStdLib;
 use crate::circuits::halo2::types::{Jubjub, JubjubBase};
 use crate::circuits::halo2::utils::split_field_element_into_le_limbs;
 
+type F = JubjubBase;
+type C = Jubjub;
+
 fn assert_equal_parity(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    x: &AssignedNative<JubjubBase>,
-    y: &AssignedNative<JubjubBase>,
+    layouter: &mut impl Layouter<F>,
+    x: &AssignedNative<F>,
+    y: &AssignedNative<F>,
 ) -> Result<(), Error> {
     let sgn0 = std_lib.sgn0(layouter, x)?;
     let sgn1 = std_lib.sgn0(layouter, y)?;
@@ -27,12 +30,12 @@ fn assert_equal_parity(
 // Decompose a 255-bit value into 127-bit and 128-bit values without checking the bound
 fn decompose_unsafe(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    x: &AssignedNative<JubjubBase>,
-) -> Result<(AssignedNative<JubjubBase>, AssignedNative<JubjubBase>), Error> {
+    layouter: &mut impl Layouter<F>,
+    x: &AssignedNative<F>,
+) -> Result<(AssignedNative<F>, AssignedNative<F>), Error> {
     // Decompose 255-bit value into 127-bit and 128-bit values.
     let x_value = x.value();
-    let base127 = JubjubBase::from_u128(1_u128 << 127);
+    let base127 = F::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value
         .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
         .map_err(|e| {
@@ -47,11 +50,8 @@ fn decompose_unsafe(
 
     let x_combined: AssignedNative<_> = std_lib.linear_combination(
         layouter,
-        &[
-            (JubjubBase::ONE, x_low_assigned.clone()),
-            (base127, x_high_assigned.clone()),
-        ],
-        JubjubBase::ZERO,
+        &[(F::ONE, x_low_assigned.clone()), (base127, x_high_assigned.clone())],
+        F::ZERO,
     )?;
     std_lib.assert_equal(layouter, x, &x_combined)?;
 
@@ -65,10 +65,10 @@ fn decompose_unsafe(
 // Compare x < y where x, y are 255-bit
 fn lower_than_native(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    x: &AssignedNative<JubjubBase>,
-    y: &AssignedNative<JubjubBase>,
-) -> Result<AssignedBit<JubjubBase>, Error> {
+    layouter: &mut impl Layouter<F>,
+    x: &AssignedNative<F>,
+    y: &AssignedNative<F>,
+) -> Result<AssignedBit<F>, Error> {
     let (x_low_assigned, x_high_assigned) = decompose_unsafe(std_lib, layouter, x)?;
     let (y_low_assigned, y_high_assigned) = decompose_unsafe(std_lib, layouter, y)?;
 
@@ -83,12 +83,12 @@ fn lower_than_native(
 
 pub fn verify_merkle_path(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    vk: &AssignedNativePoint<Jubjub>,
-    target: &AssignedNative<JubjubBase>,
-    merkle_root: &AssignedNative<JubjubBase>,
-    merkle_siblings: &[AssignedNative<JubjubBase>],
-    merkle_positions: &[AssignedBit<JubjubBase>],
+    layouter: &mut impl Layouter<F>,
+    vk: &AssignedNativePoint<C>,
+    target: &AssignedNative<F>,
+    merkle_root: &AssignedNative<F>,
+    merkle_siblings: &[AssignedNative<F>],
+    merkle_positions: &[AssignedBit<F>],
 ) -> Result<(), Error> {
     let vk_x = std_lib.jubjub().x_coordinate(vk);
     let vk_y = std_lib.jubjub().y_coordinate(vk);
@@ -115,15 +115,15 @@ pub fn verify_merkle_path(
 #[allow(clippy::too_many_arguments)]
 pub fn verify_unique_signature(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    dst_signature: &AssignedNative<JubjubBase>,
-    generator: &AssignedNativePoint<Jubjub>,
-    vk: &AssignedNativePoint<Jubjub>,
-    s: &AssignedScalarOfNativeCurve<Jubjub>,
-    c: &AssignedScalarOfNativeCurve<Jubjub>,
-    c_native: &AssignedNative<JubjubBase>,
-    hash: &AssignedNativePoint<Jubjub>,
-    sigma: &AssignedNativePoint<Jubjub>,
+    layouter: &mut impl Layouter<F>,
+    dst_signature: &AssignedNative<F>,
+    generator: &AssignedNativePoint<C>,
+    vk: &AssignedNativePoint<C>,
+    s: &AssignedScalarOfNativeCurve<C>,
+    c: &AssignedScalarOfNativeCurve<C>,
+    c_native: &AssignedNative<F>,
+    hash: &AssignedNativePoint<C>,
+    sigma: &AssignedNativePoint<C>,
 ) -> Result<(), Error> {
     // Compute R1
     let cap_r_1 = std_lib.jubjub().msm(
@@ -173,11 +173,11 @@ pub fn verify_unique_signature(
 
 pub fn verify_lottery(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<JubjubBase>,
-    lottery_prefix: &AssignedNative<JubjubBase>,
-    sigma: &AssignedNativePoint<Jubjub>,
-    index: &AssignedNative<JubjubBase>,
-    target: &AssignedNative<JubjubBase>,
+    layouter: &mut impl Layouter<F>,
+    lottery_prefix: &AssignedNative<F>,
+    sigma: &AssignedNativePoint<C>,
+    index: &AssignedNative<F>,
+    target: &AssignedNative<F>,
 ) -> Result<(), Error> {
     let sigma_x = std_lib.jubjub().x_coordinate(sigma);
     let sigma_y = std_lib.jubjub().y_coordinate(sigma);
