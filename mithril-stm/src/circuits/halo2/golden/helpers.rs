@@ -513,7 +513,7 @@ pub(crate) fn setup_stm_circuit_env(
         m: num_lotteries as u64,
         phi_f: 0.2,
     };
-    let relation = StmCircuit::try_new(stm_params, depth).unwrap();
+    let relation = StmCircuit::try_new(&stm_params, depth).unwrap();
     validate_relation_for_setup(&relation)?;
 
     {
