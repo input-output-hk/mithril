@@ -139,16 +139,6 @@ impl Certificate {
         hex::encode(hasher.finalize())
     }
 
-    /// Strip the SNARK aggregate verification key from the certificate and recompute its hash.
-    ///
-    /// Used during Pythagoras era to ensure SNARK AVK is not included in certificates
-    /// even when the `future_snark` feature is compiled in.
-    #[cfg(feature = "future_snark")]
-    pub fn strip_snark_aggregate_verification_key(&mut self) {
-        self.aggregate_verification_key_snark = None;
-        self.hash = self.compute_hash();
-    }
-
     /// Tell if the certificate is a genesis certificate
     pub fn is_genesis(&self) -> bool {
         matches!(self.signature, CertificateSignature::GenesisSignature(_))
