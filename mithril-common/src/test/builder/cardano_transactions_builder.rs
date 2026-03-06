@@ -1,4 +1,6 @@
-use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
+use crate::entities::{
+    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, SlotNumber,
+};
 
 /// Builder to easily build transactions with consistent values.
 ///
@@ -19,13 +21,13 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///     assert_eq!(
 ///         vec![
 ///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), SlotNumber(100), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(101), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(102), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(103), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(104), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(105), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(106), "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(107), "block-hash-15")
+///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(115), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(115), "block-hash-15")
 ///         ],
 ///         txs
 ///     );
@@ -46,17 +48,17 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///     assert_eq!(
 ///         vec![
 ///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), SlotNumber(100), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(101), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(102), "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(103), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(104), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(105), "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(106), "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(107), "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-108", BlockNumber(15), SlotNumber(108), "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-16-109", BlockNumber(16), SlotNumber(109), "block-hash-16"),
-///             CardanoTransaction::new("tx-hash-16-110", BlockNumber(16), SlotNumber(110), "block-hash-16"),
-///             CardanoTransaction::new("tx-hash-16-111", BlockNumber(16), SlotNumber(111), "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(101), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(115), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(115), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-108", BlockNumber(15), SlotNumber(115), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-16-109", BlockNumber(16), SlotNumber(116), "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-110", BlockNumber(16), SlotNumber(116), "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-111", BlockNumber(16), SlotNumber(116), "block-hash-16"),
 ///         ],
 ///         txs
 ///     );
@@ -72,7 +74,16 @@ impl Default for CardanoTransactionsBuilder {
     }
 }
 
+enum FillUntil {
+    BlockCountReached,
+    TransactionCountReached,
+}
+
 impl CardanoTransactionsBuilder {
+    const FIRST_TRANSACTION_NUMBER: usize = 100;
+    /// Offset between a generated block block_number and its slot_number.
+    const SLOT_NUMBER_OFFSET: u64 = 100;
+
     /// [CardanoTransactionsBuilder] constructor.
     pub fn new() -> Self {
         Self {
@@ -102,15 +113,15 @@ impl CardanoTransactionsBuilder {
 
     /// Build the number of transactions requested.
     pub fn build_transactions(self, transactions_count: usize) -> Vec<CardanoTransaction> {
-        let mut transactions = Vec::new();
-        let first_transaction_number = 100;
-        for tx_index in 0..transactions_count {
-            let block_number = self.block_number_from_transaction_index(tx_index);
-            let slot_number = SlotNumber(tx_index as u64 + first_transaction_number);
-            transactions.push(self.create_transaction(slot_number, block_number))
-        }
-
-        transactions
+        let block_count = transactions_count / self.max_transactions_per_block;
+        self.build_blocks_with_transactions(
+            block_count,
+            transactions_count,
+            FillUntil::TransactionCountReached,
+        )
+        .into_iter()
+        .flat_map(|b| b.into_transactions())
+        .collect()
     }
 
     /// Build a list of transactions to get the number of block range requested.
@@ -118,35 +129,55 @@ impl CardanoTransactionsBuilder {
         self,
         block_ranges_count: usize,
     ) -> Vec<CardanoTransaction> {
+        let block_count = block_ranges_count * self.max_blocks_per_block_range;
         let nb_txs =
             block_ranges_count * self.max_blocks_per_block_range * self.max_transactions_per_block;
 
-        self.build_transactions(nb_txs)
+        self.build_blocks_with_transactions(block_count, nb_txs, FillUntil::TransactionCountReached)
+            .into_iter()
+            .flat_map(|b| b.into_transactions())
+            .collect()
     }
 
-    fn block_number_from_transaction_index(&self, tx_index: usize) -> BlockNumber {
-        let max_transactions_per_block_range =
-            self.max_transactions_per_block * self.max_blocks_per_block_range;
-        let index_block_range = tx_index / max_transactions_per_block_range;
-        let block_index_global = tx_index as u64 / self.max_transactions_per_block as u64;
-        let block_index_in_block_range =
-            block_index_global % self.max_blocks_per_block_range as u64;
+    fn build_blocks_with_transactions(
+        self,
+        block_count: usize,
+        transactions_count: usize,
+        fill_behavior: FillUntil,
+    ) -> Vec<CardanoBlockWithTransactions> {
+        let mut blocks = Vec::with_capacity(block_count);
+        let mut transactions_numbers: Vec<_> = (0..transactions_count)
+            .map(|i| i + Self::FIRST_TRANSACTION_NUMBER)
+            .collect();
+        let mut block_number_offset = 0;
+        let mut current_block_range_index = 0;
 
-        index_block_range as u64 * BlockRange::LENGTH + block_index_in_block_range
-    }
+        while match fill_behavior {
+            FillUntil::BlockCountReached => blocks.len() < block_count,
+            FillUntil::TransactionCountReached => !transactions_numbers.is_empty(),
+        } {
+            let block_number = BlockNumber(current_block_range_index) + block_number_offset;
+            let transactions_hashes: Vec<_> = transactions_numbers
+                .drain(..self.max_transactions_per_block.min(transactions_numbers.len()))
+                .map(|i| format!("tx-hash-{block_number}-{i}"))
+                .collect();
 
-    /// Create a transaction with a given index and block number.
-    fn create_transaction(
-        &self,
-        slot_number: SlotNumber,
-        block_number: BlockNumber,
-    ) -> CardanoTransaction {
-        CardanoTransaction::new(
-            format!("tx-hash-{block_number}-{slot_number}"),
-            block_number,
-            slot_number,
-            format!("block-hash-{block_number}"),
-        )
+            let block = CardanoBlockWithTransactions {
+                block_hash: format!("block-hash-{block_number}"),
+                block_number,
+                slot_number: SlotNumber(*block_number + Self::SLOT_NUMBER_OFFSET),
+                transactions_hashes,
+            };
+            blocks.push(block);
+
+            current_block_range_index += 1;
+            if (current_block_range_index as usize) == self.max_blocks_per_block_range {
+                current_block_range_index = 0;
+                block_number_offset += BlockRange::LENGTH;
+            }
+        }
+
+        blocks
     }
 }
 
