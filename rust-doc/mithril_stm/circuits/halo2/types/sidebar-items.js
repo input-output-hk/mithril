@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Position"],"struct":["Bls12","Jubjub","JubjubBase","JubjubScalar","MTLeaf","MerklePath"],"type":["LotteryIndex","MerkleRoot","SignedMessageWithoutPrefix","Target"]};
