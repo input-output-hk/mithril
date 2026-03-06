@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +10,7 @@ use crate::{
 use super::{AggregateVerificationKeyForSnark, build_snark_message};
 
 /// Single signature for the Snark proof system.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SingleSignatureForSnark {
     /// The underlying Schnorr signature
     schnorr_signature: UniqueSchnorrSignature,
@@ -66,6 +68,12 @@ impl SingleSignatureForSnark {
     /// Return `schnorr_signature` of single signature
     pub(crate) fn get_schnorr_signature(&self) -> UniqueSchnorrSignature {
         self.schnorr_signature
+    }
+}
+
+impl Hash for SingleSignatureForSnark {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.schnorr_signature.hash(state);
     }
 }
 
