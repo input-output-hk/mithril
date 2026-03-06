@@ -124,14 +124,14 @@ impl StmCircuit {
     }
 
     // Tries to create a new circuit but fails in the variables overflow the u32 limit
-    pub fn try_new(stm_params: Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
+    pub fn try_new(stm_params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         Ok(Self {
             quorum: stm_params
                 .k
                 .try_into()
-                .with_context(|| "Failed to cast quorum as a u32. Its value is too large.")?,
+                .with_context(|| "Failed to cast quorum as a u32. Its value is too large for the circuit.")?,
             num_lotteries: stm_params.m.try_into().with_context(
-                || "Failed to cast number of lotteries as a u32. Its value is too large.",
+                || "Failed to cast number of lotteries as a u32. Its value is too large for the circuit.",
             )?,
             merkle_tree_depth,
         })
@@ -312,7 +312,7 @@ impl Relation for StmCircuit {
     }
 
     fn read_relation<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        // Buffers to read 4 bytes for each 'u32' field.
+        // Buffers to read 4 bytes for each `u32` field.
         let mut quorum_bytes = [0u8; 4];
         let mut num_lotteries_bytes = [0u8; 4];
         let mut merkle_tree_depth_bytes = [0u8; 4];
@@ -322,7 +322,7 @@ impl Relation for StmCircuit {
         reader.read_exact(&mut num_lotteries_bytes)?;
         reader.read_exact(&mut merkle_tree_depth_bytes)?;
 
-        // Convert the byte arrays back into 'u32' values.
+        // Convert the byte arrays back into `u32` values.
         let quorum = u32::from_le_bytes(quorum_bytes);
         let num_lotteries = u32::from_le_bytes(num_lotteries_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
@@ -418,21 +418,19 @@ mod circuit_creation_tests {
         };
         let merkle_tree_depth = 13;
 
-        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
-
-        assert!(circuit.is_ok());
+        StmCircuit::try_new(&stm_params, merkle_tree_depth).unwrap();
     }
 
     #[test]
     fn circuit_creation_large_num_lotteries() {
         let stm_params = crate::Parameters {
-            m: (1 << 32) + 1,
+            m: u32::MAX as u64 + 1,
             k: 10,
             phi_f: 0.2,
         };
         let merkle_tree_depth = 13;
 
-        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
+        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
 
         circuit.expect_err("Creation should have failed with number of lotteries too large.");
     }
@@ -441,12 +439,12 @@ mod circuit_creation_tests {
     fn circuit_creation_large_quorum() {
         let stm_params = crate::Parameters {
             m: 100,
-            k: (1 << 32) + 1,
+            k: u32::MAX as u64 + 1,
             phi_f: 0.2,
         };
         let merkle_tree_depth = 13;
 
-        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
+        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
 
         circuit.expect_err("Creation should have failed with quorum too large.");
     }
