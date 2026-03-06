@@ -10,6 +10,8 @@ pub use aggregate_signature::{
     AggregationError, Clerk,
 };
 pub use error::RegisterError;
+#[cfg(feature = "future_snark")]
+pub use key_registration::RegistrationEntryForSnark;
 pub use key_registration::{
     ClosedKeyRegistration, ClosedRegistrationEntry, KeyRegistration, RegistrationEntry,
     RegistrationEntryForConcatenation,
@@ -17,9 +19,6 @@ pub use key_registration::{
 pub use parameters::Parameters;
 pub use participant::{Initializer, Signer};
 pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};
-
-#[cfg(feature = "future_snark")]
-pub use key_registration::RegistrationEntryForSnark;
 
 /// Wrapper of the Concatenation proof Verification key with proof of possession
 pub type VerificationKeyProofOfPossessionForConcatenation =
