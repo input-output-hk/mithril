@@ -18,6 +18,9 @@ use crate::{
     protocol::ToMessage,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
+
 /// [CertificateGenesisProducer] related errors.
 #[derive(Error, Debug)]
 pub enum CertificateGenesisProducerError {
@@ -46,12 +49,31 @@ impl CertificateGenesisProducer {
     ) -> StdResult<ProtocolMessage> {
         let genesis_aggregate_verification_key_for_concatenation =
             ProtocolKey::new(genesis_avk.to_concatenation_aggregate_verification_key().to_owned());
-        let genesis_avk = genesis_aggregate_verification_key_for_concatenation.to_json_hex()?;
+        let genesis_concatenation_avk =
+            genesis_aggregate_verification_key_for_concatenation.to_json_hex()?;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            genesis_avk,
+            genesis_concatenation_avk,
         );
+
+        #[cfg(feature = "future_snark")]
+        {
+            let snark_avk = genesis_avk
+                .to_snark_aggregate_verification_key()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Could not create genesis protocol message: SNARK aggregate verification key is unavailable"
+                    )
+                })?;
+            let genesis_snark_avk: ProtocolAggregateVerificationKeyForSnark =
+                ProtocolKey::new(snark_avk.to_owned());
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                genesis_snark_avk.to_bytes_hex()?,
+            );
+        }
+
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             genesis_protocol_parameters.compute_hash(),

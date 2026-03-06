@@ -43,10 +43,17 @@ pub struct CertificateMessage {
     /// aka H(MSG(p,n) || AVK(n-1))
     pub signed_message: String,
 
-    /// Aggregate verification key
-    /// The AVK used to sign during the current epoch
+    /// Aggregate verification key for Concatenation
+    /// The AVK used to sign for Concatenation during the current epoch
     /// aka AVK(n-2)
     pub aggregate_verification_key: String,
+
+    /// Aggregate verification key for SNARK
+    /// The AVK used to sign for SNARK during the current epoch
+    /// aka AVKS(n-2)
+    #[cfg(feature = "future_snark")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub aggregate_verification_key_snark: Option<String>,
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
@@ -84,14 +91,21 @@ impl Debug for CertificateMessage {
             .field("signed_message", &self.signed_message);
 
         match should_be_exhaustive {
-            true => debug
-                .field(
+            true => {
+                debug.field(
                     "aggregate_verification_key",
                     &self.aggregate_verification_key,
-                )
-                .field("multi_signature", &self.multi_signature)
-                .field("genesis_signature", &self.genesis_signature)
-                .finish(),
+                );
+                #[cfg(feature = "future_snark")]
+                debug.field(
+                    "aggregate_verification_key_snark",
+                    &self.aggregate_verification_key_snark,
+                );
+                debug
+                    .field("multi_signature", &self.multi_signature)
+                    .field("genesis_signature", &self.genesis_signature)
+                    .finish()
+            }
             false => debug.finish_non_exhaustive(),
         }
     }
@@ -121,7 +135,15 @@ impl TryFrom<CertificateMessage> for Certificate {
                 .aggregate_verification_key
                 .try_into()
                 .with_context(|| {
-                "Can not convert message to certificate: can not decode the aggregate verification key"
+                "Can not convert message to certificate: can not decode the aggregate verification key for Concatenation"
+            })?,
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: certificate_message
+                .aggregate_verification_key_snark
+                .map(|avk| avk.try_into())
+                .transpose()
+                .with_context(|| {
+                "Can not convert message to certificate: can not decode the aggregate verification key for SNARK"
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
@@ -190,7 +212,15 @@ impl TryFrom<Certificate> for CertificateMessage {
                 .aggregate_verification_key
                 .to_json_hex()
                 .with_context(|| {
-                    "Can not convert certificate to message: can not encode aggregate verification key"
+                    "Can not convert certificate to message: can not encode aggregate verification key for Concatenation"
+                })?,
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: certificate
+                .aggregate_verification_key_snark
+                .map(|avk| avk.to_bytes_hex())
+                .transpose()
+                .with_context(|| {
+                    "Can not convert certificate to message: can not encode aggregate verification key for SNARK"
                 })?,
             multi_signature,
             genesis_signature,
@@ -255,6 +285,8 @@ mod tests {
             },
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
         }
