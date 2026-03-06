@@ -14,11 +14,9 @@ repository = { workspace = true }
 ignored = ["reqwest"]
 
 [features]
-default = ["jemallocator"]
-
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
-jemallocator = ["dep:tikv-jemallocator"]
+rustls-tls = ["reqwest/rustls-tls"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -42,7 +40,7 @@ mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 mithril-ticker = { path = "../internal/mithril-ticker" }
 rand_core = { workspace = true }
-reqwest = { workspace = true, features = ["default", "stream", "gzip", "zstd", "deflate", "brotli"] }
+reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "stream", "gzip", "zstd", "deflate", "brotli"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
@@ -52,8 +50,8 @@ sqlite = { version = "0.37.0", features = ["bundled"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.6.1", optional = true }
+[target.'cfg(all(not(target_os = "windows"), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
+tikv-jemallocator = { version = "0.6.1" }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }

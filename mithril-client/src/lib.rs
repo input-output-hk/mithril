@@ -134,6 +134,23 @@
 //!   while using root certificates from the `rustls-native-certs` crate.
 //! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
 
+// Ensure at least one TLS backend is enabled
+#[cfg(not(any(
+    feature = "native-tls",
+    feature = "native-tls-alpn",
+    feature = "native-tls-vendored",
+    feature = "rustls-tls",
+    feature = "rustls-tls-manual-roots",
+    feature = "rustls-tls-webpki-roots",
+    feature = "rustls-tls-native-roots"
+)))]
+compile_error!(
+    "At least one TLS backend feature must be enabled. Choose from: \
+    'native-tls', 'native-tls-alpn', 'native-tls-vendored', \
+    'rustls-tls', 'rustls-tls-manual-roots', 'rustls-tls-webpki-roots', \
+    or 'rustls-tls-native-roots'"
+);
+
 macro_rules! cfg_fs {
     ($($item:item)*) => {
         $(
