@@ -404,3 +404,50 @@ mod dst_alignment_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod circuit_creation_tests {
+    use crate::circuits::halo2::circuit::StmCircuit;
+
+    #[test]
+    fn correct_circuit_creation() {
+        let stm_params = crate::Parameters {
+            m: 100,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
+
+        assert!(circuit.is_ok());
+    }
+
+    #[test]
+    fn circuit_creation_large_num_lotteries() {
+        let stm_params = crate::Parameters {
+            m: 1 << 32 + 1,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
+
+        circuit.expect_err("Creation should have failed with number of lotteries too large.");
+    }
+
+    #[test]
+    fn circuit_creation_large_quorum() {
+        let stm_params = crate::Parameters {
+            m: 100,
+            k: 1 << 32 + 1,
+            phi_f: 0.2,
+        };
+        let merkle_tree_depth = 13;
+
+        let circuit = StmCircuit::try_new(stm_params, merkle_tree_depth);
+
+        circuit.expect_err("Creation should have failed with quorum too large.");
+    }
+}
