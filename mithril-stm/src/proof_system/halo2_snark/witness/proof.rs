@@ -6,18 +6,32 @@ use crate::{
     },
 };
 
-use super::{Instance, SignatureRegistrationEntry, SignerWitness};
+use super::{Instance, SignatureRegistrationEntry, WitnessEntry};
 
+/// SNARK proof consisting of the public instance and a list of witness entries.
+///
+/// The instance holds the Merkle tree root and message (public inputs to the circuit).
+/// The witness holds one [`WitnessEntry`] per winning lottery index, each containing
+/// the signature, Merkle leaf, and Merkle path needed by the circuit.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 pub struct SnarkProof<D: MembershipDigest> {
+    /// Public inputs to the SNARK circuit.
     instance: Instance,
-    witness: Vec<SignerWitness<D>>,
+    /// Per-winning-lottery-index witness data.
+    witness: Vec<WitnessEntry<D>>,
 }
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 impl<D: MembershipDigest> SnarkProof<D> {
+    /// Aggregate single signatures into a `SnarkProof`.
+    ///
+    /// This function:
+    /// 1. Computes the aggregate verification key and SNARK message.
+    /// 2. Pairs each signature with its registration entry, filtering out invalid ones.
+    /// 3. Verifies each SNARK signature and computes its winning lottery indices.
+    /// 4. Deduplicates indices across signers to select at least `k` unique winning indices.
     pub fn aggregate_signatures(
         clerk: &SnarkClerk,
         signatures: &[SingleSignature],
@@ -56,7 +70,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         let _deduped_signatures =
             SnarkClerk::select_valid_signatures_for_k_indices(&clerk.parameters, &sig_reg_list)?;
 
-        // TODO: build Instance and SignerWitness entries from deduped_signatures
+        // TODO: build WitnessEntry entries from deduped_signatures
         Ok(SnarkProof {
             instance: Instance::new(message_to_sign[0], message_to_sign[1]),
             witness: Vec::new(),
