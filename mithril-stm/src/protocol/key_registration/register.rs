@@ -246,18 +246,10 @@ mod tests {
 
         fn golden_value() -> MerkleTreeBatchCommitment<Blake2b<U32>, MerkleTreeConcatenationLeaf> {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            #[cfg(not(feature = "future_snark"))]
             let params = Parameters {
                 m: 10,
                 k: 5,
                 phi_f: 0.8,
-            };
-
-            #[cfg(feature = "future_snark")]
-            let params = Parameters {
-                m: 10,
-                k: 5,
-                phi_f: 0.5,
             };
             let number_of_parties = 4;
 
@@ -299,7 +291,7 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "root":[14,47,36,200,0,186,74,223,0,131,30,25,150,157,54,61,89,102,26,188,96,60,0,101,43,209,187,215,127,180,103,105],
+            "root":[228,163,47,150,34,74,244,226,131,159,24,218,184,37,158,68,110,78,76,86,89,121,231,103,49,153,207,157,188,169,219,48],
             "hasher":null
         }"#;
 
@@ -308,7 +300,7 @@ mod tests {
             let params = Parameters {
                 m: 10,
                 k: 5,
-                phi_f: 0.5,
+                phi_f: 0.8,
             };
             let number_of_parties = 4;
 

@@ -92,6 +92,11 @@ mod tests {
 
     type D = MithrilMembershipDigest;
 
+    // TODO: To get meaningful test results, the lottery target value should be computed
+    // using `compute_lottery_target_value` instead of the current `p-1` default in the
+    // `From<(RegistrationEntry, Stake)>` impl for `ClosedRegistrationEntry`.
+    // This requires revising the `From` implementation to support testing with the
+    // hardcoded computation method.
     #[test]
     fn deduplicate_indices() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
