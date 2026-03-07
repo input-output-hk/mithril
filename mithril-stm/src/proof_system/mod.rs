@@ -28,5 +28,4 @@ pub(crate) use concatenation::{ConcatenationProofSigner, SingleSignatureForConca
 #[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
     AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkClerk, SnarkProofSigner,
-    compute_lottery_target_value,
 };
