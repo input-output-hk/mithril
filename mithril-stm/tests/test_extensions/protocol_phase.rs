@@ -40,7 +40,7 @@ pub fn initialization_phase(
 
     for stake in parties {
         let p = Initializer::new(params, stake, &mut rng);
-        key_reg.register_by_entry(&p.clone().into()).unwrap();
+        key_reg.register_by_entry(&p.clone().try_into().unwrap()).unwrap();
         reg_parties.push((
             p.get_verification_key_proof_of_possession_for_concatenation().vk,
             stake,

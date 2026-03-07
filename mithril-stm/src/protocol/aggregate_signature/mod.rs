@@ -47,7 +47,7 @@ mod tests {
             .into_iter()
             .map(|stake| {
                 let p = Initializer::new(params, stake, &mut rng);
-                let entry: RegistrationEntry = p.clone().into();
+                let entry: RegistrationEntry = p.clone().try_into().unwrap();
                 kr.register_by_entry(&entry).unwrap();
                 p
             })

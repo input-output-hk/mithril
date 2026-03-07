@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
@@ -52,8 +54,8 @@ impl SingleSignatureForSnark {
     }
 
     /// Return `indices` of the single signature
-    pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
-        &self.indices
+    pub(crate) fn get_indices(&self) -> Vec<LotteryIndex> {
+        self.indices.to_vec()
     }
 
     /// Set `indices` of single signature to given value
@@ -66,6 +68,12 @@ impl SingleSignatureForSnark {
     /// Return `schnorr_signature` of single signature
     pub(crate) fn get_schnorr_signature(&self) -> UniqueSchnorrSignature {
         self.schnorr_signature
+    }
+}
+
+impl Hash for SingleSignatureForSnark {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.schnorr_signature.hash(state);
     }
 }
 

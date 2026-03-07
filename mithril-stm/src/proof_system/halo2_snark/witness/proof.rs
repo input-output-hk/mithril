@@ -1,0 +1,138 @@
+use crate::{
+    MembershipDigest, SingleSignature, StmResult,
+    proof_system::{
+        AggregateVerificationKeyForSnark, SnarkClerk,
+        halo2_snark::{build_snark_message, compute_winning_lottery_indices},
+    },
+};
+
+use super::{Instance, SignatureRegistrationEntry, WitnessEntry};
+
+/// SNARK proof consisting of the public instance and a list of witness entries.
+///
+/// The instance holds the Merkle tree root and message (public inputs to the circuit).
+/// The witness holds one [`WitnessEntry`] per winning lottery index, each containing
+/// the signature, Merkle leaf, and Merkle path needed by the circuit.
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+pub struct SnarkProof<D: MembershipDigest> {
+    /// Public inputs to the SNARK circuit.
+    instance: Instance,
+    /// Per-winning-lottery-index witness data.
+    witness: Vec<WitnessEntry<D>>,
+}
+
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl<D: MembershipDigest> SnarkProof<D> {
+    /// Aggregate single signatures into a `SnarkProof`.
+    ///
+    /// This function:
+    /// 1. Computes the aggregate verification key and SNARK message.
+    /// 2. Pairs each signature with its registration entry, filtering out invalid ones.
+    /// 3. Verifies each SNARK signature and computes its winning lottery indices.
+    /// 4. Deduplicates indices across signers to select at least `k` unique winning indices.
+    pub fn aggregate_signatures(
+        clerk: &SnarkClerk,
+        signatures: &[SingleSignature],
+        message: &[u8],
+    ) -> StmResult<SnarkProof<D>> {
+        let avk: AggregateVerificationKeyForSnark<D> =
+            clerk.compute_aggregate_verification_key_for_snark();
+        let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, message)?;
+
+        let mut sig_reg_list: Vec<SignatureRegistrationEntry> = signatures
+            .iter()
+            .filter_map(|sig| {
+                let snark_sig = sig.snark_signature.clone()?;
+                let reg_entry =
+                    clerk.get_snark_registration_entry(sig.signer_index).ok().flatten()?;
+                Some(SignatureRegistrationEntry::new(snark_sig, reg_entry))
+            })
+            .collect();
+
+        sig_reg_list.retain_mut(|entry| {
+            let reg = entry.get_registration_entry();
+            if entry.get_signature().verify(&reg.0, message, &avk).is_ok()
+                && let Ok(indices) = compute_winning_lottery_indices(
+                    clerk.parameters.m,
+                    &message_to_sign,
+                    &entry.get_signature().get_schnorr_signature(),
+                    reg.1,
+                )
+            {
+                entry.set_indices(&indices);
+                return true;
+            }
+            false
+        });
+
+        let _deduped_signatures =
+            SnarkClerk::select_valid_signatures_for_k_indices(&clerk.parameters, &sig_reg_list)?;
+
+        // TODO: build WitnessEntry entries from deduped_signatures
+        Ok(SnarkProof {
+            instance: Instance::new(message_to_sign[0], message_to_sign[1]),
+            witness: Vec::new(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
+        Signer, SingleSignature, proof_system::SnarkClerk,
+    };
+
+    use super::*;
+
+    type D = MithrilMembershipDigest;
+
+    // TODO: To get meaningful test results, the lottery target value should be computed
+    // using `compute_lottery_target_value` instead of the current `p-1` default in the
+    // `From<(RegistrationEntry, Stake)>` impl for `ClosedRegistrationEntry`.
+    // This requires revising the `From` implementation to support testing with the
+    // hardcoded computation method.
+    #[test]
+    fn deduplicate_indices() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let parameters = Parameters {
+            m: 100,
+            k: 20,
+            phi_f: 0.50,
+        };
+
+        let message = [0u8; 32];
+
+        let mut initializers = Vec::new();
+        let mut key_reg = KeyRegistration::initialize();
+
+        let stakes = [10, 8, 13, 10];
+
+        for &stake in &stakes {
+            let init = Initializer::new(parameters, stake, &mut rng);
+            initializers.push(init.clone());
+            let entry = RegistrationEntry::try_from(init).unwrap();
+            key_reg.register_by_entry(&entry).unwrap();
+        }
+
+        let closed_key_reg = key_reg.close_registration();
+
+        let mut signatures: Vec<SingleSignature> = Vec::new();
+        for init in initializers {
+            let signer: Signer<D> = init.clone().try_create_signer(&closed_key_reg).unwrap();
+            let signature = signer.create_single_signature(&message).unwrap();
+            signatures.push(signature);
+        }
+
+        let clerk =
+            SnarkClerk::new_clerk_from_closed_key_registration(&parameters, &closed_key_reg);
+
+        let _proof: SnarkProof<D> =
+            SnarkProof::aggregate_signatures(&clerk, &signatures, &message).unwrap();
+    }
+}
