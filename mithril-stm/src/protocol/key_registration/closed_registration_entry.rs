@@ -164,8 +164,9 @@ impl Serialize for ClosedRegistrationEntry {
 
 /// Converts the registration entry into a closed registration entry for given total stake.
 /// This is where we will compute the lottery target value in the future.
-/// `LotteryTargetValue` is set to (modulus - 1) for now.
-/// TODO: Compute the lottery target value based on the total stake and the entry's stake.
+/// `LotteryTargetValue` is computed based on the stake of the entry and the total stake of all
+/// entries, using a hardcoded phi_f value for testing purposes.
+/// TODO: Compute the lottery target value without hardcoded phi_f.
 impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
         let (entry, _total_stake) = entry_total_stake;

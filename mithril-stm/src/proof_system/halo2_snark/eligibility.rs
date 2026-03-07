@@ -18,6 +18,7 @@ cfg_num_integer! {
 
     /// Computes the lottery target value for a given stake and total stake.
     /// Phi_f is hardcoded for testing.
+    // TODO: pass phi_f as an argument instead of hardcoding it.
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
