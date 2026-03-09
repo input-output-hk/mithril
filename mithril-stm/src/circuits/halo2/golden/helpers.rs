@@ -14,7 +14,6 @@ use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use crate::LotteryTargetValue;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
@@ -24,13 +23,13 @@ use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkL
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::{StmError, StmResult};
+use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
 
 /// Base field type used throughout STM circuit golden tests.
 type F = JubjubBase;
 
 /// Witness entry tuple used by STM circuit golden tests.
-type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, u32);
+type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex);
 
 /// Default number of signers used in golden test environments.
 const DEFAULT_NUM_SIGNERS: usize = 3000;
@@ -323,7 +322,7 @@ fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
 
 fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = JubjubBase::from_bytes_le(&challenge_bytes)
+    let challenge_native = F::from_bytes_le(&challenge_bytes)
         .into_option()
         .ok_or_else(|| anyhow!(StmCircuitError::InvalidChallengeBytes))?;
     if challenge_native != sig.challenge.0 {
@@ -357,7 +356,7 @@ pub(crate) fn build_witness(
     msg: F,
     quorum: u32,
 ) -> StmResult<Vec<WitnessEntry>> {
-    let indices: Vec<u32> = (0..quorum).collect();
+    let indices: Vec<LotteryIndex> = (0..(quorum as u64)).collect();
     build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
 }
 
@@ -367,7 +366,7 @@ pub(crate) fn build_witness_with_indices(
     merkle_tree: &StmMerkleTreeWrapper,
     merkle_root: F,
     msg: F,
-    indices: &[u32],
+    indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
@@ -385,7 +384,7 @@ pub(crate) fn build_witness_with_fixed_signer(
     signer_index: usize,
     merkle_root: F,
     msg: F,
-    indices: &[u32],
+    indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
@@ -399,10 +398,10 @@ pub(crate) fn build_witness_with_fixed_signer(
 }
 
 enum WitnessBuildMode<'a> {
-    Indices(&'a [u32]),
+    Indices(&'a [LotteryIndex]),
     FixedSigner {
         signer_index: usize,
-        indices: &'a [u32],
+        indices: &'a [LotteryIndex],
     },
 }
 
@@ -509,7 +508,12 @@ pub(crate) fn setup_stm_circuit_env(
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
-    let relation = StmCircuit::new(quorum, num_lotteries, depth);
+    let stm_params = Parameters {
+        k: quorum as u64,
+        m: num_lotteries as u64,
+        phi_f: 0.2,
+    };
+    let relation = StmCircuit::try_new(&stm_params, depth).unwrap();
     validate_relation_for_setup(&relation)?;
 
     {

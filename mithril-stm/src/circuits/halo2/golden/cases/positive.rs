@@ -1,5 +1,6 @@
 use ff::Field;
 
+use crate::LotteryIndex;
 use crate::circuits::halo2::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, build_witness_with_fixed_signer,
     build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
@@ -73,7 +74,7 @@ fn indices_from_zero() {
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_from_zero tree creation should succeed");
     let merkle_root = merkle_tree.root();
-    let indices = vec![0, 1, 2];
+    let indices: Vec<LotteryIndex> = vec![0, 1, 2];
     let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("indices_from_zero witness build should succeed");
 
@@ -99,7 +100,7 @@ fn indices_to_max() {
     let m = env.num_lotteries();
     assert!(m >= QUORUM, "num_lotteries must be >= quorum");
     let start = m - QUORUM;
-    let indices = (start..m).collect::<Vec<u32>>();
+    let indices = (start as LotteryIndex..m as LotteryIndex).collect::<Vec<LotteryIndex>>();
     let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
         .expect("indices_to_max witness build should succeed");
 
@@ -127,8 +128,8 @@ fn merkle_path_all_right() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices = vec![4, 12, 25];
-    assert!(indices.iter().all(|i| *i < m));
+    let indices: Vec<LotteryIndex> = vec![4, 12, 25];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, rightmost_index, merkle_root, msg, &indices)
             .expect("merkle_path_all_right witness build should succeed");
@@ -159,8 +160,8 @@ fn merkle_path_all_left() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices = vec![5, 13, 21];
-    assert!(indices.iter().all(|i| *i < m));
+    let indices: Vec<LotteryIndex> = vec![5, 13, 21];
+    assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, leftmost_index, merkle_root, msg, &indices)
             .expect("merkle_path_all_left witness build should succeed");
