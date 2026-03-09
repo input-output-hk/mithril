@@ -186,6 +186,32 @@ impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
     }
 }
 
+/// Converts the registration entry into a closed registration entry for given total stake.
+/// This is where we will compute the lottery target value in the future.
+/// `LotteryTargetValue` is set to (modulus - 1) for now.
+/// TODO: Compute the lottery target value based on the total stake and the entry's stake.
+impl From<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
+    fn from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> Self {
+        let (entry, _total_stake, phi_f) = entry_total_stake;
+        #[cfg(feature = "future_snark")]
+        let (schnorr_verification_key, target_value) = {
+            let vk = entry.get_verification_key_for_snark();
+            let target =
+                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+            (vk, target)
+        };
+
+        ClosedRegistrationEntry::new(
+            entry.get_verification_key_for_concatenation(),
+            entry.get_stake(),
+            #[cfg(feature = "future_snark")]
+            schnorr_verification_key,
+            #[cfg(feature = "future_snark")]
+            target_value,
+        )
+    }
+}
+
 impl Hash for ClosedRegistrationEntry {
     /// Hashes the registration entry by hashing the stake first, then the verification key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
