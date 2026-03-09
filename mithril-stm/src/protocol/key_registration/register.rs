@@ -77,7 +77,7 @@ impl KeyRegistration {
         let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
             .registration_entries
             .iter()
-            .map(|entry| (*entry, total_stake).into())
+            .map(|entry| (*entry, total_stake, params.phi_f).into())
             .collect();
 
         ClosedKeyRegistration {

@@ -192,12 +192,14 @@ impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
 /// TODO: Compute the lottery target value based on the total stake and the entry's stake.
 impl From<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> Self {
-        let (entry, _total_stake, phi_f) = entry_total_stake;
+        let (entry, total_stake, phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
+            use crate::proof_system::compute_lottery_target_value;
+
             let vk = entry.get_verification_key_for_snark();
             let target =
-                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+                vk.map(|_| compute_lottery_target_value(phi_f, entry.get_stake(), total_stake));
             (vk, target)
         };
 
