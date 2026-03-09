@@ -157,7 +157,7 @@ impl Relation for StmCircuit {
             .map_err(to_synthesis_error)?
             .transpose_vec(self.quorum as usize);
 
-        // Wrapper-to-Midnight conversions use `From`/`Into` implementations.
+        // Wrapper-to-circuit-base conversions use `From`/`Into` implementations.
         let merkle_root: AssignedNative<F> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x.into()))?;
         let msg: AssignedNative<F> =
@@ -334,28 +334,18 @@ impl Relation for StmCircuit {
 
 #[cfg(test)]
 mod dst_alignment_tests {
-    use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
-    use midnight_curves::Fq as MidnightBaseField;
-
+    use crate::circuits::halo2::types::CircuitBase as F;
     use crate::signature_scheme::{
         BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
         compute_poseidon_digest,
     };
 
+    use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
+
     const REFERENCE_SIGNATURE_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(MidnightBaseField::from_raw([
-            0x5349_474E_5F44_5354,
-            0,
-            0,
-            0,
-        ]));
+        BaseFieldElement(F::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]));
     const REFERENCE_LOTTERY_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(MidnightBaseField::from_raw([
-            0x4C4F_5454_5F44_5354,
-            0,
-            0,
-            0,
-        ]));
+        BaseFieldElement(F::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]));
 
     #[test]
     fn signature_and_lottery_domain_tags_do_not_collide() {
@@ -383,9 +373,7 @@ mod dst_alignment_tests {
             .extend(signature_transcript_inputs.iter().map(|value| value.0));
 
         let signature_digest_via_reference_formula =
-            BaseFieldElement(PoseidonChip::<MidnightBaseField>::hash(
-                &signature_digest_manual_inputs,
-            ));
+            BaseFieldElement(PoseidonChip::<F>::hash(&signature_digest_manual_inputs));
 
         assert_eq!(
             signature_digest_via_stm, signature_digest_via_reference_formula,
@@ -395,20 +383,14 @@ mod dst_alignment_tests {
 
     #[test]
     fn lottery_prefix_matches_reference_lottery_domain_tag_formula() {
-        let merkle_root = MidnightBaseField::from(123u64);
-        let msg = MidnightBaseField::from(456u64);
+        let merkle_root = F::from(123u64);
+        let msg = F::from(456u64);
 
-        let lottery_prefix_via_stm_constant = PoseidonChip::<MidnightBaseField>::hash(&[
-            DOMAIN_SEPARATION_TAG_LOTTERY.0,
-            merkle_root,
-            msg,
-        ]);
+        let lottery_prefix_via_stm_constant =
+            PoseidonChip::<F>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
 
-        let lottery_prefix_via_reference_formula = PoseidonChip::<MidnightBaseField>::hash(&[
-            REFERENCE_LOTTERY_DOMAIN_TAG.0,
-            merkle_root,
-            msg,
-        ]);
+        let lottery_prefix_via_reference_formula =
+            PoseidonChip::<F>::hash(&[REFERENCE_LOTTERY_DOMAIN_TAG.0, merkle_root, msg]);
 
         assert_eq!(
             BaseFieldElement(lottery_prefix_via_stm_constant),

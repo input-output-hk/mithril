@@ -6,7 +6,7 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use anyhow::{Context, anyhow};
-use midnight_curves::{Bls12, Fq as MidnightBaseField};
+use midnight_curves::Bls12;
 use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk;
@@ -16,7 +16,9 @@ use rand_core::SeedableRng;
 
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::types::{MTLeaf, MerklePath, SignedMessageWithoutPrefix as F};
+use crate::circuits::halo2::types::{
+    CircuitBase as CF, MTLeaf, MerklePath, SignedMessageWithoutPrefix as F,
+};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -168,7 +170,7 @@ impl From<&SignerFixture> for MTLeaf {
 }
 
 fn target_value_from_field(target: F) -> StmResult<LotteryTargetValue> {
-    LotteryTargetValue::from_bytes(&MidnightBaseField::from(target).to_bytes_le())
+    LotteryTargetValue::from_bytes(&CF::from(target).to_bytes_le())
         .map_err(|_| anyhow!(StmCircuitError::InvalidLotteryTargetBytes))
 }
 
@@ -319,7 +321,7 @@ fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
 
 fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = MidnightBaseField::from_bytes_le(&challenge_bytes)
+    let challenge_native = CF::from_bytes_le(&challenge_bytes)
         .into_option()
         .ok_or_else(|| anyhow!(StmCircuitError::InvalidChallengeBytes))?;
     if F::from(challenge_native) != F::from(sig.challenge.0) {
