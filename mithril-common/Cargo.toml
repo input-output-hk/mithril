@@ -30,7 +30,8 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 
-future_snark = ["mithril-stm/future_snark"] # For activating snark features
+# Enables the future SNARK implementation for the `mithril-stm` dependency
+future_snark = ["mithril-stm/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }
