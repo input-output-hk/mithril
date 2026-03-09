@@ -16,6 +16,26 @@ cfg_num_integer! {
     /// the value is. A value of 30 provides ~69 bits precision for phi_f=0.2
     const TAYLOR_EXPANSION_ITERATIONS: usize = 30;
 
+    /// Computes the lottery target value for a given stake and total stake.
+    /// Phi_f is hardcoded for testing.
+    #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
+    #[allow(dead_code)]
+    pub fn compute_lottery_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue{
+        let phi_f_ratio_int: Ratio<i64> =
+            Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+        let phi_f_ratio = Ratio::new_raw(
+            BigInt::from(*phi_f_ratio_int.numer()),
+            BigInt::from(*phi_f_ratio_int.denom()),
+        );
+        let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+            TAYLOR_EXPANSION_ITERATIONS,
+            phi_f_ratio.numer(),
+            phi_f_ratio.denom(),
+        );
+        compute_target_value(&ln_one_minus_phi_f, stake, total_stake)
+    }
+
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
