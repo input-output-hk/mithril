@@ -57,7 +57,7 @@ impl Query for GetCardanoBlockTransactionsQuery {
         format!(
             r#"
 select {projection}
-from cardano_block
+from cardano_block indexed by cardano_block_block_number_index
     left join cardano_tx on cardano_block.block_hash = cardano_tx.block_hash
 where {condition}
 group by cardano_block.block_hash
