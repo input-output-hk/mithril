@@ -9,10 +9,8 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
-future_snark = [
-    "mithril-stm/future_snark",
-    "mithril-common/future_snark",
-] # For activating snark features
+# Enable experimental SNARK support in mithril-stm and mithril-common.
+future_snark = ["mithril-stm/future_snark", "mithril-common/future_snark"]
 
 [dependencies]
 clap = { workspace = true }

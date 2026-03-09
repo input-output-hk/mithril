@@ -27,7 +27,8 @@ full = ["fs"]
 
 # Enable file system related functionality, right now that mean only snapshot download
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
-portable = []                                       # deprecated, will be removed soon
+# DEPRECATED: The `portable` feature is deprecated and will be removed in a future release.
+portable = []
 unstable = []
 
 # These features are for support of dependent crates only.

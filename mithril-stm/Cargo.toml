@@ -15,7 +15,9 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 default = ["num-integer-backend"]
-benchmark-internals = [] # For benchmarking
+ # For benchmarking
+benchmark-internals = []
+# Enable experimental SNARK support 
 future_snark = [
     "dep:ff",
     "dep:group",
@@ -27,7 +29,7 @@ future_snark = [
     "dep:num-traits",
     "dep:rand",
     "dep:sha2",
-] # For activating snark features
+]
 num-integer-backend = ["dep:num-bigint", "dep:num-integer", "dep:num-rational", "dep:num-traits"]
 rug-backend = ["rug/default"]
 

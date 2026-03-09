@@ -11,7 +11,8 @@ repository = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
-future_snark = ["mithril-common/future_snark"] # For activating snark features
+# Enable support for future/experimental SNARK functionality in mithril-common.
+future_snark = ["mithril-common/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }
