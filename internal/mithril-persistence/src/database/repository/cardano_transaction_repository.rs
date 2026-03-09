@@ -76,7 +76,7 @@ impl CardanoTransactionRepository {
             .fetch_collect(GetCardanoTransactionQuery::between_blocks(range))
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database where block number is in the
+    /// Return all the [CardanoBlockTransactionsRecord]s in the database where block number is in the
     /// given range.
     pub async fn get_blocks_with_transactions_in_range_blocks(
         &self,
@@ -107,7 +107,7 @@ impl CardanoTransactionRepository {
         )
     }
 
-    /// Create new [CardanoTransactionRecord]s in the database.
+    /// Create new [CardanoBlockRecord] and [StorableCardanoTransactionRecord]s in the database.
     pub async fn create_block_and_transactions(
         &self,
         blocks_with_transactions: Vec<CardanoBlockWithTransactions>,
@@ -118,7 +118,7 @@ impl CardanoTransactionRepository {
             .await
     }
 
-    /// Create new [CardanoBlock] [CardanoTransactionRecord]s in the database.
+    /// Create new [CardanoBlock] and [StorableCardanoTransactionRecord]s in the database.
     async fn create_block_and_transactions_with_connection(
         &self,
         connection: &SqliteConnection,
@@ -327,6 +327,19 @@ from (select max(start) as highest from block_range_root) max_new,
         up_to: BlockNumber,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let query = GetCardanoTransactionQuery::by_transaction_hashes(
+            hashes.into_iter().map(Into::into).collect(),
+            up_to,
+        );
+        self.connection_pool.connection()?.fetch_collect(query)
+    }
+
+    /// Get the [CardanoBlockRecord] for the given block hashes, up to a block number
+    pub async fn get_block_by_hashes<T: Into<BlockHash>>(
+        &self,
+        hashes: Vec<T>,
+        up_to: BlockNumber,
+    ) -> StdResult<Vec<CardanoBlockRecord>> {
+        let query = GetCardanoBlockQuery::by_block_hashes(
             hashes.into_iter().map(Into::into).collect(),
             up_to,
         );
@@ -630,6 +643,96 @@ mod tests {
                 .unwrap();
 
             assert_eq!(Vec::<CardanoTransactionRecord>::new(), transactions);
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_get_block_by_hashes() {
+        let temp_dir = temp_dir_create!();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
+        ));
+
+        repository
+            .create_block_and_transactions(vec![
+                CardanoBlockWithTransactions::new(
+                    "block_hash-10",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
+                ),
+                CardanoBlockWithTransactions::new(
+                    "block_hash-11",
+                    BlockNumber(11),
+                    SlotNumber(51),
+                    vec!["tx_hash-4", "tx_hash-5"],
+                ),
+                CardanoBlockWithTransactions::new(
+                    "block_hash-101",
+                    BlockNumber(101),
+                    SlotNumber(100),
+                    vec!["tx_hash-6"],
+                ),
+            ])
+            .await
+            .unwrap();
+
+        {
+            let transactions = repository
+                .get_block_by_hashes(vec!["block_hash-10", "block_hash-11"], BlockNumber(100))
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoBlockRecord::new("block_hash-10", BlockNumber(10), SlotNumber(50)),
+                    CardanoBlockRecord::new("block_hash-11", BlockNumber(11), SlotNumber(51)),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_block_by_hashes(
+                    vec!["block_hash-10", "block_hash-11", "block_hash-101"],
+                    BlockNumber(100),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoBlockRecord::new("block_hash-10", BlockNumber(10), SlotNumber(50)),
+                    CardanoBlockRecord::new("block_hash-11", BlockNumber(11), SlotNumber(51)),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_block_by_hashes(
+                    vec!["block_hash-10", "block_hash-11", "block_hash-101"],
+                    BlockNumber(101),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoBlockRecord::new("block_hash-10", BlockNumber(10), SlotNumber(50)),
+                    CardanoBlockRecord::new("block_hash-11", BlockNumber(11), SlotNumber(51)),
+                    CardanoBlockRecord::new("block_hash-101", BlockNumber(101), SlotNumber(100)),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_block_by_hashes(vec!["not-exist".to_string()], BlockNumber(100))
+                .await
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoBlockRecord>::new(), transactions);
         }
     }
 
