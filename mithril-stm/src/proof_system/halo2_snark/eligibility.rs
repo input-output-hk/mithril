@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+
 cfg_num_integer! {
     use num_bigint::BigInt;
     use num_integer::Integer;
@@ -21,9 +23,13 @@ cfg_num_integer! {
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub fn compute_lottery_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue{
+    pub fn compute_lottery_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
         if (phi_f - 1.0).abs() < f64::EPSILON {
-            return &LotteryTargetValue::default() - &LotteryTargetValue::get_one();
+            return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+        }
+
+        if total_stake == 0 {
+            return Err(anyhow!("Failure due to total_stake being 0."));
         }
 
         let phi_f_ratio_int: Ratio<i64> =
@@ -37,7 +43,7 @@ cfg_num_integer! {
             phi_f_ratio.numer(),
             phi_f_ratio.denom(),
         );
-        compute_target_value(&ln_one_minus_phi_f, stake, total_stake)
+        Ok(compute_target_value(&ln_one_minus_phi_f, stake, total_stake))
     }
 
     #[cfg(feature = "future_snark")]
@@ -309,7 +315,7 @@ mod tests {
         let target = compute_lottery_target_value(phi_f, stake, total_stake);
 
         assert_eq!(
-            target,
+            target.unwrap(),
             &BaseFieldElement::default() - &BaseFieldElement::get_one()
         );
     }

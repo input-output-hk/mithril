@@ -62,7 +62,7 @@ impl KeyRegistration {
     /// entries.
     ///
     /// Returns the `ClosedKeyRegistration`.
-    pub fn close_registration(self, params: &Parameters) -> ClosedKeyRegistration {
+    pub fn close_registration(self, params: &Parameters) -> StmResult<ClosedKeyRegistration> {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
             if overflow {
@@ -74,16 +74,16 @@ impl KeyRegistration {
             }
             res
         });
-        let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
+        let closed_registration_entries: StmResult<BTreeSet<ClosedRegistrationEntry>> = self
             .registration_entries
             .iter()
-            .map(|entry| (*entry, total_stake, params.phi_f).into())
+            .map(|entry| ClosedRegistrationEntry::try_from((*entry, total_stake, params.phi_f)))
             .collect();
 
-        ClosedKeyRegistration {
-            closed_registration_entries,
+        Ok(ClosedKeyRegistration {
+            closed_registration_entries: closed_registration_entries?,
             total_stake,
-        }
+        })
     }
 }
 
@@ -190,7 +190,66 @@ mod tests {
             let _ = kr.register_by_entry(&entry);
         }
 
+        let closed_registration = kr.close_registration(&params).unwrap();
+
+        for closed_entry in closed_registration.closed_registration_entries {
+            println!("{:?}", closed_entry.get_lottery_target_value());
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn close_registration_zero_stake_parties() {
+        use crate::SchnorrVerificationKey;
+
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let nkeys = 5;
+
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+
+        let stakes: Vec<u64> = vec![0; nkeys];
+
+        let gen_bls_keys = (0..nkeys)
+            .map(|_| {
+                let sk = BlsSigningKey::generate(&mut rng);
+                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
+            })
+            .collect::<Vec<_>>();
+
+        let gen_schnorr_keys = (0..nkeys)
+            .map(|_| {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                SchnorrVerificationKey::new_from_signing_key(sk)
+            })
+            .collect::<Vec<_>>();
+
+        for (i, stake) in stakes.into_iter().enumerate() {
+            let entry =
+                RegistrationEntry::new(gen_bls_keys[i], stake, Some(gen_schnorr_keys[i])).unwrap();
+            let _ = kr.register_by_entry(&entry);
+        }
+
         let closed_registration = kr.close_registration(&params);
+        assert!(closed_registration.is_err());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn closing_registration_no_entries() {
+        let kr = KeyRegistration::initialize();
+
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+
+        let closed_registration = kr.close_registration(&params).unwrap();
 
         for closed_entry in closed_registration.closed_registration_entries {
             println!("{:?}", closed_entry.get_lottery_target_value());
@@ -265,7 +324,7 @@ mod tests {
             }
 
             if !kr.registration_entries.is_empty() {
-                let closed = kr.close_registration(&params);
+                let closed = kr.close_registration(&params).unwrap();
                 let retrieved_keys = closed.closed_registration_entries.iter()
                     .map(|entry| (*entry).into())
                     .collect::<BTreeSet<RegistrationEntry>>();
@@ -315,7 +374,8 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration(&params);
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment()
         }
 
@@ -364,7 +424,8 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration(&params);
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             closed_key_reg
                 .to_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
                 .to_merkle_tree_commitment()

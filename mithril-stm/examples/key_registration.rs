@@ -182,5 +182,5 @@ fn local_reg(
         .unwrap();
         local_keyreg.register_by_entry(&entry).unwrap();
     }
-    local_keyreg.close_registration(&params)
+    local_keyreg.close_registration(&params).unwrap()
 }

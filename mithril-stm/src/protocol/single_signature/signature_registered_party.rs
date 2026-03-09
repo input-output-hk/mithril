@@ -221,7 +221,8 @@ mod tests {
             .unwrap();
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration(&params);
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             let total_stake = closed_key_reg.total_stake;
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
@@ -241,11 +242,12 @@ mod tests {
                 let key_registration_commitment = closed_key_reg
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry = ClosedRegistrationEntry::from((
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
                     entry1,
                     closed_key_reg.total_stake,
                     params.phi_f,
-                ));
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(
@@ -271,7 +273,8 @@ mod tests {
 
             SingleSignatureWithRegisteredParty {
                 sig: signature,
-                reg_party: (entry1, total_stake, params.phi_f).into(),
+                reg_party: ClosedRegistrationEntry::try_from((entry1, total_stake, params.phi_f))
+                    .unwrap(),
             }
         }
 

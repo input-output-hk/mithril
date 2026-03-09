@@ -96,7 +96,7 @@ impl Initializer {
                     closed_key_registration.total_stake,
                     self.parameters.phi_f,
                 )
-                    .into(),
+                    .try_into()?,
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
@@ -117,11 +117,11 @@ impl Initializer {
             let key_registration_commitment_for_snark = closed_key_registration
                 .to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>()
                 .to_merkle_tree_commitment();
-            let lottery_target_value = ClosedRegistrationEntry::from((
+            let lottery_target_value = ClosedRegistrationEntry::try_from((
                 registration_entry,
                 closed_key_registration.total_stake,
                 self.parameters.phi_f,
-            ))
+            ))?
             .get_lottery_target_value();
             SnarkProofSigner::new(
                 self.parameters,

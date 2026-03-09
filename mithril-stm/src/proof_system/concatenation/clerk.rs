@@ -209,7 +209,7 @@ mod tests {
                 initializers.push(initializer);
             }
 
-            let closed_registration: ClosedKeyRegistration = key_registration.close_registration(&params);
+            let closed_registration: ClosedKeyRegistration = key_registration.close_registration(&params).unwrap();
 
             let signers: Vec<_> = initializers
                 .into_iter()

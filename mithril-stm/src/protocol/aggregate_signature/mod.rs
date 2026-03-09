@@ -52,7 +52,7 @@ mod tests {
                 p
             })
             .collect::<Vec<_>>();
-        let closed_reg = kr.close_registration(&params);
+        let closed_reg = kr.close_registration(&params).unwrap();
         println!("{:?}", closed_reg);
         ps.into_iter()
             .map(|p| p.try_create_signer(&closed_reg.clone()).unwrap())

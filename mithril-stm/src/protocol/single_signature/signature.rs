@@ -308,7 +308,7 @@ mod tests {
             registration.register_by_entry(&entry).unwrap();
         }
 
-        let closed_key_registration = registration.close_registration(&params);
+        let closed_key_registration = registration.close_registration(&params).unwrap();
         let mut signing_keys = signing_keys.into_iter();
         let sk_1 = signing_keys.next().expect("at least one signer exists");
         let mut verification_keys = verification_keys.into_iter();
@@ -423,7 +423,7 @@ mod tests {
             .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
-            let closed_key_registration = registration.close_registration(&params);
+            let closed_key_registration = registration.close_registration(&params).unwrap();
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
@@ -444,11 +444,12 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry = ClosedRegistrationEntry::from((
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
                     entry1,
                     closed_key_registration.total_stake,
                     params.phi_f,
-                ));
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(
@@ -582,7 +583,7 @@ mod tests {
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
 
-            let closed_key_registration = registration.close_registration(&params);
+            let closed_key_registration = registration.close_registration(&params).unwrap();
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
@@ -603,11 +604,12 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry = ClosedRegistrationEntry::from((
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
                     entry1,
                     closed_key_registration.total_stake,
                     params.phi_f,
-                ));
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(

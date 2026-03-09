@@ -70,7 +70,7 @@ mod tests {
             }
         }
 
-        let closed_reg = key_reg.close_registration(&params);
+        let closed_reg = key_reg.close_registration(&params).unwrap();
         let entry = first_entry.unwrap();
 
         let merkle_tree = closed_reg
@@ -78,7 +78,8 @@ mod tests {
             )
             .to_merkle_tree_commitment();
         let lottery_target_value =
-            ClosedRegistrationEntry::from((entry, closed_reg.total_stake, params.phi_f))
+            ClosedRegistrationEntry::try_from((entry, closed_reg.total_stake, params.phi_f))
+                .unwrap()
                 .get_lottery_target_value()
                 .unwrap();
 

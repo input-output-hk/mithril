@@ -164,8 +164,9 @@ impl Serialize for ClosedRegistrationEntry {
 
 /// Converts the registration entry into a closed registration entry for given total stake.
 /// This is where we compute the lottery target value.
-impl From<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
-    fn from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> Self {
+impl TryFrom<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
+    type Error = anyhow::Error;
+    fn try_from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> StmResult<Self> {
         #[cfg(not(feature = "future_snark"))]
         let (entry, _total_stake, _phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
@@ -173,19 +174,22 @@ impl From<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target =
-                vk.map(|_| compute_lottery_target_value(phi_f, entry.get_stake(), total_stake));
+            let target = Some(compute_lottery_target_value(
+                phi_f,
+                entry.get_stake(),
+                total_stake,
+            )?);
             (vk, target)
         };
 
-        ClosedRegistrationEntry::new(
+        Ok(ClosedRegistrationEntry::new(
             entry.get_verification_key_for_concatenation(),
             entry.get_stake(),
             #[cfg(feature = "future_snark")]
             schnorr_verification_key,
             #[cfg(feature = "future_snark")]
             target_value,
-        )
+        ))
     }
 }
 

@@ -951,7 +951,7 @@ mod tests {
                     ),
                 },
                 total_spo: 1,
-                total_stake: 0,
+                total_stake: 10,
             }
         }
 

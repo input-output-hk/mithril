@@ -49,7 +49,7 @@ fn stm_benches<D: MembershipDigest>(
         })
     });
 
-    let closed_reg = key_reg.close_registration(&params);
+    let closed_reg = key_reg.close_registration(&params).unwrap();
 
     let signers: Vec<Signer<D>> = initializers
         .into_par_iter()
@@ -118,7 +118,7 @@ fn batch_benches<D>(
                 key_reg.register_by_entry(&p.clone().into()).unwrap();
             }
 
-            let closed_reg = key_reg.close_registration(&params);
+            let closed_reg = key_reg.close_registration(&params).unwrap();
 
             let signers = initializers
                 .into_par_iter()
