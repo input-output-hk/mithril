@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use ff::{Field, PrimeField};
 use midnight_circuits::instructions::{
     ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
     ControlFlowInstructions, DecompositionInstructions, EccInstructions, EqualityInstructions,
@@ -9,13 +10,12 @@ use midnight_circuits::types::{
 use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
+use num_bigint::BigUint;
+use num_traits::{Num, One};
 
 use crate::StmResult;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::types::{CircuitBase as F, CircuitCurve as C};
-use ff::{Field, PrimeField};
-use num_bigint::BigUint;
-use num_traits::{Num, One};
 
 /// Splits a field element into `(lower, upper)` limbs at `num_bits` using LE encoding.
 fn split_field_element_into_le_limbs<F: PrimeField>(value: &F, num_bits: u32) -> StmResult<(F, F)> {
@@ -30,14 +30,14 @@ fn split_field_element_into_le_limbs<F: PrimeField>(value: &F, num_bits: u32) ->
 
 fn field_modulus_as_biguint<F: PrimeField>() -> StmResult<BigUint> {
     BigUint::from_str_radix(&F::MODULUS[2..], 16)
-        .map_err(|_| anyhow!(StmCircuitError::GadgetsFieldModulusParse))
+        .map_err(|_| anyhow!(StmCircuitError::FieldModulusParseFailed))
 }
 
 fn big_unsigned_integer_to_field_element<F: PrimeField>(e: BigUint) -> StmResult<F> {
     let modulus = field_modulus_as_biguint::<F>()?;
     let e = e % modulus;
     F::from_str_vartime(&e.to_str_radix(10)[..])
-        .ok_or_else(|| anyhow!(StmCircuitError::GadgetsFieldElementConversion))
+        .ok_or_else(|| anyhow!(StmCircuitError::FieldElementConversionFailed))
 }
 
 fn assert_equal_parity(

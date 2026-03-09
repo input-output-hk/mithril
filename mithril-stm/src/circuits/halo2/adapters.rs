@@ -1,12 +1,12 @@
 //! Test-only adapters for converting STM Merkle paths to Halo2 witness paths.
 
-#[cfg(test)]
 pub(crate) mod merkle_path_test_adapter {
+    use digest::Digest;
+    use thiserror::Error;
+
     use crate::circuits::halo2::types::{MerklePath as Halo2MerklePath, Position};
     use crate::membership_commitment::MerklePath as StmMerklePath;
     use crate::signature_scheme::BaseFieldElement;
-    use digest::Digest;
-    use thiserror::Error;
 
     /// Errors returned when adapting STM Merkle paths to Halo2 witness paths.
     #[derive(Debug, Error)]

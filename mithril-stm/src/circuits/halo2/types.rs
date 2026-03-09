@@ -4,16 +4,18 @@
 //! to circuit-oriented types consumed by the Halo2 relation and gadgets.
 //! Wrapper types in this module represent the circuit statement layer.
 
-use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey};
+use std::ops::{Add, AddAssign, Neg, Sub};
+
 use ff::Field;
 use midnight_curves::{Fq as MidnightBaseField, JubjubExtended as MidnightJubjub};
-use std::ops::{Add, AddAssign, Neg, Sub};
+
+use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey};
 
 /// Shared Midnight field alias used by Halo2 relation/chips.
 pub(crate) type CircuitBase = MidnightBaseField;
 /// Shared Midnight curve alias used by Halo2 relation/chips.
 pub(crate) type CircuitCurve = MidnightJubjub;
-///
+
 /// Field type boundaries:
 /// - `BaseFieldElement`: STM/domain field wrapper.
 /// - `CircuitBaseField`: circuit statement/input wrapper.
@@ -24,7 +26,9 @@ pub(crate) type CircuitCurve = MidnightJubjub;
 pub struct CircuitBaseField(MidnightBaseField);
 
 impl CircuitBaseField {
+    /// Additive identity in the circuit base field.
     pub const ZERO: Self = Self(MidnightBaseField::ZERO);
+    /// Multiplicative identity in the circuit base field.
     pub const ONE: Self = Self(MidnightBaseField::ONE);
 }
 

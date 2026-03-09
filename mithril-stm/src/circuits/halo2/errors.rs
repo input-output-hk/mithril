@@ -1,6 +1,7 @@
-use crate::StmError;
 use midnight_proofs::plonk::Error as PlonkError;
 use thiserror::Error;
+
+use crate::StmError;
 
 /// Circuit-scoped errors for Halo2 STM validation and execution.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -31,12 +32,12 @@ pub enum StmCircuitError {
     MerklePositionLengthMismatch { expected_depth: u32, actual: u32 },
 
     /// Failed to parse the prime field modulus while splitting field limbs.
-    #[error("Gadgets field modulus parse failed")]
-    GadgetsFieldModulusParse,
+    #[error("Field modulus parse failed")]
+    FieldModulusParseFailed,
 
     /// Failed to convert a reduced integer into a prime field element.
-    #[error("Gadgets field element conversion failed")]
-    GadgetsFieldElementConversion,
+    #[error("Field element conversion failed")]
+    FieldElementConversionFailed,
 
     /// Merkle tree depth does not fit fixture sizing constraints.
     #[error("Invalid merkle tree depth ({depth})")]
