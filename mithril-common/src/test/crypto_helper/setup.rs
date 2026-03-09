@@ -185,7 +185,7 @@ pub fn setup_signers_from_stake_distribution(
         ));
     }
 
-    let closed_key_registration = key_registration.close();
+    let closed_key_registration = key_registration.close(protocol_parameters);
 
     signers
         .into_iter()
