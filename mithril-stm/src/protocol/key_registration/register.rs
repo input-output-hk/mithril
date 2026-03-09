@@ -2,7 +2,8 @@ use digest::{Digest, FixedOutput};
 use std::collections::BTreeSet;
 
 use crate::{
-    RegisterError, SignerIndex, Stake, StmResult, VerificationKeyProofOfPossessionForConcatenation,
+    Parameters, RegisterError, SignerIndex, Stake, StmResult,
+    VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
     protocol::key_registration::ClosedRegistrationEntry,
 };
@@ -61,7 +62,7 @@ impl KeyRegistration {
     /// entries.
     ///
     /// Returns the `ClosedKeyRegistration`.
-    pub fn close_registration(self) -> ClosedKeyRegistration {
+    pub fn close_registration(self, params: &Parameters) -> ClosedKeyRegistration {
         let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
             let (res, overflow) = acc.overflowing_add(entry.get_stake());
             if overflow {
@@ -142,7 +143,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
-        VerificationKeyProofOfPossessionForConcatenation, signature_scheme::BlsSigningKey,
+        Parameters, VerificationKeyProofOfPossessionForConcatenation,
+        signature_scheme::BlsSigningKey,
     };
 
     use super::*;
@@ -155,6 +157,12 @@ mod tests {
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyRegistration::initialize();
+
+            let params = Parameters {
+                m: 20,
+                k: 10,
+                phi_f: 0.2
+            };
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = BlsSigningKey::generate(&mut rng);
@@ -209,7 +217,7 @@ mod tests {
             }
 
             if !kr.registration_entries.is_empty() {
-                let closed = kr.close_registration();
+                let closed = kr.close_registration(&params);
                 let retrieved_keys = closed.closed_registration_entries.iter()
                     .map(|entry| (*entry).into())
                     .collect::<BTreeSet<RegistrationEntry>>();
@@ -259,7 +267,7 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration(&params);
             closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment()
         }
 
@@ -308,7 +316,7 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration(&params);
             closed_key_reg
                 .to_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
                 .to_merkle_tree_commitment()

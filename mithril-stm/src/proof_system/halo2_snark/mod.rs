@@ -70,7 +70,7 @@ mod tests {
             }
         }
 
-        let closed_reg = key_reg.close_registration();
+        let closed_reg = key_reg.close_registration(&params);
         let entry = first_entry.unwrap();
 
         let merkle_tree = closed_reg

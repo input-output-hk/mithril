@@ -48,7 +48,7 @@ pub fn initialization_phase(
         initializers.push(p);
     }
 
-    let closed_reg = key_reg.close_registration();
+    let closed_reg = key_reg.close_registration(&params);
 
     let signers = initializers
         .clone()

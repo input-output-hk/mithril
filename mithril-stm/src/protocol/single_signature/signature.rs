@@ -308,7 +308,7 @@ mod tests {
             registration.register_by_entry(&entry).unwrap();
         }
 
-        let closed_key_registration = registration.close_registration();
+        let closed_key_registration = registration.close_registration(&params);
         let mut signing_keys = signing_keys.into_iter();
         let sk_1 = signing_keys.next().expect("at least one signer exists");
         let mut verification_keys = verification_keys.into_iter();
@@ -423,7 +423,7 @@ mod tests {
             .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
-            let closed_key_registration = registration.close_registration();
+            let closed_key_registration = registration.close_registration(&params);
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
@@ -579,7 +579,7 @@ mod tests {
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
 
-            let closed_key_registration = registration.close_registration();
+            let closed_key_registration = registration.close_registration(&params);
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
