@@ -444,8 +444,11 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry =
-                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let closed_registration_entry = ClosedRegistrationEntry::from((
+                    entry1,
+                    closed_key_registration.total_stake,
+                    params.phi_f,
+                ));
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(
@@ -600,8 +603,11 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry =
-                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let closed_registration_entry = ClosedRegistrationEntry::from((
+                    entry1,
+                    closed_key_registration.total_stake,
+                    params.phi_f,
+                ));
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(

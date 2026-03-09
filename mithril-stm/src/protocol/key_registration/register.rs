@@ -142,12 +142,60 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    #[cfg(feature = "future_snark")]
+    use crate::SchnorrSigningKey;
     use crate::{
         Parameters, VerificationKeyProofOfPossessionForConcatenation,
         signature_scheme::BlsSigningKey,
     };
 
     use super::*;
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn close_registration_computes_target_values() {
+        use rand::random_range;
+
+        use crate::SchnorrVerificationKey;
+
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let nkeys = 5;
+
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+
+        let stakes: Vec<u64> = (0..nkeys).map(|_| random_range(10..100)).collect();
+
+        let gen_bls_keys = (0..nkeys)
+            .map(|_| {
+                let sk = BlsSigningKey::generate(&mut rng);
+                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
+            })
+            .collect::<Vec<_>>();
+
+        let gen_schnorr_keys = (0..nkeys)
+            .map(|_| {
+                let sk = SchnorrSigningKey::generate(&mut rng);
+                SchnorrVerificationKey::new_from_signing_key(sk)
+            })
+            .collect::<Vec<_>>();
+
+        for (i, stake) in stakes.into_iter().enumerate() {
+            let entry =
+                RegistrationEntry::new(gen_bls_keys[i], stake, Some(gen_schnorr_keys[i])).unwrap();
+            let _ = kr.register_by_entry(&entry);
+        }
+
+        let closed_registration = kr.close_registration(&params);
+
+        for closed_entry in closed_registration.closed_registration_entries {
+            println!("{:?}", closed_entry.get_lottery_target_value());
+        }
+    }
 
     proptest! {
         #[test]

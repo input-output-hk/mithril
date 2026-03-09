@@ -91,7 +91,12 @@ impl Initializer {
 
         let signer_index = closed_key_registration
             .get_signer_index_for_registration(
-                &(registration_entry, closed_key_registration.total_stake).into(),
+                &(
+                    registration_entry,
+                    closed_key_registration.total_stake,
+                    self.parameters.phi_f,
+                )
+                    .into(),
             )
             .ok_or_else(|| anyhow!(RegisterError::UnregisteredInitializer))?;
 
@@ -115,6 +120,7 @@ impl Initializer {
             let lottery_target_value = ClosedRegistrationEntry::from((
                 registration_entry,
                 closed_key_registration.total_stake,
+                self.parameters.phi_f,
             ))
             .get_lottery_target_value();
             SnarkProofSigner::new(

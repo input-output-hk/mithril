@@ -5,7 +5,9 @@ use std::hash::Hash;
 use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation};
 
 #[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, VerificationKeyForSnark};
+use crate::{
+    LotteryTargetValue, VerificationKeyForSnark, proof_system::compute_lottery_target_value,
+};
 
 /// Represents a registration entry of a closed key registration.
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Deserialize)]
@@ -161,42 +163,15 @@ impl Serialize for ClosedRegistrationEntry {
 }
 
 /// Converts the registration entry into a closed registration entry for given total stake.
-/// This is where we will compute the lottery target value in the future.
-/// `LotteryTargetValue` is set to (modulus - 1) for now.
-/// TODO: Compute the lottery target value based on the total stake and the entry's stake.
-impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
-    fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
-        let (entry, _total_stake) = entry_total_stake;
-        #[cfg(feature = "future_snark")]
-        let (schnorr_verification_key, target_value) = {
-            let vk = entry.get_verification_key_for_snark();
-            let target =
-                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
-            (vk, target)
-        };
-
-        ClosedRegistrationEntry::new(
-            entry.get_verification_key_for_concatenation(),
-            entry.get_stake(),
-            #[cfg(feature = "future_snark")]
-            schnorr_verification_key,
-            #[cfg(feature = "future_snark")]
-            target_value,
-        )
-    }
-}
-
-/// Converts the registration entry into a closed registration entry for given total stake.
-/// This is where we will compute the lottery target value in the future.
-/// `LotteryTargetValue` is set to (modulus - 1) for now.
-/// TODO: Compute the lottery target value based on the total stake and the entry's stake.
+/// This is where we compute the lottery target value.
 impl From<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
     fn from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> Self {
+        #[cfg(not(feature = "future_snark"))]
+        let (entry, _total_stake, _phi_f) = entry_total_stake;
+        #[cfg(feature = "future_snark")]
         let (entry, total_stake, phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
-            use crate::proof_system::compute_lottery_target_value;
-
             let vk = entry.get_verification_key_for_snark();
             let target =
                 vk.map(|_| compute_lottery_target_value(phi_f, entry.get_stake(), total_stake));

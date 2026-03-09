@@ -22,6 +22,10 @@ cfg_num_integer! {
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
     pub fn compute_lottery_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> LotteryTargetValue{
+        if (phi_f - 1.0).abs() < f64::EPSILON {
+            return &LotteryTargetValue::default() - &LotteryTargetValue::get_one();
+        }
+
         let phi_f_ratio_int: Ratio<i64> =
             Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
         let phi_f_ratio = Ratio::new_raw(
@@ -249,7 +253,10 @@ mod tests {
     use proptest::prelude::*;
     use rand_core::OsRng;
 
-    use crate::{LotteryTargetValue, SchnorrSigningKey, signature_scheme::BaseFieldElement};
+    use crate::{
+        LotteryTargetValue, SchnorrSigningKey, proof_system::compute_lottery_target_value,
+        signature_scheme::BaseFieldElement,
+    };
 
     use super::{
         TAYLOR_EXPANSION_ITERATIONS, check_lottery_for_index, compute_exponential_taylor_expansion,
@@ -291,6 +298,20 @@ mod tests {
 
         let adv = phi_full.clone() - phi_split.pow(split);
         assert!(adv.to_f64().unwrap() < 1e-10);
+    }
+
+    #[test]
+    fn phi_f_one_gives_max_target() {
+        let phi_f = 1.0;
+        let total_stake = 10_000;
+        let stake = 0;
+
+        let target = compute_lottery_target_value(phi_f, stake, total_stake);
+
+        assert_eq!(
+            target,
+            &BaseFieldElement::default() - &BaseFieldElement::get_one()
+        );
     }
 
     mod lottery_computations {

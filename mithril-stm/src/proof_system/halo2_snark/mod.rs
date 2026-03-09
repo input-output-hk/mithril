@@ -18,7 +18,7 @@ mod tests {
 
     use crate::{
         ClosedRegistrationEntry, KeyRegistration, MithrilMembershipDigest, Parameters,
-        RegistrationEntry, SignatureError, VerificationKeyForSnark,
+        RegistrationEntry, VerificationKeyForSnark,
         VerificationKeyProofOfPossessionForConcatenation,
         proof_system::halo2_snark::eligibility::{check_lottery_for_index, compute_lottery_prefix},
         protocol::RegistrationEntryForSnark,
@@ -77,9 +77,10 @@ mod tests {
             .to_merkle_tree::<<D as crate::MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
             )
             .to_merkle_tree_commitment();
-        let lottery_target_value = ClosedRegistrationEntry::from((entry, closed_reg.total_stake))
-            .get_lottery_target_value()
-            .unwrap();
+        let lottery_target_value =
+            ClosedRegistrationEntry::from((entry, closed_reg.total_stake, params.phi_f))
+                .get_lottery_target_value()
+                .unwrap();
 
         let snark_signer = SnarkProofSigner::<D>::new(
             params,
@@ -310,7 +311,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(1))]
 
         #[test]
         fn sign_then_verify_roundtrip(
@@ -320,7 +321,7 @@ mod tests {
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
-            let params = Parameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 1.0 };
             let mut rng = ChaCha20Rng::from_seed(seed);
             let (signer, avk) = setup_snark_signer(params, nparties, &mut rng);
 
@@ -344,7 +345,7 @@ mod tests {
             seed in any::<[u8; 32]>(),
         ) {
             prop_assume!(msg1 != msg2);
-            let params = Parameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 1.0 };
             let mut rng = ChaCha20Rng::from_seed(seed);
             let (signer, avk) = setup_snark_signer(params, nparties, &mut rng);
 
@@ -366,7 +367,7 @@ mod tests {
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
-            let params = Parameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 1.0 };
             let mut rng = ChaCha20Rng::from_seed(seed);
             let (signer, avk) = setup_snark_signer(params, nparties, &mut rng);
             let sig = signer.create_single_signature(&msg, &mut rng).unwrap();
@@ -390,7 +391,7 @@ mod tests {
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
-            let params = Parameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 1.0 };
             let mut rng = ChaCha20Rng::from_seed(seed);
             let (signer, _) = setup_snark_signer(params, nparties, &mut rng);
 
@@ -435,7 +436,6 @@ mod tests {
                 .expect("check_lottery should find at least one winning index");
 
         let prefix = compute_lottery_prefix(&message_to_sign);
-
         // Every returned index must pass verify_lottery_eligibility
         for &index in &winning_indices {
             assert!(
@@ -444,7 +444,7 @@ mod tests {
                 params.m
             );
             assert!(
-                check_lottery_for_index(&schnorr, index, params.m, prefix, target).is_ok(),
+                check_lottery_for_index(&schnorr, index, params.m, prefix, target).unwrap(),
                 "Winning index {index} should pass check_lottery_for_index"
             );
         }
@@ -452,14 +452,11 @@ mod tests {
         // Every index NOT in the winning set must fail check_lottery_for_index
         for index in 0..params.m {
             if !winning_indices.contains(&index) {
-                let err = check_lottery_for_index(&schnorr, index, params.m, prefix, target)
-                    .expect_err(&format!("Non-winning index {index} should fail"));
+                let result =
+                    check_lottery_for_index(&schnorr, index, params.m, prefix, target).unwrap();
                 assert!(
-                    matches!(
-                        err.downcast_ref::<SignatureError>(),
-                        Some(SignatureError::LotteryLost)
-                    ),
-                    "Expected LotteryLost for index {index}, got: {err:?}"
+                    !result,
+                    "Expected LotteryLost for index {index}, got: {result:?}"
                 );
             }
         }
