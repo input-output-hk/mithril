@@ -1,5 +1,6 @@
 mod get_aggregator_features;
 mod get_aggregator_status;
+mod get_cardano_block_proof;
 mod get_cardano_blocks_transactions;
 mod get_cardano_blocks_transactions_list;
 mod get_cardano_database;
