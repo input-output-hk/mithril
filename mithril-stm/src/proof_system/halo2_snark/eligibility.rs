@@ -1,5 +1,7 @@
 use anyhow::anyhow;
 
+use crate::PhiValue;
+
 cfg_num_integer! {
     use num_bigint::BigInt;
     use num_integer::Integer;
@@ -19,12 +21,11 @@ cfg_num_integer! {
     const TAYLOR_EXPANSION_ITERATIONS: usize = 30;
 
     /// Computes the lottery target value for a given stake and total stake.
-    /// Phi_f is hardcoded for testing.
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
-    pub fn compute_lottery_target_value(phi_f: f64, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
-        if (phi_f - 1.0).abs() < f64::EPSILON {
+    pub fn compute_lottery_target_value(phi_f: PhiValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
+        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
             return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
         }
 

@@ -139,11 +139,16 @@ impl ClosedKeyRegistration {
 #[cfg(test)]
 mod tests {
     use proptest::{collection::vec, prelude::*};
+    #[cfg(feature = "future_snark")]
+    use rand::random_range;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     #[cfg(feature = "future_snark")]
-    use crate::SchnorrSigningKey;
+    use crate::{
+        Initializer, MithrilMembershipDigest, SchnorrSigningKey, SchnorrVerificationKey,
+        proof_system::compute_lottery_target_value,
+    };
     use crate::{
         Parameters, VerificationKeyProofOfPossessionForConcatenation,
         signature_scheme::BlsSigningKey,
@@ -152,107 +157,140 @@ mod tests {
     use super::*;
 
     #[cfg(feature = "future_snark")]
-    #[test]
-    fn close_registration_computes_target_values() {
-        use rand::random_range;
-
-        use crate::SchnorrVerificationKey;
-
+    fn prepare_key_registration_with_stakes(stakes: Vec<u64>) -> KeyRegistration {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let mut kr = KeyRegistration::initialize();
-        let nkeys = 5;
 
+        for stake in stakes {
+            let bls_vk = VerificationKeyProofOfPossessionForConcatenation::from(
+                &BlsSigningKey::generate(&mut rng),
+            );
+            let schnorr_vk =
+                SchnorrVerificationKey::new_from_signing_key(SchnorrSigningKey::generate(&mut rng));
+            let entry = RegistrationEntry::new(bls_vk, stake, Some(schnorr_vk)).unwrap();
+            let _ = kr.register_by_entry(&entry);
+        }
+        kr
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn close_registration_computes_same_target_value() {
+        let nb_entries = 5;
         let params = Parameters {
             m: 20,
             k: 10,
             phi_f: 0.2,
         };
 
-        let stakes: Vec<u64> = (0..nkeys).map(|_| random_range(10..100)).collect();
+        let stakes: Vec<u64> = (0..nb_entries).map(|_| random_range(10..100)).collect();
+        let kr = prepare_key_registration_with_stakes(stakes);
+        let closed_registration = kr.clone().close_registration(&params).unwrap();
+        let total_stake = closed_registration.total_stake;
 
-        let gen_bls_keys = (0..nkeys)
-            .map(|_| {
-                let sk = BlsSigningKey::generate(&mut rng);
-                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
-            })
-            .collect::<Vec<_>>();
+        for (closed_entry, entry) in closed_registration
+            .closed_registration_entries
+            .iter()
+            .zip(kr.registration_entries)
+        {
+            let stake = closed_entry.get_stake();
+            let target_value_from_registration = closed_entry.get_lottery_target_value().unwrap();
 
-        let gen_schnorr_keys = (0..nkeys)
-            .map(|_| {
-                let sk = SchnorrSigningKey::generate(&mut rng);
-                SchnorrVerificationKey::new_from_signing_key(sk)
-            })
-            .collect::<Vec<_>>();
+            let target_value_from_try_from =
+                ClosedRegistrationEntry::try_from((entry, total_stake, params.phi_f))
+                    .unwrap()
+                    .get_lottery_target_value()
+                    .unwrap();
 
-        for (i, stake) in stakes.into_iter().enumerate() {
-            let entry =
-                RegistrationEntry::new(gen_bls_keys[i], stake, Some(gen_schnorr_keys[i])).unwrap();
-            let _ = kr.register_by_entry(&entry);
-        }
+            let target_value_from_eligibility =
+                compute_lottery_target_value(params.phi_f, stake, total_stake).unwrap();
 
-        let closed_registration = kr.close_registration(&params).unwrap();
-
-        for closed_entry in closed_registration.closed_registration_entries {
-            println!("{:?}", closed_entry.get_lottery_target_value());
+            assert_eq!(
+                target_value_from_eligibility,
+                target_value_from_registration
+            );
+            assert_eq!(target_value_from_eligibility, target_value_from_try_from);
         }
     }
 
     #[cfg(feature = "future_snark")]
     #[test]
-    fn close_registration_zero_stake_parties() {
-        use crate::SchnorrVerificationKey;
-
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let mut kr = KeyRegistration::initialize();
-        let nkeys = 5;
-
+    fn close_registration_zero_total_stake_fails() {
+        let nb_entries = 5;
         let params = Parameters {
             m: 20,
             k: 10,
             phi_f: 0.2,
         };
-
-        let stakes: Vec<u64> = vec![0; nkeys];
-
-        let gen_bls_keys = (0..nkeys)
-            .map(|_| {
-                let sk = BlsSigningKey::generate(&mut rng);
-                VerificationKeyProofOfPossessionForConcatenation::from(&sk)
-            })
-            .collect::<Vec<_>>();
-
-        let gen_schnorr_keys = (0..nkeys)
-            .map(|_| {
-                let sk = SchnorrSigningKey::generate(&mut rng);
-                SchnorrVerificationKey::new_from_signing_key(sk)
-            })
-            .collect::<Vec<_>>();
-
-        for (i, stake) in stakes.into_iter().enumerate() {
-            let entry =
-                RegistrationEntry::new(gen_bls_keys[i], stake, Some(gen_schnorr_keys[i])).unwrap();
-            let _ = kr.register_by_entry(&entry);
-        }
-
+        let stakes: Vec<u64> = vec![0; nb_entries];
+        let kr = prepare_key_registration_with_stakes(stakes);
         let closed_registration = kr.close_registration(&params);
+
         assert!(closed_registration.is_err());
     }
 
     #[cfg(feature = "future_snark")]
     #[test]
-    fn closing_registration_no_entries() {
+    fn closing_registration_without_entries_passes() {
         let kr = KeyRegistration::initialize();
-
         let params = Parameters {
             m: 20,
             k: 10,
             phi_f: 0.2,
         };
 
-        let closed_registration = kr.close_registration(&params).unwrap();
+        let closed_registration = kr.close_registration(&params);
 
-        for closed_entry in closed_registration.closed_registration_entries {
-            println!("{:?}", closed_entry.get_lottery_target_value());
+        assert!(closed_registration.is_ok());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn signer_creation_fails_for_initializer_with_diff_param() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let nkeys = 5;
+        let params = Parameters {
+            m: 100,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let stakes: Vec<u64> = (0..nkeys).map(|_| random_range(10..100)).collect();
+        let mut initializers = vec![];
+        let forged_params = Parameters {
+            phi_f: 1.0,
+            ..params
+        };
+        for (i, stake) in stakes.into_iter().enumerate() {
+            let init = if i == 0 {
+                Initializer::new(forged_params, stake, &mut rng)
+            } else {
+                Initializer::new(params, stake, &mut rng)
+            };
+            let entry = RegistrationEntry::new(
+                init.get_verification_key_proof_of_possession_for_concatenation(),
+                stake,
+                init.get_verification_key_for_snark(),
+            )
+            .unwrap();
+            kr.register_by_entry(&entry).unwrap();
+            initializers.push(init);
+        }
+
+        let closed_registration = kr.clone().close_registration(&params).unwrap();
+
+        for (i, init) in initializers.into_iter().enumerate() {
+            if i == 0 {
+                let result_signer =
+                    init.try_create_signer::<MithrilMembershipDigest>(&closed_registration);
+
+                assert!(result_signer.is_err());
+            } else {
+                let result_signer =
+                    init.try_create_signer::<MithrilMembershipDigest>(&closed_registration);
+
+                assert!(result_signer.is_ok());
+            }
         }
     }
 
@@ -405,7 +443,7 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "root":[228,163,47,150,34,74,244,226,131,159,24,218,184,37,158,68,110,78,76,86,89,121,231,103,49,153,207,157,188,169,219,48],
+            "root":[165,121,179,134,45,169,200,53,27,170,110,123,40,15,191,138,219,249,100,108,146,170,70,116,200,250,155,134,5,242,23,63],
             "hasher":null
         }"#;
 

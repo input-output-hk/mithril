@@ -185,7 +185,6 @@ pub fn setup_signers_from_stake_distribution(
         ));
     }
 
-    // TODO: Check that this unwrap() is acceptable in the tests
     let closed_key_registration = key_registration.close(protocol_parameters).unwrap();
 
     signers

@@ -109,7 +109,7 @@ for stake in parties {
     ps.push(p);
 }
 
-let closed_reg = key_reg.close_registration(&params);
+let closed_reg = key_reg.close_registration(&params).unwrap();
 
 let ps = ps
     .into_par_iter()

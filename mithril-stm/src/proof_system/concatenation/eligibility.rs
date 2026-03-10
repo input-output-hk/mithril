@@ -1,4 +1,4 @@
-use crate::Stake;
+use crate::{PhiValue, Stake};
 
 cfg_num_integer! {
     use num_bigint::{BigInt, Sign};
@@ -29,9 +29,9 @@ cfg_num_integer! {
     ///                 1 - p    1 - (ev / evMax)    (evMax - ev)
     ///
     /// Used to determine winning lottery tickets.
-    pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+    pub(crate) fn is_lottery_won(phi_f: PhiValue, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         // If phi_f = 1, then we automatically break with true
-        if (phi_f - 1.0).abs() < f64::EPSILON {
+        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
             return true;
         }
 
@@ -92,9 +92,9 @@ cfg_rug! {
     /// order to keep the error in the 1e-17 range, we need to carry out the computations with 34
     /// decimal digits (in order to represent the 4.5e16 ada without any rounding errors, we need
     /// double that precision).
-    pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+    pub(crate) fn is_lottery_won(phi_f: PhiValue, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         // If phi_f = 1, then we automatically break with true
-        if (phi_f - 1.0).abs() < f64::EPSILON {
+        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
             return true;
         }
         let ev = rug::Integer::from_digits(&ev, Order::LsfLe);

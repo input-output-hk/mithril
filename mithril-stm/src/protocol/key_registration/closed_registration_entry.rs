@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation};
+use crate::{
+    PhiValue, RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation,
+};
 
 #[cfg(feature = "future_snark")]
 use crate::{
@@ -164,9 +166,9 @@ impl Serialize for ClosedRegistrationEntry {
 
 /// Converts the registration entry into a closed registration entry for given total stake.
 /// This is where we compute the lottery target value.
-impl TryFrom<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
+impl TryFrom<(RegistrationEntry, Stake, PhiValue)> for ClosedRegistrationEntry {
     type Error = anyhow::Error;
-    fn try_from(entry_total_stake: (RegistrationEntry, Stake, f64)) -> StmResult<Self> {
+    fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiValue)) -> StmResult<Self> {
         #[cfg(not(feature = "future_snark"))]
         let (entry, _total_stake, _phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
@@ -174,11 +176,16 @@ impl TryFrom<(RegistrationEntry, Stake, f64)> for ClosedRegistrationEntry {
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target = Some(compute_lottery_target_value(
-                phi_f,
-                entry.get_stake(),
-                total_stake,
-            )?);
+            let target = if vk.is_some() {
+                Some(compute_lottery_target_value(
+                    phi_f,
+                    entry.get_stake(),
+                    total_stake,
+                )?)
+            } else {
+                None
+            };
+
             (vk, target)
         };
 
