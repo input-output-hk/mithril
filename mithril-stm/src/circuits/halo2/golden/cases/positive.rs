@@ -4,7 +4,7 @@ use crate::circuits::halo2::golden::helpers::{
     prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
     setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::SignedMessageWithoutPrefix;
+use crate::circuits::halo2::types::{LotteryIndex, SignedMessageWithoutPrefix};
 
 #[test]
 fn baseline_valid() {

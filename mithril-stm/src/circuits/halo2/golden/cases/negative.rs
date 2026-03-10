@@ -6,7 +6,7 @@ use crate::circuits::halo2::golden::helpers::{
     create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
     prove_and_verify_result, setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
+use crate::circuits::halo2::types::{LotteryIndex, Position, SignedMessageWithoutPrefix};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
 
 #[test]

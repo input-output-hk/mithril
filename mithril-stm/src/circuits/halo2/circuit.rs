@@ -12,7 +12,6 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::StmResult;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
@@ -25,6 +24,7 @@ use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
+use crate::{Parameters, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -187,7 +187,7 @@ impl Relation for StmCircuit {
         let mut pre_index: AssignedNative<_> = std_lib.assign(layouter, Value::known(F::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
             let index: AssignedNative<F> =
-                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i)))?;
+                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i as u64)))?;
 
             // Check index order
             if i > 0 {

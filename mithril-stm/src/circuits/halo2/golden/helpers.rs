@@ -17,7 +17,7 @@ use rand_core::SeedableRng;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::{
-    CircuitBase as CF, MTLeaf, MerklePath, SignedMessageWithoutPrefix as F,
+    CircuitBase as CF, LotteryIndex, MTLeaf, MerklePath, SignedMessageWithoutPrefix as F,
 };
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
@@ -25,7 +25,7 @@ use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkL
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
+use crate::{LotteryTargetValue, Parameters, StmError, StmResult};
 
 /// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex);
@@ -355,7 +355,7 @@ pub(crate) fn build_witness(
     msg: F,
     quorum: u32,
 ) -> StmResult<Vec<WitnessEntry>> {
-    let indices: Vec<LotteryIndex> = (0..(quorum as u64)).collect();
+    let indices: Vec<LotteryIndex> = (0..quorum).collect();
     build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
 }
 
