@@ -131,9 +131,6 @@ runs:
 
         ⁽\*⁾⚠️ Linux arm64 builds are provided on a best-effort basis and are not officially supported.
 
-        ### Linux Requirements
-        The Linux binaries target \`glibc\`: to run them or install the \`.deb\` packages you must have \`glibc\` version \`2.35+\` installed.
-        Compatible systems include, but are not limited to, \`Ubuntu 22.04+\` or \`Debian 12+\` (Bookworm)).
         EOF
 
     - name: Fetch the latest version of the unstable tag

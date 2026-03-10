@@ -53,7 +53,6 @@ NODES=mithril ./devnet-run.sh
 MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
 
 ## from locally built binaries with a custom slim image used as Docker image source
-### This configuration depends on the version of 'glibc' on your computer
 ### 'debian:13-slim': default value, works on Ubuntu 24.04
 MITHRIL_NODE_DOCKER_CI_IMAGE_FROM=debian:13-slim MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
 
