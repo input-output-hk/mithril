@@ -203,6 +203,18 @@ impl StmInitializerWrapper {
         self.kes_signature_for_snark.map(|k| k.into())
     }
 
+    /// Remove the SNARK-related keys from the underlying initializer and the
+    /// corresponding KES signature.
+    ///
+    /// This is used during eras that do not yet support SNARK proofs to ensure the
+    /// initializer's registration entry matches the closed key registration built from
+    /// signers without SNARK verification keys.
+    #[cfg(feature = "future_snark")]
+    pub fn strip_snark_keys(&mut self) {
+        self.stm_initializer.strip_snark_keys();
+        self.kes_signature_for_snark = None;
+    }
+
     /// Extract the protocol parameters of the initializer
     pub fn get_protocol_parameters(&self) -> ProtocolParameters {
         self.stm_initializer.parameters

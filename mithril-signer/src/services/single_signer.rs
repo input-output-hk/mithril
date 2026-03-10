@@ -10,6 +10,8 @@ use mithril_common::crypto_helper::{KesPeriod, KesSigner, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SingleSignature, Stake,
 };
+#[cfg(feature = "future_snark")]
+use mithril_common::entities::{SignerWithStake, SupportedEra};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{SignerBuilder, SingleSigner as ProtocolSingleSigner};
 use mithril_common::{StdError, StdResult};
@@ -97,15 +99,32 @@ impl MithrilSingleSigner {
                 )
             })?;
 
+        #[cfg(not(feature = "future_snark"))]
+        let protocol_initializer = protocol_initializer.clone();
+        #[cfg(feature = "future_snark")]
+        let mut protocol_initializer = protocol_initializer.clone();
+
+        let current_signers_with_stake = epoch_service.current_signers_with_stake().await?;
+
+        #[cfg(feature = "future_snark")]
+        let current_signers_with_stake = {
+            if epoch_service.mithril_era()? == SupportedEra::Pythagoras {
+                protocol_initializer.strip_snark_keys();
+                SignerWithStake::strip_snark_fields(current_signers_with_stake)
+            } else {
+                current_signers_with_stake
+            }
+        };
+
         let builder = SignerBuilder::new(
-            &epoch_service.current_signers_with_stake().await?,
+            &current_signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
         )
         .with_context(|| "Mithril Single Signer can not build signer")
         .map_err(SingleSignerError::ProtocolSignerCreationFailure)?;
 
         let single_signer = builder
-            .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
+            .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer)
             .with_context(|| {
                 format!(
                     "Mithril Single Signer can not restore signer with party_id: '{}'",
@@ -180,13 +199,18 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
-    async fn compute_single_signature_success() {
-        let snapshot_digest = "digest".to_string();
+    use mithril_common::entities::SupportedEra;
+    use mithril_era::EraChecker;
+
+    async fn build_single_signer_for_era(
+        era: SupportedEra,
+        signers: Vec<mithril_common::entities::Signer>,
+    ) -> (
+        MithrilSingleSigner,
+        mithril_common::test::builder::MithrilFixture,
+    ) {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_signer = &fixture.signers_fixture()[0];
-        let clerk = ProtocolClerk::new_clerk_from_signer(&current_signer.protocol_signer);
-        let avk = clerk.compute_aggregate_verification_key();
         let logger = TestLogger::stdout();
         let connection = Arc::new(main_db_connection().unwrap());
         let stake_store = {
@@ -202,12 +226,7 @@ mod tests {
         };
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
-        let era_checker = {
-            use mithril_common::entities::SupportedEra;
-            use mithril_common::test::double::Dummy;
-            use mithril_era::EraChecker;
-            Arc::new(EraChecker::new(SupportedEra::dummy(), Epoch::default()))
-        };
+        let era_checker = Arc::new(EraChecker::new(era, Epoch::default()));
         let epoch_service = MithrilEpochService::new(
             era_checker,
             stake_store,
@@ -216,8 +235,9 @@ mod tests {
         )
         .set_data_to_default_or_fake(Epoch(10))
         .alter_data(|data| {
+            data.mithril_era = era;
             data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
-            data.current_signers = fixture.signers();
+            data.current_signers = signers;
         });
 
         let single_signer = MithrilSingleSigner::new(
@@ -226,8 +246,20 @@ mod tests {
             logger,
         );
 
+        (single_signer, fixture)
+    }
+
+    async fn sign_and_verify(
+        single_signer: &MithrilSingleSigner,
+        fixture: &mithril_common::test::builder::MithrilFixture,
+    ) {
+        let current_signer = &fixture.signers_fixture()[0];
+        let clerk = ProtocolClerk::new_clerk_from_signer(&current_signer.protocol_signer);
+        let avk = clerk.compute_aggregate_verification_key();
+
         let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, "digest".to_string());
         let sign_result = single_signer
             .compute_single_signature(&protocol_message)
             .await
@@ -250,5 +282,58 @@ mod tests {
                 .is_ok(),
             "produced single signature should be valid"
         );
+    }
+
+    #[tokio::test]
+    async fn compute_single_signature_success() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signers = fixture.signers();
+        let (single_signer, fixture) =
+            build_single_signer_for_era(SupportedEra::Pythagoras, signers).await;
+        sign_and_verify(&single_signer, &fixture).await;
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod snark_key_stripping {
+        use super::*;
+
+        #[tokio::test]
+        async fn signing_succeeds_in_lagrange_era_with_snark_keys() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+            let signers = fixture.signers();
+            let (single_signer, fixture) =
+                build_single_signer_for_era(SupportedEra::Lagrange, signers).await;
+
+            sign_and_verify(&single_signer, &fixture).await;
+        }
+
+        #[tokio::test]
+        async fn signing_succeeds_in_pythagoras_era_with_snark_keys() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+            let signers = fixture.signers();
+            let (single_signer, fixture) =
+                build_single_signer_for_era(SupportedEra::Pythagoras, signers).await;
+
+            sign_and_verify(&single_signer, &fixture).await;
+        }
+
+        #[tokio::test]
+        async fn signing_succeeds_in_pythagoras_era_when_signers_already_lack_snark_keys() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+            let signers_without_snark_keys: Vec<_> = fixture
+                .signers()
+                .into_iter()
+                .map(|mut signer| {
+                    signer.verification_key_for_snark = None;
+                    signer.verification_key_signature_for_snark = None;
+                    signer
+                })
+                .collect();
+            let (single_signer, fixture) =
+                build_single_signer_for_era(SupportedEra::Pythagoras, signers_without_snark_keys)
+                    .await;
+
+            sign_and_verify(&single_signer, &fixture).await;
+        }
     }
 }

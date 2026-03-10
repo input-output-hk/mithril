@@ -114,28 +114,29 @@ impl Initializer {
 
         #[cfg(feature = "future_snark")]
         let snark_proof_signer = {
-            let key_registration_commitment_for_snark = closed_key_registration
-                .to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>()
-                .to_merkle_tree_commitment();
-            let lottery_target_value = ClosedRegistrationEntry::try_from((
-                registration_entry,
-                closed_key_registration.total_stake,
-                self.parameters.phi_f,
-            ))?
-            .get_lottery_target_value();
-            SnarkProofSigner::new(
-                self.parameters,
-                self.schnorr_signing_key
+            match (self.schnorr_signing_key, self.schnorr_verification_key) {
+                (Some(schnorr_signing_key), Some(schnorr_verification_key)) => {
+                    let key_registration_commitment_for_snark = closed_key_registration
+                        .to_merkle_tree::<D::SnarkHash, RegistrationEntryForSnark>()
+                        .to_merkle_tree_commitment();
+                    let lottery_target_value = ClosedRegistrationEntry::try_from((
+                        registration_entry,
+                        closed_key_registration.total_stake,
+                        self.parameters.phi_f,
+                    ))?
+                    .get_lottery_target_value()
                     .ok_or(RegisterError::SnarkProofSignerCreation)
-                    .with_context(|| "missing schnorr signing key")?,
-                self.schnorr_verification_key
-                    .ok_or(RegisterError::SnarkProofSignerCreation)
-                    .with_context(|| "missing schnorr verification key")?,
-                lottery_target_value
-                    .ok_or(RegisterError::SnarkProofSignerCreation)
-                    .with_context(|| "missing lottery target value")?,
-                key_registration_commitment_for_snark,
-            )
+                    .with_context(|| "missing lottery target value")?;
+                    Some(SnarkProofSigner::new(
+                        self.parameters,
+                        schnorr_signing_key,
+                        schnorr_verification_key,
+                        lottery_target_value,
+                        key_registration_commitment_for_snark,
+                    ))
+                }
+                _ => None,
+            }
         };
 
         // Create and return signer
@@ -146,7 +147,7 @@ impl Initializer {
             self.parameters,
             registration_entry.get_stake(),
             #[cfg(feature = "future_snark")]
-            Some(snark_proof_signer),
+            snark_proof_signer,
         ))
     }
 
@@ -161,6 +162,18 @@ impl Initializer {
     #[cfg(feature = "future_snark")]
     pub fn get_verification_key_for_snark(&self) -> Option<VerificationKeyForSnark> {
         self.schnorr_verification_key
+    }
+
+    /// Remove the SNARK-related keys (Schnorr signing and verification keys) from this
+    /// initializer.
+    ///
+    /// This is used during eras that do not yet support SNARK proofs to ensure the
+    /// initializer's registration entry matches the closed key registration built from
+    /// signers without SNARK verification keys.
+    #[cfg(feature = "future_snark")]
+    pub fn strip_snark_keys(&mut self) {
+        self.schnorr_signing_key = None;
+        self.schnorr_verification_key = None;
     }
 
     /// Convert to bytes

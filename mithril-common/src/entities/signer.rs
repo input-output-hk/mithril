@@ -259,6 +259,24 @@ impl SignerWithStake {
         }
     }
 
+    /// Remove SNARK-related fields for backward compatibility with older eras.
+    ///
+    /// This clears the SNARK verification key and its KES signature, which is needed
+    /// during eras that do not support SNARK proofs (e.g. Pythagoras) to ensure
+    /// consistency between the signer's initializer and the key registration entries.
+    #[cfg(feature = "future_snark")]
+    pub fn without_snark_fields(mut self) -> Self {
+        self.verification_key_for_snark = None;
+        self.verification_key_signature_for_snark = None;
+        self
+    }
+
+    /// Remove SNARK-related fields from a list of signers with stake for backward compatibility.
+    #[cfg(feature = "future_snark")]
+    pub fn strip_snark_fields(signers: Vec<Self>) -> Vec<Self> {
+        signers.into_iter().map(Self::without_snark_fields).collect()
+    }
+
     /// Computes the hash of SignerWithStake
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
@@ -464,6 +482,85 @@ mod tests {
                 EXPECTED_HASH,
                 signer_different_verification_key_signature_for_snark.compute_hash()
             );
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod strip_snark_fields {
+        use super::*;
+
+        #[test]
+        fn snark_fields_are_cleared_by_without_snark_fields() {
+            let signers = MithrilFixtureBuilder::default()
+                .with_signers(1)
+                .build()
+                .signers_with_stake();
+            let signer = signers[0].clone();
+            assert!(signer.verification_key_for_snark.is_some());
+            assert!(signer.verification_key_signature_for_snark.is_some());
+
+            let stripped = signer.without_snark_fields();
+
+            assert!(stripped.verification_key_for_snark.is_none());
+            assert!(stripped.verification_key_signature_for_snark.is_none());
+        }
+
+        #[test]
+        fn without_snark_fields_preserves_non_snark_data() {
+            let signers = MithrilFixtureBuilder::default()
+                .with_signers(1)
+                .build()
+                .signers_with_stake();
+            let signer = signers[0].clone();
+
+            let stripped = signer.clone().without_snark_fields();
+
+            assert_eq!(signer.party_id, stripped.party_id);
+            assert_eq!(
+                signer.verification_key_for_concatenation,
+                stripped.verification_key_for_concatenation
+            );
+            assert_eq!(signer.stake, stripped.stake);
+        }
+
+        #[test]
+        fn without_snark_fields_preserves_none_values() {
+            let signers = MithrilFixtureBuilder::default()
+                .with_signers(1)
+                .build()
+                .signers_with_stake();
+            let mut signer = signers[0].clone();
+            signer.verification_key_for_snark = None;
+            signer.verification_key_signature_for_snark = None;
+
+            let stripped = signer.without_snark_fields();
+
+            assert!(stripped.verification_key_for_snark.is_none());
+            assert!(stripped.verification_key_signature_for_snark.is_none());
+        }
+
+        #[test]
+        fn strip_snark_fields_clears_all_entries() {
+            let signers = MithrilFixtureBuilder::default()
+                .with_signers(3)
+                .build()
+                .signers_with_stake();
+            assert!(signers.iter().all(|s| s.verification_key_for_snark.is_some()));
+
+            let stripped = SignerWithStake::strip_snark_fields(signers);
+
+            assert!(stripped.iter().all(|s| s.verification_key_for_snark.is_none()));
+            assert!(
+                stripped
+                    .iter()
+                    .all(|s| s.verification_key_signature_for_snark.is_none())
+            );
+        }
+
+        #[test]
+        fn strip_snark_fields_handles_empty_list() {
+            let stripped = SignerWithStake::strip_snark_fields(vec![]);
+            assert!(stripped.is_empty());
         }
     }
 }
