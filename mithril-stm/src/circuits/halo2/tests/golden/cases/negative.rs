@@ -1,5 +1,5 @@
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::golden::helpers::{
+use crate::circuits::halo2::tests::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
     assert_proving_backend_message_contains, assert_proving_circuit_error, build_witness,
     build_witness_with_fixed_signer, build_witness_with_indices, create_default_merkle_tree,

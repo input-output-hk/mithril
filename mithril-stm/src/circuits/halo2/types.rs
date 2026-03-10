@@ -19,32 +19,32 @@ pub(crate) type CircuitCurve = MidnightJubjub;
 /// Field type boundaries:
 /// - `BaseFieldElement`: STM/domain field wrapper.
 /// - `CircuitBaseField`: circuit statement/input wrapper.
-/// - `CircuitBase` (`MidnightBaseField`): raw proving-library field.
+/// - `CircuitBase`: raw proving-library field.
 ///
 /// Circuit-local wrapper for base-field values present in public inputs/witness data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-pub struct CircuitBaseField(MidnightBaseField);
+pub struct CircuitBaseField(CircuitBase);
 
 impl CircuitBaseField {
     /// Additive identity in the circuit base field.
-    pub const ZERO: Self = Self(MidnightBaseField::ZERO);
+    pub const ZERO: Self = Self(CircuitBase::ZERO);
     /// Multiplicative identity in the circuit base field.
-    pub const ONE: Self = Self(MidnightBaseField::ONE);
+    pub const ONE: Self = Self(CircuitBase::ONE);
 }
 
 impl From<u64> for CircuitBaseField {
     fn from(value: u64) -> Self {
-        Self(MidnightBaseField::from(value))
+        Self(CircuitBase::from(value))
     }
 }
 
-impl From<MidnightBaseField> for CircuitBaseField {
-    fn from(value: MidnightBaseField) -> Self {
+impl From<CircuitBase> for CircuitBaseField {
+    fn from(value: CircuitBase) -> Self {
         Self(value)
     }
 }
 
-impl From<CircuitBaseField> for MidnightBaseField {
+impl From<CircuitBaseField> for CircuitBase {
     fn from(value: CircuitBaseField) -> Self {
         value.0
     }
@@ -59,6 +59,12 @@ impl From<BaseFieldElement> for CircuitBaseField {
 impl From<CircuitBaseField> for BaseFieldElement {
     fn from(value: CircuitBaseField) -> Self {
         Self(value.into())
+    }
+}
+
+impl From<BaseFieldElement> for CircuitBase {
+    fn from(value: BaseFieldElement) -> Self {
+        CircuitBaseField::from(value).into()
     }
 }
 
@@ -115,12 +121,18 @@ pub enum Position {
     Right,
 }
 
-impl From<Position> for MidnightBaseField {
+impl From<Position> for CircuitBase {
     fn from(position: Position) -> Self {
         match position {
             Position::Left => Self::ZERO,
             Position::Right => Self::ONE,
         }
+    }
+}
+
+impl From<Position> for CircuitBaseField {
+    fn from(position: Position) -> Self {
+        Self(CircuitBase::from(position))
     }
 }
 

@@ -39,6 +39,10 @@ pub enum StmCircuitError {
     #[error("Field element conversion failed")]
     FieldElementConversionFailed,
 
+    /// Bit decomposition range is invalid for the selected prime field.
+    #[error("Invalid bit decomposition range ({num_bits}) for field size ({field_bits})")]
+    InvalidBitDecompositionRange { num_bits: u32, field_bits: u32 },
+
     /// Merkle tree depth does not fit fixture sizing constraints.
     #[error("Invalid merkle tree depth ({depth})")]
     InvalidMerkleTreeDepth { depth: u32 },
@@ -66,10 +70,6 @@ pub enum StmCircuitError {
     /// Signer leaf index is out of bounds.
     #[error("Invalid signer leaf index ({index}) for {num_signers} signers")]
     InvalidSignerFixtureIndex { index: u32, num_signers: u32 },
-
-    /// Failed to decode lottery target from field bytes.
-    #[error("Invalid lottery target bytes")]
-    InvalidLotteryTargetBytes,
 
     /// Failed to decode challenge bytes into a base field element.
     #[error("Invalid challenge bytes")]
