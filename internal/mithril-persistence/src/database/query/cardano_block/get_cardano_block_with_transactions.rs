@@ -54,10 +54,20 @@ impl Query for GetCardanoBlockTransactionsQuery {
         ]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
+        // Note: `INDEXED BY` forces the SQLite query planner to use a specific index — this is a
+        // directive, not a hint, and is NOT recommended by SQLite documentation.
+        // However, it is the only reliable way we found to prevent full table scans on large
+        // datasets (e.g. `mainnet`).
+        //
+        // ⚠ Maintenance notes:
+        //   - If you modify this query, run `EXPLAIN QUERY PLAN` against a `mainnet` database
+        //     and verify that no `SCAN` operation appears.
+        //   - This query WILL FAIL if the index `cardano_block_block_number_index` is missing
+        //     or has been renamed.
         format!(
             r#"
 select {projection}
-from cardano_block
+from cardano_block indexed by cardano_block_block_number_index
     left join cardano_tx on cardano_block.block_hash = cardano_tx.block_hash
 where {condition}
 group by cardano_block.block_hash

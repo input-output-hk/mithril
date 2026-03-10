@@ -147,8 +147,10 @@ create table cardano_block (
     slot_number integer not null,
     primary key (block_hash)
 );
-create unique index cardano_block_block_number_index on cardano_block(block_number);
 create unique index cardano_block_slot_number_index on cardano_block(slot_number);
+-- IMPORTANT: this index is used in an `indexed by` clause in the `get_cardano_block_with_transactions`
+-- query, don't remove it and update the query if you change the index name.
+create unique index cardano_block_block_number_index on cardano_block(block_number);
 
 create table cardano_tx (
     transaction_hash text not null,
