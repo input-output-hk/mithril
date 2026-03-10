@@ -1,10 +1,11 @@
+use crate::LotteryIndex;
 use crate::circuits::halo2::tests::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, build_witness_with_fixed_signer,
     build_witness_with_indices, create_default_merkle_tree, create_merkle_tree_with_leaf_selector,
     prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
     setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::{LotteryIndex, SignedMessageWithoutPrefix};
+use crate::circuits::halo2::types::SignedMessageWithoutPrefix;
 
 #[test]
 fn baseline_valid() {

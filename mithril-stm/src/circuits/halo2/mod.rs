@@ -1,8 +1,7 @@
 //! Halo2 prototype integration (feature-gated by `future_snark`).
 
 pub mod adapters;
-// Temporary while Halo2 production wiring is in progress.
-// Remove once these modules are wired into STM.
+// TODO(snark): remove `allow(dead_code)` once Halo2 modules are fully wired into STM.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod circuit;
 pub mod errors;

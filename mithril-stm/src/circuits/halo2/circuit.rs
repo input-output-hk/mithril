@@ -17,14 +17,13 @@ use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, LotteryIndex, MTLeaf, MerklePath, MerkleRoot,
-    SignedMessageWithoutPrefix,
+    CircuitBase, CircuitCurve, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
-use crate::{Parameters, StmResult};
+use crate::{LotteryIndex, Parameters, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -65,6 +64,29 @@ impl StmCircuit {
             return Err(anyhow!(StmCircuitError::WitnessLengthMismatch {
                 expected_quorum: self.quorum,
                 actual: Self::checked_len_u32(actual),
+            }));
+        }
+
+        Ok(())
+    }
+
+    /// Validates witness lottery indices against circuit constraints.
+    ///
+    /// The circuit uses 32-bit comparison constraints (`lower_than(..., 32)`), so each
+    /// index must fit in `u32` and must satisfy `index < num_lotteries`.
+    pub(crate) fn validate_lottery_index(&self, index: LotteryIndex) -> StmResult<()> {
+        let max_supported = u32::MAX as LotteryIndex;
+        if index > max_supported {
+            return Err(anyhow!(StmCircuitError::LotteryIndexTooLarge {
+                index,
+                max_supported,
+            }));
+        }
+
+        if index >= self.num_lotteries as LotteryIndex {
+            return Err(anyhow!(StmCircuitError::LotteryIndexOutOfBounds {
+                index,
+                num_lotteries: self.num_lotteries,
             }));
         }
 
@@ -152,6 +174,9 @@ impl Relation for StmCircuit {
         let witness = witness
             .map_with_result(|witness| -> StmResult<_> {
                 self.validate_witness_length(witness.len())?;
+                witness
+                    .iter()
+                    .try_for_each(|(_, _, _, index)| self.validate_lottery_index(*index))?;
                 Ok(witness)
             })
             .map_err(to_synthesis_error)?
@@ -188,7 +213,7 @@ impl Relation for StmCircuit {
         for (i, wit) in witness.into_iter().enumerate() {
             let index: AssignedNative<CircuitBase> = std_lib.assign(
                 layouter,
-                wit.clone().map(|(_, _, _, i)| CircuitBase::from(i as u64)),
+                wit.clone().map(|(_, _, _, i)| CircuitBase::from(i)),
             )?;
 
             // Check index order

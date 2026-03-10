@@ -19,6 +19,18 @@ pub enum StmCircuitError {
     )]
     WitnessLengthMismatch { expected_quorum: u32, actual: u32 },
 
+    /// Witness lottery index does not fit in the circuit's 32-bit constraint representation.
+    #[error(
+        "Circuit::validate_lottery_index failed: index ({index}) exceeds max supported ({max_supported})"
+    )]
+    LotteryIndexTooLarge { index: u64, max_supported: u64 },
+
+    /// Witness lottery index is not a valid in-circuit lottery slot.
+    #[error(
+        "Circuit::validate_lottery_index failed: index ({index}) must be lower than num_lotteries ({num_lotteries})"
+    )]
+    LotteryIndexOutOfBounds { index: u64, num_lotteries: u32 },
+
     /// Merkle sibling path length does not match the configured Merkle depth.
     #[error(
         "Circuit::validate_merkle_sibling_length failed: expected depth {expected_depth}, got {actual}"

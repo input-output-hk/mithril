@@ -104,8 +104,6 @@ pub type Target = CircuitBaseField;
 pub type SignedMessageWithoutPrefix = CircuitBaseField;
 /// Merkle root public input committed by the STM membership commitment tree.
 pub type MerkleRoot = CircuitBaseField;
-/// Lottery index (`i`) used for per-lottery checks in witness entries.
-pub type LotteryIndex = u32;
 
 /// Merkle-tree leaf material used by Halo2 witness construction.
 ///

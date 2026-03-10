@@ -1,3 +1,4 @@
+use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::tests::golden::helpers::{
     LOTTERIES_PER_QUORUM, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
@@ -6,7 +7,7 @@ use crate::circuits::halo2::tests::golden::helpers::{
     create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
     prove_and_verify_result, setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::{LotteryIndex, Position, SignedMessageWithoutPrefix};
+use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
 
 #[test]
@@ -267,7 +268,44 @@ fn index_out_of_bounds() {
         .expect("index_out_of_bounds witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
-    assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!(
+            "Circuit::validate_lottery_index failed: index ({}) must be lower than num_lotteries ({m})",
+            m as LotteryIndex
+        ),
+    );
+}
+
+#[test]
+fn index_too_large_for_u32_circuit_range() {
+    const K: u32 = 13;
+    const QUORUM: u32 = 3;
+    let msg = SignedMessageWithoutPrefix::from(42);
+    let env = setup_stm_circuit_env(
+        current_function!(),
+        K,
+        QUORUM,
+        QUORUM * LOTTERIES_PER_QUORUM,
+    )
+    .expect("index_too_large_for_u32_circuit_range env setup should succeed");
+    let merkle_tree = create_default_merkle_tree(env.num_signers())
+        .expect("index_too_large_for_u32_circuit_range tree creation should succeed");
+
+    let merkle_root = merkle_tree.root();
+    let too_large = (u32::MAX as LotteryIndex) + 1;
+    let indices = vec![6, 14, too_large];
+    let witness = build_witness_with_indices(&merkle_tree, merkle_root, msg, &indices)
+        .expect("index_too_large_for_u32_circuit_range witness build should succeed");
+
+    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    assert_proving_backend_message_contains(
+        prove_and_verify_result(&env, scenario),
+        &format!(
+            "Circuit::validate_lottery_index failed: index ({too_large}) exceeds max supported ({})",
+            u32::MAX as LotteryIndex
+        ),
+    );
 }
 
 #[test]
