@@ -165,7 +165,7 @@ fn local_reg(
 ) -> ClosedKeyRegistration {
     let mut local_keyreg = KeyRegistration::initialize();
     let params = Parameters {
-        // Let's try with three signatures
+        // Let's try with a quorum of 3
         k: 3,
         m: 10,
         // `phi_f` = 1, so that it always passes, for the purpose of the example

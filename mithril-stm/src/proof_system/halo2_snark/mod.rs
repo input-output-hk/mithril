@@ -312,7 +312,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(1))]
+        #![proptest_config(ProptestConfig::with_cases(5))]
 
         #[test]
         fn sign_then_verify_roundtrip(

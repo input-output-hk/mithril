@@ -1,6 +1,6 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 
-use crate::PhiValue;
+use crate::{PhiValue, RegisterError};
 
 cfg_num_integer! {
     use num_bigint::BigInt;
@@ -22,19 +22,17 @@ cfg_num_integer! {
 
     /// Computes the lottery target value for a given stake and total stake.
     #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     pub fn compute_lottery_target_value(phi_f: PhiValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
         if (phi_f - 1.0).abs() < PhiValue::EPSILON {
             return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
         }
 
         if total_stake == 0 {
-            return Err(anyhow!("Failure due to total_stake being 0."));
+            return Err(anyhow!(RegisterError::ZeroTotalStake)).with_context(|| "Lottery target cannot be computed if the total_stake is 0.");
         }
 
         let phi_f_ratio_int: Ratio<i64> =
-            Ratio::approximate_float(phi_f).expect("Only fails if the float is infinite or NaN.");
+            Ratio::approximate_float(phi_f).ok_or(anyhow!("Approximation of float as a Ratio failed because it is infinite or NaN."))?;
         let phi_f_ratio = Ratio::new_raw(
             BigInt::from(*phi_f_ratio_int.numer()),
             BigInt::from(*phi_f_ratio_int.denom()),
@@ -188,7 +186,6 @@ pub(crate) fn compute_winning_lottery_indices(
     lottery_target_value: LotteryTargetValue,
 ) -> StmResult<Vec<LotteryIndex>> {
     let lottery_prefix = compute_lottery_prefix(msg);
-
     let winning_indices: Vec<LotteryIndex> = (0..m)
         .filter(|&index| {
             matches!(
@@ -260,14 +257,12 @@ mod tests {
     use proptest::prelude::*;
     use rand_core::OsRng;
 
-    use crate::{
-        LotteryTargetValue, SchnorrSigningKey, proof_system::compute_lottery_target_value,
-        signature_scheme::BaseFieldElement,
-    };
+    use crate::{LotteryTargetValue, SchnorrSigningKey, signature_scheme::BaseFieldElement};
 
     use super::{
         TAYLOR_EXPANSION_ITERATIONS, check_lottery_for_index, compute_exponential_taylor_expansion,
-        compute_lottery_prefix, compute_target_value, ln_1p_taylor_expansion,
+        compute_lottery_prefix, compute_lottery_target_value, compute_target_value,
+        ln_1p_taylor_expansion,
     };
 
     #[test]

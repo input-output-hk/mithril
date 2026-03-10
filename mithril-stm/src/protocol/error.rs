@@ -43,4 +43,9 @@ pub enum RegisterError {
     #[cfg(feature = "future_snark")]
     #[error("Unable to create SNARK proof signer.")]
     SnarkProofSignerCreation,
+
+    /// Total stake of the key registration is zero.
+    #[cfg(feature = "future_snark")]
+    #[error("Cannot run the protocol if total stake is zero.")]
+    ZeroTotalStake,
 }
