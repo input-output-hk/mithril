@@ -47,6 +47,13 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+use mimalloc::MiMalloc;
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 #[cfg(test)]
 mod tests {
     mithril_aggregator_client::test_http_compression_is_enabled!();
