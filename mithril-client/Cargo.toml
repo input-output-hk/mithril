@@ -108,6 +108,10 @@ name = "cardano_transaction_v2_proof"
 path = "tests/cardano_transaction_v2_proof.rs"
 
 [[test]]
+name = "cardano_block_proof"
+path = "tests/cardano_block_proof.rs"
+
+[[test]]
 name = "cardano_db_snapshot_list_get_download_verify"
 path = "tests/cardano_db_snapshot_list_get_download_verify.rs"
 required-features = ["fs"]

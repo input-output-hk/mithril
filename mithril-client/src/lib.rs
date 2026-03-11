@@ -167,6 +167,7 @@ macro_rules! cfg_fs_unstable {
 }
 
 mod aggregator_client;
+pub mod cardano_block_client;
 pub mod cardano_database_client;
 pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;

@@ -23,6 +23,7 @@ use mithril_aggregator_discovery::{
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::MithrilResult;
+use crate::cardano_block_client::CardanoBlockClient;
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
@@ -154,6 +155,7 @@ pub struct Client {
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     cardano_transaction_v2_client: Arc<CardanoTransactionV2Client>,
+    cardano_block_client: Arc<CardanoBlockClient>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
     mithril_era_client: Arc<MithrilEraClient>,
 }
@@ -188,6 +190,11 @@ impl Client {
     /// Get the client that fetches and verifies Mithril Cardano transaction v2 proof.
     pub fn cardano_transaction_v2(&self) -> Arc<CardanoTransactionV2Client> {
         self.cardano_transaction_v2_client.clone()
+    }
+
+    /// Get the client that fetches and verifies Mithril Cardano block proof.
+    pub fn cardano_block(&self) -> Arc<CardanoBlockClient> {
+        self.cardano_block_client.clone()
     }
 
     /// Get the client that fetches Cardano stake distributions.
@@ -415,6 +422,8 @@ impl ClientBuilder {
         let cardano_transaction_v2_client =
             Arc::new(CardanoTransactionV2Client::new(aggregator_client.clone()));
 
+        let cardano_block_client = Arc::new(CardanoBlockClient::new(aggregator_client.clone()));
+
         let cardano_stake_distribution_client =
             Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
 
@@ -425,6 +434,7 @@ impl ClientBuilder {
             cardano_database_client,
             cardano_transaction_client,
             cardano_transaction_v2_client,
+            cardano_block_client,
             cardano_stake_distribution_client,
             mithril_era_client,
         })

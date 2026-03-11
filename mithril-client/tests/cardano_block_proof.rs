@@ -8,13 +8,12 @@ use mithril_common::test::double::fake_keys;
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
-async fn cardano_transaction_v2_proof_get_validate() {
+async fn cardano_block_proof_get_validate() {
     let genesis_verification_key = fake_keys::genesis_verification_key()[0];
 
-    let transactions_hashes = ["abc", "def"];
+    let blocks_hashes = ["abc", "def"];
     let certificate_hash = "certificate_hash";
-    let fake_aggregator =
-        FakeAggregator::spawn_with_proofs_v2(&transactions_hashes, certificate_hash); //TODO spawn with v2 proof
+    let fake_aggregator = FakeAggregator::spawn_with_proofs_v2(&blocks_hashes, certificate_hash);
     let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
         fake_aggregator.server_root_url(),
     ))
@@ -24,23 +23,23 @@ async fn cardano_transaction_v2_proof_get_validate() {
     .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
     .build()
     .expect("Should be able to create a Client");
-    let cardano_transaction_v2_client = client.cardano_transaction_v2();
+    let cardano_block_client = client.cardano_block();
 
     // 1 - get list of set proofs for wanted tx & associated certificate hash
-    let proofs = cardano_transaction_v2_client
-        .get_proofs(&transactions_hashes)
+    let proofs = cardano_block_client
+        .get_proofs(&blocks_hashes)
         .await
-        .expect("Getting proof for the transactions should not fail");
+        .expect("Getting proof for the blocks should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
         Some(format!(
-            "/proof/v2/cardano-transaction?transaction_hashes={}",
-            transactions_hashes.join(","),
+            "/proof/v2/cardano-block?block_hashes={}",
+            blocks_hashes.join(","),
         ))
     );
 
     // 2 - verify the proofs
-    let verified_transactions = proofs.verify().expect("Proofs should be valid");
+    let verified_blocks = proofs.verify().expect("Proofs should be valid");
 
     // 3 - validate certificate chain
     let certificate = client
@@ -53,9 +52,9 @@ async fn cardano_transaction_v2_proof_get_validate() {
         Some(format!("/certificate/{}", proofs.certificate_hash.clone()))
     );
 
-    // 4 - validate that the verified transactions proof is signed by the certificate
+    // 4 - validate that the verified blocks proof is signed by the certificate
     let message = MessageBuilder::new()
-        .compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
+        .compute_cardano_transactions_proofs_message(&certificate, &verified_blocks);
 
     assert!(
         certificate.match_message(&message),

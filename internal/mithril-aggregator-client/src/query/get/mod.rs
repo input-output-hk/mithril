@@ -22,6 +22,7 @@ mod get_snapshots_list;
 
 pub use get_aggregator_features::*;
 pub use get_aggregator_status::*;
+pub use get_cardano_block_proof::*;
 pub use get_cardano_blocks_transactions::*;
 pub use get_cardano_blocks_transactions_list::*;
 pub use get_cardano_database::*;

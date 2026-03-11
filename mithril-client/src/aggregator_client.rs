@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_aggregator_client::query::{
-    GetAggregatorStatusQuery, GetCardanoBlocksTransactionsListQuery,
+    GetAggregatorStatusQuery, GetCardanoBlockProofQuery, GetCardanoBlocksTransactionsListQuery,
     GetCardanoBlocksTransactionsQuery, GetCardanoDatabaseListQuery, GetCardanoDatabaseQuery,
     GetCardanoStakeDistributionQuery, GetCardanoStakeDistributionsListQuery,
     GetCardanoTransactionProofQuery, GetCardanoTransactionProofV2Query, GetCardanoTransactionQuery,
@@ -18,6 +18,7 @@ use mithril_aggregator_client::query::{
     PostIncrementSnapshotDownloadStatisticQuery,
 };
 
+use crate::cardano_block_client::CardanoBlockAggregatorRequest;
 use crate::cardano_transaction_v2_client::CardanoTransactionV2AggregatorRequest;
 use crate::{
     CardanoBlocksTransactionsSnapshot, CardanoBlocksTransactionsSnapshotListItem,
@@ -184,6 +185,36 @@ impl CardanoTransactionV2AggregatorRequest for AggregatorHttpClient {
             .with_context(|| {
                 format!("Failed to get Cardano transaction v2 snapshot with hash '{hash}'")
             })
+    }
+}
+
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+impl CardanoBlockAggregatorRequest for AggregatorHttpClient {
+    async fn get_proof(
+        &self,
+        hashes: &[String],
+    ) -> MithrilResult<Option<CardanoTransactionsProofs>> {
+        self.send(GetCardanoBlockProofQuery::for_hashes(hashes))
+            .await
+            .with_context(|| format!("Failed to get Cardano blocks proofs for hashes '{hashes:?}'"))
+    }
+
+    async fn list_latest_snapshots(
+        &self,
+    ) -> MithrilResult<Vec<CardanoBlocksTransactionsSnapshotListItem>> {
+        self.send(GetCardanoBlocksTransactionsListQuery::latest())
+            .await
+            .with_context(|| "Failed to list latest Cardano blocks snapshots")
+    }
+
+    async fn get_snapshot(
+        &self,
+        hash: &str,
+    ) -> MithrilResult<Option<CardanoBlocksTransactionsSnapshot>> {
+        self.send(GetCardanoBlocksTransactionsQuery::by_hash(hash))
+            .await
+            .with_context(|| format!("Failed to get Cardano block snapshot with hash '{hash}'"))
     }
 }
 
