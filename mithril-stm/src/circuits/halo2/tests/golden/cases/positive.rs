@@ -126,7 +126,7 @@ fn merkle_path_all_right() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<LotteryIndex> = vec![4, 12, 25];
+    let indices: Vec<LotteryIndex> = vec![4, 12, 14];
     assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, rightmost_index, merkle_root, msg, &indices)
@@ -158,7 +158,7 @@ fn merkle_path_all_left() {
 
     let merkle_root = merkle_tree.root();
     let m = env.num_lotteries();
-    let indices: Vec<LotteryIndex> = vec![5, 13, 21];
+    let indices: Vec<LotteryIndex> = vec![5, 13, 14];
     assert!(indices.iter().all(|i| *i < m as LotteryIndex));
     let witness =
         build_witness_with_fixed_signer(&merkle_tree, leftmost_index, merkle_root, msg, &indices)

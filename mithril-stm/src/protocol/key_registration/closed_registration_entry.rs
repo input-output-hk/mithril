@@ -164,8 +164,11 @@ impl Serialize for ClosedRegistrationEntry {
     }
 }
 
-/// Converts the registration entry into a closed registration entry for given total stake.
-/// This is where we compute the lottery target value.
+/// Converts a `RegistrationEntry` into a `ClosedRegistrationEntry`.
+///
+/// Extracts the concatenation verification key and stake from the entry. When the `future_snark`
+/// feature is enabled and a SNARK verification key is present, the lottery target value is also
+/// computed from `phi_f`, the entry's stake, and `total_stake` via `compute_lottery_target_value`.
 impl TryFrom<(RegistrationEntry, Stake, PhiValue)> for ClosedRegistrationEntry {
     type Error = anyhow::Error;
     fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiValue)) -> StmResult<Self> {

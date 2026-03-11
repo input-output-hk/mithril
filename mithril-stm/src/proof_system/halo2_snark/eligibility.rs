@@ -20,7 +20,22 @@ cfg_num_integer! {
     /// the value is. A value of 30 provides ~69 bits precision for phi_f=0.2
     const TAYLOR_EXPANSION_ITERATIONS: usize = 30;
 
-    /// Computes the lottery target value for a given stake and total stake.
+    /// Computes the lottery target value for a party from its stake, the system's total stake, and
+    /// the protocol parameter `phi_f`.
+    ///
+    /// This function validates inputs and prepares the `ln(1 - phi_f)` approximation before
+    /// delegating the core arithmetic to `compute_target_value`. The logarithm is computed here
+    /// (rather than inside `compute_target_value`) because the lower-level function accepts a
+    /// pre-computed `ln(1 - phi_f)`, allowing callers that need targets for many stake values
+    /// (during registration closing) to compute it once.
+    ///
+    /// # Steps
+    /// 1. Rejects `total_stake == 0` with `RegisterError::ZeroTotalStake`.
+    /// 2. Short-circuits `phi_f ≈ 1.0` to `p - 1` (all indices win), matching the concatenation
+    ///    proof system and avoiding `ln(0)`.
+    /// 3. Approximates `phi_f` as an exact `Ratio<i64>`, promotes to `Ratio<BigInt>`.
+    /// 4. Computes `ln(1 - phi_f)` via Taylor expansion (`ln_1p_taylor_expansion`).
+    /// 5. Delegates to `compute_target_value` for the final field-element computation.
     #[cfg(feature = "future_snark")]
     pub fn compute_lottery_target_value(phi_f: PhiValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
         if total_stake == 0 {
@@ -46,7 +61,8 @@ cfg_num_integer! {
     }
 
     #[cfg(feature = "future_snark")]
-    /// Computes the lottery target value for SNARK proof system as a base field element.
+    /// Computes the lottery target value for a party from its stake, the system's total stake, and
+    /// and `ln(1 - phi_f)` where `phi_f` is a protocol parameter.
     ///
     /// The target value determines the probability of winning the lottery based on the
     /// participant's stake relative to the total stake. A higher stake results in a higher
@@ -70,9 +86,11 @@ cfg_num_integer! {
     /// Once the precise expression obtained, we can compute the target value as:
     /// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
     ///
-    /// Input: (ln(1 - phi_f) approximation, stake of the signer, total_stake)
-    ///
-    /// Output: the lottery target value used for the lottery eligibility
+    /// # Steps
+    /// 1. Compute the taylor expansion of the expression `exp(w * ln(1 - phi_f))`.
+    /// 2. Compute the target as a ratio of `BigInt`.
+    /// 3. Use a euclidean division to extract the final target as a `BigInt`.
+    /// 4. Convert the `BigInt` to a `BaseFieldElement`.
     pub fn compute_target_value(ln_one_minus_phi_f: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
         // It is safe to use .expect() as the value used is a constant so the creation of
         // the BigInt will never fail
