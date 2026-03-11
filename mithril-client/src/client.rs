@@ -23,10 +23,12 @@ use mithril_aggregator_discovery::{
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::MithrilResult;
+#[cfg(feature = "unstable")]
 use crate::cardano_block_client::CardanoBlockClient;
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
+#[cfg(feature = "unstable")]
 use crate::cardano_transaction_v2_client::CardanoTransactionV2Client;
 #[cfg(feature = "unstable")]
 use crate::certificate_client::CertificateVerifierCache;
@@ -154,7 +156,9 @@ pub struct Client {
     snapshot_client: Arc<SnapshotClient>,
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
+    #[cfg(feature = "unstable")]
     cardano_transaction_v2_client: Arc<CardanoTransactionV2Client>,
+    #[cfg(feature = "unstable")]
     cardano_block_client: Arc<CardanoBlockClient>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
     mithril_era_client: Arc<MithrilEraClient>,
@@ -188,11 +192,13 @@ impl Client {
     }
 
     /// Get the client that fetches and verifies Mithril Cardano transaction v2 proof.
+    #[cfg(feature = "unstable")]
     pub fn cardano_transaction_v2(&self) -> Arc<CardanoTransactionV2Client> {
         self.cardano_transaction_v2_client.clone()
     }
 
     /// Get the client that fetches and verifies Mithril Cardano block proof.
+    #[cfg(feature = "unstable")]
     pub fn cardano_block(&self) -> Arc<CardanoBlockClient> {
         self.cardano_block_client.clone()
     }
@@ -419,9 +425,11 @@ impl ClientBuilder {
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
 
+        #[cfg(feature = "unstable")]
         let cardano_transaction_v2_client =
             Arc::new(CardanoTransactionV2Client::new(aggregator_client.clone()));
 
+        #[cfg(feature = "unstable")]
         let cardano_block_client = Arc::new(CardanoBlockClient::new(aggregator_client.clone()));
 
         let cardano_stake_distribution_client =
@@ -433,7 +441,9 @@ impl ClientBuilder {
             snapshot_client,
             cardano_database_client,
             cardano_transaction_client,
+            #[cfg(feature = "unstable")]
             cardano_transaction_v2_client,
+            #[cfg(feature = "unstable")]
             cardano_block_client,
             cardano_stake_distribution_client,
             mithril_era_client,

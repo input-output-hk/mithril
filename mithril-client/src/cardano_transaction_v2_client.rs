@@ -16,6 +16,7 @@
 //! To get and verify a Cardano transaction proof using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{ClientBuilder, MessageBuilder};
 //!
@@ -45,6 +46,7 @@
 //! To get a Cardano transaction snapshot using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
@@ -61,6 +63,7 @@
 //! To list latest available Cardano transaction snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//! #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
