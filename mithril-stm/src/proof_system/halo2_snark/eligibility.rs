@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-use crate::{PhiValue, RegisterError};
+use crate::{PhiFValue, RegisterError};
 
 cfg_num_integer! {
     use num_bigint::BigInt;
@@ -37,12 +37,14 @@ cfg_num_integer! {
     /// 4. Computes `ln(1 - phi_f)` via Taylor expansion (`ln_1p_taylor_expansion`).
     /// 5. Delegates to `compute_target_value` for the final field-element computation.
     #[cfg(feature = "future_snark")]
-    pub fn compute_lottery_target_value(phi_f: PhiValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
+    pub fn compute_lottery_target_value(phi_f: PhiFValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
         if total_stake == 0 {
             return Err(RegisterError::ZeroTotalStake.into());
         }
 
-        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
+        if (phi_f - 1.0).abs() < PhiFValue::EPSILON {
+            // This returns the maximal target possible Jubjub modulus - 1
+            // to ensure every participant wins the lottery
             return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
         }
 
@@ -82,9 +84,6 @@ cfg_num_integer! {
     /// In order to do that we change the expression:
     /// 1 - (1 - phi_f)^w = 1 - exp(w * ln(1 - phi_f))
     /// and we use Taylor expansion to approximate the exponential and natural logarithm functions to a given precision.
-    ///
-    /// Once the precise expression obtained, we can compute the target value as:
-    /// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
     ///
     /// # Steps
     /// 1. Compute the taylor expansion of the expression `exp(w * ln(1 - phi_f))`.

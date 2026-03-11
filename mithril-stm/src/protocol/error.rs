@@ -45,12 +45,8 @@ pub enum RegisterError {
     SnarkProofSignerCreation,
 
     /// Total stake value overflows `u64` during computation.
-    #[error(
-        "Total stake overflow accumulated stake: {}, adding stake: {}",
-        acc,
-        stake
-    )]
-    TotalStakeOverflow { acc: u64, stake: u64 },
+    #[error("Total stake overflow accumulated stake: {accumulated_stake}, adding stake: {stake}")]
+    TotalStakeOverflow { accumulated_stake: u64, stake: u64 },
 
     /// Total stake of the key registration is zero.
     #[error("Cannot run the protocol if total stake is zero.")]

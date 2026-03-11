@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use crate::{
-    PhiValue, RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation,
+    PhiFValue, RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation,
 };
 
 #[cfg(feature = "future_snark")]
@@ -169,9 +169,9 @@ impl Serialize for ClosedRegistrationEntry {
 /// Extracts the concatenation verification key and stake from the entry. When the `future_snark`
 /// feature is enabled and a SNARK verification key is present, the lottery target value is also
 /// computed from `phi_f`, the entry's stake, and `total_stake` via `compute_lottery_target_value`.
-impl TryFrom<(RegistrationEntry, Stake, PhiValue)> for ClosedRegistrationEntry {
+impl TryFrom<(RegistrationEntry, Stake, PhiFValue)> for ClosedRegistrationEntry {
     type Error = anyhow::Error;
-    fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiValue)) -> StmResult<Self> {
+    fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiFValue)) -> StmResult<Self> {
         #[cfg(not(feature = "future_snark"))]
         let (entry, _total_stake, _phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
@@ -179,15 +179,10 @@ impl TryFrom<(RegistrationEntry, Stake, PhiValue)> for ClosedRegistrationEntry {
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target = if vk.is_some() {
-                Some(compute_lottery_target_value(
-                    phi_f,
-                    entry.get_stake(),
-                    total_stake,
-                )?)
-            } else {
-                None
-            };
+            let target = vk
+                .is_some()
+                .then(|| compute_lottery_target_value(phi_f, entry.get_stake(), total_stake))
+                .transpose()?;
 
             (vk, target)
         };

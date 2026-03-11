@@ -161,7 +161,7 @@ pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
 pub type Stake = u64;
 
 /// The value of a `phi_f` parameter represented as a `f64`
-pub type PhiValue = f64;
+pub type PhiFValue = f64;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.

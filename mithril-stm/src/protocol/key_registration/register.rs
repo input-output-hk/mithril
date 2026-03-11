@@ -67,7 +67,7 @@ impl KeyRegistration {
             self.registration_entries.iter().try_fold(0u64, |acc, entry| {
                 acc.checked_add(entry.get_stake())
                     .ok_or(RegisterError::TotalStakeOverflow {
-                        acc,
+                        accumulated_stake: acc,
                         stake: entry.get_stake(),
                     })
             })?;

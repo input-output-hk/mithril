@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::PhiValue;
+use crate::PhiFValue;
 
 use super::RegisterError;
 
@@ -18,7 +18,7 @@ pub struct Parameters {
     /// Quorum parameter.
     pub k: u64,
     /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant..
-    pub phi_f: PhiValue,
+    pub phi_f: PhiFValue,
 }
 
 impl Parameters {

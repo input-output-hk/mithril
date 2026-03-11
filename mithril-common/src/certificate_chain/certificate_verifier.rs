@@ -1052,7 +1052,7 @@ mod tests {
 
     // This implementation of SNARKs fixes this problem by default as if the adversary
     // changes its value of phi_f, its lottery target won't match the one in the merkle tree
-    // TODO: Check if this test is still necessary when enabling `future_snark` as default
+    /// Note: Check if this test is still necessary when enabling `future_snark` as default
     #[cfg(not(feature = "future_snark"))]
     #[tokio::test]
     async fn verify_certificate_chain_fails_when_adversarial_with_registered_signer_forgery_through_protocol_parameters()
