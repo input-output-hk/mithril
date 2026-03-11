@@ -6,7 +6,7 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use anyhow::{Context, anyhow};
-use ff::Field;
+use midnight_curves::Bls12;
 use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk;
@@ -16,7 +16,7 @@ use rand_core::SeedableRng;
 
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::types::{Bls12, JubjubBase, MTLeaf, MerklePath};
+use crate::circuits::halo2::types::{CircuitBase, MTLeaf, MerklePath, SignedMessageWithoutPrefix};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
@@ -24,9 +24,6 @@ use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
-
-/// Base field type used throughout STM circuit golden tests.
-type F = JubjubBase;
 
 /// Witness entry tuple used by STM circuit golden tests.
 type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex);
@@ -144,8 +141,8 @@ pub(crate) struct StmCircuitEnv {
 
 /// Concrete STM circuit scenario inputs for proving/verifying in golden tests.
 pub(crate) struct StmCircuitScenario {
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     witness: Vec<WitnessEntry>,
 }
 
@@ -154,7 +151,7 @@ pub(crate) struct StmCircuitScenario {
 pub(crate) struct SignerFixture {
     sk: SchnorrSigningKey,
     vk: SchnorrVerificationKey,
-    target_field: F,
+    target_field: SignedMessageWithoutPrefix,
     target_value: LotteryTargetValue,
 }
 
@@ -170,15 +167,17 @@ impl From<&SignerFixture> for MTLeaf {
     }
 }
 
-fn target_value_from_field(target: F) -> StmResult<LotteryTargetValue> {
-    LotteryTargetValue::from_bytes(&target.to_bytes_le())
-        .map_err(|_| anyhow!(StmCircuitError::InvalidLotteryTargetBytes))
+fn target_value_from_field(target: SignedMessageWithoutPrefix) -> LotteryTargetValue {
+    target.into()
 }
 
-fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> StmResult<SignerFixture> {
+fn generate_signer_fixture(
+    rng: &mut ChaCha20Rng,
+    target: SignedMessageWithoutPrefix,
+) -> StmResult<SignerFixture> {
     let stm_sk = SchnorrSigningKey::generate(rng);
     let stm_vk = SchnorrVerificationKey::new_from_signing_key(stm_sk.clone());
-    let target_value = target_value_from_field(target)?;
+    let target_value = target_value_from_field(target);
     Ok(SignerFixture {
         sk: stm_sk,
         vk: stm_vk,
@@ -192,7 +191,7 @@ fn generate_signer_fixture(rng: &mut ChaCha20Rng, target: F) -> StmResult<Signer
 /// We keep MTLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
 pub(crate) struct StmMerkleTreeWrapper {
     stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
-    root: F,
+    root: SignedMessageWithoutPrefix,
     signer_fixtures: Vec<SignerFixture>,
 }
 
@@ -207,8 +206,8 @@ pub(crate) enum LeafSelector {
 }
 
 impl StmMerkleTreeWrapper {
-    /// Return the Merkle root as a JubjubBase field element.
-    pub(crate) fn root(&self) -> F {
+    /// Return the Merkle root used by Halo2 as a circuit wrapper field value.
+    pub(crate) fn root(&self) -> SignedMessageWithoutPrefix {
         self.root
     }
 
@@ -234,7 +233,7 @@ impl StmMerkleTreeWrapper {
     }
 }
 
-fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
+fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<SignedMessageWithoutPrefix> {
     let actual = root_bytes.len();
     let root_array: [u8; 32] = root_bytes.try_into().map_err(|_| {
         anyhow!(StmCircuitError::InvalidMerkleRootDigestLength {
@@ -243,14 +242,14 @@ fn decode_merkle_root(root_bytes: &[u8]) -> StmResult<F> {
     })?;
     BaseFieldElement::from_bytes(&root_array)
         .ok()
-        .map(|base| base.0)
+        .map(Into::into)
         .ok_or_else(|| anyhow!(StmCircuitError::NonCanonicalMerkleRootDigest))
 }
 
 fn build_merkle_tree_wrapper(
     n: usize,
     selected_index: Option<usize>,
-    target: F,
+    target: SignedMessageWithoutPrefix,
 ) -> StmResult<StmMerkleTreeWrapper> {
     if let Some(i) = selected_index
         && i >= n
@@ -267,7 +266,7 @@ fn build_merkle_tree_wrapper(
         let leaf_target = if selected_index == Some(i) {
             target
         } else {
-            -F::ONE
+            -SignedMessageWithoutPrefix::ONE
         };
         signer_fixtures.push(generate_signer_fixture(&mut rng, leaf_target)?);
     }
@@ -285,14 +284,14 @@ fn build_merkle_tree_wrapper(
 
 /// Build a default Merkle tree with all leaves set to the max target.
 pub(crate) fn create_default_merkle_tree(n: usize) -> StmResult<StmMerkleTreeWrapper> {
-    build_merkle_tree_wrapper(n, None, -F::ONE)
+    build_merkle_tree_wrapper(n, None, -SignedMessageWithoutPrefix::ONE)
 }
 
 /// Build a full tree with one controlled leaf selected by `selector` and return its index.
 pub(crate) fn create_merkle_tree_with_leaf_selector(
     depth: u32,
     selector: LeafSelector,
-    target: F,
+    target: SignedMessageWithoutPrefix,
 ) -> StmResult<(StmMerkleTreeWrapper, usize)> {
     if depth >= usize::BITS {
         return Err(anyhow!(StmCircuitError::InvalidMerkleTreeDepth { depth }));
@@ -316,16 +315,21 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
     Ok((tree, selected_index))
 }
 
-fn transcript_message(merkle_root: F, msg: F) -> [BaseFieldElement; 2] {
-    [BaseFieldElement(merkle_root), BaseFieldElement(msg)]
+fn transcript_message(
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
+) -> [BaseFieldElement; 2] {
+    [merkle_root.into(), msg.into()]
 }
 
 fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = F::from_bytes_le(&challenge_bytes)
+    let challenge_native = CircuitBase::from_bytes_le(&challenge_bytes)
         .into_option()
         .ok_or_else(|| anyhow!(StmCircuitError::InvalidChallengeBytes))?;
-    if challenge_native != sig.challenge.0 {
+    if SignedMessageWithoutPrefix::from(challenge_native)
+        != SignedMessageWithoutPrefix::from(sig.challenge)
+    {
         return Err(anyhow!(StmCircuitError::ChallengeEndiannessMismatch));
     }
     Ok(())
@@ -333,8 +337,8 @@ fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
 
 fn sign_and_verify_lottery_message(
     signer_fixture: &SignerFixture,
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     rng: &mut ChaCha20Rng,
 ) -> StmResult<UniqueSchnorrSignature> {
     let transcript = transcript_message(merkle_root, msg);
@@ -352,11 +356,11 @@ fn sign_and_verify_lottery_message(
 /// Build a witness with default strictly increasing indices [0..quorum).
 pub(crate) fn build_witness(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     quorum: u32,
 ) -> StmResult<Vec<WitnessEntry>> {
-    let indices: Vec<LotteryIndex> = (0..(quorum as u64)).collect();
+    let indices: Vec<LotteryIndex> = (0..quorum).map(u64::from).collect();
     build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
 }
 
@@ -364,8 +368,8 @@ pub(crate) fn build_witness(
 /// the circuit is responsible for strict ordering checks in negative tests.
 pub(crate) fn build_witness_with_indices(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
@@ -382,8 +386,8 @@ pub(crate) fn build_witness_with_indices(
 pub(crate) fn build_witness_with_fixed_signer(
     merkle_tree: &StmMerkleTreeWrapper,
     signer_index: usize,
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
@@ -407,8 +411,8 @@ enum WitnessBuildMode<'a> {
 
 fn build_witness_internal(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: F,
-    msg: F,
+    merkle_root: SignedMessageWithoutPrefix,
+    msg: SignedMessageWithoutPrefix,
     mode: WitnessBuildMode<'_>,
 ) -> StmResult<Vec<WitnessEntry>> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -488,7 +492,11 @@ impl StmCircuitEnv {
 
 impl StmCircuitScenario {
     /// Construct a new STM circuit scenario from its instance and witness data.
-    pub(crate) fn new(merkle_root: F, msg: F, witness: Vec<WitnessEntry>) -> Self {
+    pub(crate) fn new(
+        merkle_root: SignedMessageWithoutPrefix,
+        msg: SignedMessageWithoutPrefix,
+        witness: Vec<WitnessEntry>,
+    ) -> Self {
         Self {
             merkle_root,
             msg,
@@ -589,13 +597,23 @@ fn map_proving_backend_error(error: PlonkError) -> StmError {
     anyhow::Error::new(error).context("Proving step failed")
 }
 
-/// Run a case using the default message (F::from(DEFAULT_TEST_MSG)).
+/// Run a case using the default message (SignedMessageWithoutPrefix::from(DEFAULT_TEST_MSG)).
 pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32) -> StmResult<()> {
-    run_stm_circuit_case(case_name, k, quorum, F::from(DEFAULT_TEST_MSG))
+    run_stm_circuit_case(
+        case_name,
+        k,
+        quorum,
+        SignedMessageWithoutPrefix::from(DEFAULT_TEST_MSG),
+    )
 }
 
 /// Run a case with a caller-specified message.
-pub(crate) fn run_stm_circuit_case(case_name: &str, k: u32, quorum: u32, msg: F) -> StmResult<()> {
+pub(crate) fn run_stm_circuit_case(
+    case_name: &str,
+    k: u32,
+    quorum: u32,
+    msg: SignedMessageWithoutPrefix,
+) -> StmResult<()> {
     let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
     let env = setup_stm_circuit_env(case_name, k, quorum, num_lotteries)?;
     let merkle_tree = create_default_merkle_tree(env.num_signers())?;

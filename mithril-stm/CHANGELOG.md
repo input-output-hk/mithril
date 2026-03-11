@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.27 (03-11-2026)
+
+### Changed
+
+- Introduced circuit-local Halo2 types in `circuits/halo2/types.rs` with shared `CircuitBaseField`, `CircuitBase`, and `CircuitCurve`.
+- Replaced duplicated local `F`/`C` aliases with shared circuit types across Halo2 circuit, gadgets, and golden helper code.
+- Standardized Halo2 conversion paths using `From`/`Into` implementations for circuit/domain field wrappers.
+- Added `circuits/halo2/adapters.rs` to convert STM Merkle paths into Halo2 witness paths for circuit consumption.
+- Removed `circuits/halo2/utils/mod.rs` and inlined field-limb split logic into `circuits/halo2/gadgets.rs`.
+- Unified synthesis error mapping through `to_synthesis_error` in `circuits/halo2/errors.rs`.
+
 ## 0.9.26 (03-09-2026)
 
 ### Changed

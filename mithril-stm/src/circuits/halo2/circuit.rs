@@ -1,7 +1,7 @@
 use anyhow::{Context, anyhow};
 use ff::Field;
 use group::Group;
-use midnight_circuits::ecc::curves::CircuitCurve;
+use midnight_circuits::ecc::curves::CircuitCurve as CircuitCurveTrait;
 use midnight_circuits::instructions::{
     AssignmentInstructions, ConversionInstructions, PublicInputInstructions,
 };
@@ -12,21 +12,18 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::errors::StmCircuitError;
+use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     verify_lottery, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    Jubjub, JubjubBase, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
+    CircuitBase, CircuitCurve, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
     UniqueSchnorrSignature,
 };
-use crate::{LotteryIndex, Parameters, StmError, StmResult};
-
-type F = JubjubBase;
-type C = Jubjub;
+use crate::{LotteryIndex, Parameters, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
@@ -38,24 +35,6 @@ pub struct StmCircuit {
 }
 
 impl StmCircuit {
-    /// Adapter at the Halo2 relation boundary.
-    ///
-    /// Internal code uses `StmResult` with typed `StmCircuitError`, while the Midnight relation
-    /// API requires returning `plonk::Error`.
-    fn synthesis_error(error: StmError) -> Error {
-        let error = match error.downcast::<Error>() {
-            Ok(plonk_error) => return plonk_error,
-            Err(error) => error,
-        };
-
-        let error = match error.downcast::<StmCircuitError>() {
-            Ok(stm_error) => return Error::Synthesis(stm_error.to_string()),
-            Err(error) => error,
-        };
-
-        Error::Synthesis(error.to_string())
-    }
-
     fn checked_len_u32(actual: usize) -> u32 {
         u32::try_from(actual).unwrap_or(u32::MAX)
     }
@@ -85,6 +64,29 @@ impl StmCircuit {
             return Err(anyhow!(StmCircuitError::WitnessLengthMismatch {
                 expected_quorum: self.quorum,
                 actual: Self::checked_len_u32(actual),
+            }));
+        }
+
+        Ok(())
+    }
+
+    /// Validates witness lottery indices against circuit constraints.
+    ///
+    /// The circuit uses 32-bit comparison constraints (`lower_than(..., 32)`), so each
+    /// index must fit in `u32` and must satisfy `index < num_lotteries`.
+    pub(crate) fn validate_lottery_index(&self, index: LotteryIndex) -> StmResult<()> {
+        let max_supported = u32::MAX as LotteryIndex;
+        if index > max_supported {
+            return Err(anyhow!(StmCircuitError::LotteryIndexTooLarge {
+                index,
+                max_supported,
+            }));
+        }
+
+        if index >= self.num_lotteries as LotteryIndex {
+            return Err(anyhow!(StmCircuitError::LotteryIndexOutOfBounds {
+                index,
+                num_lotteries: self.num_lotteries,
             }));
         }
 
@@ -157,43 +159,46 @@ impl Relation for StmCircuit {
     type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
     type Witness = Vec<(MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex)>;
 
-    fn format_instance(instance: &Self::Instance) -> Result<Vec<F>, Error> {
-        Ok(vec![instance.0, instance.1])
+    fn format_instance(instance: &Self::Instance) -> Result<Vec<CircuitBase>, Error> {
+        Ok(vec![instance.0.into(), instance.1.into()])
     }
 
     fn circuit(
         &self,
         std_lib: &ZkStdLib,
-        layouter: &mut impl Layouter<F>,
+        layouter: &mut impl Layouter<CircuitBase>,
         instance: Value<Self::Instance>,
         witness: Value<Self::Witness>,
     ) -> Result<(), Error> {
-        self.validate_parameters().map_err(Self::synthesis_error)?;
+        self.validate_parameters().map_err(to_synthesis_error)?;
         let witness = witness
             .map_with_result(|witness| -> StmResult<_> {
                 self.validate_witness_length(witness.len())?;
+                witness
+                    .iter()
+                    .try_for_each(|(_, _, _, index)| self.validate_lottery_index(*index))?;
                 Ok(witness)
             })
-            .map_err(Self::synthesis_error)?
+            .map_err(to_synthesis_error)?
             .transpose_vec(self.quorum as usize);
 
-        let merkle_root: AssignedNative<F> =
-            std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x))?;
-        let msg: AssignedNative<F> =
-            std_lib.assign_as_public_input(layouter, instance.map(|(_, x)| x))?;
+        let merkle_root: AssignedNative<CircuitBase> =
+            std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x.into()))?;
+        let msg: AssignedNative<CircuitBase> =
+            std_lib.assign_as_public_input(layouter, instance.map(|(_, x)| x.into()))?;
 
         // Compute H_1(merkle_root, msg)
         let hash = std_lib.hash_to_curve(layouter, &[merkle_root.clone(), msg.clone()])?;
 
-        let generator: AssignedNativePoint<C> = std_lib.jubjub().assign_fixed(
+        let generator: AssignedNativePoint<CircuitCurve> = std_lib.jubjub().assign_fixed(
             layouter,
-            <C as CircuitCurve>::CryptographicGroup::generator(),
+            <CircuitCurve as CircuitCurveTrait>::CryptographicGroup::generator(),
         )?;
 
         let domain_separation_tag_signature: AssignedNative<_> =
-            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_SIGNATURE.0)?;
+            std_lib.assign_fixed(layouter, CircuitBase::from(DOMAIN_SEPARATION_TAG_SIGNATURE))?;
         let domain_separation_tag_lottery: AssignedNative<_> =
-            std_lib.assign_fixed(layouter, DOMAIN_SEPARATION_TAG_LOTTERY.0)?;
+            std_lib.assign_fixed(layouter, CircuitBase::from(DOMAIN_SEPARATION_TAG_LOTTERY))?;
         let lottery_prefix = std_lib.poseidon(
             layouter,
             &[
@@ -203,10 +208,13 @@ impl Relation for StmCircuit {
             ],
         )?;
 
-        let mut pre_index: AssignedNative<_> = std_lib.assign(layouter, Value::known(F::ZERO))?;
+        let mut pre_index: AssignedNative<_> =
+            std_lib.assign(layouter, Value::known(CircuitBase::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
-            let index: AssignedNative<F> =
-                std_lib.assign(layouter, wit.clone().map(|(_, _, _, i)| F::from(i)))?;
+            let index: AssignedNative<CircuitBase> = std_lib.assign(
+                layouter,
+                wit.clone().map(|(_, _, _, i)| CircuitBase::from(i)),
+            )?;
 
             // Check index order
             if i > 0 {
@@ -220,8 +228,8 @@ impl Relation for StmCircuit {
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
 
-            let target: AssignedNative<F> =
-                std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1))?;
+            let target: AssignedNative<CircuitBase> =
+                std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1.into()))?;
 
             // Assign sibling Values.
             let assigned_merkle_siblings = std_lib.assign_many(
@@ -229,9 +237,9 @@ impl Relation for StmCircuit {
                 wit.clone()
                     .map_with_result(|(_, x, _, _)| -> StmResult<_> {
                         self.validate_merkle_sibling_length(x.siblings.len())?;
-                        Ok(x.siblings.iter().map(|sibling| sibling.1).collect::<Vec<_>>())
+                        Ok(x.siblings.iter().map(|sibling| sibling.1.into()).collect::<Vec<_>>())
                     })
-                    .map_err(Self::synthesis_error)?
+                    .map_err(to_synthesis_error)?
                     .transpose_vec(self.merkle_tree_depth as usize)
                     .as_slice(),
             )?;
@@ -242,9 +250,12 @@ impl Relation for StmCircuit {
                 wit.clone()
                     .map_with_result(|(_, x, _, _)| -> StmResult<_> {
                         self.validate_merkle_position_length(x.siblings.len())?;
-                        Ok(x.siblings.iter().map(|sibling| sibling.0.into()).collect::<Vec<_>>())
+                        Ok(x.siblings
+                            .iter()
+                            .map(|sibling| CircuitBase::from(sibling.0))
+                            .collect::<Vec<_>>())
                     })
-                    .map_err(Self::synthesis_error)?
+                    .map_err(to_synthesis_error)?
                     .transpose_vec(self.merkle_tree_depth as usize)
                     .as_slice(),
             )?;
@@ -253,7 +264,7 @@ impl Relation for StmCircuit {
             let assigned_merkle_positions = assigned_merkle_positions
                 .iter()
                 .map(|pos| std_lib.convert(layouter, pos))
-                .collect::<Result<Vec<AssignedBit<F>>, Error>>()?;
+                .collect::<Result<Vec<AssignedBit<CircuitBase>>, Error>>()?;
 
             let sigma_value = wit
                 .clone()
@@ -261,13 +272,16 @@ impl Relation for StmCircuit {
                     let (u, v) = sig.commitment_point.get_coordinates();
                     PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
                 })
-                .map_err(Self::synthesis_error)?;
+                .map_err(to_synthesis_error)?;
             let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
-            let s: AssignedScalarOfNativeCurve<C> = std_lib
+            let s: AssignedScalarOfNativeCurve<CircuitCurve> = std_lib
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
-            let c_native = std_lib.assign(layouter, wit.map(|(_, _, sig, _)| sig.challenge.0))?;
-            let c: AssignedScalarOfNativeCurve<C> =
+            let c_native = std_lib.assign(
+                layouter,
+                wit.map(|(_, _, sig, _)| CircuitBase::from(sig.challenge)),
+            )?;
+            let c: AssignedScalarOfNativeCurve<CircuitCurve> =
                 std_lib.jubjub().convert(layouter, &c_native)?;
 
             verify_merkle_path(
@@ -297,7 +311,7 @@ impl Relation for StmCircuit {
         }
 
         // m can be put as a public instance or a constant
-        let m = std_lib.assign_fixed(layouter, F::from(self.num_lotteries as u64))?;
+        let m = std_lib.assign_fixed(layouter, CircuitBase::from(self.num_lotteries as u64))?;
         let is_less = std_lib.lower_than(layouter, &pre_index, &m, 32)?;
 
         std_lib.assert_true(layouter, &is_less)
@@ -353,18 +367,18 @@ impl Relation for StmCircuit {
 
 #[cfg(test)]
 mod dst_alignment_tests {
-    use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
-    use midnight_curves::Fq as JubjubBase;
-
+    use crate::circuits::halo2::types::CircuitBase;
     use crate::signature_scheme::{
         BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
         compute_poseidon_digest,
     };
 
+    use midnight_circuits::{hash::poseidon::PoseidonChip, instructions::hash::HashCPU};
+
     const REFERENCE_SIGNATURE_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(JubjubBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]));
+        BaseFieldElement(CircuitBase::from_raw([0x5349_474E_5F44_5354, 0, 0, 0]));
     const REFERENCE_LOTTERY_DOMAIN_TAG: BaseFieldElement =
-        BaseFieldElement(JubjubBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]));
+        BaseFieldElement(CircuitBase::from_raw([0x4C4F_5454_5F44_5354, 0, 0, 0]));
 
     #[test]
     fn signature_and_lottery_domain_tags_do_not_collide() {
@@ -387,12 +401,16 @@ mod dst_alignment_tests {
         stm_inputs.extend_from_slice(&signature_transcript_inputs);
         let signature_digest_via_stm = compute_poseidon_digest(&stm_inputs);
 
-        let mut signature_digest_manual_inputs = vec![REFERENCE_SIGNATURE_DOMAIN_TAG.0];
-        signature_digest_manual_inputs
-            .extend(signature_transcript_inputs.iter().map(|value| value.0));
+        let mut signature_digest_manual_inputs =
+            vec![CircuitBase::from(REFERENCE_SIGNATURE_DOMAIN_TAG)];
+        signature_digest_manual_inputs.extend(
+            signature_transcript_inputs
+                .iter()
+                .map(|value| CircuitBase::from(*value)),
+        );
 
         let signature_digest_via_reference_formula = BaseFieldElement(
-            PoseidonChip::<JubjubBase>::hash(&signature_digest_manual_inputs),
+            PoseidonChip::<CircuitBase>::hash(&signature_digest_manual_inputs),
         );
 
         assert_eq!(
@@ -403,14 +421,20 @@ mod dst_alignment_tests {
 
     #[test]
     fn lottery_prefix_matches_reference_lottery_domain_tag_formula() {
-        let merkle_root = JubjubBase::from(123u64);
-        let msg = JubjubBase::from(456u64);
+        let merkle_root = CircuitBase::from(123u64);
+        let msg = CircuitBase::from(456u64);
 
-        let lottery_prefix_via_stm_constant =
-            PoseidonChip::<JubjubBase>::hash(&[DOMAIN_SEPARATION_TAG_LOTTERY.0, merkle_root, msg]);
+        let lottery_prefix_via_stm_constant = PoseidonChip::<CircuitBase>::hash(&[
+            CircuitBase::from(DOMAIN_SEPARATION_TAG_LOTTERY),
+            merkle_root,
+            msg,
+        ]);
 
-        let lottery_prefix_via_reference_formula =
-            PoseidonChip::<JubjubBase>::hash(&[REFERENCE_LOTTERY_DOMAIN_TAG.0, merkle_root, msg]);
+        let lottery_prefix_via_reference_formula = PoseidonChip::<CircuitBase>::hash(&[
+            CircuitBase::from(REFERENCE_LOTTERY_DOMAIN_TAG),
+            merkle_root,
+            msg,
+        ]);
 
         assert_eq!(
             BaseFieldElement(lottery_prefix_via_stm_constant),

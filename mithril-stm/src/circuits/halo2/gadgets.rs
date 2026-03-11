@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use ff::{Field, PrimeField};
 use midnight_circuits::instructions::{
     ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
@@ -9,18 +10,52 @@ use midnight_circuits::types::{
 use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
+use num_bigint::BigUint;
+use num_traits::{Num, One};
 
-use crate::circuits::halo2::types::{Jubjub, JubjubBase};
-use crate::circuits::halo2::utils::split_field_element_into_le_limbs;
+use crate::StmResult;
+use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
+use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
-type F = JubjubBase;
-type C = Jubjub;
+/// Splits a field element into `(lower, upper)` limbs at `num_bits` using LE encoding.
+fn split_field_element_into_le_limbs<Fp: PrimeField>(
+    value: &Fp,
+    num_bits: u32,
+) -> StmResult<(Fp, Fp)> {
+    let field_bits = Fp::NUM_BITS;
+    if num_bits >= field_bits {
+        return Err(anyhow!(StmCircuitError::InvalidBitDecompositionRange {
+            num_bits,
+            field_bits,
+        }));
+    }
+
+    let value_big = BigUint::from_bytes_le(value.to_repr().as_ref());
+    let lower_mask = (BigUint::one() << num_bits) - BigUint::one();
+    let lower_big = value_big.clone() & &lower_mask;
+    let upper_big = value_big >> num_bits;
+    let lower = big_unsigned_integer_to_field_element::<Fp>(lower_big)?;
+    let upper = big_unsigned_integer_to_field_element::<Fp>(upper_big)?;
+    Ok((lower, upper))
+}
+
+fn field_modulus_as_biguint<Fp: PrimeField>() -> StmResult<BigUint> {
+    BigUint::from_str_radix(&Fp::MODULUS[2..], 16)
+        .map_err(|_| anyhow!(StmCircuitError::FieldModulusParseFailed))
+}
+
+fn big_unsigned_integer_to_field_element<Fp: PrimeField>(e: BigUint) -> StmResult<Fp> {
+    let modulus = field_modulus_as_biguint::<Fp>()?;
+    let e = e % modulus;
+    Fp::from_str_vartime(&e.to_str_radix(10)[..])
+        .ok_or_else(|| anyhow!(StmCircuitError::FieldElementConversionFailed))
+}
 
 fn assert_equal_parity(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    x: &AssignedNative<F>,
-    y: &AssignedNative<F>,
+    layouter: &mut impl Layouter<CircuitBase>,
+    x: &AssignedNative<CircuitBase>,
+    y: &AssignedNative<CircuitBase>,
 ) -> Result<(), Error> {
     let sgn0 = std_lib.sgn0(layouter, x)?;
     let sgn1 = std_lib.sgn0(layouter, y)?;
@@ -30,19 +65,15 @@ fn assert_equal_parity(
 // Decompose a 255-bit value into 127-bit and 128-bit values without checking the bound
 fn decompose_unsafe(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    x: &AssignedNative<F>,
-) -> Result<(AssignedNative<F>, AssignedNative<F>), Error> {
+    layouter: &mut impl Layouter<CircuitBase>,
+    x: &AssignedNative<CircuitBase>,
+) -> Result<(AssignedNative<CircuitBase>, AssignedNative<CircuitBase>), Error> {
     // Decompose 255-bit value into 127-bit and 128-bit values.
     let x_value = x.value();
-    let base127 = F::from_u128(1_u128 << 127);
+    let base127 = CircuitBase::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value
         .map_with_result(|v| split_field_element_into_le_limbs(v, 127))
-        .map_err(|e| {
-            Error::Synthesis(format!(
-                "gadgets::decompose_unsafe failed to split field element into little-endian limbs: {e}"
-            ))
-        })?
+        .map_err(to_synthesis_error)?
         .unzip();
 
     let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low)?;
@@ -50,8 +81,11 @@ fn decompose_unsafe(
 
     let x_combined: AssignedNative<_> = std_lib.linear_combination(
         layouter,
-        &[(F::ONE, x_low_assigned.clone()), (base127, x_high_assigned.clone())],
-        F::ZERO,
+        &[
+            (CircuitBase::ONE, x_low_assigned.clone()),
+            (base127, x_high_assigned.clone()),
+        ],
+        CircuitBase::ZERO,
     )?;
     std_lib.assert_equal(layouter, x, &x_combined)?;
 
@@ -65,10 +99,10 @@ fn decompose_unsafe(
 // Compare x < y where x, y are 255-bit
 fn lower_than_native(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    x: &AssignedNative<F>,
-    y: &AssignedNative<F>,
-) -> Result<AssignedBit<F>, Error> {
+    layouter: &mut impl Layouter<CircuitBase>,
+    x: &AssignedNative<CircuitBase>,
+    y: &AssignedNative<CircuitBase>,
+) -> Result<AssignedBit<CircuitBase>, Error> {
     let (x_low_assigned, x_high_assigned) = decompose_unsafe(std_lib, layouter, x)?;
     let (y_low_assigned, y_high_assigned) = decompose_unsafe(std_lib, layouter, y)?;
 
@@ -83,12 +117,12 @@ fn lower_than_native(
 
 pub fn verify_merkle_path(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    vk: &AssignedNativePoint<C>,
-    target: &AssignedNative<F>,
-    merkle_root: &AssignedNative<F>,
-    merkle_siblings: &[AssignedNative<F>],
-    merkle_positions: &[AssignedBit<F>],
+    layouter: &mut impl Layouter<CircuitBase>,
+    vk: &AssignedNativePoint<CircuitCurve>,
+    target: &AssignedNative<CircuitBase>,
+    merkle_root: &AssignedNative<CircuitBase>,
+    merkle_siblings: &[AssignedNative<CircuitBase>],
+    merkle_positions: &[AssignedBit<CircuitBase>],
 ) -> Result<(), Error> {
     let vk_x = std_lib.jubjub().x_coordinate(vk);
     let vk_y = std_lib.jubjub().y_coordinate(vk);
@@ -115,15 +149,15 @@ pub fn verify_merkle_path(
 #[allow(clippy::too_many_arguments)]
 pub fn verify_unique_signature(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    dst_signature: &AssignedNative<F>,
-    generator: &AssignedNativePoint<C>,
-    vk: &AssignedNativePoint<C>,
-    s: &AssignedScalarOfNativeCurve<C>,
-    c: &AssignedScalarOfNativeCurve<C>,
-    c_native: &AssignedNative<F>,
-    hash: &AssignedNativePoint<C>,
-    sigma: &AssignedNativePoint<C>,
+    layouter: &mut impl Layouter<CircuitBase>,
+    dst_signature: &AssignedNative<CircuitBase>,
+    generator: &AssignedNativePoint<CircuitCurve>,
+    vk: &AssignedNativePoint<CircuitCurve>,
+    s: &AssignedScalarOfNativeCurve<CircuitCurve>,
+    c: &AssignedScalarOfNativeCurve<CircuitCurve>,
+    c_native: &AssignedNative<CircuitBase>,
+    hash: &AssignedNativePoint<CircuitCurve>,
+    sigma: &AssignedNativePoint<CircuitCurve>,
 ) -> Result<(), Error> {
     // Compute R1
     let cap_r_1 = std_lib.jubjub().msm(
@@ -173,11 +207,11 @@ pub fn verify_unique_signature(
 
 pub fn verify_lottery(
     std_lib: &ZkStdLib,
-    layouter: &mut impl Layouter<F>,
-    lottery_prefix: &AssignedNative<F>,
-    sigma: &AssignedNativePoint<C>,
-    index: &AssignedNative<F>,
-    target: &AssignedNative<F>,
+    layouter: &mut impl Layouter<CircuitBase>,
+    lottery_prefix: &AssignedNative<CircuitBase>,
+    sigma: &AssignedNativePoint<CircuitCurve>,
+    index: &AssignedNative<CircuitBase>,
+    target: &AssignedNative<CircuitBase>,
 ) -> Result<(), Error> {
     let sigma_x = std_lib.jubjub().x_coordinate(sigma);
     let sigma_y = std_lib.jubjub().y_coordinate(sigma);
