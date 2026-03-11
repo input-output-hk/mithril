@@ -16,6 +16,7 @@
 //! To get and verify a Cardano block proof using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//! #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{ClientBuilder, MessageBuilder};
 //!
@@ -40,35 +41,37 @@
 //! # }
 //! ```
 //!
-//! # Get a Cardano transaction snapshot
+//! # Get a Cardano block snapshot
 //!
-//! To get a Cardano transaction snapshot using the [ClientBuilder][crate::client::ClientBuilder].
+//! To get a Cardano block snapshot using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_snapshot = client.cardano_transaction_v2().get_snapshot("CARDANO_TRANSACTION_SNAPSHOT_HASH").await?.unwrap();
+//! let cardano_block_snapshot = client.cardano_block().get_snapshot("CARDANO_BLOCK_SNAPSHOT_HASH").await?.unwrap();
 //!
-//! println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch);
+//! println!("Cardano block snapshot hash={}, epoch={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch);
 //! #    Ok(())
 //! # }
 //! ```
 //!
-//! # List available Cardano transaction snapshots
+//! # List available Cardano block snapshots
 //!
-//! To list latest available Cardano transaction snapshots using the [ClientBuilder][crate::client::ClientBuilder].
+//! To list latest available Cardano block snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//!  #[cfg(feature = "unstable")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_snapshots = client.cardano_transaction().list_snapshots().await?;
+//! let cardano_block_snapshots = client.cardano_block().list_snapshots().await?;
 //!
-//! for cardano_transaction_snapshot in cardano_transaction_snapshots {
-//!     println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch);
+//! for cardano_block_snapshot in cardano_block_snapshots {
+//!     println!("Cardano block snapshot hash={}, epoch={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch);
 //! }
 //! #    Ok(())
 //! # }
