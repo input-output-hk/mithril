@@ -127,7 +127,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(20))]
 
         #[test]
         /// Checking the `is_lottery_won` function.

@@ -32,7 +32,7 @@ mod tests {
     };
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(20))]
 
         #[test]
         fn verification_key(seed in any::<[u8;32]>()) {

@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::anyhow;
 
 use crate::{PhiValue, RegisterError};
 
@@ -23,12 +23,12 @@ cfg_num_integer! {
     /// Computes the lottery target value for a given stake and total stake.
     #[cfg(feature = "future_snark")]
     pub fn compute_lottery_target_value(phi_f: PhiValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
-        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
-            return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+        if total_stake == 0 {
+            return Err(RegisterError::ZeroTotalStake.into());
         }
 
-        if total_stake == 0 {
-            return Err(anyhow!(RegisterError::ZeroTotalStake)).with_context(|| "Lottery target cannot be computed if the total_stake is 0.");
+        if (phi_f - 1.0).abs() < PhiValue::EPSILON {
+            return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
         }
 
         let phi_f_ratio_int: Ratio<i64> =
@@ -46,8 +46,6 @@ cfg_num_integer! {
     }
 
     #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     /// Computes the lottery target value for SNARK proof system as a base field element.
     ///
     /// The target value determines the probability of winning the lottery based on the
@@ -157,7 +155,6 @@ cfg_num_integer! {
     /// It performs a straighforward for loop in a naive way updating the numerator and denominator
     /// every loop and the accumulator using the new values. The numerator stores the power of a and
     /// the denominator the power of b.
-    #[allow(dead_code)]
     fn ln_1p_taylor_expansion(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
         let mut numerator = a.clone();
         let mut denominator = b.clone();

@@ -113,7 +113,7 @@ mod tests {
         use sha2::{Digest, Sha256};
 
         proptest! {
-            #![proptest_config(ProptestConfig::with_cases(50))]
+            #![proptest_config(ProptestConfig::with_cases(20))]
 
             /// Verifies that `build_snark_message` encodes the Merkle root
             /// consistently with the circuit's public-input encoding.

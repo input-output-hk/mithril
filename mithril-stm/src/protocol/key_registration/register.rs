@@ -63,17 +63,17 @@ impl KeyRegistration {
     ///
     /// Returns the `ClosedKeyRegistration`.
     pub fn close_registration(self, params: &Parameters) -> StmResult<ClosedKeyRegistration> {
-        let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
-            let (res, overflow) = acc.overflowing_add(entry.get_stake());
-            if overflow {
-                panic!(
-                    "Total stake overflow accumulated stake: {}, adding stake: {}",
-                    acc,
-                    entry.get_stake()
-                );
-            }
-            res
-        });
+        let total_stake: Stake =
+            self.registration_entries.iter().try_fold(0u64, |acc, entry| {
+                acc.checked_add(entry.get_stake())
+                    .ok_or(RegisterError::TotalStakeOverflow {
+                        acc,
+                        stake: entry.get_stake(),
+                    })
+            })?;
+        if total_stake == 0 {
+            return Err(RegisterError::ZeroTotalStake.into());
+        }
         let closed_registration_entries: StmResult<BTreeSet<ClosedRegistrationEntry>> = self
             .registration_entries
             .iter()
@@ -168,7 +168,8 @@ mod tests {
             let schnorr_vk =
                 SchnorrVerificationKey::new_from_signing_key(SchnorrSigningKey::generate(&mut rng));
             let entry = RegistrationEntry::new(bls_vk, stake, Some(schnorr_vk)).unwrap();
-            let _ = kr.register_by_entry(&entry);
+            kr.register_by_entry(&entry)
+                .expect("Registering an entry in tests should succeed.");
         }
         kr
     }
@@ -231,7 +232,7 @@ mod tests {
 
     #[cfg(feature = "future_snark")]
     #[test]
-    fn closing_registration_without_entries_passes() {
+    fn closing_registration_without_entries_fails() {
         let kr = KeyRegistration::initialize();
         let params = Parameters {
             m: 20,
@@ -241,7 +242,7 @@ mod tests {
 
         let closed_registration = kr.close_registration(&params);
 
-        assert!(closed_registration.is_ok());
+        assert!(closed_registration.is_err());
     }
 
     #[cfg(feature = "future_snark")]
