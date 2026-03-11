@@ -1,19 +1,19 @@
-//! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano transactions.
+//! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano blocks.
 //!
-//! In order to do so it defines a [CardanoTransactionV2Client] which exposes the following features:
-//!  - [get_proofs][CardanoTransactionV2Client::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
-//!    that the transactions with given hash are included in the global Cardano transactions set.
-//!  - [get][CardanoTransactionV2Client::get_snapshot]: get a [Cardano transaction snapshot][CardanoBlocksTransactionsSnapshot]
+//! In order to do so it defines a [CardanoBlockClient] which exposes the following features:
+//!  - [get_proofs][CardanoBlockClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs] //TODO: rename to CardanoBlocksProofs
+//!    that the blocks with given hash are included in the global Cardano blocks set.
+//!  - [get][CardanoBlockClient::get_snapshot]: get a [Cardano block snapshot][CardanoBlocksTransactionsSnapshot]
 //!    data from its hash.
-//!  - [list][CardanoTransactionV2Client::list_snapshots]: get the list of the latest available Cardano transaction
+//!  - [list][CardanoBlockClient::list_snapshots]: get the list of the latest available Cardano block
 //!    snapshot.
 //!
 //!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
-//! transactions subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).
+//! blocks subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).
 //!
-//! # Get and verify Cardano transaction proof
+//! # Get and verify Cardano block proof
 //!
-//! To get and verify a Cardano transaction proof using the [ClientBuilder][crate::client::ClientBuilder].
+//! To get and verify a Cardano block proof using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
@@ -22,19 +22,19 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
 //! // 1 - Get a proof from the aggregator and verify it
-//! let cardano_transaction_proof = client.cardano_transaction_v2().get_proofs(&["tx-1", "tx-2"]).await?;
-//! println!("Mithril could not certify the following transactions : {:?}", &cardano_transaction_proof.non_certified_transactions);
+//! let cardano_block_proof = client.cardano_block().get_proofs(&["block-1", "block-2"]).await?;
+//! println!("Mithril could not certify the following blocks : {:?}", &cardano_block_proof.non_certified_transactions);
 //!
-//! let verified_transactions = cardano_transaction_proof.verify()?;
+//! let verified_blocks = cardano_block_proof.verify()?;
 //!
 //! // 2 - Verify its associated certificate chain
-//! let certificate = client.certificate().verify_chain(&cardano_transaction_proof.certificate_hash).await?;
+//! let certificate = client.certificate().verify_chain(&cardano_block_proof.certificate_hash).await?;
 //!
 //! // 3 - Ensure that the proof is indeed signed in the associated certificate
-//! let message = MessageBuilder::new().compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
+//! let message = MessageBuilder::new().compute_cardano_transactions_proofs_message(&certificate, &verified_blocks);
 //! if certificate.match_message(&message) {
-//!     // All green, Mithril certifies that those transactions are part of the Cardano transactions set.
-//!     println!("Certified transactions : {:?}", verified_transactions.certified_transactions());
+//!     // All green, Mithril certifies that those blocks are part of the Cardano blocks set.
+//!     println!("Certified blocks : {:?}", verified_blocks.certified_transactions());
 //! }
 //! #    Ok(())
 //! # }
@@ -82,56 +82,53 @@ use crate::{
     CardanoTransactionsProofs, MithrilResult,
 };
 
-/// HTTP client for CardanoTransactionsAPI from the aggregator
-pub struct CardanoTransactionV2Client {
-    aggregator_requester: Arc<dyn CardanoTransactionV2AggregatorRequest>,
+/// HTTP client for CardanoBlocksAPI from the aggregator
+pub struct CardanoBlockClient {
+    aggregator_requester: Arc<dyn CardanoBlockAggregatorRequest>,
 }
 
-/// Define the requests against an aggregator related to Cardano transactions.
+/// Define the requests against an aggregator related to Cardano blocks.
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
-pub trait CardanoTransactionV2AggregatorRequest: Send + Sync {
-    /// Get a proof of membership for the given transactions hashes from the aggregator.
+pub trait CardanoBlockAggregatorRequest: Send + Sync {
+    /// Get a proof of membership for the given blocks hashes from the aggregator.
     async fn get_proof(
         &self,
         hashes: &[String],
     ) -> MithrilResult<Option<CardanoTransactionsProofs>>;
 
-    /// Fetch the list of latest signed Cardano transactions snapshots from the aggregator
+    /// Fetch the list of latest signed Cardano blocks snapshots from the aggregator
     async fn list_latest_snapshots(
         &self,
     ) -> MithrilResult<Vec<CardanoBlocksTransactionsSnapshotListItem>>;
 
-    /// Fetch a Cardano transactions snapshot by its hash from the aggregator.
+    /// Fetch a Cardano blocks snapshot by its hash from the aggregator.
     async fn get_snapshot(
         &self,
         hash: &str,
     ) -> MithrilResult<Option<CardanoBlocksTransactionsSnapshot>>;
 }
 
-impl CardanoTransactionV2Client {
-    /// Constructs a new `CardanoTransactionV2Client`.
-    pub fn new(aggregator_requester: Arc<dyn CardanoTransactionV2AggregatorRequest>) -> Self {
+impl CardanoBlockClient {
+    /// Constructs a new `CardanoBlockClient`.
+    pub fn new(aggregator_requester: Arc<dyn CardanoBlockAggregatorRequest>) -> Self {
         Self {
             aggregator_requester,
         }
     }
 
-    /// Get proofs that the given subset of transactions is included in the Cardano transactions set.
+    /// Get proofs that the given subset of blocks is included in the Cardano blocks set.
     pub async fn get_proofs<T: ToString>(
         &self,
-        transactions_hashes: &[T],
+        blocks_hashes: &[T],
     ) -> MithrilResult<CardanoTransactionsProofs> {
-        let transactions_hashes: Vec<String> =
-            transactions_hashes.iter().map(|h| h.to_string()).collect();
+        let blocks_hashes: Vec<String> = blocks_hashes.iter().map(|h| h.to_string()).collect();
 
         self.aggregator_requester
-            .get_proof(&transactions_hashes)
+            .get_proof(&blocks_hashes)
             .await?
-            .with_context(|| {
-                format!("No proof found for transactions hashes: {transactions_hashes:?}",)
-            })
+            .with_context(|| format!("No proof found for blocks hashes: {blocks_hashes:?}",))
     }
 
     /// Fetch a list of signed Cardano transaction snapshots.
@@ -152,20 +149,19 @@ impl CardanoTransactionV2Client {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::BlockNumber;
     use mockall::predicate::eq;
 
     use mithril_common::test::mock_extensions::MockBuilder;
 
-    use crate::common::test::Dummy;
-    use crate::{CardanoBlocksTransactionsSnapshot, CardanoTransactionsSetProof};
+    use crate::CardanoTransactionsSetProof;
+    use crate::common::{BlockNumber, test::Dummy};
 
     use super::*;
 
     #[tokio::test]
-    async fn get_cardano_transactions_snapshot_list() {
+    async fn get_cardano_blocks_snapshot_list() {
         let aggregator_requester =
-            MockBuilder::<MockCardanoTransactionV2AggregatorRequest>::configure(|mock| {
+            MockBuilder::<MockCardanoBlockAggregatorRequest>::configure(|mock| {
                 let messages = vec![
                     CardanoBlocksTransactionsSnapshotListItem {
                         hash: "hash-123".to_string(),
@@ -178,7 +174,7 @@ mod tests {
                 ];
                 mock.expect_list_latest_snapshots().return_once(|| Ok(messages));
             });
-        let client = CardanoTransactionV2Client::new(aggregator_requester);
+        let client = CardanoBlockClient::new(aggregator_requester);
 
         let items = client.list_snapshots().await.unwrap();
 
@@ -188,9 +184,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_transactions_snapshot() {
+    async fn get_cardano_blocks_snapshot() {
         let aggregator_requester =
-            MockBuilder::<MockCardanoTransactionV2AggregatorRequest>::configure(|mock| {
+            MockBuilder::<MockCardanoBlockAggregatorRequest>::configure(|mock| {
                 let message = CardanoBlocksTransactionsSnapshot {
                     hash: "hash-123".to_string(),
                     merkle_root: "mk-123".to_string(),
@@ -200,23 +196,22 @@ mod tests {
                     .with(eq(message.hash.clone()))
                     .return_once(|_| Ok(Some(message)));
             });
-        let client = CardanoTransactionV2Client::new(aggregator_requester);
+        let client = CardanoBlockClient::new(aggregator_requester);
 
-        let cardano_transaction_snapshot = client
+        let cardano_block_snapshot = client
             .get_snapshot("hash-123")
             .await
             .unwrap()
-            .expect("This test returns a cardano transaction V2 snapshot");
-
-        assert_eq!("hash-123", &cardano_transaction_snapshot.hash);
-        assert_eq!("mk-123", &cardano_transaction_snapshot.merkle_root);
+            .expect("This test returns a cardano block snapshot");
+        assert_eq!("hash-123", &cardano_block_snapshot.hash);
+        assert_eq!("mk-123", &cardano_block_snapshot.merkle_root);
     }
 
     #[tokio::test]
     async fn test_get_proof_ok() {
         let certificate_hash = "cert-hash-123".to_string();
         let set_proof = CardanoTransactionsSetProof::dummy();
-        let expected_transactions_proofs = CardanoTransactionsProofs::new(
+        let expected_blocks_proofs = CardanoTransactionsProofs::new(
             &certificate_hash,
             vec![set_proof.clone()],
             vec![],
@@ -224,8 +219,8 @@ mod tests {
         );
 
         let aggregator_requester =
-            MockBuilder::<MockCardanoTransactionV2AggregatorRequest>::configure(|mock| {
-                let message = expected_transactions_proofs.clone();
+            MockBuilder::<MockCardanoBlockAggregatorRequest>::configure(|mock| {
+                let message = expected_blocks_proofs.clone();
                 mock.expect_get_proof()
                     .with(eq(message
                         .certified_transactions
@@ -234,9 +229,9 @@ mod tests {
                         .collect::<Vec<_>>()))
                     .return_once(|_| Ok(Some(message)));
             });
-        let client = CardanoTransactionV2Client::new(aggregator_requester);
+        let client = CardanoBlockClient::new(aggregator_requester);
 
-        let transactions_proofs = client
+        let blocks_proofs = client
             .get_proofs(
                 &set_proof
                     .transactions_hashes
@@ -247,17 +242,18 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(expected_transactions_proofs, transactions_proofs);
+        assert_eq!(expected_blocks_proofs, blocks_proofs);
     }
 
     #[tokio::test]
     async fn test_get_proof_ko() {
         let aggregator_requester =
-            MockBuilder::<MockCardanoTransactionV2AggregatorRequest>::configure(|mock| {
+            MockBuilder::<MockCardanoBlockAggregatorRequest>::configure(|mock| {
                 mock.expect_get_proof()
                     .return_once(move |_| Err(anyhow::anyhow!("an error")));
             });
-        let client = CardanoTransactionV2Client::new(aggregator_requester);
+        let client = CardanoBlockClient::new(aggregator_requester);
+
         client
             .get_proofs(&["tx-123"])
             .await

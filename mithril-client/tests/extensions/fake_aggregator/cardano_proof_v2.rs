@@ -9,11 +9,22 @@ use crate::extensions::routes;
 use super::FakeAggregator;
 
 impl FakeAggregator {
-    pub fn spawn_with_transactions_proofs_v2(tx_hashes: &[&str], certificate_hash: &str) -> Self {
+    pub fn spawn_with_proofs_v2(tx_hashes: &[&str], certificate_hash: &str) -> Self {
         let proof = MKProof::from_leaves(tx_hashes).unwrap();
 
-        let proofs = CardanoTransactionsProofs {
-            //TODO use a v2 proof struct when it will be implemented
+        let transaction_proofs = CardanoTransactionsProofs {
+            //TODO use block proof struct when it will be implemented
+            certificate_hash: certificate_hash.to_string(),
+            certified_transactions: vec![CardanoTransactionsSetProof {
+                transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
+                proof: ProtocolMkProof::new(proof.to_owned().into()).to_json_hex().unwrap(),
+            }],
+            non_certified_transactions: vec![],
+            latest_block_number: BlockNumber(9999),
+        };
+
+        let block_proofs = CardanoTransactionsProofs {
+            //TODO use block proof struct when it will be implemented
             certificate_hash: certificate_hash.to_string(),
             certified_transactions: vec![CardanoTransactionsSetProof {
                 transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
@@ -38,7 +49,7 @@ impl FakeAggregator {
             cert
         };
 
-        let router = routes::proof_v2::routes(proofs)
+        let router = routes::proof_v2::routes(transaction_proofs, block_proofs)
             .merge(routes::certificate::routes(Vec::new(), certificate));
 
         Self::spawn_test_server_on_random_port(router)
