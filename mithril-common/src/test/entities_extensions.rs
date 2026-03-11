@@ -65,7 +65,7 @@ impl MkSetProofTestExtension<CardanoBlock> for MkSetProof<CardanoBlock> {
     }
 }
 
-impl MkSetProofTestExtension<CardanoTransaction> for MkSetProof<CardanoBlock> {
+impl MkSetProofTestExtension<CardanoTransaction> for MkSetProof<CardanoTransaction> {
     fn from_leaves<S: MKTreeStorer>(
         leaves: &[CardanoTransaction],
     ) -> StdResult<MkSetProof<CardanoTransaction>> {
