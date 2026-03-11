@@ -16,22 +16,32 @@ use rand_core::SeedableRng;
 
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::types::{CircuitBase, MTLeaf, MerklePath, SignedMessageWithoutPrefix};
+use crate::circuits::halo2::types::{
+    CircuitBase, MerklePath, MerkleTreeSnarkLeaf as Halo2MerkleTreeSnarkLeaf,
+    SignedMessageWithoutPrefix,
+};
 use crate::circuits::test_utils::setup::{generate_params, load_params};
 use crate::hash::poseidon::MidnightPoseidonDigest;
-use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
+use crate::membership_commitment::{
+    MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf as StmMerkleTreeSnarkLeaf,
+};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
 
 /// Witness entry tuple used by STM circuit golden tests.
-type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex);
+type WitnessEntry = (
+    Halo2MerkleTreeSnarkLeaf,
+    MerklePath,
+    UniqueSchnorrSignature,
+    LotteryIndex,
+);
 
 /// Default number of signers used in golden test environments.
-const DEFAULT_NUM_SIGNERS: usize = 256;
-/// Lottery count multiplier per quorum size used in golden test environments.
-pub(crate) const LOTTERIES_PER_QUORUM: u32 = 5;
+const DEFAULT_NUM_SIGNERS: usize = 3000;
+/// Lottery count multiplier per k size used in golden test environments.
+pub(crate) const LOTTERIES_PER_K: u32 = 10;
 /// Default message value used by golden test cases.
 const DEFAULT_TEST_MSG: u64 = 42;
 
@@ -110,9 +120,9 @@ fn validate_relation_for_setup(relation: &StmCircuit) -> StmResult<()> {
 /// Cache key derived from the STM circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct StmCircuitConfig {
+    circuit_degree: u32,
     k: u32,
-    quorum: u32,
-    num_lotteries: u32,
+    m: u32,
     merkle_tree_depth: u32,
 }
 
@@ -136,13 +146,13 @@ pub(crate) struct StmCircuitEnv {
     num_signers: usize,
 
     /// Number of lotteries (`m`) configured for the STM circuit relation.
-    num_lotteries: u32,
+    m: u32,
 }
 
 /// Concrete STM circuit scenario inputs for proving/verifying in golden tests.
 pub(crate) struct StmCircuitScenario {
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
     witness: Vec<WitnessEntry>,
 }
 
@@ -155,15 +165,15 @@ pub(crate) struct SignerFixture {
     target_value: LotteryTargetValue,
 }
 
-impl From<&SignerFixture> for MerkleTreeSnarkLeaf {
+impl From<&SignerFixture> for StmMerkleTreeSnarkLeaf {
     fn from(value: &SignerFixture) -> Self {
-        MerkleTreeSnarkLeaf(value.vk, value.target_value)
+        StmMerkleTreeSnarkLeaf(value.vk, value.target_value)
     }
 }
 
-impl From<&SignerFixture> for MTLeaf {
+impl From<&SignerFixture> for Halo2MerkleTreeSnarkLeaf {
     fn from(value: &SignerFixture) -> Self {
-        MTLeaf(value.vk, value.target_field)
+        Halo2MerkleTreeSnarkLeaf(value.vk, value.target_field)
     }
 }
 
@@ -188,9 +198,9 @@ fn generate_signer_fixture(
 
 /// STM Merkle tree wrapper that exposes Halo2-friendly root and path accessors.
 ///
-/// We keep MTLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
+/// We keep MerkleTreeSnarkLeaf/Halo2-style paths because the circuit witness format is still Halo2-native.
 pub(crate) struct StmMerkleTreeWrapper {
-    stm_tree: StmMerkleTree<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>,
+    stm_tree: StmMerkleTree<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>,
     root: SignedMessageWithoutPrefix,
     signer_fixtures: Vec<SignerFixture>,
 }
@@ -214,7 +224,7 @@ impl StmMerkleTreeWrapper {
     /// Return a Halo2-style Merkle path for the given leaf index.
     pub(crate) fn get_path(&self, i: usize) -> StmResult<MerklePath> {
         let stm_path = self.stm_tree.compute_merkle_tree_path(i);
-        let stm_leaf: MerkleTreeSnarkLeaf = self.signer_fixture(i)?.into();
+        let stm_leaf: StmMerkleTreeSnarkLeaf = self.signer_fixture(i)?.into();
         self.stm_tree
             .to_merkle_tree_commitment()
             .verify_leaf_membership_from_path(&stm_leaf, &stm_path)
@@ -271,8 +281,9 @@ fn build_merkle_tree_wrapper(
         signer_fixtures.push(generate_signer_fixture(&mut rng, leaf_target)?);
     }
 
-    let stm_leaves: Vec<MerkleTreeSnarkLeaf> = signer_fixtures.iter().map(Into::into).collect();
-    let stm_tree = StmMerkleTree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>::new(&stm_leaves);
+    let stm_leaves: Vec<StmMerkleTreeSnarkLeaf> = signer_fixtures.iter().map(Into::into).collect();
+    let stm_tree =
+        StmMerkleTree::<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>::new(&stm_leaves);
     let root_bytes = stm_tree.to_merkle_tree_commitment().root;
     let root = decode_merkle_root(root_bytes.as_slice())?;
     Ok(StmMerkleTreeWrapper {
@@ -314,20 +325,19 @@ pub(crate) fn create_merkle_tree_with_leaf_selector(
     let tree = build_merkle_tree_wrapper(n, Some(selected_index), target)?;
     Ok((tree, selected_index))
 }
-
 fn transcript_message(
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
 ) -> [BaseFieldElement; 2] {
-    [merkle_root.into(), msg.into()]
+    [merkle_tree_commitment.into(), message.into()]
 }
 
 fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
     let challenge_bytes = sig.challenge.to_bytes();
-    let challenge_native = CircuitBase::from_bytes_le(&challenge_bytes)
+    let challenge_base = CircuitBase::from_bytes_le(&challenge_bytes)
         .into_option()
         .ok_or_else(|| anyhow!(StmCircuitError::InvalidChallengeBytes))?;
-    if SignedMessageWithoutPrefix::from(challenge_native)
+    if SignedMessageWithoutPrefix::from(challenge_base)
         != SignedMessageWithoutPrefix::from(sig.challenge)
     {
         return Err(anyhow!(StmCircuitError::ChallengeEndiannessMismatch));
@@ -337,11 +347,11 @@ fn assert_challenge_endianness(sig: &UniqueSchnorrSignature) -> StmResult<()> {
 
 fn sign_and_verify_lottery_message(
     signer_fixture: &SignerFixture,
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
     rng: &mut ChaCha20Rng,
 ) -> StmResult<UniqueSchnorrSignature> {
-    let transcript = transcript_message(merkle_root, msg);
+    let transcript = transcript_message(merkle_tree_commitment, message);
     let stm_sig = signer_fixture
         .sk
         .sign(&transcript, rng)
@@ -353,29 +363,29 @@ fn sign_and_verify_lottery_message(
     Ok(stm_sig)
 }
 
-/// Build a witness with default strictly increasing indices [0..quorum).
+/// Build a witness with default strictly increasing indices [0..k).
 pub(crate) fn build_witness(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
-    quorum: u32,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
+    k: u32,
 ) -> StmResult<Vec<WitnessEntry>> {
-    let indices: Vec<LotteryIndex> = (0..quorum).map(u64::from).collect();
-    build_witness_with_indices(merkle_tree, merkle_root, msg, &indices)
+    let indices: Vec<LotteryIndex> = (0..k).map(u64::from).collect();
+    build_witness_with_indices(merkle_tree, merkle_tree_commitment, message, &indices)
 }
 
 /// Build a witness using caller-provided indices without enforcing ordering;
 /// the circuit is responsible for strict ordering checks in negative tests.
 pub(crate) fn build_witness_with_indices(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
-        merkle_root,
-        msg,
+        merkle_tree_commitment,
+        message,
         WitnessBuildMode::Indices(indices),
     )
 }
@@ -386,14 +396,14 @@ pub(crate) fn build_witness_with_indices(
 pub(crate) fn build_witness_with_fixed_signer(
     merkle_tree: &StmMerkleTreeWrapper,
     signer_index: usize,
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
 ) -> StmResult<Vec<WitnessEntry>> {
     build_witness_internal(
         merkle_tree,
-        merkle_root,
-        msg,
+        merkle_tree_commitment,
+        message,
         WitnessBuildMode::FixedSigner {
             signer_index,
             indices,
@@ -411,8 +421,8 @@ enum WitnessBuildMode<'a> {
 
 fn build_witness_internal(
     merkle_tree: &StmMerkleTreeWrapper,
-    merkle_root: SignedMessageWithoutPrefix,
-    msg: SignedMessageWithoutPrefix,
+    merkle_tree_commitment: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
     mode: WitnessBuildMode<'_>,
 ) -> StmResult<Vec<WitnessEntry>> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -431,8 +441,12 @@ fn build_witness_internal(
             for (i, index) in indices.iter().enumerate() {
                 let signer_index = i % num_signers;
                 let signer_fixture = merkle_tree.signer_fixture(signer_index)?;
-                let stm_sig =
-                    sign_and_verify_lottery_message(signer_fixture, merkle_root, msg, &mut rng)?;
+                let stm_sig = sign_and_verify_lottery_message(
+                    signer_fixture,
+                    merkle_tree_commitment,
+                    message,
+                    &mut rng,
+                )?;
                 let merkle_path = merkle_tree.get_path(signer_index)?;
                 witness.push((signer_fixture.into(), merkle_path, stm_sig, *index));
             }
@@ -446,8 +460,12 @@ fn build_witness_internal(
             }
             let signer_fixture = merkle_tree.signer_fixture(signer_index)?;
             let merkle_path = merkle_tree.get_path(signer_index)?;
-            let stm_sig =
-                sign_and_verify_lottery_message(signer_fixture, merkle_root, msg, &mut rng)?;
+            let stm_sig = sign_and_verify_lottery_message(
+                signer_fixture,
+                merkle_tree_commitment,
+                message,
+                &mut rng,
+            )?;
             for index in indices {
                 witness.push((signer_fixture.into(), merkle_path.clone(), stm_sig, *index));
             }
@@ -485,21 +503,21 @@ impl StmCircuitEnv {
     }
 
     /// Number of lotteries configured for the STM circuit relation.
-    pub(crate) fn num_lotteries(&self) -> u32 {
-        self.num_lotteries
+    pub(crate) fn m(&self) -> u32 {
+        self.m
     }
 }
 
 impl StmCircuitScenario {
     /// Construct a new STM circuit scenario from its instance and witness data.
     pub(crate) fn new(
-        merkle_root: SignedMessageWithoutPrefix,
-        msg: SignedMessageWithoutPrefix,
+        merkle_tree_commitment: SignedMessageWithoutPrefix,
+        message: SignedMessageWithoutPrefix,
         witness: Vec<WitnessEntry>,
     ) -> Self {
         Self {
-            merkle_root,
-            msg,
+            merkle_tree_commitment,
+            message,
             witness,
         }
     }
@@ -508,17 +526,17 @@ impl StmCircuitScenario {
 /// Construct the STM circuit relation environment and setup keys for a case.
 pub(crate) fn setup_stm_circuit_env(
     case_name: &str,
+    circuit_degree: u32,
     k: u32,
-    quorum: u32,
-    num_lotteries: u32,
+    m: u32,
 ) -> StmResult<StmCircuitEnv> {
-    let srs = load_or_generate_params(k)?;
+    let srs = load_or_generate_params(circuit_degree)?;
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
     let stm_params = Parameters {
-        k: quorum as u64,
-        m: num_lotteries as u64,
+        k: k as u64,
+        m: m as u64,
         phi_f: 0.2,
     };
     let relation = StmCircuit::try_new(&stm_params, depth).unwrap();
@@ -527,16 +545,16 @@ pub(crate) fn setup_stm_circuit_env(
     {
         let stm_circuit = MidnightCircuit::from_relation(&relation);
         println!("\n=== STM circuit case: {case_name} ===");
-        println!("k (selected) {k}");
-        println!("quorum {quorum}");
+        println!("circuit degree (selected) {circuit_degree}");
+        println!("k {k}");
         println!("min_k {:?}", stm_circuit.min_k());
         println!("{:?}", zk::cost_model(&relation));
     }
 
     let config = StmCircuitConfig {
+        circuit_degree,
         k,
-        quorum,
-        num_lotteries,
+        m,
         merkle_tree_depth: depth,
     };
     let key_pair = get_or_build_circuit_keys(config, &relation, &srs)?;
@@ -548,7 +566,7 @@ pub(crate) fn setup_stm_circuit_env(
         vk: vk.clone(),
         pk: pk.clone(),
         num_signers,
-        num_lotteries,
+        m,
     })
 }
 
@@ -557,7 +575,7 @@ pub(crate) fn prove_and_verify_result(
     env: &StmCircuitEnv,
     scenario: StmCircuitScenario,
 ) -> StmResult<()> {
-    let instance = (scenario.merkle_root, scenario.msg);
+    let instance = (scenario.merkle_tree_commitment, scenario.message);
 
     let start = Instant::now();
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -598,11 +616,15 @@ fn map_proving_backend_error(error: PlonkError) -> StmError {
 }
 
 /// Run a case using the default message (SignedMessageWithoutPrefix::from(DEFAULT_TEST_MSG)).
-pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32) -> StmResult<()> {
+pub(crate) fn run_stm_circuit_case_default(
+    case_name: &str,
+    circuit_degree: u32,
+    k: u32,
+) -> StmResult<()> {
     run_stm_circuit_case(
         case_name,
+        circuit_degree,
         k,
-        quorum,
         SignedMessageWithoutPrefix::from(DEFAULT_TEST_MSG),
     )
 }
@@ -610,27 +632,27 @@ pub(crate) fn run_stm_circuit_case_default(case_name: &str, k: u32, quorum: u32)
 /// Run a case with a caller-specified message.
 pub(crate) fn run_stm_circuit_case(
     case_name: &str,
+    circuit_degree: u32,
     k: u32,
-    quorum: u32,
-    msg: SignedMessageWithoutPrefix,
+    message: SignedMessageWithoutPrefix,
 ) -> StmResult<()> {
-    let num_lotteries = quorum * LOTTERIES_PER_QUORUM;
-    let env = setup_stm_circuit_env(case_name, k, quorum, num_lotteries)?;
+    let m = k * LOTTERIES_PER_K;
+    let env = setup_stm_circuit_env(case_name, circuit_degree, k, m)?;
     let merkle_tree = create_default_merkle_tree(env.num_signers())?;
 
-    let merkle_root = merkle_tree.root();
+    let merkle_tree_commitment = merkle_tree.root();
 
-    let witness = build_witness(&merkle_tree, merkle_root, msg, quorum)?;
-    let scenario = StmCircuitScenario::new(merkle_root, msg, witness);
+    let witness = build_witness(&merkle_tree, merkle_tree_commitment, message, k)?;
+    let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
 
     prove_and_verify_result(&env, scenario)
 }
 
 // Load cached KZG params if present; otherwise generate and persist them for reuse.
-fn load_or_generate_params(k: u32) -> StmResult<ParamsKZG<Bls12>> {
+fn load_or_generate_params(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
-    let path = assets_dir.join(format!("params_kzg_unsafe_{}", k));
+    let path = assets_dir.join(format!("params_kzg_unsafe_{}", circuit_degree));
 
     if path.exists() {
         return Ok(load_params(path.to_string_lossy().as_ref()));
@@ -644,7 +666,10 @@ fn load_or_generate_params(k: u32) -> StmResult<ParamsKZG<Bls12>> {
                 assets_dir.to_string_lossy()
             )
         })?;
-    Ok(generate_params(k, path.to_string_lossy().as_ref()))
+    Ok(generate_params(
+        circuit_degree,
+        path.to_string_lossy().as_ref(),
+    ))
 }
 
 /// Get cached verification/proving keys or build and insert them if missing.
@@ -673,7 +698,7 @@ fn get_or_build_circuit_keys(
     .map_err(|panic_payload| {
         let details = panic_payload
             .downcast_ref::<&str>()
-            .map(|msg| (*msg).to_owned())
+            .map(|message| (*message).to_owned())
             .or_else(|| panic_payload.downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "non-string panic payload".to_string());
         anyhow!("Midnight setup panicked before proving: {details}")

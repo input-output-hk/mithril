@@ -7,17 +7,13 @@ use crate::StmError;
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum StmCircuitError {
-    /// Invalid relation parameters: quorum must be strictly lower than number of lotteries.
-    #[error(
-        "Circuit::validate_parameters failed: quorum ({quorum}) must be lower than num_lotteries ({num_lotteries})"
-    )]
-    InvalidCircuitParameters { quorum: u32, num_lotteries: u32 },
+    /// Invalid relation parameters: k must be strictly lower than m.
+    #[error("Circuit::validate_parameters failed: k ({k}) must be lower than m ({m})")]
+    InvalidCircuitParameters { k: u32, m: u32 },
 
-    /// Witness vector length does not match the configured quorum.
-    #[error(
-        "Circuit::validate_witness_length failed: expected quorum {expected_quorum}, got {actual}"
-    )]
-    WitnessLengthMismatch { expected_quorum: u32, actual: u32 },
+    /// Witness vector length does not match the configured k.
+    #[error("Circuit::validate_witness_length failed: expected k {expected_k}, got {actual}")]
+    WitnessLengthMismatch { expected_k: u32, actual: u32 },
 
     /// Witness lottery index does not fit in the circuit's 32-bit constraint representation.
     #[error(
@@ -26,10 +22,8 @@ pub enum StmCircuitError {
     LotteryIndexTooLarge { index: u64, max_supported: u64 },
 
     /// Witness lottery index is not a valid in-circuit lottery slot.
-    #[error(
-        "Circuit::validate_lottery_index failed: index ({index}) must be lower than num_lotteries ({num_lotteries})"
-    )]
-    LotteryIndexOutOfBounds { index: u64, num_lotteries: u32 },
+    #[error("Circuit::validate_lottery_index failed: index ({index}) must be lower than m ({m})")]
+    LotteryIndexOutOfBounds { index: u64, m: u32 },
 
     /// Merkle sibling path length does not match the configured Merkle depth.
     #[error(
