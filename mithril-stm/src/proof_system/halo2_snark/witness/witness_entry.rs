@@ -1,10 +1,8 @@
 use std::cmp::Ordering;
 
 use crate::{
-    LotteryIndex, MembershipDigest, StmResult, UniqueSchnorrSignature,
-    circuits::MerklePath as Halo2MerklePath,
-    membership_commitment::{MerkleTree, MerkleTreeSnarkLeaf},
-    proof_system::halo2_snark::witness::SignatureRegistrationEntry,
+    LotteryIndex, UniqueSchnorrSignature, circuits::MerklePath as Halo2MerklePath,
+    membership_commitment::MerkleTreeSnarkLeaf,
 };
 
 /// Per-winning-lottery-index witness data for the SNARK circuit.
@@ -41,56 +39,6 @@ impl WitnessEntry {
             unique_schnorr_signature,
             lottery_index,
         }
-    }
-
-    /// Expands a [`SignatureRegistrationEntry`] into one `WitnessEntry` per winning lottery index,
-    /// computing the circuit-facing authentication path from the given tree using a pre-resolved
-    /// leaf index.
-    ///
-    /// The caller is expected to resolve the leaf index via
-    /// [`MerkleTree::build_leaf_index_map`] for O(1) lookups when processing multiple signatures.
-    pub(crate) fn convert_snark_single_signature_to_witness_entries<D: MembershipDigest>(
-        signature_registration_entry: SignatureRegistrationEntry,
-        merkle_tree: &MerkleTree<D::SnarkHash, MerkleTreeSnarkLeaf>,
-        leaf_index: usize,
-    ) -> StmResult<Vec<WitnessEntry>> {
-        let merkle_tree_leaf = signature_registration_entry.get_registration_entry();
-        let merkle_path = merkle_tree.compute_merkle_tree_path(leaf_index);
-        let merkle_path_for_circuit: Halo2MerklePath = Halo2MerklePath::try_from(&merkle_path)?;
-        let unique_schnorr_signature =
-            signature_registration_entry.get_signature().get_schnorr_signature();
-
-        let witness_entries = signature_registration_entry
-            .get_signature()
-            .get_indices()
-            .iter()
-            .map(|&lottery_index| {
-                WitnessEntry::new(
-                    *merkle_tree_leaf,
-                    merkle_path_for_circuit.clone(),
-                    unique_schnorr_signature,
-                    lottery_index,
-                )
-            })
-            .collect();
-
-        Ok(witness_entries)
-    }
-
-    pub fn get_lottery_index(&self) -> LotteryIndex {
-        self.lottery_index
-    }
-
-    pub fn get_unique_schnorr_signature(&self) -> UniqueSchnorrSignature {
-        self.unique_schnorr_signature
-    }
-
-    pub fn get_merkle_tree_leaf(&self) -> MerkleTreeSnarkLeaf {
-        self.merkle_tree_leaf
-    }
-
-    pub fn get_merkle_path(&self) -> Halo2MerklePath {
-        self.merkle_path.clone()
     }
 }
 

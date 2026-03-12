@@ -205,6 +205,20 @@ impl SingleSignature {
     pub fn set_concatenation_signature_indices(&mut self, indices: &[LotteryIndex]) {
         self.concatenation_signature.set_indices(indices)
     }
+
+    /// Set the indices of the single signature for snark proof system.
+    #[cfg(feature = "future_snark")]
+    pub fn set_snark_signature_indices(&mut self, indices: &[LotteryIndex]) {
+        if let Some(snark_signature) = &mut self.snark_signature {
+            snark_signature.set_indices(indices);
+        }
+    }
+
+    /// Get indices of the single signature for snark proof system.
+    #[cfg(feature = "future_snark")]
+    pub fn get_snark_signature_indices(&self) -> Option<Vec<LotteryIndex>> {
+        self.snark_signature.as_ref().map(|s| s.get_indices().to_vec())
+    }
 }
 
 impl Hash for SingleSignature {
