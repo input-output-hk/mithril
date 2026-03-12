@@ -92,7 +92,7 @@ impl AppState {
         let (cardano_transaction_snapshot_list, cardano_transaction_snapshots) =
             reader.read_files("ctx-snapshot")?;
         let (cardano_blocks_transactions_snapshot_list, cardano_blocks_transactions_snapshots) =
-            reader.read_files("cardano-blocks-tx-snapshot")?;
+            reader.read_files("cardano-blocks-txs-snapshot")?;
         let (_, cardano_transaction_proofs) = reader.read_files("ctx-proof")?;
         let (cardano_stake_distribution_list, cardano_stake_distributions) =
             reader.read_files("cardano-stake-distribution")?;

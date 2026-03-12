@@ -7,6 +7,10 @@ check_requirements() {
         error "It seems 'wget' is not installed or not in the path.";
     which jq >/dev/null ||
         error "It seems 'jq' is not installed or not in the path.";
+    if [ "${BASH_VERSINFO[0]}" -lt 5 ]; then
+      local homebrew_hint && [ "$(uname -s)" = "Darwin" ] && homebrew_hint=" You can install it using homebrew: 'brew install bash'"
+      error "Bash 5+ is required, but found version ${BASH_VERSION}.${homebrew_hint:-}"
+    fi
 }
 
 parse_arguments() {
@@ -185,7 +189,6 @@ join_artifacts_files() {
     local -r target_name=${2:-"${name}s"};
     local -r src="${DATA_DIR:?}/${name}"
     local -r dest="$DATA_DIR"/"${target_name}".json
-    local buffer="{}"
 
     echo "Joining ${name} artifacts into ${dest} …"
     jq -n 'reduce inputs as $f ({}; . + {(input_filename | gsub(".*/|[.]json$";"")): $f})' "$src/"*.json > "$dest"
@@ -193,9 +196,24 @@ join_artifacts_files() {
     rm -rf "$src"
 }
 
+join_all_artifacts_files() {
+    for artifact_type in \
+        "snapshot" \
+        "mithril-stake-distribution" \
+        "ctx-snapshot" \
+        "cardano-blocks-txs-snapshot" \
+        "cardano-stake-distribution" \
+        "cardano-database" \
+        "certificate"
+    do
+        join_artifacts_files "$artifact_type"
+    done
+}
+
 # ──────────────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────────────
+check_requirements
 parse_arguments "$@"
 
 echo "-- MITHRIL AGGREGATOR FAKE - DATA IMPORTER --"
@@ -208,7 +226,6 @@ echo
 if [ ! -d "$DATA_DIR" ]; then error "Specified directory '${DATA_DIR}' is not a directory."; fi
 wget --quiet --server-response --spider "$BASE_URL" 2>/dev/null || error "Could not reach URL '${BASE_URL}'."
 
-check_requirements
 clean_directory
 
 echo "Downloading aggregator status"
@@ -263,6 +280,4 @@ download_data "$BASE_URL/certificates" "certificates-list"
 download_artifacts "$BASE_URL/certificate" "certificate" "hash"
 download_certificate_chain
 
-for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "cardano-blocks-txs-snapshot" "cardano-stake-distribution" "cardano-database" "certificate"; do
-  join_artifacts_files "$artifact_type"
-done
+join_all_artifacts_files
