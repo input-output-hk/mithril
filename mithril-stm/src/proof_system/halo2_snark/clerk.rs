@@ -6,7 +6,6 @@ use crate::{
 };
 
 use super::AggregateVerificationKeyForSnark;
-
 /// Clerk for managing the SNARK proof system.
 ///
 /// Responsible for computing the SNARK aggregate verification key from
@@ -23,7 +22,7 @@ pub struct SnarkClerk {
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 impl SnarkClerk {
-    /// Create a new `SnarkClerk` from a closed registration instance.
+    /// Create a `SnarkClerk` from a closed key registration and protocol parameters.
     pub fn new_clerk_from_closed_key_registration(
         parameters: &Parameters,
         closed_key_registration: &ClosedKeyRegistration,
@@ -34,7 +33,7 @@ impl SnarkClerk {
         }
     }
 
-    /// Create a `SnarkClerk` from a signer.
+    /// Create a `SnarkClerk` by extracting the parameters and closed key registration from `Signer`
     pub fn new_clerk_from_signer<D: MembershipDigest>(signer: &Signer<D>) -> Self {
         Self {
             parameters: signer.parameters,
@@ -42,14 +41,14 @@ impl SnarkClerk {
         }
     }
 
-    /// Compute the `AggregateVerificationKeyForSnark` related to the used registration.
+    /// Compute the `AggregateVerificationKeyForSnark` from the closed key registration.
     pub fn compute_aggregate_verification_key_for_snark<D: MembershipDigest>(
         &self,
     ) -> AggregateVerificationKeyForSnark<D> {
         AggregateVerificationKeyForSnark::from(&self.closed_key_registration)
     }
 
-    /// Get the SNARK registration entry for a given signer index.
+    /// Look up and convert the registration entry for a signer into its SNARK representation.
     pub fn get_snark_registration_entry(
         &self,
         signer_index: LotteryIndex,
@@ -60,10 +59,15 @@ impl SnarkClerk {
         Ok(closed_registration_entry.into())
     }
 
-    /// Deduplicates signatures by lottery index, keeping the one with the smallest schnorr
-    /// signature for each index. Returns exactly `k` entries (sorted by lottery index).
-    /// # Error
-    /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique indices exist.
+    /// Deduplicate signatures by lottery index and select exactly `k` winners.
+    ///
+    /// When multiple signatures claim the same lottery index, the one with the smallest Schnorr
+    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. If more than `k` unique indices
+    /// remain after deduplication, the highest indices are discarded (the `BTreeMap` is trimmed
+    /// from the back).
+    ///
+    /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
+    /// can be collected.
     pub(crate) fn select_valid_signatures_for_k_indices(
         parameters: &Parameters,
         signatures: &[SingleSignature],
