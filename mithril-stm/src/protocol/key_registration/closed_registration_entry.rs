@@ -8,7 +8,8 @@ use crate::{
 
 #[cfg(feature = "future_snark")]
 use crate::{
-    LotteryTargetValue, VerificationKeyForSnark, proof_system::compute_lottery_target_value,
+    LotteryTargetValue, VerificationKeyForSnark,
+    proof_system::compute_target_value_for_snark_lottery,
 };
 
 /// Represents a registration entry of a closed key registration.
@@ -168,7 +169,7 @@ impl Serialize for ClosedRegistrationEntry {
 ///
 /// Extracts the concatenation verification key and stake from the entry. When the `future_snark`
 /// feature is enabled and a SNARK verification key is present, the lottery target value is also
-/// computed from `phi_f`, the entry's stake, and `total_stake` via `compute_lottery_target_value`.
+/// computed from `phi_f`, the entry's stake, and `total_stake` via `compute_target_value_for_snark_lottery`.
 impl TryFrom<(RegistrationEntry, Stake, PhiFValue)> for ClosedRegistrationEntry {
     type Error = anyhow::Error;
     fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiFValue)) -> StmResult<Self> {
@@ -181,7 +182,9 @@ impl TryFrom<(RegistrationEntry, Stake, PhiFValue)> for ClosedRegistrationEntry 
             let vk = entry.get_verification_key_for_snark();
             let target = vk
                 .is_some()
-                .then(|| compute_lottery_target_value(phi_f, entry.get_stake(), total_stake))
+                .then(|| {
+                    compute_target_value_for_snark_lottery(phi_f, entry.get_stake(), total_stake)
+                })
                 .transpose()?;
 
             (vk, target)

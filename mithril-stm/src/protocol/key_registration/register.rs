@@ -147,7 +147,7 @@ mod tests {
     #[cfg(feature = "future_snark")]
     use crate::{
         Initializer, MithrilMembershipDigest, SchnorrSigningKey, SchnorrVerificationKey,
-        proof_system::compute_lottery_target_value,
+        proof_system::compute_target_value_for_snark_lottery,
     };
     use crate::{
         Parameters, VerificationKeyProofOfPossessionForConcatenation,
@@ -204,7 +204,7 @@ mod tests {
                     .unwrap();
 
             let target_value_from_eligibility =
-                compute_lottery_target_value(params.phi_f, stake, total_stake).unwrap();
+                compute_target_value_for_snark_lottery(params.phi_f, stake, total_stake).unwrap();
 
             assert_eq!(
                 target_value_from_eligibility,
