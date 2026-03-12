@@ -76,6 +76,11 @@ pub async fn aggregator_router() -> Router<SharedState> {
             get(cardano_database_snapshot),
         )
         .route("/proof/cardano-transaction", get(cardano_transaction_proof))
+        .route(
+            "/proof/v2/cardano-transaction",
+            get(cardano_transaction_proof_v2),
+        )
+        .route("/proof/v2/cardano-block", get(cardano_block_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/{hash}", get(certificate))
         .route("/statistics/snapshot", post(statistics))
@@ -334,6 +339,11 @@ pub struct CardanoTransactionProofQueryParams {
     transaction_hashes: String,
 }
 
+#[derive(serde::Deserialize, Default)]
+pub struct CardanoBlockProofQueryParams {
+    block_hashes: String,
+}
+
 /// HTTP: return a cardano transaction proof identified by a transaction hash.
 pub async fn cardano_transaction_proof(
     Query(params): Query<CardanoTransactionProofQueryParams>,
@@ -349,6 +359,46 @@ pub async fn cardano_transaction_proof(
             debug!(
                 "cardano transaction proof ctx_hash={} NOT FOUND.",
                 params.transaction_hashes
+            );
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return a cardano transaction proof v2 identified by a transaction hash.
+pub async fn cardano_transaction_proof_v2(
+    Query(params): Query<CardanoTransactionProofQueryParams>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_cardano_transaction_proofs_v2(&params.transaction_hashes)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!(
+                "cardano transaction proof v2 ctx_hash={} NOT FOUND.",
+                params.transaction_hashes
+            );
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return a cardano block proof identified by a block hash.
+pub async fn cardano_block_proof(
+    Query(params): Query<CardanoBlockProofQueryParams>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_cardano_block_proofs(&params.block_hashes)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!(
+                "cardano block proof cblk_hash={} NOT FOUND.",
+                params.block_hashes
             );
             AppError::NotFound
         })
@@ -531,7 +581,9 @@ mod tests {
             state,
         )
         .await
-        .expect_err("The handler was expected to fail since the cardano transaction proof's hash does not exist.");
+        .expect_err(
+            "The handler was expected to fail since the cardano transaction hash does not exist.",
+        );
 
         assert!(matches!(error, AppError::NotFound));
     }
@@ -546,7 +598,101 @@ mod tests {
             state,
         )
         .await
-        .expect("The handler was expected to succeed since the cardano transaction proof's hash does exist.");
+        .expect(
+            "The handler was expected to succeed since the cardano transaction hash does exist.",
+        );
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn no_hash_cardano_transaction_proof_v2() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = "".to_string();
+
+        let error = cardano_transaction_proof_v2(
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
+            state,
+        )
+        .await
+        .expect_err("The handler was expected to fail since no transaction hash was provided.");
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn invalid_cardano_transaction_proof_v2_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = "whatever".to_string();
+
+        let error = cardano_transaction_proof_v2(
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
+            state,
+        )
+        .await
+        .expect_err(
+            "The handler was expected to fail since the cardano transaction hash does not exist.",
+        );
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn existing_cardano_transaction_proof_v2_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = default_values::proof_v2_transaction_hashes()[0].to_string();
+
+        let response = cardano_transaction_proof_v2(
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
+            state,
+        )
+        .await
+        .expect(
+            "The handler was expected to succeed since the cardano transaction hash does exist.",
+        );
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn no_hash_cardano_block_proof() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let block_hashes = "".to_string();
+
+        let error =
+            cardano_block_proof(Query(CardanoBlockProofQueryParams { block_hashes }), state)
+                .await
+                .expect_err("The handler was expected to fail since no block hash was provided.");
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn invalid_cardano_block_proof_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let block_hashes = "whatever".to_string();
+
+        let error =
+            cardano_block_proof(Query(CardanoBlockProofQueryParams { block_hashes }), state)
+                .await
+                .expect_err(
+                    "The handler was expected to fail since the cardano block hash does not exist.",
+                );
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn existing_cardano_block_proof_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let block_hashes = default_values::proof_v2_block_hashes()[0].to_string();
+
+        let response =
+            cardano_block_proof(Query(CardanoBlockProofQueryParams { block_hashes }), state)
+                .await
+                .expect(
+                    "The handler was expected to succeed since the cardano block hash does exist.",
+                );
 
         assert_eq!(StatusCode::OK, response.status());
     }
