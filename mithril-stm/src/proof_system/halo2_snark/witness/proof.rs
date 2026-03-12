@@ -14,7 +14,7 @@ use super::{SignatureRegistrationEntry, WitnessEntry};
 /// Public instance for the SNARK circuit: `(merkle_tree_root, message)`.
 type Instance = (BaseFieldElement, BaseFieldElement);
 
-/// SNARK proof consisting of the public instance and a list of witness entries.
+/// SNARK prover input consisting of the public instance and a list of witness entries.
 ///
 /// The instance holds the Merkle tree root and message (public inputs to the circuit).
 /// The witness holds one [`WitnessEntry`] per winning lottery index, each containing
@@ -22,7 +22,7 @@ type Instance = (BaseFieldElement, BaseFieldElement);
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct SnarkProof {
+pub struct SnarkProverInput {
     /// Public inputs to the SNARK circuit.
     instance: Instance,
     /// Per-winning-lottery-index witness data.
@@ -31,8 +31,8 @@ pub struct SnarkProof {
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
-impl SnarkProof {
-    /// Aggregate single signatures into a `SnarkProof`.
+impl SnarkProverInput {
+    /// Prepare the SNARK prover input from single signatures.
     ///
     /// This function:
     /// 1. Computes the aggregate verification key and SNARK message.
@@ -42,11 +42,11 @@ impl SnarkProof {
     /// 5. Expands deduped signatures into witness entries (one per winning lottery index).
     /// 6. Sorts witness entries by lottery index for deterministic circuit ordering.
     /// 7. Constructs the public instance from the Merkle tree root and message.
-    pub fn aggregate_signatures<D: MembershipDigest>(
+    pub fn prepare_prover_input<D: MembershipDigest>(
         clerk: &SnarkClerk,
         signatures: &[SingleSignature],
         message: &[u8],
-    ) -> StmResult<SnarkProof> {
+    ) -> StmResult<SnarkProverInput> {
         let avk: AggregateVerificationKeyForSnark<D> =
             clerk.compute_aggregate_verification_key_for_snark();
         let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, message)?;
@@ -124,7 +124,7 @@ impl SnarkProof {
         // Public instance: (merkle_tree_root, message) as base field elements.
         let instance = (message_to_sign[0], message_to_sign[1]);
 
-        Ok(SnarkProof { instance, witness })
+        Ok(SnarkProverInput { instance, witness })
     }
 
     /// Return the public instance `(merkle_tree_root, message)`.
@@ -155,7 +155,7 @@ mod tests {
         },
     };
 
-    use super::SnarkProof;
+    use super::SnarkProverInput;
 
     type D = MithrilMembershipDigest;
 
@@ -218,7 +218,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, seed);
             let sigs = find_signatures(&msg, &signers);
 
-            let result = SnarkProof::aggregate_signatures::<D>(&clerk, &sigs, &msg);
+            let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &sigs, &msg);
 
             match result {
                 Ok(proof) => {
@@ -228,7 +228,7 @@ mod tests {
                     // Witness entries are sorted by lottery index
                     for window in witness.windows(2) {
                         assert!(
-                            window[0].get_lottery_index() <= window[1].get_lottery_index(),
+                            window[0].get_lottery_index() < window[1].get_lottery_index(),
                             "Witness entries should be sorted by lottery index"
                         );
                     }
@@ -281,7 +281,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, seed);
             let sigs = find_signatures(&msg, &signers);
 
-            let result = SnarkProof::aggregate_signatures::<D>(&clerk, &sigs, &msg);
+            let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &sigs, &msg);
 
             match result {
                 Ok(proof) => {
