@@ -10,7 +10,7 @@ use crate::messages::{CardanoBlockMessagePart, MkSetProofMessagePart, VerifyProo
 use wasm_bindgen::prelude::*;
 
 /// A cryptographic proof for a set of Cardano blocks
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(
     target_family = "wasm",
     wasm_bindgen(getter_with_clone, js_name = "CardanoBlocksProofs")
@@ -22,7 +22,7 @@ pub struct CardanoBlocksProofsMessage {
     /// Blocks that have been certified
     // Note: Skip in wasm as `wasm_bindgen` don't support generics
     #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
-    pub certified_blocks: Vec<MkSetProofMessagePart<CardanoBlockMessagePart>>,
+    pub certified_blocks: Option<MkSetProofMessagePart<CardanoBlockMessagePart>>,
 
     /// Hashes of the blocks that could not be certified
     pub non_certified_blocks: Vec<String>,
@@ -39,20 +39,18 @@ impl CardanoBlocksProofsMessage {
     #[wasm_bindgen(getter)]
     pub fn certified_blocks(&self) -> Vec<CardanoBlockMessagePart> {
         self.certified_blocks
-            .iter()
-            .flat_map(|cb| &cb.items)
-            .cloned()
-            .collect()
+            .as_ref()
+            .map(|cbs| cbs.items.clone())
+            .unwrap_or_default()
     }
 
     /// Hashes of the Cardano blocks that have been certified
     #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
     pub fn blocks_hashes(&self) -> Vec<BlockHash> {
         self.certified_blocks
-            .iter()
-            .flat_map(|cb| cb.items.iter().map(|t| &t.block_hash))
-            .cloned()
-            .collect()
+            .as_ref()
+            .map(|cbs| cbs.items.iter().map(|cb| cb.block_hash.clone()).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -103,7 +101,7 @@ impl CardanoBlocksProofsMessage {
     /// Create a new `ProofsV2CardanoBlocksMessage`
     pub fn new(
         certificate_hash: &str,
-        certified_blocks: Vec<MkSetProofMessagePart<CardanoBlockMessagePart>>,
+        certified_blocks: Option<MkSetProofMessagePart<CardanoBlockMessagePart>>,
         non_certified_blocks: Vec<String>,
         latest_block_number: BlockNumber,
     ) -> Self {
@@ -127,15 +125,19 @@ impl CardanoBlocksProofsMessage {
     ///
     /// If every check is okay, the hex encoded Merkle root of the proof will be returned.
     pub fn verify(&self) -> Result<VerifiedCardanoBlocks, VerifyProofsV2Error> {
-        let merkle_root = ProofMessageVerifier::<_, CardanoBlock>::new("Cardano blocks", |block| {
-            block.block_hash.clone()
-        })
-        .verify(&self.certified_blocks)?;
+        const SUBJECT: &str = "Cardano blocks";
+        let certified_blocks = self
+            .certified_blocks
+            .as_ref()
+            .ok_or(VerifyProofsV2Error::NoCertifiedItem(SUBJECT))?;
+        let merkle_root =
+            ProofMessageVerifier::<_, CardanoBlock>::new(SUBJECT, |block| block.block_hash.clone())
+                .verify(certified_blocks)?;
 
         Ok(VerifiedCardanoBlocks {
             certificate_hash: self.certificate_hash.clone(),
             merkle_root,
-            certified_blocks: self.certified_blocks.iter().flat_map(|t| t.items.clone()).collect(),
+            certified_blocks: certified_blocks.items.clone(),
             latest_block_number: self.latest_block_number,
         })
     }

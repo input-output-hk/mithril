@@ -18,14 +18,7 @@ pub enum VerifyProofsV2Error {
 
     /// No certified items set proof to verify
     #[error("There's no certified {0} to verify")]
-    NoCertifiedTransaction(&'static str),
-
-    /// Not all certified items set proof have the same merkle root.
-    ///
-    /// This is problematic because all the set proof should be generated from the same
-    /// merkle tree which root is signed in the [certificate][crate::entities::Certificate].
-    #[error("All certified {0} set proofs must share the same Merkle root")]
-    NonMatchingMerkleRoot(&'static str),
+    NoCertifiedItem(&'static str),
 
     /// An individual [crate::messages::MkSetProofMessagePart] could not be converted to a
     /// [crate::entities::MkSetProof] for verification.
