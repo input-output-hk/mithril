@@ -2,10 +2,15 @@ use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use crate::{RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation};
+use crate::{
+    PhiFValue, RegisterError, RegistrationEntry, Stake, StmResult, VerificationKeyForConcatenation,
+};
 
 #[cfg(feature = "future_snark")]
-use crate::{LotteryTargetValue, VerificationKeyForSnark};
+use crate::{
+    LotteryTargetValue, VerificationKeyForSnark,
+    proof_system::compute_target_value_for_snark_lottery,
+};
 
 /// Represents a registration entry of a closed key registration.
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Deserialize)]
@@ -160,29 +165,39 @@ impl Serialize for ClosedRegistrationEntry {
     }
 }
 
-/// Converts the registration entry into a closed registration entry for given total stake.
-/// This is where we will compute the lottery target value in the future.
-/// `LotteryTargetValue` is set to (modulus - 1) for now.
-/// TODO: Compute the lottery target value based on the total stake and the entry's stake.
-impl From<(RegistrationEntry, Stake)> for ClosedRegistrationEntry {
-    fn from(entry_total_stake: (RegistrationEntry, Stake)) -> Self {
-        let (entry, _total_stake) = entry_total_stake;
+/// Converts a `RegistrationEntry` into a `ClosedRegistrationEntry`.
+///
+/// Extracts the concatenation verification key and stake from the entry. When the `future_snark`
+/// feature is enabled and a SNARK verification key is present, the lottery target value is also
+/// computed from `phi_f`, the entry's stake, and `total_stake` via `compute_target_value_for_snark_lottery`.
+impl TryFrom<(RegistrationEntry, Stake, PhiFValue)> for ClosedRegistrationEntry {
+    type Error = anyhow::Error;
+    fn try_from(entry_total_stake: (RegistrationEntry, Stake, PhiFValue)) -> StmResult<Self> {
+        #[cfg(not(feature = "future_snark"))]
+        let (entry, _total_stake, _phi_f) = entry_total_stake;
+        #[cfg(feature = "future_snark")]
+        let (entry, total_stake, phi_f) = entry_total_stake;
         #[cfg(feature = "future_snark")]
         let (schnorr_verification_key, target_value) = {
             let vk = entry.get_verification_key_for_snark();
-            let target =
-                vk.map(|_| &LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+            let target = vk
+                .is_some()
+                .then(|| {
+                    compute_target_value_for_snark_lottery(phi_f, entry.get_stake(), total_stake)
+                })
+                .transpose()?;
+
             (vk, target)
         };
 
-        ClosedRegistrationEntry::new(
+        Ok(ClosedRegistrationEntry::new(
             entry.get_verification_key_for_concatenation(),
             entry.get_stake(),
             #[cfg(feature = "future_snark")]
             schnorr_verification_key,
             #[cfg(feature = "future_snark")]
             target_value,
-        )
+        ))
     }
 }
 

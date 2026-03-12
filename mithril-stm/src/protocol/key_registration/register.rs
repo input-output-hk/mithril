@@ -2,7 +2,8 @@ use digest::{Digest, FixedOutput};
 use std::collections::BTreeSet;
 
 use crate::{
-    RegisterError, SignerIndex, Stake, StmResult, VerificationKeyProofOfPossessionForConcatenation,
+    Parameters, RegisterError, SignerIndex, Stake, StmResult,
+    VerificationKeyProofOfPossessionForConcatenation,
     membership_commitment::{MerkleTree, MerkleTreeLeaf},
     protocol::key_registration::ClosedRegistrationEntry,
 };
@@ -61,28 +62,28 @@ impl KeyRegistration {
     /// entries.
     ///
     /// Returns the `ClosedKeyRegistration`.
-    pub fn close_registration(self) -> ClosedKeyRegistration {
-        let total_stake: Stake = self.registration_entries.iter().fold(0, |acc, entry| {
-            let (res, overflow) = acc.overflowing_add(entry.get_stake());
-            if overflow {
-                panic!(
-                    "Total stake overflow accumulated stake: {}, adding stake: {}",
-                    acc,
-                    entry.get_stake()
-                );
-            }
-            res
-        });
-        let closed_registration_entries: BTreeSet<ClosedRegistrationEntry> = self
+    pub fn close_registration(self, params: &Parameters) -> StmResult<ClosedKeyRegistration> {
+        let total_stake: Stake =
+            self.registration_entries.iter().try_fold(0u64, |acc, entry| {
+                acc.checked_add(entry.get_stake())
+                    .ok_or(RegisterError::TotalStakeOverflow {
+                        accumulated_stake: acc,
+                        stake: entry.get_stake(),
+                    })
+            })?;
+        if total_stake == 0 {
+            return Err(RegisterError::ZeroTotalStake.into());
+        }
+        let closed_registration_entries: StmResult<BTreeSet<ClosedRegistrationEntry>> = self
             .registration_entries
             .iter()
-            .map(|entry| (*entry, total_stake).into())
+            .map(|entry| ClosedRegistrationEntry::try_from((*entry, total_stake, params.phi_f)))
             .collect();
 
-        ClosedKeyRegistration {
-            closed_registration_entries,
+        Ok(ClosedKeyRegistration {
+            closed_registration_entries: closed_registration_entries?,
             total_stake,
-        }
+        })
     }
 }
 
@@ -138,14 +139,161 @@ impl ClosedKeyRegistration {
 #[cfg(test)]
 mod tests {
     use proptest::{collection::vec, prelude::*};
+    #[cfg(feature = "future_snark")]
+    use rand::random_range;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    #[cfg(feature = "future_snark")]
     use crate::{
-        VerificationKeyProofOfPossessionForConcatenation, signature_scheme::BlsSigningKey,
+        Initializer, MithrilMembershipDigest, SchnorrSigningKey, SchnorrVerificationKey,
+        proof_system::compute_target_value_for_snark_lottery,
+    };
+    use crate::{
+        Parameters, VerificationKeyProofOfPossessionForConcatenation,
+        signature_scheme::BlsSigningKey,
     };
 
     use super::*;
+
+    #[cfg(feature = "future_snark")]
+    fn prepare_key_registration_with_stakes(stakes: Vec<u64>) -> KeyRegistration {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+
+        for stake in stakes {
+            let bls_vk = VerificationKeyProofOfPossessionForConcatenation::from(
+                &BlsSigningKey::generate(&mut rng),
+            );
+            let schnorr_vk =
+                SchnorrVerificationKey::new_from_signing_key(SchnorrSigningKey::generate(&mut rng));
+            let entry = RegistrationEntry::new(bls_vk, stake, Some(schnorr_vk)).unwrap();
+            kr.register_by_entry(&entry)
+                .expect("Registering an entry in tests should succeed.");
+        }
+        kr
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn close_registration_computes_same_target_value() {
+        let nb_entries = 5;
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+
+        let stakes: Vec<u64> = (0..nb_entries).map(|_| random_range(10..100)).collect();
+        let kr = prepare_key_registration_with_stakes(stakes);
+        let closed_registration = kr.clone().close_registration(&params).unwrap();
+        let total_stake = closed_registration.total_stake;
+
+        for (closed_entry, entry) in closed_registration
+            .closed_registration_entries
+            .iter()
+            .zip(kr.registration_entries)
+        {
+            let stake = closed_entry.get_stake();
+            let target_value_from_registration = closed_entry.get_lottery_target_value().unwrap();
+
+            let target_value_from_try_from =
+                ClosedRegistrationEntry::try_from((entry, total_stake, params.phi_f))
+                    .unwrap()
+                    .get_lottery_target_value()
+                    .unwrap();
+
+            let target_value_from_eligibility =
+                compute_target_value_for_snark_lottery(params.phi_f, stake, total_stake).unwrap();
+
+            assert_eq!(
+                target_value_from_eligibility,
+                target_value_from_registration
+            );
+            assert_eq!(target_value_from_eligibility, target_value_from_try_from);
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn close_registration_zero_total_stake_fails() {
+        let nb_entries = 5;
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let stakes: Vec<u64> = vec![0; nb_entries];
+        let kr = prepare_key_registration_with_stakes(stakes);
+        let closed_registration = kr.close_registration(&params);
+
+        assert!(closed_registration.is_err());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn closing_registration_without_entries_fails() {
+        let kr = KeyRegistration::initialize();
+        let params = Parameters {
+            m: 20,
+            k: 10,
+            phi_f: 0.2,
+        };
+
+        let closed_registration = kr.close_registration(&params);
+
+        assert!(closed_registration.is_err());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn signer_creation_fails_for_initializer_with_diff_param() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut kr = KeyRegistration::initialize();
+        let nkeys = 5;
+        let params = Parameters {
+            m: 100,
+            k: 10,
+            phi_f: 0.2,
+        };
+        let stakes: Vec<u64> = (0..nkeys).map(|_| random_range(10..100)).collect();
+        let mut initializers = vec![];
+        let forged_params = Parameters {
+            phi_f: 1.0,
+            ..params
+        };
+        for (i, stake) in stakes.into_iter().enumerate() {
+            let init = if i == 0 {
+                Initializer::new(forged_params, stake, &mut rng)
+            } else {
+                Initializer::new(params, stake, &mut rng)
+            };
+            let entry = RegistrationEntry::new(
+                init.get_verification_key_proof_of_possession_for_concatenation(),
+                stake,
+                init.get_verification_key_for_snark(),
+            )
+            .unwrap();
+            kr.register_by_entry(&entry).unwrap();
+            initializers.push(init);
+        }
+
+        let closed_registration = kr.clone().close_registration(&params).unwrap();
+
+        for (i, init) in initializers.into_iter().enumerate() {
+            if i == 0 {
+                let result_signer =
+                    init.try_create_signer::<MithrilMembershipDigest>(&closed_registration);
+
+                assert!(result_signer.is_err());
+            } else {
+                let result_signer =
+                    init.try_create_signer::<MithrilMembershipDigest>(&closed_registration);
+
+                assert!(result_signer.is_ok());
+            }
+        }
+    }
 
     proptest! {
         #[test]
@@ -155,6 +303,12 @@ mod tests {
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyRegistration::initialize();
+
+            let params = Parameters {
+                m: 20,
+                k: 10,
+                phi_f: 0.2
+            };
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = BlsSigningKey::generate(&mut rng);
@@ -209,7 +363,7 @@ mod tests {
             }
 
             if !kr.registration_entries.is_empty() {
-                let closed = kr.close_registration();
+                let closed = kr.close_registration(&params).unwrap();
                 let retrieved_keys = closed.closed_registration_entries.iter()
                     .map(|entry| (*entry).into())
                     .collect::<BTreeSet<RegistrationEntry>>();
@@ -259,7 +413,8 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             closed_key_reg.to_merkle_tree().to_merkle_tree_batch_commitment()
         }
 
@@ -289,7 +444,7 @@ mod tests {
 
         const GOLDEN_JSON: &str = r#"
         {
-            "root":[228,163,47,150,34,74,244,226,131,159,24,218,184,37,158,68,110,78,76,86,89,121,231,103,49,153,207,157,188,169,219,48],
+            "root":[165,121,179,134,45,169,200,53,27,170,110,123,40,15,191,138,219,249,100,108,146,170,70,116,200,250,155,134,5,242,23,63],
             "hasher":null
         }"#;
 
@@ -308,7 +463,8 @@ mod tests {
                 key_reg.register_by_entry(&initializer.clone().into()).unwrap();
             }
 
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             closed_key_reg
                 .to_merkle_tree::<MidnightPoseidonDigest, MerkleTreeSnarkLeaf>()
                 .to_merkle_tree_commitment()

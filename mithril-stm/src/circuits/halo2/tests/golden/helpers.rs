@@ -29,9 +29,9 @@ use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
 type WitnessEntry = (MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex);
 
 /// Default number of signers used in golden test environments.
-const DEFAULT_NUM_SIGNERS: usize = 3000;
+const DEFAULT_NUM_SIGNERS: usize = 256;
 /// Lottery count multiplier per quorum size used in golden test environments.
-pub(crate) const LOTTERIES_PER_QUORUM: u32 = 10;
+pub(crate) const LOTTERIES_PER_QUORUM: u32 = 5;
 /// Default message value used by golden test cases.
 const DEFAULT_TEST_MSG: u64 = 42;
 

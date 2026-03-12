@@ -116,7 +116,7 @@ mod tests {
         )
         .unwrap();
         key_reg.register_by_entry(&entry).unwrap();
-        let closed_reg = key_reg.close_registration();
+        let closed_reg = key_reg.close_registration(&params).unwrap();
 
         let merkle_tree = closed_reg
             .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>()

@@ -35,7 +35,7 @@ where
         ps.push(p);
     }
 
-    let closed_reg = key_reg.close_registration();
+    let closed_reg = key_reg.close_registration(&params).unwrap();
 
     let ps = ps
         .into_par_iter()

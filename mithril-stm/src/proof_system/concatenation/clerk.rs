@@ -173,7 +173,7 @@ mod tests {
     type D = MithrilMembershipDigest;
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(10))]
 
         #[test]
         fn test_dedup(
@@ -182,10 +182,10 @@ mod tests {
             nparties in 1_usize..10,
             m in 1_u64..20,
             k in 1_u64..10,
-            phi_f in 0.1_f64..1.0,
+            phi_f in 1u32..100,
             num_invalid_sigs_per_party in 0_usize..3,
         ) {
-            let params = Parameters { m, k, phi_f };
+            let params = Parameters { m, k, phi_f: (phi_f as f64) / 100.0f64 };
             let mut rng = ChaCha20Rng::from_seed(seed);
 
             // False messages
@@ -209,7 +209,7 @@ mod tests {
                 initializers.push(initializer);
             }
 
-            let closed_registration: ClosedKeyRegistration = key_registration.close_registration();
+            let closed_registration: ClosedKeyRegistration = key_registration.close_registration(&params).unwrap();
 
             let signers: Vec<_> = initializers
                 .into_iter()

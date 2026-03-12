@@ -80,16 +80,15 @@ mod tests {
         use rand_core::SeedableRng;
 
         use crate::{
-            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
-            RegistrationEntry, SingleSignature, SingleSignatureWithRegisteredParty,
-            VerificationKeyProofOfPossessionForConcatenation,
+            ClosedKeyRegistration, ClosedRegistrationEntry, KeyRegistration,
+            MithrilMembershipDigest, Parameters, RegistrationEntry, SingleSignature,
+            SingleSignatureWithRegisteredParty, VerificationKeyProofOfPossessionForConcatenation,
             proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
         #[cfg(feature = "future_snark")]
         use crate::{
-            ClosedRegistrationEntry, MembershipDigest, VerificationKeyForSnark,
-            proof_system::SnarkProofSigner, protocol::RegistrationEntryForSnark,
-            signature_scheme::SchnorrSigningKey,
+            MembershipDigest, VerificationKeyForSnark, proof_system::SnarkProofSigner,
+            protocol::RegistrationEntryForSnark, signature_scheme::SchnorrSigningKey,
         };
 
         type D = MithrilMembershipDigest;
@@ -134,19 +133,17 @@ mod tests {
                 "snark_signature": {
                     "schnorr_signature": {
                         "commitment_point": [
-                            198, 195, 131, 147, 143, 246, 147, 31, 112, 104, 4, 197, 184, 150,
-                            239, 16, 122, 195, 82, 217, 135, 174, 163, 231, 197, 102, 37, 57,
-                            253, 182, 126, 72
+                            137, 215, 216, 65, 180, 96, 160, 51, 223, 205, 207, 72, 126, 244, 
+                            123, 254, 158, 173, 49, 64, 2, 89, 94, 217, 101, 233, 98, 174, 110, 
+                            16, 119, 210
                         ],
                         "response": [
-                            116, 67, 192, 99, 53, 189, 46, 158, 53, 70, 174, 132, 144, 179,
-                            25, 203, 87, 11, 59, 253, 155, 114, 211, 22, 16, 29, 4, 233, 203,
-                            127, 170, 6
-                        ],
+                            31, 131, 67, 139, 239, 68, 151, 50, 252, 1, 16, 202, 248, 152, 179, 
+                            131, 85, 107, 185, 90, 47, 252, 229, 113, 101, 42, 149, 0, 244, 60, 113, 10
+                        ], 
                         "challenge": [
-                            128, 135, 196, 3, 229, 138, 6, 47, 81, 118, 6, 77, 1, 148, 175,
-                            28, 88, 124, 103, 229, 155, 213, 96, 68, 7, 94, 216, 151, 207,
-                            157, 220, 67
+                            8, 157, 99, 181, 204, 141, 102, 113, 104, 162, 218, 158, 147, 6, 158, 
+                            179, 52, 210, 159, 147, 1, 83, 70, 199, 198, 0, 238, 93, 62, 180, 10, 43
                         ]
                     },
                     "indices": []
@@ -167,8 +164,8 @@ mod tests {
                     173, 141, 223, 53, 86, 104, 169, 168, 82, 136, 67, 233, 108, 18, 229, 93
                 ],
                 [
-                    0, 0, 0, 0, 255, 255, 255, 255, 254, 91, 254, 255, 2, 164, 189, 83, 5,
-                    216, 161, 9, 8, 216, 57, 51, 72, 125, 157, 41, 83, 167, 237, 115
+                    194, 71, 33, 27, 194, 63, 247, 234, 230, 51, 190, 78, 41, 36, 192, 130, 
+                    112, 88, 3, 19, 29, 13, 169, 32, 237, 47, 40, 179, 162, 115, 20, 64
                 ]
             ]
         ]
@@ -221,7 +218,8 @@ mod tests {
             .unwrap();
             key_reg.register_by_entry(&entry1).unwrap();
             key_reg.register_by_entry(&entry2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration = key_reg.close_registration();
+            let closed_key_reg: ClosedKeyRegistration =
+                key_reg.close_registration(&params).unwrap();
             let total_stake = closed_key_reg.total_stake;
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
@@ -241,8 +239,12 @@ mod tests {
                 let key_registration_commitment = closed_key_reg
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry =
-                    ClosedRegistrationEntry::from((entry1, closed_key_reg.total_stake));
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
+                    entry1,
+                    closed_key_reg.total_stake,
+                    params.phi_f,
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(
@@ -268,7 +270,8 @@ mod tests {
 
             SingleSignatureWithRegisteredParty {
                 sig: signature,
-                reg_party: (entry1, total_stake).into(),
+                reg_party: ClosedRegistrationEntry::try_from((entry1, total_stake, params.phi_f))
+                    .unwrap(),
             }
         }
 

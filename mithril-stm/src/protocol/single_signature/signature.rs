@@ -308,7 +308,7 @@ mod tests {
             registration.register_by_entry(&entry).unwrap();
         }
 
-        let closed_key_registration = registration.close_registration();
+        let closed_key_registration = registration.close_registration(&params).unwrap();
         let mut signing_keys = signing_keys.into_iter();
         let sk_1 = signing_keys.next().expect("at least one signer exists");
         let mut verification_keys = verification_keys.into_iter();
@@ -368,12 +368,12 @@ mod tests {
             0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 7, 140, 18, 156, 86, 86, 16, 179,
             117, 148, 17, 195, 177, 207, 235, 93, 252, 78, 244, 112, 94, 47, 18, 158, 15, 78, 76,
             80, 43, 116, 242, 116, 205, 252, 21, 194, 58, 162, 117, 201, 62, 40, 190, 21, 183, 178,
-            186, 196, 136, 0, 0, 0, 0, 0, 0, 0, 1, 198, 195, 131, 147, 143, 246, 147, 31, 112, 104,
-            4, 197, 184, 150, 239, 16, 122, 195, 82, 217, 135, 174, 163, 231, 197, 102, 37, 57,
-            253, 182, 126, 72, 116, 67, 192, 99, 53, 189, 46, 158, 53, 70, 174, 132, 144, 179, 25,
-            203, 87, 11, 59, 253, 155, 114, 211, 22, 16, 29, 4, 233, 203, 127, 170, 6, 128, 135,
-            196, 3, 229, 138, 6, 47, 81, 118, 6, 77, 1, 148, 175, 28, 88, 124, 103, 229, 155, 213,
-            96, 68, 7, 94, 216, 151, 207, 157, 220, 67, 0, 0, 0, 0, 0, 0, 0, 0,
+            186, 196, 136, 0, 0, 0, 0, 0, 0, 0, 1, 137, 215, 216, 65, 180, 96, 160, 51, 223, 205,
+            207, 72, 126, 244, 123, 254, 158, 173, 49, 64, 2, 89, 94, 217, 101, 233, 98, 174, 110,
+            16, 119, 210, 31, 131, 67, 139, 239, 68, 151, 50, 252, 1, 16, 202, 248, 152, 179, 131,
+            85, 107, 185, 90, 47, 252, 229, 113, 101, 42, 149, 0, 244, 60, 113, 10, 8, 157, 99,
+            181, 204, 141, 102, 113, 104, 162, 218, 158, 147, 6, 158, 179, 52, 210, 159, 147, 1,
+            83, 70, 199, 198, 0, 238, 93, 62, 180, 10, 43, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         fn golden_value() -> SingleSignature {
@@ -423,7 +423,7 @@ mod tests {
             .unwrap();
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
-            let closed_key_registration = registration.close_registration();
+            let closed_key_registration = registration.close_registration(&params).unwrap();
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
@@ -444,8 +444,12 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry =
-                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
+                    entry1,
+                    closed_key_registration.total_stake,
+                    params.phi_f,
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(
@@ -512,19 +516,19 @@ mod tests {
             "snark_signature": {
                 "schnorr_signature": {
                     "commitment_point": [
-                        198, 195, 131, 147, 143, 246, 147, 31, 112, 104, 4, 197, 184, 150,
-                        239, 16, 122, 195, 82, 217, 135, 174, 163, 231, 197, 102, 37, 57,
-                        253, 182, 126, 72
-                    ],
+                        137, 215, 216, 65, 180, 96, 160, 51, 223, 205, 207, 72, 126, 
+                        244, 123, 254, 158, 173, 49, 64, 2, 89, 94, 217, 101, 233, 98, 
+                        174, 110, 16, 119, 210
+                    ], 
                     "response": [
-                        116, 67, 192, 99, 53, 189, 46, 158, 53, 70, 174, 132, 144, 179, 25,
-                        203, 87, 11, 59, 253, 155, 114, 211, 22, 16, 29, 4, 233, 203, 127,
-                        170, 6
-                    ],
+                        31, 131, 67, 139, 239, 68, 151, 50, 252, 1, 16, 202, 248, 152,
+                        179, 131, 85, 107, 185, 90, 47, 252, 229, 113, 101, 42, 149, 0,
+                        244, 60, 113, 10
+                    ], 
                     "challenge": [
-                        128, 135, 196, 3, 229, 138, 6, 47, 81, 118, 6, 77, 1, 148, 175, 28,
-                        88, 124, 103, 229, 155, 213, 96, 68, 7, 94, 216, 151, 207, 157,
-                        220, 67
+                        8, 157, 99, 181, 204, 141, 102, 113, 104, 162, 218, 158, 147, 
+                        6, 158, 179, 52, 210, 159, 147, 1, 83, 70, 199, 198, 0, 238, 
+                        93, 62, 180, 10, 43
                     ]
                 },
                 "indices": []
@@ -579,7 +583,7 @@ mod tests {
             registration.register_by_entry(&entry1).unwrap();
             registration.register_by_entry(&entry2).unwrap();
 
-            let closed_key_registration = registration.close_registration();
+            let closed_key_registration = registration.close_registration(&params).unwrap();
 
             let concatenation_proof_signer: ConcatenationProofSigner<D> =
                 ConcatenationProofSigner::new(
@@ -600,8 +604,12 @@ mod tests {
                 let key_registration_commitment = closed_key_registration
                     .to_merkle_tree::<<D as MembershipDigest>::SnarkHash, RegistrationEntryForSnark>(
                 ).to_merkle_tree_commitment();
-                let closed_registration_entry =
-                    ClosedRegistrationEntry::from((entry1, closed_key_registration.total_stake));
+                let closed_registration_entry = ClosedRegistrationEntry::try_from((
+                    entry1,
+                    closed_key_registration.total_stake,
+                    params.phi_f,
+                ))
+                .unwrap();
                 let lottery_target_value =
                     closed_registration_entry.get_lottery_target_value().unwrap();
                 let snark_proof_signer = SnarkProofSigner::<D>::new(

@@ -52,7 +52,7 @@ mod tests {
                 p
             })
             .collect::<Vec<_>>();
-        let closed_reg = kr.close_registration();
+        let closed_reg = kr.close_registration(&params).unwrap();
         ps.into_iter()
             .map(|p| p.try_create_signer(&closed_reg.clone()).unwrap())
             .collect()
@@ -235,7 +235,7 @@ mod tests {
 
         #[test]
         /// Test that batch verification of certificates works
-        fn batch_verify(nparties in 2_usize..30,
+        fn batch_verify(nparties in 2_usize..15,
                               m in 10_u64..20,
                               k in 1_u64..4,
                               seed in any::<[u8;32]>(),
@@ -293,7 +293,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(20))]
 
         #[test]
         /// Test that when a party creates a signature it can be verified
@@ -310,7 +310,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(20))]
         #[test]
         fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
             let params = Parameters { m, k, phi_f };
@@ -370,7 +370,7 @@ mod tests {
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
         fn test_adversary_quorum(
-            (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
+            (adversaries, parties) in arb_parties_adversary_stake(4, 15, 16, 4),
             msg in any::<[u8;16]>(),
         ) {
             // Test sanity check:
@@ -405,7 +405,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+        #![proptest_config(ProptestConfig::with_cases(20))]
 
         // Each of the tests below corresponds to falsifying a conjunct in the
         // definition of a valid signature

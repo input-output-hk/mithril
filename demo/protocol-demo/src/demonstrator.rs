@@ -124,7 +124,7 @@ impl Party {
                 )
                 .unwrap();
         }
-        let closed_reg = key_reg.close_registration();
+        let closed_reg = key_reg.close_registration(&self.params.unwrap()).unwrap();
 
         let signer = self
             .initializer
@@ -287,7 +287,7 @@ impl Verifier {
                 )
                 .unwrap();
         }
-        let closed_reg = key_reg.close_registration();
+        let closed_reg = key_reg.close_registration(&self.params.unwrap()).unwrap();
 
         self.clerk = Some(ProtocolClerk::new_clerk_from_closed_key_registration(
             &self.params.unwrap(),

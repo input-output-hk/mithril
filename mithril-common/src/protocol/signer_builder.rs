@@ -69,7 +69,7 @@ impl SignerBuilder {
                 })?;
         }
 
-        let closed_registration = key_registration.close();
+        let closed_registration = key_registration.close(&protocol_parameters.clone().into())?;
 
         Ok(Self {
             protocol_parameters: protocol_parameters.clone(),

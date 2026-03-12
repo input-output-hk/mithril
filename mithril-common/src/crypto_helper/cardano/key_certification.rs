@@ -471,8 +471,8 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
-    pub fn close(self) -> ClosedKeyRegistration {
-        self.stm_key_reg.close_registration()
+    pub fn close(self, protocol_params: &ProtocolParameters) -> StdResult<ClosedKeyRegistration> {
+        self.stm_key_reg.close_registration(protocol_params)
     }
 }
 

@@ -69,7 +69,7 @@
 //! }
 //!
 //! // Close the key registration.
-//! let closed_reg = key_reg.close_registration();
+//! let closed_reg = key_reg.close_registration(&params)?;
 //!
 //! // Finalize the Initializer and turn it into a Signer, which can execute the
 //! // rest of the protocol.
@@ -159,6 +159,9 @@ pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
+
+/// The value of a `phi_f` parameter represented as a `f64`
+pub type PhiFValue = f64;
 
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.

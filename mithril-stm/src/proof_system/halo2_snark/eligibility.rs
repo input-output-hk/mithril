@@ -1,3 +1,7 @@
+use anyhow::anyhow;
+
+use crate::{PhiFValue, RegisterError};
+
 cfg_num_integer! {
     use num_bigint::BigInt;
     use num_integer::Integer;
@@ -16,10 +20,51 @@ cfg_num_integer! {
     /// the value is. A value of 30 provides ~69 bits precision for phi_f=0.2
     const TAYLOR_EXPANSION_ITERATIONS: usize = 30;
 
+    /// Computes the lottery target value for a party from its stake, the system's total stake, and
+    /// the protocol parameter `phi_f`.
+    ///
+    /// This function validates inputs and prepares the `ln(1 - phi_f)` approximation before
+    /// delegating the core arithmetic to `compute_target_value_for_snark_lottery_given_ln_approximation`. The logarithm is computed here
+    /// (rather than inside `compute_target_value_for_snark_lottery_given_ln_approximation`) because the lower-level function accepts a
+    /// pre-computed `ln(1 - phi_f)`, allowing callers that need targets for many stake values
+    /// (during registration closing) to compute it once.
+    ///
+    /// # Steps
+    /// 1. Rejects `total_stake == 0` with `RegisterError::ZeroTotalStake`.
+    /// 2. Short-circuits `phi_f ≈ 1.0` to `p - 1` (all indices win), matching the concatenation
+    ///    proof system and avoiding `ln(0)`.
+    /// 3. Approximates `phi_f` as an exact `Ratio<i64>`, promotes to `Ratio<BigInt>`.
+    /// 4. Computes `ln(1 - phi_f)` via Taylor expansion (`ln_1p_taylor_expansion`).
+    /// 5. Delegates to `compute_target_value_for_snark_lottery_given_ln_approximation` for the final field-element computation.
     #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    /// Computes the lottery target value for SNARK proof system as a base field element.
+    pub fn compute_target_value_for_snark_lottery(phi_f: PhiFValue, stake: Stake, total_stake: Stake) -> StmResult<LotteryTargetValue> {
+        if total_stake == 0 {
+            return Err(RegisterError::ZeroTotalStake.into());
+        }
+
+        if (phi_f - 1.0).abs() < PhiFValue::EPSILON {
+            // This returns the maximal target possible Jubjub modulus - 1
+            // to ensure every participant wins the lottery
+            return Ok(&LotteryTargetValue::default() - &LotteryTargetValue::get_one());
+        }
+
+        let phi_f_ratio_int: Ratio<i64> =
+            Ratio::approximate_float(phi_f).ok_or(anyhow!("Approximation of float as a Ratio failed because it is infinite or NaN."))?;
+        let phi_f_ratio = Ratio::new_raw(
+            BigInt::from(*phi_f_ratio_int.numer()),
+            BigInt::from(*phi_f_ratio_int.denom()),
+        );
+        let ln_one_minus_phi_f = ln_1p_taylor_expansion(
+            TAYLOR_EXPANSION_ITERATIONS,
+            phi_f_ratio.numer(),
+            phi_f_ratio.denom(),
+        );
+        Ok(compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake))
+    }
+
+    #[cfg(feature = "future_snark")]
+    /// Computes the lottery target value for a party from its stake, the system's total stake, and
+    /// and `ln(1 - phi_f)` where `phi_f` is a protocol parameter.
     ///
     /// The target value determines the probability of winning the lottery based on the
     /// participant's stake relative to the total stake. A higher stake results in a higher
@@ -40,13 +85,12 @@ cfg_num_integer! {
     /// 1 - (1 - phi_f)^w = 1 - exp(w * ln(1 - phi_f))
     /// and we use Taylor expansion to approximate the exponential and natural logarithm functions to a given precision.
     ///
-    /// Once the precise expression obtained, we can compute the target value as:
-    /// target = floor(p * (1 - exp(w * ln(1 - phi_f))))
-    ///
-    /// Input: (ln(1 - phi_f) approximation, stake of the signer, total_stake)
-    ///
-    /// Output: the lottery target value used for the lottery eligibility
-    pub fn compute_target_value(ln_one_minus_phi_f: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
+    /// # Steps
+    /// 1. Compute the taylor expansion of the expression `exp(w * ln(1 - phi_f))`.
+    /// 2. Compute the target as a ratio of `BigInt`.
+    /// 3. Use a euclidean division to extract the final target as a `BigInt`.
+    /// 4. Convert the `BigInt` to a `BaseFieldElement`.
+    pub fn compute_target_value_for_snark_lottery_given_ln_approximation(ln_one_minus_phi_f: &Ratio<BigInt>, stake: Stake, total_stake: Stake) -> LotteryTargetValue {
         // It is safe to use .expect() as the value used is a constant so the creation of
         // the BigInt will never fail
         let modulus = BigInt::from_str_radix(
@@ -128,7 +172,6 @@ cfg_num_integer! {
     /// It performs a straighforward for loop in a naive way updating the numerator and denominator
     /// every loop and the accumulator using the new values. The numerator stores the power of a and
     /// the denominator the power of b.
-    #[allow(dead_code)]
     fn ln_1p_taylor_expansion(iterations: usize, a: &BigInt, b: &BigInt) -> Ratio<BigInt> {
         let mut numerator = a.clone();
         let mut denominator = b.clone();
@@ -157,7 +200,6 @@ pub(crate) fn compute_winning_lottery_indices(
     lottery_target_value: LotteryTargetValue,
 ) -> StmResult<Vec<LotteryIndex>> {
     let lottery_prefix = compute_lottery_prefix(msg);
-
     let winning_indices: Vec<LotteryIndex> = (0..m)
         .filter(|&index| {
             matches!(
@@ -233,7 +275,8 @@ mod tests {
 
     use super::{
         TAYLOR_EXPANSION_ITERATIONS, check_lottery_for_index, compute_exponential_taylor_expansion,
-        compute_lottery_prefix, compute_target_value, ln_1p_taylor_expansion,
+        compute_lottery_prefix, compute_target_value_for_snark_lottery,
+        compute_target_value_for_snark_lottery_given_ln_approximation, ln_1p_taylor_expansion,
     };
 
     #[test]
@@ -273,6 +316,20 @@ mod tests {
         assert!(adv.to_f64().unwrap() < 1e-10);
     }
 
+    #[test]
+    fn phi_f_one_gives_max_target() {
+        let phi_f = 1.0;
+        let total_stake = 10_000;
+        let stake = 0;
+
+        let target = compute_target_value_for_snark_lottery(phi_f, stake, total_stake);
+
+        assert_eq!(
+            target.unwrap(),
+            &BaseFieldElement::default() - &BaseFieldElement::get_one()
+        );
+    }
+
     mod lottery_computations {
         use super::*;
 
@@ -295,7 +352,11 @@ mod tests {
             let total_stake = 100;
 
             let lottery_target_value =
-                compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                compute_target_value_for_snark_lottery_given_ln_approximation(
+                    &ln_one_minus_phi_f,
+                    stake,
+                    total_stake,
+                );
             println!("Target = {:?}", lottery_target_value);
 
             let sk = SchnorrSigningKey::generate(&mut OsRng);
@@ -373,7 +434,11 @@ mod tests {
                 let total_stake = 45_000_000_000;
 
                 for _ in 0..10 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
+                    let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                        &ln_one_minus_phi_f,
+                        0,
+                        total_stake,
+                    );
                     assert_eq!(target, BaseFieldElement::from(0));
                 }
             }
@@ -393,10 +458,19 @@ mod tests {
                         phi_f.denom(),
                     );
                     let total_stake = 45_000_000_000;
-                    let first_target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                    let first_target =
+                        compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            1,
+                            total_stake,
+                        );
 
                     for _ in 0..10 {
-                        let target = compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                        let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            1,
+                            total_stake,
+                        );
                         assert_eq!(target, first_target);
                     }
                 }
@@ -418,11 +492,17 @@ mod tests {
                     );
                     let total_stake = 45_000_000_000;
 
-                    let full_target =
-                        compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
+                    let full_target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                        &ln_one_minus_phi_f,
+                        total_stake,
+                        total_stake,
+                    );
                     for _ in 0..10 {
-                        let target =
-                            compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
+                        let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            total_stake,
+                            total_stake,
+                        );
                         assert_eq!(full_target, target);
                     }
                 }
@@ -444,12 +524,25 @@ mod tests {
                     );
                     let total_stake = 45_000_000_000;
                     for _ in 0..10 {
-                        let zero_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
+                        let zero_target =
+                            compute_target_value_for_snark_lottery_given_ln_approximation(
+                                &ln_one_minus_phi_f,
+                                0,
+                                total_stake,
+                            );
                         let first_target =
-                            compute_target_value(&ln_one_minus_phi_f, 1, total_stake);
+                            compute_target_value_for_snark_lottery_given_ln_approximation(
+                                &ln_one_minus_phi_f,
+                                1,
+                                total_stake,
+                            );
                         assert!(zero_target < first_target);
                         let second_target =
-                            compute_target_value(&ln_one_minus_phi_f, 2, total_stake);
+                            compute_target_value_for_snark_lottery_given_ln_approximation(
+                                &ln_one_minus_phi_f,
+                                2,
+                                total_stake,
+                            );
                         assert!(first_target < second_target);
                     }
                 }
@@ -474,9 +567,18 @@ mod tests {
                     );
                     let total_stake = 45_000_000_000;
 
-                    let mut prev_target = compute_target_value(&ln_one_minus_phi_f, 0, total_stake);
+                    let mut prev_target =
+                        compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            0,
+                            total_stake,
+                        );
                     for i in 1..=10 {
-                        let target = compute_target_value(&ln_one_minus_phi_f, i, total_stake);
+                        let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            i,
+                            total_stake,
+                        );
                         assert!(prev_target < target);
                         prev_target = target;
                     }
@@ -499,9 +601,17 @@ mod tests {
                     let total_stake = 45_000_000_000;
 
                     let mut prev_target =
-                        compute_target_value(&ln_one_minus_phi_f, 99_999, total_stake);
+                        compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            99_999,
+                            total_stake,
+                        );
                     for stake in 100_000..100_010 {
-                        let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                        let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            stake,
+                            total_stake,
+                        );
                         assert!(prev_target < target);
                         prev_target = target;
                     }
@@ -524,10 +634,17 @@ mod tests {
                     let total_stake = 45_000_000_000;
 
                     let mut prev_target =
-                        compute_target_value(&ln_one_minus_phi_f, total_stake, total_stake);
+                        compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            total_stake,
+                            total_stake,
+                        );
                     for i in 1..=10 {
-                        let target =
-                            compute_target_value(&ln_one_minus_phi_f, total_stake - i, total_stake);
+                        let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                            &ln_one_minus_phi_f,
+                            total_stake - i,
+                            total_stake,
+                        );
                         assert!(prev_target > target);
                         prev_target = target;
                     }
@@ -548,8 +665,8 @@ mod tests {
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                                 let ln_one_minus_phi_f =
                     ln_1p_taylor_expansion(TAYLOR_EXPANSION_ITERATIONS, phi_f_ratio.numer(), phi_f_ratio.denom());
-                let base_target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
-                let next_target = compute_target_value(&ln_one_minus_phi_f, stake + 1, total_stake);
+                let base_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
+                let next_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake + 1, total_stake);
 
                 assert!(base_target < next_target);
             }
@@ -564,8 +681,8 @@ mod tests {
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                                 let ln_one_minus_phi_f =
                     ln_1p_taylor_expansion(TAYLOR_EXPANSION_ITERATIONS, phi_f_ratio.numer(), phi_f_ratio.denom());
-                let base_target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
-                let next_target = compute_target_value(&ln_one_minus_phi_f, stake + 1, total_stake);
+                let base_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
+                let next_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake + 1, total_stake);
 
                 assert!(base_target < next_target);
             }
@@ -580,8 +697,8 @@ mod tests {
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                                 let ln_one_minus_phi_f =
                     ln_1p_taylor_expansion(TAYLOR_EXPANSION_ITERATIONS, phi_f_ratio.numer(), phi_f_ratio.denom());
-                let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
-                let same_target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                let target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
+                let same_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
 
                 assert_eq!(target, same_target);
             }
@@ -596,8 +713,8 @@ mod tests {
                 let phi_f_ratio = Ratio::new_raw(BigInt::from(*phi_f_ratio_int.numer()), BigInt::from(*phi_f_ratio_int.denom()));
                                 let ln_one_minus_phi_f =
                     ln_1p_taylor_expansion(TAYLOR_EXPANSION_ITERATIONS, phi_f_ratio.numer(), phi_f_ratio.denom());
-                let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
-                let same_target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                let target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
+                let same_target = compute_target_value_for_snark_lottery_given_ln_approximation(&ln_one_minus_phi_f, stake, total_stake);
                 assert_eq!(target, same_target);
             }
 
@@ -646,7 +763,11 @@ mod tests {
                     phi_f_ratio.denom(),
                 );
 
-                compute_target_value(&ln_one_minus_phi_f, stake, total_stake)
+                compute_target_value_for_snark_lottery_given_ln_approximation(
+                    &ln_one_minus_phi_f,
+                    stake,
+                    total_stake,
+                )
             }
 
             fn golden_value_following_min_stake() -> Vec<BaseFieldElement> {
@@ -661,7 +782,11 @@ mod tests {
                 let mut golden_values = vec![];
 
                 for stake in 0..50 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                    let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                        &ln_one_minus_phi_f,
+                        stake,
+                        total_stake,
+                    );
                     golden_values.push(target);
                 }
                 golden_values
@@ -679,7 +804,11 @@ mod tests {
                 let mut golden_values = vec![];
 
                 for stake in 100_000..100_050 {
-                    let target = compute_target_value(&ln_one_minus_phi_f, stake, total_stake);
+                    let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                        &ln_one_minus_phi_f,
+                        stake,
+                        total_stake,
+                    );
                     golden_values.push(target);
                 }
                 golden_values
@@ -697,8 +826,11 @@ mod tests {
                 let mut golden_values = vec![];
 
                 for i in 0..50 {
-                    let target =
-                        compute_target_value(&ln_one_minus_phi_f, total_stake - i, total_stake);
+                    let target = compute_target_value_for_snark_lottery_given_ln_approximation(
+                        &ln_one_minus_phi_f,
+                        total_stake - i,
+                        total_stake,
+                    );
                     golden_values.push(target);
                 }
                 golden_values
