@@ -43,9 +43,15 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
                 clerk
                     .closed_key_registration
                     .get_registration_entry_for_index(&sig.signer_index)
-                    .map(|reg_party| SingleSignatureWithRegisteredParty {
-                        sig: sig.clone(),
-                        reg_party,
+                    .map(|reg_party| {
+                        #[cfg(feature = "future_snark")]
+                        // We need to remove the SNARK fields from the registration entry used in Concatenation proofs to avoid breaking change with previous client nor able to parse the aggregate signature.
+                        // This happens because of the way the `ClosedRegistrationEntry` is serialized with an array representation isntead of map representation.
+                        let reg_party = reg_party.without_snark_fields();
+                        SingleSignatureWithRegisteredParty {
+                            sig: sig.clone(),
+                            reg_party,
+                        }
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
