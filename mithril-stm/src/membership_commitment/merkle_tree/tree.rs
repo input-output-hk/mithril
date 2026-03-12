@@ -189,38 +189,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         })
     }
 
-    /// Build a map from leaf hash to leaf index for O(1) lookups.
-    ///
-    /// This is more efficient than calling [`find_leaf_index`](Self::find_leaf_index) repeatedly
-    /// when multiple leaves need to be located.
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    pub(crate) fn build_leaf_index_map(&self) -> std::collections::HashMap<Vec<u8>, usize> {
-        (0..self.n)
-            .map(|i| (self.nodes[self.leaf_off + i].clone(), i))
-            .collect()
-    }
-
-    /// Look up a leaf's index using a pre-built hash map.
-    ///
-    /// Use [`build_leaf_index_map`](Self::build_leaf_index_map) to create the map, then call
-    /// this method for each leaf to get O(1) lookups instead of O(n) scans.
-    #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
-    pub(crate) fn find_leaf_index_from_map(
-        &self,
-        leaf: &L,
-        leaf_index_map: &std::collections::HashMap<Vec<u8>, usize>,
-    ) -> StmResult<usize> {
-        let leaf_hash = D::digest(leaf.as_bytes_for_merkle_tree()).to_vec();
-        leaf_index_map
-            .get(&leaf_hash)
-            .copied()
-            .ok_or_else(|| MerkleTreeError::LeafNotFound.into())
-    }
-
     #[cfg(feature = "future_snark")]
     // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
