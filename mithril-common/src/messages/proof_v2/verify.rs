@@ -43,30 +43,18 @@ where
     /// If every check is okay, the hex encoded Merkle root of the proof will be returned.
     pub fn verify(
         &self,
-        items: &[MkSetProofMessagePart<T>],
+        proof_message: &MkSetProofMessagePart<T>,
     ) -> Result<String, VerifyProofsV2Error> {
-        let mut merkle_root = None;
+        let certified_item = self.proof_message_into_entity(proof_message)?;
+        certified_item
+            .verify()
+            .map_err(|e| VerifyProofsV2Error::InvalidSetProof {
+                subject: self.subject,
+                hashes: certified_item.items.iter().map(self.hash_extractor).collect(),
+                source: e,
+            })?;
 
-        for item in items {
-            let certified_item = self.proof_message_into_entity(item)?;
-            certified_item
-                .verify()
-                .map_err(|e| VerifyProofsV2Error::InvalidSetProof {
-                    subject: self.subject,
-                    hashes: certified_item.items.iter().map(self.hash_extractor).collect(),
-                    source: e,
-                })?;
-
-            let tx_merkle_root = Some(certified_item.merkle_root());
-
-            if merkle_root.is_none() {
-                merkle_root = tx_merkle_root;
-            } else if merkle_root != tx_merkle_root {
-                return Err(VerifyProofsV2Error::NonMatchingMerkleRoot(self.subject));
-            }
-        }
-
-        merkle_root.ok_or(VerifyProofsV2Error::NoCertifiedTransaction(self.subject))
+        Ok(certified_item.merkle_root())
     }
 }
 
@@ -94,22 +82,11 @@ mod tests {
         };
 
         let error = ProofMessageVerifier::<_, &str>::new("subject", |i| i.to_string())
-            .verify(&[proof_message])
+            .verify(&proof_message)
             .expect_err("Malformed txs proofs should fail to verify itself");
         assert!(
             matches!(error, VerifyProofsV2Error::MalformedData(..)),
             "Expected 'MalformedData' error but got '{error:?}'"
-        );
-    }
-
-    #[test]
-    fn verify_no_certified_item_fail() {
-        let error = ProofMessageVerifier::<&str, &str>::new("subject", |i| i.to_string())
-            .verify(&[])
-            .expect_err("Proofs without certified item should fail to verify itself");
-        assert!(
-            matches!(error, VerifyProofsV2Error::NoCertifiedTransaction(..)),
-            "Expected 'NoCertifiedTransactions' error but got '{error:?}'"
         );
     }
 
@@ -123,7 +100,7 @@ mod tests {
         };
 
         let merkle_root = ProofMessageVerifier::<&str, &str>::new("subject", |i| i.to_string())
-            .verify(&[txs_proofs])
+            .verify(&txs_proofs)
             .expect("Valid proof should verify itself");
 
         assert_eq!(proof.compute_root().to_hex(), merkle_root);
@@ -137,7 +114,7 @@ mod tests {
         };
 
         let error = ProofMessageVerifier::<&str, &str>::new("subject", |i| i.to_string())
-            .verify(&[txs_proofs])
+            .verify(&txs_proofs)
             .expect_err(
                 "Proofs with items not included in its merkle tree should fail to verify itself",
             );
@@ -145,29 +122,6 @@ mod tests {
         assert!(
             matches!(error, VerifyProofsV2Error::InvalidSetProof { .. }),
             "Expected 'InvalidSetProof' error but got '{error:?}'"
-        );
-    }
-
-    #[test]
-    fn verify_valid_proof_with_different_merkle_root_fail() {
-        let txs_proofs = vec![
-            MkSetProofMessagePart::<&str> {
-                items: vec!["item1"],
-                proof: mk_map_proof_for(&["item1", "item2"]).to_json_hex().unwrap(),
-            },
-            MkSetProofMessagePart::<&str> {
-                items: vec!["item2"],
-                proof: mk_map_proof_for(&["item2", "other"]).to_json_hex().unwrap(),
-            },
-        ];
-
-        let error = ProofMessageVerifier::<&str, &str>::new("subject", |i| i.to_string())
-            .verify(&txs_proofs)
-            .expect_err("Txs proofs with non matching merkle root should fail to verify itself");
-
-        assert!(
-            matches!(error, VerifyProofsV2Error::NonMatchingMerkleRoot(..)),
-            "Expected 'NonMatchingMerkleRoot' error but got '{error:?}'"
         );
     }
 }

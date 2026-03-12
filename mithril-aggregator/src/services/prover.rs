@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use rayon::prelude::*;
 use slog::{Logger, debug, info};
@@ -27,14 +28,14 @@ pub trait ProverService: Sync + Send {
         &self,
         up_to: BlockNumber,
         hashes: &[BlockHash],
-    ) -> StdResult<Vec<MkSetProof<CardanoBlock>>>;
+    ) -> StdResult<Option<MkSetProof<CardanoBlock>>>;
 
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(
         &self,
         up_to: BlockNumber,
         hashes: &[TransactionHash],
-    ) -> StdResult<Vec<MkSetProof<CardanoTransaction>>>;
+    ) -> StdResult<Option<MkSetProof<CardanoTransaction>>>;
 
     /// Compute the cache
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()>;
@@ -139,10 +140,14 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         &self,
         items_to_prove: Vec<T>,
         extract_block_number: fn(&T) -> BlockNumber,
-    ) -> StdResult<Vec<MkSetProof<T>>>
+    ) -> StdResult<Option<MkSetProof<T>>>
     where
         T: Into<CardanoBlockTransactionMkTreeNode> + IntoMKTreeNode + Clone,
     {
+        if items_to_prove.is_empty() {
+            return Ok(None);
+        }
+
         // 1 - Compute the set of block ranges with the items to prove
         let nodes_to_prove: Vec<CardanoBlockTransactionMkTreeNode> =
             items_to_prove.iter().cloned().map(Into::into).collect();
@@ -160,14 +165,12 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         let mk_map = self.get_mk_map(nodes_per_block_ranges).await?;
 
         // 4 - Compute the proof for all transactions
-        match mk_map.compute_proof(&nodes_to_prove) {
-            Ok(mk_proof) => {
-                self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
+        let mk_proof = mk_map.compute_proof(&nodes_to_prove).with_context(|| {
+            format!("Failed to compute a merkle proof for the items: {nodes_to_prove:?}")
+        })?;
+        self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
 
-                Ok(vec![MkSetProof::<T>::new(items_to_prove, mk_proof)])
-            }
-            _ => Ok(vec![]),
-        }
+        Ok(Some(MkSetProof::<T>::new(items_to_prove, mk_proof)))
     }
 }
 
@@ -177,7 +180,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
         &self,
         up_to: BlockNumber,
         block_hashes: &[BlockHash],
-    ) -> StdResult<Vec<MkSetProof<CardanoBlock>>> {
+    ) -> StdResult<Option<MkSetProof<CardanoBlock>>> {
         let blocks = self
             .blocks_transactions_retriever
             .get_block_by_hashes(block_hashes.to_vec(), up_to)
@@ -190,7 +193,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
         &self,
         up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
-    ) -> StdResult<Vec<MkSetProof<CardanoTransaction>>> {
+    ) -> StdResult<Option<MkSetProof<CardanoTransaction>>> {
         let transactions = self
             .blocks_transactions_retriever
             .get_transactions_by_hashes(transaction_hashes.to_vec(), up_to)
@@ -344,11 +347,11 @@ mod tests {
             let blocks_set_proof = prover
                 .compute_blocks_proofs(beacon, &blocks_hashes(&blocks_to_prove))
                 .await
+                .unwrap()
                 .unwrap();
 
-            assert_eq!(blocks_set_proof.len(), 1);
-            assert_eq!(blocks_set_proof[0].blocks(), blocks_to_prove);
-            blocks_set_proof[0].verify().unwrap();
+            assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
+            blocks_set_proof.verify().unwrap();
         }
 
         #[tokio::test]
@@ -372,7 +375,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(blocks_set_proof.len(), 0);
+            assert_eq!(None, blocks_set_proof);
         }
 
         #[tokio::test]
@@ -392,7 +395,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(blocks_set_proof.len(), 0);
+            assert_eq!(None, blocks_set_proof);
         }
 
         #[tokio::test]
@@ -420,11 +423,11 @@ mod tests {
                     .concat(),
                 )
                 .await
+                .unwrap()
                 .unwrap();
 
-            assert_eq!(blocks_set_proof.len(), 1);
-            assert_eq!(blocks_set_proof[0].blocks(), blocks_to_prove);
-            blocks_set_proof[0].verify().unwrap();
+            assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
+            blocks_set_proof.verify().unwrap();
         }
     }
 
@@ -460,14 +463,11 @@ mod tests {
             let transactions_set_proof = prover
                 .compute_transactions_proofs(beacon, &transactions_hashes(&transactions_to_prove))
                 .await
+                .unwrap()
                 .unwrap();
 
-            assert_eq!(transactions_set_proof.len(), 1);
-            assert_eq!(
-                transactions_set_proof[0].transactions(),
-                transactions_to_prove
-            );
-            transactions_set_proof[0].verify().unwrap();
+            assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
+            transactions_set_proof.verify().unwrap();
         }
 
         #[tokio::test]
@@ -491,7 +491,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(transactions_set_proof.len(), 0);
+            assert_eq!(None, transactions_set_proof);
         }
 
         #[tokio::test]
@@ -511,7 +511,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(transactions_set_proof.len(), 0);
+            assert_eq!(None, transactions_set_proof);
         }
 
         #[tokio::test]
@@ -539,14 +539,11 @@ mod tests {
                     .concat(),
                 )
                 .await
+                .unwrap()
                 .unwrap();
 
-            assert_eq!(transactions_set_proof.len(), 1);
-            assert_eq!(
-                transactions_set_proof[0].transactions(),
-                transactions_to_prove
-            );
-            transactions_set_proof[0].verify().unwrap();
+            assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
+            transactions_set_proof.verify().unwrap();
         }
     }
 
@@ -556,6 +553,7 @@ mod tests {
             .max_transactions_per_block(1)
             .blocks_per_block_range(1)
             .build_blocks_for_block_ranges(1);
+        let first_block = blocks_with_txs.last().unwrap().clone();
         let beacon = blocks_with_txs.last().unwrap().block_number;
 
         let prover = MithrilProverService {
@@ -573,12 +571,12 @@ mod tests {
         prover.compute_cache(beacon).await.unwrap();
 
         prover
-            .compute_transactions_proofs(beacon, &["tx-unknown".to_string()])
+            .compute_transactions_proofs(beacon, &[first_block.transactions_hashes[0].clone()])
             .await
             .expect_err("Should fail to compute proof since blocks/transactions retriever fails");
 
         prover
-            .compute_blocks_proofs(beacon, &["block-unknown".to_string()])
+            .compute_blocks_proofs(beacon, std::slice::from_ref(&first_block.block_hash))
             .await
             .expect_err("Should fail to compute proof since blocks/transactions retriever fails");
     }
@@ -589,6 +587,7 @@ mod tests {
             .max_transactions_per_block(1)
             .blocks_per_block_range(1)
             .build_blocks_for_block_ranges(1);
+        let first_block = blocks_with_txs.last().unwrap().clone();
         let beacon = blocks_with_txs.last().unwrap().block_number;
 
         let prover = MithrilProverService {
@@ -608,12 +607,12 @@ mod tests {
             .expect_err("Should fail to compute cache since block range retriever fails");
 
         prover
-            .compute_transactions_proofs(beacon, &["tx-unknown".to_string()])
+            .compute_transactions_proofs(beacon, &[first_block.transactions_hashes[0].clone()])
             .await
             .expect_err("Should fail to compute proof since blocks range retriever fails");
 
         prover
-            .compute_blocks_proofs(beacon, &["block-unknown".to_string()])
+            .compute_blocks_proofs(beacon, std::slice::from_ref(&first_block.block_hash))
             .await
             .expect_err("Should fail to compute proof since blocks range retriever fails");
     }

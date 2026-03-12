@@ -10,7 +10,7 @@ use crate::messages::{CardanoTransactionMessagePart, MkSetProofMessagePart, Veri
 use wasm_bindgen::prelude::*;
 
 /// A cryptographic proof for a set of Cardano transactions
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(
     target_family = "wasm",
     wasm_bindgen(getter_with_clone, js_name = "CardanoTransactionsProofsV2")
@@ -22,7 +22,7 @@ pub struct CardanoTransactionsProofsV2Message {
     /// Transactions that have been certified
     // Note: Skip in wasm as `wasm_bindgen` don't support generics
     #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
-    pub certified_transactions: Vec<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
+    pub certified_transactions: Option<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
 
     /// Hashes of the transactions that could not be certified
     pub non_certified_transactions: Vec<String>,
@@ -42,20 +42,18 @@ impl CardanoTransactionsProofsV2Message {
     #[wasm_bindgen(getter)]
     pub fn certified_transactions(&self) -> Vec<CardanoTransactionMessagePart> {
         self.certified_transactions
-            .iter()
-            .flat_map(|cb| &cb.items)
-            .cloned()
-            .collect()
+            .as_ref()
+            .map(|ctxs| ctxs.items.clone())
+            .unwrap_or_default()
     }
 
     /// Hashes of the Cardano transactions that have been certified
     #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
     pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
         self.certified_transactions
-            .iter()
-            .flat_map(|ct| ct.items.iter().map(|t| &t.transaction_hash))
-            .cloned()
-            .collect()
+            .as_ref()
+            .map(|ctxs| ctxs.items.iter().map(|t| t.transaction_hash.clone()).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -106,7 +104,7 @@ impl CardanoTransactionsProofsV2Message {
     /// Create a new `ProofsV2CardanoTransactionsMessage`
     pub fn new(
         certificate_hash: &str,
-        certified_transactions: Vec<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
+        certified_transactions: Option<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
         non_certified_transactions: Vec<String>,
         latest_block_number: BlockNumber,
     ) -> Self {
@@ -130,20 +128,20 @@ impl CardanoTransactionsProofsV2Message {
     ///
     /// If every check is okay, the hex encoded Merkle root of the proof will be returned.
     pub fn verify(&self) -> Result<VerifiedCardanoTransactionsV2, VerifyProofsV2Error> {
-        let merkle_root =
-            ProofMessageVerifier::<_, CardanoTransaction>::new("Cardano transactions", |tx| {
-                tx.transaction_hash.clone()
-            })
-            .verify(&self.certified_transactions)?;
+        const SUBJECT: &str = "Cardano transactions";
+        let certified_transactions = self
+            .certified_transactions
+            .as_ref()
+            .ok_or(VerifyProofsV2Error::NoCertifiedItem(SUBJECT))?;
+        let merkle_root = ProofMessageVerifier::<_, CardanoTransaction>::new(SUBJECT, |tx| {
+            tx.transaction_hash.clone()
+        })
+        .verify(certified_transactions)?;
 
         Ok(VerifiedCardanoTransactionsV2 {
             certificate_hash: self.certificate_hash.clone(),
             merkle_root,
-            certified_transactions: self
-                .certified_transactions
-                .iter()
-                .flat_map(|t| t.items.clone())
-                .collect(),
+            certified_transactions: certified_transactions.items.clone(),
             latest_block_number: self.latest_block_number,
         })
     }

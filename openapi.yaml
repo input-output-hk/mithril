@@ -2956,7 +2956,7 @@ components:
           }
 
     CardanoBlockProofMessage:
-      description: This message represents proofs for Cardano Blocks.
+      description: This message represents a proof of inclusion for Cardano Blocks.
       type: object
       additionalProperties: false
       required:
@@ -2970,22 +2970,23 @@ components:
           type: string
           format: bytes
         certified_blocks:
-          description: Proofs for certified Cardano blocks
-          type: array
-          items:
-            type: object
-            required:
-              - items
-              - proof
-            properties:
-              items:
-                type: array
+          oneOf:
+            - description: No blocks could be certified, either they do not exist in the Cardano Chain or have yet to be certified by Mithril
+              const: null
+            - description: Proof for certified Cardano blocks
+              type: object
+              required:
+                - items
+                - proof
+              properties:
                 items:
-                  $ref: "#/components/schemas/CardanoBlock"
-              proof:
-                description: Proof for the Cardano blocks
-                type: string
-                format: bytes
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CardanoBlock"
+                proof:
+                  description: Proof for the Cardano blocks
+                  type: string
+                  format: bytes
         non_certified_blocks:
           type: array
           items:
@@ -3000,19 +3001,17 @@ components:
         - {
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "certified_blocks":
-              [
-                {
-                  "items":
-                    [
-                      {
-                        block_hash: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0",
-                        block_number: 123456789,
-                        slot_number: 987654321
-                      }
-                    ],
-                  "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
-                }
-              ],
+              {
+                "items":
+                  [
+                    {
+                      block_hash: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0",
+                      block_number: 123456789,
+                      slot_number: 987654321
+                    }
+                  ],
+                "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
+              },
             "non_certified_blocks":
               [
                 "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
@@ -3021,7 +3020,7 @@ components:
           }
 
     CardanoTransactionProofV2Message:
-      description: This message represents proofs for Cardano Transactions.
+      description: This message represents a proof of inclusion for Cardano Transactions.
       type: object
       additionalProperties: false
       required:
@@ -3035,22 +3034,23 @@ components:
           type: string
           format: bytes
         certified_transactions:
-          description: Proofs for certified Cardano transactions
-          type: array
-          items:
-            type: object
-            required:
-              - items
-              - proof
-            properties:
-              items:
-                type: array
+          oneOf:
+            - description: No transactions could be certified, either they do not exist in the Cardano Chain or have yet to be certified by Mithril
+              const: null
+            - description: Proof for certified Cardano transactions
+              type: object
+              required:
+                - items
+                - proof
+              properties:
                 items:
-                  $ref: "#/components/schemas/CardanoTransaction"
-              proof:
-                description: Proof for the Cardano transactions
-                type: string
-                format: bytes
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CardanoTransaction"
+                proof:
+                  description: Proof for the Cardano transactions
+                  type: string
+                  format: bytes
         non_certified_transactions:
           type: array
           items:
@@ -3065,20 +3065,19 @@ components:
         - {
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "certified_transactions":
-              [
-                {
-                  "items":
-                    [
-                      {
-                        transaction_hash: "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732",
-                        block_hash: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0",
-                        block_number: 123456789,
-                        slot_number: 987654321
-                      }
-                    ],
-                  "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
-                }
-              ],
+              {
+                "items":
+                  [
+                    {
+                      transaction_hash: "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732",
+                      block_hash: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f6a20142916d0",
+                      block_number: 123456789,
+                      slot_number: 987654321
+                    }
+                  ],
+                "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
+              },
+
             "non_certified_transactions":
               [
                 "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
