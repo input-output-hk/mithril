@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.29 (03-13-2026)
+
+### Changed
+
+- Completed the Halo2 STM naming alignment across circuit types, gadgets, and golden tests, including clearer circuit witness naming and constraint-oriented lottery gadget semantics.
+
 ## 0.9.28 (03-12-2026)
 
 ### Changed
