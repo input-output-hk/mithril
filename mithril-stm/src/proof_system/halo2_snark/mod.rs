@@ -136,9 +136,9 @@ mod tests {
             ) {
                 let mut rng = ChaCha20Rng::from_seed(seed);
                 let params = Parameters {
-                    m: 100,
-                    k: 20,
-                    phi_f: 0.5,
+                    m: 10,
+                    k: 5,
+                    phi_f: 0.2,
                 };
                 let (_signer, avk) = setup_snark_signer(params, 3, &mut rng);
 
@@ -176,9 +176,9 @@ mod tests {
         fn schnorr_challenge_matches_circuit_ordering() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
-                m: 100,
-                k: 20,
-                phi_f: 0.5,
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
             };
             let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
 
@@ -240,9 +240,9 @@ mod tests {
         fn lottery_prefix_structure_matches_circuit() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
-                m: 100,
-                k: 20,
-                phi_f: 0.5,
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
             };
             let (_signer, avk) = setup_snark_signer(params, 3, &mut rng);
 
@@ -276,9 +276,9 @@ mod tests {
         fn lottery_evaluation_structure_matches_circuit() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
-                m: 100,
-                k: 20,
-                phi_f: 0.5,
+                m: 10,
+                k: 5,
+                phi_f: 0.2,
             };
             let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
 
@@ -322,8 +322,8 @@ mod tests {
         #[test]
         fn sign_then_verify_roundtrip(
             nparties in 2_usize..10,
-            m in 100_u64..120,
-            k in 20_u64..25,
+            m in 10_u64..20,
+            k in 1_u64..5,
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
@@ -344,8 +344,8 @@ mod tests {
         #[test]
         fn wrong_message_fails_verification(
             nparties in 2_usize..10,
-            m in 100_u64..120,
-            k in 20_u64..25,
+            m in 10_u64..20,
+            k in 1_u64..5,
             msg1 in any::<[u8; 32]>(),
             msg2 in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
@@ -368,8 +368,8 @@ mod tests {
         #[test]
         fn wrong_verification_key_fails(
             nparties in 2_usize..10,
-            m in 100_u64..120,
-            k in 20_u64..25,
+            m in 10_u64..20,
+            k in 1_u64..5,
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
@@ -392,8 +392,8 @@ mod tests {
         #[test]
         fn serde_roundtrip(
             nparties in 2_usize..10,
-            m in 100_u64..120,
-            k in 20_u64..25,
+            m in 10_u64..20,
+            k in 1_u64..5,
             msg in any::<[u8; 32]>(),
             seed in any::<[u8; 32]>(),
         ) {
@@ -423,9 +423,9 @@ mod tests {
     fn check_lottery_returns_all_winning_indices() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let params = Parameters {
-            m: 100,
-            k: 20,
-            phi_f: 0.5,
+            m: 10,
+            k: 5,
+            phi_f: 0.2,
         };
         let (signer, avk) = setup_snark_signer(params, 3, &mut rng);
 

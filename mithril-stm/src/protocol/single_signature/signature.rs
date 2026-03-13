@@ -566,8 +566,7 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "future_snark"))]
-    mod verify_concatenation_only {
+    mod negative_tests_for_concatenation {
         use super::*;
         use crate::{AggregateVerificationKey, BlsSignatureError, Clerk, SignatureError, Signer};
 
@@ -674,7 +673,15 @@ mod tests {
 
             let params = test_parameters();
             let error = signature
-                .verify(&params, &ctx.vk_2.vk, &1, &ctx.avk, &TEST_MESSAGE)
+                .verify(
+                    &params,
+                    &ctx.vk_2.vk,
+                    &1,
+                    &ctx.avk,
+                    &TEST_MESSAGE,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                )
                 .expect_err("Verification should fail with wrong verification key");
             assert!(
                 matches!(
@@ -697,7 +704,15 @@ mod tests {
             signature.set_concatenation_signature_indices(&[params.m + 1]);
 
             let error = signature
-                .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &TEST_MESSAGE)
+                .verify(
+                    &params,
+                    &ctx.vk_1.vk,
+                    &1,
+                    &ctx.avk,
+                    &TEST_MESSAGE,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                )
                 .expect_err("Verification should fail with invalid index");
             assert!(
                 matches!(
@@ -719,7 +734,15 @@ mod tests {
 
             let params = test_parameters();
             let error = signature
-                .verify(&params, &ctx.vk_1.vk, &1, &ctx.avk, &wrong_message)
+                .verify(
+                    &params,
+                    &ctx.vk_1.vk,
+                    &1,
+                    &ctx.avk,
+                    &wrong_message,
+                    #[cfg(feature = "future_snark")]
+                    None,
+                )
                 .expect_err("Verification should fail with wrong message");
             assert!(
                 matches!(
@@ -747,6 +770,8 @@ mod tests {
                     &1,
                     &different_registration_ctx.avk,
                     &TEST_MESSAGE,
+                    #[cfg(feature = "future_snark")]
+                    None,
                 )
                 .expect_err("Verification should fail with a different registration AVK");
             assert!(
