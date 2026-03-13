@@ -262,12 +262,12 @@ mod tests {
         }
 
         /// Verifies the lottery evaluation structure matches the circuit's
-        /// `verify_lottery` gadget (`circuits::halo2::gadgets`):
+        /// `assert_lottery_won` gadget (`circuits::halo2::gadgets`):
         /// ```text
         /// ev = Poseidon(prefix, σ_x, σ_y, index)
         /// ```
         /// Cross-checks the manual computation against
-        /// `verify_lottery_eligibility` by setting `target = ev` (which must
+        /// `assert_lottery_won` by setting `target = ev` (which must
         /// pass under `ev <= target`).
         #[test]
         fn lottery_evaluation_structure_matches_circuit() {
@@ -303,7 +303,7 @@ mod tests {
             let prefix = compute_lottery_prefix(&message_to_sign);
             let ev = compute_poseidon_digest(&[prefix, sigma_x, sigma_y, index_fe]);
 
-            // Cross-check: verify_lottery_eligibility must pass
+            // Cross-check: assert_lottery_won must pass
             // when target = manually computed evaluation
             assert!(
                 check_lottery_for_index(&schnorr, index, params.m, prefix, ev).is_ok(),
@@ -439,7 +439,8 @@ mod tests {
                 .expect("check_lottery should find at least one winning index");
 
         let prefix = compute_lottery_prefix(&message_to_sign);
-        // Every returned index must pass verify_lottery_eligibility
+
+        // Every returned index must pass assert_lottery_won
         for &index in &winning_indices {
             assert!(
                 index < params.m,

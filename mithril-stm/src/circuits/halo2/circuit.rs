@@ -14,10 +14,10 @@ use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
-    is_lottery_won, verify_merkle_path, verify_unique_signature,
+    assert_lottery_won, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, MerklePath, MerkleRoot, MerkleTreeSnarkLeaf,
+    CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath, MerkleRoot,
     SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
@@ -157,7 +157,7 @@ impl StmCircuit {
 impl Relation for StmCircuit {
     type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
     type Witness = Vec<(
-        MerkleTreeSnarkLeaf,
+        CircuitMerkleTreeLeaf,
         MerklePath,
         UniqueSchnorrSignature,
         LotteryIndex,
@@ -314,7 +314,7 @@ impl Relation for StmCircuit {
                 &commitment_point,
             )?;
 
-            is_lottery_won(
+            assert_lottery_won(
                 std_lib,
                 layouter,
                 &lottery_prefix,

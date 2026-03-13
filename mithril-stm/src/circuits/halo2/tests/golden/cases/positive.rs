@@ -5,7 +5,9 @@ use crate::circuits::halo2::tests::golden::helpers::{
     prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
     setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::SignedMessageWithoutPrefix;
+use crate::circuits::halo2::types::{
+    LotteryTargetValue as CircuitLotteryTargetValue, SignedMessageWithoutPrefix,
+};
 
 #[test]
 fn baseline_valid() {
@@ -66,7 +68,7 @@ fn indices_from_zero() {
         .expect("indices_from_zero env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_from_zero tree creation should succeed");
-    let merkle_tree_commitment = merkle_tree.root();
+    let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
     let indices: Vec<LotteryIndex> = vec![0, 1, 2];
     let witness =
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
@@ -85,7 +87,7 @@ fn indices_to_max() {
         .expect("indices_to_max env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
         .expect("indices_to_max tree creation should succeed");
-    let merkle_tree_commitment = merkle_tree.root();
+    let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
     let m = env.m();
     assert!(m >= K, "m must be >= k");
     let start = m - K;
@@ -106,12 +108,12 @@ fn merkle_path_all_right() {
     let env = setup_stm_circuit_env(current_function!(), CIRCUIT_DEGREE, K, K * LOTTERIES_PER_K)
         .expect("merkle_path_all_right env setup should succeed");
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
-    let target = -SignedMessageWithoutPrefix::ONE;
+    let lottery_target_value = -CircuitLotteryTargetValue::ONE;
     let (merkle_tree, rightmost_index) =
-        create_merkle_tree_with_leaf_selector(depth, LeafSelector::RightMost, target)
+        create_merkle_tree_with_leaf_selector(depth, LeafSelector::RightMost, lottery_target_value)
             .expect("merkle_path_all_right tree creation should succeed");
 
-    let merkle_tree_commitment = merkle_tree.root();
+    let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
     let m = env.m();
     let indices: Vec<LotteryIndex> = vec![4, 12, 25];
     assert!(indices.iter().all(|i| *i < m as LotteryIndex));
@@ -138,12 +140,12 @@ fn merkle_path_all_left() {
     let env = setup_stm_circuit_env(current_function!(), CIRCUIT_DEGREE, K, K * LOTTERIES_PER_K)
         .expect("merkle_path_all_left env setup should succeed");
     let depth = env.num_signers().next_power_of_two().trailing_zeros();
-    let target = -SignedMessageWithoutPrefix::ONE;
+    let lottery_target_value = -CircuitLotteryTargetValue::ONE;
     let (merkle_tree, leftmost_index) =
-        create_merkle_tree_with_leaf_selector(depth, LeafSelector::LeftMost, target)
+        create_merkle_tree_with_leaf_selector(depth, LeafSelector::LeftMost, lottery_target_value)
             .expect("merkle_path_all_left tree creation should succeed");
 
-    let merkle_tree_commitment = merkle_tree.root();
+    let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
     let m = env.m();
     let indices: Vec<LotteryIndex> = vec![5, 13, 21];
     assert!(indices.iter().all(|i| *i < m as LotteryIndex));

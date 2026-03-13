@@ -98,8 +98,8 @@ impl Neg for CircuitBaseField {
     }
 }
 
-/// Lottery threshold value used by the circuit for signer eligibility checks.
-pub type Target = CircuitBaseField;
+/// Lottery target value used by the circuit for signer eligibility checks.
+pub type LotteryTargetValue = CircuitBaseField;
 /// Signed message value used by the circuit transcript, without any domain prefix.
 pub type SignedMessageWithoutPrefix = CircuitBaseField;
 /// Merkle root public input committed by the STM membership commitment tree.
@@ -110,7 +110,7 @@ pub type MerkleRoot = CircuitBaseField;
 /// The first field stores the signer's verification key, and the second
 /// field stores the lottery target value associated with that signer.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct MerkleTreeSnarkLeaf(pub SchnorrVerificationKey, pub Target);
+pub struct CircuitMerkleTreeLeaf(pub SchnorrVerificationKey, pub LotteryTargetValue);
 
 /// Position of a sibling node relative to the current hash in a Merkle path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

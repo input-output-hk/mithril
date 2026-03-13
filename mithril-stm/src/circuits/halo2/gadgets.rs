@@ -212,7 +212,7 @@ pub fn verify_unique_signature(
     std_lib.assert_equal(layouter, challenge_base, &challenge_prime)
 }
 
-pub fn is_lottery_won(
+pub fn assert_lottery_won(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
     lottery_prefix: &AssignedNative<CircuitBase>,
