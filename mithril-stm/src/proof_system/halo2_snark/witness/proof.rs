@@ -15,8 +15,8 @@ type Instance = (BaseFieldElement, BaseFieldElement);
 /// Prover input for the SNARK circuit, bundling public and private data.
 /// The **instance** carries the Merkle tree root and the signed message, the two public inputs
 /// exposed to the verifier. The **witness** contains one `WitnessEntry` per winning lottery index,
-/// each providing the Schnorr signature, Merkle leaf, and authentication path that the providing
-/// the Schnorr signature, Merkle leaf, and authentication path that the circuit checks privately.
+/// each providing the Schnorr signature, Merkle leaf, and authentication path that the circuit
+/// checks privately.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -53,13 +53,8 @@ impl SnarkProverInput {
             clerk.compute_aggregate_verification_key_for_snark();
         let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, message)?;
 
-        let valid_signatures_with_indices = Self::collect_valid_signatures_with_indices(
-            clerk,
-            signatures,
-            message,
-            &message_to_sign,
-            &avk,
-        );
+        let valid_signatures_with_indices =
+            Self::collect_valid_signatures_with_indices(clerk, signatures, &message_to_sign);
 
         let unique_index_signature_map = SnarkClerk::select_valid_signatures_for_k_indices(
             &clerk.parameters,
@@ -73,27 +68,31 @@ impl SnarkProverInput {
         Ok(SnarkProverInput { witness, instance })
     }
 
-    /// Filter and validate signatures that have a SNARK component.
+    /// Collect only the valid signatures that have a SNARK component and winning lottery indices.
     ///
-    /// For each signature, this method verifies the Schnorr component against the signer's winning
-    /// lottery indices and attaches them to a cloned copy of the signature. Signatures that lack a
-    /// SNARK component, have no registration entry, fail verification, or yield no winning indices
-    /// are silently skipped.
-    fn collect_valid_signatures_with_indices<D: MembershipDigest>(
+    /// For each signature, this method verifies the Schnorr signature against the signer's
+    /// registered verification key using the pre-computed `message_to_sign`, then computes
+    /// winning lottery indices. Only signatures that pass all checks are included in the result;
+    /// any that lack a SNARK component, have no or invalid registration entry, fail verification,
+    /// or yield no winning indices are discarded. Since the goal is to gather as many valid
+    /// signatures as possible, individual failures are not propagated, the caller decides
+    /// whether the collected set is sufficient.
+    fn collect_valid_signatures_with_indices(
         clerk: &SnarkClerk,
         signatures: &[SingleSignature],
-        message: &[u8],
         message_to_sign: &[BaseFieldElement; 2],
-        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
     ) -> Vec<SingleSignature> {
         signatures
             .iter()
             .filter_map(|sig| {
                 let snark_sig = sig.snark_signature.as_ref()?;
-                let reg_entry =
-                    clerk.get_snark_registration_entry(sig.signer_index).ok().flatten()?;
+                let reg_entry = match clerk.get_snark_registration_entry(sig.signer_index) {
+                    Ok(Some(entry)) => entry,
+                    Ok(None) => return None,
+                    Err(_) => return None,
+                };
                 snark_sig
-                    .verify(&reg_entry.0, message, aggregate_verification_key)
+                    .verify_with_prepared_message(&reg_entry.0, message_to_sign)
                     .ok()?;
                 let indices = compute_winning_lottery_indices(
                     clerk.parameters.m,
@@ -127,7 +126,8 @@ mod tests {
 
     use crate::{
         AggregationError, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
-        Signer, SingleSignature, proof_system::SnarkClerk,
+        Signer, SingleSignature,
+        proof_system::{SnarkClerk, halo2_snark::build_snark_message},
     };
 
     use super::SnarkProverInput;
@@ -277,7 +277,6 @@ mod tests {
             SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
 
         // Recompute expected instance from the clerk's AVK
-        use crate::proof_system::halo2_snark::build_snark_message;
         let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
         let expected_message =
             build_snark_message(&avk.get_merkle_tree_commitment().root, &message).unwrap();
