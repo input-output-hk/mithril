@@ -268,14 +268,20 @@ impl Aggregator {
         Ok(())
     }
 
-    pub async fn bootstrap_genesis(&self) -> StdResult<()> {
-        // Clone the command so we can alter it without affecting the original
+    pub async fn bootstrap_genesis(&self, mithril_era: &str) -> StdResult<()> {
         let mut command = self.command.write().await;
         let command_name = &format!("mithril-aggregator-genesis-bootstrap-{}", self.name_suffix,);
         command.set_log_name(command_name);
 
+        let mut args = vec!["genesis".to_string(), "bootstrap".to_string()];
+        if self.version.is_above("0.8.14") {
+            args.extend(["--mithril-era".to_string(), mithril_era.to_string()]);
+        } else {
+            info!("Aggregator version is below 0.8.14, skipping unsupported `--mithril-era` flag");
+        }
+
         let exit_status = command
-            .start(&["genesis".to_string(), "bootstrap".to_string()])?
+            .start(&args)?
             .wait()
             .await
             .with_context(|| "`mithril-aggregator genesis bootstrap` crashed")?;
