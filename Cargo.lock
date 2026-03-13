@@ -4210,6 +4210,7 @@ dependencies = [
  "httpmock",
  "human_bytes",
  "indicatif",
+ "mimalloc",
  "mithril-cli-helper",
  "mithril-client",
  "mithril-common",
@@ -4225,6 +4226,7 @@ dependencies = [
  "slog-term",
  "tar",
  "thiserror 2.0.18",
+ "tikv-jemallocator",
  "tokio",
  "zip",
 ]

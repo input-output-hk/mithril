@@ -19,3 +19,24 @@ pub use command_context::*;
 pub use configuration::*;
 /// Error Clap
 pub type ClapError = clap::error::Error;
+
+// Memory allocator (to handle properly memory fragmentation)
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(all(
+    not(target_os = "windows"),
+    not(all(target_os = "linux", target_arch = "aarch64"))
+))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+use mimalloc::MiMalloc;
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
