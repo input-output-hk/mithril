@@ -1214,8 +1214,22 @@ mod tests {
         use super::*;
 
         use crate::crypto_helper::ProtocolMembershipDigest;
+        use crate::entities::SupportedEra;
+        use crate::test::builder::{CertificateChainBuilder, CertificateChainFixture};
 
         use mithril_stm::AggregateSignature;
+
+        fn setup_certificate_chain_with_lagrange_era(
+            total_certificates: u64,
+            certificates_per_epoch: u64,
+        ) -> CertificateChainFixture {
+            CertificateChainBuilder::new()
+                .with_total_certificates(total_certificates)
+                .with_certificates_per_epoch(certificates_per_epoch)
+                .with_protocol_parameters(setup_protocol_parameters())
+                .with_mithril_era(SupportedEra::Lagrange)
+                .build()
+        }
 
         fn with_snark_proof_type(mut certificate: Certificate) -> Certificate {
             if let CertificateSignature::MultiSignature(entity_type, _) =
@@ -1235,8 +1249,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_succeeds_with_different_epochs() {
             let (total_certificates, certificates_per_epoch) = (5, 1);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
@@ -1254,8 +1270,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_succeeds_with_same_epoch() {
             let (total_certificates, certificates_per_epoch) = (5, 2);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
@@ -1272,8 +1290,10 @@ mod tests {
         fn snark_avk_chaining_fails_with_same_epoch_when_current_has_snark_avk_but_previous_does_not()
          {
             let (total_certificates, certificates_per_epoch) = (5, 2);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
@@ -1293,8 +1313,10 @@ mod tests {
         fn snark_avk_chaining_fails_with_same_epoch_when_previous_has_snark_avk_but_current_does_not()
          {
             let (total_certificates, certificates_per_epoch) = (5, 2);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             certificate.aggregate_verification_key_snark = None;
@@ -1314,8 +1336,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_fails_with_same_epoch_when_both_lack_snark_avk() {
             let (total_certificates, certificates_per_epoch) = (5, 2);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             certificate.aggregate_verification_key_snark = None;
@@ -1336,8 +1360,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_fails_when_next_snark_avk_is_tampered() {
             let (total_certificates, certificates_per_epoch) = (5, 1);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
@@ -1359,8 +1385,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_fails_when_next_snark_avk_is_missing() {
             let (total_certificates, certificates_per_epoch) = (5, 1);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
@@ -1382,8 +1410,10 @@ mod tests {
         #[test]
         fn avk_chaining_dispatches_to_snark_when_current_is_future_and_previous_is_concatenation() {
             let (total_certificates, certificates_per_epoch) = (5, 1);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
@@ -1400,8 +1430,10 @@ mod tests {
         #[test]
         fn snark_avk_chaining_succeeds_when_previous_is_genesis_certificate() {
             let (total_certificates, certificates_per_epoch) = (5, 1);
-            let fake_certificates =
-                setup_certificate_chain(total_certificates, certificates_per_epoch);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
             let verifier = MockDependencyInjector::new().build_certificate_verifier();
             let genesis_certificate = fake_certificates.genesis_certificate().clone();
             let mut certificate = with_snark_proof_type(fake_certificates[3].clone());

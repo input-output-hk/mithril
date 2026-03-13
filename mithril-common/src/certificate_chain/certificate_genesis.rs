@@ -13,7 +13,7 @@ use crate::{
     },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-        ProtocolMessagePartKey, ProtocolParameters,
+        ProtocolMessagePartKey, ProtocolParameters, SupportedEra,
     },
     protocol::ToMessage,
 };
@@ -46,6 +46,7 @@ impl CertificateGenesisProducer {
         genesis_protocol_parameters: &ProtocolParameters,
         genesis_avk: &ProtocolAggregateVerificationKey,
         genesis_epoch: &Epoch,
+        mithril_era: SupportedEra,
     ) -> StdResult<ProtocolMessage> {
         let genesis_aggregate_verification_key_for_concatenation =
             ProtocolKey::new(genesis_avk.to_concatenation_aggregate_verification_key().to_owned());
@@ -57,8 +58,8 @@ impl CertificateGenesisProducer {
             genesis_concatenation_avk,
         );
 
-        #[cfg(feature = "future_snark")]
-        {
+        if mithril_era != SupportedEra::Pythagoras {
+            #[cfg(feature = "future_snark")]
             match genesis_avk.to_snark_aggregate_verification_key() {
                 Some(snark_avk) => {
                     let genesis_snark_avk: ProtocolAggregateVerificationKeyForSnark =
@@ -70,8 +71,7 @@ impl CertificateGenesisProducer {
                 }
                 None => {
                     eprintln!(
-                        "WARNING: SNARK aggregate verification key is unavailable, \
-                         genesis certificate will not include SNARK AVK"
+                        "WARNING: SNARK aggregate verification key is unavailable, genesis certificate will not include SNARK AVK"
                     );
                 }
             }
@@ -107,6 +107,7 @@ impl CertificateGenesisProducer {
         epoch: Epoch,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_signature: ProtocolGenesisSignature,
+        mithril_era: SupportedEra,
     ) -> StdResult<Certificate> {
         let protocol_version = PROTOCOL_VERSION.to_string();
         let initiated_at = Utc::now();
@@ -121,8 +122,12 @@ impl CertificateGenesisProducer {
             signers,
         );
         let previous_hash = "".to_string();
-        let genesis_protocol_message =
-            Self::create_genesis_protocol_message(&protocol_parameters, &genesis_avk, &epoch)?;
+        let genesis_protocol_message = Self::create_genesis_protocol_message(
+            &protocol_parameters,
+            &genesis_avk,
+            &epoch,
+            mithril_era,
+        )?;
         Ok(Certificate::new(
             previous_hash,
             epoch,
@@ -150,6 +155,7 @@ mod tests {
             &genesis_protocol_parameters,
             &genesis_avk,
             &genesis_epoch,
+            SupportedEra::Pythagoras,
         )
         .unwrap();
 
@@ -185,6 +191,7 @@ mod tests {
             &genesis_protocol_parameters,
             &genesis_avk,
             &genesis_epoch,
+            SupportedEra::Lagrange,
         )
         .unwrap();
 

@@ -14,7 +14,7 @@ use crate::{
     },
     entities::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
-        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SupportedEra,
     },
     test::{
         builder::{MithrilFixture, MithrilFixtureBuilder, SignerFixture},
@@ -252,6 +252,7 @@ pub struct CertificateChainBuilder<'a> {
     standard_certificate_processor: &'a StandardCertificateProcessorFunc,
     certificate_chaining_method: CertificateChainingMethod,
     aggregate_signature_type: AggregateSignatureType,
+    mithril_era: SupportedEra,
 }
 
 impl<'a> CertificateChainBuilder<'a> {
@@ -271,6 +272,7 @@ impl<'a> CertificateChainBuilder<'a> {
             standard_certificate_processor: &|certificate, _| certificate,
             certificate_chaining_method: Default::default(),
             aggregate_signature_type: Default::default(),
+            mithril_era: *SupportedEra::eras().first().unwrap(),
         }
     }
 
@@ -345,6 +347,13 @@ impl<'a> CertificateChainBuilder<'a> {
         self
     }
 
+    /// Set the Mithril era to use for genesis certificate creation.
+    pub fn with_mithril_era(mut self, mithril_era: SupportedEra) -> Self {
+        self.mithril_era = mithril_era;
+
+        self
+    }
+
     /// Build the certificate chain.
     pub fn build(self) -> CertificateChainFixture {
         let (genesis_signer, genesis_verifier) = CertificateChainBuilder::setup_genesis();
@@ -365,7 +374,7 @@ impl<'a> CertificateChainBuilder<'a> {
                 );
                 match index_certificate {
                     0 => genesis_certificate_processor(
-                        self.build_genesis_certificate(&context, &genesis_signer),
+                        self.build_genesis_certificate(&context, &genesis_signer, self.mithril_era),
                         &context,
                         &genesis_signer,
                     ),
@@ -498,6 +507,7 @@ impl<'a> CertificateChainBuilder<'a> {
         &self,
         context: &CertificateChainBuilderContext,
         genesis_signer: &ProtocolGenesisSigner,
+        mithril_era: SupportedEra,
     ) -> Certificate {
         let epoch = context.epoch;
         let certificate = self.build_base_certificate(context);
@@ -509,6 +519,7 @@ impl<'a> CertificateChainBuilder<'a> {
             next_protocol_parameters,
             &next_avk,
             &epoch,
+            mithril_era,
         )
         .unwrap();
         let genesis_signature = genesis_producer
@@ -521,6 +532,7 @@ impl<'a> CertificateChainBuilder<'a> {
             certificate.epoch,
             next_avk,
             genesis_signature,
+            mithril_era,
         )
         .unwrap()
     }
@@ -864,9 +876,14 @@ mod test {
         let expected_signed_message = expected_protocol_message.compute_hash();
         let (protocol_genesis_signer, _) = CertificateChainBuilder::setup_genesis();
 
+        let mithril_era = if cfg!(feature = "future_snark") {
+            SupportedEra::Lagrange
+        } else {
+            SupportedEra::Pythagoras
+        };
         let genesis_certificate = CertificateChainBuilder::default()
             .with_protocol_parameters(expected_protocol_parameters)
-            .build_genesis_certificate(&context, &protocol_genesis_signer);
+            .build_genesis_certificate(&context, &protocol_genesis_signer, mithril_era);
 
         assert!(genesis_certificate.is_genesis());
         assert_eq!(
