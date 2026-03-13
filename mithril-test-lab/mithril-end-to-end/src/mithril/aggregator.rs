@@ -274,10 +274,10 @@ impl Aggregator {
         command.set_log_name(command_name);
 
         let mut args = vec!["genesis".to_string(), "bootstrap".to_string()];
-        if self.version.is_above("0.8.14") {
+        if self.version.is_above_or_equal("0.8.34") {
             args.extend(["--mithril-era".to_string(), mithril_era.to_string()]);
         } else {
-            info!("Aggregator version is below 0.8.14, skipping unsupported `--mithril-era` flag");
+            info!("Aggregator version is below 0.8.34, skipping unsupported `--mithril-era` flag");
         }
 
         let exit_status = command

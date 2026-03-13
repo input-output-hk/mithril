@@ -1,12 +1,10 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
-#[cfg(feature = "future_snark")]
-use mithril_stm::AggregateVerificationKeyForSnark;
-#[cfg(feature = "future_snark")]
-use mithril_stm::VerificationKeyForSnark;
 use mithril_stm::{
     AggregateSignature, AggregateVerificationKey, AggregateVerificationKeyForConcatenation,
     SingleSignature, VerificationKeyProofOfPossessionForConcatenation,
 };
+#[cfg(feature = "future_snark")]
+use mithril_stm::{AggregateVerificationKeyForSnark, VerificationKeyForSnark};
 
 use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, ProtocolMembershipDigest};
 use crate::entities::BlockRange;

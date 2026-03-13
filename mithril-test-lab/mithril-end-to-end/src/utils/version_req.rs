@@ -54,14 +54,6 @@ impl NodeVersion {
         version_req.matches(&self.semver_version)
     }
 
-    /// Checks if the node version is strictly above the given version.
-    ///
-    /// Panics if `version` is not a valid semver version
-    pub fn is_above(&self, version: &'static str) -> bool {
-        let version_req = semver::VersionReq::parse(&format!(">{version}")).unwrap();
-        version_req.matches(&self.semver_version)
-    }
-
     /// Checks if the node version is equal or above the given version.
     ///
     /// Panics if `version` is not a valid semver version
@@ -128,16 +120,6 @@ mod tests {
         assert!(version.is_below("1.2.4"));
         assert!(!version.is_below("1.2.3"));
         assert!(!version.is_below("1.2.2"));
-    }
-
-    #[test]
-    fn test_version_strictly_above() {
-        let version = NodeVersion::new(semver::Version::new(5, 7, 1));
-
-        assert!(version.is_above("4.6.0"));
-        assert!(version.is_above("5.7.0"));
-        assert!(!version.is_above("5.7.1"));
-        assert!(!version.is_above("5.7.2"));
     }
 
     #[test]

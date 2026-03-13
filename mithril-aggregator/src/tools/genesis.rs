@@ -215,7 +215,6 @@ mod tests {
             ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
             ProtocolGenesisVerifier,
         },
-        entities::SupportedEra,
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
     use std::{fs::read_to_string, path::PathBuf};

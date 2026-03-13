@@ -208,8 +208,6 @@ impl TryFrom<CertificateRecord> for Certificate {
             .aggregate_verification_key_snark
             .map(|hex| hex.as_str().try_into())
             .transpose()?;
-        #[cfg(not(feature = "future_snark"))]
-        let _ = other.aggregate_verification_key_snark;
 
         let certificate = Certificate {
             hash: other.certificate_id,
@@ -243,8 +241,6 @@ impl From<CertificateRecord> for CertificateMessage {
         } else {
             (value.signature, String::new())
         };
-        #[cfg(not(feature = "future_snark"))]
-        let _ = value.aggregate_verification_key_snark;
 
         CertificateMessage {
             hash: value.certificate_id,
