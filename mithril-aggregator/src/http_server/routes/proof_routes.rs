@@ -59,7 +59,7 @@ fn proof_cardano_transaction(
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signed_entity_service(router_state))
         .and(middlewares::validators::with_prover_transactions_hash_validator(router_state))
-        .and(middlewares::with_prover_service(router_state))
+        .and(middlewares::with_legacy_prover_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::proof_cardano_transaction)
 }
@@ -106,7 +106,10 @@ mod handlers {
     use mithril_common::{
         StdResult,
         entities::{CardanoBlocksTransactionsSnapshot, CardanoTransactionsSnapshot},
-        messages::{CardanoTransactionsProofsMessage, CardanoTransactionsSetProofMessagePart},
+        messages::{
+            CardanoBlocksProofsMessage, CardanoTransactionsProofsMessage,
+            CardanoTransactionsProofsV2Message,
+        },
         signable_builder::SignedEntity,
     };
 
@@ -117,7 +120,7 @@ mod handlers {
             validators::ProverHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
-        services::{LegacyProverService, SignedEntityService},
+        services::{LegacyProverService, ProverService, SignedEntityService},
         unwrap_to_internal_server_error,
     };
 
@@ -189,7 +192,7 @@ mod handlers {
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverHashValidator,
-        prover_service: Arc<dyn LegacyProverService>,
+        prover_service: Arc<dyn ProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
@@ -252,7 +255,7 @@ mod handlers {
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverHashValidator,
-        prover_service: Arc<dyn LegacyProverService>,
+        prover_service: Arc<dyn ProverService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
@@ -330,62 +333,67 @@ mod handlers {
     }
 
     async fn build_response_message_for_v2_cardano_transaction(
-        prover_service: Arc<dyn LegacyProverService>,
+        prover_service: Arc<dyn ProverService>,
         signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
         transaction_hashes: Vec<String>,
-    ) -> StdResult<CardanoTransactionsProofsMessage> {
-        let transactions_set_proofs = prover_service
+    ) -> StdResult<CardanoTransactionsProofsV2Message> {
+        let (certified_transactions, non_certified_transactions) = match prover_service
             .compute_transactions_proofs(
                 signed_entity.artifact.block_number_signed,
-                transaction_hashes.as_slice(),
+                &transaction_hashes,
             )
-            .await?;
-        let certified_transactions = transactions_set_proofs
-            .iter()
-            .flat_map(|proof| proof.transactions_hashes().to_vec())
-            .collect::<Vec<_>>();
-        let non_certified_transactions = transaction_hashes
-            .iter()
-            .filter(|hash| !certified_transactions.contains(hash))
-            .cloned()
-            .collect::<Vec<_>>();
-        let certified_transactions = transactions_set_proofs
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<StdResult<Vec<CardanoTransactionsSetProofMessagePart>>>(
-        )?;
-        let message = CardanoTransactionsProofsMessage::new(
+            .await?
+        {
+            Some(transactions_set_proof) => {
+                let certified_transactions_hashes: Vec<_> =
+                    transactions_set_proof.transactions_hashes().collect();
+                let non_certified_transactions = transaction_hashes
+                    .iter()
+                    .filter(|hash| !certified_transactions_hashes.contains(hash))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let certified_transactions = transactions_set_proof.try_into()?;
+
+                (Some(certified_transactions), non_certified_transactions)
+            }
+            None => (None, transaction_hashes),
+        };
+
+        Ok(CardanoTransactionsProofsV2Message::new(
             &signed_entity.certificate_id,
             certified_transactions,
             non_certified_transactions,
             signed_entity.artifact.block_number_signed,
-        );
-
-        Ok(message)
+        ))
     }
 
     async fn build_response_message_for_v2_cardano_block(
-        prover_service: Arc<dyn LegacyProverService>,
+        prover_service: Arc<dyn ProverService>,
         signed_entity: SignedEntity<CardanoBlocksTransactionsSnapshot>,
         block_hashes: Vec<String>,
-    ) -> StdResult<CardanoTransactionsProofsMessage> {
-        // TODO(#2987): replace this temporary legacy call with the new prover once block proofs are available.
-        let transactions_set_proofs = prover_service
-            .compute_transactions_proofs(
-                signed_entity.artifact.block_number_signed,
-                block_hashes.as_slice(),
-            )
-            .await?;
-        let certified_transactions = transactions_set_proofs
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<StdResult<Vec<_>>>()?;
-        let non_certified_transactions = block_hashes;
+    ) -> StdResult<CardanoBlocksProofsMessage> {
+        let (certified_blocks, non_certified_blocks) = match prover_service
+            .compute_blocks_proofs(signed_entity.artifact.block_number_signed, &block_hashes)
+            .await?
+        {
+            Some(blocks_set_proofs) => {
+                let certified_blocks_hashes: Vec<_> = blocks_set_proofs.blocks_hashes().collect();
+                let non_certified_blocks = block_hashes
+                    .iter()
+                    .filter(|hash| !certified_blocks_hashes.contains(hash))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let certified_blocks = blocks_set_proofs.try_into()?;
 
-        Ok(CardanoTransactionsProofsMessage::new(
+                (Some(certified_blocks), non_certified_blocks)
+            }
+            None => (None, block_hashes),
+        };
+
+        Ok(CardanoBlocksProofsMessage::new(
             &signed_entity.certificate_id,
-            certified_transactions,
-            non_certified_transactions,
+            certified_blocks,
+            non_certified_blocks,
             signed_entity.artifact.block_number_signed,
         ))
     }
@@ -405,7 +413,9 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
-        entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
+        entities::{
+            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, MkSetProof,
+        },
         signable_builder::SignedEntity,
         test::{
             assert_equivalent,
@@ -413,7 +423,7 @@ mod tests {
         },
     };
 
-    use crate::services::MockLegacyProverService;
+    use crate::services::{MockLegacyProverService, MockProverService};
     use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     use super::*;
@@ -641,7 +651,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proof_v2_cardano_transaction_ok() {
+    async fn proof_v2_cardano_transaction_ok_some_proof() {
         let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         let signed_entity = SignedEntity::dummy();
@@ -650,11 +660,11 @@ mod tests {
             .returning(move || Ok(Some(signed_entity.clone())));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
-        let mut mock_prover_service = MockLegacyProverService::new();
+        let mut mock_prover_service = MockProverService::new();
         mock_prover_service
             .expect_compute_transactions_proofs()
-            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
+            .returning(|_, _| Ok(Some(MkSetProof::dummy())));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/v2/cardano-transaction";
@@ -684,7 +694,49 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proof_v2_cardano_block_ok() {
+    async fn proof_v2_cardano_transaction_ok_no_proof() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        let signed_entity = SignedEntity::dummy();
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(move || Ok(Some(signed_entity.clone())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let mut mock_prover_service = MockProverService::new();
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .returning(|_, _| Ok(None));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "{path}?transaction_hashes={}",
+                fake_data::transaction_hashes()[0],
+            ))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_ok_some_proof() {
         let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         let signed_entity = SignedEntity::dummy();
@@ -694,11 +746,51 @@ mod tests {
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let block_hash = fake_data::block_hashes()[0].to_string();
-        let mut mock_prover_service = MockLegacyProverService::new();
+        let mut mock_prover_service = MockProverService::new();
         mock_prover_service
-            .expect_compute_transactions_proofs()
-            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
-        dependency_manager.legacy_prover_service = Arc::new(mock_prover_service);
+            .expect_compute_blocks_proofs()
+            .returning(|_, _| Ok(Some(MkSetProof::dummy())));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/v2/cardano-block";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{path}?block_hashes={block_hash}"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_v2_cardano_block_ok_no_proof() {
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        let signed_entity = SignedEntity::dummy();
+        mock_signed_entity_service
+            .expect_get_last_cardano_blocks_transactions_snapshot()
+            .returning(move || Ok(Some(signed_entity.clone())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let block_hash = fake_data::block_hashes()[0].to_string();
+        let mut mock_prover_service = MockProverService::new();
+        mock_prover_service
+            .expect_compute_blocks_proofs()
+            .returning(|_, _| Ok(None));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/v2/cardano-block";

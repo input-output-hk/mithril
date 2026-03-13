@@ -20,6 +20,7 @@ mod interface;
 mod message_parts;
 mod mithril_stake_distribution;
 mod mithril_stake_distribution_list;
+mod proof_v2;
 mod protocol_configuration;
 mod register_signature;
 mod register_signer;
@@ -68,6 +69,7 @@ pub use mithril_stake_distribution::MithrilStakeDistributionMessage;
 pub use mithril_stake_distribution_list::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,
 };
+pub use proof_v2::*;
 pub use protocol_configuration::ProtocolConfigurationMessage;
 pub use register_signature::{RegisterSignatureMessageDmq, RegisterSignatureMessageHttp};
 pub use register_signer::RegisterSignerMessage;

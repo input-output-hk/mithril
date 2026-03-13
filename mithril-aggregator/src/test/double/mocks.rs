@@ -1,14 +1,20 @@
 use async_trait::async_trait;
-
-use mithril_cardano_node_chain::chain_observer::{ChainObserver, ChainObserverError};
-use mithril_cardano_node_chain::entities::{ChainAddress, TxDatum};
-use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{KesPeriod, ProtocolGenesisVerificationKey};
-use mithril_common::entities::{Certificate, ChainPoint, Epoch, StakeDistribution};
-use mithril_persistence::store::StakeStorer;
-
-use mithril_common::StdResult;
 use mockall::mock;
+
+use mithril_cardano_node_chain::{
+    chain_observer::{ChainObserver, ChainObserverError},
+    entities::{ChainAddress, TxDatum},
+};
+use mithril_common::{
+    StdResult,
+    certificate_chain::CertificateVerifier,
+    crypto_helper::{
+        KesPeriod, MKMap, MKMapNode, MKTreeNode, MKTreeStorer, ProtocolGenesisVerificationKey,
+    },
+    entities::{BlockNumber, BlockRange, Certificate, ChainPoint, Epoch, StakeDistribution},
+    signable_builder::BlockRangeRootRetriever,
+};
+use mithril_persistence::store::StakeStorer;
 
 mock! {
     pub CertificateVerifier {}
@@ -75,5 +81,22 @@ mock! {
         async fn save_stakes(&self, epoch: Epoch, stakes: StakeDistribution) -> StdResult<Option<StakeDistribution>>;
 
         async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>>;
+    }
+}
+
+mock! {
+    pub BlockRangeRootRetriever<S: MKTreeStorer> { }
+
+    #[async_trait]
+    impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetriever<S> {
+        async fn retrieve_block_range_roots<'a>(
+            &'a self,
+            up_to_beacon: BlockNumber,
+        ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
+
+        async fn compute_merkle_map_from_block_range_roots(
+            &self,
+            up_to_beacon: BlockNumber,
+        ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>;
     }
 }

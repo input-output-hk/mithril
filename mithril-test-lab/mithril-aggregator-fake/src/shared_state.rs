@@ -23,9 +23,11 @@ pub struct AppState {
     mithril_stake_distributions: BTreeMap<String, String>,
     cardano_transaction_snapshot_list: String,
     cardano_transaction_snapshots: BTreeMap<String, String>,
+    cardano_transaction_proofs: BTreeMap<String, String>,
     cardano_blocks_transactions_snapshot_list: String,
     cardano_blocks_transactions_snapshots: BTreeMap<String, String>,
-    cardano_transaction_proofs: BTreeMap<String, String>,
+    cardano_transaction_proofs_v2: BTreeMap<String, String>,
+    cardano_block_proofs: BTreeMap<String, String>,
     cardano_stake_distribution_list: String,
     cardano_stake_distributions: BTreeMap<String, String>,
     cardano_stake_distributions_per_epoch: BTreeMap<u64, String>,
@@ -59,11 +61,13 @@ impl Default for AppState {
             cardano_transaction_snapshot_list: default_values::cardano_transaction_snapshots_list()
                 .to_owned(),
             cardano_transaction_snapshots: default_values::cardano_transaction_snapshots(),
+            cardano_transaction_proofs: default_values::cardano_transaction_proofs(),
             cardano_blocks_transactions_snapshot_list:
                 default_values::cardano_blocks_transactions_snapshots_list().to_owned(),
             cardano_blocks_transactions_snapshots:
                 default_values::cardano_blocks_transactions_snapshots(),
-            cardano_transaction_proofs: default_values::cardano_transaction_proofs(),
+            cardano_transaction_proofs_v2: default_values::cardano_transaction_proofs_v2(),
+            cardano_block_proofs: default_values::cardano_block_proofs(),
             cardano_stake_distribution_list: default_values::cardano_stake_distribution_list()
                 .to_owned(),
             cardano_stake_distributions: default_values::cardano_stake_distributions(),
@@ -85,19 +89,21 @@ impl AppState {
         let reader = DataDir::new(data_dir)?;
         let status = reader.read_file("status")?;
         let epoch_settings = reader.read_file("epoch-settings")?;
-        let (certificate_list, certificates) = reader.read_files("certificate")?;
-        let (snapshot_list, snapshots) = reader.read_files("snapshot")?;
+        let (certificate_list, certificates) = reader.read_files("certificates")?;
+        let (snapshot_list, snapshots) = reader.read_files("snapshots")?;
         let (mithril_stake_distribution_list, mithril_stake_distributions) =
-            reader.read_files("mithril-stake-distribution")?;
+            reader.read_files("mithril-stake-distributions")?;
         let (cardano_transaction_snapshot_list, cardano_transaction_snapshots) =
-            reader.read_files("ctx-snapshot")?;
+            reader.read_files("ctx-snapshots")?;
+        let (_, cardano_transaction_proofs) = reader.read_files("ctx-proofs")?;
         let (cardano_blocks_transactions_snapshot_list, cardano_blocks_transactions_snapshots) =
-            reader.read_files("cardano-blocks-tx-snapshot")?;
-        let (_, cardano_transaction_proofs) = reader.read_files("ctx-proof")?;
+            reader.read_files("cardano-blocks-txs-snapshots")?;
+        let (_, cardano_transaction_proofs_v2) = reader.read_files("ctx-proofs-v2")?;
+        let (_, cardano_block_proofs) = reader.read_files("cblk-proofs")?;
         let (cardano_stake_distribution_list, cardano_stake_distributions) =
-            reader.read_files("cardano-stake-distribution")?;
+            reader.read_files("cardano-stake-distributions")?;
         let (cardano_database_snapshot_list, cardano_database_snapshots) =
-            reader.read_files("cardano-database")?;
+            reader.read_files("cardano-databases")?;
 
         // derived values
         let cardano_stake_distributions_per_epoch =
@@ -116,9 +122,11 @@ impl AppState {
             mithril_stake_distributions,
             cardano_transaction_snapshot_list,
             cardano_transaction_snapshots,
+            cardano_transaction_proofs,
             cardano_blocks_transactions_snapshot_list,
             cardano_blocks_transactions_snapshots,
-            cardano_transaction_proofs,
+            cardano_transaction_proofs_v2,
+            cardano_block_proofs,
             cardano_stake_distribution_list,
             cardano_stake_distributions_per_epoch,
             cardano_stake_distributions,
@@ -180,6 +188,11 @@ impl AppState {
         Ok(self.cardano_transaction_snapshots.get(key).cloned())
     }
 
+    /// return the Cardano transactions proofs from Cardano transaction hashes.
+    pub async fn get_cardano_transaction_proofs(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_transaction_proofs.get(key).cloned())
+    }
+
     /// return the list of Cardano blocks transactions snapshots in the same order as they were read
     pub async fn get_cardano_blocks_transactions_snapshots(&self) -> StdResult<String> {
         Ok(self.cardano_blocks_transactions_snapshot_list.clone())
@@ -193,9 +206,14 @@ impl AppState {
         Ok(self.cardano_blocks_transactions_snapshots.get(key).cloned())
     }
 
-    /// return the Cardano transactions proofs from Cardano transaction hashes.
-    pub async fn get_cardano_transaction_proofs(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.cardano_transaction_proofs.get(key).cloned())
+    /// return the Cardano transactions proofs v2 from Cardano transaction hashes.
+    pub async fn get_cardano_transaction_proofs_v2(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_transaction_proofs_v2.get(key).cloned())
+    }
+
+    /// return the Cardano block proofs from Cardano block hashes.
+    pub async fn get_cardano_block_proofs(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_block_proofs.get(key).cloned())
     }
 
     /// return the list of Cardano stake distributions in the same order as they were read
@@ -302,7 +320,7 @@ impl DataDir {
     }
 
     fn read_list_file(&self, entity: &str) -> StdResult<String> {
-        self.read_file(&format!("{entity}s-list"))
+        self.read_file(&format!("{entity}-list"))
     }
 
     fn extract_entity_content(
@@ -316,9 +334,9 @@ impl DataDir {
     }
 
     fn read_entities_file(&self, entity: &str) -> StdResult<BTreeMap<String, String>> {
-        let file_content = self.read_file(&format!("{entity}s"))?;
+        let file_content = self.read_file(entity)?;
         let parsed_json: serde_json::Value = serde_json::from_str(&file_content)
-            .with_context(|| format!("Could not parse JSON in file '{entity}s.json'."))?;
+            .with_context(|| format!("Could not parse JSON in file '{entity}.json'."))?;
         let json_object = parsed_json.as_object().with_context(|| {
             format!("Collection file for entity {entity} is not a JSON hashmap.")
         })?;

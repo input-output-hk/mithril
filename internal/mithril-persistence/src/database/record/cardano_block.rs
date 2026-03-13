@@ -1,6 +1,8 @@
 use sqlite::Row;
 
-use mithril_common::entities::{BlockHash, BlockNumber, CardanoBlockWithTransactions, SlotNumber};
+use mithril_common::entities::{
+    BlockHash, BlockNumber, CardanoBlock, CardanoBlockWithTransactions, SlotNumber,
+};
 
 use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};
@@ -66,5 +68,15 @@ impl SqLiteEntity for CardanoBlockRecord {
 impl From<CardanoBlockWithTransactions> for CardanoBlockRecord {
     fn from(block: CardanoBlockWithTransactions) -> Self {
         Self::new(block.block_hash, block.block_number, block.slot_number)
+    }
+}
+
+impl From<CardanoBlockRecord> for CardanoBlock {
+    fn from(record: CardanoBlockRecord) -> Self {
+        CardanoBlock {
+            block_hash: record.block_hash,
+            block_number: record.block_number,
+            slot_number: record.slot_number,
+        }
     }
 }
