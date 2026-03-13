@@ -1,10 +1,13 @@
 mod aggregate_key;
+mod clerk;
 mod eligibility;
 mod message;
 mod signer;
 mod single_signature;
+mod witness;
 
 pub(crate) use aggregate_key::AggregateVerificationKeyForSnark;
+pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,
 };
@@ -446,21 +449,16 @@ mod tests {
                 "Winning index {index} should be less than m={}",
                 params.m
             );
-            assert!(
-                check_lottery_for_index(&schnorr, index, params.m, prefix, target).unwrap(),
-                "Winning index {index} should pass check_lottery_for_index"
-            );
+            let result = check_lottery_for_index(&schnorr, index, params.m, prefix, target)
+                .expect("check_lottery_for_index should not error for valid index");
+            assert!(result, "Winning index {index} should return true");
         }
 
-        // Every index NOT in the winning set must fail check_lottery_for_index
         for index in 0..params.m {
             if !winning_indices.contains(&index) {
-                let result =
-                    check_lottery_for_index(&schnorr, index, params.m, prefix, target).unwrap();
-                assert!(
-                    !result,
-                    "Expected LotteryLost for index {index}, got: {result:?}"
-                );
+                let result = check_lottery_for_index(&schnorr, index, params.m, prefix, target)
+                    .expect("check_lottery_for_index should not error for valid index");
+                assert!(!result, "Non-winning index {index} should return false");
             }
         }
     }

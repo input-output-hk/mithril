@@ -9,3 +9,5 @@ pub mod halo2;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
+
+pub(crate) use halo2::types::MerklePath;
