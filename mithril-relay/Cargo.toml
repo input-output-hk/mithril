@@ -11,8 +11,9 @@ repository = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
-# Enable support for future/experimental SNARK functionality in mithril-common.
+# For activating snark features
 future_snark = ["mithril-common/future_snark"]
+rustls-tls = ["reqwest/rustls-tls"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -23,7 +24,7 @@ mithril-common = { path = "../mithril-common" }
 mithril-dmq = { path = "../internal/mithril-dmq" }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
-reqwest = { workspace = true, features = ["default", "gzip", "zstd", "deflate", "brotli"] }
+reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "gzip", "zstd", "deflate", "brotli"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }

@@ -14,7 +14,7 @@ axum = "0.8.8"
 mithril-common = { path = "../../mithril-common" }
 paste = "1.0.15"
 prometheus = "0.14.0"
-reqwest = { workspace = true, features = ["default", "stream"] }
+reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "stream"] }
 slog = { workspace = true }
 tokio = { workspace = true }
 
