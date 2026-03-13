@@ -119,3 +119,174 @@ impl SnarkProverInput {
         &self.witness
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        AggregationError, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+        Signer, SingleSignature, proof_system::SnarkClerk,
+    };
+
+    use super::SnarkProverInput;
+
+    type D = MithrilMembershipDigest;
+
+    fn setup_signers_and_clerk(
+        params: Parameters,
+        nparties: usize,
+        rng: &mut ChaCha20Rng,
+    ) -> (Vec<Signer<D>>, SnarkClerk) {
+        let mut key_reg = KeyRegistration::initialize();
+        let mut initializers = Vec::with_capacity(nparties);
+
+        for _ in 0..nparties {
+            let init = Initializer::new(params, 1, rng);
+            key_reg.register_by_entry(&init.clone().try_into().unwrap()).unwrap();
+            initializers.push(init);
+        }
+
+        let closed_reg = key_reg.close_registration(&params).unwrap();
+        let signers: Vec<Signer<D>> = initializers
+            .into_iter()
+            .map(|init| init.try_create_signer::<D>(&closed_reg).unwrap())
+            .collect();
+
+        let clerk = SnarkClerk::new_clerk_from_signer(&signers[0]);
+        (signers, clerk)
+    }
+
+    fn collect_signatures(signers: &[Signer<D>], message: &[u8]) -> Vec<SingleSignature> {
+        signers
+            .iter()
+            .filter_map(|signer| signer.create_single_signature(message).ok())
+            .collect()
+    }
+
+    #[test]
+    fn succeeds_with_enough_valid_signatures() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+        let nparties = 10;
+        let message = [1u8; 32];
+
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+
+        let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message);
+        assert!(result.is_ok(), "Expected success, got: {result:?}");
+
+        let prover_input = result.unwrap();
+        assert_eq!(
+            prover_input.get_witness().len() as u64,
+            params.k,
+            "Witness should contain exactly k entries"
+        );
+    }
+
+    #[test]
+    fn fails_when_not_enough_signatures() {
+        let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+        let params = Parameters {
+            m: 5,
+            k: 100,
+            phi_f: 0.2,
+        };
+        let nparties = 2;
+        let message = [2u8; 32];
+
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+
+        let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message);
+        assert!(
+            result.is_err(),
+            "Expected failure due to insufficient signatures"
+        );
+
+        let err = result.unwrap_err();
+        assert!(
+            err.downcast_ref::<AggregationError>().is_some(),
+            "Expected AggregationError, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn skips_signatures_without_snark_component() {
+        let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+        let nparties = 10;
+        let message = [3u8; 32];
+
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let mut signatures = collect_signatures(&signers, &message);
+
+        // Strip the SNARK component from all signatures
+        for sig in &mut signatures {
+            sig.snark_signature = None;
+        }
+
+        let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message);
+        assert!(
+            result.is_err(),
+            "Expected failure when all SNARK signatures are stripped"
+        );
+    }
+
+    #[test]
+    fn empty_signatures_fails() {
+        let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+        let nparties = 5;
+
+        let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+
+        let result = SnarkProverInput::prepare_prover_input::<D>(&clerk, &[], &[4u8; 32]);
+        assert!(result.is_err(), "Expected failure with empty signatures");
+    }
+
+    #[test]
+    fn instance_contains_expected_message_components() {
+        let mut rng = ChaCha20Rng::from_seed([4u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+        let nparties = 10;
+        let message = [5u8; 32];
+
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+
+        let prover_input =
+            SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
+
+        // Recompute expected instance from the clerk's AVK
+        use crate::proof_system::halo2_snark::build_snark_message;
+        let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
+        let expected_message =
+            build_snark_message(&avk.get_merkle_tree_commitment().root, &message).unwrap();
+
+        let (instance_root, instance_msg) = prover_input.get_instance();
+        assert_eq!(instance_root, expected_message[0], "Instance root mismatch");
+        assert_eq!(
+            instance_msg, expected_message[1],
+            "Instance message mismatch"
+        );
+    }
+}
