@@ -515,26 +515,28 @@ impl<'a> CertificateChainBuilder<'a> {
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
         let genesis_producer =
             CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.to_owned())));
-        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            next_protocol_parameters,
-            &next_avk,
-            &epoch,
-            mithril_era,
-        )
-        .unwrap();
+        let genesis_protocol_message = genesis_producer
+            .create_genesis_protocol_message(
+                next_protocol_parameters,
+                &next_avk,
+                &epoch,
+                mithril_era,
+            )
+            .unwrap();
         let genesis_signature = genesis_producer
             .sign_genesis_protocol_message(genesis_protocol_message)
             .unwrap();
 
-        CertificateGenesisProducer::create_genesis_certificate(
-            certificate.metadata.protocol_parameters,
-            certificate.metadata.network,
-            certificate.epoch,
-            next_avk,
-            genesis_signature,
-            mithril_era,
-        )
-        .unwrap()
+        genesis_producer
+            .create_genesis_certificate(
+                certificate.metadata.protocol_parameters,
+                certificate.metadata.network,
+                certificate.epoch,
+                next_avk,
+                genesis_signature,
+                mithril_era,
+            )
+            .unwrap()
     }
 
     fn build_standard_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {

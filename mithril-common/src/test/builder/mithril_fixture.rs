@@ -234,26 +234,28 @@ impl MithrilFixture {
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let mithril_era = SupportedEra::Pythagoras;
-        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            &self.protocol_parameters,
-            &genesis_avk,
-            &epoch,
-            mithril_era,
-        )
-        .unwrap();
+        let genesis_protocol_message = genesis_producer
+            .create_genesis_protocol_message(
+                &self.protocol_parameters,
+                &genesis_avk,
+                &epoch,
+                mithril_era,
+            )
+            .unwrap();
         let genesis_signature = genesis_producer
             .sign_genesis_protocol_message(genesis_protocol_message)
             .unwrap();
 
-        CertificateGenesisProducer::create_genesis_certificate(
-            self.protocol_parameters.clone(),
-            network,
-            epoch,
-            genesis_avk,
-            genesis_signature,
-            mithril_era,
-        )
-        .unwrap()
+        genesis_producer
+            .create_genesis_certificate(
+                self.protocol_parameters.clone(),
+                network,
+                epoch,
+                genesis_avk,
+                genesis_signature,
+                mithril_era,
+            )
+            .unwrap()
     }
 
     /// Make all underlying signers sign the given message, filter the resulting list to remove

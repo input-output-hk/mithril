@@ -495,6 +495,7 @@ impl DependenciesBuilder {
             protocol_parameters_retriever: self.get_protocol_parameters_retriever().await?,
             verification_key_store: self.get_verification_key_store().await?,
             mithril_era,
+            logger: self.root_logger(),
         };
 
         Ok(dependencies)

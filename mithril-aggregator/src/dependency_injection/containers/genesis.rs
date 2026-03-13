@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use slog::Logger;
+
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     CardanoNetwork, certificate_chain::CertificateVerifier, entities::SupportedEra,
@@ -30,4 +32,7 @@ pub struct GenesisCommandDependenciesContainer {
 
     /// Mithril era to use for the genesis certificate.
     pub mithril_era: SupportedEra,
+
+    /// Logger.
+    pub logger: Logger,
 }

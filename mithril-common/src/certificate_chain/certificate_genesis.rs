@@ -3,8 +3,13 @@
 use std::sync::Arc;
 
 use chrono::prelude::*;
+#[cfg(feature = "future_snark")]
+use slog::warn;
+use slog::{Logger, o};
 use thiserror::Error;
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::{
     StdResult,
     crypto_helper::{
@@ -18,9 +23,6 @@ use crate::{
     protocol::ToMessage,
 };
 
-#[cfg(feature = "future_snark")]
-use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
-
 /// [CertificateGenesisProducer] related errors.
 #[derive(Error, Debug)]
 pub enum CertificateGenesisProducerError {
@@ -33,16 +35,27 @@ pub enum CertificateGenesisProducerError {
 #[derive(Debug)]
 pub struct CertificateGenesisProducer {
     genesis_signer: Option<Arc<ProtocolGenesisSigner>>,
+    logger: Logger,
 }
 
 impl CertificateGenesisProducer {
     /// CertificateGenesisProducer factory
     pub fn new(genesis_signer: Option<Arc<ProtocolGenesisSigner>>) -> Self {
-        Self { genesis_signer }
+        Self {
+            genesis_signer,
+            logger: Logger::root(slog::Discard, o!()),
+        }
+    }
+
+    /// Set the [Logger] to use.
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = logger;
+        self
     }
 
     /// Create the Genesis protocol message
     pub fn create_genesis_protocol_message(
+        &self,
         genesis_protocol_parameters: &ProtocolParameters,
         genesis_avk: &ProtocolAggregateVerificationKey,
         genesis_epoch: &Epoch,
@@ -70,8 +83,9 @@ impl CertificateGenesisProducer {
                     );
                 }
                 None => {
-                    eprintln!(
-                        "WARNING: SNARK aggregate verification key is unavailable, genesis certificate will not include SNARK AVK"
+                    warn!(
+                        self.logger,
+                        "SNARK aggregate verification key is unavailable, genesis certificate will not include SNARK AVK"
                     );
                 }
             }
@@ -102,6 +116,7 @@ impl CertificateGenesisProducer {
 
     /// Create a Genesis Certificate
     pub fn create_genesis_certificate<T: Into<String>>(
+        &self,
         protocol_parameters: ProtocolParameters,
         network: T,
         epoch: Epoch,
@@ -122,7 +137,7 @@ impl CertificateGenesisProducer {
             signers,
         );
         let previous_hash = "".to_string();
-        let genesis_protocol_message = Self::create_genesis_protocol_message(
+        let genesis_protocol_message = self.create_genesis_protocol_message(
             &protocol_parameters,
             &genesis_avk,
             &epoch,
@@ -143,21 +158,26 @@ impl CertificateGenesisProducer {
 mod tests {
     use super::*;
 
-    use crate::{entities::ProtocolMessagePartKey, test::builder::MithrilFixtureBuilder};
+    use crate::entities::ProtocolMessagePartKey;
+    use crate::test::TestLogger;
+    use crate::test::builder::MithrilFixtureBuilder;
 
     #[test]
-    fn test_create_genesis_protocol_message_has_expected_keys_and_values() {
+    fn genesis_protocol_message_has_expected_keys_and_values() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let genesis_protocol_parameters = fixture.protocol_parameters();
         let genesis_avk = fixture.compute_aggregate_verification_key();
         let genesis_epoch = Epoch(123);
-        let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            &genesis_protocol_parameters,
-            &genesis_avk,
-            &genesis_epoch,
-            SupportedEra::Pythagoras,
-        )
-        .unwrap();
+        let genesis_producer =
+            CertificateGenesisProducer::new(None).with_logger(TestLogger::stdout());
+        let protocol_message = genesis_producer
+            .create_genesis_protocol_message(
+                &genesis_protocol_parameters,
+                &genesis_avk,
+                &genesis_epoch,
+                SupportedEra::Pythagoras,
+            )
+            .unwrap();
 
         let expected_genesis_avk_value =
             fixture.compute_and_encode_concatenation_aggregate_verification_key();
@@ -187,13 +207,16 @@ mod tests {
         let genesis_protocol_parameters = fixture.protocol_parameters();
         let genesis_avk = fixture.compute_aggregate_verification_key();
         let genesis_epoch = Epoch(123);
-        let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            &genesis_protocol_parameters,
-            &genesis_avk,
-            &genesis_epoch,
-            SupportedEra::Lagrange,
-        )
-        .unwrap();
+        let genesis_producer =
+            CertificateGenesisProducer::new(None).with_logger(TestLogger::stdout());
+        let protocol_message = genesis_producer
+            .create_genesis_protocol_message(
+                &genesis_protocol_parameters,
+                &genesis_avk,
+                &genesis_epoch,
+                SupportedEra::Lagrange,
+            )
+            .unwrap();
 
         let expected_snark_avk_value = fixture
             .compute_and_encode_snark_aggregate_verification_key()

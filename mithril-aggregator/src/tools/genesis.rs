@@ -1,10 +1,12 @@
-use anyhow::Context;
 use std::{
     fs::File,
     io::{Write, prelude::*},
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use anyhow::Context;
+use slog::Logger;
 
 use mithril_common::{
     CardanoNetwork, StdResult,
@@ -30,6 +32,7 @@ pub struct GenesisTools {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     certificate_repository: Arc<CertificateRepository>,
     mithril_era: SupportedEra,
+    logger: Logger,
 }
 
 impl GenesisTools {
@@ -41,6 +44,7 @@ impl GenesisTools {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         certificate_repository: Arc<CertificateRepository>,
         mithril_era: SupportedEra,
+        logger: Logger,
     ) -> Self {
         Self {
             network,
@@ -50,6 +54,7 @@ impl GenesisTools {
             certificate_verifier,
             certificate_repository,
             mithril_era,
+            logger,
         }
     }
 
@@ -91,13 +96,16 @@ impl GenesisTools {
             certificate_verifier,
             certificate_repository,
             dependencies.mithril_era,
+            dependencies.logger,
         ))
     }
 
     /// Export AVK of the genesis stake distribution to a payload file
     pub fn export_payload_to_sign(&self, target_path: &Path) -> StdResult<()> {
         let mut target_file = File::create(target_path)?;
-        let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
+        let genesis_producer =
+            CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
+        let protocol_message = genesis_producer.create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
             &self.epoch,
@@ -128,8 +136,9 @@ impl GenesisTools {
         genesis_signer: ProtocolGenesisSigner,
     ) -> StdResult<()> {
         let genesis_verification_key = &genesis_signer.verification_key();
-        let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
-        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
+        let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)))
+            .with_logger(self.logger.clone());
+        let genesis_protocol_message = genesis_producer.create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
             &self.epoch,
@@ -169,7 +178,9 @@ impl GenesisTools {
         genesis_signature: ProtocolGenesisSignature,
         genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<()> {
-        let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
+        let genesis_producer =
+            CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
+        let genesis_certificate = genesis_producer.create_genesis_certificate(
             self.genesis_protocol_parameters.clone(),
             self.network,
             self.epoch,
@@ -209,6 +220,8 @@ impl GenesisTools {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::read_to_string, path::PathBuf};
+
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{
@@ -217,7 +230,6 @@ mod tests {
         },
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
-    use std::{fs::read_to_string, path::PathBuf};
 
     use crate::database::test_helper::main_db_connection;
     use crate::test::TestLogger;
@@ -258,6 +270,7 @@ mod tests {
             certificate_verifier.clone(),
             certificate_store.clone(),
             SupportedEra::Pythagoras,
+            TestLogger::stdout(),
         );
 
         (
