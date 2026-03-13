@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, btree_map::Entry};
 
 use crate::{
-    LotteryIndex, MembershipDigest, SignerIndex, SingleSignature, StmResult,
+    AggregationError, LotteryIndex, MembershipDigest, SignerIndex, SingleSignature, StmResult,
     UniqueSchnorrSignature,
     circuits::MerklePath as Halo2MerklePath,
     membership_commitment::{MerkleTree, MerkleTreeSnarkLeaf},
@@ -46,17 +46,21 @@ impl WitnessEntry {
     }
 
     /// Build the witness vector from a deduplicated map of winning lottery indices.
+    ///
     /// The construction proceeds in two phases:
     /// 1. **Signer deduplication** iterates over the signatures to collect, for each unique signer,
     ///    the Merkle leaf (verification key + lottery target) and authentication path. A `BTreeMap`
-    ///    keyed by `SignerIndex` ensures each signer's path is computed only once.
+    ///    keyed by `SignerIndex` ensures each signer's path is computed only once. Signers whose
+    ///    registration entry is missing (`Ok(None)`) or whose lookup fails (`Err`) are skipped,
+    ///    since the input signatures have already been validated upstream.
     /// 2. **Entry assembly** maps every `(lottery_index, signature)` pair to a `WitnessEntry` by
     ///    looking up the precomputed leaf and path for the signature's signer.
     ///
     /// The returned vector is sorted by lottery index (guaranteed by `BTreeMap` iteration order of
     /// `unique_index_signature_map`).
     ///
-    /// Returns an error if a Merkle path cannot be converted to the circuit representation.
+    /// Returns an error if a Merkle path cannot be converted to the circuit representation, or
+    /// if any witness entry cannot be assembled (missing signer data or SNARK signature).
     pub(crate) fn create_witness<D: MembershipDigest>(
         unique_index_signature_map: BTreeMap<LotteryIndex, SingleSignature>,
         clerk: &SnarkClerk,
@@ -67,28 +71,36 @@ impl WitnessEntry {
             BTreeMap::new();
 
         for sig in unique_index_signature_map.values() {
-            if let Entry::Vacant(vacant) = unique_signers.entry(sig.signer_index)
-                && let Some(leaf) =
-                    clerk.get_snark_registration_entry(sig.signer_index).ok().flatten()
-            {
+            if let Entry::Vacant(vacant) = unique_signers.entry(sig.signer_index) {
+                let leaf = match clerk.get_snark_registration_entry(sig.signer_index) {
+                    Ok(Some(entry)) => entry,
+                    Ok(None) => continue,
+                    Err(_) => continue,
+                };
                 let stm_path = merkle_tree.compute_merkle_tree_path(sig.signer_index as usize);
                 let merkle_path: Halo2MerklePath = Halo2MerklePath::try_from(&stm_path)?;
                 vacant.insert((leaf, merkle_path));
             }
         }
 
-        Ok(unique_index_signature_map
+        unique_index_signature_map
             .into_iter()
-            .filter_map(|(lottery_index, sig)| {
-                let (leaf, merkle_path) = unique_signers.get(&sig.signer_index)?;
-                let schnorr_sig = sig.snark_signature.as_ref()?.get_schnorr_signature();
-                Some(WitnessEntry::new(
+            .map(|(lottery_index, sig)| {
+                let (leaf, merkle_path) = unique_signers
+                    .get(&sig.signer_index)
+                    .ok_or(AggregationError::MissingSnarkSignerData(sig.signer_index))?;
+                let schnorr_sig = sig
+                    .snark_signature
+                    .as_ref()
+                    .ok_or(AggregationError::MissingSnarkSignature(lottery_index))?
+                    .get_schnorr_signature();
+                Ok(WitnessEntry::new(
                     *leaf,
                     merkle_path.clone(),
                     schnorr_sig,
                     lottery_index,
                 ))
             })
-            .collect())
+            .collect()
     }
 }
