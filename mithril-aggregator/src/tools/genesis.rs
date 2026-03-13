@@ -13,7 +13,7 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
     },
-    entities::{Epoch, ProtocolParameters},
+    entities::{Epoch, ProtocolParameters, SupportedEra},
     protocol::SignerBuilder,
 };
 
@@ -29,6 +29,7 @@ pub struct GenesisTools {
     genesis_protocol_parameters: ProtocolParameters,
     certificate_verifier: Arc<dyn CertificateVerifier>,
     certificate_repository: Arc<CertificateRepository>,
+    mithril_era: SupportedEra,
 }
 
 impl GenesisTools {
@@ -39,6 +40,7 @@ impl GenesisTools {
         genesis_protocol_parameters: ProtocolParameters,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         certificate_repository: Arc<CertificateRepository>,
+        mithril_era: SupportedEra,
     ) -> Self {
         Self {
             network,
@@ -47,6 +49,7 @@ impl GenesisTools {
             genesis_protocol_parameters,
             certificate_verifier,
             certificate_repository,
+            mithril_era,
         }
     }
 
@@ -87,6 +90,7 @@ impl GenesisTools {
             genesis_protocol_parameters,
             certificate_verifier,
             certificate_repository,
+            dependencies.mithril_era,
         ))
     }
 
@@ -97,6 +101,7 @@ impl GenesisTools {
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
             &self.epoch,
+            self.mithril_era,
         )?;
         target_file.write_all(protocol_message.compute_hash().as_bytes())?;
         Ok(())
@@ -128,6 +133,7 @@ impl GenesisTools {
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
             &self.epoch,
+            self.mithril_era,
         )?;
         let genesis_signature =
             genesis_producer.sign_genesis_protocol_message(genesis_protocol_message)?;
@@ -169,6 +175,7 @@ impl GenesisTools {
             self.epoch,
             self.genesis_avk.clone(),
             genesis_signature,
+            self.mithril_era,
         )?;
         self.certificate_verifier
             .verify_genesis_certificate(&genesis_certificate, genesis_verification_key)
@@ -208,6 +215,7 @@ mod tests {
             ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
             ProtocolGenesisVerifier,
         },
+        entities::SupportedEra,
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
     use std::{fs::read_to_string, path::PathBuf};
@@ -250,6 +258,7 @@ mod tests {
             fake_data::protocol_parameters(),
             certificate_verifier.clone(),
             certificate_store.clone(),
+            SupportedEra::Pythagoras,
         );
 
         (

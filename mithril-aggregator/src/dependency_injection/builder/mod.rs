@@ -29,6 +29,7 @@ use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
     crypto_helper::ProtocolGenesisVerifier,
+    entities::SupportedEra,
     signable_builder::{SignableBuilderService, SignableSeedBuilder},
 };
 use mithril_era::{EraChecker, EraReader, EraReaderAdapter};
@@ -480,6 +481,7 @@ impl DependenciesBuilder {
     /// Create dependencies for genesis commands
     pub async fn create_genesis_container(
         &mut self,
+        mithril_era: SupportedEra,
     ) -> Result<GenesisCommandDependenciesContainer> {
         let network = self.configuration.get_network().with_context(
             || "Dependencies Builder can not get Cardano network while building genesis container",
@@ -492,6 +494,7 @@ impl DependenciesBuilder {
             certificate_verifier: self.get_certificate_verifier().await?,
             protocol_parameters_retriever: self.get_protocol_parameters_retriever().await?,
             verification_key_store: self.get_verification_key_store().await?,
+            mithril_era,
         };
 
         Ok(dependencies)
