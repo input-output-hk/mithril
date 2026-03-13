@@ -25,6 +25,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE**:
   - Support for **DMQ consumer deduplication** to prevent processing the same message multiple times upon reconnection to the DMQ server.
   - Support for SNARK-friendly signer registration.
+  - Support for SNARK-friendly certificate chain.
 
 | Crate | Version |
 | ----- | ------- |
