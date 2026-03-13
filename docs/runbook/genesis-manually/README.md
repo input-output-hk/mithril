@@ -32,6 +32,7 @@ export NETWORK_MAGIC=**NETWORK_MAGIC**
 export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
 export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
 export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
+export MITHRIL_ERA=**MITHRIL_ERA**
 ```
 
 And create genesis dir:
@@ -49,8 +50,10 @@ docker exec -it mithril-aggregator bash
 Once connected to the aggregator container, export the genesis payload to sign:
 
 ```bash
-/app/bin/mithril-aggregator -vvv genesis export --target-path /mithril-aggregator/mithril/genesis/genesis-payload-to-sign.txt
+/app/bin/mithril-aggregator -vvv genesis export --target-path /mithril-aggregator/mithril/genesis/genesis-payload-to-sign.txt [--mithril-era $MITHRIL_ERA]
 ```
+
+> The `--mithril-era` parameter is optional when only one era exists, and required when multiple eras are supported. It specifies which Mithril era to use for the genesis certificate (e.g. `pythagoras`, `lagrange`).
 
 Then disconnect from the aggregator container:
 

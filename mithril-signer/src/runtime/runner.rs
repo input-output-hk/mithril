@@ -546,6 +546,7 @@ mod tests {
             None,
         ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            era_checker.clone(),
             stake_store.clone(),
             protocol_initializer_store.clone(),
             logger.clone(),

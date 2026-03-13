@@ -8,7 +8,8 @@ use std::{
 
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    ProtocolSignerVerificationKeyForSnark, ProtocolSignerVerificationKeySignatureForSnark,
+    ProtocolKey, ProtocolSignerVerificationKeyForSnark,
+    ProtocolSignerVerificationKeySignatureForSnark,
 };
 use crate::{
     StdResult,
@@ -22,6 +23,7 @@ use crate::{
     entities::{
         Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
         Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution, StakeDistributionParty,
+        SupportedEra,
     },
     protocol::{SignerBuilder, ToMessage},
     test::crypto_helper::ProtocolInitializerTestExtension,
@@ -205,6 +207,23 @@ impl MithrilFixture {
         aggregate_verification_key.to_json_hex().unwrap()
     }
 
+    /// Compute the SNARK Aggregate Verification Key for this fixture, if available.
+    #[cfg(feature = "future_snark")]
+    pub fn compute_snark_aggregate_verification_key(
+        &self,
+    ) -> Option<crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark> {
+        self.compute_aggregate_verification_key()
+            .to_snark_aggregate_verification_key()
+            .map(|key| ProtocolKey::new(key.to_owned()))
+    }
+
+    /// Compute the SNARK Aggregate Verification Key for this fixture and returns it as a hex-encoded string.
+    #[cfg(feature = "future_snark")]
+    pub fn compute_and_encode_snark_aggregate_verification_key(&self) -> Option<String> {
+        self.compute_snark_aggregate_verification_key()
+            .map(|avk| avk.to_bytes_hex().unwrap())
+    }
+
     /// Create a genesis certificate using the fixture signers for the given beacon
     pub fn create_genesis_certificate<T: Into<String>>(
         &self,
@@ -214,24 +233,29 @@ impl MithrilFixture {
         let genesis_avk = self.compute_aggregate_verification_key();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
-        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            &self.protocol_parameters,
-            &genesis_avk,
-            &epoch,
-        )
-        .unwrap();
+        let mithril_era = SupportedEra::Pythagoras;
+        let genesis_protocol_message = genesis_producer
+            .create_genesis_protocol_message(
+                &self.protocol_parameters,
+                &genesis_avk,
+                &epoch,
+                mithril_era,
+            )
+            .unwrap();
         let genesis_signature = genesis_producer
             .sign_genesis_protocol_message(genesis_protocol_message)
             .unwrap();
 
-        CertificateGenesisProducer::create_genesis_certificate(
-            self.protocol_parameters.clone(),
-            network,
-            epoch,
-            genesis_avk,
-            genesis_signature,
-        )
-        .unwrap()
+        genesis_producer
+            .create_genesis_certificate(
+                self.protocol_parameters.clone(),
+                network,
+                epoch,
+                genesis_avk,
+                genesis_signature,
+                mithril_era,
+            )
+            .unwrap()
     }
 
     /// Make all underlying signers sign the given message, filter the resulting list to remove

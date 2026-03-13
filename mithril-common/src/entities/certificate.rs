@@ -1,11 +1,16 @@
+use std::fmt::{Debug, Formatter};
+
+use sha2::{Digest, Sha256};
+
+use mithril_stm::AggregateSignatureType;
+
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
     ProtocolGenesisSignature, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
-use std::fmt::{Debug, Formatter};
-
-use sha2::{Digest, Sha256};
 
 /// The signature of a [Certificate]
 #[derive(Clone, Debug)]
@@ -17,6 +22,20 @@ pub enum CertificateSignature {
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka (BEACON(p,n), MULTI_SIG(H(MSG(p,n) || AVK(n-1))))
     MultiSignature(SignedEntityType, ProtocolMultiSignature),
+}
+
+impl CertificateSignature {
+    /// Return the aggregate signature type of the certificate signature.
+    ///
+    /// Returns `None` for genesis certificates as they do not carry a multi-signature.
+    pub fn aggregate_signature_type(&self) -> Option<AggregateSignatureType> {
+        match self {
+            CertificateSignature::GenesisSignature(_) => None,
+            CertificateSignature::MultiSignature(_, multi_signature) => {
+                Some((&multi_signature.key).into())
+            }
+        }
+    }
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
@@ -48,10 +67,16 @@ pub struct Certificate {
     /// aka H(MSG(p,n) || AVK(n-1))
     pub signed_message: String,
 
-    /// Aggregate verification key
-    /// The AVK used to sign during the current epoch
+    /// Aggregate verification key for Concatenation
+    /// The AVK used to sign for Concatenation during the current epoch
     /// aka AVK(n-2)
     pub aggregate_verification_key: ProtocolAggregateVerificationKeyForConcatenation,
+
+    /// Aggregate verification key for SNARK
+    /// The AVK used to sign for SNARK during the current epoch
+    /// aka AVKS(n-2)
+    #[cfg(feature = "future_snark")]
+    pub aggregate_verification_key_snark: Option<ProtocolAggregateVerificationKeyForSnark>,
 
     /// Certificate signature
     pub signature: CertificateSignature,
@@ -68,6 +93,12 @@ impl Certificate {
         signature: CertificateSignature,
     ) -> Certificate {
         let signed_message = protocol_message.compute_hash();
+
+        #[cfg(feature = "future_snark")]
+        let aggregate_verification_key_snark = aggregate_verification_key
+            .to_snark_aggregate_verification_key()
+            .map(|avk| avk.to_owned().into());
+
         let mut certificate = Certificate {
             hash: "".to_string(),
             previous_hash: previous_hash.into(),
@@ -79,6 +110,8 @@ impl Certificate {
                 .to_concatenation_aggregate_verification_key()
                 .to_owned()
                 .into(),
+            #[cfg(feature = "future_snark")]
+            aggregate_verification_key_snark,
             signature,
         };
         certificate.hash = certificate.compute_hash();
@@ -132,11 +165,16 @@ impl Certificate {
 
     /// Create the aggregate verification key from the certificate.
     pub fn create_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
-        let aggregate_verification_key = &self.aggregate_verification_key;
+        let aggregate_verification_key_for_concatenation = &self.aggregate_verification_key;
+        #[cfg(feature = "future_snark")]
+        let snark_aggregate_verification_key = self
+            .aggregate_verification_key_snark
+            .as_ref()
+            .map(|avk| avk.to_owned().into());
         ProtocolAggregateVerificationKey::new(
-            aggregate_verification_key.to_owned().into(),
+            aggregate_verification_key_for_concatenation.to_owned().into(),
             #[cfg(feature = "future_snark")]
-            None,
+            snark_aggregate_verification_key,
         )
     }
 }
@@ -163,13 +201,25 @@ impl Debug for Certificate {
             .field("signed_message", &self.signed_message);
 
         match should_be_exhaustive {
-            true => debug
-                .field(
+            true => {
+                debug.field(
                     "aggregate_verification_key",
                     &format_args!("{:?}", self.aggregate_verification_key.to_json_hex()),
-                )
-                .field("signature", &format_args!("{:?}", self.signature))
-                .finish(),
+                );
+                #[cfg(feature = "future_snark")]
+                debug.field(
+                    "aggregate_verification_key_snark",
+                    &format_args!(
+                        "{:?}",
+                        self.aggregate_verification_key_snark
+                            .as_ref()
+                            .map(|avk| avk.to_bytes_hex())
+                    ),
+                );
+                debug
+                    .field("signature", &format_args!("{:?}", self.signature))
+                    .finish()
+            }
             false => debug.finish_non_exhaustive(),
         }
     }
@@ -338,6 +388,30 @@ mod tests {
                 ..certificate.clone()
             }
             .compute_hash(),
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn snark_aggregate_verification_key_does_not_affect_certificate_hash() {
+        use crate::test::builder::MithrilFixtureBuilder;
+
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let certificate = fixture.create_genesis_certificate("testnet", Epoch(1));
+        let original_hash = certificate.compute_hash();
+
+        assert!(
+            certificate.aggregate_verification_key_snark.is_some(),
+            "Certificate should have a SNARK AVK when future_snark is enabled"
+        );
+
+        let mut certificate_without_snark_avk = certificate;
+        certificate_without_snark_avk.aggregate_verification_key_snark = None;
+
+        assert_eq!(
+            original_hash,
+            certificate_without_snark_avk.compute_hash(),
+            "SNARK AVK should not affect the certificate hash for backward compatibility"
         );
     }
 

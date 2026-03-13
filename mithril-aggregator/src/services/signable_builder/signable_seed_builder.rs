@@ -13,6 +13,9 @@ use mithril_common::{
     signable_builder::SignableSeedBuilder,
 };
 
+#[cfg(feature = "future_snark")]
+use mithril_common::entities::SupportedEra;
+
 use crate::services::EpochService;
 
 /// SignableSeedBuilder aggregator implementation
@@ -46,6 +49,37 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
         Ok(next_aggregate_verification_key)
     }
 
+    async fn compute_next_aggregate_verification_key_for_snark(
+        &self,
+    ) -> StdResult<Option<ProtocolMessagePartValue>> {
+        #[cfg(feature = "future_snark")]
+        {
+            let epoch_service = self.epoch_service.read().await;
+            if epoch_service.mithril_era()? == SupportedEra::Pythagoras {
+                return Ok(None);
+            }
+
+            let snark_avk = (*epoch_service)
+                .next_aggregate_verification_key()?
+                .to_snark_aggregate_verification_key()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "SNARK aggregate verification key is unavailable during Lagrange era"
+                    )
+                })?;
+            let next_aggregate_verification_key = ProtocolKey::new(snark_avk.to_owned())
+                .to_bytes_hex()
+                .with_context(|| "convert next snark avk to bytes hex failure")?;
+
+            Ok(Some(next_aggregate_verification_key))
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        {
+            Ok(None)
+        }
+    }
+
     async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let next_protocol_parameters = epoch_service.next_protocol_parameters()?.compute_hash();
@@ -64,7 +98,7 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::Epoch,
+        entities::{Epoch, SupportedEra},
         test::{
             builder::{MithrilFixture, MithrilFixtureBuilder},
             double::Dummy,
@@ -75,10 +109,11 @@ mod tests {
 
     use super::*;
 
-    fn build_signable_builder_service(
+    fn build_signable_builder_service_for_era(
         epoch: Epoch,
         fixture: &MithrilFixture,
         next_fixture: &MithrilFixture,
+        mithril_era: SupportedEra,
     ) -> AggregatorSignableSeedBuilder {
         let epoch_service = Arc::new(RwLock::new(
             FakeEpochServiceBuilder {
@@ -96,12 +131,21 @@ mod tests {
                 },
                 current_signers_with_stake: fixture.signers_with_stake(),
                 next_signers_with_stake: next_fixture.signers_with_stake(),
+                mithril_era,
                 ..FakeEpochServiceBuilder::dummy(epoch)
             }
             .build(),
         ));
 
         AggregatorSignableSeedBuilder::new(epoch_service)
+    }
+
+    fn build_signable_builder_service(
+        epoch: Epoch,
+        fixture: &MithrilFixture,
+        next_fixture: &MithrilFixture,
+    ) -> AggregatorSignableSeedBuilder {
+        build_signable_builder_service_for_era(epoch, fixture, next_fixture, SupportedEra::dummy())
     }
 
     #[tokio::test]
@@ -122,6 +166,52 @@ mod tests {
             next_aggregate_verification_key,
             expected_next_aggregate_verification_key
         );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn compute_next_snark_avk_returns_none_during_pythagoras_era() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let signable_seed_builder = build_signable_builder_service_for_era(
+            epoch,
+            &fixture,
+            &next_fixture,
+            SupportedEra::Pythagoras,
+        );
+
+        let result = signable_seed_builder
+            .compute_next_aggregate_verification_key_for_snark()
+            .await
+            .unwrap();
+
+        assert!(
+            result.is_none(),
+            "SNARK AVK should not be computed during Pythagoras era"
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn compute_next_snark_avk_returns_value_during_lagrange_era() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let signable_seed_builder = build_signable_builder_service_for_era(
+            epoch,
+            &fixture,
+            &next_fixture,
+            SupportedEra::Lagrange,
+        );
+        let expected_snark_avk = next_fixture.compute_and_encode_snark_aggregate_verification_key();
+
+        let result = signable_seed_builder
+            .compute_next_aggregate_verification_key_for_snark()
+            .await
+            .unwrap();
+
+        assert_eq!(result, expected_snark_avk);
     }
 
     #[tokio::test]

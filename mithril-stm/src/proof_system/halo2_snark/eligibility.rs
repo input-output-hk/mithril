@@ -2,6 +2,12 @@ use anyhow::anyhow;
 
 use crate::{PhiFValue, RegisterError};
 
+#[cfg(feature = "future_snark")]
+use crate::{
+    LotteryIndex, LotteryTargetValue, SignatureError, StmResult, UniqueSchnorrSignature,
+    signature_scheme::{BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, compute_poseidon_digest},
+};
+
 cfg_num_integer! {
     use num_bigint::BigInt;
     use num_integer::Integer;
@@ -9,10 +15,7 @@ cfg_num_integer! {
     use num_traits::{Num, One};
 
     #[cfg(feature = "future_snark")]
-    use crate::{
-        LotteryIndex, LotteryTargetValue, SignatureError, Stake, StmResult, UniqueSchnorrSignature,
-        signature_scheme::{BaseFieldElement, compute_poseidon_digest, DOMAIN_SEPARATION_TAG_LOTTERY},
-    };
+    use crate::Stake;
 
     /// Modulus of the Jubjub Base Field as a hexadecimal number
     const JUBJUB_BASE_FIELD_MODULUS: &str = "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001";

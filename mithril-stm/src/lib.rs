@@ -155,6 +155,9 @@ use hash::poseidon::MidnightPoseidonDigest;
 pub use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "future_snark")]
+pub use proof_system::AggregateVerificationKeyForSnark;
+
+#[cfg(feature = "future_snark")]
 pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
 
 /// The quantity of stake held by a party, represented as a `u64`.
@@ -186,7 +189,7 @@ pub type LotteryTargetValue = crate::signature_scheme::BaseFieldElement;
 pub trait MembershipDigest: Clone {
     type ConcatenationHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
     #[cfg(feature = "future_snark")]
-    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync + Eq + PartialEq;
+    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
 }
 
 /// Default Mithril Membership Digest
