@@ -231,8 +231,6 @@ impl Spec {
             )
             .await?;
 
-            let mut client = infrastructure.build_client(aggregator).await?;
-            assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
         }
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly

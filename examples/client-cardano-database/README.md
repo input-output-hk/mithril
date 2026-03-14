@@ -1,16 +1,16 @@
-# Mithril client library example: Snapshot
+# Mithril client library example: Cardano database
 
 ## Description
 
-This example shows how to implement a Mithril client and use its features related to the `Snapshot` type.
+This example shows how to implement a Mithril client and use its features related to the `Cardano database` type.
 
 In this example, the client interacts by default with a real aggregator on the network `release-preprod` to:
 
 - list the available snapshots
 - get a single snapshot
-- download and unpack a snapshot archive
-- verify a certificate chain
-- compute a message for a Snapshot
+- download and unpack snapshot archives tailored for a specific range
+- verify the associated certificate and its chain
+- compute a message for the retrieved artifact files
 - verify that the certificate signs the computed message
 - increments snapshot download statistics
 

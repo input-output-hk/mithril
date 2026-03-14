@@ -44,7 +44,6 @@ use crate::file_downloader::{
     FileDownloadRetryPolicy, FileDownloader, HttpFileDownloader, RetryDownloader,
 };
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
-use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
 use crate::utils::AncillaryVerifier;
 #[cfg(feature = "fs")]
@@ -153,7 +152,6 @@ impl ClientOptions {
 pub struct Client {
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
-    snapshot_client: Arc<SnapshotClient>,
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     #[cfg(feature = "unstable")]
@@ -173,12 +171,6 @@ impl Client {
     /// Get the client that fetches Mithril stake distributions.
     pub fn mithril_stake_distribution(&self) -> Arc<MithrilStakeDistributionClient> {
         self.mithril_stake_distribution_client.clone()
-    }
-
-    /// Get the client that fetches and downloads Mithril snapshots.
-    #[deprecated(since = "0.12.35", note = "superseded by `cardano_database_v2`")]
-    pub fn cardano_database(&self) -> Arc<SnapshotClient> {
-        self.snapshot_client.clone()
     }
 
     /// Get the client that fetches and downloads Cardano database snapshots.
@@ -392,18 +384,6 @@ impl ClientBuilder {
             ))),
         };
 
-        let snapshot_client = Arc::new(SnapshotClient::new(
-            aggregator_client.clone(),
-            #[cfg(feature = "fs")]
-            http_file_downloader.clone(),
-            #[cfg(feature = "fs")]
-            ancillary_verifier.clone(),
-            #[cfg(feature = "fs")]
-            feedback_sender.clone(),
-            #[cfg(feature = "fs")]
-            logger.clone(),
-        ));
-
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
@@ -437,7 +417,6 @@ impl ClientBuilder {
         Ok(Client {
             certificate_client,
             mithril_stake_distribution_client,
-            snapshot_client,
             cardano_database_client,
             cardano_transaction_client,
             #[cfg(feature = "unstable")]

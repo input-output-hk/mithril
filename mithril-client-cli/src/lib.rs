@@ -2,8 +2,7 @@
 
 //! A command line interface that uses the [Mithril Client Library](https://mithril.network/doc/manual/developer-docs/nodes/mithril-client-library)
 //! to manipulate Mithril certified types from a Mithril Aggregator:
-//! - Cardano Database v1 (aka Snapshot): list, show, download archive
-//! - Cardano Database v2: list, show, download archive
+//! - Cardano Database: list, show, download archive
 //! - Cardano transactions: list & show snapshot, certify a list of transactions
 //! - Cardano stake distribution: list and download
 //! - Mithril stake distribution: list and download

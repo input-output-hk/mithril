@@ -7,10 +7,7 @@ use mithril_client::{Client, MithrilResult, RequiredAggregatorCapabilities};
 use crate::{
     CommandContext,
     commands::{
-        cardano_db::{
-            CardanoDbCommandsBackend, warn_deprecated_v1_backend,
-            warn_unused_parameter_with_v1_backend,
-        },
+        cardano_db::CardanoDbCommandsBackend,
         client_builder_with_fallback_genesis_key,
     },
     utils::CardanoDbUtils,
@@ -19,11 +16,11 @@ use crate::{
 /// Clap command to list existing Cardano dbs
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
-    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
+    /// Backend to use.
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 
-    /// [backend `v2` only] Epoch of the Cardano db snapshots to list, or `latest` for the latest artifact, or `latest-X` for the artifact of the latest epoch minus X.
+    /// Epoch of the Cardano db snapshots to list, or `latest` for the latest artifact, or `latest-X` for the artifact of the latest epoch minus X.
     #[clap(long)]
     epoch: Option<String>,
 }
@@ -31,72 +28,17 @@ pub struct CardanoDbListCommand {
 impl CardanoDbListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        match self.backend {
-            CardanoDbCommandsBackend::V1 => {
-                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                        RequiredAggregatorCapabilities::SignedEntityType(
-                            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                        ),
-                    ]))
-                    .with_logger(context.logger().clone())
-                    .build()?;
-                self.print_v1(client, context).await?;
-            }
-            CardanoDbCommandsBackend::V2 => {
-                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                        RequiredAggregatorCapabilities::SignedEntityType(
-                            SignedEntityTypeDiscriminants::CardanoDatabase,
-                        ),
-                    ]))
-                    .with_logger(context.logger().clone())
-                    .build()?;
-                self.print_v2(client, context).await?;
-            }
-        }
+        let _backend = self.backend;
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ),
+            ]))
+            .with_logger(context.logger().clone())
+            .build()?;
+        self.print_v2(client, context).await?;
 
-        Ok(())
-    }
-
-    #[allow(deprecated)]
-    async fn print_v1(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
-        warn_deprecated_v1_backend(&context);
-        if self.epoch.is_some() {
-            warn_unused_parameter_with_v1_backend(&context, ["--epoch"]);
-        }
-
-        let items = client.cardano_database().list().await?;
-
-        if context.is_json_output_enabled() {
-            println!("{}", serde_json::to_string(&items)?);
-        } else {
-            let items = items
-                .into_iter()
-                .map(|item| {
-                    vec![
-                        format!("{}", item.beacon.epoch).cell(),
-                        format!("{}", item.beacon.immutable_file_number).cell(),
-                        item.network.cell(),
-                        item.digest.cell(),
-                        CardanoDbUtils::format_bytes_to_gigabytes(item.size).cell(),
-                        format!("{}", item.locations.len()).cell(),
-                        item.created_at.to_string().cell(),
-                    ]
-                })
-                .collect::<Vec<_>>()
-                .table()
-                .title(vec![
-                    "Epoch".cell(),
-                    "Immutable".cell(),
-                    "Network".cell(),
-                    "Digest".cell(),
-                    "Size".cell().justify(Justify::Right),
-                    "Locations".cell().justify(Justify::Right),
-                    "Created".cell().justify(Justify::Right),
-                ]);
-            print_stdout(items)?;
-        }
         Ok(())
     }
 

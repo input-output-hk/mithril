@@ -16,55 +16,6 @@ pub struct Client {
 }
 
 #[derive(Debug)]
-pub enum CardanoDbCommand {
-    List(),
-    Show { digest: String },
-    Download { digest: String },
-}
-
-impl CardanoDbCommand {
-    fn name(&self) -> String {
-        match self {
-            CardanoDbCommand::List() => "list".to_string(),
-            CardanoDbCommand::Show { digest } => format!("show-{digest}"),
-            CardanoDbCommand::Download { digest } => format!("download-{digest}"),
-        }
-    }
-
-    fn cli_arg(&self, client_version: &NodeVersion) -> Vec<String> {
-        match self {
-            CardanoDbCommand::List() => {
-                vec!["snapshot".to_string(), "list".to_string()]
-            }
-            CardanoDbCommand::Show { digest } => {
-                vec!["snapshot".to_string(), "show".to_string(), digest.clone()]
-            }
-            CardanoDbCommand::Download { digest } => {
-                if client_version.is_below("0.11.14") {
-                    warn!(
-                        "client version is below 0.11.14, skip unsupported `--include-ancillary` flag for `cardano-db download`"
-                    );
-                    vec![
-                        "download".to_string(),
-                        "--download-dir".to_string(),
-                        "v1".to_string(),
-                        digest.clone(),
-                    ]
-                } else {
-                    vec![
-                        "download".to_string(),
-                        "--include-ancillary".to_string(),
-                        "--download-dir".to_string(),
-                        "v1".to_string(),
-                        digest.clone(),
-                    ]
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum CardanoDbV2Command {
     List,
     ListPerEpoch { epoch_specifier: EpochSpecifier },
@@ -206,7 +157,6 @@ impl CardanoStakeDistributionCommand {
 
 #[derive(Debug)]
 pub enum ClientCommand {
-    CardanoDb(CardanoDbCommand),
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
     CardanoTransaction(CardanoTransactionCommand),
     CardanoStakeDistribution(CardanoStakeDistributionCommand),
@@ -216,7 +166,6 @@ pub enum ClientCommand {
 impl ClientCommand {
     fn name(&self) -> String {
         match self {
-            ClientCommand::CardanoDb(cmd) => format!("cardano-db-{}", cmd.name()),
             ClientCommand::MithrilStakeDistribution(cmd) => {
                 format!("msd-{}", cmd.name())
             }
@@ -234,21 +183,6 @@ impl ClientCommand {
 
     fn cli_arg(&self, client_version: &NodeVersion) -> Vec<String> {
         let mut args = match self {
-            ClientCommand::CardanoDb(cmd) => {
-                if client_version.is_below("0.12.11") {
-                    warn!(
-                        "client version is below 0.12.11, skip unsupported `--backend` flag for `cardano-db`"
-                    );
-                    [vec!["cardano-db".to_string()], cmd.cli_arg(client_version)].concat()
-                } else {
-                    [
-                        vec!["cardano-db".to_string()],
-                        cmd.cli_arg(client_version),
-                        vec!["--backend".to_string(), "v1".to_string()],
-                    ]
-                    .concat()
-                }
-            }
             ClientCommand::MithrilStakeDistribution(cmd) => [
                 vec!["mithril-stake-distribution".to_string()],
                 cmd.cli_arg(client_version),

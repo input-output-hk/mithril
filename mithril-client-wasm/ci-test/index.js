@@ -54,19 +54,6 @@ await run_test("constructor", test_number, async () => {
   });
 });
 
-let snapshots;
-test_number++;
-await run_test("list_cardano_database_snapshots", test_number, async () => {
-  snapshots = await client.list_cardano_database_snapshots();
-  console.log("list_cardano_database_snapshots", snapshots);
-});
-
-test_number++;
-await run_test("get_cardano_database_snapshot", test_number, async () => {
-  const snapshot = await client.get_cardano_database_snapshot(snapshots[0].digest);
-  console.log("get_cardano_database_snapshot", snapshot);
-});
-
 let mithril_stake_distributions;
 test_number++;
 await run_test("list_mithril_stake_distributions", test_number, async () => {

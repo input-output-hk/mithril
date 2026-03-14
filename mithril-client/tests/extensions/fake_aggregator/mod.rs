@@ -1,6 +1,4 @@
 #[cfg(feature = "fs")]
-mod cardano_db_v1;
-#[cfg(feature = "fs")]
 mod cardano_db_v2;
 #[cfg(feature = "unstable")]
 mod cardano_proof_v2;

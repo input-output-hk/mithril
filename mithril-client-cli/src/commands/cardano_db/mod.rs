@@ -14,17 +14,14 @@ use clap::{Subcommand, ValueEnum};
 
 use mithril_client::MithrilResult;
 
-use crate::{CommandContext, utils::print_simple_warning};
+use crate::CommandContext;
 
 /// Backend to use for Cardano Database commands
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
 pub enum CardanoDbCommandsBackend {
-    /// Legacy backend
-    #[clap(help = "(deprecated) Legacy backend, full database restoration only")]
-    V1,
     /// V2 backend
     #[default]
-    #[clap(help = "[default] V2 backend, full or partial database restoration")]
+    #[clap(help = "[default] Backend, full or partial database restoration")]
     V2,
 }
 
@@ -77,70 +74,12 @@ impl CardanoDbSnapshotCommands {
     }
 }
 
-/// Print in stderr a warning about the deprecation of the v1 backend and its scheduled removal in 2026
-pub fn warn_deprecated_v1_backend(context: &CommandContext) {
-    let message = "The `v1` backend is deprecated and is scheduled to be removed early 2026. \
-    Please use the `v2` backend instead. \
-    No other change is required in your command line.";
-
-    print_simple_warning(message, context.is_json_output_enabled());
-}
-
-/// Print in stderr that the given parameters are not available with the v1 backend and will be ignored
-pub fn warn_unused_parameter_with_v1_backend<const N: usize>(
-    context: &CommandContext,
-    v2_only_parameters: [&str; N],
-) {
-    let message = format_unused_parameter_with_v1_backend(v2_only_parameters);
-    print_simple_warning(&message, context.is_json_output_enabled());
-
-    if !context.is_json_output_enabled() {
-        // Add a blank line to separate this message from the one related to the fast bootstrap that comes next.
-        eprintln!();
-    }
-}
-
-fn format_unused_parameter_with_v1_backend<const N: usize>(
-    v2_only_parameters: [&str; N],
-) -> String {
-    match v2_only_parameters.len() {
-        0 => String::new(),
-        1 => format!(
-            "`{}` is only available with the `v2` backend. It will be ignored.",
-            v2_only_parameters[0]
-        ),
-        n => {
-            format!(
-                "`{}`, and `{}` are only available with the `v2` backend. They will be ignored.",
-                v2_only_parameters[..n - 1].join("`, `"),
-                v2_only_parameters[n - 1]
-            )
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_format_unused_parameter_with_v1_backend() {
-        assert_eq!(format_unused_parameter_with_v1_backend([]), String::new());
-
-        assert_eq!(
-            format_unused_parameter_with_v1_backend(["--test"]),
-            "`--test` is only available with the `v2` backend. It will be ignored.".to_string()
-        );
-
-        assert_eq!(
-            format_unused_parameter_with_v1_backend(["--foo", "--bar"]),
-            "`--foo`, and `--bar` are only available with the `v2` backend. They will be ignored."
-                .to_string()
-        );
-
-        assert_eq!(
-            format_unused_parameter_with_v1_backend(["--test", "--foo", "--bar"]),
-            "`--test`, `--foo`, and `--bar` are only available with the `v2` backend. They will be ignored.".to_string()
-        );
+    fn cardano_db_backend_default_is_v2() {
+        assert_eq!(CardanoDbCommandsBackend::default(), CardanoDbCommandsBackend::V2);
     }
 }

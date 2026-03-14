@@ -27,7 +27,7 @@ format is: `- **since 'X.Y.Z' (distribution version) [to 'X.Y.Z' (distribution v
 ### Mithril client
 
 - **since `0.12.34` (2543.0)**: test of new `--epoch` filter to `cardano-db list` (disabled on lower versions)
-- **since `0.12.11` (2524.0)**: removal of `cardano-db-v2` replaced with `cardano-db [command] --backend [v1,v2]`
+- **since `0.12.11` (2524.0)**: removal of `cardano-db-v2` replaced with `cardano-db [command] --backend v2`
 - **since `0.11.14` (2517.0)**: addition of `--include-ancillary` flag to `cardano-db download`
 - **since `0.11.13` (2517.0)**: addition of global `--origin-tag` parameter
 

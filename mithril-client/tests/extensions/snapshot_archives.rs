@@ -10,47 +10,6 @@ use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
 
-pub async fn build_cardano_db_v1_snapshot_archives(
-    cardano_db: &DummyCardanoDb,
-    target_dir: &Path,
-    ancillary_manifest_signing_key: ManifestVerifierSecretKey,
-) -> PathBuf {
-    let target_dir = target_dir.join("archives");
-    std::fs::create_dir_all(&target_dir).unwrap();
-
-    build_all_completed_immutables_snapshot(cardano_db, &target_dir);
-    build_ancillary_files_archive(cardano_db, &target_dir, ancillary_manifest_signing_key).await;
-    target_dir
-}
-
-pub fn build_all_completed_immutables_snapshot(
-    cardano_db: &DummyCardanoDb,
-    target_dir: &Path,
-) -> PathBuf {
-    use std::fs::File;
-
-    let snapshot_name = format!(
-        "completed_immutables.{}",
-        CompressionAlgorithm::Zstandard.tar_file_extension()
-    );
-    let target_file = target_dir.join(snapshot_name);
-    let tar_file = File::create(&target_file).unwrap();
-    let enc = zstd::Encoder::new(tar_file, 3).unwrap();
-    let mut tar = tar::Builder::new(enc);
-
-    let last_immutable_number = cardano_db.last_immutable_number().unwrap();
-
-    let immutable_dir = cardano_db.get_immutable_dir();
-    for immutable_number in 1..=last_immutable_number {
-        append_immutable_trio(&mut tar, immutable_number, immutable_dir);
-    }
-
-    let zstd = tar.into_inner().unwrap();
-    zstd.finish().unwrap();
-
-    target_file
-}
-
 pub async fn build_cardano_db_v2_snapshot_archives(
     cardano_db: &DummyCardanoDb,
     target_dir: &Path,

@@ -1,7 +1,5 @@
-mod v1;
 mod v2;
 
-use v1::PreparedCardanoDbV1Download;
 use v2::PreparedCardanoDbV2Download;
 
 use clap::Parser;
@@ -11,7 +9,7 @@ use mithril_client::{MithrilResult, common::ImmutableFileNumber};
 
 use crate::{
     CommandContext,
-    commands::cardano_db::{CardanoDbCommandsBackend, warn_unused_parameter_with_v1_backend},
+    commands::cardano_db::CardanoDbCommandsBackend,
     configuration::{ConfigError, ConfigSource},
     utils::{self, JSON_CAUTION_KEY, print_simple_warning},
 };
@@ -21,7 +19,7 @@ const DB_DIRECTORY_NAME: &str = "db";
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
-    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
+    /// Backend to use.
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 
@@ -54,19 +52,19 @@ pub struct CardanoDbDownloadCommand {
     #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
     ancillary_verification_key: Option<String>,
 
-    /// [backend `v2` only] The first immutable file number to download.
+    /// The first immutable file number to download.
     ///
     /// If not set, the download process will start from the first immutable file.
     #[clap(long)]
     start: Option<ImmutableFileNumber>,
 
-    /// [backend `v2` only] The last immutable file number to download.
+    /// The last immutable file number to download.
     ///
     /// If not set, the download will continue until the last certified immutable file.
     #[clap(long)]
     end: Option<ImmutableFileNumber>,
 
-    /// [backend `v2` only] Allow existing files in the download directory to be overridden.
+    /// Allow existing files in the download directory to be overridden.
     #[clap(long)]
     allow_override: bool,
 }
@@ -75,41 +73,9 @@ impl CardanoDbDownloadCommand {
     /// Command execution
     pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
         context.config_parameters_mut().add_source(self)?;
-
-        match self.backend {
-            CardanoDbCommandsBackend::V1 => {
-                let prepared_command = self.prepare_v1(&context)?;
-                prepared_command.execute(&context).await
-            }
-            CardanoDbCommandsBackend::V2 => {
-                let prepared_command = self.prepare_v2(&context)?;
-                prepared_command.execute(&context).await
-            }
-        }
-    }
-
-    fn prepare_v1(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV1Download> {
-        if self.allow_override || self.start.is_some() || self.end.is_some() {
-            warn_unused_parameter_with_v1_backend(
-                context,
-                ["--start", "--end", "--allow_override"],
-            );
-        }
-
-        let ancillary_verification_key = if self.include_ancillary {
-            self.warn_ancillary_not_signed_by_mithril(context);
-            Some(context.config_parameters().require("ancillary_verification_key")?)
-        } else {
-            self.warn_fast_bootstrap_not_available(context);
-            None
-        };
-
-        Ok(PreparedCardanoDbV1Download {
-            digest: self.digest.clone(),
-            download_dir: context.config_parameters().require("download_dir")?,
-            include_ancillary: self.include_ancillary,
-            ancillary_verification_key,
-        })
+        let _backend = self.backend;
+        let prepared_command = self.prepare_v2(&context)?;
+        prepared_command.execute(&context).await
     }
 
     fn prepare_v2(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV2Download> {
@@ -241,53 +207,6 @@ mod tests {
             result.unwrap_err().to_string(),
             "Parameter 'ancillary_verification_key' is mandatory."
         );
-    }
-
-    mod prepare_v1 {
-        use super::*;
-
-        #[test]
-        fn ancillary_verification_key_can_be_read_through_configuration_file() {
-            let command = CardanoDbDownloadCommand {
-                ancillary_verification_key: None,
-                ..dummy_command()
-            };
-            let config = ConfigParameters::new(HashMap::from([(
-                "ancillary_verification_key".to_string(),
-                "value from config".to_string(),
-            )]));
-            let mut command_context =
-                CommandContext::new(config, false, true, Logger::root(slog::Discard, slog::o!()));
-            command_context.config_parameters_mut().add_source(&command).unwrap();
-
-            let result = command.prepare_v1(&command_context);
-
-            assert!(result.is_ok());
-        }
-
-        #[test]
-        fn db_download_dir_is_mandatory_to_execute_command() {
-            let command = CardanoDbDownloadCommand {
-                download_dir: None,
-                ..dummy_command()
-            };
-            let mut command_context = CommandContext::new(
-                ConfigParameters::default(),
-                false,
-                true,
-                Logger::root(slog::Discard, slog::o!()),
-            );
-
-            command_context.config_parameters_mut().add_source(&command).unwrap();
-
-            let result = command.prepare_v1(&command_context);
-
-            assert!(result.is_err());
-            assert_eq!(
-                result.unwrap_err().to_string(),
-                "Parameter 'download_dir' is mandatory."
-            );
-        }
     }
 
     mod prepare_v2 {

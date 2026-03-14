@@ -8,7 +8,6 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Cardano Database v1 (aka Snapshot)][snapshot_client]: list, get, download archive and record statistics.
 //! - [Cardano Database v2][cardano_database_client] list, get, download archive and record statistics.
 //! - [Cardano transactions][cardano_transaction_client] list & get snapshot, get proofs.
 //! - [Cardano stake distribution][cardano_stake_distribution_client] list, get and get by epoch.
@@ -199,7 +198,6 @@ pub mod era;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
-pub mod snapshot_client;
 cfg_fs! {
     pub mod file_downloader;
 }
