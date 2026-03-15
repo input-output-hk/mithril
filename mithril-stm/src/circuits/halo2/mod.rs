@@ -1,6 +1,8 @@
 //! Halo2 prototype integration (feature-gated by `future_snark`).
 
 pub mod adapters;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod assignments;
 // TODO(snark): remove `allow(dead_code)` once Halo2 modules are fully wired into STM.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod circuit;

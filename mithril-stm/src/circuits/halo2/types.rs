@@ -124,6 +124,16 @@ pub type MerkleRoot = CircuitBaseField;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CircuitMerkleTreeLeaf(pub SchnorrVerificationKey, pub LotteryTargetValue);
 
+impl CircuitMerkleTreeLeaf {
+    pub fn verification_key(&self) -> SchnorrVerificationKey {
+        self.0
+    }
+
+    pub fn lottery_target_value(&self) -> LotteryTargetValue {
+        self.1
+    }
+}
+
 /// Position of a sibling node relative to the current hash in a Merkle path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Position {

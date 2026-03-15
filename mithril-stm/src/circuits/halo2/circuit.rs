@@ -2,24 +2,21 @@ use anyhow::{Context, anyhow};
 use ff::Field;
 use group::Group;
 use midnight_circuits::ecc::curves::CircuitCurve as CircuitCurveTrait;
-use midnight_circuits::instructions::{
-    AssignmentInstructions, ConversionInstructions, PublicInputInstructions,
-};
-use midnight_circuits::types::{
-    AssignedBit, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-};
+use midnight_circuits::instructions::{AssignmentInstructions, PublicInputInstructions};
+use midnight_circuits::types::{AssignedNative, AssignedNativePoint};
 use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
+use crate::circuits::halo2::assignments::WitnessEntry;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     assert_lottery_won, verify_merkle_path, verify_unique_signature,
 };
-use crate::circuits::halo2::types::{CircuitBase, CircuitCurve, CircuitInstance, CircuitWitness};
-use crate::signature_scheme::{
-    DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
+use crate::circuits::halo2::types::{
+    CircuitBase, CircuitCurve, MerkleRoot, SignedMessageWithoutPrefix,
 };
+use crate::signature_scheme::{DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE};
 use crate::{LotteryIndex, Parameters, StmResult};
 
 #[derive(Clone, Default, Debug)]
@@ -34,6 +31,10 @@ pub struct StmCircuit {
 impl StmCircuit {
     fn checked_len_u32(actual: usize) -> u32 {
         u32::try_from(actual).unwrap_or(u32::MAX)
+    }
+
+    pub(crate) fn merkle_tree_depth(&self) -> u32 {
+        self.merkle_tree_depth
     }
 
     /// Validates global circuit parameters before synthesis.
@@ -151,8 +152,8 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = CircuitInstance;
-    type Witness = CircuitWitness;
+    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
+    type Witness = Vec<WitnessEntry>;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<CircuitBase>, Error> {
         Ok(vec![instance.0.into(), instance.1.into()])
@@ -207,89 +208,32 @@ impl Relation for StmCircuit {
         let mut previous_lottery_index: AssignedNative<_> =
             std_lib.assign(layouter, Value::known(CircuitBase::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
-            let lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
-                layouter,
-                wit.clone().map(|(_, _, _, i)| CircuitBase::from(i)),
-            )?;
+            let assigned_witness_entry =
+                self.assign_witness_entry(std_lib, layouter, wit.clone())?;
 
             // Check lottery index order
             if i > 0 {
-                let is_less =
-                    std_lib.lower_than(layouter, &previous_lottery_index, &lottery_index, 32)?;
-                std_lib.assert_true(layouter, &is_less)?;
+                Self::assert_strictly_increasing_lottery_index(
+                    std_lib,
+                    layouter,
+                    &previous_lottery_index,
+                    &assigned_witness_entry.lottery_index,
+                )?;
             }
 
-            previous_lottery_index = lottery_index.clone();
+            previous_lottery_index = assigned_witness_entry.lottery_index.clone();
 
-            let verification_key = std_lib
-                .jubjub()
-                .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
-
-            let lottery_target_value: AssignedNative<CircuitBase> =
-                std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1.into()))?;
-
-            // Assign sibling Values.
-            let assigned_merkle_siblings = std_lib.assign_many(
-                layouter,
-                wit.clone()
-                    .map_with_result(|(_, x, _, _)| -> StmResult<_> {
-                        self.validate_merkle_sibling_length(x.siblings.len())?;
-                        Ok(x.siblings.iter().map(|sibling| sibling.1.into()).collect::<Vec<_>>())
-                    })
-                    .map_err(to_synthesis_error)?
-                    .transpose_vec(self.merkle_tree_depth as usize)
-                    .as_slice(),
-            )?;
-
-            // Assign sibling Position.
-            let assigned_merkle_positions = std_lib.assign_many(
-                layouter,
-                wit.clone()
-                    .map_with_result(|(_, x, _, _)| -> StmResult<_> {
-                        self.validate_merkle_position_length(x.siblings.len())?;
-                        Ok(x.siblings
-                            .iter()
-                            .map(|sibling| CircuitBase::from(sibling.0))
-                            .collect::<Vec<_>>())
-                    })
-                    .map_err(to_synthesis_error)?
-                    .transpose_vec(self.merkle_tree_depth as usize)
-                    .as_slice(),
-            )?;
-
-            // Assert merkle positions are binary values.
-            let assigned_merkle_positions = assigned_merkle_positions
-                .iter()
-                .map(|pos| std_lib.convert(layouter, pos))
-                .collect::<Result<Vec<AssignedBit<CircuitBase>>, Error>>()?;
-
-            let commitment_point_value = wit
-                .clone()
-                .map_with_result(|(_, _, sig, _)| {
-                    let (u, v) = sig.commitment_point.get_coordinates();
-                    PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
-                })
-                .map_err(to_synthesis_error)?;
-            let commitment_point: AssignedNativePoint<_> =
-                std_lib.jubjub().assign(layouter, commitment_point_value)?;
-            let response: AssignedScalarOfNativeCurve<CircuitCurve> = std_lib
-                .jubjub()
-                .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
-            let challenge_base = std_lib.assign(
-                layouter,
-                wit.map(|(_, _, sig, _)| CircuitBase::from(sig.challenge)),
-            )?;
-            let challenge_scalar: AssignedScalarOfNativeCurve<CircuitCurve> =
-                std_lib.jubjub().convert(layouter, &challenge_base)?;
+            let assigned_signature_components =
+                Self::assign_signature_components(std_lib, layouter, wit)?;
 
             verify_merkle_path(
                 std_lib,
                 layouter,
-                &verification_key,
-                &lottery_target_value,
+                &assigned_witness_entry.verification_key,
+                &assigned_witness_entry.lottery_target_value,
                 &merkle_tree_commitment,
-                &assigned_merkle_siblings,
-                &assigned_merkle_positions,
+                &assigned_witness_entry.merkle_path.siblings,
+                &assigned_witness_entry.merkle_path.positions,
             )?;
 
             verify_unique_signature(
@@ -297,21 +241,21 @@ impl Relation for StmCircuit {
                 layouter,
                 &domain_separation_tag_signature,
                 &generator,
-                &verification_key,
-                &response,
-                &challenge_scalar,
-                &challenge_base,
+                &assigned_witness_entry.verification_key,
+                &assigned_signature_components.response,
+                &assigned_signature_components.challenge_as_scalar,
+                &assigned_signature_components.challenge,
                 &hash,
-                &commitment_point,
+                &assigned_signature_components.commitment_point,
             )?;
 
             assert_lottery_won(
                 std_lib,
                 layouter,
                 &lottery_prefix,
-                &commitment_point,
-                &lottery_index,
-                &lottery_target_value,
+                &assigned_signature_components.commitment_point,
+                &assigned_witness_entry.lottery_index,
+                &assigned_witness_entry.lottery_target_value,
             )?;
         }
 
