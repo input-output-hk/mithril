@@ -118,15 +118,22 @@ fn lower_than_native(
 pub fn verify_merkle_path(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
-    vk: &AssignedNativePoint<CircuitCurve>,
-    target: &AssignedNative<CircuitBase>,
-    merkle_root: &AssignedNative<CircuitBase>,
+    verification_key: &AssignedNativePoint<CircuitCurve>,
+    lottery_target_value: &AssignedNative<CircuitBase>,
+    merkle_tree_commitment: &AssignedNative<CircuitBase>,
     merkle_siblings: &[AssignedNative<CircuitBase>],
     merkle_positions: &[AssignedBit<CircuitBase>],
 ) -> Result<(), Error> {
-    let vk_x = std_lib.jubjub().x_coordinate(vk);
-    let vk_y = std_lib.jubjub().y_coordinate(vk);
-    let leaf = std_lib.poseidon(layouter, &[vk_x.clone(), vk_y.clone(), target.clone()])?;
+    let verification_key_x = std_lib.jubjub().x_coordinate(verification_key);
+    let verification_key_y = std_lib.jubjub().y_coordinate(verification_key);
+    let leaf = std_lib.poseidon(
+        layouter,
+        &[
+            verification_key_x.clone(),
+            verification_key_y.clone(),
+            lottery_target_value.clone(),
+        ],
+    )?;
     let root =
         merkle_siblings
             .iter()
@@ -143,7 +150,7 @@ pub fn verify_merkle_path(
                 std_lib.poseidon(layouter, &[left, right])
             })?;
 
-    std_lib.assert_equal(layouter, &root, merkle_root)
+    std_lib.assert_equal(layouter, &root, merkle_tree_commitment)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -152,49 +159,49 @@ pub fn verify_unique_signature(
     layouter: &mut impl Layouter<CircuitBase>,
     dst_signature: &AssignedNative<CircuitBase>,
     generator: &AssignedNativePoint<CircuitCurve>,
-    vk: &AssignedNativePoint<CircuitCurve>,
-    s: &AssignedScalarOfNativeCurve<CircuitCurve>,
-    c: &AssignedScalarOfNativeCurve<CircuitCurve>,
-    c_native: &AssignedNative<CircuitBase>,
+    verification_key: &AssignedNativePoint<CircuitCurve>,
+    response: &AssignedScalarOfNativeCurve<CircuitCurve>,
+    challenge_scalar: &AssignedScalarOfNativeCurve<CircuitCurve>,
+    challenge_base: &AssignedNative<CircuitBase>,
     hash: &AssignedNativePoint<CircuitCurve>,
-    sigma: &AssignedNativePoint<CircuitCurve>,
+    commitment_point: &AssignedNativePoint<CircuitCurve>,
 ) -> Result<(), Error> {
     // Compute R1
     let cap_r_1 = std_lib.jubjub().msm(
         layouter,
-        &[s.clone(), c.clone()],
-        &[hash.clone(), sigma.clone()],
+        &[response.clone(), challenge_scalar.clone()],
+        &[hash.clone(), commitment_point.clone()],
     )?;
 
     // Compute R2
     let cap_r_2 = std_lib.jubjub().msm(
         layouter,
-        &[s.clone(), c.clone()],
-        &[generator.clone(), vk.clone()],
+        &[response.clone(), challenge_scalar.clone()],
+        &[generator.clone(), verification_key.clone()],
     )?;
 
-    // Compute H2(g, H1(msg), vk, sigma, R1, R2)
+    // Compute H2(g, H1(message), verification_key, commitment_point, R1, R2)
     let hx = std_lib.jubjub().x_coordinate(hash);
     let hy = std_lib.jubjub().y_coordinate(hash);
-    let vk_x = std_lib.jubjub().x_coordinate(vk);
-    let vk_y = std_lib.jubjub().y_coordinate(vk);
-    let sigma_x = std_lib.jubjub().x_coordinate(sigma);
-    let sigma_y = std_lib.jubjub().y_coordinate(sigma);
+    let verification_key_x = std_lib.jubjub().x_coordinate(verification_key);
+    let verification_key_y = std_lib.jubjub().y_coordinate(verification_key);
+    let commitment_point_x = std_lib.jubjub().x_coordinate(commitment_point);
+    let commitment_point_y = std_lib.jubjub().y_coordinate(commitment_point);
     let cap_r_1_x = std_lib.jubjub().x_coordinate(&cap_r_1);
     let cap_r_1_y = std_lib.jubjub().y_coordinate(&cap_r_1);
     let cap_r_2_x = std_lib.jubjub().x_coordinate(&cap_r_2);
     let cap_r_2_y = std_lib.jubjub().y_coordinate(&cap_r_2);
 
-    let c_prime = std_lib.poseidon(
+    let challenge_prime = std_lib.poseidon(
         layouter,
         &[
             dst_signature.clone(),
             hx,
             hy,
-            vk_x,
-            vk_y,
-            sigma_x.clone(),
-            sigma_y.clone(),
+            verification_key_x,
+            verification_key_y,
+            commitment_point_x.clone(),
+            commitment_point_y.clone(),
             cap_r_1_x,
             cap_r_1_y,
             cap_r_2_x,
@@ -202,23 +209,33 @@ pub fn verify_unique_signature(
         ],
     )?;
 
-    std_lib.assert_equal(layouter, c_native, &c_prime)
+    std_lib.assert_equal(layouter, challenge_base, &challenge_prime)
 }
 
-pub fn verify_lottery(
+pub fn assert_lottery_won(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
     lottery_prefix: &AssignedNative<CircuitBase>,
-    sigma: &AssignedNativePoint<CircuitCurve>,
-    index: &AssignedNative<CircuitBase>,
-    target: &AssignedNative<CircuitBase>,
+    commitment_point: &AssignedNativePoint<CircuitCurve>,
+    lottery_index: &AssignedNative<CircuitBase>,
+    lottery_target_value: &AssignedNative<CircuitBase>,
 ) -> Result<(), Error> {
-    let sigma_x = std_lib.jubjub().x_coordinate(sigma);
-    let sigma_y = std_lib.jubjub().y_coordinate(sigma);
-    let ev = std_lib.poseidon(
+    let commitment_point_x = std_lib.jubjub().x_coordinate(commitment_point);
+    let commitment_point_y = std_lib.jubjub().y_coordinate(commitment_point);
+    let lottery_evaluation_value = std_lib.poseidon(
         layouter,
-        &[lottery_prefix.clone(), sigma_x, sigma_y, index.clone()],
+        &[
+            lottery_prefix.clone(),
+            commitment_point_x,
+            commitment_point_y,
+            lottery_index.clone(),
+        ],
     )?;
-    let is_less = lower_than_native(std_lib, layouter, target, &ev)?;
+    let is_less = lower_than_native(
+        std_lib,
+        layouter,
+        lottery_target_value,
+        &lottery_evaluation_value,
+    )?;
     std_lib.assert_false(layouter, &is_less)
 }

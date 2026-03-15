@@ -14,10 +14,11 @@ use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
-    verify_lottery, verify_merkle_path, verify_unique_signature,
+    assert_lottery_won, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, MTLeaf, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
+    CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath, MerkleRoot,
+    SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
@@ -27,10 +28,10 @@ use crate::{LotteryIndex, Parameters, StmResult};
 
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
-    // k in mithril: the required number of distinct lottery indices slots needed to create a valid multi-signature
-    quorum: u32,
-    // m in mithril: the number of lotteries that a user can participate in to sign a message
-    num_lotteries: u32,
+    // k in mithril: the required number of distinct lottery index slots needed to create a valid multi-signature
+    k: u32,
+    // m in mithril: the number of lotteries that a signer can participate in for a message
+    m: u32,
     merkle_tree_depth: u32,
 }
 
@@ -41,28 +42,28 @@ impl StmCircuit {
 
     /// Validates global circuit parameters before synthesis.
     ///
-    /// Enforces `quorum < num_lotteries` returning
+    /// Enforces `k < m` returning
     /// `StmCircuitError::InvalidCircuitParameters` when violated.
     pub(crate) fn validate_parameters(&self) -> StmResult<()> {
-        if self.quorum >= self.num_lotteries {
+        if self.k >= self.m {
             return Err(anyhow!(StmCircuitError::InvalidCircuitParameters {
-                quorum: self.quorum,
-                num_lotteries: self.num_lotteries,
+                k: self.k,
+                m: self.m,
             }));
         }
 
         Ok(())
     }
 
-    /// Validates that witness vector length matches the configured quorum.
+    /// Validates that witness vector length matches the configured k.
     ///
     /// This precondition prevents shape mismatches; failures return
     /// `StmCircuitError::WitnessLengthMismatch`.
     pub(crate) fn validate_witness_length(&self, actual: usize) -> StmResult<()> {
-        let expected_quorum = self.quorum as usize;
-        if actual != expected_quorum {
+        let expected_k = self.k as usize;
+        if actual != expected_k {
             return Err(anyhow!(StmCircuitError::WitnessLengthMismatch {
-                expected_quorum: self.quorum,
+                expected_k: self.k,
                 actual: Self::checked_len_u32(actual),
             }));
         }
@@ -73,7 +74,7 @@ impl StmCircuit {
     /// Validates witness lottery indices against circuit constraints.
     ///
     /// The circuit uses 32-bit comparison constraints (`lower_than(..., 32)`), so each
-    /// index must fit in `u32` and must satisfy `index < num_lotteries`.
+    /// index must fit in `u32` and must satisfy `index < m`.
     pub(crate) fn validate_lottery_index(&self, index: LotteryIndex) -> StmResult<()> {
         let max_supported = u32::MAX as LotteryIndex;
         if index > max_supported {
@@ -83,10 +84,10 @@ impl StmCircuit {
             }));
         }
 
-        if index >= self.num_lotteries as LotteryIndex {
+        if index >= self.m as LotteryIndex {
             return Err(anyhow!(StmCircuitError::LotteryIndexOutOfBounds {
                 index,
-                num_lotteries: self.num_lotteries,
+                m: self.m,
             }));
         }
 
@@ -127,7 +128,7 @@ impl StmCircuit {
 
     /// Constructs a new `StmCircuit` from Mithril `Parameters`.  
     ///  
-    /// This constructor only validates that the quorum `k` and the number of lotteries `m`  
+    /// This constructor only validates that `k` and `m`
     /// fit into a `u32` by performing fallible `u64 -> u32` conversions. If either value  
     /// exceeds `u32::MAX`, it returns an error.  
     ///  
@@ -136,20 +137,18 @@ impl StmCircuit {
     /// `validate_parameters`.
     pub fn try_new(stm_params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         Ok(Self {
-            quorum: stm_params
-                .k
-                .try_into()
-                .with_context(|| format!(
-                    "Failed to cast quorum as a u32. Its value ({}) is too large for the circuit.", 
-                    stm_params.k)
-                )?,
-            num_lotteries: stm_params
-                .m
-                .try_into()
-                .with_context(|| format!(
-                    "Failed to cast number of lotteries as a u32. Its value ({}) is too large for the circuit.", 
-                    stm_params.m),
-                )?,
+            k: stm_params.k.try_into().with_context(|| {
+                format!(
+                    "Failed to cast k as a u32. Its value ({}) is too large for the circuit.",
+                    stm_params.k
+                )
+            })?,
+            m: stm_params.m.try_into().with_context(|| {
+                format!(
+                    "Failed to cast m as a u32. Its value ({}) is too large for the circuit.",
+                    stm_params.m
+                )
+            })?,
             merkle_tree_depth,
         })
     }
@@ -157,7 +156,12 @@ impl StmCircuit {
 
 impl Relation for StmCircuit {
     type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
-    type Witness = Vec<(MTLeaf, MerklePath, UniqueSchnorrSignature, LotteryIndex)>;
+    type Witness = Vec<(
+        CircuitMerkleTreeLeaf,
+        MerklePath,
+        UniqueSchnorrSignature,
+        LotteryIndex,
+    )>;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<CircuitBase>, Error> {
         Ok(vec![instance.0.into(), instance.1.into()])
@@ -180,15 +184,16 @@ impl Relation for StmCircuit {
                 Ok(witness)
             })
             .map_err(to_synthesis_error)?
-            .transpose_vec(self.quorum as usize);
+            .transpose_vec(self.k as usize);
 
-        let merkle_root: AssignedNative<CircuitBase> =
+        let merkle_tree_commitment: AssignedNative<CircuitBase> =
             std_lib.assign_as_public_input(layouter, instance.map(|(x, _)| x.into()))?;
-        let msg: AssignedNative<CircuitBase> =
+        let message: AssignedNative<CircuitBase> =
             std_lib.assign_as_public_input(layouter, instance.map(|(_, x)| x.into()))?;
 
-        // Compute H_1(merkle_root, msg)
-        let hash = std_lib.hash_to_curve(layouter, &[merkle_root.clone(), msg.clone()])?;
+        // Compute H_1(merkle_tree_commitment, message)
+        let hash =
+            std_lib.hash_to_curve(layouter, &[merkle_tree_commitment.clone(), message.clone()])?;
 
         let generator: AssignedNativePoint<CircuitCurve> = std_lib.jubjub().assign_fixed(
             layouter,
@@ -203,32 +208,33 @@ impl Relation for StmCircuit {
             layouter,
             &[
                 domain_separation_tag_lottery.clone(),
-                merkle_root.clone(),
-                msg.clone(),
+                merkle_tree_commitment.clone(),
+                message.clone(),
             ],
         )?;
 
-        let mut pre_index: AssignedNative<_> =
+        let mut previous_lottery_index: AssignedNative<_> =
             std_lib.assign(layouter, Value::known(CircuitBase::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
-            let index: AssignedNative<CircuitBase> = std_lib.assign(
+            let lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
                 layouter,
                 wit.clone().map(|(_, _, _, i)| CircuitBase::from(i)),
             )?;
 
-            // Check index order
+            // Check lottery index order
             if i > 0 {
-                let is_less = std_lib.lower_than(layouter, &pre_index, &index, 32)?;
+                let is_less =
+                    std_lib.lower_than(layouter, &previous_lottery_index, &lottery_index, 32)?;
                 std_lib.assert_true(layouter, &is_less)?;
             }
 
-            pre_index = index.clone();
+            previous_lottery_index = lottery_index.clone();
 
-            let vk = std_lib
+            let verification_key = std_lib
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(x, _, _, _)| x.0.0.0))?;
 
-            let target: AssignedNative<CircuitBase> =
+            let lottery_target_value: AssignedNative<CircuitBase> =
                 std_lib.assign(layouter, wit.clone().map(|(x, _, _, _)| x.1.into()))?;
 
             // Assign sibling Values.
@@ -266,30 +272,31 @@ impl Relation for StmCircuit {
                 .map(|pos| std_lib.convert(layouter, pos))
                 .collect::<Result<Vec<AssignedBit<CircuitBase>>, Error>>()?;
 
-            let sigma_value = wit
+            let commitment_point_value = wit
                 .clone()
                 .map_with_result(|(_, _, sig, _)| {
                     let (u, v) = sig.commitment_point.get_coordinates();
                     PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
                 })
                 .map_err(to_synthesis_error)?;
-            let sigma: AssignedNativePoint<_> = std_lib.jubjub().assign(layouter, sigma_value)?;
-            let s: AssignedScalarOfNativeCurve<CircuitCurve> = std_lib
+            let commitment_point: AssignedNativePoint<_> =
+                std_lib.jubjub().assign(layouter, commitment_point_value)?;
+            let response: AssignedScalarOfNativeCurve<CircuitCurve> = std_lib
                 .jubjub()
                 .assign(layouter, wit.clone().map(|(_, _, sig, _)| sig.response.0))?;
-            let c_native = std_lib.assign(
+            let challenge_base = std_lib.assign(
                 layouter,
                 wit.map(|(_, _, sig, _)| CircuitBase::from(sig.challenge)),
             )?;
-            let c: AssignedScalarOfNativeCurve<CircuitCurve> =
-                std_lib.jubjub().convert(layouter, &c_native)?;
+            let challenge_scalar: AssignedScalarOfNativeCurve<CircuitCurve> =
+                std_lib.jubjub().convert(layouter, &challenge_base)?;
 
             verify_merkle_path(
                 std_lib,
                 layouter,
-                &vk,
-                &target,
-                &merkle_root,
+                &verification_key,
+                &lottery_target_value,
+                &merkle_tree_commitment,
                 &assigned_merkle_siblings,
                 &assigned_merkle_positions,
             )?;
@@ -299,20 +306,27 @@ impl Relation for StmCircuit {
                 layouter,
                 &domain_separation_tag_signature,
                 &generator,
-                &vk,
-                &s,
-                &c,
-                &c_native,
+                &verification_key,
+                &response,
+                &challenge_scalar,
+                &challenge_base,
                 &hash,
-                &sigma,
+                &commitment_point,
             )?;
 
-            verify_lottery(std_lib, layouter, &lottery_prefix, &sigma, &index, &target)?;
+            assert_lottery_won(
+                std_lib,
+                layouter,
+                &lottery_prefix,
+                &commitment_point,
+                &lottery_index,
+                &lottery_target_value,
+            )?;
         }
 
         // m can be put as a public instance or a constant
-        let m = std_lib.assign_fixed(layouter, CircuitBase::from(self.num_lotteries as u64))?;
-        let is_less = std_lib.lower_than(layouter, &pre_index, &m, 32)?;
+        let m = std_lib.assign_fixed(layouter, CircuitBase::from(self.m as u64))?;
+        let is_less = std_lib.lower_than(layouter, &previous_lottery_index, &m, 32)?;
 
         std_lib.assert_true(layouter, &is_less)
     }
@@ -335,31 +349,31 @@ impl Relation for StmCircuit {
     }
 
     fn write_relation<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        writer.write_all(&self.quorum.to_le_bytes())?;
-        writer.write_all(&self.num_lotteries.to_le_bytes())?;
+        writer.write_all(&self.k.to_le_bytes())?;
+        writer.write_all(&self.m.to_le_bytes())?;
         writer.write_all(&self.merkle_tree_depth.to_le_bytes())
     }
 
     fn read_relation<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
         // Buffers to read 4 bytes for each `u32` field.
-        let mut quorum_bytes = [0u8; 4];
-        let mut num_lotteries_bytes = [0u8; 4];
+        let mut k_bytes = [0u8; 4];
+        let mut m_bytes = [0u8; 4];
         let mut merkle_tree_depth_bytes = [0u8; 4];
 
         // Read the values into their corresponding buffers.
-        reader.read_exact(&mut quorum_bytes)?;
-        reader.read_exact(&mut num_lotteries_bytes)?;
+        reader.read_exact(&mut k_bytes)?;
+        reader.read_exact(&mut m_bytes)?;
         reader.read_exact(&mut merkle_tree_depth_bytes)?;
 
         // Convert the byte arrays back into `u32` values.
-        let quorum = u32::from_le_bytes(quorum_bytes);
-        let num_lotteries = u32::from_le_bytes(num_lotteries_bytes);
+        let k = u32::from_le_bytes(k_bytes);
+        let m = u32::from_le_bytes(m_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
 
         // Construct and return the `StmCircuit` instance.
         Ok(Self {
-            quorum,
-            num_lotteries,
+            k,
+            m,
             merkle_tree_depth,
         })
     }
@@ -421,19 +435,19 @@ mod dst_alignment_tests {
 
     #[test]
     fn lottery_prefix_matches_reference_lottery_domain_tag_formula() {
-        let merkle_root = CircuitBase::from(123u64);
-        let msg = CircuitBase::from(456u64);
+        let merkle_tree_commitment = CircuitBase::from(123u64);
+        let message = CircuitBase::from(456u64);
 
         let lottery_prefix_via_stm_constant = PoseidonChip::<CircuitBase>::hash(&[
             CircuitBase::from(DOMAIN_SEPARATION_TAG_LOTTERY),
-            merkle_root,
-            msg,
+            merkle_tree_commitment,
+            message,
         ]);
 
         let lottery_prefix_via_reference_formula = PoseidonChip::<CircuitBase>::hash(&[
             CircuitBase::from(REFERENCE_LOTTERY_DOMAIN_TAG),
-            merkle_root,
-            msg,
+            merkle_tree_commitment,
+            message,
         ]);
 
         assert_eq!(
@@ -461,7 +475,7 @@ mod circuit_creation_tests {
     }
 
     #[test]
-    fn circuit_creation_large_num_lotteries() {
+    fn circuit_creation_large_m() {
         let stm_params = crate::Parameters {
             m: u32::MAX as u64 + 1,
             k: 10,
@@ -475,7 +489,7 @@ mod circuit_creation_tests {
     }
 
     #[test]
-    fn circuit_creation_large_quorum() {
+    fn circuit_creation_large_k() {
         let stm_params = crate::Parameters {
             m: 100,
             k: u32::MAX as u64 + 1,
@@ -485,6 +499,6 @@ mod circuit_creation_tests {
 
         let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
 
-        circuit.expect_err("Creation should have failed with quorum too large.");
+        circuit.expect_err("Creation should have failed with k too large.");
     }
 }
