@@ -24,36 +24,44 @@ use crate::{
     dependency_injection::GenesisCommandDependenciesContainer,
 };
 
+/// Configuration for the genesis tools.
+pub struct GenesisToolsConfiguration {
+    /// Cardano network.
+    pub network: CardanoNetwork,
+
+    /// Current epoch.
+    pub epoch: Epoch,
+
+    /// Aggregate verification key for the genesis stake distribution.
+    pub genesis_avk: ProtocolAggregateVerificationKey,
+
+    /// Protocol parameters for the genesis stake distribution.
+    pub genesis_protocol_parameters: ProtocolParameters,
+
+    /// Mithril era to use for the genesis certificate.
+    pub mithril_era: SupportedEra,
+}
+
+/// Genesis tools for creating and managing genesis certificates.
 pub struct GenesisTools {
-    network: CardanoNetwork,
-    epoch: Epoch,
-    genesis_avk: ProtocolAggregateVerificationKey,
-    genesis_protocol_parameters: ProtocolParameters,
+    configuration: GenesisToolsConfiguration,
     certificate_verifier: Arc<dyn CertificateVerifier>,
     certificate_repository: Arc<CertificateRepository>,
-    mithril_era: SupportedEra,
     logger: Logger,
 }
 
 impl GenesisTools {
+    /// GenesisTools factory
     pub fn new(
-        network: CardanoNetwork,
-        epoch: Epoch,
-        genesis_avk: ProtocolAggregateVerificationKey,
-        genesis_protocol_parameters: ProtocolParameters,
+        configuration: GenesisToolsConfiguration,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         certificate_repository: Arc<CertificateRepository>,
-        mithril_era: SupportedEra,
         logger: Logger,
     ) -> Self {
         Self {
-            network,
-            epoch,
-            genesis_avk,
-            genesis_protocol_parameters,
+            configuration,
             certificate_verifier,
             certificate_repository,
-            mithril_era,
             logger,
         }
     }
@@ -88,14 +96,18 @@ impl GenesisTools {
                 .build_multi_signer();
         let genesis_avk = protocol_multi_signer.compute_aggregate_verification_key();
 
-        Ok(Self::new(
-            dependencies.network,
+        let configuration = GenesisToolsConfiguration {
+            network: dependencies.network,
             epoch,
             genesis_avk,
             genesis_protocol_parameters,
+            mithril_era: dependencies.mithril_era,
+        };
+
+        Ok(Self::new(
+            configuration,
             certificate_verifier,
             certificate_repository,
-            dependencies.mithril_era,
             dependencies.logger,
         ))
     }
@@ -106,10 +118,10 @@ impl GenesisTools {
         let genesis_producer =
             CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
         let protocol_message = genesis_producer.create_genesis_protocol_message(
-            &self.genesis_protocol_parameters,
-            &self.genesis_avk,
-            &self.epoch,
-            self.mithril_era,
+            &self.configuration.genesis_protocol_parameters,
+            &self.configuration.genesis_avk,
+            &self.configuration.epoch,
+            self.configuration.mithril_era,
         )?;
         target_file.write_all(protocol_message.compute_hash().as_bytes())?;
         Ok(())
@@ -139,10 +151,10 @@ impl GenesisTools {
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)))
             .with_logger(self.logger.clone());
         let genesis_protocol_message = genesis_producer.create_genesis_protocol_message(
-            &self.genesis_protocol_parameters,
-            &self.genesis_avk,
-            &self.epoch,
-            self.mithril_era,
+            &self.configuration.genesis_protocol_parameters,
+            &self.configuration.genesis_avk,
+            &self.configuration.epoch,
+            self.configuration.mithril_era,
         )?;
         let genesis_signature =
             genesis_producer.sign_genesis_protocol_message(genesis_protocol_message)?;
@@ -181,12 +193,12 @@ impl GenesisTools {
         let genesis_producer =
             CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
         let genesis_certificate = genesis_producer.create_genesis_certificate(
-            self.genesis_protocol_parameters.clone(),
-            self.network,
-            self.epoch,
-            self.genesis_avk.clone(),
+            self.configuration.genesis_protocol_parameters.clone(),
+            self.configuration.network,
+            self.configuration.epoch,
+            self.configuration.genesis_avk.clone(),
             genesis_signature,
-            self.mithril_era,
+            self.configuration.mithril_era,
         )?;
         self.certificate_verifier
             .verify_genesis_certificate(&genesis_certificate, genesis_verification_key)
@@ -262,14 +274,17 @@ mod tests {
         ));
         let genesis_avk = create_fake_genesis_avk();
         let genesis_verifier = Arc::new(genesis_signer.create_verifier());
-        let genesis_tools = GenesisTools::new(
-            fake_data::network(),
-            Epoch(10),
+        let configuration = GenesisToolsConfiguration {
+            network: fake_data::network(),
+            epoch: Epoch(10),
             genesis_avk,
-            fake_data::protocol_parameters(),
+            genesis_protocol_parameters: fake_data::protocol_parameters(),
+            mithril_era: SupportedEra::Pythagoras,
+        };
+        let genesis_tools = GenesisTools::new(
+            configuration,
             certificate_verifier.clone(),
             certificate_store.clone(),
-            SupportedEra::Pythagoras,
             TestLogger::stdout(),
         );
 
