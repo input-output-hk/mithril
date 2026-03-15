@@ -1,3 +1,5 @@
+//! Golden test cases grouped by expected outcome.
+
 #[macro_use]
 mod macros;
 

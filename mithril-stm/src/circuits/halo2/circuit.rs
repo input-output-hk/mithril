@@ -11,7 +11,8 @@ use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 use crate::circuits::halo2::assignments::WitnessEntry;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
-    assert_lottery_won, verify_merkle_path, verify_unique_signature,
+    assert_lottery_index_in_bounds, assert_lottery_won,
+    assert_strictly_increasing_lottery_index, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
     CircuitBase, CircuitCurve, MerkleRoot, SignedMessageWithoutPrefix,
@@ -213,7 +214,7 @@ impl Relation for StmCircuit {
 
             // Check lottery index order
             if i > 0 {
-                Self::assert_strictly_increasing_lottery_index(
+                assert_strictly_increasing_lottery_index(
                     std_lib,
                     layouter,
                     &previous_lottery_index,
@@ -261,9 +262,7 @@ impl Relation for StmCircuit {
 
         // m can be put as a public instance or a constant
         let m = std_lib.assign_fixed(layouter, CircuitBase::from(self.m as u64))?;
-        let is_less = std_lib.lower_than(layouter, &previous_lottery_index, &m, 32)?;
-
-        std_lib.assert_true(layouter, &is_less)
+        assert_lottery_index_in_bounds(std_lib, layouter, &previous_lottery_index, &m)
     }
 
     fn used_chips(&self) -> ZkStdLibArch {
