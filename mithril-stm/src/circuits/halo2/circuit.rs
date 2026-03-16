@@ -11,8 +11,9 @@ use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 use crate::circuits::halo2::assignments::WitnessEntry;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
-    assert_lottery_index_in_bounds, assert_lottery_won,
-    assert_strictly_increasing_lottery_index, verify_merkle_path, verify_unique_signature,
+    MerklePathInputs, UniqueSchnorrSignatureInputs, assert_lottery_index_in_bounds,
+    assert_lottery_won, assert_strictly_increasing_lottery_index, verify_merkle_path,
+    verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
     CircuitBase, CircuitCurve, MerkleRoot, SignedMessageWithoutPrefix,
@@ -230,24 +231,28 @@ impl Relation for StmCircuit {
             verify_merkle_path(
                 std_lib,
                 layouter,
-                &assigned_witness_entry.verification_key,
-                &assigned_witness_entry.lottery_target_value,
-                &merkle_tree_commitment,
-                &assigned_witness_entry.merkle_path.siblings,
-                &assigned_witness_entry.merkle_path.positions,
+                MerklePathInputs {
+                    verification_key: &assigned_witness_entry.verification_key,
+                    lottery_target_value: &assigned_witness_entry.lottery_target_value,
+                    merkle_tree_commitment: &merkle_tree_commitment,
+                    merkle_siblings: &assigned_witness_entry.merkle_path.siblings,
+                    merkle_positions: &assigned_witness_entry.merkle_path.positions,
+                },
             )?;
 
             verify_unique_signature(
                 std_lib,
                 layouter,
-                &domain_separation_tag_signature,
-                &generator,
-                &assigned_witness_entry.verification_key,
-                &assigned_signature_components.response,
-                &assigned_signature_components.challenge_as_scalar,
-                &assigned_signature_components.challenge,
-                &hash,
-                &assigned_signature_components.commitment_point,
+                UniqueSchnorrSignatureInputs {
+                    dst_signature: &domain_separation_tag_signature,
+                    generator: &generator,
+                    verification_key: &assigned_witness_entry.verification_key,
+                    response: &assigned_signature_components.response,
+                    challenge_in_base_field: &assigned_signature_components.challenge_in_base_field,
+                    challenge_as_scalar: &assigned_signature_components.challenge_as_scalar,
+                    hash: &hash,
+                    commitment_point: &assigned_signature_components.commitment_point,
+                },
             )?;
 
             assert_lottery_won(

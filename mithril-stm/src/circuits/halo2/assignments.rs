@@ -1,6 +1,4 @@
-use midnight_circuits::instructions::{
-    AssignmentInstructions, ConversionInstructions,
-};
+use midnight_circuits::instructions::{AssignmentInstructions, ConversionInstructions};
 use midnight_circuits::types::{
     AssignedBit, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
 };
@@ -10,9 +8,7 @@ use midnight_zk_stdlib::ZkStdLib;
 
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::to_synthesis_error;
-use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath,
-};
+use crate::circuits::halo2::types::{CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath};
 use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
 use crate::{LotteryIndex, StmResult};
 
@@ -38,7 +34,7 @@ pub(crate) struct AssignedWitnessEntry {
 pub(crate) struct AssignedSignatureComponents {
     pub(crate) commitment_point: AssignedNativePoint<CircuitCurve>,
     pub(crate) response: AssignedScalarOfNativeCurve<CircuitCurve>,
-    pub(crate) challenge: AssignedNative<CircuitBase>,
+    pub(crate) challenge_in_base_field: AssignedNative<CircuitBase>,
     pub(crate) challenge_as_scalar: AssignedScalarOfNativeCurve<CircuitCurve>,
 }
 
@@ -62,8 +58,7 @@ impl StmCircuit {
 
         let lottery_index = std_lib.assign(
             layouter,
-            witness_entry
-                .map(|(_, _, _, lottery_index)| CircuitBase::from(lottery_index)),
+            witness_entry.map(|(_, _, _, lottery_index)| CircuitBase::from(lottery_index)),
         )?;
 
         Ok(AssignedWitnessEntry {
@@ -153,16 +148,16 @@ impl StmCircuit {
             layouter,
             witness_entry.clone().map(|(_, _, signature, _)| signature.response.0),
         )?;
-        let challenge = std_lib.assign(
+        let challenge_in_base_field = std_lib.assign(
             layouter,
             witness_entry.map(|(_, _, signature, _)| CircuitBase::from(signature.challenge)),
         )?;
-        let challenge_as_scalar = std_lib.jubjub().convert(layouter, &challenge)?;
+        let challenge_as_scalar = std_lib.jubjub().convert(layouter, &challenge_in_base_field)?;
 
         Ok(AssignedSignatureComponents {
             commitment_point,
             response,
-            challenge,
+            challenge_in_base_field,
             challenge_as_scalar,
         })
     }

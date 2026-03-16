@@ -41,8 +41,7 @@ pub(crate) fn assert_strictly_increasing_lottery_index(
     previous_lottery_index: &AssignedNative<CircuitBase>,
     lottery_index: &AssignedNative<CircuitBase>,
 ) -> Result<(), Error> {
-    let is_less =
-        std_lib.lower_than(layouter, previous_lottery_index, lottery_index, 32)?;
+    let is_less = std_lib.lower_than(layouter, previous_lottery_index, lottery_index, 32)?;
     std_lib.assert_true(layouter, &is_less)
 }
 
