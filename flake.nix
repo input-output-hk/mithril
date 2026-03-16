@@ -28,17 +28,17 @@
       }: let
         inherit (inputs.nixpkgs) lib;
         
-      pkgs = import inputs.nixpkgs {
+      pkgsRustOverlay = import inputs.nixpkgs {
         inherit system;
         overlays = [ (import inputs.rust-overlay) ];
       };
 
       pkgsMusl =
         if system == "x86_64-linux"
-        then pkgs.pkgsCross.musl64
+        then pkgsRustOverlay.pkgsCross.musl64
         else null;
 
-      craneLib = inputs.crane.mkLib pkgs;
+      craneLib = inputs.crane.mkLib pkgsRustOverlay;
 
       craneLibMusl =
         if pkgsMusl != null then
@@ -78,12 +78,12 @@
 
         buildInputs =
           [
-            pkgs.pkg-config
-            pkgs.gnum4
-            pkgs.openssl
+            pkgsRustOverlay.pkg-config
+            pkgsRustOverlay.gnum4
+            pkgsRustOverlay.openssl
           ]
-          ++ lib.optionals (pkgs.stdenv.isDarwin) [
-            pkgs.libiconv
+          ++ lib.optionals (pkgsRustOverlay.stdenv.isDarwin) [
+            pkgsRustOverlay.libiconv
           ];
 
         opensslMusl =
@@ -212,15 +212,15 @@
             };
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgsRustOverlay.mkShell {
           inputsFrom = [self'.packages.mithril-client-cli];
 
           nativeBuildInputs = [
-            pkgs.cargo
-            pkgs.rustc
-            pkgs.libiconv
+            pkgsRustOverlay.cargo
+            pkgsRustOverlay.rustc
+            pkgsRustOverlay.libiconv
             config.treefmt.package
-            pkgs.gnumake
+            pkgsRustOverlay.gnumake
           ];
 
           shellHook = ''
@@ -229,7 +229,7 @@
           '';
         };
 
-        formatter = pkgs.writeShellApplication {
+        formatter = pkgsRustOverlay.writeShellApplication {
           name = "treefmt";
           text = "exec ${config.treefmt.package}/bin/treefmt";
         };
