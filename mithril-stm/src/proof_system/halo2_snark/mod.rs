@@ -446,7 +446,7 @@ mod tests {
 
         let prefix = compute_lottery_prefix(&message_to_sign);
 
-        // Every returned index must pass assert_lottery_won
+        // Every returned index must pass verify_lottery_eligibility
         for &index in &winning_indices {
             assert!(
                 index < params.m,
