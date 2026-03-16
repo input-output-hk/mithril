@@ -13,7 +13,7 @@ use crate::{
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
-/// A cryptographic proof of a set of items is included in a merkle tree
+/// A cryptographic proof that a set of items is included in a Merkle tree
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MkSetProofMessagePart<T> {
     /// Items certified by the proof

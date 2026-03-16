@@ -112,10 +112,10 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
 
     async fn get_mk_map(
         &self,
-        node_to_insert: HashMap<BlockRange, BTreeSet<CardanoBlockTransactionMkTreeNode>>,
+        nodes_to_insert: HashMap<BlockRange, BTreeSet<CardanoBlockTransactionMkTreeNode>>,
     ) -> StdResult<ResourcePoolItem<'_, MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>> {
         // 1 - Compute block ranges sub Merkle trees
-        let mk_trees: StdResult<Vec<(BlockRange, MKTree<S>)>> = node_to_insert
+        let mk_trees: StdResult<Vec<(BlockRange, MKTree<S>)>> = nodes_to_insert
             .into_iter()
             .map(|(block_range, node)| {
                 let mk_tree = MKTree::new_from_iter(node)?;
@@ -124,7 +124,7 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
             .collect();
         let mk_trees = BTreeMap::from_iter(mk_trees?);
 
-        // 2 - Compute block range roots Merkle map
+        // 2 - Acquire global Merkle map kept in cache
         let acquire_timeout = Duration::from_millis(1000);
         let mut mk_map = self.mk_map_pool.acquire_resource(acquire_timeout)?;
 

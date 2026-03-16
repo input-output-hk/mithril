@@ -16,12 +16,12 @@ pub enum VerifyProofsV2Error {
         source: StdError,
     },
 
-    /// No certified items set proof to verify
+    /// No certified items to verify in the set proof
     #[error("There's no certified {0} to verify")]
     NoCertifiedItem(&'static str),
 
     /// An individual [crate::messages::MkSetProofMessagePart] could not be converted to a
     /// [crate::entities::MkSetProof] for verification.
-    #[error("Malformed data or unknown {0} Set Proof format")]
+    #[error("Malformed data or unknown {0} set proof format")]
     MalformedData(&'static str, #[source] StdError),
 }

@@ -22,10 +22,10 @@ pub trait IntoMKTreeNode {
 /// A cryptographic proof of that a set of items is included in a Merkle tree
 #[derive(Clone, Debug, PartialEq)]
 pub struct MkSetProof<T: IntoMKTreeNode + Clone> {
-    /// Certified blocks with their transactions hashes included
+    /// Certified items list
     pub(crate) items: Vec<T>,
 
-    /// Proof of inclusion of the Blocks and transactions
+    /// Proof of inclusion of the certified items
     pub(crate) proof: ProtocolMkProof,
 }
 

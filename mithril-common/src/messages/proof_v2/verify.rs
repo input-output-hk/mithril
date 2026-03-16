@@ -1,6 +1,7 @@
 use crate::entities::{IntoMKTreeNode, MkSetProof};
 use crate::messages::{MkSetProofMessagePart, VerifyProofsV2Error};
 
+/// Shared logic for verifying a set of items in a [MkSetProofMessagePart].
 pub(crate) struct ProofMessageVerifier<T, U> {
     subject: &'static str,
     hash_extractor: fn(&U) -> String,
