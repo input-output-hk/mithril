@@ -17,8 +17,7 @@ use crate::circuits::halo2::gadgets::{
     assert_lottery_won, verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath, MerkleRoot,
-    SignedMessageWithoutPrefix,
+    CircuitBase, CircuitCurve, CircuitInstance, CircuitMerkleTreeLeaf, MerklePath,
 };
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
@@ -155,7 +154,7 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
+    type Instance = CircuitInstance;
     type Witness = Vec<(
         CircuitMerkleTreeLeaf,
         MerklePath,

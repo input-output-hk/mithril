@@ -15,6 +15,8 @@ use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey};
 pub(crate) type CircuitBase = MidnightBaseField;
 /// Shared Midnight curve alias used by Halo2 relation/chips.
 pub(crate) type CircuitCurve = MidnightJubjub;
+/// Circuit statement/instance type, representing the public inputs to the STM SNARK circuit.
+pub(crate) type CircuitInstance = (MerkleRoot, SignedMessageWithoutPrefix);
 
 /// Field type boundaries:
 /// - `BaseFieldElement`: STM/domain field wrapper.

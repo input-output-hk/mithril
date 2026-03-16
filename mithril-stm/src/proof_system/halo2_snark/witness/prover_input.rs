@@ -1,5 +1,6 @@
 use crate::{
     BaseFieldElement, MembershipDigest, SingleSignature, StmResult,
+    circuits::CircuitInstance,
     proof_system::{
         AggregateVerificationKeyForSnark, SnarkClerk,
         halo2_snark::{build_snark_message, compute_winning_lottery_indices},
@@ -7,10 +8,6 @@ use crate::{
 };
 
 use super::WitnessEntry;
-
-/// Public instance for the SNARK circuit, consisting of the Merkle tree root and the message.
-/// Both elements are base field scalars consumed directly by the halo2 circuit as public inputs.
-type Instance = (BaseFieldElement, BaseFieldElement);
 
 /// Prover input for the SNARK circuit, bundling public and private data.
 /// The **instance** carries the Merkle tree root and the signed message, the two public inputs
@@ -22,7 +19,7 @@ type Instance = (BaseFieldElement, BaseFieldElement);
 #[derive(Debug, Clone)]
 pub struct SnarkProverInput {
     /// Public inputs to the SNARK circuit.
-    instance: Instance,
+    instance: CircuitInstance,
     /// Per-winning-lottery-index witness data.
     witness: Vec<WitnessEntry>,
 }
@@ -63,7 +60,7 @@ impl SnarkProverInput {
 
         let witness = WitnessEntry::create_witness::<D>(unique_index_signature_map, clerk)?;
 
-        let instance = (message_to_sign[0], message_to_sign[1]);
+        let instance = (message_to_sign[0].into(), message_to_sign[1].into());
 
         Ok(SnarkProverInput { witness, instance })
     }
@@ -109,7 +106,7 @@ impl SnarkProverInput {
     }
 
     /// Return the public instance as a `(merkle_tree_root, message)` pair.
-    pub fn get_instance(&self) -> Instance {
+    pub fn get_instance(&self) -> CircuitInstance {
         self.instance
     }
 
@@ -282,9 +279,14 @@ mod tests {
             build_snark_message(&avk.get_merkle_tree_commitment().root, &message).unwrap();
 
         let (instance_root, instance_msg) = prover_input.get_instance();
-        assert_eq!(instance_root, expected_message[0], "Instance root mismatch");
         assert_eq!(
-            instance_msg, expected_message[1],
+            instance_root,
+            expected_message[0].into(),
+            "Instance root mismatch"
+        );
+        assert_eq!(
+            instance_msg,
+            expected_message[1].into(),
             "Instance message mismatch"
         );
     }
