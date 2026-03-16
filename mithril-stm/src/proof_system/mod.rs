@@ -26,7 +26,8 @@ pub use concatenation::{
 pub(crate) use concatenation::{ConcatenationProofSigner, SingleSignatureForConcatenation};
 
 #[cfg(feature = "future_snark")]
+pub use halo2_snark::AggregateVerificationKeyForSnark;
+#[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
-    AggregateVerificationKeyForSnark, SingleSignatureForSnark, SnarkProofSigner,
-    compute_target_value_for_snark_lottery,
+    SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, compute_target_value_for_snark_lottery,
 };

@@ -302,5 +302,13 @@ alter table signer_registration add column verification_key_for_snark text;
 alter table signer_registration add column verification_key_signature_for_snark text;
         "#,
         ),
+        // Migration 41
+        // Add `aggregate_verification_key_snark` column to `certificate` table.
+        SqlMigration::new(
+            41,
+            r#"
+alter table certificate add column aggregate_verification_key_snark text;
+        "#,
+        ),
     ]
 }

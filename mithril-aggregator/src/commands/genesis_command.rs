@@ -12,7 +12,7 @@ use mithril_common::{
     crypto_helper::{
         ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
     },
-    entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
+    entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey, SupportedEra},
 };
 use mithril_doc::{Documenter, StructDoc};
 
@@ -20,6 +20,27 @@ use crate::{
     ConfigurationSource, ExecutionEnvironment, dependency_injection::DependenciesBuilder,
     extract_all, tools::GenesisTools,
 };
+
+/// Resolve the Mithril era for the genesis command.
+///
+/// If the era is explicitly provided, it is returned as-is.
+/// If not provided and only one era exists, that era is used automatically.
+/// If not provided and multiple eras exist, an error is returned.
+fn resolve_mithril_era(mithril_era: Option<SupportedEra>) -> StdResult<SupportedEra> {
+    match mithril_era {
+        Some(era) => Ok(era),
+        None => {
+            let eras = SupportedEra::eras();
+            if eras.len() == 1 {
+                Ok(eras[0])
+            } else {
+                Err(anyhow::anyhow!(
+                    "Multiple Mithril eras are supported ({eras:?}), please specify which era to use with --mithril-era"
+                ))
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Documenter)]
 pub struct GenesisCommandConfiguration {
@@ -163,6 +184,12 @@ pub struct ExportGenesisSubCommand {
     /// Target path
     #[clap(long)]
     target_path: PathBuf,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl ExportGenesisSubCommand {
@@ -181,11 +208,15 @@ impl ExportGenesisSubCommand {
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder.create_genesis_container().await.with_context(
-            || "Dependencies Builder can not create genesis command dependencies container",
-        )?;
+        let dependencies = dependencies_builder
+            .create_genesis_container(mithril_era)
+            .await
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -228,11 +259,15 @@ impl ImportGenesisSubCommand {
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
+        let mithril_era = resolve_mithril_era(None)?;
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder.create_genesis_container().await.with_context(
-            || "Dependencies Builder can not create genesis command dependencies container",
-        )?;
+        let dependencies = dependencies_builder
+            .create_genesis_container(mithril_era)
+            .await
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -296,6 +331,12 @@ pub struct BootstrapGenesisSubCommand {
     /// Genesis Secret Key (test only)
     #[clap(long, env = "GENESIS_SECRET_KEY")]
     genesis_secret_key: HexEncodedGenesisSecretKey,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl BootstrapGenesisSubCommand {
@@ -311,11 +352,15 @@ impl BootstrapGenesisSubCommand {
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder.create_genesis_container().await.with_context(
-            || "Dependencies Builder can not create genesis command dependencies container",
-        )?;
+        let dependencies = dependencies_builder
+            .create_genesis_container(mithril_era)
+            .await
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -372,6 +417,24 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn resolve_mithril_era_returns_provided_era() {
+        let era = resolve_mithril_era(Some(SupportedEra::Lagrange)).unwrap();
+        assert_eq!(SupportedEra::Lagrange, era);
+    }
+
+    #[test]
+    fn resolve_mithril_era_returns_error_when_multiple_eras_and_none_provided() {
+        let eras = SupportedEra::eras();
+        if eras.len() > 1 {
+            let result = resolve_mithril_era(None);
+            assert!(
+                result.is_err(),
+                "Should error when multiple eras exist and none is provided"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn create_container_does_not_panic() {
         let config = GenesisCommandConfiguration {
@@ -386,7 +449,7 @@ mod tests {
             DependenciesBuilder::new(TestLogger::stdout(), Arc::new(config));
 
         dependencies_builder
-            .create_genesis_container()
+            .create_genesis_container(SupportedEra::Pythagoras)
             .await
             .expect("Expected container creation to succeed without panicking");
     }

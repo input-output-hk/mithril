@@ -108,7 +108,7 @@ pub async fn bootstrap_aggregator(
         info!(">> Compute genesis certificate");
         let genesis_aggregator = Aggregator::copy_configuration(&aggregator);
         genesis_aggregator
-            .bootstrap_genesis()
+            .bootstrap_genesis(&args.mithril_era)
             .await
             .expect("Genesis aggregator should be able to bootstrap genesis");
     }

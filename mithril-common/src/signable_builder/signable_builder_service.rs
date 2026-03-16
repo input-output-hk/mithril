@@ -150,6 +150,18 @@ impl MithrilSignableBuilderService {
             next_aggregate_verification_key,
         );
 
+        #[cfg(feature = "future_snark")]
+        if let Some(next_snark_aggregate_verification_key) = self
+            .seed_signable_builder
+            .compute_next_aggregate_verification_key_for_snark()
+            .await?
+        {
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                next_snark_aggregate_verification_key,
+            );
+        }
+
         let next_protocol_parameters =
             self.seed_signable_builder.compute_next_protocol_parameters().await?;
         protocol_message.set_message_part(
@@ -251,6 +263,12 @@ mod tests {
             .expect_compute_next_aggregate_verification_key_for_concatenation()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
+        #[cfg(feature = "future_snark")]
+        mock_container
+            .mock_signable_seed_builder
+            .expect_compute_next_aggregate_verification_key_for_snark()
+            .once()
+            .return_once(move || Ok(Some("next-snark-avk-123".to_string())));
         mock_container
             .mock_signable_seed_builder
             .expect_compute_next_protocol_parameters()

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.12.42"
+version = "0.12.43"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -23,6 +23,7 @@ path = "src/main.rs"
 
 [features]
 bundle_tls = ["mithril-client/native-tls-vendored"]
+future_snark = ["mithril-client/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }

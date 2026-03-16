@@ -1,16 +1,34 @@
 use std::path::PathBuf;
 
 use crate::{Aggregator, Devnet};
+use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::messages::AggregatorStatusMessage;
 use slog_scope::info;
+
+/// Retrieve the current Mithril era from a running aggregator by querying its `/status` route.
+pub async fn retrieve_current_era(aggregator: &Aggregator) -> StdResult<String> {
+    let url = format!("{}/status", aggregator.endpoint());
+    let response = reqwest::get(&url)
+        .await
+        .with_context(|| format!("Failed to query aggregator status at `{url}`"))?;
+    let status_message: AggregatorStatusMessage = response
+        .json()
+        .await
+        .with_context(|| "Failed to parse aggregator status response")?;
+
+    Ok(status_message.mithril_era.to_string())
+}
 
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate"; "aggregator" => &aggregator.name());
+    info!("> retrieving current era from aggregator"; "aggregator" => &aggregator.name());
+    let mithril_era = retrieve_current_era(aggregator).await?;
     info!("> stopping aggregator"; "aggregator" => &aggregator.name());
     aggregator.stop().await?;
     info!("> bootstrapping genesis using signers registered two epochs ago..."; "aggregator" => &aggregator.name());
-    aggregator.bootstrap_genesis().await?;
+    aggregator.bootstrap_genesis(&mithril_era).await?;
     info!("> done, restarting aggregator"; "aggregator" => &aggregator.name());
     aggregator.serve().await?;
 

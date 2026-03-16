@@ -7,16 +7,21 @@ use slog::{Logger, debug};
 use std::sync::Arc;
 use thiserror::Error;
 
-use super::CertificateRetriever;
+use mithril_stm::AggregateSignatureType;
+
 use crate::StdResult;
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
-    ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerificationKey,
-    ProtocolMultiSignature,
+    ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
+    ProtocolGenesisError, ProtocolGenesisVerificationKey, ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
 };
 use crate::logging::LoggerExtensions;
+
+use super::CertificateRetriever;
 
 #[cfg(test)]
 use mockall::automock;
@@ -254,32 +259,95 @@ impl MithrilCertificateVerifier {
         certificate: &Certificate,
         previous_certificate: &Certificate,
     ) -> StdResult<()> {
+        let aggregate_signature_type = certificate
+            .signature
+            .aggregate_signature_type()
+            .ok_or(CertificateVerifierError::InvalidStandardCertificateProvided)?;
+
+        match aggregate_signature_type {
+            AggregateSignatureType::Concatenation => self
+                .verify_concatenation_aggregate_verification_key_chaining(
+                    certificate,
+                    previous_certificate,
+                ),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::Future => self
+                .verify_snark_aggregate_verification_key_chaining(
+                    certificate,
+                    previous_certificate,
+                ),
+        }
+    }
+
+    fn verify_concatenation_aggregate_verification_key_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
         let previous_certificate_has_same_epoch = previous_certificate.epoch == certificate.epoch;
         let certificate_has_valid_aggregate_verification_key =
             if previous_certificate_has_same_epoch {
                 previous_certificate.aggregate_verification_key
                     == certificate.aggregate_verification_key
             } else {
-                match &previous_certificate
+                previous_certificate
                     .protocol_message
                     .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
-                {
-                    Some(previous_certificate_next_aggregate_verification_key) => {
-                        **previous_certificate_next_aggregate_verification_key
-                            == certificate
-                                .aggregate_verification_key
-                                .to_json_hex()
-                                .with_context(|| {
-                                    format!(
-                                    "aggregate verification key to string conversion error for certificate: `{}`",
-                                    certificate.hash
-                                )
-                                })?
-                    }
-                    None => false,
-                }
+                    .and_then(|encoded_next_avk| {
+                        ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                            encoded_next_avk.as_str(),
+                        )
+                        .ok()
+                    })
+                    .is_some_and(|decoded_next_avk| {
+                        decoded_next_avk == certificate.aggregate_verification_key
+                    })
             };
         if !certificate_has_valid_aggregate_verification_key {
+            debug!(
+                self.logger,
+                "Previous certificate {:#?}", previous_certificate
+            );
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainAVKUnmatch
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "future_snark")]
+    fn verify_snark_aggregate_verification_key_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        let previous_certificate_has_same_epoch = previous_certificate.epoch == certificate.epoch;
+        let certificate_has_valid_snark_avk = if previous_certificate_has_same_epoch {
+            match (
+                &certificate.aggregate_verification_key_snark,
+                &previous_certificate.aggregate_verification_key_snark,
+            ) {
+                (Some(current), Some(previous)) => current == previous,
+                _ => false,
+            }
+        } else {
+            previous_certificate
+                .protocol_message
+                .get_message_part(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
+                .and_then(|encoded_next_snark_avk| {
+                    ProtocolAggregateVerificationKeyForSnark::try_from(
+                        encoded_next_snark_avk.as_str(),
+                    )
+                    .ok()
+                })
+                .is_some_and(|decoded_next_snark_avk| {
+                    certificate.aggregate_verification_key_snark.as_ref().is_some_and(
+                        |current_snark_avk| *current_snark_avk == decoded_next_snark_avk,
+                    )
+                })
+        };
+        if !certificate_has_valid_snark_avk {
             debug!(
                 self.logger,
                 "Previous certificate {:#?}", previous_certificate
@@ -1139,5 +1207,245 @@ mod tests {
             CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
             error
         )
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod snark_avk_chaining {
+        use super::*;
+
+        use crate::crypto_helper::ProtocolMembershipDigest;
+        use crate::entities::SupportedEra;
+        use crate::test::builder::{CertificateChainBuilder, CertificateChainFixture};
+
+        use mithril_stm::AggregateSignature;
+
+        fn setup_certificate_chain_with_lagrange_era(
+            total_certificates: u64,
+            certificates_per_epoch: u64,
+        ) -> CertificateChainFixture {
+            CertificateChainBuilder::new()
+                .with_total_certificates(total_certificates)
+                .with_certificates_per_epoch(certificates_per_epoch)
+                .with_protocol_parameters(setup_protocol_parameters())
+                .with_mithril_era(SupportedEra::Lagrange)
+                .build()
+        }
+
+        fn with_snark_proof_type(mut certificate: Certificate) -> Certificate {
+            if let CertificateSignature::MultiSignature(entity_type, _) =
+                certificate.signature.clone()
+            {
+                let future_signature: AggregateSignature<ProtocolMembershipDigest> =
+                    AggregateSignature::Future;
+                certificate.signature =
+                    CertificateSignature::MultiSignature(entity_type, future_signature.into());
+                certificate.hash = certificate.compute_hash();
+            } else {
+                panic!("Certificate signature should be a multi signature");
+            }
+            certificate
+        }
+
+        #[test]
+        fn snark_avk_chaining_succeeds_with_different_epochs() {
+            let (total_certificates, certificates_per_epoch) = (5, 1);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let previous_certificate = fake_certificates[1].clone();
+            certificate.previous_hash.clone_from(&previous_certificate.hash);
+            certificate.hash = certificate.compute_hash();
+
+            verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect("SNARK AVK chaining verification should not fail");
+        }
+
+        #[test]
+        fn snark_avk_chaining_succeeds_with_same_epoch() {
+            let (total_certificates, certificates_per_epoch) = (5, 2);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let previous_certificate = fake_certificates[1].clone();
+
+            verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect("SNARK AVK chaining verification should not fail");
+        }
+
+        #[test]
+        fn snark_avk_chaining_fails_with_same_epoch_when_current_has_snark_avk_but_previous_does_not()
+         {
+            let (total_certificates, certificates_per_epoch) = (5, 2);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let mut previous_certificate = fake_certificates[1].clone();
+            previous_certificate.aggregate_verification_key_snark = None;
+
+            let error = verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect_err("SNARK AVK chaining verification should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateChainAVKUnmatch, error)
+        }
+
+        #[test]
+        fn snark_avk_chaining_fails_with_same_epoch_when_previous_has_snark_avk_but_current_does_not()
+         {
+            let (total_certificates, certificates_per_epoch) = (5, 2);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
+            certificate.aggregate_verification_key_snark = None;
+            certificate.hash = certificate.compute_hash();
+            let previous_certificate = fake_certificates[1].clone();
+
+            let error = verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect_err("SNARK AVK chaining verification should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateChainAVKUnmatch, error)
+        }
+
+        #[test]
+        fn snark_avk_chaining_fails_with_same_epoch_when_both_lack_snark_avk() {
+            let (total_certificates, certificates_per_epoch) = (5, 2);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
+            certificate.aggregate_verification_key_snark = None;
+            certificate.hash = certificate.compute_hash();
+            let mut previous_certificate = fake_certificates[1].clone();
+            previous_certificate.aggregate_verification_key_snark = None;
+
+            let error = verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect_err("SNARK AVK chaining verification should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateChainAVKUnmatch, error)
+        }
+
+        #[test]
+        fn snark_avk_chaining_fails_when_next_snark_avk_is_tampered() {
+            let (total_certificates, certificates_per_epoch) = (5, 1);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let mut previous_certificate = fake_certificates[1].clone();
+            previous_certificate.protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                "tampered-snark-avk".to_string(),
+            );
+
+            let error = verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect_err("SNARK AVK chaining verification should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateChainAVKUnmatch, error)
+        }
+
+        #[test]
+        fn snark_avk_chaining_fails_when_next_snark_avk_is_missing() {
+            let (total_certificates, certificates_per_epoch) = (5, 1);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let mut previous_certificate = fake_certificates[1].clone();
+            previous_certificate
+                .protocol_message
+                .message_parts
+                .remove(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey);
+
+            let error = verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &previous_certificate,
+                )
+                .expect_err("SNARK AVK chaining verification should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateChainAVKUnmatch, error)
+        }
+
+        #[test]
+        fn avk_chaining_dispatches_to_snark_when_current_is_future_and_previous_is_concatenation() {
+            let (total_certificates, certificates_per_epoch) = (5, 1);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
+            let previous_certificate = fake_certificates[1].clone();
+            certificate.previous_hash.clone_from(&previous_certificate.hash);
+            certificate.hash = certificate.compute_hash();
+
+            verifier
+                .verify_aggregate_verification_key_chaining(&certificate, &previous_certificate)
+                .expect(
+                    "AVK chaining from concatenation to Future should succeed via SNARK dispatch",
+                );
+        }
+
+        #[test]
+        fn snark_avk_chaining_succeeds_when_previous_is_genesis_certificate() {
+            let (total_certificates, certificates_per_epoch) = (5, 1);
+            let fake_certificates = setup_certificate_chain_with_lagrange_era(
+                total_certificates,
+                certificates_per_epoch,
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let genesis_certificate = fake_certificates.genesis_certificate().clone();
+            let mut certificate = with_snark_proof_type(fake_certificates[3].clone());
+            certificate.previous_hash.clone_from(&genesis_certificate.hash);
+            certificate.hash = certificate.compute_hash();
+
+            verifier
+                .verify_snark_aggregate_verification_key_chaining(
+                    &certificate,
+                    &genesis_certificate,
+                )
+                .expect("SNARK AVK chaining from genesis to SNARK certificate should succeed");
+        }
     }
 }

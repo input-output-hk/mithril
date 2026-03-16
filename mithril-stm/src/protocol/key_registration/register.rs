@@ -123,6 +123,14 @@ impl ClosedKeyRegistration {
             .map(|s| s as u64)
     }
 
+    /// Check if any registration entry has a SNARK verification key.
+    #[cfg(feature = "future_snark")]
+    pub fn has_snark_verification_keys(&self) -> bool {
+        self.closed_registration_entries
+            .iter()
+            .any(|entry| entry.get_verification_key_for_snark().is_some())
+    }
+
     /// Get the closed registration entry for a given signer index.
     pub fn get_registration_entry_for_index(
         &self,
