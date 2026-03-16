@@ -77,9 +77,9 @@ impl WitnessEntry {
                     Ok(None) => continue,
                     Err(_) => continue,
                 };
-                let stm_path = merkle_tree.compute_merkle_tree_path(sig.signer_index as usize);
-                let merkle_path: Halo2MerklePath = Halo2MerklePath::try_from(&stm_path)?;
-                vacant.insert((leaf, merkle_path));
+                let merkle_path = merkle_tree.compute_merkle_tree_path(sig.signer_index as usize);
+                let merkle_path_circuit: Halo2MerklePath = Halo2MerklePath::try_from(&merkle_path)?;
+                vacant.insert((leaf, merkle_path_circuit));
             }
         }
 
