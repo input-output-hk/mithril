@@ -10,6 +10,10 @@ inputs:
   common-build-args:
     description: Arguments that will be passed to both bin & lib 'cargo build'
     required: false
+  binaries-to-check-static:
+    description: Comma-separated list of binaries to check for static builds (e.g., mithril-client,mithril-aggregator). Leave empty to skip static build checks.
+    required: false
+    default: ""
   binaries-build-target:
     description: Build target directory name (e.g., x86_64-unknown-linux-musl). Leave empty for default target/release
     required: false
@@ -56,7 +60,7 @@ runs:
     - name: Check for static builds
       uses: ./.github/workflows/actions/check-static-binaries
       with:
-        binaries: mithril-client
+        binaries: ${{ inputs.binaries-to-check-static }}
         target-path: ${{ steps.build-path.outputs.path }}
 
     - name: Move binaries before upload

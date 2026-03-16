@@ -65,6 +65,7 @@ jobs:
         with:
           binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
+          binaries-to-check-static: mithril-aggregator,mithril-signer,mithril-client,mithril-relay
           binaries-build-target: ${{ matrix.musl_target }}
 
       - name: Build Debian packages
@@ -133,6 +134,7 @@ jobs:
         with:
           binaries-build-args: ${{ matrix.binaries-build-args }}
           libraries-build-args: ${{ matrix.libraries-build-args }}
+          binaries-to-check-static: mithril-client
           common-build-args: ${{ matrix.common-build-args }}
 
   build-test-wasm:
