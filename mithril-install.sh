@@ -142,11 +142,14 @@ chmod +x "$INSTALL_PATH/$NODE"
 rm -f "$ASSETS_FILE_PATH"
 
 # Check glibc version if the binary is dynamic
-if [ "$OS" = "Linux" ] && ! ldd "$INSTALL_PATH/$NODE" 2>&1 | grep -q "statically linked"; then
-  echo "Checking glibc version"
-  check_glibc_min_version
-else
-  echo "Binary is static, skipping glibc check."
+if [ "$OS" = "Linux" ]; then
+  LDD_OUTPUT=$(ldd "$INSTALL_PATH/$NODE" 2>&1 || true)
+  if echo "$LDD_OUTPUT" | grep -Eq "statically linked|not a dynamic executable"; then
+    echo "Binary is static, skipping glibc check."
+  else
+    echo "Checking glibc version"
+    check_glibc_min_version
+  fi
 fi
 
 VERSION_OUTPUT=$("$INSTALL_PATH/$NODE" --version)
