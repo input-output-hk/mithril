@@ -43,8 +43,8 @@ output "mithril_signers_relay_p2p_dial_to" {
 }
 
 output "mithril_p2p_dmq_network_bootstrap_peer" {
-  value = join(",", concat(
+  value = var.mithril_p2p_dmq_dense_topology ? join(",", concat(
     ["${google_compute_address.mithril-external-address.address}:${local.mithril_aggregator_dmq_port}"],
     [for key in keys(var.mithril_signers) : "${google_compute_address.mithril-external-address.address}:${local.mithril_signers_dmq_relay_port[key]}"]
-  ))
+  )) : "${google_compute_address.mithril-external-address.address}:${local.mithril_aggregator_dmq_port}"
 }

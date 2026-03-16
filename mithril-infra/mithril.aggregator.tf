@@ -31,6 +31,7 @@ resource "null_resource" "mithril_aggregator" {
     mithril_aggregator_cardano_transactions_signing_config_security_parameter        = var.mithril_aggregator_cardano_transactions_signing_config_security_parameter,
     mithril_aggregator_cardano_transactions_signing_config_step                      = var.mithril_aggregator_cardano_transactions_signing_config_step,
     mithril_aggregator_blockfrost_parameters                                         = var.mithril_aggregator_blockfrost_parameters,
+    mithril_p2p_dmq_dense_topology                                                   = var.mithril_p2p_dmq_dense_topology,
   }
 
   connection {
@@ -95,13 +96,15 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
     rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 
-    # Setup dmq node topology for signer relay peers
-    SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
-    for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
-      cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
-      rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-      mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
-    done
+    # Setup dmq node topology for signer relay peers (only in dense topology mode)
+    if [ "${var.mithril_p2p_dmq_dense_topology}" = "true" ]; then
+      SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+      for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+        cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{ "address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+        rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+        mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+      done
+    fi
 
     # Setup dmq node topology for bootstrap peer
     if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
@@ -115,8 +118,8 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
       done
     fi
 
-    # Update dmq node topology valency
-    cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+    # Update dmq node topology advertise and valency
+    cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
     rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
   fi

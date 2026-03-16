@@ -17,12 +17,13 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    vm_instance            = google_compute_instance.vm_instance.id,
-    cardano_image_id       = var.cardano_image_id,
-    cardano_image_registry = var.cardano_image_registry,
-    dmq_image_id           = var.dmq_image_id,
-    dmq_image_registry     = var.dmq_image_registry,
-    image_id               = var.mithril_image_id,
+    vm_instance                    = google_compute_instance.vm_instance.id,
+    cardano_image_id               = var.cardano_image_id,
+    cardano_image_registry         = var.cardano_image_registry,
+    dmq_image_id                   = var.dmq_image_id,
+    dmq_image_registry             = var.dmq_image_registry,
+    image_id                       = var.mithril_image_id,
+    mithril_p2p_dmq_dense_topology = var.mithril_p2p_dmq_dense_topology,
   }
 
   connection {
@@ -143,15 +144,17 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
     DMQ_RELAY_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/dmq/relay/config
     cat /home/curry/docker/dmq/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_aggregator_dmq_port}}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
 
-    # Add signer relay peers to DMQ relay topology
-    SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
-    for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
-      if [ "$SIGNER_PEER_PORT" != "${local.mithril_signers_dmq_relay_port[each.key]}" ]; then
-        cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
-        rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-        mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
-      fi
-    done
+    # Add signer relay peers to DMQ relay topology (only in dense topology mode)
+    if [ "${var.mithril_p2p_dmq_dense_topology}" = "true" ]; then
+      SIGNER_PEER_PORTS="${join(" ", values(local.mithril_signers_dmq_relay_port))}"
+      for SIGNER_PEER_PORT in $SIGNER_PEER_PORTS; do
+        if [ "$SIGNER_PEER_PORT" != "${local.mithril_signers_dmq_relay_port[each.key]}" ]; then
+          cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].accessPoints += [{"address": "${google_compute_address.mithril-external-address.address}", "port": '"$SIGNER_PEER_PORT"'}]' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+          rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+          mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+        fi
+      done
+    fi
 
     # Add bootstrap peers to DMQ relay topology
     if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
