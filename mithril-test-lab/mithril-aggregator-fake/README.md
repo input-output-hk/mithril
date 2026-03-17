@@ -31,16 +31,20 @@ For now, the following routes are implemented:
 
 It is either possible to use default data provided with the binary or to load a static set of data at start up using the `-d` or `--data-dir` option. When set the given directory is scanned for the following files:
 
-- cardano-blocks-tx-snapshots.json
-- cardano-blocks-tx-snapshots-list.json
+- cardano-blocks-txs-snapshots.json
+- cardano-blocks-txs-snapshots-list.json
 - cardano-databases.json
 - cardano-databases-list.json
 - cardano-stake-distributions.json
 - cardano-stake-distributions-list.json
+- cblk-proofs.json
+- cblk-proofs-list.json
 - certificates.json
 - certificates-list.json
 - ctx-proofs.json
 - ctx-proofs-list.json
+- ctx-proofs-v2.json
+- ctx-proofs-v2-list.json
 - ctx-snapshots.json
 - ctx-snapshots-list.json
 - epoch-settings.json
@@ -52,11 +56,13 @@ It is either possible to use default data provided with the binary or to load a 
 
 For each file, the identifiers of the corresponding artifacts are extracted and the following files are read:
 
-- cardano-blocks-tx-snapshot-{hash}.json
+- cardano-blocks-txs-snapshot-{hash}.json
 - cardano-database-{hash}.json
 - cardano-stake-distribution-{hash}.json
+- cblk-proof-{hash}.json
 - certificate-{hash}.json
 - ctx-proof-{hash}.json
+- ctx-proof-v2-{hash}.json
 - ctx-snapshot"-{hash}.json
 - mithril-stake-distribution-{hash}.json
 - snapshot-{digest}.json
@@ -87,9 +93,10 @@ In another terminal:
 ```
 WORKING_DIR_END_TO_END=[SELECT A PATH]
 JSON_OUTPUT=./default_data
-TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator-1/cardano-transaction.sqlite3 "select transaction_hash from cardano_tx")
+TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator-1/cardano-transaction.sqlite3 "select transaction_hash from cardano_tx order by rowid desc limit 20" | paste -sd ',')
+BLOCK_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator-1/cardano-transaction.sqlite3 "select block_hash from cardano_block order by rowid desc limit 20" | paste -sd ',')
 
-./scripts/import.sh $JSON_OUTPUT http://localhost:8080/aggregator "$TRANSACTION_HASH_SAMPLE"
+./scripts/import.sh -d $JSON_OUTPUT -u http://localhost:8080/aggregator -t "$TRANSACTION_HASH_SAMPLE" -b "$BLOCK_HASH_SAMPLE"
 ```
 
 ## Build

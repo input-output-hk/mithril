@@ -33,6 +33,8 @@ pub struct FakeAggregatorData {
 
     cardano_blocks_transactions_snapshots_list: FileContent,
     individual_cardano_blocks_transactions_snapshots: BTreeMap<ArtifactId, FileContent>,
+    cardano_block_proofs: BTreeMap<ArtifactId, FileContent>,
+    cardano_transaction_v2_proofs: BTreeMap<ArtifactId, FileContent>,
 
     cardano_stake_distributions_list: FileContent,
     individual_cardano_stake_distributions: BTreeMap<ArtifactId, FileContent>,
@@ -79,7 +81,7 @@ impl FakeAggregatorData {
                 "ctx-snapshots-list.json" => {
                     data.cardano_transaction_snapshots_list = file_content;
                 }
-                "cardano-blocks-tx-snapshots-list.json" => {
+                "cardano-blocks-txs-snapshots-list.json" => {
                     data.cardano_blocks_transactions_snapshots_list = file_content;
                 }
                 "mithril-stake-distributions.json" => {
@@ -104,12 +106,19 @@ impl FakeAggregatorData {
                     data.individual_cardano_transaction_snapshots =
                         Self::read_artifacts_json_file(&entry.path());
                 }
-                "cardano-blocks-tx-snapshots.json" => {
+                "cardano-blocks-txs-snapshots.json" => {
                     data.individual_cardano_blocks_transactions_snapshots =
                         Self::read_artifacts_json_file(&entry.path());
                 }
                 "ctx-proofs.json" => {
                     data.cardano_transaction_proofs = Self::read_artifacts_json_file(&entry.path());
+                }
+                "ctx-proofs-v2.json" => {
+                    data.cardano_transaction_v2_proofs =
+                        Self::read_artifacts_json_file(&entry.path());
+                }
+                "cblk-proofs.json" => {
+                    data.cardano_block_proofs = Self::read_artifacts_json_file(&entry.path());
                 }
                 // unknown file
                 _ => {}
@@ -168,6 +177,14 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "proof_transaction_hashes",
                     BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "proof_v2_transaction_hashes",
+                    BTreeSet::from_iter(self.cardano_transaction_v2_proofs.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "proof_v2_block_hashes",
+                    BTreeSet::from_iter(self.cardano_block_proofs.keys().cloned()),
                 ),
             ],
             false,
@@ -267,6 +284,14 @@ impl FakeAggregatorData {
                     self.cardano_transaction_snapshots_list,
                 ),
                 generate_ids_array(
+                    "proof_transaction_hashes",
+                    BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
+                ),
+                generate_artifact_getter(
+                    "cardano_transaction_proofs",
+                    self.cardano_transaction_proofs,
+                ),
+                generate_ids_array(
                     "cardano_blocks_transactions_snapshot_hashes",
                     BTreeSet::from_iter(
                         self.individual_cardano_blocks_transactions_snapshots.keys().cloned(),
@@ -281,12 +306,17 @@ impl FakeAggregatorData {
                     self.cardano_blocks_transactions_snapshots_list,
                 ),
                 generate_ids_array(
-                    "proof_transaction_hashes",
-                    BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
+                    "proof_v2_block_hashes",
+                    BTreeSet::from_iter(self.cardano_block_proofs.keys().cloned()),
+                ),
+                generate_artifact_getter("cardano_block_proofs", self.cardano_block_proofs),
+                generate_ids_array(
+                    "proof_v2_transaction_hashes",
+                    BTreeSet::from_iter(self.cardano_transaction_v2_proofs.keys().cloned()),
                 ),
                 generate_artifact_getter(
-                    "cardano_transaction_proofs",
-                    self.cardano_transaction_proofs,
+                    "cardano_transaction_proofs_v2",
+                    self.cardano_transaction_v2_proofs,
                 ),
             ],
             true,

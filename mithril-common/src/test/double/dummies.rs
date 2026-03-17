@@ -5,7 +5,9 @@ use crate::test::double::{Dummy, fake_data, fake_keys};
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;
-    use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
+    use crate::test::entities_extensions::{
+        CardanoTransactionsSetProofTestExtension, MkSetProofTestExtension,
+    };
 
     use super::*;
 
@@ -23,7 +25,7 @@ mod entities {
     impl Dummy for CardanoTransactionsSetProof {
         /// Return a dummy [CardanoTransactionsSetProof] (test-only).
         fn dummy() -> Self {
-            let leaves = vec![
+            let leaves = [
                 (BlockNumber(0), "tx-1".to_string()),
                 (BlockNumber(1), "tx-2".to_string()),
                 (BlockNumber(1), "tx-3".to_string()),
@@ -66,6 +68,43 @@ mod entities {
                 security_parameter: BlockNumber(0),
                 step: BlockNumber(15),
             }
+        }
+    }
+
+    impl Dummy for MkSetProof<CardanoBlock> {
+        fn dummy() -> Self {
+            let blocks = [
+                CardanoBlock::new("block_hash-10", BlockNumber(10), SlotNumber(15)),
+                CardanoBlock::new("block_hash-11", BlockNumber(11), SlotNumber(16)),
+                CardanoBlock::new("block_hash-20", BlockNumber(20), SlotNumber(25)),
+            ];
+            Self::from_leaves::<MKTreeStoreInMemory>(&blocks).unwrap()
+        }
+    }
+
+    impl Dummy for MkSetProof<CardanoTransaction> {
+        fn dummy() -> Self {
+            let transactions = [
+                CardanoTransaction::new(
+                    "tx_hash-1",
+                    BlockNumber(10),
+                    SlotNumber(15),
+                    "block_hash-10",
+                ),
+                CardanoTransaction::new(
+                    "tx_hash-2",
+                    BlockNumber(11),
+                    SlotNumber(16),
+                    "block_hash-11",
+                ),
+                CardanoTransaction::new(
+                    "tx_hash-3",
+                    BlockNumber(15),
+                    SlotNumber(25),
+                    "block_hash-15",
+                ),
+            ];
+            Self::from_leaves::<MKTreeStoreInMemory>(&transactions).unwrap()
         }
     }
 
