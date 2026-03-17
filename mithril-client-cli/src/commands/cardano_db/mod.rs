@@ -21,7 +21,7 @@ use crate::CommandContext;
 pub enum CardanoDbCommandsBackend {
     /// V2 backend
     #[default]
-    #[clap(help = "[default] Backend, full or partial database restoration")]
+    #[clap(help = "[default] V2 backend, full or partial database restoration")]
     V2,
 }
 

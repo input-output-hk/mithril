@@ -70,9 +70,10 @@ pub struct CardanoDbVerifyCommand {
 impl CardanoDbVerifyCommand {
     /// Main command execution
     pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
-        let _backend = self.backend;
         context.config_parameters_mut().add_source(self)?;
-        self.verify(&context).await
+        match self.backend {
+            CardanoDbCommandsBackend::V2 => self.verify(&context).await,
+        }
     }
 
     async fn verify(&self, context: &CommandContext) -> MithrilResult<()> {

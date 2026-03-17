@@ -157,13 +157,6 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --version
 
-      - name: Cardano Database Snapshot / list and get last hash
-        shell: bash
-        working-directory: ./bin
-        run: |
-          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
-
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         working-directory: ./bin
@@ -380,12 +373,6 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --version
 
-      - name: Cardano Database Snapshot / list and get last hash
-        shell: bash
-        run: |
-          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
-
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         run: |
@@ -432,7 +419,7 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
-      - name: Cardano Database V2 Snapshot / list and get last digest
+      - name: Cardano Database V2 Snapshot / list and get last hash
         if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |

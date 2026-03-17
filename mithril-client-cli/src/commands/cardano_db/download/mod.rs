@@ -73,9 +73,12 @@ impl CardanoDbDownloadCommand {
     /// Command execution
     pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
         context.config_parameters_mut().add_source(self)?;
-        let _backend = self.backend;
-        let prepared_command = self.prepare_v2(&context)?;
-        prepared_command.execute(&context).await
+        match self.backend {
+            CardanoDbCommandsBackend::V2 => {
+                let prepared_command = self.prepare_v2(&context)?;
+                prepared_command.execute(&context).await
+            }
+        }
     }
 
     fn prepare_v2(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV2Download> {

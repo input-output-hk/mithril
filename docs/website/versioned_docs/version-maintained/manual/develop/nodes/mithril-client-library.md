@@ -195,6 +195,78 @@ cargo run
 
 :::
 
+### Cardano database
+
+:::warning
+
+The cardano database v1 client is deprecated and is scheduled to be removed early 2026, use the [cardano database v2 client](#cardano-database-v2) instead.
+
+:::
+
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
+
+```rust title="/src/main.rs"
+use mithril_client::{ClientBuilder, MessageBuilder};
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> mithril_client::MithrilResult<()> {
+    const AGGREGATOR_ENDPOINT: &str =
+        "https://aggregator.release-preprod.api.mithril.network/aggregator";
+    const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    const ANCILLARY_VERIFICATION_KEY: &str = "5b3138392c3139322c3231362c3135302c3131342c3231362c3233372c3231302c34352c31382c32312c3139362c3230382c3234362c3134362c322c3235322c3234332c3235312c3139372c32382c3135372c3230342c3134352c33302c31342c3232382c3136382c3132392c38332c3133362c33365d";
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .set_ancillary_verification_key(ANCILLARY_VERIFICATION_KEY.to_string())
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
+    let snapshots = client.cardano_database().list().await?;
+
+    let last_digest = snapshots.first().unwrap().digest.as_ref();
+    let snapshot = client.cardano_database().get(last_digest).await?.unwrap();
+
+    let certificate = client
+        .certificate()
+        .verify_chain(&snapshot.certificate_hash)
+        .await?;
+
+    // Note: the directory must already exist, and the user running this code must have read/write access to it.
+    let target_directory = Path::new(".");
+    client
+        .cardano_database()
+        .download_unpack_full(&snapshot, target_directory)
+        .await?;
+
+    if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
+        println!("Could not increment snapshot download statistics: {:?}", e);
+    }
+
+    let message = MessageBuilder::new()
+        .compute_snapshot_message(&certificate, target_directory)
+        .await?;
+    assert!(certificate.match_message(&message));
+
+    Ok(())
+}
+```
+
+:::info
+
+Snapshot download and certificate chain validation can take quite some time, even with a fast computer and network. We have implemented a feedback mechanism for them; more details are available in the [feedback sub-module](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
+
+An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-database/src/main.rs). To run it, execute the following command:
+
+```bash
+cargo run -p client-cardano-database
+```
+
+or directly from the example crate directory:
+
+```bash
+cargo run
+```
+
+:::
+
 ### Cardano database v2
 
 Below is a basic example using the new `CardanoDatabase` functions. Make sure the target aggregator signs `CardanoDatabase` incremental snapshot.

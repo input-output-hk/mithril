@@ -998,19 +998,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "client-cardano-database"
-version = "0.1.41"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "futures",
- "indicatif",
- "mithril-client",
- "tokio",
-]
-
-[[package]]
 name = "client-cardano-database-v2"
 version = "0.0.18"
 dependencies = [

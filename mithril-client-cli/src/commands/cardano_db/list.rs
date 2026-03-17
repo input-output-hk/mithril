@@ -25,7 +25,6 @@ pub struct CardanoDbListCommand {
 impl CardanoDbListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let _backend = self.backend;
         let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_capabilities(RequiredAggregatorCapabilities::And(vec![
                 RequiredAggregatorCapabilities::SignedEntityType(
@@ -34,7 +33,10 @@ impl CardanoDbListCommand {
             ]))
             .with_logger(context.logger().clone())
             .build()?;
-        self.print_v2(client, context).await?;
+
+        match self.backend {
+            CardanoDbCommandsBackend::V2 => self.print_v2(client, context).await?,
+        }
 
         Ok(())
     }
