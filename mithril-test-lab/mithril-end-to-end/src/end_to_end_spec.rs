@@ -230,7 +230,6 @@ impl Spec {
                 infrastructure.signers().len(),
             )
             .await?;
-
         }
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly

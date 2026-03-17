@@ -276,4 +276,3 @@ async fn main() -> MithrilResult<()> {
 
     args.execute(logger).await
 }
-

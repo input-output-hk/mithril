@@ -80,6 +80,9 @@ mod tests {
 
     #[test]
     fn cardano_db_backend_default_is_v2() {
-        assert_eq!(CardanoDbCommandsBackend::default(), CardanoDbCommandsBackend::V2);
+        assert_eq!(
+            CardanoDbCommandsBackend::default(),
+            CardanoDbCommandsBackend::V2
+        );
     }
 }

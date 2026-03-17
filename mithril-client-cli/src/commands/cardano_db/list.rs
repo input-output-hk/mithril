@@ -6,10 +6,7 @@ use mithril_client::{Client, MithrilResult, RequiredAggregatorCapabilities};
 
 use crate::{
     CommandContext,
-    commands::{
-        cardano_db::CardanoDbCommandsBackend,
-        client_builder_with_fallback_genesis_key,
-    },
+    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
     utils::CardanoDbUtils,
 };
 

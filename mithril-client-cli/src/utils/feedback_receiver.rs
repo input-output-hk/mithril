@@ -3,9 +3,7 @@ use indicatif::ProgressBar;
 use slog::Logger;
 use tokio::sync::RwLock;
 
-use super::{
-    MultiDownloadProgressReporter, ProgressBarKind, ProgressOutputType,
-};
+use super::{MultiDownloadProgressReporter, ProgressBarKind, ProgressOutputType};
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 
