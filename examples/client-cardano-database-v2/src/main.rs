@@ -98,7 +98,7 @@ async fn main() -> MithrilResult<()> {
         .verify_chain(&cardano_database_snapshot.certificate_hash)
         .await?;
 
-    let immutable_file_range = ImmutableFileRange::From(4000);
+    let immutable_file_range = ImmutableFileRange::Full;
     let download_unpack_options = DownloadUnpackOptions {
         allow_override: true,
         include_ancillary: true,
