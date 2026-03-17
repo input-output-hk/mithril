@@ -1,4 +1,6 @@
 use crate::SignerIndex;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SNARK_PROOF_LENGTH;
 
 use super::AggregateSignatureType;
 
@@ -39,4 +41,16 @@ pub enum AggregateSignatureError {
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
+}
+
+/// Errors which can be outputted by the snark proof creation or verification.
+#[cfg(feature = "future_snark")]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+pub enum SnarkError {
+    #[error(
+        "The number of bytes used to create the proof is incorrect: received {0} instead of {SNARK_PROOF_LENGTH}."
+    )]
+    ProofWithIncorrectSize(usize),
+    #[error("The proof failed to verify.")]
+    VerifyProofFail,
 }

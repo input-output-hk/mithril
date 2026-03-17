@@ -5,6 +5,8 @@ mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
 pub use clerk::Clerk;
+#[cfg(feature = "future_snark")]
+pub use error::SnarkError;
 pub use error::{AggregateSignatureError, AggregationError};
 pub use signature::{AggregateSignature, AggregateSignatureType};
 
