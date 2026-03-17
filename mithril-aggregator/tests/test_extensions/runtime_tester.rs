@@ -214,7 +214,12 @@ impl RuntimeTester {
         self.runtime
             .cycle()
             .await
-            .with_context(|| "Ticking the state machine should not fail")
+            .with_context(|| "Ticking the state machine should not fail")?;
+
+        // Yield to allow eventual thread spawned by the state machine to run (e.g., the artifact creation thread)
+        tokio::task::yield_now().await;
+
+        Ok(())
     }
 
     /// Init the aggregator state based on the data in the given fixture
@@ -281,11 +286,6 @@ impl RuntimeTester {
             .await
             .with_context(|| "a new epoch should have been issued")?;
         self.update_digester_digest().await;
-        self.dependencies
-            .certifier_service
-            .inform_epoch(new_epoch)
-            .await
-            .with_context(|| "inform_epoch should not fail")?;
 
         Ok(new_epoch)
     }
