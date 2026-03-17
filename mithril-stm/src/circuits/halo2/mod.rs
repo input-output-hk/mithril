@@ -1,4 +1,14 @@
-//! Halo2 prototype integration (feature-gated by `future_snark`).
+//! Halo2 STM circuit integration (feature-gated by `future_snark`).
+//!
+//! Module map:
+//! - `circuit`: relation orchestration and top-level constraint flow
+//! - `assignments`: witness assignment into Halo2 layouter values
+//! - `witness`: circuit-facing witness and instance contract
+//! - `adapters`: STM-to-circuit conversions for boundary types
+//! - `gadgets`: reusable constraint logic split by domain
+//! - `errors`: typed circuit errors and backend synthesis adaptation
+//! - `tests/golden`: end-to-end circuit scenarios
+//! - `tests/unit`: focused gadget and adapter regression checks
 
 pub mod adapters;
 #[cfg_attr(not(test), allow(dead_code))]

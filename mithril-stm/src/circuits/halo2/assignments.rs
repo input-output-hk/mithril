@@ -1,3 +1,8 @@
+//! Assignment helpers that turn circuit witness values into Halo2 layouter values.
+//!
+//! This module stays intentionally separate from `gadgets`: it prepares assigned inputs for the
+//! circuit while the gadget layer owns constraint logic.
+
 use midnight_circuits::instructions::{AssignmentInstructions, ConversionInstructions};
 use midnight_circuits::types::{
     AssignedBit, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,

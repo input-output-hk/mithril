@@ -2,6 +2,7 @@
 //!
 //! This module defines the exact public/private shapes consumed by the relation, while
 //! keeping them separate from lower-level circuit primitives in `types.rs`.
+//! Integrators should treat these types as the circuit-facing contract.
 
 use ff::Field;
 

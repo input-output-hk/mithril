@@ -1,4 +1,7 @@
-//! Adapters for converting STM-side structures to Halo2 circuit witness structures.
+//! Adapters from STM-side structures into the Halo2 circuit witness contract.
+//!
+//! Integrators should treat `witness.rs` as the circuit-facing boundary and use this module when
+//! STM data needs explicit conversion into that shape.
 
 use digest::Digest;
 use thiserror::Error;
