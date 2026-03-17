@@ -1,3 +1,5 @@
+use crate::SignerIndex;
+
 use super::AggregateSignatureType;
 
 /// Error types for aggregation.
@@ -13,6 +15,14 @@ pub enum AggregationError {
     /// There is a duplicate index
     #[error("Indices are not unique.")]
     IndexNotUnique,
+
+    /// Signer registration data could not be found during witness assembly for SNARK prover input.
+    #[error("Missing SNARK signer data for signer index {0}.")]
+    MissingSnarkSignerData(SignerIndex),
+
+    /// A signature selected for witness assembly is missing its SNARK component.
+    #[error("Missing SNARK signature for lottery index {0}.")]
+    MissingSnarkSignature(SignerIndex),
 }
 
 /// Errors which can be output by Mithril aggregate verification.

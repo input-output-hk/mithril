@@ -9,6 +9,8 @@ use midnight_circuits::{
 use midnight_curves::{
     EDWARDS_D, Fq as JubjubBase, JubjubAffine as JubjubAffinePoint, JubjubExtended, JubjubSubgroup,
 };
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 
 use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
@@ -124,6 +126,24 @@ impl From<PrimeOrderProjectivePoint> for ProjectivePoint {
     /// Converts a prime order projective point to a projective point
     fn from(prime_order_projective_point: PrimeOrderProjectivePoint) -> Self {
         ProjectivePoint(JubjubExtended::from(prime_order_projective_point.0))
+    }
+}
+
+impl Hash for ProjectivePoint {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_bytes().hash(state);
+    }
+}
+
+impl PartialOrd for ProjectivePoint {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ProjectivePoint {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_bytes().cmp(&other.to_bytes())
     }
 }
 

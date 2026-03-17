@@ -9,12 +9,24 @@ use std::ops::{Add, AddAssign, Neg, Sub};
 use ff::Field;
 use midnight_curves::{Fq as MidnightBaseField, JubjubExtended as MidnightJubjub};
 
-use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey};
+use crate::{
+    LotteryIndex,
+    signature_scheme::{BaseFieldElement, SchnorrVerificationKey, UniqueSchnorrSignature},
+};
 
 /// Shared Midnight field alias used by Halo2 relation/chips.
 pub(crate) type CircuitBase = MidnightBaseField;
 /// Shared Midnight curve alias used by Halo2 relation/chips.
 pub(crate) type CircuitCurve = MidnightJubjub;
+/// Circuit statement/instance type, representing the public inputs to the STM SNARK circuit.
+pub(crate) type CircuitInstance = (MerkleRoot, SignedMessageWithoutPrefix);
+/// Circuit witness type, representing the inputs to the STM SNARK circuit.
+pub(crate) type CircuitWitness = Vec<(
+    CircuitMerkleTreeLeaf,
+    MerklePath,
+    UniqueSchnorrSignature,
+    LotteryIndex,
+)>;
 
 /// Field type boundaries:
 /// - `BaseFieldElement`: STM/domain field wrapper.
@@ -137,7 +149,7 @@ impl From<Position> for CircuitBaseField {
 /// Merkle authentication path used by the Halo2 circuit witness.
 ///
 /// Each entry stores sibling position and sibling hash value for one tree level.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerklePath {
     /// Ordered list of `(position, sibling_hash)` from leaf level to root level.
     pub siblings: Vec<(Position, CircuitBaseField)>,

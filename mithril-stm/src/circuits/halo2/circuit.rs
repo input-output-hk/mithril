@@ -16,13 +16,9 @@ use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     assert_lottery_won, verify_merkle_path, verify_unique_signature,
 };
-use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath, MerkleRoot,
-    SignedMessageWithoutPrefix,
-};
+use crate::circuits::halo2::types::{CircuitBase, CircuitCurve, CircuitInstance, CircuitWitness};
 use crate::signature_scheme::{
     DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
-    UniqueSchnorrSignature,
 };
 use crate::{LotteryIndex, Parameters, StmResult};
 
@@ -155,13 +151,8 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
-    type Witness = Vec<(
-        CircuitMerkleTreeLeaf,
-        MerklePath,
-        UniqueSchnorrSignature,
-        LotteryIndex,
-    )>;
+    type Instance = CircuitInstance;
+    type Witness = CircuitWitness;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<CircuitBase>, Error> {
         Ok(vec![instance.0.into(), instance.1.into()])

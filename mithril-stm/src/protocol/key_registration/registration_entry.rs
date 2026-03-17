@@ -83,10 +83,12 @@ impl From<ClosedRegistrationEntry> for RegistrationEntry {
     }
 }
 
-impl From<Initializer> for RegistrationEntry {
-    fn from(initializer: Initializer) -> Self {
-        Self(
-            initializer.bls_verification_key_proof_of_possession.vk,
+impl TryFrom<Initializer> for RegistrationEntry {
+    type Error = anyhow::Error;
+
+    fn try_from(initializer: Initializer) -> StmResult<Self> {
+        Self::new(
+            initializer.bls_verification_key_proof_of_possession,
             initializer.stake,
             #[cfg(feature = "future_snark")]
             initializer.schnorr_verification_key,

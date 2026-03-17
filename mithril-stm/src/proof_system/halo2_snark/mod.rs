@@ -2,6 +2,7 @@ mod aggregate_key;
 mod clerk;
 mod eligibility;
 mod message;
+mod prover_input;
 mod signer;
 mod single_signature;
 

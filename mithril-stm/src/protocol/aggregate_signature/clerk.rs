@@ -56,9 +56,9 @@ impl<D: MembershipDigest> Clerk<D> {
                 closed_registration,
             ),
             #[cfg(feature = "future_snark")]
-            snark_proof_clerk: closed_registration
-                .has_snark_verification_keys()
-                .then(|| SnarkClerk::new_clerk_from_closed_key_registration(closed_registration)),
+            snark_proof_clerk: closed_registration.has_snark_verification_keys().then(|| {
+                SnarkClerk::new_clerk_from_closed_key_registration(parameters, closed_registration)
+            }),
             phantom_data: PhantomData,
         }
     }

@@ -1,8 +1,10 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::{
-    LotteryIndex, MembershipDigest, StmResult, UniqueSchnorrSignature, VerificationKeyForSnark,
+    BaseFieldElement, LotteryIndex, MembershipDigest, StmResult, UniqueSchnorrSignature,
+    VerificationKeyForSnark,
 };
 
 use super::{AggregateVerificationKeyForSnark, build_snark_message};
@@ -51,6 +53,23 @@ impl SingleSignatureForSnark {
         Ok(())
     }
 
+    /// Verify a `SingleSignatureForSnark` against a pre-computed message.
+    ///
+    /// Unlike `verify`, this skips the `build_snark_message` step and verifies the Schnorr
+    /// signature directly against the provided `message_to_sign`. Use this when the caller has
+    /// already built the message (in a loop over many signatures sharing the same avk).
+    pub(crate) fn verify_with_prepared_message(
+        &self,
+        verification_key: &VerificationKeyForSnark,
+        message_to_sign: &[BaseFieldElement; 2],
+    ) -> StmResult<()> {
+        self.schnorr_signature
+            .verify(message_to_sign, verification_key)
+            .with_context(|| "Schnorr signature verification failed for SNARK proof system.")?;
+
+        Ok(())
+    }
+
     /// Return `indices` of the single signature
     pub(crate) fn get_indices(&self) -> &[LotteryIndex] {
         &self.indices
@@ -66,6 +85,12 @@ impl SingleSignatureForSnark {
     /// Return `schnorr_signature` of single signature
     pub(crate) fn get_schnorr_signature(&self) -> UniqueSchnorrSignature {
         self.schnorr_signature
+    }
+}
+
+impl Hash for SingleSignatureForSnark {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.schnorr_signature.hash(state);
     }
 }
 
