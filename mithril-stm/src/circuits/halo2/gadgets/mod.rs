@@ -2,6 +2,7 @@
 //! Domain-oriented gadgets are re-exported here; low-level comparison helpers stay internal.
 
 mod comparison;
+mod comparison_helpers;
 mod lottery;
 mod merkle;
 mod unique_schnorr_signature;

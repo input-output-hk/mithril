@@ -1,3 +1,8 @@
+//! Shared test harness and fixtures for focused Halo2 gadget checks.
+//!
+//! These helpers support inline `#[cfg(test)]` modules colocated with gadget implementations,
+//! while `tests/golden` remains responsible for broader end-to-end scenarios.
+
 use anyhow::Result;
 use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
@@ -17,10 +22,10 @@ use crate::membership_commitment::{
 };
 use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey};
 
-/// Small Merkle depth shared by gadget unit tests to keep proving cheap in CI.
+/// Small Merkle depth shared by focused gadget tests to keep proving cheap in CI.
 pub(crate) const TEST_MERKLE_TREE_DEPTH: usize = 3;
 
-/// Prove and verify a tiny test-only relation.
+/// Proves and verifies a tiny test-only relation.
 pub(crate) fn prove_and_verify_relation<R>(
     relation: &R,
     instance: &R::Instance,
@@ -43,6 +48,7 @@ where
         .map_err(anyhow::Error::new)
 }
 
+/// Asserts that a focused gadget relation rejects the supplied witness.
 pub(crate) fn assert_relation_rejected(result: Result<()>) {
     assert!(result.is_err(), "expected relation to reject witness");
 }
@@ -50,18 +56,8 @@ pub(crate) fn assert_relation_rejected(result: Result<()>) {
 /// Minimal chip preset for comparison/range-only helpers.
 pub(crate) fn comparison_used_chips() -> midnight_zk_stdlib::ZkStdLibArch {
     midnight_zk_stdlib::ZkStdLibArch {
-        jubjub: false,
-        poseidon: false,
-        sha2_256: false,
-        sha2_512: false,
-        keccak_256: false,
-        sha3_256: false,
-        secp256k1: false,
-        bls12_381: false,
-        base64: false,
         nr_pow2range_cols: 2,
-        automaton: false,
-        blake2b: false,
+        ..midnight_zk_stdlib::ZkStdLibArch::default()
     }
 }
 
@@ -70,20 +66,12 @@ pub(crate) fn jubjub_poseidon_used_chips() -> midnight_zk_stdlib::ZkStdLibArch {
     midnight_zk_stdlib::ZkStdLibArch {
         jubjub: true,
         poseidon: true,
-        sha2_256: false,
-        sha2_512: false,
-        keccak_256: false,
-        sha3_256: false,
-        secp256k1: false,
-        bls12_381: false,
-        base64: false,
         nr_pow2range_cols: 2,
-        automaton: false,
-        blake2b: false,
+        ..midnight_zk_stdlib::ZkStdLibArch::default()
     }
 }
 
-/// Build one valid circuit witness entry for focused gadget tests.
+/// Builds one valid circuit witness entry for focused gadget tests.
 pub(crate) fn sample_valid_circuit_witness_entry()
 -> Result<(CircuitWitnessEntry, MerkleRoot, SignedMessageWithoutPrefix)> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -111,8 +99,8 @@ pub(crate) fn sample_valid_circuit_witness_entry()
     Ok((entry, merkle_tree_commitment, message))
 }
 
-/// Declare a tiny test-only relation with no public inputs and a single witness payload.
-macro_rules! impl_unit_relation {
+/// Declares a tiny test-only relation with no public inputs and a single witness payload.
+macro_rules! impl_focused_test_relation {
     ($name:ident, $witness:ty, $chips:expr, |$std_lib:ident, $layouter:ident, $witness_value:ident| $body:block) => {
         #[derive(Clone, Default, Debug)]
         struct $name;
@@ -121,7 +109,9 @@ macro_rules! impl_unit_relation {
             type Instance = ();
             type Witness = $witness;
 
-            fn format_instance(_instance: &Self::Instance) -> Result<Vec<crate::circuits::halo2::types::CircuitBase>, midnight_proofs::plonk::Error> {
+            fn format_instance(
+                _instance: &Self::Instance,
+            ) -> Result<Vec<crate::circuits::halo2::types::CircuitBase>, midnight_proofs::plonk::Error> {
                 Ok(vec![])
             }
 
@@ -148,4 +138,4 @@ macro_rules! impl_unit_relation {
     };
 }
 
-pub(crate) use impl_unit_relation;
+pub(crate) use impl_focused_test_relation;

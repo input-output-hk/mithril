@@ -8,7 +8,8 @@
 //! - `gadgets`: reusable constraint logic split by domain
 //! - `errors`: typed circuit errors and backend synthesis adaptation
 //! - `tests/golden`: end-to-end circuit scenarios
-//! - `tests/unit`: focused gadget and adapter regression checks
+//! - inline `#[cfg(test)]` blocks in `gadgets/*` and `adapters`: focused regression checks
+//! - `tests/test_helpers`: shared harness for focused gadget tests
 
 pub mod adapters;
 #[cfg_attr(not(test), allow(dead_code))]

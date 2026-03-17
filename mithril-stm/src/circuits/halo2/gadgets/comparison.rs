@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use ff::{Field, PrimeField};
 use midnight_circuits::instructions::{
     ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
@@ -8,47 +7,12 @@ use midnight_circuits::types::{AssignedBit, AssignedNative};
 use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
-use num_bigint::BigUint;
-use num_traits::{Num, One};
 
-use crate::StmResult;
-use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
+use crate::circuits::halo2::errors::to_synthesis_error;
+use crate::circuits::halo2::gadgets::comparison_helpers::split_field_element_into_le_limbs;
 use crate::circuits::halo2::types::CircuitBase;
 
-/// Splits a field element into `(lower, upper)` limbs at `num_bits` using LE encoding.
-fn split_field_element_into_le_limbs<Fp: PrimeField>(
-    value: &Fp,
-    num_bits: u32,
-) -> StmResult<(Fp, Fp)> {
-    let field_bits = Fp::NUM_BITS;
-    if num_bits >= field_bits {
-        return Err(anyhow!(StmCircuitError::InvalidBitDecompositionRange {
-            num_bits,
-            field_bits,
-        }));
-    }
-
-    let value_big = BigUint::from_bytes_le(value.to_repr().as_ref());
-    let lower_mask = (BigUint::one() << num_bits) - BigUint::one();
-    let lower_big = value_big.clone() & &lower_mask;
-    let upper_big = value_big >> num_bits;
-    let lower = big_unsigned_integer_to_field_element::<Fp>(lower_big)?;
-    let upper = big_unsigned_integer_to_field_element::<Fp>(upper_big)?;
-    Ok((lower, upper))
-}
-
-fn field_modulus_as_biguint<Fp: PrimeField>() -> StmResult<BigUint> {
-    BigUint::from_str_radix(&Fp::MODULUS[2..], 16)
-        .map_err(|_| anyhow!(StmCircuitError::FieldModulusParseFailed))
-}
-
-fn big_unsigned_integer_to_field_element<Fp: PrimeField>(e: BigUint) -> StmResult<Fp> {
-    let modulus = field_modulus_as_biguint::<Fp>()?;
-    let e = e % modulus;
-    Fp::from_str_vartime(&e.to_str_radix(10)[..])
-        .ok_or_else(|| anyhow!(StmCircuitError::FieldElementConversionFailed))
-}
-
+/// Constrains two assigned field elements to share the same least-significant-bit parity.
 fn assert_equal_parity(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
@@ -60,7 +24,8 @@ fn assert_equal_parity(
     std_lib.assert_equal(layouter, &sgn0, &sgn1)
 }
 
-// Decompose a 255-bit value into 127-bit and 128-bit values without checking the bound
+/// Decomposes a 255-bit assigned value into `(low_127_bits, high_128_bits)` and constrains
+/// the reconstruction to match the original witness.
 fn decompose_unsafe(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
@@ -93,7 +58,7 @@ fn decompose_unsafe(
     Ok((x_low_assigned, x_high_assigned))
 }
 
-// Compare x < y where x, y are 255-bit.
+/// Compares two assigned 255-bit values and returns a bit witnessing whether `x < y`.
 pub(super) fn lower_than_native(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,

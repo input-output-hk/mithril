@@ -30,14 +30,17 @@ pub(crate) type CircuitInstance = (MerkleRoot, SignedMessageWithoutPrefix);
 pub struct CircuitMerkleTreeLeaf(pub SchnorrVerificationKey, pub LotteryTargetValue);
 
 impl CircuitMerkleTreeLeaf {
+    /// Returns the signer's verification key stored in this witness leaf.
     pub fn verification_key(&self) -> SchnorrVerificationKey {
         self.0
     }
 
+    /// Returns the curve point backing the signer's verification key.
     pub fn verification_key_point(&self) -> PrimeOrderProjectivePoint {
         self.0.0
     }
 
+    /// Returns the lottery target value associated with this witness leaf.
     pub fn lottery_target_value(&self) -> LotteryTargetValue {
         self.1
     }
@@ -46,7 +49,9 @@ impl CircuitMerkleTreeLeaf {
 /// Position of a sibling node relative to the current hash in a Merkle path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Position {
+    /// The sibling node is on the left side of the current hash.
     Left,
+    /// The sibling node is on the right side of the current hash.
     Right,
 }
 

@@ -8,6 +8,7 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
+use crate::circuits::halo2::assignments::{assign_signature_components, assign_witness_entry};
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     MerklePathInputs, UniqueSchnorrSignatureInputs, assert_lottery_index_in_bounds,
@@ -209,7 +210,7 @@ impl Relation for StmCircuit {
             std_lib.assign(layouter, Value::known(CircuitBase::ZERO))?;
         for (i, wit) in witness.into_iter().enumerate() {
             let assigned_witness_entry =
-                self.assign_witness_entry(std_lib, layouter, wit.clone())?;
+                assign_witness_entry(self, std_lib, layouter, wit.clone())?;
 
             // Check lottery index order
             if i > 0 {
@@ -224,7 +225,7 @@ impl Relation for StmCircuit {
             previous_lottery_index = assigned_witness_entry.lottery_index.clone();
 
             let assigned_signature_components =
-                Self::assign_signature_components(std_lib, layouter, wit)?;
+                assign_signature_components(std_lib, layouter, wit)?;
 
             verify_merkle_path(
                 std_lib,
