@@ -1,17 +1,17 @@
 ---
-title: New SNARK-friendly protocol parameters applied to mainnet
+title: Mainnet protocol parameters updated to support SNARK verification
 authors:
   - name: Mithril Team
 tags: [protocol, mainnet, spo, parameters]
 ---
 
-### New SNARK-friendly protocol parameters applied to mainnet
+### Optimizing Mithril protocol parameters for SNARK-based verification
 
-New Mithril protocol parameters have been applied to the `release-mainnet` network at epoch `619`. These updated values are **SNARK-friendly**, meaning they are optimized for the Halo2 proof system that will be used in upcoming SNARK-based certificate verification.
+New Mithril protocol parameters were applied to the `release-mainnet` network at epoch `619`. These updated values are **SNARK-friendly**, meaning they are optimized for the Halo2 proof system used in upcoming SNARK-based certificate verification.
 
 #### Why the change?
 
-The previous `k` parameter value (`2422`) was not SNARK-friendly: it required twice the number of constraints in the Halo2 circuit. A new set of parameters has been computed and validated by cryptographers and researchers to reduce this overhead while maintaining equivalent security guarantees.
+This update is essential for the upcoming use of SNARK-based certificate verification in Mithril. The previous `k` parameter value (`2422`) required twice the number of constraints in the Halo2 circuit, increasing the cost of proof generation. To address this, the team of researchers and cryptographers computed and validated a new set of parameters to reduce this overhead while maintaining equivalent security guarantees.
 
 #### Parameter changes
 
@@ -25,13 +25,13 @@ The `phi_f` parameter remains unchanged.
 
 :::tip
 
-More information about the protocol parameters and their impact can be found in the [Mithril documentation](https://mithril.network/doc/mithril/advanced/mithril-protocol/protocol#protocol-phases-1).
+You can find more information about protocol parameters and their impact in the [Mithril documentation](https://mithril.network/doc/mithril/advanced/mithril-protocol/protocol#protocol-phases-1).
 
 :::
 
 :::info
 
-No action is required from SPOs or Mithril client users. The protocol parameter update is handled by the aggregator and is transparent to signers and clients.
+No action is required from stake pool operators or Mithril client users. The protocol parameter update is handled by the aggregator and is transparent to signers and clients.
 
 :::
 
