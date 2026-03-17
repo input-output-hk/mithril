@@ -24,16 +24,14 @@ impl_unit_relation!(
     LotteryWonWitness,
     jubjub_poseidon_used_chips(),
     |std_lib, layouter, witness| {
-        let lottery_prefix: AssignedNative<CircuitBase> = std_lib.assign(
-            layouter,
-            witness.clone().map(|(prefix, _, _, _)| prefix.into()),
-        )?;
+        let lottery_prefix: AssignedNative<CircuitBase> =
+            std_lib.assign(layouter, witness.map(|(prefix, _, _, _)| prefix.into()))?;
         let commitment_point: AssignedNativePoint<CircuitCurve> = std_lib
             .jubjub()
-            .assign(layouter, witness.clone().map(|(_, point, _, _)| point.0))?;
+            .assign(layouter, witness.map(|(_, point, _, _)| point.0))?;
         let lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
             layouter,
-            witness.clone().map(|(_, _, index, _)| CircuitBase::from(index)),
+            witness.map(|(_, _, index, _)| CircuitBase::from(index)),
         )?;
         let lottery_target_value: AssignedNative<CircuitBase> =
             std_lib.assign(layouter, witness.map(|(_, _, _, target)| target.into()))?;
@@ -56,7 +54,7 @@ impl_unit_relation!(
     |std_lib, layouter, witness| {
         let previous_lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
             layouter,
-            witness.clone().map(|(previous, _)| CircuitBase::from(previous)),
+            witness.map(|(previous, _)| CircuitBase::from(previous)),
         )?;
         let lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
             layouter,
@@ -77,10 +75,8 @@ impl_unit_relation!(
     (LotteryIndex, u32),
     comparison_used_chips(),
     |std_lib, layouter, witness| {
-        let lottery_index: AssignedNative<CircuitBase> = std_lib.assign(
-            layouter,
-            witness.clone().map(|(index, _)| CircuitBase::from(index)),
-        )?;
+        let lottery_index: AssignedNative<CircuitBase> =
+            std_lib.assign(layouter, witness.map(|(index, _)| CircuitBase::from(index)))?;
         let m: AssignedNative<CircuitBase> = std_lib.assign(
             layouter,
             witness.map(|(_, m)| CircuitBase::from(u64::from(m))),
