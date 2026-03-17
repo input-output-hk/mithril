@@ -61,8 +61,8 @@ impl SnarkClerk {
     /// Deduplicate signatures by lottery index and select exactly `k` winners.
     ///
     /// When multiple signatures claim the same lottery index, the one with the smallest Schnorr
-    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. Collection stops as soon as `k`
-    /// unique indices have been gathered.
+    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. After all signatures have been
+    /// processed, the map is trimmed to the `k` smallest lottery indices.
     ///
     /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
     /// can be collected.
@@ -92,21 +92,18 @@ impl SnarkClerk {
                     }
                     Entry::Vacant(vacant) => {
                         vacant.insert(signature.clone());
-                        if unique_index_signature_map.len() as u64 >= parameters.k {
-                            break;
-                        }
                     }
                 }
-            }
-
-            if unique_index_signature_map.len() as u64 >= parameters.k {
-                break;
             }
         }
 
         let count = unique_index_signature_map.len() as u64;
         if count < parameters.k {
             return Err(AggregationError::NotEnoughSignatures(count, parameters.k).into());
+        }
+
+        while unique_index_signature_map.len() as u64 > parameters.k {
+            unique_index_signature_map.pop_last();
         }
 
         Ok(unique_index_signature_map)

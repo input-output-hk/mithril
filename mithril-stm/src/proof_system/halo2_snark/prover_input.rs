@@ -1,17 +1,20 @@
+use std::collections::{BTreeMap, btree_map::Entry};
+
 use crate::{
-    BaseFieldElement, MembershipDigest, SingleSignature, StmResult,
-    circuits::CircuitInstance,
+    AggregationError, BaseFieldElement, LotteryIndex, MembershipDigest, SignerIndex,
+    SingleSignature, StmResult,
+    circuits::MerklePath as Halo2MerklePath,
+    circuits::{CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness},
+    membership_commitment::{MerkleTree, MerkleTreeSnarkLeaf},
     proof_system::{
         AggregateVerificationKeyForSnark, SnarkClerk,
         halo2_snark::{build_snark_message, compute_winning_lottery_indices},
     },
 };
 
-use super::WitnessEntry;
-
 /// Prover input for the SNARK circuit, bundling public and private data.
 /// The **instance** carries the Merkle tree root and the signed message, the two public inputs
-/// exposed to the verifier. The **witness** contains one `WitnessEntry` per winning lottery index,
+/// exposed to the verifier. The **witness** contains one entry per winning lottery index,
 /// each providing the Schnorr signature, Merkle leaf, and authentication path that the circuit
 /// checks privately.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -21,7 +24,7 @@ pub struct SnarkProverInput {
     /// Public inputs to the SNARK circuit.
     instance: CircuitInstance,
     /// Per-winning-lottery-index witness data.
-    witness: Vec<WitnessEntry>,
+    witness: CircuitWitness,
 }
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -36,7 +39,7 @@ impl SnarkProverInput {
     ///    and attached to a cloned copy of the signature.
     /// 3. **Deduplication** `SnarkClerk::select_valid_signatures_for_k_indices` keeps exactly `k`
     ///    unique lottery indices, breaking ties by smallest Schnorr signature.
-    /// 4. **Witness construction** `WitnessEntry::create_witness` builds the per-index witness data
+    /// 4. **Witness construction** `create_witness` builds the per-index witness data
     ///    (Merkle leaf, authentication path, signature).
     ///
     /// Returns an error if fewer than `k` unique winning indices can be collected, or if a Merkle
@@ -58,7 +61,7 @@ impl SnarkProverInput {
             &valid_signatures_with_indices,
         )?;
 
-        let witness = WitnessEntry::create_witness::<D>(unique_index_signature_map, clerk)?;
+        let witness = Self::create_witness::<D>(unique_index_signature_map, clerk)?;
 
         let instance = (message_to_sign[0].into(), message_to_sign[1].into());
 
@@ -105,13 +108,73 @@ impl SnarkProverInput {
             .collect()
     }
 
+    /// Build the witness vector from a deduplicated map of winning lottery indices.
+    ///
+    /// The construction proceeds in two phases:
+    /// 1. Signer deduplication: iterates over the signatures to collect, for each unique signer,
+    ///    the Merkle leaf (verification key + lottery target) and authentication path. A `BTreeMap`
+    ///    keyed by `SignerIndex` ensures each signer's path is computed only once. Signers whose
+    ///    registration entry is missing (`Ok(None)`) or whose lookup fails (`Err`) are skipped,
+    ///    since the input signatures have already been validated upstream.
+    /// 2. Entry assembly: maps every `(lottery_index, signature)` pair to a circuit witness tuple by
+    ///    looking up the precomputed leaf and path for the signature's signer.
+    ///
+    /// The returned vector is sorted by lottery index (guaranteed by `BTreeMap` iteration order of
+    /// `unique_index_signature_map`).
+    ///
+    /// Returns an error if a Merkle path cannot be converted to the circuit representation, or
+    /// if any witness entry cannot be assembled (missing signer data or SNARK signature).
+    fn create_witness<D: MembershipDigest>(
+        unique_index_signature_map: BTreeMap<LotteryIndex, SingleSignature>,
+        clerk: &SnarkClerk,
+    ) -> StmResult<CircuitWitness> {
+        let merkle_tree: MerkleTree<D::SnarkHash, MerkleTreeSnarkLeaf> =
+            clerk.closed_key_registration.to_merkle_tree();
+        let mut unique_signers: BTreeMap<SignerIndex, (MerkleTreeSnarkLeaf, Halo2MerklePath)> =
+            BTreeMap::new();
+
+        for sig in unique_index_signature_map.values() {
+            if let Entry::Vacant(vacant) = unique_signers.entry(sig.signer_index) {
+                let leaf = match clerk.get_snark_registration_entry(sig.signer_index) {
+                    Ok(Some(entry)) => entry,
+                    Ok(None) => continue,
+                    Err(_) => continue,
+                };
+                let merkle_path = merkle_tree.compute_merkle_tree_path(sig.signer_index as usize);
+                let merkle_path_circuit: Halo2MerklePath = Halo2MerklePath::try_from(&merkle_path)?;
+                vacant.insert((leaf, merkle_path_circuit));
+            }
+        }
+
+        unique_index_signature_map
+            .into_iter()
+            .map(|(lottery_index, sig)| {
+                let (leaf, merkle_path) = unique_signers
+                    .get(&sig.signer_index)
+                    .ok_or(AggregationError::MissingSnarkSignerData(sig.signer_index))?;
+                let schnorr_sig = sig
+                    .snark_signature
+                    .as_ref()
+                    .ok_or(AggregationError::MissingSnarkSignature(lottery_index))?
+                    .get_schnorr_signature();
+                let circuit_leaf = CircuitMerkleTreeLeaf(leaf.0, leaf.1.into());
+                Ok((
+                    circuit_leaf,
+                    merkle_path.clone(),
+                    schnorr_sig,
+                    lottery_index,
+                ))
+            })
+            .collect()
+    }
+
     /// Return the public instance as a `(merkle_tree_root, message)` pair.
     pub fn get_instance(&self) -> CircuitInstance {
         self.instance
     }
 
     /// Return a reference to the witness entries.
-    pub fn get_witness(&self) -> &[WitnessEntry] {
+    pub fn get_witness(&self) -> &CircuitWitness {
         &self.witness
     }
 }

@@ -9,7 +9,10 @@ use std::ops::{Add, AddAssign, Neg, Sub};
 use ff::Field;
 use midnight_curves::{Fq as MidnightBaseField, JubjubExtended as MidnightJubjub};
 
-use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey};
+use crate::{
+    LotteryIndex,
+    signature_scheme::{BaseFieldElement, SchnorrVerificationKey, UniqueSchnorrSignature},
+};
 
 /// Shared Midnight field alias used by Halo2 relation/chips.
 pub(crate) type CircuitBase = MidnightBaseField;
@@ -17,6 +20,13 @@ pub(crate) type CircuitBase = MidnightBaseField;
 pub(crate) type CircuitCurve = MidnightJubjub;
 /// Circuit statement/instance type, representing the public inputs to the STM SNARK circuit.
 pub(crate) type CircuitInstance = (MerkleRoot, SignedMessageWithoutPrefix);
+/// Circuit witness type, representing the inputs to the STM SNARK circuit.
+pub(crate) type CircuitWitness = Vec<(
+    CircuitMerkleTreeLeaf,
+    MerklePath,
+    UniqueSchnorrSignature,
+    LotteryIndex,
+)>;
 
 /// Field type boundaries:
 /// - `BaseFieldElement`: STM/domain field wrapper.
