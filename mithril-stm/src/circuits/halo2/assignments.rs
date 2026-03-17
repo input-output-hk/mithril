@@ -6,18 +6,12 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
+use crate::StmResult;
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::to_synthesis_error;
-use crate::circuits::halo2::types::{CircuitBase, CircuitCurve, CircuitMerkleTreeLeaf, MerklePath};
-use crate::signature_scheme::{PrimeOrderProjectivePoint, UniqueSchnorrSignature};
-use crate::{LotteryIndex, StmResult};
-
-pub(crate) type WitnessEntry = (
-    CircuitMerkleTreeLeaf,
-    MerklePath,
-    UniqueSchnorrSignature,
-    LotteryIndex,
-);
+use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
+use crate::circuits::halo2::witness::CircuitWitnessEntry;
+use crate::signature_scheme::PrimeOrderProjectivePoint;
 
 pub(crate) struct AssignedMerklePath {
     pub(crate) siblings: Vec<AssignedNative<CircuitBase>>,
@@ -43,7 +37,7 @@ impl StmCircuit {
         &self,
         std_lib: &ZkStdLib,
         layouter: &mut impl Layouter<CircuitBase>,
-        witness_entry: Value<WitnessEntry>,
+        witness_entry: Value<CircuitWitnessEntry>,
     ) -> Result<AssignedWitnessEntry, Error> {
         let verification_key =
             Self::assign_verification_key(std_lib, layouter, witness_entry.clone())?;
@@ -52,13 +46,13 @@ impl StmCircuit {
             layouter,
             witness_entry
                 .clone()
-                .map(|(leaf, _, _, _)| leaf.lottery_target_value().into()),
+                .map(|entry| entry.leaf.lottery_target_value().into()),
         )?;
         let merkle_path = self.assign_merkle_path(std_lib, layouter, witness_entry.clone())?;
 
         let lottery_index = std_lib.assign(
             layouter,
-            witness_entry.map(|(_, _, _, lottery_index)| CircuitBase::from(lottery_index)),
+            witness_entry.map(|entry| CircuitBase::from(entry.lottery_index)),
         )?;
 
         Ok(AssignedWitnessEntry {
@@ -72,11 +66,11 @@ impl StmCircuit {
     fn assign_verification_key(
         std_lib: &ZkStdLib,
         layouter: &mut impl Layouter<CircuitBase>,
-        witness_entry: Value<WitnessEntry>,
+        witness_entry: Value<CircuitWitnessEntry>,
     ) -> Result<AssignedNativePoint<CircuitCurve>, Error> {
         std_lib.jubjub().assign(
             layouter,
-            witness_entry.map(|(leaf, _, _, _)| leaf.verification_key().0.0),
+            witness_entry.map(|entry| entry.leaf.verification_key_point().0),
         )
     }
 
@@ -84,13 +78,14 @@ impl StmCircuit {
         &self,
         std_lib: &ZkStdLib,
         layouter: &mut impl Layouter<CircuitBase>,
-        witness_entry: Value<WitnessEntry>,
+        witness_entry: Value<CircuitWitnessEntry>,
     ) -> Result<AssignedMerklePath, Error> {
         let siblings = std_lib.assign_many(
             layouter,
             witness_entry
                 .clone()
-                .map_with_result(|(_, merkle_path, _, _)| -> StmResult<_> {
+                .map_with_result(|entry| -> StmResult<_> {
+                    let merkle_path = entry.merkle_path;
                     self.validate_merkle_sibling_length(merkle_path.siblings.len())?;
                     Ok(merkle_path
                         .siblings
@@ -107,7 +102,8 @@ impl StmCircuit {
             layouter,
             witness_entry
                 .clone()
-                .map_with_result(|(_, merkle_path, _, _)| -> StmResult<_> {
+                .map_with_result(|entry| -> StmResult<_> {
+                    let merkle_path = entry.merkle_path;
                     self.validate_merkle_position_length(merkle_path.siblings.len())?;
                     Ok(merkle_path
                         .siblings
@@ -134,11 +130,12 @@ impl StmCircuit {
     pub(crate) fn assign_signature_components(
         std_lib: &ZkStdLib,
         layouter: &mut impl Layouter<CircuitBase>,
-        witness_entry: Value<WitnessEntry>,
+        witness_entry: Value<CircuitWitnessEntry>,
     ) -> Result<AssignedSignatureComponents, Error> {
         let commitment_point_value = witness_entry
             .clone()
-            .map_with_result(|(_, _, signature, _)| {
+            .map_with_result(|entry| {
+                let signature = entry.unique_schnorr_signature;
                 let (u, v) = signature.commitment_point.get_coordinates();
                 PrimeOrderProjectivePoint::from_coordinates(u, v).map(|point| point.0)
             })
@@ -146,11 +143,13 @@ impl StmCircuit {
         let commitment_point = std_lib.jubjub().assign(layouter, commitment_point_value)?;
         let response = std_lib.jubjub().assign(
             layouter,
-            witness_entry.clone().map(|(_, _, signature, _)| signature.response.0),
+            witness_entry
+                .clone()
+                .map(|entry| entry.unique_schnorr_signature.response.0),
         )?;
         let challenge_in_base_field = std_lib.assign(
             layouter,
-            witness_entry.map(|(_, _, signature, _)| CircuitBase::from(signature.challenge)),
+            witness_entry.map(|entry| CircuitBase::from(entry.unique_schnorr_signature.challenge)),
         )?;
         let challenge_as_scalar = std_lib.jubjub().convert(layouter, &challenge_in_base_field)?;
 

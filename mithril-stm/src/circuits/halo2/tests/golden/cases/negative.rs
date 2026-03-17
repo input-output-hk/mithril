@@ -7,7 +7,9 @@ use crate::circuits::halo2::tests::golden::helpers::{
     create_merkle_tree_with_leaf_selector, find_two_distinct_witness_entries,
     prove_and_verify_result, setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::{Position, SignedMessageWithoutPrefix};
+use crate::circuits::halo2::witness::{
+    CircuitMerkleTreeLeaf, CircuitWitnessEntry, Position, SignedMessageWithoutPrefix,
+};
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
 
 #[test]
@@ -84,7 +86,12 @@ fn signature_other_message() {
     // but signature is from (merkle_tree_commitment, message0).
     let mut witness = Vec::with_capacity(witness1.len());
     for (w1, w0) in witness1.into_iter().zip(witness0.into_iter()) {
-        witness.push((w1.0, w1.1, w0.2, w1.3));
+        witness.push(CircuitWitnessEntry {
+            leaf: w1.leaf,
+            merkle_path: w1.merkle_path,
+            unique_schnorr_signature: w0.unique_schnorr_signature,
+            lottery_index: w1.lottery_index,
+        });
     }
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message1, witness);
@@ -111,8 +118,8 @@ fn signature_verification_key_mismatch() {
     let (i, j) = find_two_distinct_witness_entries(&witness)
         .expect("signature_verification_key_mismatch distinct entries should exist");
     // Keep leaf/path/index from i, but replace signature with j's signature.
-    let sig_j = witness[j].2;
-    witness[i].2 = sig_j;
+    let sig_j = witness[j].unique_schnorr_signature;
+    witness[i].unique_schnorr_signature = sig_j;
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -135,7 +142,8 @@ fn signature_bad_challenge() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("signature_bad_challenge witness build should succeed");
 
-    witness[0].2.challenge = witness[0].2.challenge + BaseFieldElement::get_one();
+    witness[0].unique_schnorr_signature.challenge =
+        witness[0].unique_schnorr_signature.challenge + BaseFieldElement::get_one();
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -158,7 +166,7 @@ fn signature_bad_response() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("signature_bad_response witness build should succeed");
 
-    witness[0].2.response = witness[0].2.response
+    witness[0].unique_schnorr_signature.response = witness[0].unique_schnorr_signature.response
         - ScalarFieldElement::from_base_field(&BaseFieldElement::get_one())
             .expect("signature_bad_response response scalar conversion should succeed");
 
@@ -183,7 +191,8 @@ fn signature_bad_commitment() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("signature_bad_commitment witness build should succeed");
 
-    witness[0].2.commitment_point = witness[1].2.commitment_point;
+    witness[0].unique_schnorr_signature.commitment_point =
+        witness[1].unique_schnorr_signature.commitment_point;
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -283,9 +292,9 @@ fn merkle_path_corrupt_sibling() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("merkle_path_corrupt_sibling witness build should succeed");
     let d = 0usize;
-    assert!(!witness[0].1.siblings.is_empty());
-    assert!(d < witness[0].1.siblings.len());
-    witness[0].1.siblings[d].1 += SignedMessageWithoutPrefix::ONE;
+    assert!(!witness[0].merkle_path.siblings.is_empty());
+    assert!(d < witness[0].merkle_path.siblings.len());
+    witness[0].merkle_path.siblings[d].1 += SignedMessageWithoutPrefix::ONE;
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -309,8 +318,8 @@ fn merkle_path_flip_position() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("merkle_path_flip_position witness build should succeed");
     let d = 1usize;
-    assert!(d < witness[0].1.siblings.len());
-    witness[0].1.siblings[d].0 = match witness[0].1.siblings[d].0 {
+    assert!(d < witness[0].merkle_path.siblings.len());
+    witness[0].merkle_path.siblings[d].0 = match witness[0].merkle_path.siblings[d].0 {
         Position::Left => Position::Right,
         Position::Right => Position::Left,
     };
@@ -337,8 +346,8 @@ fn merkle_path_length_short() {
     let mut witness =
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("merkle_path_length_short witness build should succeed");
-    assert!(!witness[0].1.siblings.is_empty());
-    witness[0].1.siblings.pop();
+    assert!(!witness[0].merkle_path.siblings.is_empty());
+    witness[0].merkle_path.siblings.pop();
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     // Relation boundary flattens this typed guard error into `PlonkError::Synthesis(String)`.
@@ -370,7 +379,7 @@ fn merkle_path_length_long() {
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
             .expect("merkle_path_length_long witness build should succeed");
     witness[0]
-        .1
+        .merkle_path
         .siblings
         .push((Position::Left, SignedMessageWithoutPrefix::ZERO));
 
@@ -405,7 +414,7 @@ fn leaf_swap_keep_merkle_path() {
     let (i, j) = find_two_distinct_witness_entries(&witness)
         .expect("leaf_swap_keep_merkle_path distinct entries should exist");
     // Keep path/signature/index from i, but swap leaf with j.
-    witness[i].0 = witness[j].0;
+    witness[i].leaf = witness[j].leaf;
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -431,7 +440,7 @@ fn leaf_merkle_path_mismatch() {
     let (i, j) = find_two_distinct_witness_entries(&witness)
         .expect("leaf_merkle_path_mismatch distinct entries should exist");
     // Keep leaf/signature/index from i, but swap in j's Merkle path.
-    witness[i].1 = witness[j].1.clone();
+    witness[i].merkle_path = witness[j].merkle_path.clone();
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));
@@ -457,12 +466,9 @@ fn leaf_wrong_verification_key() {
     let (i, j) = find_two_distinct_witness_entries(&witness)
         .expect("leaf_wrong_verification_key distinct entries should exist");
     // Keep lottery_target_value/path/signature/index from i, but swap in j's verification key.
-    let lottery_target_value = witness[i].0.1;
-    let verification_key = witness[j].0.0;
-    witness[i].0 = crate::circuits::halo2::types::CircuitMerkleTreeLeaf(
-        verification_key,
-        lottery_target_value,
-    );
+    let lottery_target_value = witness[i].leaf.lottery_target_value();
+    let verification_key = witness[j].leaf.verification_key();
+    witness[i].leaf = CircuitMerkleTreeLeaf(verification_key, lottery_target_value);
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proof_rejected_by_verifier(prove_and_verify_result(&env, scenario));

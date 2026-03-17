@@ -1,18 +1,11 @@
-//! Halo2-facing type aliases and witness shapes for the STM SNARK circuit.
-//!
-//! This module bridges STM domain concepts (message, lottery index, Merkle proof)
-//! to circuit-oriented types consumed by the Halo2 relation and gadgets.
-//! Wrapper types in this module represent the circuit statement layer.
+//! Core Halo2 circuit primitives and reusable field/curve wrappers for STM.
 
 use std::ops::{Add, AddAssign, Neg, Sub};
 
 use ff::Field;
 use midnight_curves::{Fq as MidnightBaseField, JubjubExtended as MidnightJubjub};
 
-use crate::{
-    LotteryIndex,
-    signature_scheme::{BaseFieldElement, SchnorrVerificationKey, UniqueSchnorrSignature},
-};
+use crate::signature_scheme::BaseFieldElement;
 
 /// Shared Midnight field alias used by Halo2 relation/chips.
 pub(crate) type CircuitBase = MidnightBaseField;
@@ -107,67 +100,5 @@ impl Neg for CircuitBaseField {
 
     fn neg(self) -> Self::Output {
         Self(-self.0)
-    }
-}
-
-/// Lottery target value used by the circuit for signer eligibility checks.
-pub type LotteryTargetValue = CircuitBaseField;
-/// Signed message value used by the circuit transcript, without any domain prefix.
-pub type SignedMessageWithoutPrefix = CircuitBaseField;
-/// Merkle root public input committed by the STM membership commitment tree.
-pub type MerkleRoot = CircuitBaseField;
-
-/// Merkle-tree leaf material used by Halo2 witness construction.
-///
-/// The first field stores the signer's verification key, and the second
-/// field stores the lottery target value associated with that signer.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct CircuitMerkleTreeLeaf(pub SchnorrVerificationKey, pub LotteryTargetValue);
-
-impl CircuitMerkleTreeLeaf {
-    pub fn verification_key(&self) -> SchnorrVerificationKey {
-        self.0
-    }
-
-    pub fn lottery_target_value(&self) -> LotteryTargetValue {
-        self.1
-    }
-}
-
-/// Position of a sibling node relative to the current hash in a Merkle path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Position {
-    Left,
-    Right,
-}
-
-impl From<Position> for CircuitBase {
-    fn from(position: Position) -> Self {
-        match position {
-            Position::Left => Self::ZERO,
-            Position::Right => Self::ONE,
-        }
-    }
-}
-
-impl From<Position> for CircuitBaseField {
-    fn from(position: Position) -> Self {
-        Self(CircuitBase::from(position))
-    }
-}
-
-/// Merkle authentication path used by the Halo2 circuit witness.
-///
-/// Each entry stores sibling position and sibling hash value for one tree level.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MerklePath {
-    /// Ordered list of `(position, sibling_hash)` from leaf level to root level.
-    pub siblings: Vec<(Position, CircuitBaseField)>,
-}
-
-impl MerklePath {
-    /// Creates a new Merkle path from ordered sibling entries.
-    pub fn new(siblings: Vec<(Position, CircuitBaseField)>) -> Self {
-        Self { siblings }
     }
 }

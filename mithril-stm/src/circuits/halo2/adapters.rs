@@ -3,7 +3,7 @@
 use digest::Digest;
 use thiserror::Error;
 
-use crate::circuits::halo2::types::{MerklePath as Halo2MerklePath, Position};
+use crate::circuits::halo2::witness::{MerklePath as Halo2MerklePath, Position};
 use crate::membership_commitment::MerklePath as StmMerklePath;
 use crate::signature_scheme::BaseFieldElement;
 

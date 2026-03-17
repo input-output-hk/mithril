@@ -11,6 +11,8 @@ pub mod errors;
 pub(crate) mod gadgets;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod types;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) mod witness;
 
 #[cfg(test)]
 pub(crate) mod tests;

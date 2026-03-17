@@ -5,7 +5,7 @@ use crate::circuits::halo2::tests::golden::helpers::{
     prove_and_verify_result, run_stm_circuit_case, run_stm_circuit_case_default,
     setup_stm_circuit_env,
 };
-use crate::circuits::halo2::types::{
+use crate::circuits::halo2::witness::{
     LotteryTargetValue as CircuitLotteryTargetValue, SignedMessageWithoutPrefix,
 };
 

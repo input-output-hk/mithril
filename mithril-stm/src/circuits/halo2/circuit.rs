@@ -8,16 +8,14 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::assignments::WitnessEntry;
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     MerklePathInputs, UniqueSchnorrSignatureInputs, assert_lottery_index_in_bounds,
     assert_lottery_won, assert_strictly_increasing_lottery_index, verify_merkle_path,
     verify_unique_signature,
 };
-use crate::circuits::halo2::types::{
-    CircuitBase, CircuitCurve, MerkleRoot, SignedMessageWithoutPrefix,
-};
+use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
+use crate::circuits::halo2::witness::{CircuitInstance, CircuitWitness};
 use crate::signature_scheme::{DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE};
 use crate::{LotteryIndex, Parameters, StmResult};
 
@@ -154,8 +152,8 @@ impl StmCircuit {
 }
 
 impl Relation for StmCircuit {
-    type Instance = (MerkleRoot, SignedMessageWithoutPrefix);
-    type Witness = Vec<WitnessEntry>;
+    type Instance = CircuitInstance;
+    type Witness = CircuitWitness;
 
     fn format_instance(instance: &Self::Instance) -> Result<Vec<CircuitBase>, Error> {
         Ok(vec![instance.0.into(), instance.1.into()])
@@ -174,7 +172,7 @@ impl Relation for StmCircuit {
                 self.validate_witness_length(witness.len())?;
                 witness
                     .iter()
-                    .try_for_each(|(_, _, _, index)| self.validate_lottery_index(*index))?;
+                    .try_for_each(|entry| self.validate_lottery_index(entry.lottery_index))?;
                 Ok(witness)
             })
             .map_err(to_synthesis_error)?

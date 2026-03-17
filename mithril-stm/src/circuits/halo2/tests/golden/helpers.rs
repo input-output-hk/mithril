@@ -16,8 +16,9 @@ use rand_core::SeedableRng;
 
 use crate::circuits::halo2::circuit::StmCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::types::{
-    CircuitBase, CircuitMerkleTreeLeaf, LotteryTargetValue as CircuitLotteryTargetValue,
+use crate::circuits::halo2::types::CircuitBase;
+use crate::circuits::halo2::witness::{
+    CircuitMerkleTreeLeaf, CircuitWitnessEntry, LotteryTargetValue as CircuitLotteryTargetValue,
     MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
 };
 use crate::circuits::test_utils::setup::{generate_params, load_params};
@@ -29,14 +30,6 @@ use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
-
-/// Witness entry tuple used by STM circuit golden tests.
-type WitnessEntry = (
-    CircuitMerkleTreeLeaf,
-    MerklePath,
-    UniqueSchnorrSignature,
-    LotteryIndex,
-);
 
 /// Default number of signers used in golden test environments.
 const DEFAULT_NUM_SIGNERS: usize = 3000;
@@ -153,7 +146,7 @@ pub(crate) struct StmCircuitEnv {
 pub(crate) struct StmCircuitScenario {
     merkle_tree_commitment: MerkleRoot,
     message: SignedMessageWithoutPrefix,
-    witness: Vec<WitnessEntry>,
+    witness: Vec<CircuitWitnessEntry>,
 }
 
 /// Signer fixture material used to build STM Merkle trees and Halo2 witness leaves.
@@ -375,7 +368,7 @@ pub(crate) fn build_witness(
     merkle_tree_commitment: MerkleRoot,
     message: SignedMessageWithoutPrefix,
     k: u32,
-) -> StmResult<Vec<WitnessEntry>> {
+) -> StmResult<Vec<CircuitWitnessEntry>> {
     let indices: Vec<LotteryIndex> = (0..k).map(u64::from).collect();
     build_witness_with_indices(merkle_tree, merkle_tree_commitment, message, &indices)
 }
@@ -387,7 +380,7 @@ pub(crate) fn build_witness_with_indices(
     merkle_tree_commitment: MerkleRoot,
     message: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
-) -> StmResult<Vec<WitnessEntry>> {
+) -> StmResult<Vec<CircuitWitnessEntry>> {
     build_witness_internal(
         merkle_tree,
         merkle_tree_commitment,
@@ -405,7 +398,7 @@ pub(crate) fn build_witness_with_fixed_signer(
     merkle_tree_commitment: MerkleRoot,
     message: SignedMessageWithoutPrefix,
     indices: &[LotteryIndex],
-) -> StmResult<Vec<WitnessEntry>> {
+) -> StmResult<Vec<CircuitWitnessEntry>> {
     build_witness_internal(
         merkle_tree,
         merkle_tree_commitment,
@@ -430,7 +423,7 @@ fn build_witness_internal(
     merkle_tree_commitment: MerkleRoot,
     message: SignedMessageWithoutPrefix,
     mode: WitnessBuildMode<'_>,
-) -> StmResult<Vec<WitnessEntry>> {
+) -> StmResult<Vec<CircuitWitnessEntry>> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut witness = Vec::new();
 
@@ -454,7 +447,12 @@ fn build_witness_internal(
                     &mut rng,
                 )?;
                 let merkle_path = merkle_tree.get_path(signer_index)?;
-                witness.push((signer_fixture.into(), merkle_path, stm_sig, *index));
+                witness.push(CircuitWitnessEntry {
+                    leaf: signer_fixture.into(),
+                    merkle_path,
+                    unique_schnorr_signature: stm_sig,
+                    lottery_index: *index,
+                });
             }
         }
         WitnessBuildMode::FixedSigner {
@@ -473,7 +471,12 @@ fn build_witness_internal(
                 &mut rng,
             )?;
             for index in indices {
-                witness.push((signer_fixture.into(), merkle_path.clone(), stm_sig, *index));
+                witness.push(CircuitWitnessEntry {
+                    leaf: signer_fixture.into(),
+                    merkle_path: merkle_path.clone(),
+                    unique_schnorr_signature: stm_sig,
+                    lottery_index: *index,
+                });
             }
         }
     }
@@ -487,15 +490,15 @@ fn build_witness_internal(
 /// from different signer fixtures (negative-test precondition). If not, it
 /// returns an error instead of searching later entries.
 pub(crate) fn find_two_distinct_witness_entries(
-    witness: &[WitnessEntry],
+    witness: &[CircuitWitnessEntry],
 ) -> StmResult<(usize, usize)> {
     if witness.len() < 2 {
         return Err(anyhow!(StmCircuitError::WitnessTooShort {
             actual: checked_len_u32(witness.len()),
         }));
     }
-    let leaf0 = witness[0].0;
-    let leaf1 = witness[1].0;
+    let leaf0 = witness[0].leaf;
+    let leaf1 = witness[1].leaf;
     if leaf0 != leaf1 {
         return Ok((0, 1));
     }
@@ -519,7 +522,7 @@ impl StmCircuitScenario {
     pub(crate) fn new(
         merkle_tree_commitment: MerkleRoot,
         message: SignedMessageWithoutPrefix,
-        witness: Vec<WitnessEntry>,
+        witness: Vec<CircuitWitnessEntry>,
     ) -> Self {
         Self {
             merkle_tree_commitment,
