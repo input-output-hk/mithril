@@ -46,3 +46,48 @@ impl<D: Digest> TryFrom<&StmMerklePath<D>> for Halo2MerklePath {
         Ok(Halo2MerklePath::new(siblings))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::circuits::halo2::witness::Position;
+    use crate::hash::poseidon::MidnightPoseidonDigest;
+    use crate::membership_commitment::MerklePath as StmMerklePath;
+    use crate::signature_scheme::BaseFieldElement;
+
+    #[test]
+    fn converts_valid_merkle_path_and_preserves_position_mapping() {
+        let left_node = BaseFieldElement::from(5u64).to_bytes().to_vec();
+        let right_node = BaseFieldElement::from(9u64).to_bytes().to_vec();
+        let stm_path = StmMerklePath::<MidnightPoseidonDigest>::new(vec![left_node, right_node], 1);
+
+        let halo2_path = Halo2MerklePath::try_from(&stm_path)
+            .expect("valid STM merkle path should convert successfully");
+
+        assert_eq!(halo2_path.siblings.len(), 2);
+        assert_eq!(halo2_path.siblings[0].0, Position::Left);
+        assert_eq!(halo2_path.siblings[1].0, Position::Right);
+        assert_eq!(halo2_path.siblings[0].1, 5u64.into());
+        assert_eq!(halo2_path.siblings[1].1, 9u64.into());
+    }
+
+    #[test]
+    fn rejects_invalid_digest_length() {
+        let stm_path = StmMerklePath::<MidnightPoseidonDigest>::new(vec![vec![0u8; 31]], 0);
+
+        let error = Halo2MerklePath::try_from(&stm_path)
+            .expect_err("invalid digest length should be rejected");
+
+        assert!(matches!(error, MerklePathAdapterError::InvalidDigestLength));
+    }
+
+    #[test]
+    fn rejects_non_canonical_digest() {
+        let stm_path = StmMerklePath::<MidnightPoseidonDigest>::new(vec![vec![0xff; 32]], 0);
+
+        let error = Halo2MerklePath::try_from(&stm_path)
+            .expect_err("non-canonical digest should be rejected");
+
+        assert!(matches!(error, MerklePathAdapterError::NonCanonicalDigest));
+    }
+}
