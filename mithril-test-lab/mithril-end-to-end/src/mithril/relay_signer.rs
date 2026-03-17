@@ -53,7 +53,7 @@ impl RelaySigner {
             ("NETWORK", "devnet"),
             ("DMQ_NETWORK_MAGIC", &dmq_magic_id),
             ("AGGREGATOR_ENDPOINT", configuration.aggregator_endpoint),
-            ("SIGNER_REPEATER_DELAY", "100"),
+            ("SIGNER_REPEATER_DELAY", "1000"),
             (
                 "SIGNER_REGISTRATION_MODE",
                 relay_signer_registration_mode.as_str(),
