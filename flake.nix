@@ -163,7 +163,6 @@
             }
             // {
               cargoArtifacts = buildDeps craneLib commonsArgs cargoToml baseCargoArtifacts;
-              doCheck = false;
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
@@ -179,7 +178,6 @@
             // {
               cargoArtifacts = buildDeps craneLibMusl commonsArgsMusl cargoToml baseCargoArtifacts;
               RUSTFLAGS = "-C target-feature=+crt-static";
-              doCheck = false;
             }
             // args);
 
