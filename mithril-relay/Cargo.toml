@@ -10,9 +10,9 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
-bundle_tls = ["reqwest/native-tls-vendored"]
 # For activating snark features
 future_snark = ["mithril-common/future_snark"]
+bundle_tls = ["reqwest/native-tls-vendored"]
 rustls-tls = ["reqwest/rustls-tls"]
 
 [dependencies]

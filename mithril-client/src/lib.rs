@@ -123,7 +123,7 @@
 //! To allow fine tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported.
 //! No TLS backend is enabled by default: you must enable at least one of the TLS-related
 //! features below, otherwise the crate will fail to compile.
-//! - **native-tls** *(enabled by default)*: Enables TLS functionality provided by `native-tls`.
+//! - **native-tls**: Enables TLS functionality provided by `native-tls`.
 //! - **native-tls-vendored**: Enables the `vendored` feature of `native-tls`.
 //! - **native-tls-alpn**: Enables the `alpn` feature of `native-tls`.
 //! - **rustls-tls**: Enables TLS functionality provided by `rustls`.

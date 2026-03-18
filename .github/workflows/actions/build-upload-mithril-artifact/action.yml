@@ -57,7 +57,7 @@ runs:
       # Build only the libraries for the crates that are published to crates.io
       run: cargo build --lib --release ${{ inputs.libraries-build-args }} ${{ inputs.common-build-args }}
 
-    - name: Check for static builds
+    - name: Verification of static compilation
       uses: ./.github/workflows/actions/check-static-binaries
       with:
         binaries: ${{ inputs.binaries-to-check-static }}
