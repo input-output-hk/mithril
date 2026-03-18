@@ -1,3 +1,10 @@
+//! Temporary helpers for SNARK setup during the build/prototyping phase.
+//!
+//! This module bundles SRS loading, circuit compilation, and key derivation into
+//! [`SnarkSetup`]. The current implementation uses pre-generated SRS files with an
+//! unsafe deterministic fallback for testing. It will be replaced by production-ready
+//! setup code (trusted SRS ceremony, proper key management) before release.
+
 use anyhow::{Context, anyhow};
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
@@ -47,7 +54,7 @@ impl SnarkSetup {
     /// Returns an error if the SRS cannot be loaded or generated, or if the circuit
     /// cannot be compiled with the given parameters.
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
-        let circuit_degree = compute_circuit_degree(params.k);
+        let circuit_degree = compute_circuit_degree(params.k)?;
 
         let srs_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("src")
@@ -97,10 +104,11 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 }
 
 /// Compute the circuit degree from the protocol parameter `k`.
-fn compute_circuit_degree(k: u64) -> u32 {
+///
+/// Returns an error if `k` is zero, since a quorum threshold of zero is invalid.
+fn compute_circuit_degree(k: u64) -> StmResult<u32> {
     if k == 0 {
-        BASE_CIRCUIT_DEGREE
-    } else {
-        BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
+        return Err(anyhow!("Protocol parameter k must be greater than zero"));
     }
+    Ok(BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros())
 }

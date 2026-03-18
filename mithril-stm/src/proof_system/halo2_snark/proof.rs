@@ -1,5 +1,7 @@
 use anyhow::Context;
 use midnight_zk_stdlib as zk;
+use rand_chacha::ChaCha20Rng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -18,34 +20,80 @@ pub struct SnarkProof {
     snark_proof: Vec<u8>,
 }
 
-/// Holds the pre-computed SNARK setup and exposes proof generation.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
-pub struct SnarkProver {
+impl SnarkProof {
+    /// Serialise the proof to raw bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.snark_proof.clone()
+    }
+
+    /// Deserialise a proof from raw bytes.
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self { snark_proof: bytes }
+    }
+}
+
+/// Holds the pre-computed SNARK setup and exposes proof generation.
+///
+/// The type parameter `R` selects the randomness source used during proof generation.
+/// Use `try_new_non_deterministic` for production (`OsRng`) and `try_new_deterministic` for
+/// reproducible tests.
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+pub struct SnarkProver<R: RngCore + CryptoRng> {
     setup: SnarkSetup,
+    rng: R,
 }
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[allow(dead_code)]
-impl SnarkProver {
-    /// Create a new prover by initialising the SNARK setup (SRS, circuit, keys) for the given
-    /// protocol parameters and Merkle tree depth.
-    pub fn try_new(parameters: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
+impl SnarkProver<rand_core::OsRng> {
+    /// Create a new prover with a non-deterministic randomness source (`OsRng`).
+    ///
+    /// This is the constructor intended for production use.
+    pub fn try_new_non_deterministic(
+        parameters: &Parameters,
+        merkle_tree_depth: u32,
+    ) -> StmResult<Self> {
         Ok(Self {
             setup: SnarkSetup::try_new(parameters, merkle_tree_depth)
                 .with_context(|| "Failed to initialize SNARK setup (SRS, circuit, keys)")?,
+            rng: rand_core::OsRng,
         })
     }
+}
 
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl SnarkProver<ChaCha20Rng> {
+    /// Create a new prover with a deterministic randomness source seeded from `seed`.
+    ///
+    /// This constructor is intended for testing, where reproducible proof generation is needed.
+    pub fn try_new_deterministic(
+        parameters: &Parameters,
+        merkle_tree_depth: u32,
+        seed: [u8; 32],
+    ) -> StmResult<Self> {
+        Ok(Self {
+            setup: SnarkSetup::try_new(parameters, merkle_tree_depth)
+                .with_context(|| "Failed to initialize SNARK setup (SRS, circuit, keys)")?,
+            rng: ChaCha20Rng::from_seed(seed),
+        })
+    }
+}
+
+// TODO: remove this allow dead_code directive when function is called or future_snark is activated
+#[allow(dead_code)]
+impl<R: RngCore + CryptoRng> SnarkProver<R> {
     /// Aggregate a set of single signatures into a SNARK proof.
     ///
     /// Prepares the prover input (public instance and per-index witness) from the collected
     /// single signatures, then runs the SNARK prover.
     ///
     /// Returns an error if fewer than `k` valid signatures are available or if proof generation fails.
-    // TODO: consider accepting an explicit RNG argument for better testability and flexibility in randomness sources.
     pub fn aggregate_signatures<D: MembershipDigest>(
-        &self,
+        &mut self,
         clerk: &SnarkClerk,
         signatures: &[SingleSignature],
         message: &[u8],
@@ -56,15 +104,13 @@ impl SnarkProver {
         let instance = snark_prover_input.get_instance();
         let witness = snark_prover_input.into_witness();
 
-        let mut rng = rand_core::OsRng;
-
         let snark_proof = zk::prove::<StmCircuit, blake2b_simd::State>(
             &self.setup.srs,
             &self.setup.proving_key,
             &self.setup.circuit,
             &instance,
             witness,
-            &mut rng,
+            &mut self.rng,
         )
         .with_context(|| "SNARK proof generation failed")?;
 
@@ -118,13 +164,16 @@ mod tests {
             .collect()
     }
 
-    fn create_prover(params: Parameters, number_of_signers: usize) -> SnarkProver {
+    fn create_prover(
+        params: Parameters,
+        number_of_signers: usize,
+        seed: [u8; 32],
+    ) -> SnarkProver<ChaCha20Rng> {
         let merkle_tree_depth = number_of_signers.next_power_of_two().trailing_zeros();
-        SnarkProver::try_new(&params, merkle_tree_depth).unwrap()
+        SnarkProver::try_new_deterministic(&params, merkle_tree_depth, seed).unwrap()
     }
 
     #[test]
-    #[ignore]
     fn produces_valid_snark_proof() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let params = Parameters {
@@ -137,9 +186,10 @@ mod tests {
 
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
-        let prover = create_prover(
+        let mut prover = create_prover(
             params,
             clerk.closed_key_registration.number_of_registered_parties(),
+            [0u8; 32],
         );
 
         let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
@@ -168,9 +218,10 @@ mod tests {
 
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
-        let prover = create_prover(
+        let mut prover = create_prover(
             params,
             clerk.closed_key_registration.number_of_registered_parties(),
+            [1u8; 32],
         );
 
         let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
@@ -191,9 +242,10 @@ mod tests {
         let nparties = 5;
 
         let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let prover = create_prover(
+        let mut prover = create_prover(
             params,
             clerk.closed_key_registration.number_of_registered_parties(),
+            [2u8; 32],
         );
 
         let result = prover.aggregate_signatures::<D>(&clerk, &[], &[3u8; 32]);
