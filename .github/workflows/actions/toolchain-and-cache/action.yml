@@ -1,6 +1,9 @@
 name: toolchain-and-cache
 description: Install the stable cargo toolchain, the given cargo tools, and try to restore cache
 inputs:
+  targets:
+    description: Comma-separated list of rust target triples to install for this toolchain
+    required: false
   cache-version:
     description: Version of the current cache
     required: false
@@ -20,6 +23,7 @@ runs:
       with:
         toolchain: stable
         components: clippy, rustfmt
+        targets: ${{ inputs.targets }}
 
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2

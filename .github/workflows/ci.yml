@@ -21,8 +21,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            gnu_target: x86_64-unknown-linux-gnu
             musl_target: x86_64-unknown-linux-musl
           - os: ubuntu-22.04-arm
+            gnu_target: aarch64-unknown-linux-gnu
             musl_target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.os }}
     outputs:
@@ -34,23 +36,15 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
+          targets: ${{ matrix.gnu_target }},${{ matrix.musl_target }}
           cache-version: 22.04-${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.musl_target }}
-
-      #Prerequisites for static build with musl
-      - name: Install musl toolchain
+      - name: Install musl toolchain prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            musl-tools \
-            build-essential \
-            pkg-config
+          sudo apt-get install -y musl-tools build-essential pkg-config
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
