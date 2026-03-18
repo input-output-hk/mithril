@@ -98,5 +98,9 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 
 /// Compute the circuit degree from the protocol parameter `k`.
 fn compute_circuit_degree(k: u64) -> u32 {
-    BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
+    if k == 0 {
+        BASE_CIRCUIT_DEGREE
+    } else {
+        BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
+    }
 }
