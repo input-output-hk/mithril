@@ -10,6 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
+default = ["rustls-tls"]
 bundle_tls = ["reqwest/native-tls-vendored"]
 rustls-tls = ["reqwest/rustls-tls"]
 

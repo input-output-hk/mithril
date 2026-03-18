@@ -22,10 +22,8 @@ jobs:
         include:
           - os: ubuntu-22.04
             musl_target: x86_64-unknown-linux-musl
-            features: bundle_tls,full
           - os: ubuntu-22.04-arm
             musl_target: aarch64-unknown-linux-musl
-            features: bundle_tls,full
     runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
@@ -58,12 +56,12 @@ jobs:
       - name: Cargo build - Tooling
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
-        run: cargo build --release --bin mithril-end-to-end --bin load-aggregator --features bundle_tls
+        run: cargo build --release --bins --package mithril-end-to-end  --features bundle_tls
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features ${{ matrix.features }} --target=${{ matrix.musl_target }}
+          binaries-build-args: --bins --package mithril-aggregator --package mithril-signer --package mithril-client-cli --package mithril-relay --features bundle_tls --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
           binaries-to-check-static: mithril-aggregator,mithril-signer,mithril-client,mithril-relay
           binaries-build-target: ${{ matrix.musl_target }}
@@ -110,11 +108,9 @@ jobs:
         include:
           # Only build client on windows & mac
           - os: macos-14
-            binaries-build-args: --bin mithril-client --features bundle_tls
+            binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
           - os: windows-latest
-            # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
-            # hack in mithril common cargo.toml doesn't apply (we have no idea why).
             binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
     runs-on: ${{ matrix.os }}
