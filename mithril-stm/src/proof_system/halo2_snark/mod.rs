@@ -2,9 +2,11 @@ mod aggregate_key;
 mod clerk;
 mod eligibility;
 mod message;
+mod proof;
 mod prover_input;
 mod signer;
 mod single_signature;
+mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
 pub(crate) use clerk::SnarkClerk;
@@ -14,6 +16,7 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
+pub(crate) use unsafe_helpers::SnarkSetup;
 
 #[cfg(test)]
 mod tests {

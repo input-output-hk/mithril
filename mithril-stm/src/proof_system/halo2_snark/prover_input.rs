@@ -174,9 +174,9 @@ impl SnarkProverInput {
         self.instance
     }
 
-    /// Return a reference to the witness entries.
-    pub fn get_witness(&self) -> &CircuitWitness {
-        &self.witness
+    /// Consume self and return the witness entries.
+    pub fn into_witness(self) -> CircuitWitness {
+        self.witness
     }
 }
 
@@ -245,7 +245,7 @@ mod tests {
 
         let prover_input = result.unwrap();
         assert_eq!(
-            prover_input.get_witness().len() as u64,
+            prover_input.into_witness().len() as u64,
             params.k,
             "Witness should contain exactly k entries"
         );
