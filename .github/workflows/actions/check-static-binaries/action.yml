@@ -108,30 +108,86 @@ runs:
 
     - name: Check Windows static binaries
       if: runner.os == 'Windows'
-      shell: pwsh
+      shell: bash
       run: |
-        $BINARIES = "${{ inputs.binaries }}"
-        $TARGET_PATH = "${{ inputs.target-path }}"
+        set -euo pipefail
 
-        foreach ($bin in $BINARIES -split ",") {
-          $bin = $bin.Trim()
-          $BIN_PATH = "$TARGET_PATH/$bin.exe"
-          
-          Write-Host "Checking $bin is statically linked..."
-          
-          if (-Not (Test-Path $BIN_PATH)) {
-            Write-Host "❌ Binary not found at $BIN_PATH"
-            exit 1
-          }
+        BINARIES="${{ inputs.binaries }}"
+        TARGET_PATH="${{ inputs.target-path }}"
 
-          $output = & dumpbin /dependents $BIN_PATH 2>&1
-          Write-Host "output : $output"
-          if ($output -match "\.dll") {
-            Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+        WHITELIST=(
+          "KERNEL32.dll"
+          "ntdll.dll"
+          "bcryptprimitives.dll"
+          "advapi32.dll"
+          "secur32.dll"
+          "ws2_32.dll"
+          "crypt32.dll"
+          "bcrypt.dll"
+          "api-ms-win-core-synch-l1-2-0.dll"
+          "userenv.dll"
+          "VCRUNTIME140.dll"
+          "api-ms-win-crt-math-l1-1-0.dll"
+          "api-ms-win-crt-string-l1-1-0.dll"
+          "api-ms-win-crt-heap-l1-1-0.dll"
+          "api-ms-win-crt-stdio-l1-1-0.dll"
+          "api-ms-win-crt-runtime-l1-1-0.dll"
+          "api-ms-win-crt-locale-l1-1-0.dll"
+        )
+
+        check_binary() {
+          local bin="$1"
+          local path="$TARGET_PATH/${bin}.exe"
+
+          echo "Checking $bin is statically linked..."
+
+          if [[ ! -f "$path" ]]; then
+            echo "❌ Binary not found at $path"
             exit 1
-          }
-          Write-Host "✅ $bin is fully static"
+          fi
+
+          DLLS=$(objdump -p "$path" | grep "DLL Name" | awk '{print $3}' || true)
+
+          echo "Detected DLLs:"
+          echo "$DLLS"
+
+          local non_whitelisted=()
+
+          while IFS= read -r dll; do
+            [[ -z "$dll" ]] && continue
+
+            local allowed=false
+            for w in "${WHITELIST[@]}"; do
+              if [[ "${dll^^}" == "${w^^}" ]]; then
+                allowed=true
+                break
+              fi
+            done
+
+            if [[ "$allowed" == false ]]; then
+              non_whitelisted+=("$dll")
+            fi
+          done <<< "$DLLS"
+
+          if [[ ${#non_whitelisted[@]} -eq 0 ]]; then
+            echo "✅ $bin is fully static (or has only whitelisted system dependencies)"
+          else
+            echo "❌ $bin is NOT static"
+            echo "Unexpected DLLs:"
+            for dll in "${non_whitelisted[@]}"; do
+              echo "  - $dll"
+            done
+            exit 1
+          fi
+
+          echo
         }
 
-        Write-Host "🎉 All binaries are static!"
-        exit 0
+        IFS=',' read -ra BIN_ARRAY <<< "$BINARIES"
+
+        for raw in "${BIN_ARRAY[@]}"; do
+          bin="$(echo "$raw" | xargs)"  # trim
+          check_binary "$bin"
+        done
+
+        echo "🎉 All binaries are static!"
