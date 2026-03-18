@@ -13,12 +13,41 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check static binaries
+    - name: Check Linux static binaries
+      if: runner.os == 'Linux'
       shell: pwsh
       run: |
         $BINARIES = "${{ inputs.binaries }}"
         $TARGET_PATH = "${{ inputs.target-path }}"
-        $OS = "${{ runner.os }}"
+
+        foreach ($bin in $BINARIES -split ",") {
+          $bin = $bin.Trim()
+          $BIN_PATH = "$TARGET_PATH/$bin"
+          
+          Write-Host "Checking $bin is statically linked..."
+          
+          if (-Not (Test-Path $BIN_PATH)) {
+            Write-Host "❌ Binary not found at $BIN_PATH"
+            exit 1
+          }
+          
+          $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
+          if ($output) {
+            Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+            exit 1
+          }
+          Write-Host "✅ $bin is fully static"
+        }
+
+        Write-Host "🎉 All binaries are static!"
+        exit 0
+
+    - name: Check macOS static binaries
+      if: runner.os == 'macOS'
+      shell: pwsh
+      run: |
+        $BINARIES = "${{ inputs.binaries }}"
+        $TARGET_PATH = "${{ inputs.target-path }}"
 
         $MACOS_ALLOWED_DEPS = @(
           "/System/Library/Frameworks/Security.framework",
@@ -28,7 +57,7 @@ runs:
           "/usr/lib/libSystem"
         )
 
-        function Is-MacosAllowed {
+        function IsMacosAllowed {
           param([string]$dep)
           foreach ($allowed in $MACOS_ALLOWED_DEPS) {
             if ($dep -like "$allowed*") {
@@ -38,16 +67,9 @@ runs:
           return $false
         }
 
-        Write-Host "OS is : $OS"
-
         foreach ($bin in $BINARIES -split ",") {
           $bin = $bin.Trim()
-          
-          if ($OS -eq "Windows") {
-            $BIN_PATH = "$TARGET_PATH/$bin.exe"
-          } else {
-            $BIN_PATH = "$TARGET_PATH/$bin"
-          }
+          $BIN_PATH = "$TARGET_PATH/$bin"
           
           Write-Host "Checking $bin is statically linked..."
           
@@ -55,54 +77,60 @@ runs:
             Write-Host "❌ Binary not found at $BIN_PATH"
             exit 1
           }
+
+          $disallowed_deps = @()
+          $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
           
-          switch ($OS) {
-            "Linux" {
-              $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
-              if ($output) {
-                Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
-                exit 1
-              }
-              Write-Host "✅ $bin is fully static"
+          foreach ($line in $otool_output) {
+            $dep = ($line -split '\s+')[0]
+            
+            if ([string]::IsNullOrWhiteSpace($dep) -or $dep -like "@*") {
+              continue
             }
-            "macOS" {
-              $disallowed_deps = @()
-              $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
-              
-              foreach ($line in $otool_output) {
-                $dep = ($line -split '\s+')[0]
-                
-                if ([string]::IsNullOrWhiteSpace($dep) -or $dep -like "@*") {
-                  continue
-                }
-                
-                if (-Not (Is-MacosAllowed $dep)) {
-                  $disallowed_deps += $dep
-                }
-              }
-              
-              if ($disallowed_deps.Count -gt 0) {
-                Write-Host "❌ $bin has disallowed dynamic dependencies:"
-                foreach ($dep in $disallowed_deps) {
-                  Write-Host "  - $dep"
-                }
-                exit 1
-              }
-              Write-Host "✅ $bin is fully static (or has only whitelisted system dependencies)"
-            }
-            "Windows" {
-              $output = & link /dump /dependents $BIN_PATH 2>&1
-              if ($output -match "\.dll") {
-                Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
-                exit 1
-              }
-              Write-Host "✅ $bin is fully static"
-            }
-            default {
-              Write-Host "❌ Unknown OS: $OS"
-              exit 1
+            
+            if (-Not (IsMacosAllowed $dep)) {
+              $disallowed_deps += $dep
             }
           }
+          
+          if ($disallowed_deps.Count -gt 0) {
+            Write-Host "❌ $bin has disallowed dynamic dependencies:"
+            foreach ($dep in $disallowed_deps) {
+              Write-Host "  - $dep"
+            }
+            exit 1
+          }
+          Write-Host "✅ $bin is fully static (or has only whitelisted system dependencies)"
+        }
+
+        Write-Host "🎉 All binaries are static!"
+        exit 0
+
+    - name: Check Windows static binaries
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $BINARIES = "${{ inputs.binaries }}"
+        $TARGET_PATH = "${{ inputs.target-path }}"
+
+        foreach ($bin in $BINARIES -split ",") {
+          $bin = $bin.Trim()
+          $BIN_PATH = "$TARGET_PATH/$bin.exe"
+          
+          Write-Host "Checking $bin is statically linked..."
+          
+          if (-Not (Test-Path $BIN_PATH)) {
+            Write-Host "❌ Binary not found at $BIN_PATH"
+            exit 1
+          }
+
+          $output = & dumpbin /dependents $BIN_PATH 2>&1
+          Write-Host "output : $output"
+          if ($output -match "\.dll") {
+            Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+            exit 1
+          }
+          Write-Host "✅ $bin is fully static"
         }
 
         Write-Host "🎉 All binaries are static!"
