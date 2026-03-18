@@ -228,10 +228,16 @@ variable "mithril_p2p_use_real_dmq_node" {
   default     = false
 }
 
+variable "mithril_p2p_dmq_dense_topology" {
+  type        = bool
+  description = "Use a dense (fully-connected mesh) topology for DMQ nodes. When false, a sparse topology is used where nodes connect only to the bootstrap peer (local aggregator for signers). (experimental, for test only)"
+  default     = false
+}
+
 variable "dmq_image_id" {
   type        = string
   description = "The DMQ image tag of service to deploy"
-  default     = "0.2.0.0-pre-7"
+  default     = "0.3.0.0-pre-3"
 }
 
 variable "dmq_image_registry" {
