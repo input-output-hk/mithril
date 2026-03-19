@@ -133,9 +133,12 @@ impl SignedEntityConfig {
     /// Checks that every discriminant in [`Self::list_allowed_signed_entity_types_discriminants`]
     /// has the required signing configuration present.
     ///
-    /// Returns `Err` with the split between activatable and non-activatable discriminants
-    /// if any discriminant is missing its configuration.
-    pub fn check_consistency(&self) -> Result<(), InconsistentSignedEntityConfigError> {
+    ///- Returns `Ok(usable_discriminants)` when all required configurations are present.
+    ///- Returns `Err(...)` with the usable and non-usable discriminants when one or more required
+    ///  configurations are missing.
+    pub fn check_consistency(
+        &self,
+    ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>, InconsistentSignedEntityConfigError> {
         let (usable_discriminants, not_usable_discriminants): (BTreeSet<_>, BTreeSet<_>) = self
             .list_allowed_signed_entity_types_discriminants()
             .into_iter()
@@ -154,7 +157,7 @@ impl SignedEntityConfig {
             });
 
         if not_usable_discriminants.is_empty() {
-            Ok(())
+            Ok(usable_discriminants)
         } else {
             Err(InconsistentSignedEntityConfigError {
                 usable_discriminants,
@@ -581,6 +584,8 @@ mod tests {
     }
 
     mod check_consistency {
+        use SignedEntityTypeDiscriminants::*;
+
         use super::*;
 
         fn discriminants_with_defaults<const N: usize>(
@@ -598,21 +603,25 @@ mod tests {
                 cardano_blocks_transactions_signing_config: None,
             };
 
-            config.check_consistency().unwrap();
+            let usable_discriminants = config.check_consistency().unwrap();
+
+            assert_eq!(discriminants_with_defaults([]), usable_discriminants);
         }
 
         #[test]
         fn valid_if_no_discriminants_with_additional_config_are_allowed() {
             let config = SignedEntityConfig {
-                allowed_discriminants: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                    SignedEntityTypeDiscriminants::CardanoDatabase,
-                ]),
+                allowed_discriminants: BTreeSet::from([CardanoStakeDistribution, CardanoDatabase]),
                 cardano_transactions_signing_config: None,
                 cardano_blocks_transactions_signing_config: None,
             };
 
-            config.check_consistency().unwrap();
+            let usable_discriminants = config.check_consistency().unwrap();
+
+            assert_eq!(
+                discriminants_with_defaults([CardanoStakeDistribution, CardanoDatabase]),
+                usable_discriminants
+            );
         }
 
         #[test]
@@ -620,8 +629,8 @@ mod tests {
         {
             let config = SignedEntityConfig {
                 allowed_discriminants: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                    CardanoTransactions,
+                    CardanoBlocksTransactions,
                 ]),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
                 cardano_blocks_transactions_signing_config: Some(
@@ -629,15 +638,18 @@ mod tests {
                 ),
             };
 
-            config.check_consistency().unwrap();
+            let usable_discriminants = config.check_consistency().unwrap();
+
+            assert_eq!(
+                discriminants_with_defaults([CardanoTransactions, CardanoBlocksTransactions]),
+                usable_discriminants
+            );
         }
 
         #[test]
         fn invalid_if_cardano_transactions_is_allowed_but_its_config_is_not_set() {
             let config = SignedEntityConfig {
-                allowed_discriminants: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                ]),
+                allowed_discriminants: BTreeSet::from([CardanoTransactions]),
                 cardano_transactions_signing_config: None,
                 ..Dummy::dummy()
             };
@@ -647,9 +659,7 @@ mod tests {
             assert_eq!(
                 Err(InconsistentSignedEntityConfigError {
                     usable_discriminants: discriminants_with_defaults([]),
-                    not_usable_discriminants: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::CardanoTransactions
-                    ])
+                    not_usable_discriminants: BTreeSet::from([CardanoTransactions])
                 }),
                 result
             );
@@ -658,9 +668,7 @@ mod tests {
         #[test]
         fn invalid_if_cardano_blocks_transactions_is_allowed_but_its_config_is_not_set() {
             let config = SignedEntityConfig {
-                allowed_discriminants: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                ]),
+                allowed_discriminants: BTreeSet::from([CardanoBlocksTransactions]),
                 cardano_blocks_transactions_signing_config: None,
                 ..Dummy::dummy()
             };
@@ -670,9 +678,7 @@ mod tests {
             assert_eq!(
                 Err(InconsistentSignedEntityConfigError {
                     usable_discriminants: discriminants_with_defaults([]),
-                    not_usable_discriminants: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions
-                    ])
+                    not_usable_discriminants: BTreeSet::from([CardanoBlocksTransactions])
                 }),
                 result
             );
@@ -687,10 +693,8 @@ mod tests {
             };
 
             let result = config.check_consistency();
-            let expected_not_usable_discriminants = BTreeSet::from([
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-            ]);
+            let expected_not_usable_discriminants =
+                BTreeSet::from([CardanoTransactions, CardanoBlocksTransactions]);
 
             assert_eq!(
                 Err(InconsistentSignedEntityConfigError {
@@ -699,34 +703,6 @@ mod tests {
                         .cloned()
                         .collect(),
                     not_usable_discriminants: expected_not_usable_discriminants
-                }),
-                result
-            );
-        }
-
-        #[test]
-        fn if_invalid_list_usable_discriminants() {
-            let config = SignedEntityConfig {
-                allowed_discriminants: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoDatabase,
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                ]),
-                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
-                cardano_blocks_transactions_signing_config: None,
-            };
-
-            let result = config.check_consistency();
-
-            assert_eq!(
-                Err(InconsistentSignedEntityConfigError {
-                    usable_discriminants: discriminants_with_defaults([
-                        SignedEntityTypeDiscriminants::CardanoDatabase,
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                    ]),
-                    not_usable_discriminants: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions
-                    ])
                 }),
                 result
             );

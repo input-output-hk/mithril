@@ -74,7 +74,7 @@ impl LocalMithrilNetworkConfigurationProvider {
         })
         .check_consistency()
         {
-            Ok(()) => self.allowed_discriminants.clone(),
+            Ok(usable_discriminants) => usable_discriminants,
             Err(err) => {
                 warn!(
                     self.logger, "Some allowed signed entity could not be enabled for epoch {epoch}; using only the usable subset";
