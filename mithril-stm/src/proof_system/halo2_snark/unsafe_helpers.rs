@@ -106,7 +106,7 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 /// Compute the circuit degree from the protocol parameter `k`.
 ///
 /// Returns an error if `k` is zero, since a quorum threshold of zero is invalid.
-fn compute_circuit_degree(k: u64) -> StmResult<u32> {
+pub(crate) fn compute_circuit_degree(k: u64) -> StmResult<u32> {
     if k == 0 {
         return Err(anyhow!("Protocol parameter k must be greater than zero"));
     }

@@ -1,6 +1,4 @@
 use crate::SignerIndex;
-#[cfg(feature = "future_snark")]
-use crate::proof_system::SNARK_PROOF_LENGTH;
 
 use super::AggregateSignatureType;
 
@@ -47,10 +45,6 @@ pub enum AggregateSignatureError {
 #[cfg(feature = "future_snark")]
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum SnarkError {
-    #[error(
-        "The number of bytes used to create the proof is incorrect: received {0} instead of {SNARK_PROOF_LENGTH}."
-    )]
-    ProofWithIncorrectSize(usize),
     #[error("The proof failed to verify.")]
     VerifyProofFail,
 }
