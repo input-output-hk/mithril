@@ -131,6 +131,11 @@ impl ClosedKeyRegistration {
             .any(|entry| entry.get_verification_key_for_snark().is_some())
     }
 
+    /// Return the number of registered parties.
+    pub fn number_of_registered_parties(&self) -> usize {
+        self.closed_registration_entries.len()
+    }
+
     /// Get the closed registration entry for a given signer index.
     pub fn get_registration_entry_for_index(
         &self,
