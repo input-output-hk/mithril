@@ -10,4 +10,6 @@ pub mod halo2;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
-pub(crate) use halo2::types::{CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath};
+pub(crate) use halo2::witness::{
+    CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
+};

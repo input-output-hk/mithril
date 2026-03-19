@@ -4,6 +4,7 @@ use crate::{
     AggregationError, BaseFieldElement, LotteryIndex, MembershipDigest, SignerIndex,
     SingleSignature, StmResult,
     circuits::MerklePath as Halo2MerklePath,
+    circuits::halo2::witness::CircuitWitnessEntry,
     circuits::{CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness},
     membership_commitment::{MerkleTree, MerkleTreeSnarkLeaf},
     proof_system::{
@@ -158,12 +159,12 @@ impl SnarkProverInput {
                     .ok_or(AggregationError::MissingSnarkSignature(lottery_index))?
                     .get_schnorr_signature();
                 let circuit_leaf = CircuitMerkleTreeLeaf(leaf.0, leaf.1.into());
-                Ok((
-                    circuit_leaf,
-                    merkle_path.clone(),
-                    schnorr_sig,
+                Ok(CircuitWitnessEntry {
+                    leaf: circuit_leaf,
+                    merkle_path: merkle_path.clone(),
+                    unique_schnorr_signature: schnorr_sig,
                     lottery_index,
-                ))
+                })
             })
             .collect()
     }
