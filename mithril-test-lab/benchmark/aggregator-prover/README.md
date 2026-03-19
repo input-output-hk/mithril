@@ -2,7 +2,9 @@
 
 This tool will run a set of benchmarks (based on [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)) on the aggregator route of an aggregator given a list of transactions. It will produce a CSV file with results of the benchmarks.
 
-First set environment variables to benchmark:
+## Benchmarking v1 prover route
+
+First, set environment variables to benchmark:
 
 - the `pre-release-preview` network
 
@@ -56,7 +58,7 @@ Then, run the benchmarks:
 ./benchmark-aggregator-prover.sh
 ```
 
-Which will output these type of results:
+Which will output these types of results:
 
 ```bash
 MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK
@@ -164,5 +166,150 @@ total_requests,concurrency,transactions/request,requests/s
 1000,100,2,60.61
 1000,50,3,42.86
 1000,100,3,45.60
+
+```
+
+## Benchmarking v2 prover route
+
+First, set environment variables to benchmark:
+
+- the `pre-release-preview` network
+
+```bash
+# Aggregator endpoint
+export AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator
+
+# Items file to prove
+export TRANSACTIONS_FILE=transactions-preview.txt
+export BLOCKS_FILE=blocks-preview.txt
+
+# Items proved per request range definition
+export ITEMS_PER_REQUEST_MIN=0
+export ITEMS_PER_REQUEST_MAX=50
+export ITEMS_PER_REQUEST_STEP=10
+
+# Apache benchmark total request sent per benchmark
+export AB_TOTAL_REQUESTS=500
+
+# Apache benchmark concurrency level range definition
+export AB_CONCURRENCY_MIN=50
+export AB_CONCURRENCY_MAX=50
+export AB_CONCURRENCY_STEP=50
+```
+
+- or the `dev-mainnet` network
+
+```bash
+# Aggregator endpoint
+export AGGREGATOR_ENDPOINT=https://aggregator.dev-mainnet.api.mithril.network/aggregator
+
+# Items file to prove
+export TRANSACTIONS_FILE=transactions-mainnet.txt
+export BLOCKS_FILE=blocks-mainnet.txt
+
+# Items proved per request range definition
+export ITEMS_PER_REQUEST_MIN=0
+export ITEMS_PER_REQUEST_MAX=100
+export ITEMS_PER_REQUEST_STEP=10
+
+# Apache benchmark total request sent per benchmark
+export AB_TOTAL_REQUESTS=1000
+
+# Apache benchmark concurrency level range definition
+export AB_CONCURRENCY_MIN=50
+export AB_CONCURRENCY_MAX=100
+export AB_CONCURRENCY_STEP=50
+```
+
+Then, run the benchmarks for transactions:
+
+```bash
+MODE=transaction ./benchmark-aggregator-prover-v2.sh
+```
+
+Or for blocks:
+
+```bash
+MODE=block ./benchmark-aggregator-prover-v2.sh
+```
+
+Which will output these types of results:
+
+```bash
+MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK
+
+>> Mode: transaction
+>> Aggregator endpoint: https://aggregator.testing-preview.api.mithril.network/aggregator
+>> Aggregator route: /proof/v2/cardano-transaction
+>> Transactions file: transactions-preview.txt
+>> Transactions available: [100]
+>> Transactions per request range: [0 10 20 30 40 50]
+>> AB concurrency range: [50]
+>> AB total requests per run: [500]
+>> AB total runs: 6
+>> Output file: transaction-benchmark.csv
+
+>> [#1/6] Running stress test with 500 requests with 1 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+>>>> Success (48.40 requests/s)
+
+>> [#2/6] Running stress test with 500 requests with 10 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+>>>> Success (42.31 requests/s)
+
+>> [#3/6] Running stress test with 500 requests with 20 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+>>>> Success (41.28 requests/s)
+
+>> [#4/6] Running stress test with 500 requests with 30 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+>>>> Success (43.59 requests/s)
+
+>> [#5/6] Running stress test with 500 requests with 40 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+
+>> [#6/6] Running stress test with 500 requests with 50 transactions per request and 50 concurrency
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Finished 500 requests
+>>>> Success (45.88 requests/s)
+
+>> Benchmark completed:
+
+total_requests,concurrency,transactions/request,requests/s
+500,50,1,48.40
+500,50,10,42.31
+500,50,20,41.28
+500,50,30,43.59
+500,50,40,35.33
+500,50,50,45.88
 
 ```
