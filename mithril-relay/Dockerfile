@@ -30,7 +30,7 @@ RUN /app/target/release/mithril-relay --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM debian:12-slim
+FROM debian:13-slim
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*

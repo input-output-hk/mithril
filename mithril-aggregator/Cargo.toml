@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.8.35"
+version = "0.8.36"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -10,22 +10,22 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
-default = ["jemallocator"]
-
+default = ["rustls-tls"]
 bundle_tls = ["reqwest/native-tls-vendored"]
-jemallocator = ["dep:tikv-jemallocator"]
+rustls-tls = ["reqwest/rustls-tls"]
+
 future_snark = ["mithril-common/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-blockfrost = "1.2.1"
+blockfrost = { version = "1.2.1", default-features = false, features = ["rustls-tls-native-roots"] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
 flate2 = "1.1.9"
-gcloud-kms = { version = "1.4.0", features = ["auth"] }
-gcloud-storage = { version = "1.2.0", features = ["auth"] }
+gcloud-kms = { version = "1.4.0", default-features = false, features = ["auth", "jwt-aws-lc-rs"] }
+gcloud-storage = { version = "1.2.0", default-features = false, features = ["auth", "jwt-aws-lc-rs"] }
 mithril-aggregator-client = { path = "../internal/mithril-aggregator-client" }
 mithril-cardano-node-chain = { path = "../internal/cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database" }
@@ -45,7 +45,7 @@ paste = "1.0.15"
 percent-encoding = "2.3.2"
 rayon = { workspace = true }
 regex = "1.12.3"
-reqwest = { workspace = true, features = ["default", "gzip", "zstd", "deflate", "brotli"] }
+reqwest = { workspace = true, features = ["charset", "http2", "system-proxy", "gzip", "zstd", "deflate", "brotli"] }
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
 semver = { workspace = true }
 serde = { workspace = true }
@@ -62,8 +62,11 @@ uuid = { version = "1.21.0", features = ["v4", "fast-rng", "macro-diagnostics"] 
 warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { version = "0.6.1", optional = true }
+[target.'cfg(all(not(target_os = "windows"), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
+tikv-jemallocator = { version = "0.6.1" }
+
+[target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
+mimalloc = { version = "0.1.43" }
 
 [dev-dependencies]
 axum = { version = "0.8.8", features = ["json"] }

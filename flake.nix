@@ -5,6 +5,10 @@
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
     crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -23,35 +27,83 @@
         ...
       }: let
         inherit (inputs.nixpkgs) lib;
-        craneLib = inputs.crane.mkLib pkgs;
+        
+      pkgsRustOverlay = import inputs.nixpkgs {
+        inherit system;
+        overlays = [ (import inputs.rust-overlay) ];
+      };
+
+      pkgsMusl =
+        if system == "x86_64-linux"
+        then pkgsRustOverlay.pkgsCross.musl64
+        else null;
+
+      craneLib = inputs.crane.mkLib pkgsRustOverlay;
+
+      craneLibMusl =
+        if pkgsMusl != null then
+          (inputs.crane.mkLib pkgsMusl).overrideToolchain (p:
+            p.rust-bin.stable.latest.default.override {
+              targets = [ "x86_64-unknown-linux-musl" ];
+            }
+          )
+        else
+          null;
+
+        sourceFilter = orig_path: type: let
+          path = builtins.toString orig_path;
+          base = builtins.baseNameOf path;
+          parentDir = builtins.baseNameOf (builtins.dirOf path);
+          matchesSuffix = lib.any (suffix: lib.hasSuffix suffix base) [".rs" ".toml" ".md"];
+          isCargoFile = base == "Cargo.lock";
+          isCargoConfig = parentDir == ".cargo" && base == "config";
+          isOpenApiYaml = base == "openapi.yaml";
+          isFakeAggregatorDefaultData = lib.hasInfix "/mithril-aggregator-fake/default_data/" path;
+          isTestDataAsset = lib.hasInfix "/test_data/" path;
+        in
+          type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml
+                || isFakeAggregatorDefaultData || isTestDataAsset;
 
         clean = root:
           lib.cleanSourceWith {
             src = lib.cleanSource (craneLib.path root);
-            filter = orig_path: type: let
-              path = builtins.toString orig_path;
-              base = builtins.baseNameOf path;
-              parentDir = builtins.baseNameOf (builtins.dirOf path);
-              matchesSuffix = lib.any (suffix: lib.hasSuffix suffix base) [".rs" ".toml" ".md"];
-              isCargoFile = base == "Cargo.lock";
-              isCargoConfig = parentDir == ".cargo" && base == "config";
-              isOpenApiYaml = base == "openapi.yaml";
-              isFakeAggregatorDefaultData = lib.hasInfix "/mithril-aggregator-fake/default_data/" path;
-              isTestDataAsset = lib.hasInfix "/test_data/" path;
-            in
-              type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml
-                    || isFakeAggregatorDefaultData || isTestDataAsset;
+            filter = sourceFilter;
+          };
+
+        cleanMusl = root:
+          lib.cleanSourceWith {
+            src = lib.cleanSource (craneLibMusl.path root);
+            filter = sourceFilter;
           };
 
         buildInputs =
           [
-            pkgs.gnum4
-            pkgs.pkg-config
-            pkgs.openssl
+            pkgsRustOverlay.pkg-config
+            pkgsRustOverlay.gnum4
+            pkgsRustOverlay.openssl
           ]
-          ++ lib.optionals (pkgs.stdenv.isDarwin) [
-            pkgs.libiconv
+          ++ lib.optionals (pkgsRustOverlay.stdenv.isDarwin) [
+            pkgsRustOverlay.libiconv
           ];
+
+        opensslMusl =
+          if pkgsMusl != null then
+            pkgsMusl.openssl.override { static = true; }
+          else null;
+
+        nativeBuildInputsMusl =
+          if pkgsMusl != null then [
+            pkgsMusl.stdenv.cc
+            pkgsMusl.pkg-config
+            pkgsMusl.gnum4
+          ]
+          else [];
+
+        buildInputsMusl =
+          if pkgsMusl != null then [
+            opensslMusl
+          ]
+          else [];
 
         commonsArgs = {
           pname = "mithril";
@@ -61,24 +113,46 @@
           CARGO_TERM_VERBOSE = "true";
         };
 
-        buildDeps = cargoToml: cargoArtifacts:
-          (craneLib.buildDepsOnly (commonsArgs
+        commonsArgsMusl =
+          if pkgsMusl != null then {
+            pname = "mithril";
+            version = "0.0.1";
+            src = cleanMusl ./.;
+            nativeBuildInputs = nativeBuildInputsMusl;
+            buildInputs = buildInputsMusl;
+            CARGO_TERM_VERBOSE = "true";
+            OPENSSL_STATIC = "1";
+            OPENSSL_LIB_DIR = "${opensslMusl.out}/lib";
+            OPENSSL_INCLUDE_DIR = "${opensslMusl.dev}/include";
+          }
+          else {};
+
+        preInstallScript = let
+          localLibs = "dummy|mithril|stm|multi_sig|size_benches|digester";
+        in ''
+          shopt -s extglob
+          TARGET_DIR="''${CARGO_TARGET_DIR:-target}"
+          if [ -n "$CARGO_BUILD_TARGET" ]; then
+            PROFILE_DIR="$TARGET_DIR/$CARGO_BUILD_TARGET/release"
+          else
+            PROFILE_DIR="$TARGET_DIR/release"
+          fi
+
+          rm "$PROFILE_DIR/deps/"*@(${localLibs})*
+          rm -r "$PROFILE_DIR/"*@(${localLibs})*
+          rm -r "$PROFILE_DIR/build/"*@(${localLibs})*
+          rm -r "$PROFILE_DIR/.fingerprint/"*@(${localLibs})*
+        '';
+
+        buildDeps = craneLibFor: commonArgs: cargoToml: cargoArtifacts:
+          (craneLibFor.buildDepsOnly (commonArgs
             // lib.optionalAttrs (cargoToml != null) rec {
-              inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
+              inherit (craneLibFor.crateNameFromCargoToml {inherit cargoToml;}) pname version;
               cargoExtraArgs = "-p ${pname}";
             }))
           .overrideAttrs (_: {
             inherit cargoArtifacts;
-            preInstall = let
-              # Need to remove dummy builds of local builds so that they can be built again
-              localLibs = "dummy|mithril|stm|multi_sig|size_benches|digester";
-            in ''
-              shopt -s extglob
-              rm ''${CARGO_TARGET_DIR:-target}/release/deps/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/build/*@(${localLibs})*
-              rm -r ''${CARGO_TARGET_DIR:-target}/release/.fingerprint/*@(${localLibs})*
-            '';
+            preInstall = preInstallScript;
           });
 
         buildPackage = cargoToml: baseCargoArtifacts: args:
@@ -88,40 +162,63 @@
               cargoExtraArgs = "-p ${pname}";
             }
             // {
-              cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
+              cargoArtifacts = buildDeps craneLib commonsArgs cargoToml baseCargoArtifacts;
             }
             // {
               cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
             }
             // args);
 
+        buildPackageMusl = cargoToml: baseCargoArtifacts: args:
+          craneLibMusl.buildPackage (commonsArgsMusl
+            // lib.optionalAttrs (cargoToml != null) rec {
+              inherit (craneLibMusl.crateNameFromCargoToml {inherit cargoToml;}) pname version;
+              cargoExtraArgs = "-p ${pname}";
+            }
+            // {
+              cargoArtifacts = buildDeps craneLibMusl commonsArgsMusl cargoToml baseCargoArtifacts;
+              RUSTFLAGS = "-C target-feature=+crt-static";
+            }
+            // args);
+
+        # Standard (glibc) builds
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
         mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; };
         mithril = buildPackage null mithril-common.cargoArtifacts {
           doCheck = false;
         };
+
+        # Static (musl) base dependencies
+        mithril-stm-musl = if pkgsMusl != null then buildPackageMusl ./mithril-stm/Cargo.toml null {} else null;
+        mithril-common-musl = if pkgsMusl != null then buildPackageMusl ./mithril-common/Cargo.toml mithril-stm-musl.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; } else null;
       in {
         packages = {
           default = mithril;
           inherit mithril mithril-stm mithril-common;
-          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features full"; };
-          mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
-            pname = "mithril-client";
-          };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
+          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features rustls-tls,full"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
+
+        } // lib.optionalAttrs (pkgsMusl != null) {
+
+          mithril-aggregator =
+            buildPackageMusl ./mithril-aggregator/Cargo.toml mithril-common-musl.cargoArtifacts {};
+          mithril-signer =
+            buildPackageMusl ./mithril-signer/Cargo.toml mithril-common-musl.cargoArtifacts {};
+          mithril-client-cli =
+            buildPackageMusl ./mithril-client-cli/Cargo.toml mithril-common-musl.cargoArtifacts {
+              pname = "mithril-client";
+            };
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgsRustOverlay.mkShell {
           inputsFrom = [self'.packages.mithril-client-cli];
 
           nativeBuildInputs = [
-            pkgs.cargo
-            pkgs.rustc
-            pkgs.libiconv
+            pkgsRustOverlay.cargo
+            pkgsRustOverlay.rustc
+            pkgsRustOverlay.libiconv
             config.treefmt.package
-            pkgs.gnumake
+            pkgsRustOverlay.gnumake
           ];
 
           shellHook = ''
@@ -130,7 +227,7 @@
           '';
         };
 
-        formatter = pkgs.writeShellApplication {
+        formatter = pkgsRustOverlay.writeShellApplication {
           name = "treefmt";
           text = "exec ${config.treefmt.package}/bin/treefmt";
         };

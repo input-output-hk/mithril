@@ -1,0 +1,193 @@
+name: check-static-binaries
+description: Verify that binaries are statically linked (cross-platform support)
+
+inputs:
+  binaries:
+    description: "Comma-separated list of binary names to check"
+    required: true
+  target-path:
+    description: "Path to the directory containing the binaries"
+    required: true
+    default: "target/release"
+
+runs:
+  using: composite
+  steps:
+    - name: Check Linux static binaries
+      if: runner.os == 'Linux'
+      shell: pwsh
+      run: |
+        $BINARIES = "${{ inputs.binaries }}"
+        $TARGET_PATH = "${{ inputs.target-path }}"
+
+        foreach ($bin in $BINARIES -split ",") {
+          $bin = $bin.Trim()
+          $BIN_PATH = "$TARGET_PATH/$bin"
+          
+          Write-Host "Checking $bin is statically linked..."
+          
+          if (-Not (Test-Path $BIN_PATH)) {
+            Write-Host "❌ Binary not found at $BIN_PATH"
+            exit 1
+          }
+          
+          $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
+          if ($output) {
+            Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
+            exit 1
+          }
+          Write-Host "✅ $bin is fully static"
+        }
+
+        Write-Host "🎉 All binaries are static!"
+        exit 0
+
+    - name: Check macOS static binaries
+      if: runner.os == 'macOS'
+      shell: pwsh
+      run: |
+        $BINARIES = "${{ inputs.binaries }}"
+        $TARGET_PATH = "${{ inputs.target-path }}"
+
+        $MACOS_ALLOWED_DEPS = @(
+          "/System/Library/Frameworks/Security.framework",
+          "/System/Library/Frameworks/SystemConfiguration.framework",
+          "/System/Library/Frameworks/CoreFoundation.framework",
+          "/usr/lib/libiconv",
+          "/usr/lib/libSystem"
+        )
+
+        function IsMacosAllowed {
+          param([string]$dep)
+          foreach ($allowed in $MACOS_ALLOWED_DEPS) {
+            if ($dep -like "$allowed*") {
+              return $true
+            }
+          }
+          return $false
+        }
+
+        foreach ($bin in $BINARIES -split ",") {
+          $bin = $bin.Trim()
+          $BIN_PATH = "$TARGET_PATH/$bin"
+          
+          Write-Host "Checking $bin is statically linked..."
+          
+          if (-Not (Test-Path $BIN_PATH)) {
+            Write-Host "❌ Binary not found at $BIN_PATH"
+            exit 1
+          }
+
+          $disallowed_deps = @()
+          $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
+          
+          foreach ($line in $otool_output) {
+            $dep = ($line -split '\s+')[0]
+            
+            if ([string]::IsNullOrWhiteSpace($dep) -or $dep -like "@*") {
+              continue
+            }
+            
+            if (-Not (IsMacosAllowed $dep)) {
+              $disallowed_deps += $dep
+            }
+          }
+          
+          if ($disallowed_deps.Count -gt 0) {
+            Write-Host "❌ $bin has disallowed dynamic dependencies:"
+            foreach ($dep in $disallowed_deps) {
+              Write-Host "  - $dep"
+            }
+            exit 1
+          }
+          Write-Host "✅ $bin is fully static (or has only whitelisted system dependencies)"
+        }
+
+        Write-Host "🎉 All binaries are static!"
+        exit 0
+
+    - name: Check Windows static binaries
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        BINARIES="${{ inputs.binaries }}"
+        TARGET_PATH="${{ inputs.target-path }}"
+
+        WHITELIST=(
+          "KERNEL32.dll"
+          "ntdll.dll"
+          "bcryptprimitives.dll"
+          "advapi32.dll"
+          "secur32.dll"
+          "ws2_32.dll"
+          "crypt32.dll"
+          "bcrypt.dll"
+          "api-ms-win-core-synch-l1-2-0.dll"
+          "userenv.dll"
+          "VCRUNTIME140.dll"
+          "api-ms-win-crt-math-l1-1-0.dll"
+          "api-ms-win-crt-string-l1-1-0.dll"
+          "api-ms-win-crt-heap-l1-1-0.dll"
+          "api-ms-win-crt-stdio-l1-1-0.dll"
+          "api-ms-win-crt-runtime-l1-1-0.dll"
+          "api-ms-win-crt-locale-l1-1-0.dll"
+        )
+
+        check_binary() {
+          local bin="$1"
+          local path="$TARGET_PATH/${bin}.exe"
+
+          echo "Checking $bin is statically linked..."
+
+          if [[ ! -f "$path" ]]; then
+            echo "❌ Binary not found at $path"
+            exit 1
+          fi
+
+          DLLS=$(objdump -p "$path" | grep "DLL Name" | awk '{print $3}' || true)
+
+          echo "Detected DLLs:"
+          echo "$DLLS"
+
+          local non_whitelisted=()
+
+          while IFS= read -r dll; do
+            [[ -z "$dll" ]] && continue
+
+            local allowed=false
+            for w in "${WHITELIST[@]}"; do
+              if [[ "${dll^^}" == "${w^^}" ]]; then
+                allowed=true
+                break
+              fi
+            done
+
+            if [[ "$allowed" == false ]]; then
+              non_whitelisted+=("$dll")
+            fi
+          done <<< "$DLLS"
+
+          if [[ ${#non_whitelisted[@]} -eq 0 ]]; then
+            echo "✅ $bin is fully static (or has only whitelisted system dependencies)"
+          else
+            echo "❌ $bin is NOT static"
+            echo "Unexpected DLLs:"
+            for dll in "${non_whitelisted[@]}"; do
+              echo "  - $dll"
+            done
+            exit 1
+          fi
+
+          echo
+        }
+
+        IFS=',' read -ra BIN_ARRAY <<< "$BINARIES"
+
+        for raw in "${BIN_ARRAY[@]}"; do
+          bin="$(echo "$raw" | xargs)"  # trim
+          check_binary "$bin"
+        done
+
+        echo "🎉 All binaries are static!"

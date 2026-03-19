@@ -66,15 +66,9 @@ OS=$(uname -s)
 OS_CODE=$(echo "$OS" | awk '{print tolower($0)}')
 
 case "$OS" in
-  Linux)
-    check_glibc_min_version
-    ;;
-  Darwin)
-    OS_CODE="macos"
-    ;;
-  *)
-    error_exit "Unsupported operating system $OS for $NODE"
-    ;;
+  Linux) : ;;
+  Darwin) OS_CODE="macos" ;;
+  *) error_exit "Unsupported operating system $OS for $NODE" ;;
 esac
 
 # Detect the architecture
@@ -146,6 +140,17 @@ fi
 tar -xz -f "$ASSETS_FILE_PATH" -C "$INSTALL_PATH" "$NODE"
 chmod +x "$INSTALL_PATH/$NODE"
 rm -f "$ASSETS_FILE_PATH"
+
+# Check glibc version if the binary is dynamic
+if [ "$OS" = "Linux" ]; then
+  LDD_OUTPUT=$(ldd "$INSTALL_PATH/$NODE" 2>&1 || true)
+  if echo "$LDD_OUTPUT" | grep -Eq "statically linked|not a dynamic executable"; then
+    echo "Binary is static, skipping glibc check."
+  else
+    echo "Checking glibc version"
+    check_glibc_min_version
+  fi
+fi
 
 VERSION_OUTPUT=$("$INSTALL_PATH/$NODE" --version)
 VERSION=$(echo "$VERSION_OUTPUT" | awk '{print $NF}')

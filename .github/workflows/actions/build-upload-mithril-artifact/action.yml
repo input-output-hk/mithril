@@ -10,6 +10,15 @@ inputs:
   common-build-args:
     description: Arguments that will be passed to both bin & lib 'cargo build'
     required: false
+  binaries-to-check-static:
+    description: Comma-separated list of binaries to check for static builds (e.g., mithril-client,mithril-aggregator). Leave empty to skip static build checks.
+    required: false
+    default: ""
+  binaries-build-target:
+    description: Build target directory name (e.g., x86_64-unknown-linux-musl). Leave empty for default target/release
+    required: false
+    default: ""
+
 runs:
   using: "composite"
   steps:
@@ -17,6 +26,16 @@ runs:
       id: label
       shell: bash
       run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+    - name: Resolve build target path
+      id: build-path
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.binaries-build-target }}" ]; then
+          echo "path=target/release" >> $GITHUB_OUTPUT
+        else
+          echo "path=target/${{ inputs.binaries-build-target }}/release" >> $GITHUB_OUTPUT
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -38,19 +57,32 @@ runs:
       # Build only the libraries for the crates that are published to crates.io
       run: cargo build --lib --release ${{ inputs.libraries-build-args }} ${{ inputs.common-build-args }}
 
+    - name: Verification of static compilation
+      uses: ./.github/workflows/actions/check-static-binaries
+      with:
+        binaries: ${{ inputs.binaries-to-check-static }}
+        target-path: ${{ steps.build-path.outputs.path }}
+
+    - name: Move binaries before upload
+      shell: bash
+      # Put all binaries in a single folder to avoid upload-artifact action keeping the least common ancestor as the root directory
+      run: |
+        mkdir -p binaries
+        cp target/release/libmithril_stm.* binaries/ || true
+        cp target/release/libmithril_client.* binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-aggregator binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-aggregator.exe binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-client binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-client.exe binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-signer binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-signer.exe binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-relay binaries/ || true
+        cp ${{ steps.build-path.outputs.path }}/mithril-relay.exe binaries/ || true
+
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
       uses: actions/upload-artifact@v5
       with:
         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
         path: |
-          target/release/libmithril_stm.*
-          target/release/libmithril_client.*
-          target/release/mithril-aggregator
-          target/release/mithril-aggregator.exe
-          target/release/mithril-client
-          target/release/mithril-client.exe
-          target/release/mithril-signer
-          target/release/mithril-signer.exe
-          target/release/mithril-relay
-          target/release/mithril-relay.exe
+          binaries/*
         if-no-files-found: error

@@ -117,11 +117,13 @@
 //!
 //! - **fs**: Enables file system related functionalities.
 //! - **unstable**: Enables experimental or in-development `mithril-client` features that may change.
-//! - **rug-backend** *(enabled by default)*: Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+//! - **rug-backend** : Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 //! - **num-integer-backend**: Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 //!
-//! To allow fine tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported:
-//! - **native-tls** *(enabled by default)*: Enables TLS functionality provided by `native-tls`.
+//! To allow fine tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported.
+//! No TLS backend is enabled by default: you must enable at least one of the TLS-related
+//! features below, otherwise the crate will fail to compile.
+//! - **native-tls**: Enables TLS functionality provided by `native-tls`.
 //! - **native-tls-vendored**: Enables the `vendored` feature of `native-tls`.
 //! - **native-tls-alpn**: Enables the `alpn` feature of `native-tls`.
 //! - **rustls-tls**: Enables TLS functionality provided by `rustls`.
@@ -133,6 +135,23 @@
 //! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
 //!   while using root certificates from the `rustls-native-certs` crate.
 //! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
+
+// Ensure at least one TLS backend is enabled
+#[cfg(not(any(
+    feature = "native-tls",
+    feature = "native-tls-alpn",
+    feature = "native-tls-vendored",
+    feature = "rustls-tls",
+    feature = "rustls-tls-manual-roots",
+    feature = "rustls-tls-webpki-roots",
+    feature = "rustls-tls-native-roots"
+)))]
+compile_error!(
+    "At least one TLS backend feature must be enabled. Choose from: \
+    'native-tls', 'native-tls-alpn', 'native-tls-vendored', \
+    'rustls-tls', 'rustls-tls-manual-roots', 'rustls-tls-webpki-roots', \
+    or 'rustls-tls-native-roots'"
+);
 
 macro_rules! cfg_fs {
     ($($item:item)*) => {

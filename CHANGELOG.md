@@ -15,6 +15,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for optional throttling of the Cardano transactions import in the signer and aggregator (enabled by default).
 
+- Implemented statically built Mithril nodes in CI:
+  - **aggregator**, **signer**, **client**, and **relay** are statically built on both **GitHub** and **Hydra** CI pipelines using the `musl` target.
+  - Feature updates:
+    - `rustls-tls` is now the default TLS feature for all nodes.
+    - `num-integer-backend` is now the default feature in the `mithril-stm` library.
+  - Memory allocator updates:
+    - **Jemallocator** is now a default dependency (instead of an optional feature) on Linux.
+    - **Mimalloc** is now a default dependency on Linux ARM64.
+  - Docker base images have been upgraded to `debian:13-slim`.
+  - `glibc` is no longer required thanks to statically linked binaries.
+
 - Preliminary support for Cardano blocks and transactions certification:
   - Storage of Cardano blocks in the signer and aggregator `cardano_tx` SQLite database (⚠️ this will reset the `cardano-transaction` database and a new full scan of the Cardano chain will be triggered).
   - **UNSTABLE**:
