@@ -58,6 +58,7 @@ impl DependenciesBuilder {
                     self.configuration
                         .compute_allowed_signed_entity_types_discriminants()?,
                     self.get_epoch_settings_store().await?,
+                    self.root_logger(),
                 ))
             };
 
