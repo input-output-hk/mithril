@@ -14,6 +14,7 @@ repository = { workspace = true }
 ignored = ["reqwest"]
 
 [features]
+default = ["rustls-tls"]
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
 rustls-tls = ["reqwest/rustls-tls"]
