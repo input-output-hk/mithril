@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.32 (03-19-2026)
+
+### Changed
+
+- Created a `SnarkProver` and `SnarkProof` structures in `proof_system/halo2_snark/proof.rs` that are responsible for creating a snark proof.
+- Created a `unsafe_helpers.rs` file that handles the unsafe snark setup (`srs`, `circuit` `verification_key`, `proving_key`) that will be replaced later.
+
 ## 0.9.31 (03-19-2026)
 
 ### Changed
