@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.31 (03-19-2026)
+
+### Changed
+
+- Refactored the Halo2 STM circuit to clarify module boundaries, keep `circuit.rs` focused on orchestration, split gadget logic into dedicated modules, introduce explicit witness/instance types, and add focused unit tests for adapters and gadgets.
+
 ## 0.9.30 (03-16-2026)
 
 ### Added
