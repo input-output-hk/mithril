@@ -18,22 +18,35 @@ use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 use crate::circuits::halo2::witness::CircuitWitnessEntry;
 use crate::signature_scheme::PrimeOrderProjectivePoint;
 
+/// Assigned Merkle authentication path values consumed by the Merkle path gadget.
 pub(crate) struct AssignedMerklePath {
+    /// Assigned sibling hashes in leaf-to-root order.
     pub(crate) siblings: Vec<AssignedNative<CircuitBase>>,
+    /// Assigned sibling positions converted into circuit bits.
     pub(crate) positions: Vec<AssignedBit<CircuitBase>>,
 }
 
+/// Assigned witness values consumed by the Merkle, lottery, and signature gadgets.
 pub(crate) struct AssignedWitnessEntry {
+    /// Assigned verification key point for the current witness leaf.
     pub(crate) verification_key: AssignedNativePoint<CircuitCurve>,
+    /// Assigned lottery target value committed in the witness leaf.
     pub(crate) lottery_target_value: AssignedNative<CircuitBase>,
+    /// Assigned Merkle authentication path for the current witness leaf.
     pub(crate) merkle_path: AssignedMerklePath,
+    /// Assigned lottery index associated with the current signature witness.
     pub(crate) lottery_index: AssignedNative<CircuitBase>,
 }
 
+/// Assigned unique Schnorr signature components used by the signature gadget.
 pub(crate) struct AssignedSignatureComponents {
+    /// Assigned commitment point extracted from the unique Schnorr signature.
     pub(crate) commitment_point: AssignedNativePoint<CircuitCurve>,
+    /// Assigned response scalar extracted from the unique Schnorr signature.
     pub(crate) response: AssignedScalarOfNativeCurve<CircuitCurve>,
+    /// Assigned challenge value in the circuit base field.
     pub(crate) challenge_in_base_field: AssignedNative<CircuitBase>,
+    /// Assigned challenge converted into the curve scalar field.
     pub(crate) challenge_as_scalar: AssignedScalarOfNativeCurve<CircuitCurve>,
 }
 

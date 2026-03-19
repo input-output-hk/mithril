@@ -144,17 +144,24 @@ pub(crate) struct StmCircuitEnv {
 
 /// Concrete STM circuit scenario inputs for proving/verifying in golden tests.
 pub(crate) struct StmCircuitScenario {
+    /// Public Merkle root committed by the statement.
     merkle_tree_commitment: MerkleRoot,
+    /// Public message bound into the proof transcript.
     message: SignedMessageWithoutPrefix,
+    /// Private witness entries supplied to the STM circuit relation.
     witness: Vec<CircuitWitnessEntry>,
 }
 
 /// Signer fixture material used to build STM Merkle trees and Halo2 witness leaves.
 #[derive(Clone)]
 pub(crate) struct SignerFixture {
+    /// Signing key used to generate test signatures.
     sk: SchnorrSigningKey,
+    /// Verification key committed into both STM and circuit leaves.
     vk: SchnorrVerificationKey,
+    /// Lottery target value carried in the Halo2 witness leaf.
     circuit_lottery_target_value: CircuitLotteryTargetValue,
+    /// Lottery target value represented in the STM-side leaf format.
     stm_lottery_target_value: LotteryTargetValue,
 }
 
@@ -196,8 +203,11 @@ fn generate_signer_fixture(
 /// The wrapper stores STM Merkle leaves internally, then converts signer fixtures and
 /// Merkle paths into circuit witness types (`CircuitMerkleTreeLeaf`, `MerklePath`) as needed.
 pub(crate) struct StmMerkleTreeWrapper {
+    /// Underlying STM Merkle tree used as the source of truth for paths and commitments.
     stm_tree: StmMerkleTree<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>,
+    /// Circuit-friendly commitment converted into a Halo2 public input wrapper.
     merkle_tree_commitment: MerkleRoot,
+    /// Signer fixtures stored in leaf order for path and witness construction.
     signer_fixtures: Vec<SignerFixture>,
 }
 

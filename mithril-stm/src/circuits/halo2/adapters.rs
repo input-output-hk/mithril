@@ -13,8 +13,10 @@ use crate::signature_scheme::BaseFieldElement;
 /// Errors returned when adapting STM Merkle paths to Halo2 witness paths.
 #[derive(Debug, Error)]
 pub enum MerklePathAdapterError {
+    /// A Merkle digest did not contain the expected 32-byte field encoding.
     #[error("invalid merkle digest length")]
     InvalidDigestLength,
+    /// A 32-byte digest was not a canonical circuit base-field element encoding.
     #[error("non-canonical merkle digest")]
     NonCanonicalDigest,
 }

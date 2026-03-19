@@ -7,6 +7,7 @@ use midnight_zk_stdlib::ZkStdLib;
 use crate::circuits::halo2::gadgets::comparison::lower_than_native;
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
+/// Constrains the current witness to have won the lottery for the assigned index.
 pub(crate) fn assert_lottery_won(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
@@ -35,6 +36,7 @@ pub(crate) fn assert_lottery_won(
     std_lib.assert_false(layouter, &is_less)
 }
 
+/// Constrains the current lottery index to be strictly greater than the previous one.
 pub(crate) fn assert_strictly_increasing_lottery_index(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,
@@ -45,6 +47,7 @@ pub(crate) fn assert_strictly_increasing_lottery_index(
     std_lib.assert_true(layouter, &is_less)
 }
 
+/// Constrains a lottery index to lie in the interval `[0, m)`.
 pub(crate) fn assert_lottery_index_in_bounds(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,

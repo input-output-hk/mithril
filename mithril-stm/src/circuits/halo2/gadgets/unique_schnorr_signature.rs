@@ -6,17 +6,27 @@ use midnight_zk_stdlib::ZkStdLib;
 
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
+/// Assigned inputs required to verify one unique Schnorr signature inside the circuit.
 pub(crate) struct UniqueSchnorrSignatureInputs<'a> {
+    /// Assigned domain-separation tag for signature verification.
     pub(crate) dst_signature: &'a AssignedNative<CircuitBase>,
+    /// Assigned fixed generator of the signing curve.
     pub(crate) generator: &'a AssignedNativePoint<CircuitCurve>,
+    /// Assigned verification key corresponding to the signer.
     pub(crate) verification_key: &'a AssignedNativePoint<CircuitCurve>,
+    /// Assigned response scalar from the unique Schnorr signature.
     pub(crate) response: &'a AssignedScalarOfNativeCurve<CircuitCurve>,
+    /// Assigned challenge value in the circuit base field.
     pub(crate) challenge_in_base_field: &'a AssignedNative<CircuitBase>,
+    /// Assigned challenge converted into the curve scalar field.
     pub(crate) challenge_as_scalar: &'a AssignedScalarOfNativeCurve<CircuitCurve>,
+    /// Assigned hash-to-curve point derived from the public inputs.
     pub(crate) hash: &'a AssignedNativePoint<CircuitCurve>,
+    /// Assigned commitment point from the unique Schnorr signature.
     pub(crate) commitment_point: &'a AssignedNativePoint<CircuitCurve>,
 }
 
+/// Verifies the unique Schnorr signature constraints for one assigned witness entry.
 pub(crate) fn verify_unique_signature(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,

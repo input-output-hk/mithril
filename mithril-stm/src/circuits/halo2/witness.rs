@@ -89,9 +89,13 @@ impl MerklePath {
 /// Single circuit witness entry consumed by the Halo2 relation.
 #[derive(Clone, Debug)]
 pub struct CircuitWitnessEntry {
+    /// Merkle leaf material committed for the current signer.
     pub(crate) leaf: CircuitMerkleTreeLeaf,
+    /// Merkle authentication path opening `leaf` to the public root.
     pub(crate) merkle_path: MerklePath,
+    /// Unique Schnorr signature carried by this witness entry.
     pub(crate) unique_schnorr_signature: UniqueSchnorrSignature,
+    /// Lottery slot index claimed by this witness entry.
     pub(crate) lottery_index: LotteryIndex,
 }
 

@@ -8,14 +8,21 @@ use midnight_zk_stdlib::ZkStdLib;
 
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
+/// Assigned inputs required to verify one Merkle authentication path inside the circuit.
 pub(crate) struct MerklePathInputs<'a> {
+    /// Assigned verification key stored in the Merkle leaf.
     pub(crate) verification_key: &'a AssignedNativePoint<CircuitCurve>,
+    /// Assigned lottery target value stored in the Merkle leaf.
     pub(crate) lottery_target_value: &'a AssignedNative<CircuitBase>,
+    /// Assigned public Merkle root committed by the statement.
     pub(crate) merkle_tree_commitment: &'a AssignedNative<CircuitBase>,
+    /// Assigned sibling hashes for each Merkle path level.
     pub(crate) merkle_siblings: &'a [AssignedNative<CircuitBase>],
+    /// Assigned sibling positions for each Merkle path level.
     pub(crate) merkle_positions: &'a [AssignedBit<CircuitBase>],
 }
 
+/// Verifies that the assigned Merkle path opens the witness leaf to the public commitment.
 pub(crate) fn verify_merkle_path(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<CircuitBase>,

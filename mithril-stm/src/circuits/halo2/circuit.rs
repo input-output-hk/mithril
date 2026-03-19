@@ -8,7 +8,6 @@ use midnight_proofs::circuit::{Layouter, Value};
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
-use crate::circuits::halo2::assignments::{assign_signature_components, assign_witness_entry};
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
     MerklePathInputs, UniqueSchnorrSignatureInputs, assert_lottery_index_in_bounds,
@@ -17,9 +16,13 @@ use crate::circuits::halo2::gadgets::{
 };
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 use crate::circuits::halo2::witness::{CircuitInstance, CircuitWitness};
+use crate::circuits::halo2::witness_assignments::{
+    assign_signature_components, assign_witness_entry,
+};
 use crate::signature_scheme::{DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE};
 use crate::{LotteryIndex, Parameters, StmResult};
 
+/// Halo2 relation implementing the non-recursive STM verification circuit.
 #[derive(Clone, Default, Debug)]
 pub struct StmCircuit {
     // k in mithril: the required number of distinct lottery index slots needed to create a valid multi-signature
@@ -34,6 +37,7 @@ impl StmCircuit {
         u32::try_from(actual).unwrap_or(u32::MAX)
     }
 
+    /// Returns the configured Merkle tree depth used to size witness path assignments.
     pub(crate) fn merkle_tree_depth(&self) -> u32 {
         self.merkle_tree_depth
     }

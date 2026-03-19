@@ -2,7 +2,7 @@
 //!
 //! Module map:
 //! - `circuit`: relation orchestration and top-level constraint flow
-//! - `assignments`: witness assignment into Halo2 layouter values
+//! - `witness_assignments`: witness assignment into Halo2 layouter values
 //! - `witness`: circuit-facing witness and instance contract
 //! - `adapters`: STM-to-circuit conversions for boundary types
 //! - `gadgets`: reusable constraint logic split by domain
@@ -13,7 +13,7 @@
 
 pub mod adapters;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) mod assignments;
+pub(crate) mod witness_assignments;
 // TODO(snark): remove `allow(dead_code)` once Halo2 modules are fully wired into STM.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod circuit;

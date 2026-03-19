@@ -4,11 +4,11 @@
 mod comparison;
 mod comparison_helpers;
 mod lottery;
-mod merkle;
+mod merkle_path;
 mod unique_schnorr_signature;
 
 pub(crate) use lottery::{
     assert_lottery_index_in_bounds, assert_lottery_won, assert_strictly_increasing_lottery_index,
 };
-pub(crate) use merkle::{MerklePathInputs, verify_merkle_path};
+pub(crate) use merkle_path::{MerklePathInputs, verify_merkle_path};
 pub(crate) use unique_schnorr_signature::{UniqueSchnorrSignatureInputs, verify_unique_signature};
