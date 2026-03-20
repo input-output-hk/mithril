@@ -9,9 +9,19 @@ use crate::StmResult;
 pub struct CircuitVerificationKey(#[serde(with = "midnight_vk_serde")] MidnightVK);
 
 impl CircuitVerificationKey {
+    /// Creates a new CircuitVerificationKey from a MidnightVK
+    pub fn new(midnight_vk: MidnightVK) -> Self {
+        CircuitVerificationKey(midnight_vk)
+    }
+
+    /// Returns the wrapped MidnightVK
+    pub fn get_midnight_vk(&self) -> MidnightVK {
+        self.0.clone()
+    }
+
     /// Convert the CircuitVerificationKey into bytes using the underlying
     /// MidnightVK functionalities
-    pub fn to_bytes(self) -> StmResult<Vec<u8>> {
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         let mut buf_cvk = vec![];
         self.0.write(&mut buf_cvk, SerdeFormat::RawBytes)?;
         Ok(buf_cvk)

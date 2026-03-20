@@ -10,7 +10,6 @@ mod single_signature;
 mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
-pub(crate) use circuit_verification_key::midnight_vk_serde;
 pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,
