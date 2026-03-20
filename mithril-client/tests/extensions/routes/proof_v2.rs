@@ -2,17 +2,17 @@ use axum::extract::State;
 use axum::routing::get;
 use axum::{Json, Router};
 
-use mithril_client::CardanoTransactionsProofs;
+use mithril_client::{CardanoBlocksProofs, CardanoTransactionsProofsV2};
 
 #[derive(Debug, Clone)]
 struct ProofRoutesState {
-    transaction_proof: CardanoTransactionsProofs, //TODO transaction proof v2
-    block_proof: CardanoTransactionsProofs,       //TODO block proof
+    transaction_proof: CardanoTransactionsProofsV2,
+    block_proof: CardanoBlocksProofs,
 }
 
 pub fn routes(
-    transaction_proof: CardanoTransactionsProofs,
-    block_proof: CardanoTransactionsProofs,
+    transaction_proof: CardanoTransactionsProofsV2,
+    block_proof: CardanoBlocksProofs,
 ) -> Router {
     let state = ProofRoutesState {
         transaction_proof,
@@ -31,11 +31,11 @@ pub fn routes(
 /// Route: /proof/v2/cardano-transaction
 async fn proof_v2_cardano_transaction(
     state: State<ProofRoutesState>,
-) -> Json<CardanoTransactionsProofs> {
+) -> Json<CardanoTransactionsProofsV2> {
     Json(state.transaction_proof.clone())
 }
 
 /// Route: /proof/v2/cardano-block
-async fn proof_v2_cardano_block(state: State<ProofRoutesState>) -> Json<CardanoTransactionsProofs> {
+async fn proof_v2_cardano_block(state: State<ProofRoutesState>) -> Json<CardanoBlocksProofs> {
     Json(state.block_proof.clone())
 }
