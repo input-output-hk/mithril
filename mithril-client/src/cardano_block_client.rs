@@ -24,7 +24,7 @@
 //!
 //! // 1 - Get a proof from the aggregator and verify it
 //! let cardano_block_proof = client.cardano_block().get_proofs(&["block-1", "block-2"]).await?;
-//! println!("Mithril could not certify the following blocks : {:?}", &cardano_block_proof.non_certified_transactions);
+//! println!("Mithril could not certify the following blocks : {:?}", &cardano_block_proof.non_certified_blocks);
 //!
 //! let verified_blocks = cardano_block_proof.verify()?;
 //!
@@ -35,7 +35,7 @@
 //! let message = MessageBuilder::new().compute_cardano_blocks_proofs_message(&certificate, &verified_blocks);
 //! if certificate.match_message(&message) {
 //!     // All green, Mithril certifies that those blocks are part of the Cardano blocks set.
-//!     println!("Certified blocks : {:?}", verified_blocks.certified_transactions());
+//!     println!("Certified blocks : {:?}", verified_blocks.certified_blocks());
 //! }
 //! #    Ok(())
 //! # }

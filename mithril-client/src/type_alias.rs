@@ -48,15 +48,26 @@ pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTra
 
 pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
 
+#[cfg(feature = "unstable")]
 pub use mithril_common::messages::CardanoTransactionsProofsV2Message as CardanoTransactionsProofsV2;
 
+#[cfg(feature = "unstable")]
 pub use mithril_common::messages::CardanoBlocksProofsMessage as CardanoBlocksProofs;
 
+#[cfg(feature = "unstable")]
 pub use mithril_common::messages::MkSetProofMessagePart as MkSetProof;
 
+#[cfg(feature = "unstable")]
 pub use mithril_common::messages::CardanoBlockMessagePart as CardanoBlock;
 
+#[cfg(feature = "unstable")]
 pub use mithril_common::messages::CardanoTransactionMessagePart as CardanoTransaction;
+
+#[cfg(feature = "unstable")]
+pub use mithril_common::messages::VerifiedCardanoTransactionsV2;
+
+#[cfg(feature = "unstable")]
+pub use mithril_common::messages::VerifiedCardanoBlocks;
 
 pub use mithril_common::messages::VerifiedCardanoTransactions;
 

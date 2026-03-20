@@ -191,18 +191,17 @@ impl Client {
         self.cardano_transaction_client.clone()
     }
 
-    /// Get the client that fetches and verifies Mithril Cardano transaction v2 proof.
-    #[cfg(feature = "unstable")]
-    pub fn cardano_transaction_v2(&self) -> Arc<CardanoTransactionV2Client> {
-        self.cardano_transaction_v2_client.clone()
-    }
+    cfg_unstable! {
+        /// Get the client that fetches and verifies Mithril Cardano transaction v2 proof.
+        pub fn cardano_transaction_v2(&self) -> Arc<CardanoTransactionV2Client> {
+            self.cardano_transaction_v2_client.clone()
+        }
 
-    /// Get the client that fetches and verifies Mithril Cardano block proof.
-    #[cfg(feature = "unstable")]
-    pub fn cardano_block(&self) -> Arc<CardanoBlockClient> {
-        self.cardano_block_client.clone()
+        /// Get the client that fetches and verifies Mithril Cardano block proof.
+        pub fn cardano_block(&self) -> Arc<CardanoBlockClient> {
+            self.cardano_block_client.clone()
+        }
     }
-
     /// Get the client that fetches Cardano stake distributions.
     pub fn cardano_stake_distribution(&self) -> Arc<CardanoStakeDistributionClient> {
         self.cardano_stake_distribution_client.clone()
