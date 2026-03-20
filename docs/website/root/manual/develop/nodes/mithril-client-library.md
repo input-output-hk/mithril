@@ -140,6 +140,136 @@ cargo run
 
 :::
 
+### Cardano transactions v2
+
+Here is a basic example of the code targetting the `release-preprod` network aggregator:
+
+```rust title="/src/main.rs"
+use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+
+#[tokio::main]
+async fn main() -> MithrilResult<()> {
+    const AGGREGATOR_ENDPOINT: &str =
+        "https://aggregator.release-preprod.api.mithril.network/aggregator";
+    const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
+
+    let transactions_hashes = [
+        "f9b5221b3ead45d46c0ecae6bee18a0746c5694d0285281cca1b651bce5f49a5",
+        "7769e8b78cc86890660ff5451c110b0a0d0413c8b8ebb17a64e017b4cd881777",
+    ];
+    let cardano_transaction_proof = client
+        .cardano_transaction_v2()
+        .get_proofs(&transactions_hashes)
+        .await
+        .unwrap();
+
+    let verified_transactions = cardano_transaction_proof.verify().unwrap();
+
+    let certificate = client
+        .certificate()
+        .verify_chain(&cardano_transaction_proof.certificate_hash)
+        .await
+        .unwrap();
+
+    let message = MessageBuilder::new()
+        .compute_cardano_transactions_proofs_v2_message(&certificate, &verified_transactions);
+    assert!(certificate.match_message(&message));
+
+    println!(
+        r###"Cardano transactions with hashes "'{}'" have been successfully certified by Mithril."###,
+        verified_transactions
+            .certified_transactions()
+            .iter()
+            .map(|t| t.transaction_hash.clone())
+            .collect::<Vec<String>>()
+            .join(","),
+    );
+    if !cardano_transaction_proof
+        .non_certified_transactions
+        .is_empty()
+    {
+        println!(
+            r###"No proof could be computed for Cardano transactions with hashes "'{}'".
+
+            Mithril may not have signed those transactions yet, please try again later."###,
+            cardano_transaction_proof
+                .non_certified_transactions
+                .join(","),
+        );
+    }
+
+    Ok(())
+}
+```
+
+### Cardano blocks
+
+Here is a basic example of the code targetting the `release-preprod` network aggregator:
+
+```rust title="/src/main.rs"
+use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+
+#[tokio::main]
+async fn main() -> MithrilResult<()> {
+    const AGGREGATOR_ENDPOINT: &str =
+        "https://aggregator.release-preprod.api.mithril.network/aggregator";
+    const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
+
+    let blocks_hashes = [
+        "1bbe744039adff3a3f5baf16c87d27ee406dcd5a5369e9b97327294b8d3bcea3",
+        "581c3d214f61cfdcc5785dd99a8acafd12dba756ea3e7cbf14af8273235a352f",
+    ];
+    let cardano_block_proof = client
+        .cardano_block()
+        .get_proofs(&blocks_hashes)
+        .await
+        .unwrap();
+
+    let verified_blocks = cardano_block_proof.verify().unwrap();
+
+    let certificate = client
+        .certificate()
+        .verify_chain(&cardano_block_proof.certificate_hash)
+        .await
+        .unwrap();
+
+    let message = MessageBuilder::new()
+        .compute_cardano_blocks_proofs_message(&certificate, &verified_blocks);
+    assert!(certificate.match_message(&message));
+
+    println!(
+        r###"Cardano blocks with hashes "'{}'" have been successfully certified by Mithril."###,
+        verified_blocks
+            .certified_blocks()
+            .iter()
+            .map(|t| t.block_hash.clone())
+            .collect::<Vec<String>>()
+            .join(","),
+    );
+    if !cardano_block_proof
+        .non_certified_blocks
+        .is_empty()
+    {
+        println!(
+            r###"No proof could be computed for Cardano blocks with hashes "'{}'".
+
+            Mithril may not have signed those blocks yet, please try again later."###,
+            cardano_block_proof
+                .non_certified_blocks
+                .join(","),
+        );
+    }
+
+    Ok(())
+}
+```
+
 ### Cardano stake distribution
 
 Here is a basic example of the code targetting the `release-preprod` network aggregator:
