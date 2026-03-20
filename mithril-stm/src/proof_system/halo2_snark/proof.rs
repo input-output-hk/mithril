@@ -1,4 +1,5 @@
 use anyhow::Context;
+use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_zk_stdlib as zk;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     MembershipDigest, Parameters, SingleSignature, StmResult, circuits::halo2::circuit::StmCircuit,
-    proof_system::halo2_snark::prover_input::SnarkProverInput,
+    circuits::halo2::types::CircuitBase, proof_system::halo2_snark::prover_input::SnarkProverInput,
 };
 
 use super::{SnarkClerk, SnarkSetup};
@@ -104,7 +105,7 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
         let instance = snark_prover_input.get_instance();
         let witness = snark_prover_input.into_witness();
 
-        let snark_proof = zk::prove::<StmCircuit, blake2b_simd::State>(
+        let snark_proof = zk::prove::<StmCircuit, PoseidonState<CircuitBase>>(
             &self.setup.srs,
             &self.setup.proving_key,
             &self.setup.circuit,

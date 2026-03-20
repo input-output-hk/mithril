@@ -4,6 +4,7 @@
 //! while `tests/golden` remains responsible for broader end-to-end scenarios.
 
 use anyhow::Result;
+use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk;
@@ -12,6 +13,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use crate::LotteryTargetValue;
+use crate::circuits::halo2::types::CircuitBase;
 use crate::circuits::halo2::witness::LotteryTargetValue as CircuitLotteryTargetValue;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath, MerkleRoot, SignedMessageWithoutPrefix,
@@ -40,11 +42,12 @@ where
     let pk = zk::setup_pk(relation, &vk);
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-    let proof =
-        zk::prove::<R, blake2b_simd::State>(&srs, &pk, relation, instance, witness, &mut rng)
-            .map_err(anyhow::Error::new)?;
+    let proof = zk::prove::<R, PoseidonState<CircuitBase>>(
+        &srs, &pk, relation, instance, witness, &mut rng,
+    )
+    .map_err(anyhow::Error::new)?;
 
-    zk::verify::<R, blake2b_simd::State>(&srs.verifier_params(), &vk, instance, None, &proof)
+    zk::verify::<R, PoseidonState<CircuitBase>>(&srs.verifier_params(), &vk, instance, None, &proof)
         .map_err(anyhow::Error::new)
 }
 

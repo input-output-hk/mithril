@@ -4534,7 +4534,6 @@ version = "0.9.32"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
- "blake2b_simd",
  "blst",
  "criterion",
  "digest 0.10.7",

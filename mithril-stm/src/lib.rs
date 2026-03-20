@@ -196,9 +196,10 @@ pub trait MembershipDigest: Clone {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MithrilMembershipDigest {}
 
-/// Default implementation of MembershipDigest for Mithril
-/// TODO: `SnarkHash` will be changed with Poseidon. For now, we use `Blake2b<U64>` (`U64` is set
-/// for having something different than the `ConcatenationHash`) as a placeholder.
+/// Default implementation of MembershipDigest for Mithril.
+///
+/// The SNARK path uses Poseidon so the CPU-side membership commitment stays aligned with the
+/// Halo2 circuit hashing.
 impl MembershipDigest for MithrilMembershipDigest {
     type ConcatenationHash = Blake2b<U32>;
     #[cfg(feature = "future_snark")]

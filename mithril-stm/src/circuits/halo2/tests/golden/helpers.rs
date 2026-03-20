@@ -6,6 +6,7 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Instant;
 
 use anyhow::{Context, anyhow};
+use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
@@ -598,7 +599,7 @@ pub(crate) fn prove_and_verify_result(
 
     let start = Instant::now();
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let proof = zk::prove::<StmCircuit, blake2b_simd::State>(
+    let proof = zk::prove::<StmCircuit, PoseidonState<CircuitBase>>(
         &env.srs,
         &env.pk,
         &env.relation,
@@ -612,7 +613,7 @@ pub(crate) fn prove_and_verify_result(
     println!("Proof size: {:?}", proof.len());
 
     let start = Instant::now();
-    let verify_result = zk::verify::<StmCircuit, blake2b_simd::State>(
+    let verify_result = zk::verify::<StmCircuit, PoseidonState<CircuitBase>>(
         &env.srs.verifier_params(),
         &env.vk,
         &instance,
