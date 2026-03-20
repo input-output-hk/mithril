@@ -3,13 +3,14 @@
 use std::collections::HashMap;
 
 use crate::StdResult;
-use crate::crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode, MKTreeStorer};
+use crate::crypto_helper::MKTreeStorer;
 use crate::entities::{
     BlockNumber, BlockRange, CardanoBlock, CardanoTransaction, CardanoTransactionsSetProof,
     IntoMKTreeNode, MkSetProof, ProtocolParameters, SingleSignature,
     SingleSignatureAuthenticationStatus, TransactionHash,
 };
 use crate::test::builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+use crate::test::crypto_helper::mkmap_helpers;
 
 /// Extension trait adding test utilities to [BlockRange]
 pub trait BlockRangeTestExtension {
@@ -18,6 +19,30 @@ pub trait BlockRangeTestExtension {
 
     /// `TEST ONLY` - Try to add two BlockRanges
     fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange>;
+}
+
+/// Extension trait adding test utilities to [BlockNumber]
+pub trait BlockNumberTestExtension {
+    /// `TEST ONLY` - Group an iterator over a tuple of block number and item
+    fn group_items_by_block_range<N, I>(iter: I) -> HashMap<BlockRange, Vec<N>>
+    where
+        I: Iterator<Item = (BlockNumber, N)>;
+}
+
+impl BlockNumberTestExtension for BlockNumber {
+    fn group_items_by_block_range<N, I>(iter: I) -> HashMap<BlockRange, Vec<N>>
+    where
+        I: Iterator<Item = (BlockNumber, N)>,
+    {
+        let mut result: HashMap<BlockRange, Vec<N>> = HashMap::new();
+
+        for (block_number, item) in iter.into_iter() {
+            let block_range = BlockRange::from_block_number(block_number);
+            result.entry(block_range).or_default().push(item);
+        }
+
+        result
+    }
 }
 
 /// Extension trait adding test utilities to [CardanoTransactionsSetProof]
@@ -34,8 +59,9 @@ impl CardanoTransactionsSetProofTestExtension for CardanoTransactionsSetProof {
     ) -> StdResult<CardanoTransactionsSetProof> {
         let transactions_hashes: Vec<TransactionHash> =
             leaves.iter().map(|(_, t)| t.into()).collect();
-        let transactions_by_block_ranges = private::group_by_block_range(leaves.iter().cloned());
-        let mk_map = private::fold_nodes_per_block_range_into_mkmap::<_, _, S>(
+        let transactions_by_block_ranges =
+            BlockNumber::group_items_by_block_range(leaves.iter().cloned());
+        let mk_map = mkmap_helpers::fold_nodes_per_block_range_into_mkmap::<_, _, S>(
             transactions_by_block_ranges,
         )?;
         let mk_proof = mk_map.compute_proof(&transactions_hashes)?;
@@ -53,12 +79,12 @@ impl MkSetProofTestExtension<CardanoBlock> for MkSetProof<CardanoBlock> {
     fn from_leaves<S: MKTreeStorer>(
         leaves: &[CardanoBlock],
     ) -> StdResult<MkSetProof<CardanoBlock>> {
-        let node_per_block_range = private::group_by_block_range(
+        let node_per_block_range = BlockNumber::group_items_by_block_range(
             leaves.iter().map(|l| (l.block_number, l.clone().into_mk_tree_node())),
         );
         let all_nodes = node_per_block_range.values().flatten().cloned().collect::<Vec<_>>();
         let mk_map =
-            private::fold_nodes_per_block_range_into_mkmap::<_, _, S>(node_per_block_range)?;
+            mkmap_helpers::fold_nodes_per_block_range_into_mkmap::<_, _, S>(node_per_block_range)?;
         let proof = mk_map.compute_proof(&all_nodes)?;
 
         Ok(MkSetProof::new(leaves.to_vec(), proof))
@@ -69,12 +95,12 @@ impl MkSetProofTestExtension<CardanoTransaction> for MkSetProof<CardanoTransacti
     fn from_leaves<S: MKTreeStorer>(
         leaves: &[CardanoTransaction],
     ) -> StdResult<MkSetProof<CardanoTransaction>> {
-        let node_per_block_range = private::group_by_block_range(
+        let node_per_block_range = BlockNumber::group_items_by_block_range(
             leaves.iter().map(|l| (l.block_number, l.clone().into_mk_tree_node())),
         );
         let all_nodes = node_per_block_range.values().flatten().cloned().collect::<Vec<_>>();
         let mk_map =
-            private::fold_nodes_per_block_range_into_mkmap::<_, _, S>(node_per_block_range)?;
+            mkmap_helpers::fold_nodes_per_block_range_into_mkmap::<_, _, S>(node_per_block_range)?;
         let proof = mk_map.compute_proof(&all_nodes)?;
 
         Ok(MkSetProof::new(leaves.to_vec(), proof))
@@ -115,44 +141,34 @@ impl SingleSignatureTestExtension for SingleSignature {
     }
 }
 
-mod private {
+#[cfg(test)]
+mod tests {
     use super::*;
 
-    pub(super) fn group_by_block_range<N, I>(iter: I) -> HashMap<BlockRange, Vec<N>>
-    where
-        I: Iterator<Item = (BlockNumber, N)>,
-    {
-        let mut result: HashMap<BlockRange, Vec<N>> = HashMap::new();
+    #[test]
+    fn group_list_of_blocknumber_and_string_tuple_by_block_range() {
+        let input = [
+            (BlockNumber(1), "item_1"),
+            (BlockNumber(2), "item_2"),
+            (BlockNumber(3), "item_3"),
+            (BlockNumber(16), "item_16"),
+            (BlockNumber(17), "item_17"),
+        ];
 
-        for (block_number, item) in iter.into_iter() {
-            let block_range = BlockRange::from_block_number(block_number);
-            result.entry(block_range).or_default().push(item);
-        }
+        let grouped_items = BlockNumber::group_items_by_block_range(input.iter().cloned());
 
-        result
-    }
-
-    pub(super) fn fold_nodes_per_block_range_into_mkmap<N, I, S>(
-        nodes_per_block_range: I,
-    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>
-    where
-        N: Into<MKTreeNode> + Clone,
-        I: IntoIterator<Item = (BlockRange, Vec<N>)>,
-        S: MKTreeStorer,
-    {
-        let mk_map = MKMap::<_, _, S>::new(
-            nodes_per_block_range
-                .into_iter()
-                .try_fold(
-                    vec![],
-                    |mut acc, (block_range, nodes)| -> StdResult<Vec<(_, MKMapNode<_, S>)>> {
-                        acc.push((block_range, MKTree::<S>::new(&nodes)?.into()));
-                        Ok(acc)
-                    },
-                )?
-                .as_slice(),
-        )?;
-
-        Ok(mk_map)
+        assert_eq!(
+            HashMap::from([
+                (
+                    BlockRange::from_block_number(BlockNumber(1)),
+                    vec!["item_1", "item_2", "item_3"]
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(16)),
+                    vec!["item_16", "item_17"]
+                ),
+            ]),
+            grouped_items
+        );
     }
 }
