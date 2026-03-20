@@ -10,7 +10,7 @@ date: 2022-10-21
 
 ## Status
 
-Accepted
+Superseded by [ADR 12](/adr/12)
 
 ## Context
 
