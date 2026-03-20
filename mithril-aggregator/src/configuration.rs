@@ -404,30 +404,25 @@ pub trait ConfigurationSource {
         &self,
     ) -> StdResult<AggregatorEpochSettings> {
         let allowed_discriminants = self.compute_allowed_signed_entity_types_discriminants()?;
+        let cardano_transactions_signing_config = self.cardano_transactions_signing_config();
+        let cardano_blocks_transactions_signing_config =
+            self.cardano_blocks_transactions_signing_config();
 
-        let cardano_transactions_signing_config = if allowed_discriminants
-            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
+        if allowed_discriminants.contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
+            && cardano_transactions_signing_config.is_none()
         {
-            let cardano_transactions_signing_config =
-                self.cardano_transactions_signing_config().with_context(
-                    || "Configuration `cardano_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoTransactions` is enabled in `signed_entity_types`"
-                )?;
-            Some(cardano_transactions_signing_config)
-        } else {
-            None
-        };
+            anyhow::bail!(
+                "Configuration `cardano_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoTransactions` is enabled in `signed_entity_types`"
+            );
+        }
 
-        let cardano_blocks_transactions_signing_config = if allowed_discriminants
-            .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+        if allowed_discriminants.contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+            && cardano_blocks_transactions_signing_config.is_none()
         {
-            let cardano_blocks_transactions_signing_config =
-                self.cardano_blocks_transactions_signing_config().with_context(
-                    || "Configuration `cardano_blocks_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoBlocksTransactions` is enabled in `signed_entity_types`"
-                )?;
-            Some(cardano_blocks_transactions_signing_config)
-        } else {
-            None
-        };
+            anyhow::bail!(
+                "Configuration `cardano_blocks_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoBlocksTransactions` is enabled in `signed_entity_types`"
+            );
+        }
 
         Ok(AggregatorEpochSettings {
             protocol_parameters: self.protocol_parameters().with_context(
@@ -1341,6 +1336,7 @@ impl Source for DefaultConfiguration {
 #[cfg(test)]
 mod test {
     use mithril_common::temp_dir;
+    use mithril_common::test::double::Dummy;
     use mithril_common::test::double::fake_data;
 
     use super::*;
@@ -1550,25 +1546,39 @@ mod test {
         use super::*;
 
         #[test]
-        fn succeed_when_cardano_transactions_is_disabled_and_cardano_transactions_signing_config_is_not_set()
+        fn succeed_when_cardano_transactions_is_disabled_and_regardless_if_cardano_transactions_signing_config_is_set()
          {
-            let epoch_settings = ServeCommandConfiguration {
-                signed_entity_types: None,
-                cardano_transactions_signing_config: None,
-                protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
-                ..ServeCommandConfiguration::new_sample(temp_dir!())
-            }
-            .get_leader_aggregator_epoch_settings_configuration()
-            .unwrap();
-
-            assert_eq!(
-                AggregatorEpochSettings {
-                    protocol_parameters: ProtocolParameters::new(1, 2, 3.1),
+            // Succeed without a configuration set
+            {
+                let epoch_settings = ServeCommandConfiguration {
+                    signed_entity_types: None,
                     cardano_transactions_signing_config: None,
-                    cardano_blocks_transactions_signing_config: None,
-                },
-                epoch_settings
-            );
+                    protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                    ..ServeCommandConfiguration::new_sample(temp_dir!())
+                }
+                .get_leader_aggregator_epoch_settings_configuration()
+                .unwrap();
+
+                assert_eq!(None, epoch_settings.cardano_transactions_signing_config);
+            }
+            // Succeed with a configuration set
+            {
+                let epoch_settings = ServeCommandConfiguration {
+                    signed_entity_types: None,
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
+                    protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                    ..ServeCommandConfiguration::new_sample(temp_dir!())
+                }
+                .get_leader_aggregator_epoch_settings_configuration()
+                .unwrap();
+
+                assert_eq!(
+                    Some(CardanoTransactionsSigningConfig::dummy()),
+                    epoch_settings.cardano_transactions_signing_config
+                );
+            }
         }
 
         #[test]
@@ -1589,15 +1599,11 @@ mod test {
             .unwrap();
 
             assert_eq!(
-                AggregatorEpochSettings {
-                    protocol_parameters: ProtocolParameters::new(2, 3, 4.1),
-                    cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(10),
-                        step: BlockNumber(30),
-                    }),
-                    cardano_blocks_transactions_signing_config: None,
-                },
-                epoch_settings
+                Some(CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(10),
+                    step: BlockNumber(30),
+                }),
+                epoch_settings.cardano_transactions_signing_config
             );
         }
 
@@ -1622,25 +1628,42 @@ mod test {
         }
 
         #[test]
-        fn succeed_when_cardano_blocks_transactions_is_disabled_and_cardano_blocks_transactions_signing_config_is_not_set()
+        fn succeed_when_cardano_blocks_transactions_is_disabled_and_regardless_if_cardano_blocks_transactions_signing_config_is_set()
          {
-            let epoch_settings = ServeCommandConfiguration {
-                signed_entity_types: None,
-                cardano_blocks_transactions_signing_config: None,
-                protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
-                ..ServeCommandConfiguration::new_sample(temp_dir!())
-            }
-            .get_leader_aggregator_epoch_settings_configuration()
-            .unwrap();
-
-            assert_eq!(
-                AggregatorEpochSettings {
-                    protocol_parameters: ProtocolParameters::new(1, 2, 3.1),
-                    cardano_transactions_signing_config: None,
+            // Succeed without a configuration set
+            {
+                let epoch_settings = ServeCommandConfiguration {
+                    signed_entity_types: None,
                     cardano_blocks_transactions_signing_config: None,
-                },
-                epoch_settings
-            );
+                    protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                    ..ServeCommandConfiguration::new_sample(temp_dir!())
+                }
+                .get_leader_aggregator_epoch_settings_configuration()
+                .unwrap();
+
+                assert_eq!(
+                    None,
+                    epoch_settings.cardano_blocks_transactions_signing_config
+                );
+            }
+            // Succeed with a configuration set
+            {
+                let epoch_settings = ServeCommandConfiguration {
+                    signed_entity_types: None,
+                    cardano_blocks_transactions_signing_config: Some(
+                        CardanoBlocksTransactionsSigningConfig::dummy(),
+                    ),
+                    protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                    ..ServeCommandConfiguration::new_sample(temp_dir!())
+                }
+                .get_leader_aggregator_epoch_settings_configuration()
+                .unwrap();
+
+                assert_eq!(
+                    Some(CardanoBlocksTransactionsSigningConfig::dummy()),
+                    epoch_settings.cardano_blocks_transactions_signing_config
+                );
+            }
         }
 
         #[test]
@@ -1663,17 +1686,11 @@ mod test {
             .unwrap();
 
             assert_eq!(
-                AggregatorEpochSettings {
-                    protocol_parameters: ProtocolParameters::new(2, 3, 4.1),
-                    cardano_transactions_signing_config: None,
-                    cardano_blocks_transactions_signing_config: Some(
-                        CardanoBlocksTransactionsSigningConfig {
-                            security_parameter: BlockNumber(10),
-                            step: BlockNumber(30),
-                        }
-                    ),
-                },
-                epoch_settings
+                Some(CardanoBlocksTransactionsSigningConfig {
+                    security_parameter: BlockNumber(10),
+                    step: BlockNumber(30),
+                }),
+                epoch_settings.cardano_blocks_transactions_signing_config
             );
         }
 

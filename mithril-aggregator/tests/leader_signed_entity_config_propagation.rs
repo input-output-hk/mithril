@@ -32,10 +32,7 @@ async fn leader_signed_entity_config_propagation() {
         .collect();
 
     // First, start a runtime without the CardanoTransactions and CardanoBlocksTransactions signed entity
-    // types nor their configuration.
-    //
-    // The signed entity config with no additional config for those signed entity types will be persisted
-    // in the database.
+    // types but their configuration set to store them in the database and diffuse them.
     let start_configuration = ServeCommandConfiguration {
         protocol_parameters: Some(protocol_parameters.clone()),
         signed_entity_types: Some(
@@ -46,8 +43,14 @@ async fn leader_signed_entity_config_propagation() {
                 .join(","),
         ),
         data_stores_directory: get_test_dir(current_function!()),
-        cardano_transactions_signing_config: None,
-        cardano_blocks_transactions_signing_config: None,
+        cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
+        }),
+        cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
+        }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
@@ -93,16 +96,6 @@ async fn leader_signed_entity_config_propagation() {
                     .collect::<Vec<_>>()
                     .join(","),
             ),
-            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(0),
-                step: BlockNumber(30),
-            }),
-            cardano_blocks_transactions_signing_config: Some(
-                CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
-                    step: BlockNumber(30),
-                },
-            ),
             ..start_configuration
         })
         .await;
@@ -110,27 +103,11 @@ async fn leader_signed_entity_config_propagation() {
     cycle!(tester, "signing");
 
     comment!(
-        "The signable discriminants should not changes for three epochs even after rebuild as they are persisted in the database"
+        "The signable discriminants should be immediately available has its configuration was stored in database"
     );
-    assert_signable_discriminants_eq!(tester, allowed_discriminants_at_start);
+    assert_signable_discriminants_eq!(tester, SignedEntityTypeDiscriminants::all());
 
-    comment!("Epoch 2 - still two epochs until the signed entity enabled at restart are available");
-    tester.increase_epoch().await.unwrap();
-    cycle!(tester, "idle");
-    cycle!(tester, "ready");
-    avoid_epoch_gap_in_upcoming_epoch(&mut tester, &fixture).await;
-
-    assert_signable_discriminants_eq!(tester, allowed_discriminants_at_start);
-
-    comment!("Epoch 3 - still one epochs until the signed entity enabled at restart are available");
-    tester.increase_epoch().await.unwrap();
-    cycle!(tester, "idle");
-    cycle!(tester, "ready");
-    avoid_epoch_gap_in_upcoming_epoch(&mut tester, &fixture).await;
-
-    assert_signable_discriminants_eq!(tester, allowed_discriminants_at_start);
-
-    comment!("Epoch 4 - all signed entity types are now available");
+    comment!("Epoch 2 - the signed entity should still be enabled ");
     tester.increase_epoch().await.unwrap();
     cycle!(tester, "idle");
     cycle!(tester, "ready");
@@ -141,8 +118,8 @@ async fn leader_signed_entity_config_propagation() {
     assert_metrics_eq!(
         tester.metrics_verifier,
         ExpectedMetrics::new()
-            .certificate_total(4)
-            .artifact_mithril_stake_distribution_total(4)
+            .certificate_total(2)
+            .artifact_mithril_stake_distribution_total(2)
     );
 }
 
