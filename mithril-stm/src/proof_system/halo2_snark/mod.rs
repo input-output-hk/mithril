@@ -22,6 +22,10 @@ pub(crate) use unsafe_helpers::SnarkSetup;
 #[cfg(feature = "future_snark")]
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum SnarkError {
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
+
     /// The SNARK proof failed to verify
     #[error("The SNARK proof failed to verify.")]
     VerifyProofFail,

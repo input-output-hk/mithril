@@ -95,13 +95,33 @@ impl<D: MembershipDigest> SnarkProof<D> {
 
     /// Converts a SnarkProof to bytes by returning the proof bytes
     // TODO: write proper function
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.snark_proof.clone()
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        let mut buf = vec![];
+
+        buf.extend_from_slice(&self.params.to_bytes());
+
+        buf.extend_from_slice(&self.merkle_tree_depth.to_le_bytes());
+
+        buf.extend_from_slice(&self.snark_proof.clone());
+
+        // self.circuit_verification_key.write(&mut buf, SerdeFormat::RawBytes)?;
+
+        Ok(buf)
     }
 
     /// Deserialise a proof from raw bytes.
-    pub fn from_bytes(bytes: &[u8], params: Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
-        Self::try_new(bytes.to_vec(), params, merkle_tree_depth)
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let params =
+            Parameters::from_bytes(bytes.get(0..24).ok_or(SnarkError::SerializationError)?)?;
+        let merkle_tree_depth = u32::from_le_bytes(
+            bytes.get(24..28).ok_or(SnarkError::SerializationError)?.try_into()?,
+        );
+
+        Self::try_new(
+            bytes.get(28..).ok_or(SnarkError::SerializationError)?.to_vec(),
+            params,
+            merkle_tree_depth,
+        )
     }
 }
 
@@ -520,5 +540,37 @@ mod tests {
             snark_proof_1.snark_proof != snark_proof_2.snark_proof,
             "The two proofs are different but both verify."
         );
+    }
+
+    #[test]
+    fn test_snark_proof_to_from_bytes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 100,
+            k: 5,
+            phi_f: 0.8,
+        };
+        let nparties = 10;
+        let message = [1u8; 32];
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+        let avk = clerk.compute_aggregate_verification_key_for_snark();
+
+        let mut prover = create_prover(
+            params,
+            clerk.closed_key_registration.number_of_registered_parties(),
+            [0u8; 32],
+        );
+
+        let snark_proof = prover
+            .aggregate_signatures::<D>(&clerk, &signatures, &message)
+            .unwrap();
+        assert!(snark_proof.verify(&message, &avk).is_ok());
+
+        let proof_bytes = snark_proof.to_bytes().unwrap();
+
+        let reconstructed_proof = SnarkProof::from_bytes(&proof_bytes).unwrap();
+
+        assert!(reconstructed_proof.verify(&message, &avk).is_ok());
     }
 }
