@@ -14,7 +14,7 @@ impl CircuitVerificationKey {
         CircuitVerificationKey(midnight_vk)
     }
 
-    /// Returns the wrapped MidnightVK
+    /// Returns a copy of the wrapped MidnightVK
     pub fn get_midnight_vk(&self) -> MidnightVK {
         self.0.clone()
     }
@@ -44,13 +44,19 @@ pub mod midnight_vk_serde {
     use midnight_zk_stdlib::MidnightVK;
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(vk: &MidnightVK, serializer: S) -> Result<S::Ok, S::Error> {
+    /// Serialization function based on the write function of the MidnightVK
+    pub fn serialize<S: Serializer>(
+        verification_key: &MidnightVK,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         let mut buf = Vec::new();
-        vk.write(&mut buf, SerdeFormat::RawBytes)
+        verification_key
+            .write(&mut buf, SerdeFormat::RawBytes)
             .map_err(serde::ser::Error::custom)?;
         serializer.serialize_bytes(&buf)
     }
 
+    /// Deserialization function based on the read function of the MidnightVK
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<MidnightVK, D::Error> {
         let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
         MidnightVK::read(&mut bytes.as_slice(), SerdeFormat::RawBytes)
