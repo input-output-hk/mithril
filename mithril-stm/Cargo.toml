@@ -19,7 +19,6 @@ default = ["num-integer-backend"]
 benchmark-internals = []
 # Enable experimental SNARK support 
 future_snark = [
-    "dep:blake2b_simd",
     "dep:ff",
     "dep:group",
     "dep:midnight-circuits",

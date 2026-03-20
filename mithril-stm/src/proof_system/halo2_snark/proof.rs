@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use anyhow::Context;
+use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_zk_stdlib::{self as zk, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -10,9 +11,7 @@ use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
     circuits::halo2::circuit::StmCircuit,
     circuits::halo2::types::CircuitBase,
-    proof_system::halo2_snark::{
-        SNARK_PROOF_LENGTH, build_snark_message, prover_input::SnarkProverInput,
-    },
+    proof_system::halo2_snark::{build_snark_message, prover_input::SnarkProverInput},
     protocol::SnarkError,
 };
 
@@ -89,7 +88,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         let proof_message = build_snark_message(merkle_root, message)?;
         let proof_instance = (proof_message[0].into(), proof_message[1].into());
 
-        let verify_result = zk::verify::<StmCircuit, blake2b_simd::State>(
+        let verify_result = zk::verify::<StmCircuit, PoseidonState<CircuitBase>>(
             &snark_setup.srs.verifier_params(),
             &self.circuit_verification_key,
             &proof_instance,
