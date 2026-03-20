@@ -4,10 +4,7 @@ use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
     common::{BlockNumber, SlotNumber},
 };
-use mithril_common::{
-    entities::{CardanoBlock, CardanoTransaction, MkSetProof},
-    test::double::{Dummy, fake_keys},
-};
+use mithril_common::{entities::CardanoBlockWithTransactions, test::double::fake_keys};
 
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
@@ -15,19 +12,27 @@ use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier
 async fn cardano_block_proof_get_validate() {
     let genesis_verification_key = fake_keys::genesis_verification_key()[0];
 
-    let blocks = [
-        CardanoBlock::new("block_hash-10", BlockNumber(10), SlotNumber(15)),
-        CardanoBlock::new("block_hash-11", BlockNumber(11), SlotNumber(16)),
-        CardanoBlock::new("block_hash-20", BlockNumber(20), SlotNumber(25)),
+    let blocks_with_txs = [
+        CardanoBlockWithTransactions::new(
+            "block_hash-10",
+            BlockNumber(10),
+            SlotNumber(15),
+            vec!["tx_hash-1", "tx_hash-2"],
+        ),
+        CardanoBlockWithTransactions::new(
+            "block_hash-15",
+            BlockNumber(15),
+            SlotNumber(15),
+            vec!["tx_hash-4"],
+        ),
     ];
-    let blocks_hashes = blocks.iter().map(|b| b.block_hash.clone()).collect::<Vec<_>>();
+    let blocks_hashes = blocks_with_txs
+        .iter()
+        .map(|b| b.block_hash.clone())
+        .collect::<Vec<_>>();
 
     let certificate_hash = "certificate_hash";
-    let fake_aggregator = FakeAggregator::spawn_with_proofs_v2(
-        &blocks,
-        MkSetProof::<CardanoTransaction>::dummy().transactions(),
-        certificate_hash,
-    );
+    let fake_aggregator = FakeAggregator::spawn_with_proofs_v2(&blocks_with_txs, certificate_hash);
     let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
         fake_aggregator.server_root_url(),
     ))
