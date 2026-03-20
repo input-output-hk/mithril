@@ -10,7 +10,10 @@ use mithril_cardano_node_internal_database::digesters::{
 #[cfg(feature = "fs")]
 use mithril_common::entities::SignedEntityType;
 use mithril_common::{
-    crypto_helper::ProtocolKey, logging::LoggerExtensions, protocol::SignerBuilder,
+    crypto_helper::ProtocolKey,
+    logging::LoggerExtensions,
+    messages::{VerifiedCardanoBlocks, VerifiedCardanoTransactionsV2},
+    protocol::SignerBuilder,
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
 
@@ -182,6 +185,42 @@ impl MessageBuilder {
     ) -> ProtocolMessage {
         let mut message = transactions_proofs_certificate.protocol_message.clone();
         verified_transactions.fill_protocol_message(&mut message);
+        message
+    }
+
+    /// Compute message for a Cardano Blocks Proofs.
+    pub fn compute_cardano_blocks_proofs_message(
+        &self,
+        blocks_proofs_certificate: &MithrilCertificate,
+        verified_blocks: &VerifiedCardanoBlocks,
+    ) -> ProtocolMessage {
+        let mut message = blocks_proofs_certificate.protocol_message.clone();
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            verified_blocks.certified_merkle_root().to_string(),
+        );
+        message.set_message_part(
+            ProtocolMessagePartKey::LatestBlockNumber,
+            verified_blocks.latest_certified_block_number().to_string(),
+        );
+        message
+    }
+
+    /// Compute message for a Cardano Transaction V2 Proofs.
+    pub fn compute_cardano_transactions_proofs_v2_message(
+        &self,
+        transactions_proofs_certificate: &MithrilCertificate,
+        verified_blocks: &VerifiedCardanoTransactionsV2,
+    ) -> ProtocolMessage {
+        let mut message = transactions_proofs_certificate.protocol_message.clone();
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+            verified_blocks.certified_merkle_root().to_string(),
+        );
+        message.set_message_part(
+            ProtocolMessagePartKey::LatestBlockNumber,
+            verified_blocks.latest_certified_block_number().to_string(),
+        );
         message
     }
 

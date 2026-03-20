@@ -153,12 +153,12 @@ mod messages {
 
     use crate::crypto_helper::KesEvolutions;
     use crate::entities::{
-        AncillaryLocation, BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon,
-        CardanoTransactionsSetProof, CardanoTransactionsSigningConfig, CompressionAlgorithm,
-        DigestLocation, Epoch, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
-        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, SupportedEra,
-        TemplateUri,
+        AncillaryLocation, BlockNumber, CardanoBlock, CardanoBlocksTransactionsSigningConfig,
+        CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
+        CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
+        ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
+        StakeDistributionParty, SupportedEra, TemplateUri,
     };
     use crate::messages::*;
 
@@ -168,6 +168,47 @@ mod messages {
         /// Return a dummy [CardanoTransactionsSetProofMessagePart] (test-only).
         fn dummy() -> Self {
             CardanoTransactionsSetProof::dummy().try_into().unwrap()
+        }
+    }
+
+    impl Dummy for MkSetProofMessagePart<CardanoBlockMessagePart> {
+        /// Return a dummy [`MkSetProofMessagePart<CardanoBlockMessagePart>`] (test-only).
+        fn dummy() -> Self {
+            MkSetProof::<CardanoBlock>::dummy().try_into().unwrap()
+        }
+    }
+
+    impl Dummy for MkSetProofMessagePart<CardanoTransactionMessagePart> {
+        /// Return a dummy [`MkSetProofMessagePart<CardanoTransactionMessagePart>`] (test-only).
+        fn dummy() -> Self {
+            MkSetProof::<CardanoTransaction>::dummy().try_into().unwrap()
+        }
+    }
+
+    impl Dummy for CardanoBlocksProofsMessage {
+        /// Return a dummy [CardanoBlocksProofsMessage] (test-only).
+        fn dummy() -> Self {
+            CardanoBlocksProofsMessage::new(
+                "cert-hash-123",
+                Some(MkSetProofMessagePart::dummy()),
+                vec![
+                    "non-certified-block-1".to_string(),
+                    "non-certified-block-2".to_string(),
+                ],
+                BlockNumber(100),
+            )
+        }
+    }
+
+    impl Dummy for CardanoTransactionsProofsV2Message {
+        /// Return a dummy [CardanoTransactionsProofsV2Message] (test-only).
+        fn dummy() -> Self {
+            CardanoTransactionsProofsV2Message::new(
+                "cert-hash-123",
+                Some(MkSetProofMessagePart::dummy()),
+                vec!["non-certified-tx-1".to_string(), "non-certified-tx-2".to_string()],
+                BlockNumber(100),
+            )
         }
     }
 

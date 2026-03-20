@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::messages::CardanoTransactionsProofsMessage;
+use mithril_common::messages::CardanoBlocksProofsMessage;
 
 use crate::AggregatorHttpClientResult;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod, ResponseExt};
@@ -23,7 +23,7 @@ impl GetCardanoBlockProofQuery {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorQuery for GetCardanoBlockProofQuery {
-    type Response = Option<CardanoTransactionsProofsMessage>; //TODO switch to proof block message when available
+    type Response = Option<CardanoBlocksProofsMessage>;
     type Body = ();
 
     fn method() -> QueryMethod {
@@ -51,6 +51,7 @@ impl AggregatorQuery for GetCardanoBlockProofQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::messages::MkSetProofMessagePart;
     use serde_json::json;
 
     use crate::AggregatorHttpClientError;
@@ -61,10 +62,13 @@ mod tests {
     #[tokio::test]
     async fn test_cardano_block_proof_ok_200() {
         let (server, client) = setup_server_and_client();
-        let expected_message = CardanoTransactionsProofsMessage {
+        let expected_message = CardanoBlocksProofsMessage {
             certificate_hash: "whatever".to_string(),
-            certified_transactions: vec![],
-            non_certified_transactions: vec![],
+            certified_blocks: Some(MkSetProofMessagePart {
+                items: vec![],
+                proof: "proof".to_string(),
+            }),
+            non_certified_blocks: vec![],
             latest_block_number: Default::default(),
         };
         let _server_mock = server.mock(|when, then| {

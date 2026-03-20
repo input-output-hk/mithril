@@ -21,13 +21,13 @@ use mithril_aggregator_client::query::{
 use crate::cardano_block_client::CardanoBlockAggregatorRequest;
 use crate::cardano_transaction_v2_client::CardanoTransactionV2AggregatorRequest;
 use crate::{
-    CardanoBlocksTransactionsSnapshot, CardanoBlocksTransactionsSnapshotListItem,
-    CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
-    CardanoStakeDistributionListItem, CardanoTransactionSnapshot,
-    CardanoTransactionSnapshotListItem, CardanoTransactionsProofs, MithrilCertificate,
-    MithrilCertificateListItem, MithrilResult, MithrilStakeDistribution,
-    MithrilStakeDistributionListItem, Snapshot, SnapshotListItem, common::EpochSpecifier,
-    era::FetchedEra,
+    CardanoBlocksProofs, CardanoBlocksTransactionsSnapshot,
+    CardanoBlocksTransactionsSnapshotListItem, CardanoDatabaseSnapshot,
+    CardanoDatabaseSnapshotListItem, CardanoStakeDistribution, CardanoStakeDistributionListItem,
+    CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
+    CardanoTransactionsProofsV2, MithrilCertificate, MithrilCertificateListItem, MithrilResult,
+    MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
+    common::EpochSpecifier, era::FetchedEra,
 };
 use crate::{
     cardano_database_client::CardanoDatabaseAggregatorRequest,
@@ -160,7 +160,7 @@ impl CardanoTransactionV2AggregatorRequest for AggregatorHttpClient {
     async fn get_proof(
         &self,
         hashes: &[String],
-    ) -> MithrilResult<Option<CardanoTransactionsProofs>> {
+    ) -> MithrilResult<Option<CardanoTransactionsProofsV2>> {
         self.send(GetCardanoTransactionProofV2Query::for_hashes(hashes))
             .await
             .with_context(|| {
@@ -191,10 +191,7 @@ impl CardanoTransactionV2AggregatorRequest for AggregatorHttpClient {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CardanoBlockAggregatorRequest for AggregatorHttpClient {
-    async fn get_proof(
-        &self,
-        hashes: &[String],
-    ) -> MithrilResult<Option<CardanoTransactionsProofs>> {
+    async fn get_proof(&self, hashes: &[String]) -> MithrilResult<Option<CardanoBlocksProofs>> {
         self.send(GetCardanoBlockProofQuery::for_hashes(hashes))
             .await
             .with_context(|| format!("Failed to get Cardano blocks proofs for hashes '{hashes:?}'"))

@@ -1,7 +1,7 @@
 //! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano blocks.
 //!
 //! In order to do so it defines a [CardanoBlockClient] which exposes the following features:
-//!  - [get_proofs][CardanoBlockClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs] //TODO: rename to CardanoBlocksProofs
+//!  - [get_proofs][CardanoBlockClient::get_proofs]: get a [cryptographic proof][CardanoBlocksProofs]
 //!    that the blocks with given hash are included in the global Cardano blocks set.
 //!  - [get][CardanoBlockClient::get_snapshot]: get a [Cardano block snapshot][CardanoBlocksTransactionsSnapshot]
 //!    data from its hash.
@@ -32,7 +32,7 @@
 //! let certificate = client.certificate().verify_chain(&cardano_block_proof.certificate_hash).await?;
 //!
 //! // 3 - Ensure that the proof is indeed signed in the associated certificate
-//! let message = MessageBuilder::new().compute_cardano_transactions_proofs_message(&certificate, &verified_blocks);
+//! let message = MessageBuilder::new().compute_cardano_blocks_proofs_message(&certificate, &verified_blocks);
 //! if certificate.match_message(&message) {
 //!     // All green, Mithril certifies that those blocks are part of the Cardano blocks set.
 //!     println!("Certified blocks : {:?}", verified_blocks.certified_transactions());
@@ -81,8 +81,8 @@ use anyhow::Context;
 use std::sync::Arc;
 
 use crate::{
-    CardanoBlocksTransactionsSnapshot, CardanoBlocksTransactionsSnapshotListItem,
-    CardanoTransactionsProofs, MithrilResult,
+    CardanoBlocksProofs, CardanoBlocksTransactionsSnapshot,
+    CardanoBlocksTransactionsSnapshotListItem, MithrilResult,
 };
 
 /// HTTP client for CardanoBlocksAPI from the aggregator
@@ -96,10 +96,7 @@ pub struct CardanoBlockClient {
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait CardanoBlockAggregatorRequest: Send + Sync {
     /// Get a proof of membership for the given blocks hashes from the aggregator.
-    async fn get_proof(
-        &self,
-        hashes: &[String],
-    ) -> MithrilResult<Option<CardanoTransactionsProofs>>;
+    async fn get_proof(&self, hashes: &[String]) -> MithrilResult<Option<CardanoBlocksProofs>>;
 
     /// Fetch the list of latest signed Cardano blocks snapshots from the aggregator
     async fn list_latest_snapshots(
@@ -125,7 +122,7 @@ impl CardanoBlockClient {
     pub async fn get_proofs<T: ToString>(
         &self,
         blocks_hashes: &[T],
-    ) -> MithrilResult<CardanoTransactionsProofs> {
+    ) -> MithrilResult<CardanoBlocksProofs> {
         let blocks_hashes: Vec<String> = blocks_hashes.iter().map(|h| h.to_string()).collect();
 
         self.aggregator_requester
@@ -156,8 +153,8 @@ mod tests {
 
     use mithril_common::test::mock_extensions::MockBuilder;
 
-    use crate::CardanoTransactionsSetProof;
-    use crate::common::{BlockNumber, test::Dummy};
+    use crate::common::test::Dummy;
+    use crate::{CardanoBlock, MkSetProof};
 
     use super::*;
 
@@ -212,23 +209,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_proof_ok() {
-        let certificate_hash = "cert-hash-123".to_string();
-        let set_proof = CardanoTransactionsSetProof::dummy();
-        let expected_blocks_proofs = CardanoTransactionsProofs::new(
-            &certificate_hash,
-            vec![set_proof.clone()],
-            vec![],
-            BlockNumber(99999),
-        );
+        let set_proof = MkSetProof::<CardanoBlock>::dummy();
+        let expected_blocks_proofs = CardanoBlocksProofs {
+            certified_blocks: Some(set_proof.clone()),
+            ..Dummy::dummy()
+        };
 
         let aggregator_requester =
             MockBuilder::<MockCardanoBlockAggregatorRequest>::configure(|mock| {
                 let message = expected_blocks_proofs.clone();
                 mock.expect_get_proof()
                     .with(eq(message
-                        .certified_transactions
+                        .certified_blocks
                         .iter()
-                        .flat_map(|tx| tx.transactions_hashes.clone())
+                        .flat_map(|proof| proof.items.clone())
+                        .map(|block| block.block_hash)
                         .collect::<Vec<_>>()))
                     .return_once(|_| Ok(Some(message)));
             });
@@ -237,9 +232,9 @@ mod tests {
         let blocks_proofs = client
             .get_proofs(
                 &set_proof
-                    .transactions_hashes
+                    .items
                     .iter()
-                    .map(|h| h.as_str())
+                    .map(|h| h.block_hash.clone())
                     .collect::<Vec<_>>(),
             )
             .await
