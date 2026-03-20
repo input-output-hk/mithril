@@ -16,7 +16,7 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
-pub(crate) use unsafe_helpers::SnarkSetup;
+pub(crate) use unsafe_helpers::{SnarkSetup, midnight_vk_serde};
 
 /// Errors which can be outputted by the snark proof creation or verification.
 #[cfg(feature = "future_snark")]
