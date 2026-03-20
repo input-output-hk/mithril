@@ -9,10 +9,8 @@ use serde::Serialize;
 
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
-    circuits::halo2::circuit::StmCircuit,
-    circuits::halo2::types::CircuitBase,
-    proof_system::halo2_snark::{build_snark_message, prover_input::SnarkProverInput},
-    protocol::SnarkError,
+    circuits::halo2::{circuit::StmCircuit, types::CircuitBase},
+    proof_system::halo2_snark::{SnarkError, build_snark_message, prover_input::SnarkProverInput},
 };
 
 use super::{SnarkClerk, SnarkSetup};

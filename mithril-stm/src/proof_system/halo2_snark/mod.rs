@@ -18,6 +18,15 @@ pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
 pub(crate) use unsafe_helpers::SnarkSetup;
 
+/// Errors which can be outputted by the snark proof creation or verification.
+#[cfg(feature = "future_snark")]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+pub enum SnarkError {
+    /// The SNARK proof failed to verify
+    #[error("The SNARK proof failed to verify.")]
+    VerifyProofFail,
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

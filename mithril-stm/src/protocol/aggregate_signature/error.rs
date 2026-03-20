@@ -40,11 +40,3 @@ pub enum AggregateSignatureError {
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
 }
-
-/// Errors which can be outputted by the snark proof creation or verification.
-#[cfg(feature = "future_snark")]
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
-pub enum SnarkError {
-    #[error("The proof failed to verify.")]
-    VerifyProofFail,
-}

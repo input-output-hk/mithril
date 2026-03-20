@@ -5,8 +5,6 @@ mod parameters;
 mod participant;
 mod single_signature;
 
-#[cfg(feature = "future_snark")]
-pub use aggregate_signature::SnarkError;
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, Clerk,
