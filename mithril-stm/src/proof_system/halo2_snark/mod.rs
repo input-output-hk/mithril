@@ -1,4 +1,5 @@
 mod aggregate_key;
+mod circuit_verification_key;
 mod clerk;
 mod eligibility;
 mod message;
@@ -9,6 +10,7 @@ mod single_signature;
 mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
+pub(crate) use circuit_verification_key::midnight_vk_serde;
 pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,
@@ -16,7 +18,7 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
-pub(crate) use unsafe_helpers::{SnarkSetup, midnight_vk_serde};
+pub(crate) use unsafe_helpers::SnarkSetup;
 
 /// Errors which can be outputted by the snark proof creation or verification.
 #[cfg(feature = "future_snark")]

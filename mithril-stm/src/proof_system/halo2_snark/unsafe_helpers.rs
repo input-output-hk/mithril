@@ -81,25 +81,6 @@ impl SnarkSetup {
     }
 }
 
-pub mod midnight_vk_serde {
-    use midnight_proofs::utils::SerdeFormat;
-    use midnight_zk_stdlib::MidnightVK;
-    use serde::{Deserializer, Serializer};
-
-    pub fn serialize<S: Serializer>(vk: &MidnightVK, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        vk.write(&mut buf, SerdeFormat::RawBytes)
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_bytes(&buf)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<MidnightVK, D::Error> {
-        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        MidnightVK::read(&mut bytes.as_slice(), SerdeFormat::RawBytes)
-            .map_err(serde::de::Error::custom)
-    }
-}
-
 /// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
 /// if the file does not exist.
 ///
