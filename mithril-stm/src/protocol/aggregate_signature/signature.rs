@@ -8,6 +8,9 @@ use crate::{
     proof_system::ConcatenationProof,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::proof_system::SnarkProof;
+
 use super::{AggregateSignatureError, AggregateVerificationKey};
 
 /// The type of STM aggregate signature.
@@ -16,9 +19,9 @@ pub enum AggregateSignatureType {
     /// Concatenation proof system.
     #[default]
     Concatenation,
-    /// Future proof system. Not suitable for production.
+    /// SNARK proof system.
     #[cfg(feature = "future_snark")]
-    Future,
+    Snark,
 }
 
 impl AggregateSignatureType {
@@ -29,7 +32,7 @@ impl AggregateSignatureType {
         match self {
             AggregateSignatureType::Concatenation => 0,
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => 255,
+            AggregateSignatureType::Snark => 1,
         }
     }
 
@@ -40,7 +43,7 @@ impl AggregateSignatureType {
         match byte {
             0 => Some(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
-            255 => Some(AggregateSignatureType::Future),
+            1 => Some(AggregateSignatureType::Snark),
             _ => None,
         }
     }
@@ -51,7 +54,7 @@ impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureTyp
         match aggr_sig {
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => AggregateSignatureType::Future,
+            AggregateSignature::Snark(_) => AggregateSignatureType::Snark,
         }
     }
 }
@@ -63,7 +66,7 @@ impl FromStr for AggregateSignatureType {
         match s {
             "Concatenation" => Ok(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
-            "Future" => Ok(AggregateSignatureType::Future),
+            "Snark" => Ok(AggregateSignatureType::Snark),
             _ => Err(anyhow!("Unknown aggregate signature type: {}", s)),
         }
     }
@@ -74,7 +77,7 @@ impl Display for AggregateSignatureType {
         match self {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => write!(f, "Future"),
+            AggregateSignatureType::Snark => write!(f, "Snark"),
         }
     }
 }
@@ -86,9 +89,9 @@ impl Display for AggregateSignatureType {
     deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
 pub enum AggregateSignature<D: MembershipDigest> {
-    /// A future proof system.
+    /// SNARK proof system.
     #[cfg(feature = "future_snark")]
-    Future,
+    Snark(SnarkProof<D>),
 
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
@@ -99,7 +102,7 @@ pub enum AggregateSignature<D: MembershipDigest> {
 }
 
 impl<D: MembershipDigest> AggregateSignature<D> {
-    /// Verify an aggregate signature
+    /// Verify an aggregate signature.
     pub fn verify(
         &self,
         msg: &[u8],
@@ -113,13 +116,16 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 parameters,
             ),
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => Err(anyhow!(
-                AggregateSignatureError::UnsupportedProofSystem(self.into())
-            )),
+            AggregateSignature::Snark(snark_proof) => {
+                let snark_avk = avk.to_snark_aggregate_verification_key().ok_or_else(|| {
+                    anyhow!(AggregateSignatureError::MissingSnarkAggregateVerificationKey)
+                })?;
+                snark_proof.verify(msg, snark_avk)
+            }
         }
     }
 
-    /// Batch verify a set of aggregate signatures
+    /// Batch verify a set of aggregate signatures.
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
@@ -150,9 +156,18 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     ConcatenationProof::batch_verify(&concatenation_proofs, msgs, &avks, parameters)
                 }
                 #[cfg(feature = "future_snark")]
-                AggregateSignatureType::Future => Err(anyhow!(
-                    AggregateSignatureError::UnsupportedProofSystem(aggregate_signature_type)
-                )),
+                AggregateSignatureType::Snark => {
+                    for (((aggregate_signature, msg), avk), parameters) in aggregate_signatures
+                        .iter()
+                        .zip(msgs.iter())
+                        .zip(avks.iter())
+                        .zip(parameters.iter())
+                    {
+                        aggregate_signature.verify(msg, avk, parameters)?;
+                    }
+
+                    Ok(())
+                }
             },
         )
     }
@@ -169,7 +184,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 concatenation_proof.to_bytes()
             }
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => vec![],
+            AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes().unwrap(),
         };
         aggregate_signature_bytes.append(&mut proof_bytes);
 
@@ -188,7 +203,9 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 ConcatenationProof::from_bytes(proof_bytes)?,
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => Ok(AggregateSignature::Future),
+            AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(SnarkProof::from_bytes(
+                proof_bytes,
+            )?)),
         }
     }
 
@@ -197,7 +214,16 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         match self {
             AggregateSignature::Concatenation(proof) => Some(proof),
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Future => None,
+            AggregateSignature::Snark(_) => None,
+        }
+    }
+
+    /// If the aggregate signature is a SNARK proof, return it.
+    #[cfg(feature = "future_snark")]
+    pub fn to_snark_proof(&self) -> Option<&SnarkProof<D>> {
+        match self {
+            AggregateSignature::Snark(proof) => Some(proof),
+            AggregateSignature::Concatenation(_) => None,
         }
     }
 }
@@ -210,7 +236,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn golden_bytes_encoding_prefix() {
+        fn golden_bytes_encoding_prefix_for_concatenation() {
             assert_eq!(
                 0u8,
                 AggregateSignatureType::Concatenation.get_byte_encoding_prefix()
@@ -218,6 +244,19 @@ mod tests {
             assert_eq!(
                 AggregateSignatureType::from_byte_encoding_prefix(0u8),
                 Some(AggregateSignatureType::Concatenation)
+            );
+        }
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn golden_bytes_encoding_prefix_for_snark() {
+            assert_eq!(
+                1u8,
+                AggregateSignatureType::Snark.get_byte_encoding_prefix()
+            );
+            assert_eq!(
+                AggregateSignatureType::from_byte_encoding_prefix(1u8),
+                Some(AggregateSignatureType::Snark)
             );
         }
     }

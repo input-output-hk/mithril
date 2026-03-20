@@ -36,6 +36,14 @@ pub enum AggregateSignatureError {
     #[error("Batch verification of STM aggregate signatures failed")]
     BatchInvalid,
 
+    /// Missing SNARK aggregate verification key
+    #[error("Missing SNARK aggregate verification key")]
+    MissingSnarkAggregateVerificationKey,
+
+    /// Missing SNARK clerk for aggregate signature verification
+    #[error("Missing SNARK clerk for aggregate signature verification")]
+    MissingSnarkClerk,
+
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
