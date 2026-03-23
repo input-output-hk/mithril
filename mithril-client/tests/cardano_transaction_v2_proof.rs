@@ -46,7 +46,7 @@ async fn cardano_transaction_v2_proof_get_validate() {
 
     // 1 - get list of set proofs for wanted tx & associated certificate hash
     let proofs = cardano_transaction_v2_client
-        .get_proofs(&transaction_hashes)
+        .get_proof(&transaction_hashes)
         .await
         .expect("Getting proof for the transactions should not fail");
     assert_eq!(

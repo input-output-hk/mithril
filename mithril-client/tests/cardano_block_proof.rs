@@ -46,7 +46,7 @@ async fn cardano_block_proof_get_validate() {
 
     // 1 - get list of set proofs for wanted block hashes & associated certificate hash
     let proofs = cardano_block_client
-        .get_proofs(&blocks_hashes)
+        .get_proof(&blocks_hashes)
         .await
         .expect("Getting proof for the blocks should not fail");
     assert_eq!(

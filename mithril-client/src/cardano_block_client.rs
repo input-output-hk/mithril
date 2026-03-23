@@ -1,7 +1,7 @@
 //! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano blocks.
 //!
 //! In order to do so it defines a [CardanoBlockClient] which exposes the following features:
-//!  - [get_proofs][CardanoBlockClient::get_proofs]: get a [cryptographic proof][CardanoBlocksProofs]
+//!  - [get_proof][CardanoBlockClient::get_proof]: get a [cryptographic proof][CardanoBlocksProofs]
 //!    that the blocks with given hash are included in the global Cardano blocks set.
 //!  - [get][CardanoBlockClient::get_snapshot]: get a [Cardano block snapshot][CardanoBlocksTransactionsSnapshot]
 //!    data from its hash.
@@ -23,7 +23,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
 //! // 1 - Get a proof from the aggregator and verify it
-//! let cardano_block_proof = client.cardano_block().get_proofs(&["block-1", "block-2"]).await?;
+//! let cardano_block_proof = client.cardano_block().get_proof(&["block-1", "block-2"]).await?;
 //! println!("Mithril could not certify the following blocks : {:?}", &cardano_block_proof.non_certified_blocks);
 //!
 //! let verified_blocks = cardano_block_proof.verify()?;
@@ -119,7 +119,7 @@ impl CardanoBlockClient {
     }
 
     /// Get proofs that the given subset of blocks is included in the Cardano blocks set.
-    pub async fn get_proofs<T: ToString>(
+    pub async fn get_proof<T: ToString>(
         &self,
         blocks_hashes: &[T],
     ) -> MithrilResult<CardanoBlocksProofs> {
@@ -230,7 +230,7 @@ mod tests {
         let client = CardanoBlockClient::new(aggregator_requester);
 
         let blocks_proofs = client
-            .get_proofs(
+            .get_proof(
                 &set_proof
                     .items
                     .iter()
@@ -253,7 +253,7 @@ mod tests {
         let client = CardanoBlockClient::new(aggregator_requester);
 
         client
-            .get_proofs(&["tx-123"])
+            .get_proof(&["tx-123"])
             .await
             .expect_err("The certificate client should fail here.");
     }

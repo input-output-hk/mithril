@@ -1,7 +1,7 @@
 //! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano transactions.
 //!
 //! In order to do so it defines a [CardanoTransactionV2Client] which exposes the following features:
-//!  - [get_proofs][CardanoTransactionV2Client::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofsV2]
+//!  - [get_proof][CardanoTransactionV2Client::get_proof]: get a [cryptographic proof][CardanoTransactionsProofsV2]
 //!    that the transactions with given hash are included in the global Cardano transactions set.
 //!  - [get][CardanoTransactionV2Client::get_snapshot]: get a [Cardano transaction snapshot][CardanoBlocksTransactionsSnapshot]
 //!    data from its hash.
@@ -23,7 +23,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
 //! // 1 - Get a proof from the aggregator and verify it
-//! let cardano_transaction_proof = client.cardano_transaction_v2().get_proofs(&["tx-1", "tx-2"]).await?;
+//! let cardano_transaction_proof = client.cardano_transaction_v2().get_proof(&["tx-1", "tx-2"]).await?;
 //! println!("Mithril could not certify the following transactions : {:?}", &cardano_transaction_proof.non_certified_transactions);
 //!
 //! let verified_transactions = cardano_transaction_proof.verify()?;
@@ -68,7 +68,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_snapshots = client.cardano_transaction().list_snapshots().await?;
+//! let cardano_transaction_snapshots = client.cardano_transaction_v2().list_snapshots().await?;
 //!
 //! for cardano_transaction_snapshot in cardano_transaction_snapshots {
 //!     println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch);
@@ -122,7 +122,7 @@ impl CardanoTransactionV2Client {
     }
 
     /// Get proofs that the given subset of transactions is included in the Cardano transactions set.
-    pub async fn get_proofs<T: ToString>(
+    pub async fn get_proof<T: ToString>(
         &self,
         transactions_hashes: &[T],
     ) -> MithrilResult<CardanoTransactionsProofsV2> {
@@ -237,7 +237,7 @@ mod tests {
         let client = CardanoTransactionV2Client::new(aggregator_requester);
 
         let transactions_proofs = client
-            .get_proofs(
+            .get_proof(
                 &set_proof
                     .items
                     .iter()
@@ -259,7 +259,7 @@ mod tests {
             });
         let client = CardanoTransactionV2Client::new(aggregator_requester);
         client
-            .get_proofs(&["tx-123"])
+            .get_proof(&["tx-123"])
             .await
             .expect_err("The certificate client should fail here.");
     }
