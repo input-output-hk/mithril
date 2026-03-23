@@ -25,14 +25,13 @@ use mithril_aggregator_client::query::{
 };
 
 #[cfg(feature = "unstable")]
-use crate::cardano_block_client::CardanoBlockAggregatorRequest;
-#[cfg(feature = "unstable")]
-use crate::cardano_transaction_v2_client::CardanoTransactionV2AggregatorRequest;
-#[cfg(feature = "unstable")]
 use crate::{
     CardanoBlocksProofs, CardanoBlocksTransactionsSnapshot,
     CardanoBlocksTransactionsSnapshotListItem, CardanoTransactionsProofsV2,
+    cardano_block_client::CardanoBlockAggregatorRequest,
+    cardano_transaction_v2_client::CardanoTransactionV2AggregatorRequest,
 };
+
 use crate::{
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
     CardanoStakeDistributionListItem, CardanoTransactionSnapshot,

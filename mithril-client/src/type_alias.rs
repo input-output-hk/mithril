@@ -48,34 +48,31 @@ pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTra
 
 pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::CardanoTransactionsProofsV2Message as CardanoTransactionsProofsV2;
+cfg_unstable! {
+    pub use mithril_common::messages::CardanoTransactionsProofsV2Message as CardanoTransactionsProofsV2;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::CardanoBlocksProofsMessage as CardanoBlocksProofs;
+    pub use mithril_common::messages::CardanoBlocksProofsMessage as CardanoBlocksProofs;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::MkSetProofMessagePart as MkSetProof;
+    pub use mithril_common::messages::MkSetProofMessagePart as MkSetProof;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::CardanoBlockMessagePart as CardanoBlock;
+    pub use mithril_common::messages::CardanoBlockMessagePart as CardanoBlock;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::CardanoTransactionMessagePart as CardanoTransaction;
+    pub use mithril_common::messages::CardanoTransactionMessagePart as CardanoTransaction;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::VerifiedCardanoTransactionsV2;
+    pub use mithril_common::messages::VerifiedCardanoTransactionsV2;
 
-#[cfg(feature = "unstable")]
-pub use mithril_common::messages::VerifiedCardanoBlocks;
+    pub use mithril_common::messages::VerifiedCardanoBlocks;
+
+    pub use mithril_common::messages::VerifyProofsV2Error;
+
+    pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotMessage as CardanoBlocksTransactionsSnapshot;
+
+    pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotListItemMessage as CardanoBlocksTransactionsSnapshotListItem;
+}
 
 pub use mithril_common::messages::VerifiedCardanoTransactions;
 
 pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
-
-pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotMessage as CardanoBlocksTransactionsSnapshot;
-
-pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotListItemMessage as CardanoBlocksTransactionsSnapshotListItem;
 
 /// A snapshot that allow to know up to which [point of time][common::CardanoDbBeacon] Mithril have certified Cardano transactions.
 pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
