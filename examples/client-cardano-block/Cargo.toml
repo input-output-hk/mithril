@@ -1,0 +1,19 @@
+[package]
+name = "client-cardano-block"
+description = "Mithril client cardano-block example"
+version = "0.1.0"
+authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
+documentation = "https://mithril.network/doc"
+edition = "2021"
+homepage = "https://mithril.network"
+license = "Apache-2.0"
+repository = "https://github.com/input-output-hk/mithril/"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+mithril-client = { path = "../../mithril-client", features = ["unstable", "rustls-tls"] }
+slog = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

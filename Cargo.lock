@@ -998,6 +998,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-cardano-block"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
 name = "client-cardano-database-v2"
 version = "0.0.18"
 dependencies = [
@@ -1026,6 +1039,19 @@ dependencies = [
 [[package]]
 name = "client-cardano-transaction"
 version = "0.1.26"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
+name = "client-cardano-transaction-v2"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
