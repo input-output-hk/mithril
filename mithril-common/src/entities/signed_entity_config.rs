@@ -319,7 +319,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn computing_block_number_to_be_signed() {
+        fn compute_without_a_security_parameter() {
             // **block_number = ((tip.block_number - k') / n) × n**
             let block_number = BlockNumber(105);
             let signing_config = CardanoTransactionsSigningConfig {
@@ -330,7 +330,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 104
             );
+        }
 
+        #[test]
+        fn compute_with_security_parameter_lower_than_block_number() {
             let block_number = BlockNumber(100);
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(5),
@@ -340,7 +343,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 89
             );
+        }
 
+        #[test]
+        fn when_security_parameter_plus_step_equal_to_block_number_return_step_minus_1() {
             let block_number = BlockNumber(100);
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(85),
@@ -350,7 +356,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 14
             );
+        }
 
+        #[test]
+        fn when_step_higher_than_block_number_return_0() {
             let block_number = BlockNumber(29);
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -363,7 +372,7 @@ mod tests {
         }
 
         #[test]
-        fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
+        fn should_not_overlow_on_security_parameter() {
             let block_number = BlockNumber(50);
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(100),
@@ -376,7 +385,7 @@ mod tests {
         }
 
         #[test]
-        fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+        fn round_step_to_previous_block_range_start_when_step_right_below_said_block_range_start() {
             let block_number = BlockRange::LENGTH * 5 + 1;
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -386,7 +395,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 5 - 1
             );
+        }
 
+        #[test]
+        fn round_step_to_block_range_start_when_step_right_after_said_block_range_start() {
             let block_number = BlockRange::LENGTH * 5 + 1;
             let signing_config = CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -396,7 +408,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 4 - 1
             );
+        }
 
+        #[test]
+        fn step_lower_than_block_range_length_is_adjusted_to_block_range_length() {
             // Adjusted step is always at least BLOCK_RANGE_LENGTH.
             let block_number = BlockRange::LENGTH * 10 - 1;
             let signing_config = CardanoTransactionsSigningConfig {
@@ -407,7 +422,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 9 - 1
             );
+        }
 
+        #[test]
+        fn step_and_block_number_below_block_range_length_returns_0() {
             // Adjusted step is always at least BLOCK_RANGE_LENGTH.
             let block_number = BlockRange::LENGTH - 1;
             let signing_config = CardanoTransactionsSigningConfig {
@@ -425,7 +443,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn computing_block_number_to_be_signed() {
+        fn compute_without_a_security_parameter() {
             // **block_number = ((tip.block_number - k') / n) × n**
             let block_number = BlockNumber(105);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
@@ -436,7 +454,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 104
             );
+        }
 
+        #[test]
+        fn compute_with_security_parameter_lower_than_block_number() {
             let block_number = BlockNumber(100);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(5),
@@ -446,7 +467,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 89
             );
+        }
 
+        #[test]
+        fn when_security_parameter_plus_step_equal_to_block_number_return_step_minus_1() {
             let block_number = BlockNumber(100);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(85),
@@ -456,7 +480,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 14
             );
+        }
 
+        #[test]
+        fn when_step_higher_than_block_number_return_0() {
             let block_number = BlockNumber(29);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -469,7 +496,7 @@ mod tests {
         }
 
         #[test]
-        fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
+        fn should_not_overlow_on_security_parameter() {
             let block_number = BlockNumber(50);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(100),
@@ -482,7 +509,7 @@ mod tests {
         }
 
         #[test]
-        fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+        fn round_step_to_previous_block_range_start_when_step_right_below_said_block_range_start() {
             let block_number = BlockRange::LENGTH * 5 + 1;
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -492,7 +519,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 5 - 1
             );
+        }
 
+        #[test]
+        fn round_step_to_block_range_start_when_step_right_after_said_block_range_start() {
             let block_number = BlockRange::LENGTH * 5 + 1;
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -502,7 +532,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 4 - 1
             );
+        }
 
+        #[test]
+        fn step_lower_than_block_range_length_is_adjusted_to_block_range_length() {
             // Adjusted step is always at least BLOCK_RANGE_LENGTH.
             let block_number = BlockRange::LENGTH * 10 - 1;
             let signing_config = CardanoBlocksTransactionsSigningConfig {
@@ -513,7 +546,10 @@ mod tests {
                 signing_config.compute_block_number_to_be_signed(block_number),
                 BlockRange::LENGTH * 9 - 1
             );
+        }
 
+        #[test]
+        fn step_and_block_number_below_block_range_length_returns_0() {
             // Adjusted step is always at least BLOCK_RANGE_LENGTH.
             let block_number = BlockRange::LENGTH - 1;
             let signing_config = CardanoBlocksTransactionsSigningConfig {
