@@ -434,7 +434,7 @@ mod tests {
                     }
                     sig_reg.sig.set_concatenation_signature_indices(&new_indices);
                 }
-                *aggr = AggregateSignature::Concatenation(concatenation_proof);
+                *aggr = AggregateSignature::Concatenation(Box::new(concatenation_proof));
             })
         }
 
@@ -454,7 +454,7 @@ mod tests {
                     }
                 };
                 concatenation_proof.batch_proof = batch_proof;
-                *aggr = AggregateSignature::Concatenation(concatenation_proof);
+                *aggr = AggregateSignature::Concatenation(Box::new(concatenation_proof));
             })
         }
     }

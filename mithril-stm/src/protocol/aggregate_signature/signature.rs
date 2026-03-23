@@ -91,14 +91,14 @@ impl Display for AggregateSignatureType {
 pub enum AggregateSignature<D: MembershipDigest> {
     /// SNARK proof system.
     #[cfg(feature = "future_snark")]
-    Snark(SnarkProof<D>),
+    Snark(Box<SnarkProof<D>>),
 
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
     // It implies that this variant is placed at the end of the enum.
     // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
     #[serde(untagged)]
-    Concatenation(ConcatenationProof<D>),
+    Concatenation(Box<ConcatenationProof<D>>),
 }
 
 impl<D: MembershipDigest> AggregateSignature<D> {
@@ -200,12 +200,12 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
         match proof_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::from_bytes(proof_bytes)?,
+                Box::new(ConcatenationProof::from_bytes(proof_bytes)?),
             )),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(SnarkProof::from_bytes(
-                proof_bytes,
-            )?)),
+            AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(Box::new(
+                SnarkProof::from_bytes(proof_bytes)?,
+            ))),
         }
     }
 
@@ -851,7 +851,7 @@ mod tests {
                     .aggregate_signatures::<D>(snark_clerk, &signatures, &message)
                     .expect("SNARK signature aggregation must succeed");
 
-            AggregateSignature::Snark(snark_proof)
+            AggregateSignature::Snark(Box::new(snark_proof))
         }
 
         #[test]

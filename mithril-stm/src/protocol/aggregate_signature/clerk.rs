@@ -70,15 +70,21 @@ impl<D: MembershipDigest> Clerk<D> {
         aggregate_signature_type: AggregateSignatureType,
     ) -> StmResult<AggregateSignature<D>> {
         match aggregate_signature_type {
-            AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::aggregate_signatures(self.get_concatenation_clerk(), sigs, msg)
+            AggregateSignatureType::Concatenation => {
+                Ok(AggregateSignature::Concatenation(Box::new(
+                    ConcatenationProof::aggregate_signatures(
+                        self.get_concatenation_clerk(),
+                        sigs,
+                        msg,
+                    )
                     .with_context(|| {
                         format!(
                             "Signatures failed to aggregate for type {}",
                             AggregateSignatureType::Concatenation
                         )
                     })?,
-            )),
+                )))
+            }
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => {
                 let clerk = self
@@ -91,7 +97,7 @@ impl<D: MembershipDigest> Clerk<D> {
                     .trailing_zeros();
                 SnarkProver::try_new_non_deterministic(&clerk.parameters, merkle_tree_depth)?
                     .aggregate_signatures(clerk, sigs, msg)
-                    .map(AggregateSignature::Snark)
+                    .map(|p| AggregateSignature::Snark(Box::new(p)))
                     .with_context(|| {
                         format!(
                             "Signatures failed to aggregate for type {}",
