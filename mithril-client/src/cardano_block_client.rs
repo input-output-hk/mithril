@@ -53,7 +53,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let cardano_block_snapshot = client.cardano_block().get_snapshot("CARDANO_BLOCK_SNAPSHOT_HASH").await?.unwrap();
 //!
-//! println!("Cardano block snapshot hash={}, epoch={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch);
+//! println!("Cardano block snapshot hash={}, epoch={}, block_number_signed={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch, cardano_block_snapshot.block_number_signed);
 //! #    Ok(())
 //! # }
 //! ```
@@ -71,7 +71,7 @@
 //! let cardano_block_snapshots = client.cardano_block().list_snapshots().await?;
 //!
 //! for cardano_block_snapshot in cardano_block_snapshots {
-//!     println!("Cardano block snapshot hash={}, epoch={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch);
+//!     println!("Cardano block snapshot hash={}, epoch={}, block_number_signed={}", cardano_block_snapshot.hash, cardano_block_snapshot.epoch, cardano_block_snapshot.block_number_signed);
 //! }
 //! #    Ok(())
 //! # }
