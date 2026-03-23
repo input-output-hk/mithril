@@ -209,12 +209,44 @@ impl RuntimeTester {
         }
     }
 
+    pub async fn rebuild(&mut self, configuration: ServeCommandConfiguration) {
+        // Rebuild only test doubles that were not stored in the RuntimeTester
+        let snapshotter = Arc::new(FakeSnapshotter::new(
+            configuration.get_snapshot_dir().unwrap().join("fake_snapshots"),
+        ));
+
+        let mut deps_builder =
+            DependenciesBuilder::new(slog_scope::logger(), Arc::new(configuration));
+        deps_builder.snapshotter = Some(snapshotter);
+
+        // Re-use tests doubles
+        deps_builder.snapshot_uploader = Some(self.snapshot_uploader.clone());
+        deps_builder.chain_observer = Some(self.chain_observer.clone());
+        deps_builder.immutable_file_observer = Some(self.immutable_file_observer.clone());
+        deps_builder.immutable_digester = Some(self.digester.clone());
+        deps_builder.era_reader = Some(Arc::new(EraReader::new(self.era_reader_adapter.clone())));
+        deps_builder.block_scanner = Some(self.block_scanner.clone());
+
+        // Re-use the metrics service to keep the current metrics
+        deps_builder.metrics_service = Some(self.metrics_service.clone());
+
+        self.dependencies = deps_builder.build_serve_dependencies_container().await.unwrap();
+        self.runtime = deps_builder.create_aggregator_runner().await.unwrap();
+        self.observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
+        self.open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
+    }
+
     /// cycle the runtime once
     pub async fn cycle(&mut self) -> StdResult<()> {
         self.runtime
             .cycle()
             .await
-            .with_context(|| "Ticking the state machine should not fail")
+            .with_context(|| "Ticking the state machine should not fail")?;
+
+        // Yield to allow eventual thread spawned by the state machine to run (e.g., the artifact creation thread)
+        tokio::task::yield_now().await;
+
+        Ok(())
     }
 
     /// Init the aggregator state based on the data in the given fixture
@@ -281,11 +313,6 @@ impl RuntimeTester {
             .await
             .with_context(|| "a new epoch should have been issued")?;
         self.update_digester_digest().await;
-        self.dependencies
-            .certifier_service
-            .inform_epoch(new_epoch)
-            .await
-            .with_context(|| "inform_epoch should not fail")?;
 
         Ok(new_epoch)
     }

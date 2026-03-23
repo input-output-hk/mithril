@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use mithril_aggregator::{
@@ -160,5 +161,18 @@ impl AggregatorObserver {
                     .first()
                     .map(|s| &s.signed_entity_type)),
         }
+    }
+
+    /// Get the list of discriminants that currently can be signed by the aggregator.
+    pub async fn list_signable_signed_entity_discriminants(
+        &self,
+    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
+        let discriminants = self
+            .epoch_service
+            .read()
+            .await
+            .signed_entity_config()?
+            .list_allowed_signed_entity_types_discriminants();
+        Ok(discriminants)
     }
 }

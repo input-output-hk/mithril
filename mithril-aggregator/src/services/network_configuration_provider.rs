@@ -1,10 +1,13 @@
-use anyhow::Context;
-use async_trait::async_trait;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
+use anyhow::Context;
+use async_trait::async_trait;
+use slog::{Logger, warn};
+
 use mithril_common::StdResult;
-use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
+use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants};
+use mithril_common::logging::LoggerExtensions;
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_protocol_config::model::{
     MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
@@ -19,6 +22,7 @@ pub struct LocalMithrilNetworkConfigurationProvider {
     local_configuration_epoch_settings: AggregatorEpochSettings,
     allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     epoch_settings_store: Arc<dyn EpochSettingsStorer>,
+    logger: Logger,
 }
 
 impl LocalMithrilNetworkConfigurationProvider {
@@ -27,11 +31,13 @@ impl LocalMithrilNetworkConfigurationProvider {
         local_configuration_epoch_settings: AggregatorEpochSettings,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         epoch_settings_store: Arc<dyn EpochSettingsStorer>,
+        logger: Logger,
     ) -> Self {
         Self {
             local_configuration_epoch_settings,
             allowed_discriminants,
             epoch_settings_store,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -57,8 +63,29 @@ impl LocalMithrilNetworkConfigurationProvider {
             },
         );
 
+        let enabled_signed_entity_types = match (SignedEntityConfig {
+            allowed_discriminants: self.allowed_discriminants.clone(),
+            cardano_transactions_signing_config: epoch_settings
+                .cardano_transactions_signing_config
+                .clone(),
+            cardano_blocks_transactions_signing_config: epoch_settings
+                .cardano_blocks_transactions_signing_config
+                .clone(),
+        })
+        .check_consistency()
+        {
+            Ok(usable_discriminants) => usable_discriminants,
+            Err(err) => {
+                warn!(
+                    self.logger, "Some allowed signed entity could not be enabled for epoch {epoch}; using only the usable subset";
+                    "error" => %err
+                );
+                err.usable_discriminants
+            }
+        };
+
         Ok(MithrilNetworkConfigurationForEpoch {
-            enabled_signed_entity_types: self.allowed_discriminants.clone(),
+            enabled_signed_entity_types,
             protocol_parameters: epoch_settings.protocol_parameters,
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: epoch_settings.cardano_transactions_signing_config,
@@ -111,6 +138,7 @@ mod tests {
     };
 
     use crate::store::FakeEpochSettingsStorer;
+    use crate::test::TestLogger;
 
     use super::*;
 
@@ -132,6 +160,7 @@ mod tests {
                 Epoch(42),
                 stored_epoch_settings.clone(),
             )])),
+            TestLogger::stdout(),
         );
 
         let network_configuration = local_provider
@@ -156,6 +185,7 @@ mod tests {
             local_configuration_epoch_settings.clone(),
             SignedEntityTypeDiscriminants::all(),
             Arc::new(FakeEpochSettingsStorer::new(vec![])),
+            TestLogger::stdout(),
         );
 
         let network_configuration = local_provider
@@ -166,6 +196,77 @@ mod tests {
         assert_eq!(
             local_configuration_epoch_settings.protocol_parameters,
             network_configuration.protocol_parameters
+        )
+    }
+
+    #[tokio::test]
+    async fn get_stored_configuration_disable_inconsistent_discriminants_without_fallback() {
+        let local_configuration_epoch_settings = AggregatorEpochSettings::dummy();
+        let stored_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
+            ..Dummy::dummy()
+        };
+
+        let local_provider = LocalMithrilNetworkConfigurationProvider::new(
+            local_configuration_epoch_settings,
+            // enable all signed entity types even if we don't have a configuration for them
+            SignedEntityTypeDiscriminants::all(),
+            Arc::new(FakeEpochSettingsStorer::new(vec![(
+                Epoch(42),
+                stored_epoch_settings.clone(),
+            )])),
+            TestLogger::stdout(),
+        );
+
+        let network_configuration = local_provider
+            .get_stored_configuration_or_fallback(Epoch(42))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all()
+                // Discriminants without associated configuration should have been removed
+                .difference(&BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                ]))
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            network_configuration.enabled_signed_entity_types
+        )
+    }
+
+    #[tokio::test]
+    async fn get_stored_configuration_disable_inconsistent_discriminants_when_fallback() {
+        let local_configuration_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
+            ..Dummy::dummy()
+        };
+
+        let local_provider = LocalMithrilNetworkConfigurationProvider::new(
+            local_configuration_epoch_settings.clone(),
+            SignedEntityTypeDiscriminants::all(),
+            Arc::new(FakeEpochSettingsStorer::new(vec![])),
+            TestLogger::stdout(),
+        );
+
+        let network_configuration = local_provider
+            .get_stored_configuration_or_fallback(Epoch(42))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all()
+                // Discriminants without associated configuration should have been removed
+                .difference(&BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                ]))
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            network_configuration.enabled_signed_entity_types
         )
     }
 
@@ -228,6 +329,7 @@ mod tests {
                     },
                 ),
             ])),
+            TestLogger::stdout(),
         );
 
         let configuration = local_provider.get_network_configuration(Epoch(43)).await.unwrap();
