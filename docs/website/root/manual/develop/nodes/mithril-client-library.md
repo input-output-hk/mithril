@@ -66,7 +66,7 @@ Mithril client is an asynchronous library. You will need a runtime to execute yo
 
 ### Cardano transactions
 
-Here is a basic example of the code targetting the `release-preprod` network aggregator:
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
@@ -142,7 +142,7 @@ cargo run
 
 ### Cardano transactions v2
 
-Here is a basic example of the code targetting the `release-preprod` network aggregator:
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
@@ -207,7 +207,7 @@ async fn main() -> MithrilResult<()> {
 
 ### Cardano blocks
 
-Here is a basic example of the code targetting the `release-preprod` network aggregator:
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
@@ -272,7 +272,7 @@ async fn main() -> MithrilResult<()> {
 
 ### Cardano stake distribution
 
-Here is a basic example of the code targetting the `release-preprod` network aggregator:
+Here is a basic example of the code targeting the `release-preprod` network aggregator:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
