@@ -4251,6 +4251,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "getrandom 0.4.1",
  "mithril-build-script",
  "mithril-client",
  "serde",
