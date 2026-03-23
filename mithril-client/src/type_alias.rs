@@ -48,6 +48,28 @@ pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTra
 
 pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
 
+cfg_unstable! {
+    pub use mithril_common::messages::CardanoTransactionsProofsV2Message as CardanoTransactionsProofsV2;
+
+    pub use mithril_common::messages::CardanoBlocksProofsMessage as CardanoBlocksProofs;
+
+    pub use mithril_common::messages::MkSetProofMessagePart as MkSetProof;
+
+    pub use mithril_common::messages::CardanoBlockMessagePart as CardanoBlock;
+
+    pub use mithril_common::messages::CardanoTransactionMessagePart as CardanoTransaction;
+
+    pub use mithril_common::messages::VerifiedCardanoTransactionsV2;
+
+    pub use mithril_common::messages::VerifiedCardanoBlocks;
+
+    pub use mithril_common::messages::VerifyProofsV2Error;
+
+    pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotMessage as CardanoBlocksTransactionsSnapshot;
+
+    pub use mithril_common::messages::CardanoBlocksTransactionsSnapshotListItemMessage as CardanoBlocksTransactionsSnapshotListItem;
+}
+
 pub use mithril_common::messages::VerifiedCardanoTransactions;
 
 pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;

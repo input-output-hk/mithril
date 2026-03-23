@@ -23,6 +23,9 @@ use crate::{
     common::{ProtocolMessage, ProtocolMessagePartKey},
 };
 
+#[cfg(feature = "unstable")]
+use crate::{VerifiedCardanoBlocks, VerifiedCardanoTransactionsV2};
+
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
     #[cfg(feature = "fs")]
@@ -183,6 +186,44 @@ impl MessageBuilder {
         let mut message = transactions_proofs_certificate.protocol_message.clone();
         verified_transactions.fill_protocol_message(&mut message);
         message
+    }
+
+    cfg_unstable! {
+        /// Compute message for a Cardano Blocks Proofs.
+        pub fn compute_cardano_blocks_proofs_message(
+            &self,
+            blocks_proofs_certificate: &MithrilCertificate,
+            verified_blocks: &VerifiedCardanoBlocks,
+        ) -> ProtocolMessage {
+            let mut message = blocks_proofs_certificate.protocol_message.clone();
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+                verified_blocks.certified_merkle_root().to_string(),
+            );
+            message.set_message_part(
+                ProtocolMessagePartKey::LatestBlockNumber,
+                verified_blocks.latest_certified_block_number().to_string(),
+            );
+            message
+        }
+
+        /// Compute message for a Cardano Transaction V2 Proofs.
+        pub fn compute_cardano_transactions_proofs_v2_message(
+            &self,
+            transactions_proofs_certificate: &MithrilCertificate,
+            verified_transactions: &VerifiedCardanoTransactionsV2,
+        ) -> ProtocolMessage {
+            let mut message = transactions_proofs_certificate.protocol_message.clone();
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoBlocksTransactionsMerkleRoot,
+                verified_transactions.certified_merkle_root().to_string(),
+            );
+            message.set_message_part(
+                ProtocolMessagePartKey::LatestBlockNumber,
+                verified_transactions.latest_certified_block_number().to_string(),
+            );
+            message
+        }
     }
 
     /// Compute message for a Cardano stake distribution.
