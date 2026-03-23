@@ -315,88 +315,216 @@ mod tests {
         );
     }
 
-    #[test]
-    fn computing_block_number_to_be_signed() {
-        // **block_number = ((tip.block_number - k') / n) × n**
-        let block_number = BlockNumber(105);
-        let security_parameter = BlockNumber(0);
-        let step = BlockNumber(15);
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            104
-        );
+    mod compute_block_number_to_be_signed_for_cardano_transactions {
+        use super::*;
 
-        let block_number = BlockNumber(100);
-        let security_parameter = BlockNumber(5);
-        let step = BlockNumber(15);
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            89
-        );
+        #[test]
+        fn computing_block_number_to_be_signed() {
+            // **block_number = ((tip.block_number - k') / n) × n**
+            let block_number = BlockNumber(105);
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                104
+            );
 
-        let block_number = BlockNumber(100);
-        let security_parameter = BlockNumber(85);
-        let step = BlockNumber(15);
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            14
-        );
+            let block_number = BlockNumber(100);
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(5),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                89
+            );
 
-        let block_number = BlockNumber(29);
-        let security_parameter = BlockNumber(0);
-        let step = BlockNumber(30);
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            0
-        );
+            let block_number = BlockNumber(100);
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(85),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                14
+            );
+
+            let block_number = BlockNumber(29);
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(30),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
+
+        #[test]
+        fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
+            let block_number = BlockNumber(50);
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(30),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
+
+        #[test]
+        fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+            let block_number = BlockRange::LENGTH * 5 + 1;
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH * 2 - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 5 - 1
+            );
+
+            let block_number = BlockRange::LENGTH * 5 + 1;
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH * 2 + 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 4 - 1
+            );
+
+            // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+            let block_number = BlockRange::LENGTH * 10 - 1;
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 9 - 1
+            );
+
+            // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+            let block_number = BlockRange::LENGTH - 1;
+            let signing_config = CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
     }
 
-    #[test]
-    fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
-        let block_number = BlockNumber(50);
-        let security_parameter = BlockNumber(100);
-        let step = BlockNumber(30);
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            0
-        );
-    }
+    mod compute_block_number_to_be_signed_for_cardano_blocks_transactions {
+        use super::*;
 
-    #[test]
-    fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
-        let block_number = BlockRange::LENGTH * 5 + 1;
-        let security_parameter = BlockNumber(0);
-        let step = BlockRange::LENGTH * 2 - 1;
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            BlockRange::LENGTH * 5 - 1
-        );
+        #[test]
+        fn computing_block_number_to_be_signed() {
+            // **block_number = ((tip.block_number - k') / n) × n**
+            let block_number = BlockNumber(105);
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                104
+            );
 
-        let block_number = BlockRange::LENGTH * 5 + 1;
-        let security_parameter = BlockNumber(0);
-        let step = BlockRange::LENGTH * 2 + 1;
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            BlockRange::LENGTH * 4 - 1
-        );
+            let block_number = BlockNumber(100);
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(5),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                89
+            );
 
-        // Adjusted step is always at least BLOCK_RANGE_LENGTH.
-        let block_number = BlockRange::LENGTH * 10 - 1;
-        let security_parameter = BlockNumber(0);
-        let step = BlockRange::LENGTH - 1;
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            BlockRange::LENGTH * 9 - 1
-        );
+            let block_number = BlockNumber(100);
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(85),
+                step: BlockNumber(15),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                14
+            );
 
-        // Adjusted step is always at least BLOCK_RANGE_LENGTH.
-        let block_number = BlockRange::LENGTH - 1;
-        let security_parameter = BlockNumber(0);
-        let step = BlockRange::LENGTH - 1;
-        assert_eq!(
-            compute_block_number_to_be_signed(block_number, security_parameter, step),
-            0
-        );
+            let block_number = BlockNumber(29);
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(30),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
+
+        #[test]
+        fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
+            let block_number = BlockNumber(50);
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(30),
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
+
+        #[test]
+        fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+            let block_number = BlockRange::LENGTH * 5 + 1;
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH * 2 - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 5 - 1
+            );
+
+            let block_number = BlockRange::LENGTH * 5 + 1;
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH * 2 + 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 4 - 1
+            );
+
+            // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+            let block_number = BlockRange::LENGTH * 10 - 1;
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                BlockRange::LENGTH * 9 - 1
+            );
+
+            // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+            let block_number = BlockRange::LENGTH - 1;
+            let signing_config = CardanoBlocksTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockRange::LENGTH - 1,
+            };
+            assert_eq!(
+                signing_config.compute_block_number_to_be_signed(block_number),
+                0
+            );
+        }
     }
 
     #[test]
