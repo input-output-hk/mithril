@@ -1212,11 +1212,9 @@ mod tests {
     mod snark_avk_chaining {
         use super::*;
 
-        use crate::crypto_helper::ProtocolMembershipDigest;
         use crate::entities::SupportedEra;
         use crate::test::builder::{CertificateChainBuilder, CertificateChainFixture};
-
-        use mithril_stm::{AggregateSignature, SnarkProof};
+        use crate::test::double::fake_data::snark_aggregate_signature;
 
         fn setup_certificate_chain_with_lagrange_era(
             total_certificates: u64,
@@ -1234,8 +1232,7 @@ mod tests {
             if let CertificateSignature::MultiSignature(entity_type, _) =
                 certificate.signature.clone()
             {
-                let snark_signature: AggregateSignature<ProtocolMembershipDigest> =
-                    AggregateSignature::Snark(Box::new(SnarkProof::from_bytes(&[]).unwrap()));
+                let snark_signature = snark_aggregate_signature();
                 certificate.signature =
                     CertificateSignature::MultiSignature(entity_type, snark_signature);
                 certificate.hash = certificate.compute_hash();
