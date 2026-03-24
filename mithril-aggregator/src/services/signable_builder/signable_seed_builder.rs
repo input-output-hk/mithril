@@ -59,14 +59,12 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
                 return Ok(None);
             }
 
-            let snark_avk = (*epoch_service)
+            let Some(snark_avk) = (*epoch_service)
                 .next_aggregate_verification_key()?
                 .to_snark_aggregate_verification_key()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "SNARK aggregate verification key is unavailable during Lagrange era"
-                    )
-                })?;
+            else {
+                return Ok(None);
+            };
             let next_aggregate_verification_key = ProtocolKey::new(snark_avk.to_owned())
                 .to_bytes_hex()
                 .with_context(|| "convert next snark avk to bytes hex failure")?;
@@ -98,7 +96,7 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{Epoch, SupportedEra},
+        entities::{Epoch, SignerWithStake, SupportedEra},
         test::{
             builder::{MithrilFixture, MithrilFixtureBuilder},
             double::Dummy,
@@ -189,6 +187,48 @@ mod tests {
         assert!(
             result.is_none(),
             "SNARK AVK should not be computed during Pythagoras era"
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn compute_next_snark_avk_returns_none_when_snark_avk_unavailable_during_lagrange_era() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let next_signers_without_snark =
+            SignerWithStake::strip_snark_fields(next_fixture.signers_with_stake());
+        let epoch_service = Arc::new(RwLock::new(
+            FakeEpochServiceBuilder {
+                current_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                next_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                signer_registration_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                current_signers_with_stake: fixture.signers_with_stake(),
+                next_signers_with_stake: next_signers_without_snark,
+                mithril_era: SupportedEra::Lagrange,
+                ..FakeEpochServiceBuilder::dummy(epoch)
+            }
+            .build(),
+        ));
+        let signable_seed_builder = AggregatorSignableSeedBuilder::new(epoch_service);
+
+        let result = signable_seed_builder
+            .compute_next_aggregate_verification_key_for_snark()
+            .await
+            .unwrap();
+
+        assert!(
+            result.is_none(),
+            "SNARK AVK should not be computed when SNARK is not yet set up during Lagrange era"
         );
     }
 

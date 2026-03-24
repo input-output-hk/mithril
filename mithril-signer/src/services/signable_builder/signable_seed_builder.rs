@@ -66,7 +66,7 @@ impl SignerSignableSeedBuilder {
         &self,
         protocol_initializer: ProtocolInitializer,
         signers_with_stake: &[SignerWithStake],
-    ) -> StdResult<String> {
+    ) -> StdResult<Option<String>> {
         let signer_builder = SignerBuilder::new(
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
@@ -76,19 +76,16 @@ impl SignerSignableSeedBuilder {
         )?;
 
         let aggregate_verification_key = signer_builder.compute_aggregate_verification_key();
-        let snark_avk = aggregate_verification_key
-            .to_snark_aggregate_verification_key()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SNARK aggregate verification key is unavailable during Lagrange era"
-                )
-            })?;
+        let Some(snark_avk) = aggregate_verification_key.to_snark_aggregate_verification_key()
+        else {
+            return Ok(None);
+        };
         let snark_avk_encoded =
             ProtocolKey::new(snark_avk.to_owned()).to_bytes_hex().with_context(
                 || "SignerSignableSeedBuilder can not serialize SNARK aggregate verification key",
             )?;
 
-        Ok(snark_avk_encoded)
+        Ok(Some(snark_avk_encoded))
     }
 }
 
@@ -137,9 +134,8 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
                     )
                 })?;
             let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
-            let next_snark_aggregate_verification_key = Some(
-                self.compute_encode_snark_avk(next_protocol_initializer, &next_signers_with_stake)?,
-            );
+            let next_snark_aggregate_verification_key =
+                self.compute_encode_snark_avk(next_protocol_initializer, &next_signers_with_stake)?;
 
             Ok(next_snark_aggregate_verification_key)
         }
@@ -340,6 +336,50 @@ mod tests {
                 .compute_and_encode_snark_aggregate_verification_key()
                 .expect("SNARK AVK should be available");
             assert_eq!(result, Some(expected_snark_avk));
+        }
+
+        #[tokio::test]
+        async fn returns_none_when_snark_avk_unavailable_during_lagrange_era() {
+            use mithril_common::entities::SignerWithStake;
+
+            let epoch = Epoch(5);
+            let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+            let protocol_initializer =
+                next_fixture.signers_fixture()[0].protocol_initializer.clone();
+            let next_signers_without_snark =
+                SignerWithStake::strip_snark_fields(next_fixture.signers_with_stake());
+            let mut mock_container = MockDependencyInjector::new();
+            mock_container.mock_epoch_service =
+                MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+                    mock_epoch_service
+                        .expect_mithril_era()
+                        .return_once(move || Ok(SupportedEra::Lagrange))
+                        .once();
+                    mock_epoch_service
+                        .expect_epoch_of_current_data()
+                        .return_once(move || Ok(epoch))
+                        .once();
+                    mock_epoch_service
+                        .expect_next_signers_with_stake()
+                        .return_once(move || Ok(next_signers_without_snark))
+                        .once();
+                });
+            mock_container
+                .mock_protocol_initializer_store
+                .expect_get_protocol_initializer()
+                .return_once(move |_| Ok(Some(protocol_initializer)))
+                .once();
+            let signable_seed_builder = mock_container.build_signable_builder_service();
+
+            let result = signable_seed_builder
+                .compute_next_aggregate_verification_key_for_snark()
+                .await
+                .unwrap();
+
+            assert!(
+                result.is_none(),
+                "SNARK AVK should not be computed when SNARK is not yet set up during Lagrange era"
+            );
         }
 
         #[tokio::test]
