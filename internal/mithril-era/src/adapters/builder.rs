@@ -11,7 +11,7 @@ use crate::{
     EraMarker, EraReaderAdapter,
     adapters::{
         EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
-        EraReaderFileAdapter,
+        EraReaderFileAdapter, EraReaderLatestAdapter,
     },
 };
 
@@ -28,6 +28,8 @@ pub enum AdapterType {
     Dummy,
     /// Bootstrap adapter.
     Bootstrap,
+    /// Latest adapter.
+    Latest,
 }
 
 impl Display for AdapterType {
@@ -37,6 +39,7 @@ impl Display for AdapterType {
             Self::CardanoChain => write!(f, "cardano chain"),
             Self::Dummy => write!(f, "dummy"),
             Self::File => write!(f, "file"),
+            Self::Latest => write!(f, "latest"),
         }
     }
 }
@@ -132,6 +135,7 @@ impl AdapterBuilder {
                 Ok(Arc::new(dummy_adapter))
             }
             AdapterType::Bootstrap => Ok(Arc::new(EraReaderBootstrapAdapter)),
+            AdapterType::Latest => Ok(Arc::new(EraReaderLatestAdapter)),
         }
     }
 }
