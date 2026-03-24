@@ -342,6 +342,13 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for InMemoryChainDataStore {
             .collect();
         Ok(Box::new(result.into_iter()))
     }
+
+    async fn retrieve_latest_block_range_roots_if_partial<'a>(
+        &'a self,
+        _block_number_included_in_the_latest_range: BlockNumber,
+    ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
+        todo!()
+    }
 }
 
 #[cfg(test)]

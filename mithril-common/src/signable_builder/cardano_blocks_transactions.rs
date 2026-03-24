@@ -22,11 +22,22 @@ pub trait BlocksTransactionsImporter: Send + Sync {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
-    /// Returns a Merkle map of the block ranges roots up to a given beacon
+    /// Returns the Merkle root of the block ranges up to a given beacon
+    ///
+    /// Only complete block ranges should be considered
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
+
+    /// Returns the Merkle root of the latest block ranges if it's not complete
+    ///
+    /// Returns None if the latest block range is complete as it was already returned by
+    /// [retrieve_block_range_roots][BlockRangeRootRetriever::retrieve_block_range_roots].
+    async fn retrieve_latest_block_range_roots_if_partial(
+        &self,
+        block_number_included_in_the_latest_range: BlockNumber,
+    ) -> StdResult<Option<(BlockRange, MKTreeNode)>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn compute_merkle_map_from_block_range_roots(
@@ -37,8 +48,19 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
             .retrieve_block_range_roots(up_to_beacon)
             .await?
             .map(|(block_range, root)| (block_range, root.into()));
-        let mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
+        let mut mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
             .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
+
+        if let Some((latest_block_range, latest_block_range_root)) = self
+            .retrieve_latest_block_range_roots_if_partial(up_to_beacon)
+            .await?
+        {
+            mk_hash_map
+                .insert(latest_block_range, latest_block_range_root.into())
+                .with_context(
+                    || "BlockRangeRootRetriever failed to insert partial latest block range",
+                )?;
+        }
 
         Ok(mk_hash_map)
     }
@@ -164,5 +186,131 @@ mod tests {
         let result = signable_builder.compute_protocol_message(block_number).await;
 
         assert!(result.is_err());
+    }
+
+    mod compute_merkle_map_from_block_range_roots {
+        use super::*;
+
+        /// A dummy [BlockRangeRootRetriever] that returns a fixed set of block ranges and ignores
+        /// the beacons given.
+        ///
+        /// Most only be used to test the behavior of [BlockRangeRootRetriever::compute_merkle_map_from_block_range_roots]
+        struct DumbBlockRangeRootRetriever<S: MKTreeStorer> {
+            complete_block_ranges: Vec<(BlockRange, MKTreeNode)>,
+            partial_block_range: Option<(BlockRange, MKTreeNode)>,
+            _phantom: std::marker::PhantomData<S>,
+        }
+
+        impl DumbBlockRangeRootRetriever<MKTreeStoreInMemory> {
+            fn new(
+                complete_block_ranges: Vec<(BlockRange, MKTreeNode)>,
+                partial_block_range: Option<(BlockRange, MKTreeNode)>,
+            ) -> Self {
+                Self {
+                    complete_block_ranges,
+                    partial_block_range,
+                    _phantom: std::marker::PhantomData,
+                }
+            }
+        }
+
+        #[async_trait]
+        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for DumbBlockRangeRootRetriever<S> {
+            async fn retrieve_block_range_roots<'a>(
+                &'a self,
+                _up_to_beacon: BlockNumber,
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
+                Ok(Box::new(self.complete_block_ranges.iter().cloned()))
+            }
+
+            async fn retrieve_latest_block_range_roots_if_partial(
+                &self,
+                _block_number_included_in_the_latest_range: BlockNumber,
+            ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
+                Ok(self.partial_block_range.clone())
+            }
+        }
+
+        #[tokio::test]
+        async fn compute_with_only_complete_block_ranges() {
+            let block_range_roots = vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(15)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(45)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+            ];
+
+            let retriever = DumbBlockRangeRootRetriever::new(block_range_roots.clone(), None);
+
+            let retrieved_mk_map = retriever
+                .compute_merkle_map_from_block_range_roots(BlockNumber(45))
+                .await
+                .unwrap();
+
+            let retrieved_mk_map_root = retrieved_mk_map.compute_root().unwrap();
+            let expected_mk_map_root = MKMap::<
+                BlockRange,
+                MKMapNode<BlockRange, MKTreeStoreInMemory>,
+                MKTreeStoreInMemory,
+            >::compute_root_from_iter(
+                block_range_roots.into_iter().map(|(k, v)| (k, v.into()))
+            )
+            .unwrap();
+            assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
+        }
+
+        #[tokio::test]
+        async fn compute_with_a_partial_block_range() {
+            let stored_block_ranges_roots = vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(15)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(45)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+            ];
+            let latest_partial_block_range = (
+                BlockRange::from_block_number(BlockNumber(60)),
+                MKTreeNode::from_hex("DDDD").unwrap(),
+            );
+
+            let retriever = DumbBlockRangeRootRetriever::new(
+                stored_block_ranges_roots.clone(),
+                Some(latest_partial_block_range.clone()),
+            );
+
+            let retrieved_mk_map = retriever
+                .compute_merkle_map_from_block_range_roots(BlockNumber(45))
+                .await
+                .unwrap();
+
+            let retrieved_mk_map_root = retrieved_mk_map.compute_root().unwrap();
+            let expected_mk_map_root = MKMap::<
+                BlockRange,
+                MKMapNode<BlockRange, MKTreeStoreInMemory>,
+                MKTreeStoreInMemory,
+            >::compute_root_from_iter(
+                [stored_block_ranges_roots, vec![latest_partial_block_range]]
+                    .concat()
+                    .into_iter()
+                    .map(|(k, v)| (k, v.into())),
+            )
+            .unwrap();
+            assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
+        }
     }
 }

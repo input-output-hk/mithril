@@ -133,6 +133,13 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataR
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
         self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
     }
+
+    async fn retrieve_latest_block_range_roots_if_partial(
+        &self,
+        _block_number_included_in_the_latest_range: BlockNumber,
+    ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
+        todo!()
+    }
 }
 
 #[async_trait::async_trait]

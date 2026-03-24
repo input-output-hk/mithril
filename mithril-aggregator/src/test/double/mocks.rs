@@ -94,6 +94,11 @@ mock! {
             up_to_beacon: BlockNumber,
         ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
+        async fn retrieve_latest_block_range_roots_if_partial(
+            &self,
+            block_number_included_in_the_latest_range: BlockNumber,
+        ) -> StdResult<Option<(BlockRange, MKTreeNode)>>;
+
         async fn compute_merkle_map_from_block_range_roots(
             &self,
             up_to_beacon: BlockNumber,
