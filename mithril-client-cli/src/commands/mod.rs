@@ -10,15 +10,14 @@ mod deprecation;
 pub mod mithril_stake_distribution;
 pub mod tools;
 
+use crate::{CommandContext, configuration::ConfigParameters, utils::ForcedEraFetcher};
 pub use deprecation::{DeprecatedCommand, Deprecation};
-
 use std::{str::FromStr, sync::Arc};
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MithrilResult,
+    RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
 };
-
-use crate::{configuration::ConfigParameters, utils::ForcedEraFetcher};
 
 const CLIENT_TYPE_CLI: &str = "CLI";
 
@@ -63,4 +62,17 @@ fn finalize_builder_config(mut builder: ClientBuilder, params: &ConfigParameters
     }
 
     builder
+}
+
+fn build_client(
+    context: &CommandContext,
+    signed_entity_type: SignedEntityTypeDiscriminants,
+) -> Result<mithril_client::Client, anyhow::Error> {
+    let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+        .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+            signed_entity_type,
+        ))
+        .with_logger(context.logger().clone())
+        .build()?;
+    Ok(client)
 }

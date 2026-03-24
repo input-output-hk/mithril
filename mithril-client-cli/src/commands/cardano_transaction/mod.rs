@@ -8,8 +8,20 @@ pub use snapshot_list::*;
 pub use snapshot_show::*;
 
 use crate::CommandContext;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use mithril_client::MithrilResult;
+
+/// Backend to use for Cardano Transaction commands
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
+pub enum CardanoTransactionCommandsBackend {
+    /// V1 backend
+    #[default]
+    #[clap(help = "[default] V1 backend")]
+    V1,
+    /// V2 backend
+    #[clap(help = "[unstable] V2 backend, with additional metadata")]
+    V2,
+}
 
 /// Cardano transactions management
 #[derive(Subcommand, Debug, Clone)]
