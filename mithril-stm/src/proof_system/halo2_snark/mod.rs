@@ -1,4 +1,5 @@
 mod aggregate_key;
+mod circuit_verification_key;
 mod clerk;
 mod eligibility;
 mod message;
@@ -17,6 +18,19 @@ pub(crate) use message::build_snark_message;
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
 pub(crate) use unsafe_helpers::SnarkSetup;
+
+/// Errors which can be outputted by the snark proof creation or verification.
+#[cfg(feature = "future_snark")]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+pub enum SnarkError {
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
+
+    /// The SNARK proof failed to verify
+    #[error("The SNARK proof failed to verify.")]
+    VerifyProofFail,
+}
 
 #[cfg(test)]
 mod tests {
