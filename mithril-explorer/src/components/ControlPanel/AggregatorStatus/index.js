@@ -7,7 +7,7 @@ import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
 import QuestionTooltip from "#/QuestionTooltip";
 import Stake from "#/Stake";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { checkUrl, formatStake, percent } from "@/utils";
 import { fetchAggregator } from "@/aggregator-api";
 
@@ -47,6 +47,7 @@ export default function AggregatorStatus({ showContent = true }) {
   const [aggregatorVersion, setAggregatorVersion] = useState({});
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
+  const aggregatorCapabilities = useSelector(selectedAggregatorCapabilities);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
@@ -124,7 +125,7 @@ export default function AggregatorStatus({ showContent = true }) {
                 {aggregatorStatus.mithril_era}
               </InfoRow>
               <InfoRow label="Aggregation" className="text-capitalize">
-                {aggregatorStatus.aggregate_signature_type ?? "Concatenation"}
+                {aggregatorCapabilities.aggregate_signature_type ?? "Concatenation"}
               </InfoRow>
             </InfoGroupCard>
 
