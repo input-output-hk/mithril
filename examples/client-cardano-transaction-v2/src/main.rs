@@ -28,12 +28,12 @@ pub struct Args {
     /// Aggregator endpoint URL.
     ///
     /// Either:
-    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator").
-    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
+    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.testing-preview.api.mithril.network/aggregator").
+    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:testing-preview") (unstable).
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.release-preprod.api.mithril.network/aggregator"
+        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
     )]
     aggregator_endpoint: String,
 
@@ -62,11 +62,8 @@ async fn main() -> MithrilResult<()> {
     .build()?;
 
     info!(logger, "Fetching a proof for the given transactions...",);
-    let cardano_transaction_proof = client
-        .cardano_transaction_v2()
-        .get_proof(transactions_hashes)
-        .await
-        .unwrap();
+    let cardano_transaction_proof =
+        client.cardano_transaction_v2().get_proof(transactions_hashes).await?;
 
     info!(logger, "Verifying the proof…",);
     let verified_transactions = cardano_transaction_proof.verify().unwrap();
@@ -78,8 +75,7 @@ async fn main() -> MithrilResult<()> {
     let certificate = client
         .certificate()
         .verify_chain(&cardano_transaction_proof.certificate_hash)
-        .await
-        .unwrap();
+        .await?;
 
     info!(
         logger,
@@ -108,12 +104,7 @@ pub fn log_certify_information(
 ) {
     println!(
         r###"Cardano transactions with hashes "'{}'" have been successfully certified by Mithril."###,
-        verified_transactions
-            .certified_transactions()
-            .iter()
-            .map(|t| t.transaction_hash.clone())
-            .collect::<Vec<String>>()
-            .join(","),
+        verified_transactions.certified_transactions_hashes().join(","),
     );
 
     if !non_certified_transactions.is_empty() {

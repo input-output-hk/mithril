@@ -28,12 +28,12 @@ pub struct Args {
     /// Aggregator endpoint URL.
     ///
     /// Either:
-    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator").
-    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
+    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.testing-preview.api.mithril.network/aggregator").
+    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:testing-preview") (unstable).
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.release-preprod.api.mithril.network/aggregator"
+        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
     )]
     aggregator_endpoint: String,
 
@@ -58,7 +58,7 @@ async fn main() -> MithrilResult<()> {
     .build()?;
 
     info!(logger, "Fetching a proof for the given blocks...",);
-    let cardano_block_proof = client.cardano_block().get_proof(blocks_hashes).await.unwrap();
+    let cardano_block_proof = client.cardano_block().get_proof(blocks_hashes).await?;
 
     info!(logger, "Verifying the proof…",);
     let verified_blocks = cardano_block_proof.verify().unwrap();
@@ -70,8 +70,7 @@ async fn main() -> MithrilResult<()> {
     let certificate = client
         .certificate()
         .verify_chain(&cardano_block_proof.certificate_hash)
-        .await
-        .unwrap();
+        .await?;
 
     info!(
         logger,
@@ -97,12 +96,7 @@ pub fn log_certify_information(
 ) {
     println!(
         r###"Cardano blocks with hashes "'{}'" have been successfully certified by Mithril."###,
-        verified_blocks
-            .certified_blocks()
-            .iter()
-            .map(|t| t.block_hash.clone())
-            .collect::<Vec<String>>()
-            .join(","),
+        verified_blocks.certified_blocks_hashes().join(","),
     );
 
     if !non_certified_blocks.is_empty() {
