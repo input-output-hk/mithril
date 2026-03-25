@@ -102,10 +102,18 @@ pub fn log_certify_information(
     verified_transactions: &VerifiedCardanoTransactionsV2,
     non_certified_transactions: &[TransactionHash],
 ) {
-    println!(
-        r###"Cardano transactions with hashes "'{}'" have been successfully certified by Mithril."###,
-        verified_transactions.certified_transactions_hashes().join(","),
-    );
+    if !verified_transactions.certified_transactions().is_empty() {
+        println!("Following Cardano transactions have been successfully certified by Mithril.");
+        for transaction in verified_transactions.certified_transactions() {
+            println!(
+                r###"- transaction hash '{}', block hash '{}', block number '{}', transaction slot '{}'"###,
+                transaction.transaction_hash,
+                transaction.block_hash,
+                transaction.block_number,
+                transaction.slot_number
+            );
+        }
+    }
 
     if !non_certified_transactions.is_empty() {
         println!(

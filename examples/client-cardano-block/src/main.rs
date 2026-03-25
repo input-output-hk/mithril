@@ -94,10 +94,15 @@ pub fn log_certify_information(
     verified_blocks: &VerifiedCardanoBlocks,
     non_certified_blocks: &[BlockHash],
 ) {
-    println!(
-        r###"Cardano blocks with hashes "'{}'" have been successfully certified by Mithril."###,
-        verified_blocks.certified_blocks_hashes().join(","),
-    );
+    if !verified_blocks.certified_blocks().is_empty() {
+        println!("Following Cardano blocks have been successfully certified by Mithril.");
+        for block in verified_blocks.certified_blocks() {
+            println!(
+                r###"- block hash '{}', block number '{}', block slot '{}'"###,
+                block.block_hash, block.block_number, block.slot_number
+            );
+        }
+    }
 
     if !non_certified_blocks.is_empty() {
         println!(
