@@ -1,12 +1,11 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use crate::StdResult;
 use crate::entities::{
-    BlockNumber, BlockRange, CardanoDbBeacon, SignedEntityType, SignedEntityTypeDiscriminants,
-    TimePoint,
+    BlockNumber, BlockRange, CardanoDbBeacon, InconsistentSignedEntityConfigError,
+    SignedEntityConfigValidator, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
 };
 
 /// Convert [TimePoint] to [SignedEntityType] and list allowed signed entity types and
@@ -19,18 +18,6 @@ pub struct SignedEntityConfig {
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
     /// Cardano blocks and transactions signing configuration
     pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
-}
-
-/// [SignedEntityConfig::check_consistency] error
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error(
-    "The following signed entity can't be used '{not_usable_discriminants:?}': missing associated signing configuration"
-)]
-pub struct InconsistentSignedEntityConfigError {
-    /// The subset of the allowed discriminants that can be used.
-    pub usable_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    /// The discriminants that can't be used because the configuration is inconsistent.
-    pub not_usable_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 }
 
 impl SignedEntityConfig {
@@ -139,31 +126,13 @@ impl SignedEntityConfig {
     pub fn check_consistency(
         &self,
     ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>, InconsistentSignedEntityConfigError> {
-        let (usable_discriminants, not_usable_discriminants): (BTreeSet<_>, BTreeSet<_>) = self
-            .list_allowed_signed_entity_types_discriminants()
-            .into_iter()
-            .partition(|discriminant| match discriminant {
-                SignedEntityTypeDiscriminants::CardanoTransactions => {
-                    self.cardano_transactions_signing_config.is_some()
-                }
-                SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
-                    self.cardano_blocks_transactions_signing_config.is_some()
-                }
-                // All other discriminants require no additional config and are always usable
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution
-                | SignedEntityTypeDiscriminants::CardanoStakeDistribution
-                | SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
-                | SignedEntityTypeDiscriminants::CardanoDatabase => true,
-            });
-
-        if not_usable_discriminants.is_empty() {
-            Ok(usable_discriminants)
-        } else {
-            Err(InconsistentSignedEntityConfigError {
-                usable_discriminants,
-                not_usable_discriminants,
-            })
-        }
+        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants();
+        SignedEntityConfigValidator::check_consistency(
+            &allowed_discriminants,
+            &self.cardano_transactions_signing_config,
+            &self.cardano_blocks_transactions_signing_config,
+        )
+        .map(|_| allowed_discriminants)
     }
 }
 
