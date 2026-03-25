@@ -64,6 +64,9 @@ on:
       transactions_hashes_to_certify:
         type: string
         default: 1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd
+      blocks_hashes_to_certify:
+        type: string
+        default: TODO,TODO,TODO
       ancillary_verification_key:
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
@@ -210,7 +213,27 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }}  --backend v2 --unstable
+        
+      - name: Cardano block / list and get last snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-block snapshot list --unstable
+          echo "BLOCK_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-block snapshot list --unstable --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
+      - name: Cardano block / show snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --origin-tag CI cardano-block snapshot show $BLOCK_SNAPSHOT_HASH --unstable
+      
+      - name: Cardano block certify
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-block certify ${{ inputs.transactions_hashes_to_certify }} --unstable
+      
       - name: Cardano Stake Distribution / list and get last epoch and hash
         if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
