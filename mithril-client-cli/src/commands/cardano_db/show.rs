@@ -12,17 +12,14 @@ use mithril_client::{
 
 use crate::{
     CommandContext,
-    commands::{
-        cardano_db::{CardanoDbCommandsBackend, warn_deprecated_v1_backend},
-        client_builder_with_fallback_genesis_key,
-    },
+    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
     utils::{CardanoDbUtils, ExpanderUtils},
 };
 
 /// Clap command to show a given Cardano db
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbShowCommand {
-    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
+    /// Backend to use.
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 
@@ -33,86 +30,17 @@ pub struct CardanoDbShowCommand {
 impl CardanoDbShowCommand {
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ),
+            ]))
+            .with_logger(context.logger().clone())
+            .build()?;
+
         match self.backend {
-            CardanoDbCommandsBackend::V1 => {
-                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                        RequiredAggregatorCapabilities::SignedEntityType(
-                            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                        ),
-                    ]))
-                    .with_logger(context.logger().clone())
-                    .build()?;
-                self.print_v1(client, &context).await?;
-            }
-            CardanoDbCommandsBackend::V2 => {
-                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                        RequiredAggregatorCapabilities::SignedEntityType(
-                            SignedEntityTypeDiscriminants::CardanoDatabase,
-                        ),
-                    ]))
-                    .with_logger(context.logger().clone())
-                    .build()?;
-                self.print_v2(client, &context).await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    #[allow(deprecated)]
-    async fn print_v1(&self, client: Client, context: &CommandContext) -> MithrilResult<()> {
-        warn_deprecated_v1_backend(context);
-        let get_list_of_artifact_ids = || async {
-            let cardano_dbs = client.cardano_database().list().await.with_context(|| {
-                "Can not get the list of artifacts while retrieving the latest cardano db digest"
-            })?;
-
-            Ok(cardano_dbs
-                .iter()
-                .map(|cardano_db| cardano_db.digest.to_owned())
-                .collect::<Vec<String>>())
-        };
-
-        let cardano_db_message = client
-            .cardano_database()
-            .get(
-                &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
-                    .await?,
-            )
-            .await?
-            .with_context(|| format!("Cardano DB not found for digest: '{}'", self.digest))?;
-
-        if context.is_json_output_enabled() {
-            println!("{}", serde_json::to_string(&cardano_db_message)?);
-        } else {
-            let cardano_db_table = vec![
-                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
-                vec![
-                    "Immutable File Number".cell(),
-                    format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
-                ],
-                vec!["Network".cell(), cardano_db_message.network.cell()],
-                vec!["Digest".cell(), cardano_db_message.digest.cell()],
-                vec![
-                    "Size".cell(),
-                    CardanoDbUtils::format_bytes_to_gigabytes(cardano_db_message.size).cell(),
-                ],
-                vec![
-                    "Cardano node version".cell(),
-                    cardano_db_message.cardano_node_version.cell(),
-                ],
-                vec!["Location".cell(), cardano_db_message.locations.join(",").cell()],
-                vec!["Created".cell(), cardano_db_message.created_at.to_string().cell()],
-                vec![
-                    "Compression Algorithm".cell(),
-                    format!("{}", &cardano_db_message.compression_algorithm).cell(),
-                ],
-            ]
-            .table();
-
-            print_stdout(cardano_db_table)?
+            CardanoDbCommandsBackend::V2 => self.print_v2(client, &context).await?,
         }
 
         Ok(())

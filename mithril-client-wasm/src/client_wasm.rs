@@ -164,41 +164,6 @@ impl MithrilClient {
         )))
     }
 
-    /// Call the client to get a snapshot from a digest
-    ///
-    /// @deprecated superseded by `get_cardano_database_v2_snapshot`
-    #[wasm_bindgen]
-    pub async fn get_cardano_database_snapshot(&self, digest: &str) -> WasmResult {
-        #[allow(deprecated)]
-        let result = self
-            .client
-            .cardano_database()
-            .get(digest)
-            .await
-            .map_err(|err| format!("{err:?}"))?
-            .ok_or(JsValue::from_str(&format!(
-                "No snapshot found for digest: '{digest}'"
-            )))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
-    /// Call the client to get the list of available snapshots
-    ///
-    /// @deprecated superseded by `list_cardano_database_v2`
-    #[wasm_bindgen]
-    pub async fn list_cardano_database_snapshots(&self) -> WasmResult {
-        #[allow(deprecated)]
-        let result = self
-            .client
-            .cardano_database()
-            .list()
-            .await
-            .map_err(|err| format!("{err:?}"))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
     /// Call the client to get a cardano database snapshot from a hash
     #[wasm_bindgen]
     pub async fn get_cardano_database_v2(&self, hash: &str) -> WasmResult {
@@ -576,8 +541,8 @@ mod tests {
     use mithril_client::{
         CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
         CardanoStakeDistributionListItem, CardanoTransactionSnapshot, MithrilCertificateListItem,
-        MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
-        common::ProtocolMessage, common::SupportedEra, era::FetchedEra,
+        MithrilStakeDistribution, MithrilStakeDistributionListItem, common::ProtocolMessage,
+        common::SupportedEra, era::FetchedEra,
     };
 
     use crate::test_data;
@@ -670,43 +635,6 @@ mod tests {
             GENESIS_VERIFICATION_KEY,
             invalid_js_value,
         );
-    }
-
-    #[wasm_bindgen_test]
-    async fn list_cardano_database_snapshots_should_return_value_convertible_in_rust_type() {
-        let snapshots_list_js_value = get_mithril_client_stable()
-            .list_cardano_database_snapshots()
-            .await
-            .expect("list_cardano_database_snapshots should not fail");
-        let snapshots_list =
-            serde_wasm_bindgen::from_value::<Vec<SnapshotListItem>>(snapshots_list_js_value)
-                .expect("conversion should not fail");
-
-        assert_eq!(
-            snapshots_list.len(),
-            // Aggregator return up to 20 items for a list route
-            test_data::snapshot_digests().len().min(20)
-        );
-    }
-
-    #[wasm_bindgen_test]
-    async fn get_cardano_database_snapshot_should_return_value_convertible_in_rust_type() {
-        let snapshot_js_value = get_mithril_client_stable()
-            .get_cardano_database_snapshot(test_data::snapshot_digests()[0])
-            .await
-            .expect("get_cardano_database_snapshot should not fail");
-        let snapshot = serde_wasm_bindgen::from_value::<Snapshot>(snapshot_js_value)
-            .expect("conversion should not fail");
-
-        assert_eq!(snapshot.digest, test_data::snapshot_digests()[0]);
-    }
-
-    #[wasm_bindgen_test]
-    async fn get_cardano_database_snapshot_should_fail_with_unknown_digest() {
-        get_mithril_client_stable()
-            .get_cardano_database_snapshot("whatever")
-            .await
-            .expect_err("get_cardano_database_snapshot should fail");
     }
 
     #[wasm_bindgen_test]

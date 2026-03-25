@@ -33,7 +33,7 @@ use mithril_client::{
 /// Clap command to verify a Cardano db and its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbVerifyCommand {
-    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
+    /// Backend to use.
     #[arg(short, long, value_enum, default_value_t = CardanoDbCommandsBackend::V2)]
     backend: CardanoDbCommandsBackend,
 
@@ -70,14 +70,9 @@ pub struct CardanoDbVerifyCommand {
 impl CardanoDbVerifyCommand {
     /// Main command execution
     pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
         match self.backend {
-            CardanoDbCommandsBackend::V1 => Err(anyhow::anyhow!(
-                r#"The "verify" subcommand is not available for the v1, use --backend v2 instead"#,
-            )),
-            CardanoDbCommandsBackend::V2 => {
-                context.config_parameters_mut().add_source(self)?;
-                self.verify(&context).await
-            }
+            CardanoDbCommandsBackend::V2 => self.verify(&context).await,
         }
     }
 

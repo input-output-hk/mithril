@@ -17,11 +17,10 @@ use mithril_aggregator_client::query::{
     GetCardanoStakeDistributionQuery, GetCardanoStakeDistributionsListQuery,
     GetCardanoTransactionProofQuery, GetCardanoTransactionQuery, GetCardanoTransactionsListQuery,
     GetCertificateQuery, GetCertificatesListQuery, GetMithrilStakeDistributionQuery,
-    GetMithrilStakeDistributionsListQuery, GetSnapshotQuery, GetSnapshotsListQuery,
+    GetMithrilStakeDistributionsListQuery,
     PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery,
     PostIncrementCardanoDatabaseImmutablesRestoredStatisticQuery,
     PostIncrementCardanoDatabaseRestorationStatisticQuery,
-    PostIncrementSnapshotDownloadStatisticQuery,
 };
 
 #[cfg(feature = "unstable")]
@@ -37,8 +36,7 @@ use crate::{
     CardanoStakeDistributionListItem, CardanoTransactionSnapshot,
     CardanoTransactionSnapshotListItem, CardanoTransactionsProofs, MithrilCertificate,
     MithrilCertificateListItem, MithrilResult, MithrilStakeDistribution,
-    MithrilStakeDistributionListItem, Snapshot, SnapshotListItem, common::EpochSpecifier,
-    era::FetchedEra,
+    MithrilStakeDistributionListItem, common::EpochSpecifier, era::FetchedEra,
 };
 
 use crate::{
@@ -47,7 +45,6 @@ use crate::{
     cardano_transaction_client::CardanoTransactionAggregatorRequest,
     certificate_client::CertificateAggregatorRequest, era::EraFetcher,
     mithril_stake_distribution_client::MithrilStakeDistributionAggregatorRequest,
-    snapshot_client::SnapshotAggregatorRequest,
 };
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -273,33 +270,6 @@ impl MithrilStakeDistributionAggregatorRequest for AggregatorHttpClient {
         self.send(GetMithrilStakeDistributionQuery::by_hash(hash))
             .await
             .with_context(|| format!("Failed to get Mithril stake distribution with hash '{hash}'"))
-    }
-}
-
-#[cfg_attr(target_family = "wasm", async_trait(?Send))]
-#[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl SnapshotAggregatorRequest for AggregatorHttpClient {
-    async fn list_latest(&self) -> MithrilResult<Vec<SnapshotListItem>> {
-        self.send(GetSnapshotsListQuery::latest())
-            .await
-            .with_context(|| "Failed to list latest Cardano database v1 snapshots")
-    }
-
-    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<Snapshot>> {
-        self.send(GetSnapshotQuery::by_hash(hash)).await.with_context(|| {
-            format!("Failed to get Cardano database v1 snapshots with hash '{hash}'")
-        })
-    }
-
-    async fn increment_snapshot_downloaded_statistic(
-        &self,
-        snapshot: Snapshot,
-    ) -> MithrilResult<()> {
-        self.send(PostIncrementSnapshotDownloadStatisticQuery::new(
-            snapshot.into(),
-        ))
-        .await
-        .with_context(|| "Failed to increment Cardano database v1 snapshot downloaded statistic")
     }
 }
 

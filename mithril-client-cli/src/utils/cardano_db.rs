@@ -25,8 +25,7 @@ impl CardanoDbUtils {
     /// Handle the error return by `check_prerequisites`
     pub fn check_disk_space_error(error: MithrilError) -> MithrilResult<String> {
         match error.downcast_ref::<CardanoDbDownloadCheckerError>() {
-            Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive { .. })
-            | Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData { .. }) => {
+            Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData { .. }) => {
                 Ok(format!("Warning: {error}"))
             }
             _ => Err(error),
@@ -97,22 +96,6 @@ impl CardanoDbUtils {
 mod test {
     use super::*;
     use std::path::PathBuf;
-
-    #[test]
-    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_archive()
-     {
-        let not_enough_space_error = CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive {
-            left_space: 1_f64,
-            pathdir: PathBuf::new(),
-            archive_size: 2_f64,
-        };
-        let expected = format!("Warning: {not_enough_space_error}");
-
-        let result = CardanoDbUtils::check_disk_space_error(anyhow!(not_enough_space_error))
-            .expect("check_disk_space_error should not error");
-
-        assert!(result.contains(&expected));
-    }
 
     #[test]
     fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_uncompressed_data()

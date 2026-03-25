@@ -8,7 +8,7 @@ use anyhow::Context;
 use human_bytes::human_bytes;
 use thiserror::Error;
 
-use mithril_client::{MithrilError, MithrilResult, common::CompressionAlgorithm};
+use mithril_client::{MithrilError, MithrilResult};
 
 /// Checks to apply before downloading a Cardano Db archive to a given directory.
 pub struct CardanoDbDownloadChecker;
@@ -16,21 +16,6 @@ pub struct CardanoDbDownloadChecker;
 /// Errors tied with the [CardanoDbDownloadChecker].
 #[derive(Debug, Error)]
 pub enum CardanoDbDownloadCheckerError {
-    /// Not enough space on the disk. There should be at least the ratio given for the
-    /// used algorithm (see [CompressionAlgorithm::free_space_snapshot_ratio]) times
-    /// the size of the archive to download to ensure it could be unpacked safely.
-    #[error("There is only {} remaining in directory '{}' to store and unpack a {} large archive.", human_bytes(*left_space), pathdir.display(), human_bytes(*archive_size))]
-    NotEnoughSpaceForArchive {
-        /// Left space on device
-        left_space: f64,
-
-        /// Specified location
-        pathdir: PathBuf,
-
-        /// Packed cardano db size
-        archive_size: f64,
-    },
-
     /// Not enough space on the disk. There should be at least the size of the uncompressed Cardano database.
     #[error("There is only {} remaining in directory '{}' to store and unpack a {} Cardano database.", human_bytes(*left_space), pathdir.display(), human_bytes(*db_size))]
     NotEnoughSpaceForUncompressedData {
@@ -70,18 +55,6 @@ impl CardanoDbDownloadChecker {
         }
 
         Ok(())
-    }
-
-    /// Check all prerequisites are met before starting to download and unpack
-    /// big cardano db archive.
-    pub fn check_prerequisites_for_archive(
-        pathdir: &Path,
-        size: u64,
-        compression_algorithm: CompressionAlgorithm,
-    ) -> MithrilResult<()> {
-        Self::check_path_is_an_empty_dir(pathdir)?;
-        Self::check_dir_writable(pathdir)?;
-        Self::check_disk_space_for_archive(pathdir, size, compression_algorithm)
     }
 
     /// Check all prerequisites are met before starting to download and unpack cardano db archives.
@@ -138,23 +111,6 @@ impl CardanoDbDownloadChecker {
             )
         })?;
 
-        Ok(())
-    }
-
-    fn check_disk_space_for_archive(
-        pathdir: &Path,
-        size: u64,
-        compression_algorithm: CompressionAlgorithm,
-    ) -> MithrilResult<()> {
-        let free_space = fs2::available_space(pathdir)? as f64;
-        if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
-            return Err(CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive {
-                left_space: free_space,
-                pathdir: pathdir.to_owned(),
-                archive_size: size as f64,
-            }
-            .into());
-        }
         Ok(())
     }
 
@@ -231,48 +187,6 @@ mod test {
             ),
             "Unexpected error: {error:?}"
         );
-    }
-
-    #[test]
-    fn return_error_if_not_enough_available_space_for_archive() {
-        let pathdir = create_temporary_empty_directory("not_enough_available_space_for_archive")
-            .join("target_directory");
-        fs::create_dir_all(&pathdir).unwrap();
-        let archive_size = u64::MAX;
-
-        let error = CardanoDbDownloadChecker::check_disk_space_for_archive(
-            &pathdir,
-            archive_size,
-            CompressionAlgorithm::default(),
-        )
-        .expect_err("check_disk_space_for_archive should fail");
-
-        assert!(
-            matches!(
-                error.downcast_ref::<CardanoDbDownloadCheckerError>(),
-                Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive {
-                    left_space: _,
-                    pathdir: _,
-                    archive_size: _
-                })
-            ),
-            "Unexpected error: {error:?}"
-        );
-    }
-
-    #[test]
-    fn return_ok_if_enough_available_space_for_archive() {
-        let pathdir = create_temporary_empty_directory("enough_available_space_for_archive")
-            .join("target_directory");
-        fs::create_dir_all(&pathdir).unwrap();
-        let archive_size = 3;
-
-        CardanoDbDownloadChecker::check_disk_space_for_archive(
-            &pathdir,
-            archive_size,
-            CompressionAlgorithm::default(),
-        )
-        .expect("check_disk_space_for_archive should not fail");
     }
 
     #[test]

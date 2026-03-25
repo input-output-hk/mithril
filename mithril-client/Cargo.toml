@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.13.7"
+version = "0.14.0"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,7 +24,7 @@ default = ["num-integer-backend", "enable-http-compression"]
 # Full feature set
 full = ["fs"]
 
-# Enable file system related functionality, right now that mean only snapshot download
+# Enable file system related functionality for Cardano database downloads
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
 # DEPRECATED: The `portable` feature is deprecated and will be removed in a future release.
 portable = []
@@ -98,11 +98,6 @@ slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 tower-http = { version = "0.6.8", features = ["fs"] }
-
-[[test]]
-name = "snapshot_list_get_show_download_verify"
-path = "tests/snapshot_list_get_show_download_verify.rs"
-required-features = ["fs"]
 
 [[test]]
 name = "cardano_transaction_proof"

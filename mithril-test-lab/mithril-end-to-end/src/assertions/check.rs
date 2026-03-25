@@ -632,17 +632,6 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
     .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
-pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {
-    client
-        .run(ClientCommand::CardanoDb(CardanoDbCommand::Download {
-            digest: digest.to_string(),
-        }))
-        .await?;
-    info!("Client downloaded & restored the snapshot"; "digest" => &digest);
-
-    Ok(())
-}
-
 pub async fn assert_client_can_verify_cardano_database(
     client: &mut Client,
     hash: &str,
@@ -678,6 +667,17 @@ pub async fn assert_client_can_verify_cardano_database(
         }))
         .await?;
     info!("Client downloaded & restored the cardano database snapshot"; "hash" => &hash);
+
+    Ok(())
+}
+
+pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {
+    client
+        .run(ClientCommand::CardanoDb(CardanoDbCommand::Download {
+            digest: digest.to_string(),
+        }))
+        .await?;
+    info!("Client downloaded & restored the snapshot"; "digest" => &digest);
 
     Ok(())
 }

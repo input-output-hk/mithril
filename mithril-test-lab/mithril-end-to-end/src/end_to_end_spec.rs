@@ -232,7 +232,9 @@ impl Spec {
             .await?;
 
             let mut client = infrastructure.build_client(aggregator).await?;
-            assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
+            if client.version().is_below("0.13.0") {
+                assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
+            }
         }
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly

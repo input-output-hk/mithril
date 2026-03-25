@@ -115,10 +115,10 @@ jobs:
           echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
 
           if [[ $CARDANO_DATABASE_V2_CAPABILITY == "true" ]]; then
-            echo 'available_cardano_database_backends=["v1","v2"]' >> $GITHUB_OUTPUT
+            echo 'available_cardano_database_backends=["v2"]' >> $GITHUB_OUTPUT
             echo 'bin-cdb-download-matrix-include=[{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"lmdb","extra_args":"--include-ancillary"}]' >> $GITHUB_OUTPUT
           else
-            echo 'available_cardano_database_backends=["v1"]' >> $GITHUB_OUTPUT
+            echo 'available_cardano_database_backends=[]' >> $GITHUB_OUTPUT
             echo 'bin-cdb-download-matrix-include=[]' >> $GITHUB_OUTPUT
           fi
 
@@ -156,13 +156,6 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --version
-
-      - name: Cardano Database Snapshot / list and get last digest
-        shell: bash
-        working-directory: ./bin
-        run: |
-          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v1
-          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -283,11 +276,7 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          if [ "${{ matrix.backend }}" == "v1" ]; then
-            echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].digest')" >> $GITHUB_OUTPUT
-          else
-            echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
-          fi
+          echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
           echo "cardano_node_version=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].cardano_node_version')" >> $GITHUB_OUTPUT
 
       - name: Cardano Database Snapshot / download & restore latest
@@ -384,12 +373,6 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --version
 
-      - name: Cardano Database Snapshot / list and get last digest
-        shell: bash
-        run: |
-          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1
-          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
-
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         run: |
@@ -436,7 +419,7 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
-      - name: Cardano Database V2 Snapshot / list and get last digest
+      - name: Cardano Database V2 Snapshot / list and get last hash
         if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |
@@ -491,11 +474,7 @@ jobs:
         id: last_snapshot
         shell: bash
         run: |
-          if [ "${{ matrix.backend }}" == "v1" ]; then
-            echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].digest')" >> $GITHUB_OUTPUT
-          else
-            echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
-          fi
+          echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
           echo "cardano_node_version=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].cardano_node_version')" >> $GITHUB_OUTPUT
 
       - name: Cardano Database Snapshot / download & restore latest
