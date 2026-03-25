@@ -3,6 +3,7 @@
 //!
 //!
 
+pub mod cardano_block;
 pub mod cardano_db;
 pub mod cardano_stake_distribution;
 pub mod cardano_transaction;

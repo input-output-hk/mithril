@@ -15,8 +15,8 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    DeprecatedCommand, Deprecation, cardano_db::CardanoDbCommands,
-    cardano_stake_distribution::CardanoStakeDistributionCommands,
+    DeprecatedCommand, Deprecation, cardano_block::CardanoBlockCommands,
+    cardano_db::CardanoDbCommands, cardano_stake_distribution::CardanoStakeDistributionCommands,
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
 };
@@ -233,6 +233,9 @@ enum ArtifactCommands {
     #[clap(subcommand, alias("ctx"))]
     CardanoTransaction(CardanoTransactionCommands),
 
+    #[clap(subcommand, alias("cb"))]
+    CardanoBlock(CardanoBlockCommands),
+
     #[clap(subcommand, alias("csd"))]
     CardanoStakeDistribution(CardanoStakeDistributionCommands),
 
@@ -249,6 +252,7 @@ impl ArtifactCommands {
             Self::CardanoDb(cmd) => cmd.execute(context).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
+            Self::CardanoBlock(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
             Self::GenerateDoc(cmd) => {
                 cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
