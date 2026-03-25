@@ -47,4 +47,10 @@ pub enum AggregateSignatureError {
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
+
+    /// The batch verify inputs have mismatched lengths
+    #[error(
+        "Batch verify inputs have mismatched lengths: signatures={0}, messages={1}, keys={2}, parameters={3}"
+    )]
+    BatchLengthMismatch(usize, usize, usize, usize),
 }

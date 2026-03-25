@@ -132,6 +132,24 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
     ) -> StmResult<()> {
+        let (signatures_length, msgs_length, avks_length, parameters_length) = (
+            stm_signatures.len(),
+            msgs.len(),
+            avks.len(),
+            parameters.len(),
+        );
+        if signatures_length != msgs_length
+            || signatures_length != avks_length
+            || signatures_length != parameters_length
+        {
+            return Err(anyhow!(AggregateSignatureError::BatchLengthMismatch(
+                signatures_length,
+                msgs_length,
+                avks_length,
+                parameters_length,
+            )));
+        }
+
         let stm_signatures: HashMap<AggregateSignatureType, Vec<Self>> =
             stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
                 acc.entry(sig.into()).or_default().push(sig.clone());
@@ -231,6 +249,53 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod batch_verify {
+        use super::*;
+        use crate::{MithrilMembershipDigest, Parameters};
+
+        type D = MithrilMembershipDigest;
+
+        fn assert_length_mismatch_error(result: StmResult<()>) {
+            let error = result.expect_err("Expected an error for length mismatch");
+            assert!(
+                error
+                    .to_string()
+                    .contains("Batch verify inputs have mismatched lengths"),
+                "Expected BatchLengthMismatch error, got: {error}"
+            );
+        }
+
+        #[test]
+        fn returns_error_when_messages_length_differs_from_signatures() {
+            let result = AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[]);
+
+            assert_length_mismatch_error(result);
+        }
+
+        #[test]
+        fn returns_error_when_parameters_length_differs_from_signatures() {
+            let result = AggregateSignature::<D>::batch_verify(
+                &[],
+                &[],
+                &[],
+                &[Parameters {
+                    k: 1,
+                    m: 100,
+                    phi_f: 0.2,
+                }],
+            );
+
+            assert_length_mismatch_error(result);
+        }
+
+        #[test]
+        fn succeeds_when_all_inputs_are_empty() {
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[]);
+
+            assert!(result.is_ok());
+        }
+    }
 
     mod aggregate_signature_type_golden {
         use super::*;
