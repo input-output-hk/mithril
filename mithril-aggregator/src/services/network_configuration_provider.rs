@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use slog::{Logger, warn};
 
 use mithril_common::StdResult;
-use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants};
+use mithril_common::entities::{Epoch, SignedEntityConfigValidator, SignedEntityTypeDiscriminants};
 use mithril_common::logging::LoggerExtensions;
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_protocol_config::model::{
@@ -63,18 +63,12 @@ impl LocalMithrilNetworkConfigurationProvider {
             },
         );
 
-        let enabled_signed_entity_types = match (SignedEntityConfig {
-            allowed_discriminants: self.allowed_discriminants.clone(),
-            cardano_transactions_signing_config: epoch_settings
-                .cardano_transactions_signing_config
-                .clone(),
-            cardano_blocks_transactions_signing_config: epoch_settings
-                .cardano_blocks_transactions_signing_config
-                .clone(),
-        })
-        .check_consistency()
-        {
-            Ok(usable_discriminants) => usable_discriminants,
+        let enabled_signed_entity_types = match SignedEntityConfigValidator::check_consistency(
+            &self.allowed_discriminants,
+            &epoch_settings.cardano_transactions_signing_config,
+            &epoch_settings.cardano_blocks_transactions_signing_config,
+        ) {
+            Ok(()) => self.allowed_discriminants.clone(),
             Err(err) => {
                 warn!(
                     self.logger, "Some allowed signed entity could not be enabled for epoch {epoch}; using only the usable subset";

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-protocol-config"
-version = "0.1.5"
+version = "0.1.6"
 description = "Configuraton parameters for Mithril network"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -14,11 +14,11 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-aggregator-client = { path = "../mithril-aggregator-client" }
 mithril-common = { path = "../../mithril-common" }
+slog = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
 httpmock = "0.8.3"
 serde_json = { workspace = true }
-slog = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

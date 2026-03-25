@@ -28,6 +28,7 @@ mod protocol_message;
 mod protocol_parameters;
 mod signable_manifest;
 mod signed_entity_config;
+mod signed_entity_config_validator;
 mod signed_entity_type;
 mod signer;
 mod single_signature;
@@ -68,6 +69,7 @@ pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMess
 pub use protocol_parameters::ProtocolParameters;
 pub use signable_manifest::*;
 pub use signed_entity_config::*;
+pub use signed_entity_config_validator::*;
 pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signature::*;

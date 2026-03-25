@@ -428,6 +428,7 @@ impl<'a> DependenciesBuilder<'a> {
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
             aggregator_client.clone(),
+            self.root_logger(),
         ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),

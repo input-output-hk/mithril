@@ -2,12 +2,14 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use slog::{Logger, warn};
 use std::sync::Arc;
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_aggregator_client::query::GetProtocolConfigurationQuery;
 use mithril_common::StdResult;
-use mithril_common::entities::Epoch;
+use mithril_common::entities::{Epoch, SignedEntityConfigValidator};
+use mithril_common::logging::LoggerExtensions;
 
 use crate::interface::MithrilNetworkConfigurationProvider;
 use crate::model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch};
@@ -15,13 +17,43 @@ use crate::model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEp
 /// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
 pub struct HttpMithrilNetworkConfigurationProvider {
     aggregator_http_client: Arc<AggregatorHttpClient>,
+    logger: Logger,
 }
 
 impl HttpMithrilNetworkConfigurationProvider {
     /// HttpMithrilNetworkConfigurationProvider factory
-    pub fn new(aggregator_http_client: Arc<AggregatorHttpClient>) -> Self {
+    pub fn new(aggregator_http_client: Arc<AggregatorHttpClient>, logger: Logger) -> Self {
         Self {
             aggregator_http_client,
+            logger: logger.new_with_component_name::<Self>(),
+        }
+    }
+
+    async fn get_valid_configuration_for_epoch(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<Option<MithrilNetworkConfigurationForEpoch>> {
+        if let Some(mut configuration) = self
+            .aggregator_http_client
+            .send(GetProtocolConfigurationQuery::epoch(epoch))
+            .await?
+            .map(Into::<MithrilNetworkConfigurationForEpoch>::into)
+        {
+            if let Err(err) = SignedEntityConfigValidator::check_consistency(
+                &configuration.enabled_signed_entity_types,
+                &configuration.signed_entity_types_config.cardano_transactions,
+                &configuration.signed_entity_types_config.cardano_blocks_transactions,
+            ) {
+                warn!(
+                    self.logger, "Some allowed signed entity could not be enabled for epoch {epoch}; using only the usable subset";
+                    "error" => %err
+                );
+                configuration.enabled_signed_entity_types = err.usable_discriminants;
+            };
+
+            Ok(Some(configuration))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -40,33 +72,27 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         let registration_epoch = epoch.offset_to_next_signer_retrieval_epoch().next();
 
         let configuration_for_aggregation: MithrilNetworkConfigurationForEpoch = self
-            .aggregator_http_client
-            .send(GetProtocolConfigurationQuery::epoch(aggregation_epoch))
+            .get_valid_configuration_for_epoch(aggregation_epoch)
             .await?
             .with_context(|| {
                 format!("Missing network configuration for aggregation epoch {aggregation_epoch}")
-            })?
-            .into();
+            })?;
 
         let configuration_for_next_aggregation = self
-            .aggregator_http_client
-            .send(GetProtocolConfigurationQuery::epoch(next_aggregation_epoch))
+            .get_valid_configuration_for_epoch(next_aggregation_epoch)
             .await?
             .with_context(|| {
                 format!("Missing network configuration for next aggregation epoch {next_aggregation_epoch}")
-            })?
-            .into();
+            })?;
 
         let configuration_for_registration = self
-            .aggregator_http_client
-            .send(GetProtocolConfigurationQuery::epoch(registration_epoch))
+            .get_valid_configuration_for_epoch(registration_epoch)
             .await?
             .with_context(|| {
                 format!(
                     "Missing network configuration for registration epoch {next_aggregation_epoch}"
                 )
-            })?
-            .into();
+            })?;
 
         Ok(MithrilNetworkConfiguration {
             epoch,
@@ -80,11 +106,12 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
 #[cfg(test)]
 mod tests {
     use httpmock::MockServer;
+    use std::collections::BTreeSet;
     use std::sync::Arc;
 
     use mithril_common::entities::{
         BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        ProtocolParameters,
+        ProtocolParameters, SignedEntityTypeDiscriminants,
     };
     use mithril_common::messages::ProtocolConfigurationMessage;
     use mithril_common::test::double::Dummy;
@@ -136,13 +163,15 @@ mod tests {
                 .body(serde_json::to_string(&configuration_epoch_43).unwrap());
         });
 
-        let mithril_configuration_provider =
-            HttpMithrilNetworkConfigurationProvider::new(Arc::new(
+        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
+            Arc::new(
                 AggregatorHttpClient::builder(server.base_url())
                     .with_logger(TestLogger::stdout())
                     .build()
                     .unwrap(),
-            ));
+            ),
+            TestLogger::stdout(),
+        );
 
         let configuration = mithril_configuration_provider
             .get_network_configuration(Epoch(42))
@@ -184,5 +213,50 @@ mod tests {
             configuration.configuration_for_registration.protocol_parameters,
             ProtocolParameters::new(3000, 300, 0.3)
         );
+    }
+
+    #[tokio::test]
+    async fn eventual_eventual_inconsistent_discriminants_are_removed_from_enabled_list() {
+        let configuration_epoch_56 = ProtocolConfigurationMessage {
+            available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            cardano_transactions_signing_config: None,
+            cardano_blocks_transactions_signing_config: None,
+            ..Dummy::dummy()
+        };
+
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.path("/protocol-configuration/56");
+            then.status(200)
+                .body(serde_json::to_string(&configuration_epoch_56).unwrap());
+        });
+
+        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
+            Arc::new(
+                AggregatorHttpClient::builder(server.base_url())
+                    .with_logger(TestLogger::stdout())
+                    .build()
+                    .unwrap(),
+            ),
+            TestLogger::stdout(),
+        );
+
+        let configuration = mithril_configuration_provider
+            .get_valid_configuration_for_epoch(Epoch(56))
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all()
+                // Discriminants without associated configuration should have been removed
+                .difference(&BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                ]))
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            configuration.enabled_signed_entity_types
+        )
     }
 }
