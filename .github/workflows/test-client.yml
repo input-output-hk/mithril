@@ -88,6 +88,7 @@ jobs:
       genesis_verification_key: ${{ steps.prepare.outputs.genesis_verification_key }}
       ancillary_verification_key: ${{ steps.prepare.outputs.ancillary_verification_key }}
       cardano_transactions_enabled: ${{ steps.prepare.outputs.cardano_transactions_enabled }}
+      cardano_blocks_transactions_enabled: ${{ steps.prepare.outputs.cardano_blocks_transactions_enabled }}
       cardano_stake_distribution_enabled: ${{ steps.prepare.outputs.cardano_stake_distribution_enabled }}
       cardano_database_v2_enabled: ${{ steps.prepare.outputs.cardano_database_v2_enabled }}
       available_cardano_database_backends: ${{ steps.prepare.outputs.available_cardano_database_backends }}
@@ -213,7 +214,7 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }}  --backend v2 --unstable
-        
+
       - name: Cardano block / list and get last snapshot
         if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
         shell: bash
@@ -227,13 +228,13 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: ./mithril-client --origin-tag CI cardano-block snapshot show $BLOCK_SNAPSHOT_HASH --unstable
-      
+
       - name: Cardano block certify
         if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-block certify ${{ inputs.transactions_hashes_to_certify }} --unstable
-      
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-block certify ${{ inputs.blocks_hashes_to_certify }} --unstable
+
       - name: Cardano Stake Distribution / list and get last epoch and hash
         if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
@@ -444,6 +445,40 @@ jobs:
         if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }}
+
+      - name: Cardano transaction V2 / list and get last snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot list --backend v2 --unstable
+          echo "CTX_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot list --backend v2 --unstable --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano transaction V2 / show snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot show $CTX_SNAPSHOT_HASH --backend v2 --unstable
+
+      - name: Cardano transaction V2 / certify
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }} --backend v2 --unstable
+
+      - name: Cardano block / list and get last snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-block snapshot list --unstable
+          echo "BLOCK_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-block snapshot list --unstable --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano block / show snapshot
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-block snapshot show $BLOCK_SNAPSHOT_HASH --unstable
+
+      - name: Cardano block certify
+        if: needs.prepare.outputs.cardano_blocks_transactions_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-block certify ${{ inputs.blocks_hashes_to_certify }} --unstable
 
       - name: Cardano Stake Distribution / list and get last epoch and hash
         if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
