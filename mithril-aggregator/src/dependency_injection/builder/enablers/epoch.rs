@@ -50,6 +50,7 @@ impl DependenciesBuilder {
             if self.configuration.is_follower_aggregator() {
                 Arc::new(HttpMithrilNetworkConfigurationProvider::new(
                     self.get_leader_aggregator_client().await?,
+                    self.root_logger(),
                 ))
             } else {
                 Arc::new(LocalMithrilNetworkConfigurationProvider::new(
