@@ -1,9 +1,9 @@
-//! Commands for the Cardano Block Transaction Snapshot artifact & Cardano Block Proof
-//mod certify;
+//! Commands for the Cardano Blocks Transactions Snapshot artifact & Cardano Block Proof
+mod certify;
 mod snapshot_list;
 mod snapshot_show;
 
-//pub use certify::*;
+pub use certify::*;
 pub use snapshot_list::*;
 pub use snapshot_show::*;
 
@@ -18,9 +18,9 @@ pub enum CardanoBlockCommands {
     /// Cardano block commands
     #[clap(subcommand)]
     Snapshot(CardanoBlockSnapshotCommands),
-    // /// Certify that a given list of block hashes are included in the Cardano block set
-    // #[clap(arg_required_else_help = false)]
-    // Certify(CardanoTransactionsCertifyCommand),
+    /// Certify that a given list of block hashes are included in the Cardano block set
+    #[clap(arg_required_else_help = false)]
+    Certify(CardanoBlocksCertifyCommand),
 }
 
 /// Cardano blocks set
@@ -39,7 +39,7 @@ impl CardanoBlockCommands {
     pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
-            // Self::Certify(cmd) => cmd.execute(config_builder).await,
+            Self::Certify(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

@@ -9,7 +9,7 @@ use slog::debug;
 use crate::utils::ProgressPrinter;
 
 pub async fn execute(
-    transactions_hashes: &Vec<String>,
+    transactions_hashes: &[String],
     client: mithril_client::Client,
     progress_printer: ProgressPrinter,
     is_json_output_enabled: bool,
