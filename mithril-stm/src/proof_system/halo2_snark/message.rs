@@ -21,9 +21,21 @@ pub(crate) fn build_snark_message(
     let root_as_base_field_element = BaseFieldElement::from_bytes(&root_bytes)
         .with_context(|| "Failed to convert Merkle tree root to BaseFieldElement.")?;
 
-    let msg_bytes: [u8; 32] = message
-        .try_into()
-        .with_context(|| "Message must be exactly 32 bytes.")?;
+    /* let msg_bytes: [u8; 32] = message
+    .try_into()
+    .with_context(|| "Message must be exactly 32 bytes.")?; */
+
+    let mut msg_bytes = [0u8; 32];
+    match TryInto::<[u8; 32]>::try_into(message) {
+        Ok(bytes) => msg_bytes = bytes,
+        Err(_) => {
+            // If the message is not 32 bytes, try to decode it as hex.
+            hex::decode_to_slice(message, &mut msg_bytes).with_context(
+                || "Message must be exactly 32 bytes hex encoded in 64 bytes if it is not exactly 32 bytes.",
+            )?;
+        }
+    }
+
     let message_as_base_field_element = BaseFieldElement::from_raw(&msg_bytes)
         .with_context(|| "Failed to convert message to BaseFieldElement.")?;
 

@@ -4552,6 +4552,7 @@ dependencies = [
  "digest 0.10.7",
  "ff",
  "group",
+ "hex",
  "midnight-circuits",
  "midnight-curves",
  "midnight-proofs",
