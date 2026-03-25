@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use mithril_common::entities::SupportedEra;
 use mithril_common::{
     StdResult,
-    entities::{Epoch, SignedEntityTypeDiscriminants},
+    entities::{Epoch, SignedEntityConfigValidator, SignedEntityTypeDiscriminants},
     messages::{
         CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
@@ -236,23 +236,21 @@ impl MessageService for MithrilMessageService {
             None => return Ok(None),
         };
 
-        let cardano_transactions_discriminant =
-            enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
-
-        let cardano_transactions_signing_config = cardano_transactions_discriminant
-            .and(epoch_settings.cardano_transactions_signing_config);
-
-        let cardano_blocks_transactions_discriminant =
-            enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions);
-
-        let cardano_blocks_transactions_signing_config = cardano_blocks_transactions_discriminant
-            .and(epoch_settings.cardano_blocks_transactions_signing_config);
+        let available_signed_entity_types = match SignedEntityConfigValidator::check_consistency(
+            &enabled_discriminants,
+            &epoch_settings.cardano_transactions_signing_config,
+            &epoch_settings.cardano_blocks_transactions_signing_config,
+        ) {
+            Ok(()) => enabled_discriminants,
+            Err(err) => err.usable_discriminants,
+        };
 
         let protocol_configuration_message = ProtocolConfigurationMessage {
             protocol_parameters: epoch_settings.protocol_parameters,
-            cardano_transactions_signing_config,
-            cardano_blocks_transactions_signing_config,
-            available_signed_entity_types: enabled_discriminants,
+            cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
+            cardano_blocks_transactions_signing_config: epoch_settings
+                .cardano_blocks_transactions_signing_config,
+            available_signed_entity_types,
         };
         Ok(Some(protocol_configuration_message))
     }
@@ -872,6 +870,38 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn get_protocol_configuration_message_filters_out_types_when_configuration_is_inconsistent()
+         {
+            let epoch = Epoch(4);
+            let aggregator_epoch_settings = AggregatorEpochSettings {
+                cardano_transactions_signing_config: None,
+                cardano_blocks_transactions_signing_config: None,
+                ..Dummy::dummy()
+            };
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_settings(BTreeMap::from([(epoch, aggregator_epoch_settings)]))
+                .build()
+                .await;
+
+            let message = message_service
+                .get_protocol_configuration_message(epoch, SignedEntityTypeDiscriminants::all())
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert_eq!(
+                message.available_signed_entity_types,
+                SignedEntityTypeDiscriminants::all()
+                    .difference(&BTreeSet::from([
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions
+                    ]))
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+            );
+        }
+
+        #[tokio::test]
         async fn get_protocol_configuration_message_with_multiple_epochs_settings_stored() {
             let message_service = MessageServiceBuilder::new()
                 .with_epoch_settings(BTreeMap::from([
@@ -933,21 +963,34 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_protocol_configuration_message_without_cardano_transactions_does_not_return_signing_config()
+        async fn get_protocol_configuration_message_without_config_based_entities_enabled_still_return_signing_configs()
          {
             let epoch = Epoch(4);
+            let aggregator_epoch_settings = AggregatorEpochSettings {
+                cardano_transactions_signing_config: Some(Dummy::dummy()),
+                cardano_blocks_transactions_signing_config: Some(Dummy::dummy()),
+                ..Dummy::dummy()
+            };
+            let enabled_entities = BTreeSet::new();
             let message_service = MessageServiceBuilder::new()
-                .with_epoch_settings(BTreeMap::from([(epoch, AggregatorEpochSettings::dummy())]))
+                .with_epoch_settings(BTreeMap::from([(epoch, aggregator_epoch_settings.clone())]))
                 .build()
                 .await;
 
             let message = message_service
-                .get_protocol_configuration_message(epoch, BTreeSet::new())
+                .get_protocol_configuration_message(epoch, enabled_entities)
                 .await
                 .unwrap()
                 .expect("Protocol configuration message should exist.");
 
-            assert_eq!(message.cardano_transactions_signing_config, None);
+            assert_eq!(
+                message.cardano_transactions_signing_config,
+                aggregator_epoch_settings.cardano_transactions_signing_config
+            );
+            assert_eq!(
+                message.cardano_blocks_transactions_signing_config,
+                aggregator_epoch_settings.cardano_blocks_transactions_signing_config
+            );
         }
 
         #[tokio::test]
