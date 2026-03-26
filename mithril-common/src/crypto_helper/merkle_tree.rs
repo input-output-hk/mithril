@@ -371,6 +371,16 @@ impl<S: MKTreeStorer> MKTree<S> {
         Ok(Self { inner_tree })
     }
 
+    /// Generate root of the Merkle tree built from the given leaves
+    ///
+    /// Shortcut for `MKTree::new_from_iter(leaves)?.compute_root()`
+    pub fn compute_root_from_iter<T: IntoIterator<Item = U>, U: Into<MKTreeNode>>(
+        leaves: T,
+    ) -> StdResult<MKTreeNode> {
+        let mk_tree = Self::new_from_iter(leaves)?;
+        mk_tree.compute_root()
+    }
+
     /// Append leaves to the Merkle tree
     pub fn append<T: Into<MKTreeNode> + Clone>(&mut self, leaves: &[T]) -> StdResult<()> {
         for leaf in leaves {

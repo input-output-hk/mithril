@@ -295,11 +295,8 @@ mod tests {
                     (
                         block_range,
                         MKMapNode::TreeNode(
-                            MKTree::<MKTreeStoreInMemory>::new(&transactions)
-                                .unwrap()
-                                .compute_root()
-                                .unwrap()
-                                .clone(),
+                            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(&transactions)
+                                .unwrap(),
                         ),
                     )
                 }),

@@ -59,9 +59,9 @@ impl BlockRangeImporter {
                 continue;
             }
 
-            let merkle_root =
-                MKTree::<MKTreeStoreInMemory>::new_from_iter(blocks_and_transactions_mk_node)?
-                    .compute_root()?;
+            let merkle_root = MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(
+                blocks_and_transactions_mk_node,
+            )?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
@@ -120,8 +120,7 @@ impl BlockRangeImporter {
                 continue;
             }
 
-            let merkle_root =
-                MKTree::<MKTreeStoreInMemory>::new_from_iter(transactions)?.compute_root()?;
+            let merkle_root = MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(transactions)?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
@@ -191,10 +190,7 @@ mod tests {
                 .iter()
                 .flat_map(|br| br.clone().into_mk_tree_node())
                 .collect();
-            MKTree::<MKTreeStoreInMemory>::new_from_iter(nodes)
-                .unwrap()
-                .compute_root()
-                .unwrap()
+            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(nodes).unwrap()
         }
 
         #[tokio::test]
@@ -429,10 +425,7 @@ mod tests {
                 .iter()
                 .flat_map(|br| br.clone().into_transactions())
                 .collect();
-            MKTree::<MKTreeStoreInMemory>::new(&tx)
-                .unwrap()
-                .compute_root()
-                .unwrap()
+            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(&tx).unwrap()
         }
 
         #[tokio::test]
