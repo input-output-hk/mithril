@@ -202,9 +202,9 @@ mod tests {
             number_of_parties in 1_usize..10,
             m in 1_u64..20,
             k in 1_u64..10,
-            phi_f in 0.1_f64..1.0,
+            phi_f in 10_u64..100,
         ) {
-            let parameters = Parameters { m, k, phi_f };
+            let parameters = Parameters { m, k, phi_f: phi_f as f64 / 100f64 };
             let mut rng = ChaCha20Rng::from_seed(seed);
 
             let (signers, clerk_from_signer) =
