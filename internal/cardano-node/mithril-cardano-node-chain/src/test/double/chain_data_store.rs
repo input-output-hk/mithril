@@ -343,11 +343,13 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for InMemoryChainDataStore {
         Ok(Box::new(result.into_iter()))
     }
 
-    async fn retrieve_latest_block_range_roots_if_partial<'a>(
-        &'a self,
-        _block_number_included_in_the_latest_range: BlockNumber,
-    ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
-        todo!()
+    async fn retrieve_block_ranges_nodes(
+        &self,
+        block_range: BlockRange,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        Ok(self
+            .get_blocks_with_transactions_in_ranges(&[block_range.into()])
+            .await)
     }
 }
 

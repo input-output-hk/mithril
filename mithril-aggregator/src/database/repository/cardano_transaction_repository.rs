@@ -134,11 +134,14 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataR
         self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
     }
 
-    async fn retrieve_latest_block_range_roots_if_partial(
+    async fn retrieve_block_ranges_nodes(
         &self,
-        _block_number_included_in_the_latest_range: BlockNumber,
-    ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
-        todo!()
+        block_range: BlockRange,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        self.inner
+            .get_blocks_with_transactions_in_range_blocks(block_range.into())
+            .await
+            .map(|v| v.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
     }
 }
 

@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -5,8 +6,11 @@ use async_trait::async_trait;
 
 use crate::{
     StdResult,
-    crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStorer},
-    entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode, MKTreeStorer},
+    entities::{
+        BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, ProtocolMessage,
+        ProtocolMessagePartKey,
+    },
     signable_builder::SignableBuilder,
 };
 
@@ -30,14 +34,11 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
-    /// Returns the Merkle root of the latest block ranges if it's not complete
-    ///
-    /// Returns None if the latest block range is complete as it was already returned by
-    /// [retrieve_block_range_roots][BlockRangeRootRetriever::retrieve_block_range_roots].
-    async fn retrieve_latest_block_range_roots_if_partial(
+    /// Returns the all nodes constitutive of the given block range
+    async fn retrieve_block_ranges_nodes(
         &self,
-        block_number_included_in_the_latest_range: BlockNumber,
-    ) -> StdResult<Option<(BlockRange, MKTreeNode)>>;
+        block_range: BlockRange,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn compute_merkle_map_from_block_range_roots(
@@ -51,15 +52,22 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
         let mut mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
             .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
 
-        if let Some((latest_block_range, latest_block_range_root)) = self
-            .retrieve_latest_block_range_roots_if_partial(up_to_beacon)
-            .await?
-        {
-            mk_hash_map
-                .insert(latest_block_range, latest_block_range_root.into())
-                .with_context(
-                    || "BlockRangeRootRetriever failed to insert partial latest block range",
-                )?;
+        let latest_block_range = BlockRange::from_block_number(up_to_beacon);
+        if !latest_block_range.is_complete_up_to(up_to_beacon) {
+            let latest_partial_block_range_nodes =
+                self.retrieve_block_ranges_nodes(latest_block_range.clone()).await?;
+
+            if !latest_partial_block_range_nodes.is_empty() {
+                let latest_partial_block_range_root =
+                    MKTree::<S>::new_from_iter(latest_partial_block_range_nodes).with_context(
+                        || "BlockRangeRootRetriever failed to compute partial latest block range",
+                    )?;
+                mk_hash_map
+                    .insert(latest_block_range, latest_partial_block_range_root.into())
+                    .with_context(
+                        || "BlockRangeRootRetriever failed to insert partial latest block range",
+                    )?;
+            }
         }
 
         Ok(mk_hash_map)
@@ -112,9 +120,9 @@ impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoBlocksTransactions
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
-        crypto_helper::MKTreeStoreInMemory, entities::CardanoTransaction,
+        crypto_helper::MKTreeStoreInMemory,
+        entities::{CardanoTransaction, SlotNumber},
         test::builder::CardanoTransactionsBuilder,
     };
 
@@ -197,18 +205,18 @@ mod tests {
         /// Most only be used to test the behavior of [BlockRangeRootRetriever::compute_merkle_map_from_block_range_roots]
         struct DumbBlockRangeRootRetriever<S: MKTreeStorer> {
             complete_block_ranges: Vec<(BlockRange, MKTreeNode)>,
-            partial_block_range: Option<(BlockRange, MKTreeNode)>,
+            retrieve_block_ranges_nodes_result: BTreeSet<CardanoBlockTransactionMkTreeNode>,
             _phantom: std::marker::PhantomData<S>,
         }
 
         impl DumbBlockRangeRootRetriever<MKTreeStoreInMemory> {
             fn new(
                 complete_block_ranges: Vec<(BlockRange, MKTreeNode)>,
-                partial_block_range: Option<(BlockRange, MKTreeNode)>,
+                retrieve_block_ranges_nodes_result: BTreeSet<CardanoBlockTransactionMkTreeNode>,
             ) -> Self {
                 Self {
                     complete_block_ranges,
-                    partial_block_range,
+                    retrieve_block_ranges_nodes_result,
                     _phantom: std::marker::PhantomData,
                 }
             }
@@ -223,11 +231,11 @@ mod tests {
                 Ok(Box::new(self.complete_block_ranges.iter().cloned()))
             }
 
-            async fn retrieve_latest_block_range_roots_if_partial(
+            async fn retrieve_block_ranges_nodes(
                 &self,
-                _block_number_included_in_the_latest_range: BlockNumber,
-            ) -> StdResult<Option<(BlockRange, MKTreeNode)>> {
-                Ok(self.partial_block_range.clone())
+                _block_range: BlockRange,
+            ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+                Ok(self.retrieve_block_ranges_nodes_result.clone())
             }
         }
 
@@ -248,10 +256,11 @@ mod tests {
                 ),
             ];
 
-            let retriever = DumbBlockRangeRootRetriever::new(block_range_roots.clone(), None);
+            let retriever =
+                DumbBlockRangeRootRetriever::new(block_range_roots.clone(), BTreeSet::new());
 
             let retrieved_mk_map = retriever
-                .compute_merkle_map_from_block_range_roots(BlockNumber(45))
+                .compute_merkle_map_from_block_range_roots(BlockNumber(59))
                 .await
                 .unwrap();
 
@@ -268,7 +277,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn compute_with_a_partial_block_range() {
+        async fn compute_with_a_partial_block_range_when_last_range_is_not_empty() {
             let stored_block_ranges_roots = vec![
                 (
                     BlockRange::from_block_number(BlockNumber(15)),
@@ -283,18 +292,27 @@ mod tests {
                     MKTreeNode::from_hex("CCCC").unwrap(),
                 ),
             ];
-            let latest_partial_block_range = (
-                BlockRange::from_block_number(BlockNumber(60)),
-                MKTreeNode::from_hex("DDDD").unwrap(),
-            );
+            let latest_partial_block_range_nodes = BTreeSet::from([
+                CardanoBlockTransactionMkTreeNode::Block {
+                    block_hash: "block_hash-62".to_string(),
+                    block_number: BlockNumber(62),
+                    slot_number: SlotNumber(162),
+                },
+                CardanoBlockTransactionMkTreeNode::Transaction {
+                    transaction_hash: "tx_hash-1".to_string(),
+                    block_number: BlockNumber(62),
+                    slot_number: SlotNumber(162),
+                    block_hash: "block_hash-62".to_string(),
+                },
+            ]);
 
             let retriever = DumbBlockRangeRootRetriever::new(
                 stored_block_ranges_roots.clone(),
-                Some(latest_partial_block_range.clone()),
+                latest_partial_block_range_nodes.clone(),
             );
 
             let retrieved_mk_map = retriever
-                .compute_merkle_map_from_block_range_roots(BlockNumber(45))
+                .compute_merkle_map_from_block_range_roots(BlockNumber(63))
                 .await
                 .unwrap();
 
@@ -304,10 +322,58 @@ mod tests {
                 MKMapNode<BlockRange, MKTreeStoreInMemory>,
                 MKTreeStoreInMemory,
             >::compute_root_from_iter(
-                [stored_block_ranges_roots, vec![latest_partial_block_range]]
-                    .concat()
-                    .into_iter()
-                    .map(|(k, v)| (k, v.into())),
+                [
+                    stored_block_ranges_roots,
+                    vec![(
+                        BlockRange::from_block_number(BlockNumber(60)),
+                        MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(
+                            latest_partial_block_range_nodes,
+                        )
+                        .unwrap(),
+                    )],
+                ]
+                .concat()
+                .into_iter()
+                .map(|(k, v)| (k, v.into())),
+            )
+            .unwrap();
+            assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
+        }
+
+        #[tokio::test]
+        async fn compute_with_a_partial_block_range_when_last_range_is_empty() {
+            let stored_block_ranges_roots = vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(15)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(45)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+            ];
+
+            let retriever = DumbBlockRangeRootRetriever::new(
+                stored_block_ranges_roots.clone(),
+                BTreeSet::new(),
+            );
+
+            let retrieved_mk_map = retriever
+                .compute_merkle_map_from_block_range_roots(BlockNumber(63))
+                .await
+                .unwrap();
+
+            let retrieved_mk_map_root = retrieved_mk_map.compute_root().unwrap();
+            let expected_mk_map_root = MKMap::<
+                BlockRange,
+                MKMapNode<BlockRange, MKTreeStoreInMemory>,
+                MKTreeStoreInMemory,
+            >::compute_root_from_iter(
+                stored_block_ranges_roots.into_iter().map(|(k, v)| (k, v.into())),
             )
             .unwrap();
             assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
