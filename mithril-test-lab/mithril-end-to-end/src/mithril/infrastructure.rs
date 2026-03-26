@@ -432,6 +432,16 @@ impl MithrilInfrastructure {
         Ok(())
     }
 
+    pub fn can_certify_cardano_blocks_transactions(&self) -> bool {
+        self.aggregators
+            .iter()
+            .all(|aggregator| aggregator.version().is_above_or_equal("0.8.25"))
+            && self
+                .signers
+                .iter()
+                .all(|signer| signer.version().is_above_or_equal("0.3.18"))
+    }
+
     pub fn devnet(&self) -> &Devnet {
         &self.devnet
     }
