@@ -303,6 +303,16 @@ impl Spec {
                 infrastructure.signers().len(),
             )
             .await?;
+
+            let transaction_hashes =
+                infrastructure.devnet().mithril_payments_transaction_hashes()?;
+            let mut client = infrastructure.build_client(aggregator).await?;
+            assertions::assert_client_can_verify_transactions_v2(&mut client, transaction_hashes)
+                .await?;
+
+            let block_hashes = infrastructure.devnet().mithril_payments_block_hashes()?;
+            let mut client = infrastructure.build_client(aggregator).await?;
+            assertions::assert_client_can_verify_blocks(&mut client, block_hashes).await?;
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly

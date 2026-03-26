@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use mithril_common::StdResult;
-use mithril_common::entities::{EpochSpecifier, TransactionHash};
+use mithril_common::entities::{BlockHash, EpochSpecifier, TransactionHash};
 
 use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
@@ -177,6 +177,84 @@ impl CardanoTransactionCommand {
 }
 
 #[derive(Debug)]
+pub enum CardanoTransactionV2Command {
+    ListSnapshot,
+    ShowSnapshot { hash: String },
+    Certify { tx_hashes: Vec<TransactionHash> },
+}
+
+impl CardanoTransactionV2Command {
+    fn name(&self) -> String {
+        match self {
+            CardanoTransactionV2Command::ListSnapshot => "list-snapshot".to_string(),
+            CardanoTransactionV2Command::ShowSnapshot { hash } => format!("show-snapshot-{hash}"),
+            CardanoTransactionV2Command::Certify { tx_hashes } if tx_hashes.len() > 1 => {
+                // Only output first & last hash to avoid too long filenames
+                format!("certify-{}..{}", tx_hashes[0], tx_hashes.last().unwrap())
+            }
+            CardanoTransactionV2Command::Certify { tx_hashes } => {
+                format!("certify-{}", tx_hashes.first().unwrap_or(&String::new()))
+            }
+        }
+    }
+
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
+        match self {
+            CardanoTransactionV2Command::ListSnapshot => {
+                vec!["snapshot".to_string(), "list".to_string()]
+            }
+            CardanoTransactionV2Command::ShowSnapshot { hash } => {
+                vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
+            }
+            CardanoTransactionV2Command::Certify { tx_hashes } => {
+                vec!["certify".to_string(), tx_hashes.join(",")]
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CardanoBlockCommand {
+    ListSnapshot,
+    ShowSnapshot { hash: String },
+    Certify { block_hashes: Vec<BlockHash> },
+}
+
+impl CardanoBlockCommand {
+    fn name(&self) -> String {
+        match self {
+            CardanoBlockCommand::ListSnapshot => "list-snapshot".to_string(),
+            CardanoBlockCommand::ShowSnapshot { hash } => format!("show-snapshot-{hash}"),
+            CardanoBlockCommand::Certify { block_hashes } if block_hashes.len() > 1 => {
+                // Only output first & last hash to avoid too long filenames
+                format!(
+                    "certify-{}..{}",
+                    block_hashes[0],
+                    block_hashes.last().unwrap()
+                )
+            }
+            CardanoBlockCommand::Certify { block_hashes } => {
+                format!("certify-{}", block_hashes.first().unwrap_or(&String::new()))
+            }
+        }
+    }
+
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
+        match self {
+            CardanoBlockCommand::ListSnapshot => {
+                vec!["snapshot".to_string(), "list".to_string()]
+            }
+            CardanoBlockCommand::ShowSnapshot { hash } => {
+                vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
+            }
+            CardanoBlockCommand::Certify { block_hashes } => {
+                vec!["certify".to_string(), block_hashes.join(",")]
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum CardanoStakeDistributionCommand {
     List,
     Download { unique_identifier: String },
@@ -209,8 +287,10 @@ pub enum ClientCommand {
     CardanoDb(CardanoDbCommand),
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
     CardanoTransaction(CardanoTransactionCommand),
+    CardanoTransactionV2(CardanoTransactionV2Command),
     CardanoStakeDistribution(CardanoStakeDistributionCommand),
     CardanoDbV2(CardanoDbV2Command),
+    CardanoBlock(CardanoBlockCommand),
 }
 
 impl ClientCommand {
@@ -222,6 +302,12 @@ impl ClientCommand {
             }
             ClientCommand::CardanoTransaction(cmd) => {
                 format!("ctx-{}", cmd.name())
+            }
+            ClientCommand::CardanoTransactionV2(cmd) => {
+                format!("ctxv2-{}", cmd.name())
+            }
+            ClientCommand::CardanoBlock(cmd) => {
+                format!("cblock-{}", cmd.name())
             }
             ClientCommand::CardanoStakeDistribution(cmd) => {
                 format!("csd-{}", cmd.name())
@@ -257,6 +343,19 @@ impl ClientCommand {
             ClientCommand::CardanoTransaction(cmd) => {
                 [vec!["cardano-transaction".to_string()], cmd.cli_arg(client_version)].concat()
             }
+            ClientCommand::CardanoTransactionV2(cmd) => [
+                vec!["cardano-transaction".to_string()],
+                cmd.cli_arg(client_version),
+                vec!["--backend".to_string(), "v2".to_string()],
+                vec!["--unstable".to_string()],
+            ]
+            .concat(),
+            ClientCommand::CardanoBlock(cmd) => [
+                vec!["cardano-block".to_string()],
+                cmd.cli_arg(client_version),
+                vec!["--unstable".to_string()],
+            ]
+            .concat(),
             ClientCommand::CardanoStakeDistribution(cmd) => [
                 vec!["cardano-stake-distribution".to_string()],
                 cmd.cli_arg(client_version),
