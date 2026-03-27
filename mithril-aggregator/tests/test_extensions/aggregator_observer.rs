@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use mithril_aggregator::{
+    database::repository::AggregatorCardanoChainDataRepository,
     dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
     entities::OpenMessage,
     services::{CertifierService, SignedEntityService},
@@ -10,8 +11,8 @@ use mithril_aggregator::{
 use mithril_common::{
     StdResult,
     entities::{
-        CardanoTransactionsSnapshot, Certificate, Epoch, SignedEntityType,
-        SignedEntityTypeDiscriminants, TimePoint,
+        BlockRange, CardanoBlocksTransactionsSnapshot, CardanoTransactionsSnapshot, Certificate,
+        Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
     },
     signable_builder::SignedEntity,
 };
@@ -23,6 +24,7 @@ pub struct AggregatorObserver {
     signed_entity_service: Arc<dyn SignedEntityService>,
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
+    chain_data_repository: Arc<AggregatorCardanoChainDataRepository>,
 }
 
 impl AggregatorObserver {
@@ -33,6 +35,7 @@ impl AggregatorObserver {
             signed_entity_service: deps_builder.get_signed_entity_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
             epoch_service: deps_builder.get_epoch_service().await.unwrap(),
+            chain_data_repository: deps_builder.get_chain_data_repository().await.unwrap(),
         }
     }
 
@@ -109,6 +112,21 @@ impl AggregatorObserver {
         Ok(last_tx_snapshot)
     }
 
+    /// Get the last cardano blocks transactions snapshot produced by the aggregator
+    pub async fn get_last_cardano_blocks_transactions_snapshot(
+        &self,
+    ) -> StdResult<SignedEntity<CardanoBlocksTransactionsSnapshot>> {
+        let last_tx_snapshot = self
+            .signed_entity_service
+            .get_last_cardano_blocks_transactions_snapshot()
+            .await
+            .with_context(|| "Querying last cardano blocks transactions snapshot should not fail")?
+            .with_context(
+                || "No cardano blocks transactions snapshot have been produced by the aggregator",
+            )?;
+        Ok(last_tx_snapshot)
+    }
+
     pub async fn is_last_signed_entity(
         &self,
         signed_entity_type_expected: &SignedEntityType,
@@ -174,5 +192,11 @@ impl AggregatorObserver {
             .signed_entity_config()?
             .list_allowed_signed_entity_types_discriminants();
         Ok(discriminants)
+    }
+
+    /// List all the block ranges that have been computed and stored by the aggregator.
+    pub fn list_stored_block_ranges(&self) -> StdResult<Vec<BlockRange>> {
+        let stored_block_ranges = self.chain_data_repository.get_all_block_range_root()?;
+        Ok(stored_block_ranges.into_iter().map(|br| br.range).collect())
     }
 }

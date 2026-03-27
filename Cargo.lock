@@ -3976,6 +3976,7 @@ dependencies = [
  "flate2",
  "gcloud-kms",
  "gcloud-storage",
+ "hex",
  "http",
  "httpmock",
  "mimalloc",

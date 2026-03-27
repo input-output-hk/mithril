@@ -19,6 +19,10 @@ pub fn comment(comment: String) {
     debug!("COMMENT {:02} 💬 {}", old_count + 1, comment);
 }
 
+pub fn block_hash(block_number: u64) -> String {
+    format!("block_hash-{block_number}")
+}
+
 pub fn tx_hash(block_number: u64, tx_index: u64) -> String {
     format!("tx_hash-{block_number}-{tx_index}")
 }
