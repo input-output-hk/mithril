@@ -2,6 +2,7 @@
 
 pub(crate) mod arithmetic_operation_wrapper;
 mod block_number;
+mod block_number_offset;
 mod block_range;
 mod cardano_block;
 mod cardano_block_transaction_mktree_node;
@@ -39,6 +40,7 @@ mod time_point;
 mod type_alias;
 
 pub use block_number::BlockNumber;
+pub use block_number_offset::BlockNumberOffset;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_block::*;
 pub use cardano_block_transaction_mktree_node::*;
