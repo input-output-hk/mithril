@@ -79,9 +79,9 @@ pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()
     info!("> stopping aggregator");
     aggregator.stop().await?;
     let protocol_parameters_new = ProtocolParameters {
-        k: 145,
-        m: 210,
-        phi_f: 0.80,
+        k: 14,
+        m: 21,
+        phi_f: 0.94,
     };
     info!(
         "> updating protocol parameters to {protocol_parameters_new:?}..."; "aggregator" => &aggregator.name()

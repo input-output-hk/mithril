@@ -12,12 +12,28 @@ use midnight_zk_stdlib::{self as zk, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use std::{
+    collections::HashMap,
     fs::File,
-    io::{BufReader, ErrorKind},
+    io::{BufReader, BufWriter, ErrorKind},
     path::PathBuf,
+    sync::{Arc, LazyLock, RwLock},
 };
 
 use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCircuit};
+
+/// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct SnarkSetupCacheKey {
+    circuit_degree: u32,
+    k: u64,
+    m: u64,
+    merkle_tree_depth: u32,
+}
+
+type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCircuit>)>;
+
+static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<HashMap<SnarkSetupCacheKey, SnarkSetupKeyPair>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Base degree of the circuit when `k = 0`.
 ///
@@ -56,11 +72,7 @@ impl SnarkSetup {
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         let circuit_degree = compute_circuit_degree(params.k)?;
 
-        let srs_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("src")
-            .join("circuits")
-            .join("halo2")
-            .join("assets")
+        let srs_path = srs_assets_dir()
             .join(format!("params_kzg_unsafe_{}", circuit_degree));
 
         let srs = load_or_generate_srs(
@@ -69,22 +81,47 @@ impl SnarkSetup {
         )?;
 
         let circuit = StmCircuit::try_new(params, merkle_tree_depth)?;
-        let verification_key = zk::setup_vk(&srs, &circuit);
-        let proving_key = zk::setup_pk(&circuit, &verification_key);
+
+        let cache_key = SnarkSetupCacheKey {
+            circuit_degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth,
+        };
+        let key_pair = get_or_build_snark_keys(cache_key, &circuit, &srs)?;
+        let (verification_key, proving_key) = (&key_pair.0, &key_pair.1);
 
         Ok(Self {
             srs,
             circuit,
-            verification_key,
-            proving_key,
+            verification_key: verification_key.clone(),
+            proving_key: proving_key.clone(),
         })
     }
 }
 
-/// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
-/// if the file does not exist.
+/// Resolve the directory where SRS asset files are stored.
 ///
-/// Generation can be slow for degrees above 13-14 and the result is **not** persisted.
+/// Checks `MITHRIL_STM_SRS_DIR` at runtime first, then falls back to the path
+/// embedded at compile time (`CARGO_MANIFEST_DIR/src/circuits/halo2/assets`).
+/// The environment variable allows e2e tests and CI pipelines to supply a custom
+/// directory without requiring the original source tree to be present at runtime.
+fn srs_assets_dir() -> PathBuf {
+    std::env::var("MITHRIL_STM_SRS_DIR")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join("circuits")
+                .join("halo2")
+                .join("assets")
+        })
+}
+
+/// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
+/// if the file does not exist. When generated, the result is persisted to `path` so
+/// subsequent calls can load it quickly.
 fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<Bls12>> {
     let file = File::open(path);
     match file {
@@ -95,12 +132,61 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
                     .with_context(|| "Failed to read the srs bytes.")?,
             )
         }
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(ParamsKZG::unsafe_setup(
-            circuit_degree,
-            ChaCha20Rng::seed_from_u64(42),
-        )),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            let srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
+            if let Err(persist_err) = persist_srs(&srs, path) {
+                // Persistence failure is non-fatal: the SRS is still usable in memory.
+                eprintln!("Warning: failed to persist generated SRS to '{path}': {persist_err}");
+            }
+            Ok(srs)
+        }
         Err(e) => Err(anyhow!("Failed to open SRS file at path '{path}': {e}")),
     }
+}
+
+/// Persist a KZG SRS to disk so subsequent calls to `load_or_generate_srs` can load it.
+fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).with_context(|| {
+            format!("Failed to create SRS directory at '{}'", parent.display())
+        })?;
+    }
+    let file = File::create(path)
+        .with_context(|| format!("Failed to create SRS file at '{path}'"))?;
+    let mut writer = BufWriter::new(file);
+    srs.write_custom(&mut writer, SerdeFormat::RawBytesUnchecked)
+        .with_context(|| format!("Failed to write SRS to '{path}'"))
+}
+
+/// Return a cached VK/PK pair for `cache_key`, or derive and cache it on first call.
+///
+/// The proving-key derivation (`zk::setup_pk`) is the dominant cost in `SnarkSetup::try_new`.
+/// Caching it per `(circuit_degree, k, m, merkle_tree_depth)` avoids redundant work across
+/// multiple certificate generations within the same process.
+fn get_or_build_snark_keys(
+    cache_key: SnarkSetupCacheKey,
+    circuit: &StmCircuit,
+    srs: &ParamsKZG<Bls12>,
+) -> StmResult<SnarkSetupKeyPair> {
+    if let Some(key_pair) = SNARK_SETUP_KEY_CACHE
+        .read()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
+        .get(&cache_key)
+        .cloned()
+    {
+        return Ok(key_pair);
+    }
+
+    let vk = zk::setup_vk(srs, circuit);
+    let pk = zk::setup_pk(circuit, &vk);
+    let key_pair = Arc::new((vk, pk));
+
+    SNARK_SETUP_KEY_CACHE
+        .write()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))?
+        .insert(cache_key, key_pair.clone());
+
+    Ok(key_pair)
 }
 
 /// Compute the circuit degree from the protocol parameter `k`.
