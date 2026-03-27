@@ -129,67 +129,110 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
     /// Batch verify a set of aggregate signatures.
     pub fn batch_verify(
-        stm_signatures: &[Self],
+        aggregate_signatures: &[Self],
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
     ) -> StmResult<()> {
-        let (signatures_length, msgs_length, avks_length, parameters_length) = (
-            stm_signatures.len(),
+        type AggregateEntriesForAggregateSignatureType<D> = (
+            AggregateSignature<D>,
+            AggregateVerificationKey<D>,
+            Vec<u8>,
+            Parameters,
+        );
+
+        fn check_input_lengths(
+            proofs_length: usize,
+            msgs_length: usize,
+            avks_length: usize,
+            parameters_length: usize,
+        ) -> StmResult<()> {
+            if proofs_length != msgs_length
+                || proofs_length != avks_length
+                || proofs_length != parameters_length
+            {
+                Err(anyhow!(AggregateSignatureError::BatchInvalid))
+            } else {
+                Ok(())
+            }
+        }
+
+        check_input_lengths(
+            aggregate_signatures.len(),
             msgs.len(),
             avks.len(),
             parameters.len(),
-        );
-        if signatures_length != msgs_length
-            || signatures_length != avks_length
-            || signatures_length != parameters_length
-        {
-            return Err(anyhow!(AggregateSignatureError::BatchLengthMismatch(
-                signatures_length,
-                msgs_length,
-                avks_length,
-                parameters_length,
-            )));
-        }
+        )?;
 
-        let stm_signatures: HashMap<AggregateSignatureType, Vec<Self>> =
-            stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
-                acc.entry(sig.into()).or_default().push(sig.clone());
-                acc
-            });
-        stm_signatures.into_iter().try_for_each(
-            |(aggregate_signature_type, aggregate_signatures)| match aggregate_signature_type {
-                AggregateSignatureType::Concatenation => {
-                    let aggregate_signatures_length = aggregate_signatures.len();
-                    let concatenation_proofs = aggregate_signatures
-                        .into_iter()
-                        .filter_map(|s| s.to_concatenation_proof().cloned())
-                        .collect::<Vec<_>>();
-                    if concatenation_proofs.len() != aggregate_signatures_length {
-                        return Err(anyhow!(AggregateSignatureError::BatchInvalid));
-                    }
-                    let avks = avks
-                        .iter()
-                        .map(|avk| avk.to_concatenation_aggregate_verification_key())
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    ConcatenationProof::batch_verify(&concatenation_proofs, msgs, &avks, parameters)
-                }
-                #[cfg(feature = "future_snark")]
-                AggregateSignatureType::Snark => {
-                    for (((aggregate_signature, msg), avk), parameters) in aggregate_signatures
-                        .iter()
-                        .zip(msgs.iter())
-                        .zip(avks.iter())
-                        .zip(parameters.iter())
-                    {
-                        aggregate_signature.verify(msg, avk, parameters)?;
-                    }
+        let aggregate_entries_by_aggregate_signature_type: HashMap<
+            AggregateSignatureType,
+            Vec<AggregateEntriesForAggregateSignatureType<D>>,
+        > = aggregate_signatures
+            .iter()
+            .zip(msgs.iter())
+            .zip(avks.iter())
+            .zip(parameters.iter())
+            .fold(
+                HashMap::new(),
+                |mut acc, (((aggregate_signature, msg), avk), parameters)| {
+                    let signature_type = AggregateSignatureType::from(aggregate_signature);
+                    acc.entry(signature_type).or_default().push((
+                        aggregate_signature.clone(),
+                        avk.clone(),
+                        msg.clone(),
+                        *parameters,
+                    ));
+                    acc
+                },
+            );
 
-                    Ok(())
+        aggregate_entries_by_aggregate_signature_type
+            .into_iter()
+            .try_for_each(|(aggregate_signature_type, aggregate_entries)| {
+                match aggregate_signature_type {
+                    AggregateSignatureType::Concatenation => {
+                        let avks = aggregate_entries
+                            .iter()
+                            .map(|(_, avk, _, _)| avk.to_concatenation_aggregate_verification_key())
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        let concatenation_proofs = aggregate_entries
+                            .iter()
+                            .filter_map(|(aggregate_signature, _, _, _)| {
+                                aggregate_signature.to_concatenation_proof().cloned()
+                            })
+                            .collect::<Vec<_>>();
+                        let msgs = aggregate_entries
+                            .iter()
+                            .map(|(_, _, msg, _)| msg.clone())
+                            .collect::<Vec<_>>();
+                        let parameters = aggregate_entries
+                            .iter()
+                            .map(|(_, _, _, parameters)| *parameters)
+                            .collect::<Vec<_>>();
+                        check_input_lengths(
+                            concatenation_proofs.len(),
+                            msgs.len(),
+                            avks.len(),
+                            parameters.len(),
+                        )?;
+                        ConcatenationProof::batch_verify(
+                            &concatenation_proofs,
+                            &msgs,
+                            &avks,
+                            &parameters,
+                        )
+                    }
+                    #[cfg(feature = "future_snark")]
+                    AggregateSignatureType::Snark => {
+                        for (aggregate_signature, avk, msg, parameters) in aggregate_entries {
+                            aggregate_signature.verify(&msg, &avk, &parameters)?;
+                        }
+
+                        Ok(())
+                    }
                 }
-            },
-        )
+            })
     }
 
     /// Convert an aggregate signature to bytes
@@ -240,7 +283,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
     /// If the aggregate signature is a SNARK proof, return it.
     #[cfg(feature = "future_snark")]
-    pub fn to_snark_proof(&self) -> Option<&SnarkProof<D>> {
+    pub fn get_snark_proof(&self) -> Option<&SnarkProof<D>> {
         match self {
             AggregateSignature::Snark(proof) => Some(proof),
             AggregateSignature::Concatenation(_) => None,
@@ -253,26 +296,55 @@ mod tests {
     use super::*;
 
     mod batch_verify {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
         use super::*;
-        use crate::{MithrilMembershipDigest, Parameters};
+        use crate::{
+            Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
+        };
 
         type D = MithrilMembershipDigest;
 
-        fn assert_length_mismatch_error(result: StmResult<()>) {
-            let error = result.expect_err("Expected an error for length mismatch");
+        fn assert_batch_invalid_error(result: StmResult<()>) {
+            let error = result.expect_err("Expected a BatchInvalid error");
             assert!(
-                error
-                    .to_string()
-                    .contains("Batch verify inputs have mismatched lengths"),
-                "Expected BatchLengthMismatch error, got: {error}"
+                matches!(
+                    error.downcast_ref::<AggregateSignatureError>(),
+                    Some(AggregateSignatureError::BatchInvalid)
+                ),
+                "Expected BatchInvalid error, got: {error}"
             );
+        }
+
+        fn build_aggregate_verification_key() -> AggregateVerificationKey<D> {
+            let params = Parameters {
+                k: 1,
+                m: 10,
+                phi_f: 1.0,
+            };
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let mut kr = KeyRegistration::initialize();
+            let p = Initializer::new(params, 1, &mut rng);
+            let entry: RegistrationEntry = p.clone().try_into().unwrap();
+            kr.register_by_entry(&entry).unwrap();
+            let closed_reg = kr.close_registration(&params).unwrap();
+            AggregateVerificationKey::from(&closed_reg)
         }
 
         #[test]
         fn returns_error_when_messages_length_differs_from_signatures() {
             let result = AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[]);
 
-            assert_length_mismatch_error(result);
+            assert_batch_invalid_error(result);
+        }
+
+        #[test]
+        fn returns_error_when_avks_length_differs_from_signatures() {
+            let avk = build_aggregate_verification_key();
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[avk], &[]);
+
+            assert_batch_invalid_error(result);
         }
 
         #[test]
@@ -288,7 +360,7 @@ mod tests {
                 }],
             );
 
-            assert_length_mismatch_error(result);
+            assert_batch_invalid_error(result);
         }
 
         #[test]

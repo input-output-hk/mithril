@@ -277,6 +277,32 @@ mod tests {
 
             assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
 
+            if aggr_stms.len() >= 2 {
+                let mut swapped_msgs = batch_msgs.clone();
+                swapped_msgs.swap(0, 1);
+                assert!(
+                    AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params).is_err(),
+                    "Batch verify should reject swapped messages"
+                );
+
+                let wrong_avk = {
+                    let wrong_params = Parameters { m, k, phi_f: 0.95 };
+                    let mut rng_wrong = ChaCha20Rng::from_seed([0xdeu8; 32]);
+                    let mut kr = KeyRegistration::initialize();
+                    let p = Initializer::new(wrong_params, 1 as Stake, &mut rng_wrong);
+                    let entry: RegistrationEntry = p.clone().try_into().unwrap();
+                    kr.register_by_entry(&entry).unwrap();
+                    let closed_reg = kr.close_registration(&wrong_params).unwrap();
+                    AggregateVerificationKey::from(&closed_reg)
+                };
+                let mut wrong_avks = aggr_avks.clone();
+                wrong_avks[0] = wrong_avk;
+                assert!(
+                    AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params).is_err(),
+                    "Batch verify should reject a wrong avk"
+                );
+            }
+
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut msg);
             let params = Parameters { m, k, phi_f: 0.8 };

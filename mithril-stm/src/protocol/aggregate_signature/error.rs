@@ -33,7 +33,9 @@ pub enum AggregateSignatureError {
     SerializationError,
 
     /// Batch verification of STM aggregate signatures failed
-    #[error("Batch verification of STM aggregate signatures failed")]
+    #[error(
+        "Invalid batch: signatures, aggregate verification keys, message and parameters must have the same length"
+    )]
     BatchInvalid,
 
     /// Missing SNARK aggregate verification key
@@ -51,10 +53,4 @@ pub enum AggregateSignatureError {
     /// The proof system is unknown
     #[error("Unknown proof system: {0}")]
     UnknownProofSystem(String),
-
-    /// The batch verify inputs have mismatched lengths
-    #[error(
-        "Batch verify inputs have mismatched lengths: signatures={0}, messages={1}, keys={2}, parameters={3}"
-    )]
-    BatchLengthMismatch(usize, usize, usize, usize),
 }
