@@ -26,3 +26,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Aggregator metrics**                       | [aggregator-metrics](./aggregator-metrics/README.md)                                     | Display aggregator daily metrics.                                               |
 | **Upgrade Cardano node**                     | [upgrade-cardano-node](./upgrade-cardano-node/README.md)                                 | Upgrade the Cardano node of a Mithril network.                                  |
 | **Cardano node warmup**                      | [warmup-cardano-node](./warmup-cardano-node/README.md)                                   | Warm up a Cardano node from a Mithril snapshot to avoid ledger replay downtime. |
+| **Prepare Cardano node artifacts**           | [prepare-cardano-node-artifacts](./prepare-cardano-node-artifacts/README.md)             | Prepare and publish artifacts for an unreleased Cardano node version.           |
