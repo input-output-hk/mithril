@@ -38,8 +38,6 @@ pub struct SnarkProof<D: MembershipDigest> {
     phantom: PhantomData<D>,
 }
 
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 impl<D: MembershipDigest> SnarkProof<D> {
     /// Tries to generate a new SnarkProof given as input a vector of bytes representing a proof,
     /// protocol parameters and a merkle tree depth

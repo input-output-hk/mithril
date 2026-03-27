@@ -357,7 +357,7 @@ mod tests {
             let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             if let Ok(aggr) = msig {
-                    let bytes: Vec<u8> = aggr.to_bytes();
+                    let bytes: Vec<u8> = aggr.to_bytes().unwrap();
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
             }

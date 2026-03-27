@@ -75,9 +75,9 @@ fn test_binary_conversions() {
     assert_eq!(sig, &decoded);
 
     let msig = msig.unwrap();
-    let encoded = msig.to_bytes();
+    let encoded = msig.to_bytes().unwrap();
     AggregateSignature::<D>::from_bytes(&encoded[1..])
         .expect_err("AggregateSignature decoding should fail with invalid bytes");
     let decoded = AggregateSignature::<D>::from_bytes(&encoded).unwrap();
-    assert_eq!(msig.to_bytes(), decoded.to_bytes());
+    assert_eq!(msig.to_bytes().unwrap(), decoded.to_bytes().unwrap());
 }

@@ -67,7 +67,9 @@ impl FromStr for AggregateSignatureType {
             "Concatenation" => Ok(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
             "Snark" => Ok(AggregateSignatureType::Snark),
-            _ => Err(anyhow!("Unknown aggregate signature type: {}", s)),
+            _ => Err(anyhow!(AggregateSignatureError::UnknownProofSystem(
+                s.to_string()
+            ))),
         }
     }
 }
@@ -191,7 +193,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
     }
 
     /// Convert an aggregate signature to bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         let mut aggregate_signature_bytes = Vec::new();
         let aggregate_signature_type: AggregateSignatureType = self.into();
         aggregate_signature_bytes
@@ -202,11 +204,11 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 concatenation_proof.to_bytes()
             }
             #[cfg(feature = "future_snark")]
-            AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes().unwrap(),
+            AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes()?,
         };
         aggregate_signature_bytes.append(&mut proof_bytes);
 
-        aggregate_signature_bytes
+        Ok(aggregate_signature_bytes)
     }
 
     /// Extract an aggregate signature from a byte slice.
@@ -925,7 +927,7 @@ mod tests {
                 .expect("from_bytes on GOLDEN_BYTES must succeed");
             assert_eq!(
                 GOLDEN_BYTES,
-                value.to_bytes().as_slice(),
+                value.to_bytes().unwrap().as_slice(),
                 "Re-serialised GOLDEN_BYTES must round-trip to the same bytes"
             );
 
