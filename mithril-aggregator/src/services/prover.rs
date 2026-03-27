@@ -292,12 +292,12 @@ mod tests {
 
     async fn setup_prover_for_test<S: MKTreeStorer>(
         stored_blocks: Vec<CardanoBlockWithTransactions>,
-        block_ranges_available_up_to: BlockNumber,
+        block_ranges_ending_up_to: BlockNumber,
     ) -> MithrilProverService<S> {
         let repository = Arc::new(
             InMemoryChainDataStore::builder()
                 .with_blocks_and_transactions(&stored_blocks)
-                .compute_block_ranges(block_ranges_available_up_to)
+                .compute_block_ranges(block_ranges_ending_up_to)
                 .await
                 .build(),
         );
