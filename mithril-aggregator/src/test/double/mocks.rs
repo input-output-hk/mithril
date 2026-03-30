@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use mockall::mock;
 use std::collections::BTreeSet;
+use std::ops::Range;
 
 use mithril_cardano_node_chain::{
     chain_observer::{ChainObserver, ChainObserverError},
@@ -100,7 +101,7 @@ mock! {
 
         async fn retrieve_block_ranges_nodes(
             &self,
-            _block_range: BlockRange,
+            _range: Range<BlockNumber>,
         ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>>;
 
         async fn compute_merkle_map_from_block_range_roots(

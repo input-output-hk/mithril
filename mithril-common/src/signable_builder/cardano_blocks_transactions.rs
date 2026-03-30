@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::ops::Range;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -34,10 +35,10 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
-    /// Returns the all nodes constitutive of the given block range
+    /// Returns the all nodes in the given ranges of block numbers
     async fn retrieve_block_ranges_nodes(
         &self,
-        block_range: BlockRange,
+        range: Range<BlockNumber>,
     ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
@@ -54,8 +55,8 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
 
         let latest_block_range = BlockRange::from_block_number(up_to_beacon);
         if !latest_block_range.is_complete_up_to(up_to_beacon) {
-            let latest_partial_block_range_nodes =
-                self.retrieve_block_ranges_nodes(latest_block_range.clone()).await?;
+            let range = latest_block_range.start..latest_block_range.end.min(up_to_beacon + 1);
+            let latest_partial_block_range_nodes = self.retrieve_block_ranges_nodes(range).await?;
 
             if !latest_partial_block_range_nodes.is_empty() {
                 let latest_partial_block_range_root =
@@ -233,9 +234,14 @@ mod tests {
 
             async fn retrieve_block_ranges_nodes(
                 &self,
-                _block_range: BlockRange,
+                range: Range<BlockNumber>,
             ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
-                Ok(self.retrieve_block_ranges_nodes_result.clone())
+                Ok(self
+                    .retrieve_block_ranges_nodes_result
+                    .iter()
+                    .filter(|n| range.contains(&n.block_number()))
+                    .cloned()
+                    .collect())
             }
         }
 
@@ -305,14 +311,25 @@ mod tests {
                     block_hash: "block_hash-62".to_string(),
                 },
             ]);
+            let up_to_beacon = BlockNumber(62);
 
             let retriever = DumbBlockRangeRootRetriever::new(
                 stored_block_ranges_roots.clone(),
-                latest_partial_block_range_nodes.clone(),
+                latest_partial_block_range_nodes
+                    .union(
+                        // Note: Add data with block number higher than the beacon given for the computation, it should be ignored
+                        &BTreeSet::from([CardanoBlockTransactionMkTreeNode::Block {
+                            block_hash: "block_hash-63".to_string(),
+                            block_number: up_to_beacon + 1,
+                            slot_number: SlotNumber(163),
+                        }]),
+                    )
+                    .cloned()
+                    .collect(),
             );
 
             let retrieved_mk_map = retriever
-                .compute_merkle_map_from_block_range_roots(BlockNumber(63))
+                .compute_merkle_map_from_block_range_roots(up_to_beacon)
                 .await
                 .unwrap();
 
@@ -327,7 +344,9 @@ mod tests {
                     vec![(
                         BlockRange::from_block_number(BlockNumber(60)),
                         MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(
-                            latest_partial_block_range_nodes,
+                            latest_partial_block_range_nodes
+                                .into_iter()
+                                .filter(|n| n.block_number() <= up_to_beacon),
                         )
                         .unwrap(),
                     )],

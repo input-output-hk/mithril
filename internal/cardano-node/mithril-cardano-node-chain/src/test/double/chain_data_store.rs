@@ -342,11 +342,9 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for InMemoryChainDataStore {
 
     async fn retrieve_block_ranges_nodes(
         &self,
-        block_range: BlockRange,
+        range: Range<BlockNumber>,
     ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
-        Ok(self
-            .get_blocks_with_transactions_in_ranges(&[block_range.into()])
-            .await)
+        Ok(self.get_blocks_with_transactions_in_ranges(&[range]).await)
     }
 }
 

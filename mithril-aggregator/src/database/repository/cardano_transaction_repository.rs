@@ -136,10 +136,10 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataR
 
     async fn retrieve_block_ranges_nodes(
         &self,
-        block_range: BlockRange,
+        range: Range<BlockNumber>,
     ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
         self.inner
-            .get_blocks_with_transactions_in_range_blocks(block_range.into())
+            .get_blocks_with_transactions_in_range_blocks(range)
             .await
             .map(|v| v.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
     }
