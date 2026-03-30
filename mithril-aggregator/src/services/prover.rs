@@ -291,7 +291,7 @@ mod tests {
     }
 
     async fn setup_prover_for_test<S: MKTreeStorer>(
-        stored_blocks: Vec<CardanoBlockWithTransactions>,
+        stored_blocks: &[CardanoBlockWithTransactions],
         block_ranges_ending_up_to: BlockNumber,
     ) -> MithrilProverService<S> {
         let repository = Arc::new(
@@ -341,7 +341,8 @@ mod tests {
             let blocks_to_prove = filter_items_for_indices(&[1, 2, 4], &blocks);
             let beacon = blocks_with_tx.last().unwrap().block_number;
 
-            let prover = setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_tx, beacon).await;
+            let prover =
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_tx, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -367,7 +368,7 @@ mod tests {
             let blocks_to_prove = filter_items_for_indices(&[10, 14], &blocks);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -387,7 +388,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -410,7 +411,7 @@ mod tests {
             let blocks_to_prove = filter_items_for_indices(&[1, 4, 8], &blocks);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -457,7 +458,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -483,7 +484,7 @@ mod tests {
             let transactions_to_prove = filter_items_for_indices(&[10, 14], &transactions);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -503,7 +504,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -526,7 +527,7 @@ mod tests {
             let transactions_to_prove = filter_items_for_indices(&[1, 4, 8], &transactions);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -566,7 +567,7 @@ mod tests {
                     mock.expect_get_transactions_by_hashes()
                         .returning(|_, _| Err(anyhow!("fail")));
                 }),
-            ..setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await
+            ..setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await
         };
         prover.compute_cache(beacon).await.unwrap();
 
@@ -599,7 +600,7 @@ mod tests {
                 mock.expect_retrieve_block_range_roots()
                     .returning(|_| Err(anyhow!("fail")));
             }),
-            ..setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await
+            ..setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await
         };
         prover
             .compute_cache(beacon)

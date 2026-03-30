@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::collections::BTreeSet;
 
 use crate::StdResult;
 use crate::crypto_helper::{
@@ -119,11 +120,10 @@ impl<S: MKTreeStorer> MKMapTestExtension<S> for MKMap<BlockRange, MKMapNode<Bloc
     fn from_blocks_with_transactions(
         leaves: &[CardanoBlockWithTransactions],
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>> {
+        let ordered_leaves: BTreeSet<_> =
+            leaves.iter().flat_map(|l| l.clone().into_mk_tree_node()).collect();
         let node_per_block_range = BlockNumber::group_items_by_block_range(
-            leaves
-                .iter()
-                .flat_map(|l| l.clone().into_mk_tree_node())
-                .map(|n| (n.block_number(), n)),
+            ordered_leaves.into_iter().map(|n| (n.block_number(), n)),
         );
 
         mkmap_helpers::fold_nodes_per_block_range_into_mkmap::<_, _, S>(node_per_block_range)
@@ -179,6 +179,97 @@ mod tests {
     use crate::entities::SlotNumber;
 
     use super::*;
+
+    #[test]
+    fn mk_map_from_blocks_with_txs_order_the_leaves() {
+        let ordered_blocks_with_txs = [
+            CardanoBlockWithTransactions::new(
+                "block_hash-10",
+                BlockNumber(10),
+                SlotNumber(100),
+                vec!["tx_hash-1", "tx_hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-15",
+                BlockNumber(15),
+                SlotNumber(150),
+                vec!["tx_hash-4"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-16",
+                BlockNumber(16),
+                SlotNumber(160),
+                vec!["tx_hash-5", "tx_hash-6", "tx_hash-7"],
+            ),
+        ];
+        let unordered_blocks = [
+            CardanoBlockWithTransactions::new(
+                "block_hash-16",
+                BlockNumber(16),
+                SlotNumber(160),
+                vec!["tx_hash-5", "tx_hash-6", "tx_hash-7"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-10",
+                BlockNumber(10),
+                SlotNumber(100),
+                vec!["tx_hash-1", "tx_hash-2"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-15",
+                BlockNumber(15),
+                SlotNumber(150),
+                vec!["tx_hash-4"],
+            ),
+        ];
+        let unordered_txs = [
+            CardanoBlockWithTransactions::new(
+                "block_hash-10",
+                BlockNumber(10),
+                SlotNumber(100),
+                vec!["tx_hash-2", "tx_hash-1"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-15",
+                BlockNumber(15),
+                SlotNumber(150),
+                vec!["tx_hash-4"],
+            ),
+            CardanoBlockWithTransactions::new(
+                "block_hash-16",
+                BlockNumber(16),
+                SlotNumber(160),
+                vec!["tx_hash-6", "tx_hash-7", "tx_hash-5"],
+            ),
+        ];
+
+        let ordered_blocks_with_txs_mk_map_root =
+            MKMap::<_, _, MKTreeStoreInMemory>::from_blocks_with_transactions(
+                &ordered_blocks_with_txs,
+            )
+            .unwrap()
+            .compute_root()
+            .unwrap();
+        let unordered_blocks_mk_map_root =
+            MKMap::<_, _, MKTreeStoreInMemory>::from_blocks_with_transactions(&unordered_blocks)
+                .unwrap()
+                .compute_root()
+                .unwrap();
+        let unordered_txs_mk_map_root =
+            MKMap::<_, _, MKTreeStoreInMemory>::from_blocks_with_transactions(&unordered_txs)
+                .unwrap()
+                .compute_root()
+                .unwrap();
+
+        assert_eq!(
+            ordered_blocks_with_txs_mk_map_root,
+            unordered_blocks_mk_map_root
+        );
+        assert_eq!(
+            ordered_blocks_with_txs_mk_map_root,
+            unordered_txs_mk_map_root
+        );
+    }
 
     #[test]
     fn compute_proofs_for_blocks_and_txs_from_the_same_mkmap() {
