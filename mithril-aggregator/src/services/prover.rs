@@ -248,10 +248,14 @@ mod tests {
     use anyhow::anyhow;
 
     use mithril_cardano_node_chain::test::double::InMemoryChainDataStore;
-    use mithril_common::crypto_helper::MKTreeStoreInMemory;
-    use mithril_common::entities::CardanoBlockWithTransactions;
-    use mithril_common::test::builder::CardanoTransactionsBuilder;
-    use mithril_common::test::mock_extensions::MockBuilder;
+    use mithril_common::{
+        crypto_helper::MKTreeStoreInMemory,
+        entities::CardanoBlockWithTransactions,
+        test::{
+            builder::CardanoTransactionsBuilder, crypto_helper::MKMapTestExtension,
+            mock_extensions::MockBuilder,
+        },
+    };
 
     use crate::test::TestLogger;
     use crate::test::double::mocks::MockBlockRangeRootRetriever;
@@ -296,7 +300,7 @@ mod tests {
     ) -> MithrilProverService<S> {
         let repository = Arc::new(
             InMemoryChainDataStore::builder()
-                .with_blocks_and_transactions(&stored_blocks)
+                .with_blocks_and_transactions(stored_blocks)
                 .compute_block_ranges(block_ranges_ending_up_to)
                 .await
                 .build(),
@@ -309,6 +313,22 @@ mod tests {
             mk_map_pool_size,
             TestLogger::stdout(),
         )
+    }
+
+    fn compute_certificate_merkle_root(
+        leaves: &[CardanoBlockWithTransactions],
+        max_block_to_include: BlockNumber,
+    ) -> String {
+        let filtered_leaves: Vec<_> = leaves
+            .iter()
+            .filter(|t| t.block_number <= max_block_to_include)
+            .cloned()
+            .collect();
+        let map =
+            MKMap::<_, _, MKTreeStoreInMemory>::from_blocks_with_transactions(&filtered_leaves)
+                .unwrap();
+        let merkle_root = map.compute_root().unwrap();
+        merkle_root.to_hex()
     }
 
     fn filter_items_for_indices<T: Clone>(indices: &[usize], items: &[T]) -> Vec<T> {
@@ -333,16 +353,16 @@ mod tests {
 
         #[tokio::test]
         async fn compute_proof_for_one_set_of_three_certified_blocks() {
-            let blocks_with_tx = CardanoTransactionsBuilder::new()
+            let blocks_with_txs = CardanoTransactionsBuilder::new()
                 .max_transactions_per_block(1)
                 .blocks_per_block_range(3)
                 .build_blocks_for_block_ranges(5);
-            let blocks = into_blocks(&blocks_with_tx);
+            let blocks = into_blocks(&blocks_with_txs);
             let blocks_to_prove = filter_items_for_indices(&[1, 2, 4], &blocks);
-            let beacon = blocks_with_tx.last().unwrap().block_number;
+            let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_tx, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -353,6 +373,8 @@ mod tests {
 
             assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
             blocks_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(blocks_set_proof.merkle_root(), expected_merkle_root)
         }
 
         #[tokio::test]
@@ -407,7 +429,7 @@ mod tests {
                 .build_blocks_for_block_ranges(5);
             let blocks = into_blocks(&blocks_with_txs);
             // Only certify blocks for the first three ranges
-            let beacon = blocks_with_txs[3 * 3].block_number;
+            let beacon = blocks_with_txs[3 * 3].block_number - 1;
             let blocks_to_prove = filter_items_for_indices(&[1, 4, 8], &blocks);
 
             let prover =
@@ -429,6 +451,8 @@ mod tests {
 
             assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
             blocks_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(blocks_set_proof.merkle_root(), expected_merkle_root)
         }
     }
 
@@ -469,6 +493,8 @@ mod tests {
 
             assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
             transactions_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
         }
 
         #[tokio::test]
@@ -523,7 +549,7 @@ mod tests {
                 .build_blocks_for_block_ranges(5);
             let transactions: Vec<_> = into_transactions(&blocks_with_txs);
             // Only certify transactions for the first three ranges
-            let beacon = blocks_with_txs[3 * 3].block_number;
+            let beacon = blocks_with_txs[3 * 3].block_number - 1;
             let transactions_to_prove = filter_items_for_indices(&[1, 4, 8], &transactions);
 
             let prover =
@@ -545,6 +571,8 @@ mod tests {
 
             assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
             transactions_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
         }
     }
 
