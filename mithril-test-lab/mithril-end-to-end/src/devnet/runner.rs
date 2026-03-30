@@ -75,6 +75,7 @@ pub struct DevnetBootstrapArgs {
     pub dmq_node_version: Option<String>,
     pub cardano_hard_fork_latest_era_at_epoch: u16,
     pub skip_cardano_bin_download: bool,
+    pub cardano_binary_url: Option<String>,
 }
 
 impl Devnet {
@@ -126,6 +127,10 @@ impl Devnet {
             bootstrap_command.env("DMQ_NODE_VERSION", dmq_node_version);
         } else {
             bootstrap_command.env("SKIP_DMQ_BIN_DOWNLOAD", "true");
+        }
+
+        if let Some(cardano_binary_url) = &bootstrap_args.cardano_binary_url {
+            bootstrap_command.env("CARDANO_BINARY_URL", cardano_binary_url);
         }
 
         bootstrap_command

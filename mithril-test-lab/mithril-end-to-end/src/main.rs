@@ -152,6 +152,10 @@ pub struct Args {
     #[clap(long)]
     skip_cardano_bin_download: bool,
 
+    /// URL to download cardano binaries from (if not set, it will default to the official cardano releases)
+    #[clap(long)]
+    cardano_binary_url: Option<String>,
+
     /// Verbosity level
     #[clap(
         short,
@@ -397,6 +401,7 @@ impl App {
             dmq_node_version: args.dmq_node_version.clone(),
             cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
             skip_cardano_bin_download: args.skip_cardano_bin_download,
+            cardano_binary_url: args.cardano_binary_url.clone(),
         })
         .await?;
         *self.devnet.lock().await = Some(devnet.clone());
