@@ -11,6 +11,7 @@ use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter, EnumString, IntoEnum
 use crate::{
     StdResult,
     crypto_helper::{TryFromBytes, TryToBytes},
+    entities::BlockNumberOffset,
 };
 
 use super::{BlockNumber, CardanoDbBeacon, Epoch};
@@ -70,7 +71,7 @@ pub enum SignedEntityType {
     CardanoTransactions(Epoch, BlockNumber),
 
     /// Cardano Blocks and Transactions
-    CardanoBlocksTransactions(Epoch, BlockNumber),
+    CardanoBlocksTransactions(Epoch, BlockNumber, BlockNumberOffset),
 }
 
 impl SignedEntityType {
@@ -86,7 +87,7 @@ impl SignedEntityType {
             Self::CardanoStakeDistribution(e)
             | Self::MithrilStakeDistribution(e)
             | Self::CardanoTransactions(e, _)
-            | Self::CardanoBlocksTransactions(e, _) => *e,
+            | Self::CardanoBlocksTransactions(e, _, _) => *e,
         }
     }
 
@@ -97,7 +98,7 @@ impl SignedEntityType {
             Self::CardanoStakeDistribution(epoch) => epoch.next(),
             Self::MithrilStakeDistribution(epoch)
             | Self::CardanoTransactions(epoch, _)
-            | Self::CardanoBlocksTransactions(epoch, _) => *epoch,
+            | Self::CardanoBlocksTransactions(epoch, _, _) => *epoch,
         }
     }
 
@@ -122,11 +123,18 @@ impl SignedEntityType {
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
                 serde_json::to_string(value)?
             }
-            Self::CardanoTransactions(epoch, block_number)
-            | Self::CardanoBlocksTransactions(epoch, block_number) => {
+            Self::CardanoTransactions(epoch, block_number) => {
                 let json = serde_json::json!({
                     "epoch": epoch,
                     "block_number": block_number,
+                });
+                serde_json::to_string(&json)?
+            }
+            Self::CardanoBlocksTransactions(epoch, block_number, block_number_offset) => {
+                let json = serde_json::json!({
+                    "epoch": epoch,
+                    "block_number": block_number,
+                    "block_number_offset": block_number_offset,
                 });
                 serde_json::to_string(&json)?
             }
@@ -164,10 +172,18 @@ impl SignedEntityType {
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
-            SignedEntityType::CardanoTransactions(epoch, block_number)
-            | SignedEntityType::CardanoBlocksTransactions(epoch, block_number) => {
+            SignedEntityType::CardanoTransactions(epoch, block_number) => {
                 hasher.update(&epoch.to_be_bytes());
-                hasher.update(&block_number.to_be_bytes())
+                hasher.update(&block_number.to_be_bytes());
+            }
+            SignedEntityType::CardanoBlocksTransactions(
+                epoch,
+                block_number,
+                block_number_offset,
+            ) => {
+                hasher.update(&epoch.to_be_bytes());
+                hasher.update(&block_number.to_be_bytes());
+                hasher.update(&block_number_offset.to_be_bytes());
             }
         }
     }
@@ -330,8 +346,11 @@ mod tests {
     #[test]
     fn get_epoch_when_signed_entity_type_is_signed_for_cardano_blocks_transactions_return_epoch_stored_in_signed_entity_type()
      {
-        let signed_entity_type =
-            SignedEntityType::CardanoBlocksTransactions(Epoch(5), BlockNumber(77));
+        let signed_entity_type = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(5),
+            BlockNumber(77),
+            BlockNumberOffset(5),
+        );
         assert_eq!(
             signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
             Epoch(5)
@@ -400,19 +419,30 @@ mod tests {
         let reference_hash = hash(SignedEntityType::CardanoBlocksTransactions(
             Epoch(35),
             BlockNumber(77),
+            BlockNumberOffset(5),
         ));
         assert_ne!(
             reference_hash,
             hash(SignedEntityType::CardanoBlocksTransactions(
                 Epoch(3),
-                BlockNumber(77)
+                BlockNumber(77),
+                BlockNumberOffset(5),
             ))
         );
         assert_ne!(
             reference_hash,
             hash(SignedEntityType::CardanoBlocksTransactions(
                 Epoch(35),
-                BlockNumber(98765)
+                BlockNumber(98765),
+                BlockNumberOffset(5),
+            ))
+        );
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoBlocksTransactions(
+                Epoch(35),
+                BlockNumber(77),
+                BlockNumberOffset(123456),
             ))
         );
 
@@ -442,7 +472,8 @@ mod tests {
             )),
             hash(SignedEntityType::CardanoBlocksTransactions(
                 Epoch(3),
-                BlockNumber(77)
+                BlockNumber(77),
+                BlockNumberOffset(5),
             ))
         );
 
@@ -483,8 +514,12 @@ mod tests {
             Some(Duration::from_secs(600))
         );
         assert_eq!(
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(1))
-                .get_open_message_timeout(),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(1),
+                BlockNumberOffset(1)
+            )
+            .get_open_message_timeout(),
             Some(Duration::from_secs(600))
         );
         assert_eq!(
@@ -510,12 +545,15 @@ mod tests {
             &cardano_transactions_json
         );
 
-        let cardano_transactions_json =
-            SignedEntityType::CardanoBlocksTransactions(Epoch(35), BlockNumber(77))
-                .get_json_beacon()
-                .unwrap();
+        let cardano_transactions_json = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(35),
+            BlockNumber(77),
+            BlockNumberOffset(5),
+        )
+        .get_json_beacon()
+        .unwrap();
         assert_same_json!(
-            r#"{"epoch":35,"block_number":77}"#,
+            r#"{"epoch":35,"block_number":77,"block_number_offset":5}"#,
             &cardano_transactions_json
         );
 

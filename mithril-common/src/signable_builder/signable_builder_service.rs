@@ -118,7 +118,8 @@ impl MithrilSignableBuilderService {
                     .compute_protocol_message(*block_number)
                     .await
             }
-            SignedEntityType::CardanoBlocksTransactions(_, block_number) => {
+            SignedEntityType::CardanoBlocksTransactions(_, block_number, _) => {
+                //TODO: clem,  Sign the BlockNumberOffset in the compute_protocol_message of the signable builder implementation
                 self.cardano_blocks_transactions_signable_builder
                     .compute_protocol_message(*block_number)
                     .await
@@ -196,7 +197,7 @@ mod tests {
 
     use crate::{
         StdResult,
-        entities::{BlockNumber, Epoch, ProtocolMessage},
+        entities::{BlockNumber, BlockNumberOffset, Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         test::TestLogger,
     };
@@ -346,8 +347,11 @@ mod tests {
             .once()
             .return_once(|_| Ok(ProtocolMessage::new()));
         let signable_builder_service = mock_container.build_signable_builder_service();
-        let signed_entity_type =
-            SignedEntityType::CardanoBlocksTransactions(Epoch(6), BlockNumber(1010));
+        let signed_entity_type = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(6),
+            BlockNumber(1010),
+            BlockNumberOffset(15),
+        );
 
         signable_builder_service
             .compute_protocol_message(signed_entity_type)

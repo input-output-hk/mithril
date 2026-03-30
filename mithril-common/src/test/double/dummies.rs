@@ -832,16 +832,18 @@ mod signable_builder {
         /// Create a dummy [SignedEntity] for [CardanoBlocksTransactionsSnapshot] entity
         fn dummy() -> Self {
             let block_number = crate::entities::BlockNumber(50);
+            let block_number_offset = crate::entities::BlockNumberOffset(15);
             SignedEntity {
                 signed_entity_id: "snapshot-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
                     Epoch(5),
                     block_number,
+                    block_number_offset,
                 ),
                 certificate_id: "certificate-hash-123".to_string(),
                 artifact: fake_data::cardano_blocks_transactions_snapshot(
                     block_number,
-                    crate::entities::BlockNumber(15),
+                    block_number_offset,
                 ),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()

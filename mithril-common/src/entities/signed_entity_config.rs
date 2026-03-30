@@ -87,6 +87,7 @@ impl SignedEntityConfig {
                         time_point.epoch,
                         config
                             .compute_block_number_to_be_signed(time_point.chain_point.block_number),
+                        config.security_parameter.into(), //TODO: clem, remove into() conversion after BlockNumberOffset in the config
                     ),
                     None => {
                         anyhow::bail!(
@@ -183,7 +184,7 @@ impl CardanoBlocksTransactionsSigningConfig {
 ///   `30..45` finish at 44 included, 45 is included in the next block range).*
 fn compute_block_number_to_be_signed(
     block_number: BlockNumber,
-    security_parameter: BlockNumber,
+    security_parameter: BlockNumber, //TODO: clem, switch to BlockNumberOffset
     step: BlockNumber,
 ) -> BlockNumber {
     let adjusted_step = std::cmp::max(step, BlockNumber(1));
@@ -196,7 +197,8 @@ fn compute_block_number_to_be_signed(
 #[cfg(test)]
 mod tests {
     use crate::entities::{
-        CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
+        BlockNumberOffset, CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber,
+        TimePoint,
     };
     use crate::test::{double::Dummy, double::fake_data};
 
@@ -708,7 +710,8 @@ mod tests {
                 SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number - 1),
                 SignedEntityType::CardanoBlocksTransactions(
                     beacon.epoch,
-                    chain_point.block_number - 1
+                    chain_point.block_number - 1,
+                    BlockNumberOffset(0)
                 ),
             ],
             signed_entity_types

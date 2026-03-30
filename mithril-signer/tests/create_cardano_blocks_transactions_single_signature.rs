@@ -3,7 +3,7 @@ mod test_extensions;
 use mithril_common::{
     current_function,
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, ChainPoint, Epoch,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig, ChainPoint, Epoch,
         SignedEntityType::{CardanoBlocksTransactions, MithrilStakeDistribution},
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
@@ -43,7 +43,7 @@ async fn test_create_cardano_blocks_transactions_single_signature() {
         .is_init().await.unwrap()
         .change_network_configuration_for_aggregation(|conf| {
             conf.signed_entity_types_config.cardano_blocks_transactions = Some(CardanoBlocksTransactionsSigningConfig {
-                security_parameter: BlockNumber(0),
+                security_parameter: BlockNumberOffset(0),
                 step: BlockNumber(5),
             });
         }).await
@@ -75,7 +75,7 @@ async fn test_create_cardano_blocks_transactions_single_signature() {
 
         .comment("signer signs a single signature for CardanoTransactions = ReadyToSign")
         .comment("Signing up to a partial block range - BlockNumber 99 (in range 90..105)")
-        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(99))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(99), BlockNumberOffset(0))).await.unwrap()
 
         .comment("more cycles do not change the state = ReadyToSign")
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
@@ -85,7 +85,7 @@ async fn test_create_cardano_blocks_transactions_single_signature() {
         .increase_block_number_and_slot_number(125, SlotNumber(135), BlockNumber(225)).await.unwrap()
         .cardano_chain_send_rollback(SlotNumber(135), BlockNumber(150)).await.unwrap()
         .comment("Signing up to a complete block range - BlockNumber 149")
-        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(149))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(149), BlockNumberOffset(0))).await.unwrap()
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected, total_signature_registrations_expected).await.unwrap()

@@ -59,6 +59,20 @@ impl TryFrom<BlockNumberOffset> for i64 {
     }
 }
 
+//TODO: clem, check if we still need those converter avec switching to BlockNumberOffset
+impl From<BlockNumber> for BlockNumberOffset {
+    fn from(value: BlockNumber) -> Self {
+        BlockNumberOffset(value.0)
+    }
+}
+
+//TODO: clem, check if we still need those converter avec switching to BlockNumberOffset
+impl From<BlockNumberOffset> for BlockNumber {
+    fn from(value: BlockNumberOffset) -> Self {
+        BlockNumber(value.0)
+    }
+}
+
 impl_add_to_wrapper!(BlockNumberOffset, u64);
 impl_sub_to_wrapper!(BlockNumberOffset, u64);
 impl_partial_eq_to_wrapper!(BlockNumberOffset, u64);
@@ -184,5 +198,19 @@ mod tests {
         test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => &BlockNumberOffset(4));
         test_op_assign!(BlockNumberOffset(1), +=, 3 => BlockNumberOffset(4));
         test_op_assign!(BlockNumberOffset(1), +=, &3 => BlockNumberOffset(4));
+    }
+
+    #[test]
+    fn test_from_block_number() {
+        let block_number = BlockNumber(42);
+        let block_number_offset: BlockNumberOffset = block_number.into();
+        assert_eq!(block_number_offset, BlockNumberOffset(42));
+    }
+
+    #[test]
+    fn test_from_block_number_offset() {
+        let block_number_offset = BlockNumberOffset(42);
+        let block_number: BlockNumber = block_number_offset.into();
+        assert_eq!(block_number, BlockNumber(42));
     }
 }
