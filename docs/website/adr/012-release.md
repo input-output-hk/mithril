@@ -118,3 +118,46 @@ In case of a blocking issue on the release environment following a distribution 
 ### Infrastructure-only Redeployment
 
 When a change affects only the infrastructure (e.g. a Cardano node upgrade that is compatible with the current Mithril distribution), it is possible to redeploy without creating a new distribution. See [ADR 11](/adr/11) for details.
+
+### Synchronization with Cardano node releases
+
+Mithril distributions are synchronized with Cardano node releases to ensure that every Mithril release ships with full support for the latest stable Cardano node version. The synchronization follows these steps:
+
+1. **Integration build available**: a new integration version of the Cardano node is available but not yet released on GitHub.
+2. **Mithril qualification**: the Mithril team qualifies the unreleased Cardano node version and prepares support for it by using the [prepare-cardano-node-artifacts](https://github.com/input-output-hk/mithril/tree/main/docs/runbook/prepare-cardano-node-artifacts) runbook.
+3. **Mithril pre-release**: the Mithril team creates a new pre-release distribution that is ready to be released. It is deployed on `pre-release-preview` with the **previous** stable version of the Cardano node.
+4. **Cardano node pre-release**: the Cardano node team creates a pre-release on GitHub. The release embeds Mithril nodes built from the tag of the aforementioned Mithril pre-release distribution.
+5. **Joint testing**: the Cardano node and Mithril pre-release versions are tested together. The Cardano node version on `pre-release-preview` is updated to the pre-release version.
+6. **Iteration**: if the Cardano node pre-release requires further minor versions before it is ready to ship, go back to step 1. A new Mithril distribution is created if necessary.
+7. **Synchronous release**: the Cardano node and Mithril distributions are released simultaneously.
+
+```mermaid
+sequenceDiagram
+    actor CN as Cardano Node Team
+    actor MT as Mithril Team
+    participant PP as pre-release-preview
+
+    CN->>MT: Integration build available (not yet released)
+    MT->>MT: Qualify integration build
+    Note over MT: Prepare artifacts & Docker image<br/>(prepare-cardano-node-artifacts runbook)
+    MT->>PP: Deploy Mithril pre-release<br/>(with previous stable Cardano node)
+    MT->>CN: Share Mithril pre-release tag
+    CN->>CN: Create Cardano node pre-release<br/>(embeds Mithril nodes from pre-release tag)
+    CN->>MT: Cardano node pre-release available
+    MT->>PP: Upgrade Cardano node to pre-release version
+    MT->>CN: Joint testing on pre-release-preview
+
+    alt Pre-release requires further iterations
+        CN->>MT: New integration build (minor version)
+        MT->>MT: Qualify & prepare new integration build
+        MT->>PP: Update Mithril distribution if necessary
+        CN->>CN: Create new Cardano node pre-release
+        MT->>PP: Upgrade Cardano node to new pre-release version
+    end
+
+    CN->>CN: Cardano node ready for release
+    CN-->>MT: Synchronous release signal
+    MT->>MT: Release Mithril distribution
+    CN->>CN: Release Cardano node distribution
+    Note over CN,MT: Both distributions released simultaneously
+```
