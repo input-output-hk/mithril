@@ -56,8 +56,8 @@ impl Query for InsertOrIgnoreEpochSettingsQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Epoch,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Epoch,
     };
     use mithril_common::test::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
@@ -80,7 +80,7 @@ mod tests {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(48),
+                    security_parameter: BlockNumberOffset(48),
                     step: BlockNumber(96),
                 },
             ),
@@ -121,7 +121,7 @@ mod tests {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(48),
+                    security_parameter: BlockNumberOffset(48),
                     step: BlockNumber(96),
                 },
             ),
@@ -141,7 +141,7 @@ mod tests {
                 }),
                 cardano_blocks_transactions_signing_config: Some(
                     CardanoBlocksTransactionsSigningConfig {
-                        security_parameter: BlockNumber(321),
+                        security_parameter: BlockNumberOffset(321),
                         step: BlockNumber(987),
                     },
                 ),

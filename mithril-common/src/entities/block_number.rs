@@ -70,6 +70,14 @@ impl AddAssign<BlockNumberOffset> for BlockNumber {
     }
 }
 
+impl Sub<BlockNumberOffset> for BlockNumber {
+    type Output = Self;
+
+    fn sub(self, rhs: BlockNumberOffset) -> Self::Output {
+        self - *rhs
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
@@ -220,6 +228,11 @@ mod tests {
     #[test]
     fn test_add_block_number_offset() {
         assert_eq!(BlockNumber(4), BlockNumber(1) + BlockNumberOffset(3));
+    }
+
+    #[test]
+    fn test_sub_block_number_offset() {
+        assert_eq!(BlockNumber(1), BlockNumber(4) - BlockNumberOffset(3));
     }
 
     #[test]

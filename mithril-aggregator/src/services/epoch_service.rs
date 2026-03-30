@@ -808,8 +808,8 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Stake, StakeDistribution, SupportedEra,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test::{
         builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
@@ -1108,7 +1108,7 @@ mod tests {
         });
         let cardano_blocks_transactions_signing_config =
             Some(CardanoBlocksTransactionsSigningConfig {
-                security_parameter: BlockNumber(45),
+                security_parameter: BlockNumberOffset(45),
                 step: BlockNumber(999),
             });
 
@@ -1327,7 +1327,7 @@ mod tests {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(111),
+                    security_parameter: BlockNumberOffset(111),
                     step: BlockNumber(1111),
                 },
             ),

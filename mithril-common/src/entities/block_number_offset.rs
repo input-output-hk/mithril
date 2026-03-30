@@ -85,6 +85,14 @@ impl Add<BlockNumber> for BlockNumberOffset {
     }
 }
 
+impl Sub<BlockNumber> for BlockNumberOffset {
+    type Output = Self;
+
+    fn sub(self, rhs: BlockNumber) -> Self::Output {
+        self - *rhs
+    }
+}
+
 impl AddAssign<BlockNumber> for BlockNumberOffset {
     fn add_assign(&mut self, rhs: BlockNumber) {
         *self = *self + rhs;
@@ -190,6 +198,11 @@ mod tests {
     #[test]
     fn test_add_block_number() {
         assert_eq!(BlockNumberOffset(4), BlockNumberOffset(1) + BlockNumber(3));
+    }
+
+    #[test]
+    fn test_sub_block_number() {
+        assert_eq!(BlockNumberOffset(3), BlockNumberOffset(4) - BlockNumber(1));
     }
 
     #[test]

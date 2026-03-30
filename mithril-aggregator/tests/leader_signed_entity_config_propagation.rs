@@ -5,9 +5,9 @@ use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     current_function,
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        ChainPoint, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants, SlotNumber,
-        TimePoint,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
+        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     temp_dir,
     test::builder::{MithrilFixture, MithrilFixtureBuilder},
@@ -48,7 +48,7 @@ async fn leader_signed_entity_config_propagation() {
             step: BlockNumber(30),
         }),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())

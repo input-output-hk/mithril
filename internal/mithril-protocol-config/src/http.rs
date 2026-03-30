@@ -110,8 +110,8 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        ProtocolParameters, SignedEntityTypeDiscriminants,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityTypeDiscriminants,
     };
     use mithril_common::messages::ProtocolConfigurationMessage;
     use mithril_common::test::double::Dummy;
@@ -131,7 +131,7 @@ mod tests {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(11),
+                    security_parameter: BlockNumberOffset(11),
                     step: BlockNumber(110),
                 },
             ),
@@ -199,7 +199,7 @@ mod tests {
                 .signed_entity_types_config
                 .cardano_blocks_transactions,
             Some(CardanoBlocksTransactionsSigningConfig {
-                security_parameter: BlockNumber(11),
+                security_parameter: BlockNumberOffset(11),
                 step: BlockNumber(110),
             })
         );

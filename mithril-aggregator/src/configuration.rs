@@ -10,9 +10,10 @@ use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
 use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
 use mithril_common::entities::{
-    BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-    CompressionAlgorithm, ConfigSecret, HexEncodedGenesisVerificationKey, HexEncodedKey,
-    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
+    BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+    CardanoTransactionsSigningConfig, CompressionAlgorithm, ConfigSecret,
+    HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants,
 };
 use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
 use mithril_dmq::DmqNetwork;
@@ -832,7 +833,7 @@ impl ServeCommandConfiguration {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(120),
+                    security_parameter: BlockNumberOffset(120),
                     step: BlockNumber(15),
                 },
             ),
@@ -1199,7 +1200,7 @@ impl Default for DefaultConfiguration {
                 step: BlockNumber(120),
             },
             cardano_blocks_transactions_signing_config: CardanoBlocksTransactionsSigningConfig {
-                security_parameter: BlockNumber(3000),
+                security_parameter: BlockNumberOffset(3000),
                 step: BlockNumber(120),
             },
             preload_security_parameter: 2160,
@@ -1543,6 +1544,8 @@ mod test {
     }
 
     mod get_leader_aggregator_epoch_settings_configuration {
+        use mithril_common::entities::BlockNumberOffset;
+
         use super::*;
 
         #[test]
@@ -1675,7 +1678,7 @@ mod test {
                 ),
                 cardano_blocks_transactions_signing_config: Some(
                     CardanoBlocksTransactionsSigningConfig {
-                        security_parameter: BlockNumber(10),
+                        security_parameter: BlockNumberOffset(10),
                         step: BlockNumber(30),
                     },
                 ),
@@ -1687,7 +1690,7 @@ mod test {
 
             assert_eq!(
                 Some(CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(10),
+                    security_parameter: BlockNumberOffset(10),
                     step: BlockNumber(30),
                 }),
                 epoch_settings.cardano_blocks_transactions_signing_config

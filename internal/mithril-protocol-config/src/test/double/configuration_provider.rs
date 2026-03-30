@@ -72,8 +72,8 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
     };
 
     use crate::{
@@ -98,7 +98,7 @@ mod tests {
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(11),
-                    security_parameter: BlockNumber(111),
+                    security_parameter: BlockNumberOffset(111),
                 }),
             },
         };
@@ -117,7 +117,7 @@ mod tests {
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(22),
-                    security_parameter: BlockNumber(222),
+                    security_parameter: BlockNumberOffset(222),
                 }),
             },
         };
@@ -136,7 +136,7 @@ mod tests {
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(33),
-                    security_parameter: BlockNumber(333),
+                    security_parameter: BlockNumberOffset(333),
                 }),
             },
         };
