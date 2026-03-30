@@ -200,6 +200,7 @@ impl BlocksTransactionsRetriever for AggregatorCardanoChainDataRepository {
     async fn get_all_mk_nodes_by_block_ranges(
         &self,
         block_ranges: Vec<BlockRange>,
+        _up_to_included: BlockNumber,
     ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>> {
         let blocks = self
             .inner
