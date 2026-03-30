@@ -506,6 +506,22 @@ impl StateMachineTester {
         self
     }
 
+    /// change the signed entities allowed by the aggregator
+    pub async fn change_network_configuration_for_aggregation(
+        &mut self,
+        alteration: impl FnOnce(&mut MithrilNetworkConfigurationForEpoch),
+    ) -> &mut Self {
+        {
+            let mut config = self
+                .network_configuration_service
+                .configuration_for_aggregation
+                .write()
+                .await;
+            alteration(&mut config);
+        }
+        self
+    }
+
     /// check there is a protocol initializer for the given Epoch
     pub async fn check_protocol_initializer(&mut self, epoch: Epoch) -> Result<&mut Self> {
         let maybe_protocol_initializer = self
