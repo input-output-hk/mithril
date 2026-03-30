@@ -11,12 +11,11 @@ use crate::{
 };
 
 #[cfg(feature = "future_snark")]
-use crate::proof_system::SnarkClerk;
+use crate::AggregateSignatureError;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::{SnarkClerk, SnarkProver};
 
 use super::{AggregateSignature, AggregateSignatureType};
-
-#[cfg(feature = "future_snark")]
-use super::AggregationError;
 
 /// Clerk for aggregate signatures.
 ///
@@ -71,25 +70,53 @@ impl<D: MembershipDigest> Clerk<D> {
         aggregate_signature_type: AggregateSignatureType,
     ) -> StmResult<AggregateSignature<D>> {
         match aggregate_signature_type {
-            AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::aggregate_signatures(self.get_concatenation_clerk(), sigs, msg)
+            AggregateSignatureType::Concatenation => {
+                Ok(AggregateSignature::Concatenation(Box::new(
+                    ConcatenationProof::aggregate_signatures(
+                        self.get_concatenation_clerk(),
+                        sigs,
+                        msg,
+                    )
                     .with_context(|| {
                         format!(
                             "Signatures failed to aggregate for type {}",
                             AggregateSignatureType::Concatenation
                         )
                     })?,
-            )),
+                )))
+            }
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => Err(anyhow!(
-                AggregationError::UnsupportedProofSystem(aggregate_signature_type)
-            )),
+            AggregateSignatureType::Snark => {
+                let clerk = self
+                    .get_snark_clerk()
+                    .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
+                let merkle_tree_depth = clerk
+                    .closed_key_registration
+                    .number_of_registered_parties()
+                    .next_power_of_two()
+                    .trailing_zeros();
+                SnarkProver::try_new_non_deterministic(&clerk.parameters, merkle_tree_depth)?
+                    .aggregate_signatures(clerk, sigs, msg)
+                    .map(|p| AggregateSignature::Snark(Box::new(p)))
+                    .with_context(|| {
+                        format!(
+                            "Signatures failed to aggregate for type {}",
+                            AggregateSignatureType::Snark
+                        )
+                    })
+            }
         }
     }
 
     /// Get the concatenation clerk.
     pub fn get_concatenation_clerk(&self) -> &ConcatenationClerk {
         &self.concatenation_proof_clerk
+    }
+
+    /// Get the SNARK clerk, if available.
+    #[cfg(feature = "future_snark")]
+    pub fn get_snark_clerk(&self) -> Option<&SnarkClerk> {
+        self.snark_proof_clerk.as_ref()
     }
 
     /// Compute the aggregate verification key covering both proof systems.

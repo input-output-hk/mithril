@@ -80,7 +80,7 @@ mod binary_mithril_stm {
 
     impl TryToBytes for AggregateSignature<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 

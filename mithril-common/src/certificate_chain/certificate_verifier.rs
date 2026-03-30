@@ -271,11 +271,10 @@ impl MithrilCertificateVerifier {
                     previous_certificate,
                 ),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::Future => self
-                .verify_snark_aggregate_verification_key_chaining(
-                    certificate,
-                    previous_certificate,
-                ),
+            AggregateSignatureType::Snark => self.verify_snark_aggregate_verification_key_chaining(
+                certificate,
+                previous_certificate,
+            ),
         }
     }
 
@@ -1213,11 +1212,9 @@ mod tests {
     mod snark_avk_chaining {
         use super::*;
 
-        use crate::crypto_helper::ProtocolMembershipDigest;
         use crate::entities::SupportedEra;
         use crate::test::builder::{CertificateChainBuilder, CertificateChainFixture};
-
-        use mithril_stm::AggregateSignature;
+        use crate::test::double::fake_data::snark_aggregate_signature;
 
         fn setup_certificate_chain_with_lagrange_era(
             total_certificates: u64,
@@ -1235,10 +1232,9 @@ mod tests {
             if let CertificateSignature::MultiSignature(entity_type, _) =
                 certificate.signature.clone()
             {
-                let future_signature: AggregateSignature<ProtocolMembershipDigest> =
-                    AggregateSignature::Future;
+                let snark_signature = snark_aggregate_signature();
                 certificate.signature =
-                    CertificateSignature::MultiSignature(entity_type, future_signature.into());
+                    CertificateSignature::MultiSignature(entity_type, snark_signature);
                 certificate.hash = certificate.compute_hash();
             } else {
                 panic!("Certificate signature should be a multi signature");
@@ -1423,7 +1419,7 @@ mod tests {
             verifier
                 .verify_aggregate_verification_key_chaining(&certificate, &previous_certificate)
                 .expect(
-                    "AVK chaining from concatenation to Future should succeed via SNARK dispatch",
+                    "AVK chaining from concatenation to Snark should succeed via SNARK dispatch",
                 );
         }
 

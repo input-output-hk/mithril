@@ -38,8 +38,6 @@ pub struct SnarkProof<D: MembershipDigest> {
     phantom: PhantomData<D>,
 }
 
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 impl<D: MembershipDigest> SnarkProof<D> {
     /// Tries to generate a new SnarkProof given as input a vector of bytes representing a proof,
     /// protocol parameters and a merkle tree depth
@@ -660,12 +658,16 @@ mod tests {
         }
         "#;
 
-        // the proof generated is random for now so the golden value function is only
+        // The proof generated is random for now so the golden value function is only
         // used to generate a proof that is stored and needs to be verifiable
         // TODO: Once the deterministic proof generation is available in the released
         // midnight-proof crate, we can update is function to output a fixed value
         // that can be compared to the JSON constant
-        fn _golden_value() -> SnarkProof<MithrilMembershipDigest> {
+        fn golden_value_setup() -> (
+            SnarkProof<MithrilMembershipDigest>,
+            AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
+            [u8; 32],
+        ) {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
                 m: 200,
@@ -682,30 +684,10 @@ mod tests {
                 clerk.closed_key_registration.number_of_registered_parties(),
                 [0u8; 32],
             );
-
-            let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
-            result.unwrap()
-        }
-
-        // setup of the proof generation of the golden value this setup is deterministic
-        // and used to verify the proof still verifies
-        fn golden_value_setup() -> (
-            [u8; 32],
-            AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-        ) {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let params = Parameters {
-                m: 200,
-                k: 5,
-                phi_f: 0.8,
-            };
-            let nparties = 10;
-            let message = [1u8; 32];
-
-            let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
 
-            (message, avk)
+            (snark_proof.unwrap(), avk, message)
         }
 
         #[test]
@@ -714,7 +696,7 @@ mod tests {
                 serde_json::from_str(GOLDEN_JSON)
                     .expect("This JSON deserialization should not fail");
 
-            let (message, aggregate_verification_key) = golden_value_setup();
+            let (_, aggregate_verification_key, message) = golden_value_setup();
             assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
         }
     }

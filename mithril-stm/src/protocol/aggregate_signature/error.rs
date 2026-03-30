@@ -33,10 +33,24 @@ pub enum AggregateSignatureError {
     SerializationError,
 
     /// Batch verification of STM aggregate signatures failed
-    #[error("Batch verification of STM aggregate signatures failed")]
+    #[error(
+        "Invalid batch: signatures, aggregate verification keys, message and parameters must have the same length"
+    )]
     BatchInvalid,
+
+    /// Missing SNARK aggregate verification key
+    #[error("Missing SNARK aggregate verification key")]
+    MissingSnarkAggregateVerificationKey,
+
+    /// Missing SNARK clerk for aggregate signature verification
+    #[error("Missing SNARK clerk for aggregate signature verification")]
+    MissingSnarkClerk,
 
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
+
+    /// The proof system is unknown
+    #[error("Unknown proof system: {0}")]
+    UnknownProofSystem(String),
 }

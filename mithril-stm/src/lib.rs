@@ -155,7 +155,7 @@ use hash::poseidon::MidnightPoseidonDigest;
 pub use hash::poseidon::MidnightPoseidonDigest;
 
 #[cfg(feature = "future_snark")]
-pub use proof_system::AggregateVerificationKeyForSnark;
+pub use proof_system::{AggregateVerificationKeyForSnark, SnarkProof};
 
 #[cfg(feature = "future_snark")]
 pub use protocol::{RegistrationEntryForSnark, VerificationKeyForSnark};
