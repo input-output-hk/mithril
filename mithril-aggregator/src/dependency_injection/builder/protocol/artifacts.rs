@@ -56,13 +56,9 @@ impl DependenciesBuilder {
             CardanoTransactionsArtifactBuilder::new(legacy_prover_service.clone()),
         );
         let prover_service = self.get_prover_service().await?;
-        let mithril_network_configuration_provider =
-            self.get_mithril_network_configuration_provider().await?;
-        let cardano_blocks_transactions_artifact_builder =
-            Arc::new(CardanoBlocksTransactionsArtifactBuilder::new(
-                prover_service.clone(),
-                mithril_network_configuration_provider.clone(),
-            ));
+        let cardano_blocks_transactions_artifact_builder = Arc::new(
+            CardanoBlocksTransactionsArtifactBuilder::new(prover_service.clone()),
+        );
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));

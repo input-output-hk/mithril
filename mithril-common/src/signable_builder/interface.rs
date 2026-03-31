@@ -4,9 +4,9 @@ use std::fmt::Debug;
 use crate::{
     StdResult,
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot, CardanoDbBeacon,
-        CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution,
-        ProtocolMessage, ProtocolMessagePartValue, Snapshot,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
+        CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch,
+        MithrilStakeDistribution, ProtocolMessage, ProtocolMessagePartValue, Snapshot,
     },
 };
 
@@ -60,6 +60,8 @@ impl Beacon for BlockNumber {}
 impl Beacon for CardanoDbBeacon {}
 
 impl Beacon for Epoch {}
+
+impl Beacon for (BlockNumber, BlockNumberOffset) {}
 
 #[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for CardanoDatabaseSnapshot {
