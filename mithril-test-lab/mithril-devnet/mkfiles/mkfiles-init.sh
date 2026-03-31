@@ -111,6 +111,11 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   # First tar when archive has a 'bin' directory, and second tar is to handle legacy archive without 'bin' directory
   tar xzf cardano-bin.tar.gz -C "${ARTIFACTS_DIR}/" ./bin || (mkdir -p "${ARTIFACTS_DIR}/bin" && tar --strip-components=1 -C "${ARTIFACTS_DIR}/bin" -xzf cardano-bin.tar.gz)
   rm -f cardano-bin.tar.gz
+else
+  echo ">> Skipping cardano-cli & cardano-node download, copying from local bin directory..."
+  mkdir -p "${ARTIFACTS_DIR}/bin"
+  cp "${SCRIPT_DIRECTORY}/bin/cardano-node" "${ARTIFACTS_DIR}/bin/cardano-node"
+  cp "${SCRIPT_DIRECTORY}/bin/cardano-cli" "${ARTIFACTS_DIR}/bin/cardano-cli"
 fi
 
 # Download DMQ node binary if enabled (default: yes)

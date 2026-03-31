@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for optional throttling of the Cardano transactions import in the signer and aggregator (enabled by default).
 
+- Upgraded the release process to support release synchronization with the Cardano node releases.
+
 - Implemented statically built Mithril nodes in CI:
   - **aggregator**, **signer**, **client**, and **relay** are statically built on both **GitHub** and **Hydra** CI pipelines using the `musl` target.
   - Feature updates:

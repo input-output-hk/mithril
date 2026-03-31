@@ -95,11 +95,11 @@ You can use your own compiled cardano binaries to run the end to end test:
 
 - Build the **cardano-node** and **cardano-cli** binaries following the documentation on the [Cardano Developer Portal](https://developers.cardano.org/docs/get-started/installing-cardano-node#macos).
 
-- From the root of the repository, copy the `cardano-node` and `cardano-cli` binaries in the `devnet` directory:
+- From the root of the repository, copy the `cardano-node` and `cardano-cli` binaries in the `devnet/bin` directory:
 
 ```bash
-cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-node
-cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-cli
+cp $HOME/.local/bin/cardano-node mithril-test-lab/mithril-devnet/bin/cardano-node
+cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/bin/cardano-cli
 ```
 
 - Use the `--skip-cardano-bin-download` option to run the end to end test:
