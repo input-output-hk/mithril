@@ -5,11 +5,11 @@ use mithril_common::entities::{Epoch, SupportedEra};
 
 use crate::{EraMarker, EraReaderAdapter};
 
-/// The goal of the latest adapter is to advertise for the last existing Era (test-only)
-pub struct LatestAdapter;
+/// The goal of the bootstrap latest adapter is to advertise for the last existing Era (test-only)
+pub struct BootstrapLatestAdapter;
 
 #[async_trait]
-impl EraReaderAdapter for LatestAdapter {
+impl EraReaderAdapter for BootstrapLatestAdapter {
     async fn read(&self) -> StdResult<Vec<EraMarker>> {
         Ok(vec![EraMarker::new(
             &SupportedEra::eras().last().unwrap().to_string(),
@@ -23,15 +23,18 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn latest_adapter() {
-        let adapter = LatestAdapter;
+    async fn bootstrap_latest_adapter() {
+        let adapter = BootstrapLatestAdapter;
 
         assert_eq!(
             vec![EraMarker::new(
                 &SupportedEra::eras().last().unwrap().to_string(),
                 Some(Epoch(0))
             )],
-            adapter.read().await.expect("latest adapter shall never fail")
+            adapter
+                .read()
+                .await
+                .expect("bootstrap latest adapter shall never fail")
         );
     }
 }
