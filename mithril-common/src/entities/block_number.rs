@@ -226,12 +226,12 @@ mod tests {
     }
 
     #[test]
-    fn test_add_block_number_offset() {
+    fn test_add_block_number_offset_to_block_number() {
         assert_eq!(BlockNumber(4), BlockNumber(1) + BlockNumberOffset(3));
     }
 
     #[test]
-    fn test_sub_block_number_offset() {
+    fn test_sub_block_number_offset_from_block_number() {
         assert_eq!(BlockNumber(1), BlockNumber(4) - BlockNumberOffset(3));
     }
 
@@ -241,5 +241,11 @@ mod tests {
         test_op_assign!(BlockNumber(1), +=, BlockNumberOffset(3) => &BlockNumber(4));
         test_op_assign!(BlockNumber(1), +=, 3 => BlockNumber(4));
         test_op_assign!(BlockNumber(1), +=, &3 => BlockNumber(4));
+    }
+
+    #[test]
+    fn test_add_asign_block_number_to_block_number_offset() {
+        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => BlockNumberOffset(4));
+        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => &BlockNumberOffset(4));
     }
 }

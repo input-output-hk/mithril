@@ -59,20 +59,6 @@ impl TryFrom<BlockNumberOffset> for i64 {
     }
 }
 
-//TODO: clem, check if we still need those converter avec switching to BlockNumberOffset
-impl From<BlockNumber> for BlockNumberOffset {
-    fn from(value: BlockNumber) -> Self {
-        BlockNumberOffset(value.0)
-    }
-}
-
-//TODO: clem, check if we still need those converter avec switching to BlockNumberOffset
-impl From<BlockNumberOffset> for BlockNumber {
-    fn from(value: BlockNumberOffset) -> Self {
-        BlockNumber(value.0)
-    }
-}
-
 impl_add_to_wrapper!(BlockNumberOffset, u64);
 impl_sub_to_wrapper!(BlockNumberOffset, u64);
 impl_partial_eq_to_wrapper!(BlockNumberOffset, u64);
@@ -96,6 +82,12 @@ impl Sub<BlockNumber> for BlockNumberOffset {
 impl AddAssign<BlockNumber> for BlockNumberOffset {
     fn add_assign(&mut self, rhs: BlockNumber) {
         *self = *self + rhs;
+    }
+}
+
+impl From<BlockNumber> for BlockNumberOffset {
+    fn from(value: BlockNumber) -> Self {
+        BlockNumberOffset(value.0)
     }
 }
 
@@ -196,21 +188,19 @@ mod tests {
     }
 
     #[test]
-    fn test_add_block_number() {
+    fn test_add_asign_block_number() {
+        test_op_assign!(BlockNumberOffset(1), +=, 3 => BlockNumberOffset(4));
+        test_op_assign!(BlockNumberOffset(1), +=, &3 => BlockNumberOffset(4));
+    }
+
+    #[test]
+    fn test_add_block_number_to_block_number_offset() {
         assert_eq!(BlockNumberOffset(4), BlockNumberOffset(1) + BlockNumber(3));
     }
 
     #[test]
-    fn test_sub_block_number() {
+    fn test_sub_block_number_to_block_number_offset() {
         assert_eq!(BlockNumberOffset(3), BlockNumberOffset(4) - BlockNumber(1));
-    }
-
-    #[test]
-    fn test_add_asign_block_number() {
-        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => BlockNumberOffset(4));
-        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => &BlockNumberOffset(4));
-        test_op_assign!(BlockNumberOffset(1), +=, 3 => BlockNumberOffset(4));
-        test_op_assign!(BlockNumberOffset(1), +=, &3 => BlockNumberOffset(4));
     }
 
     #[test]
@@ -218,12 +208,5 @@ mod tests {
         let block_number = BlockNumber(42);
         let block_number_offset: BlockNumberOffset = block_number.into();
         assert_eq!(block_number_offset, BlockNumberOffset(42));
-    }
-
-    #[test]
-    fn test_from_block_number_offset() {
-        let block_number_offset = BlockNumberOffset(42);
-        let block_number: BlockNumber = block_number_offset.into();
-        assert_eq!(block_number, BlockNumber(42));
     }
 }
