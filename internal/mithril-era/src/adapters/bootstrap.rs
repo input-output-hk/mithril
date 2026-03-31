@@ -5,9 +5,7 @@ use mithril_common::entities::{Epoch, SupportedEra};
 
 use crate::{EraMarker, EraReaderAdapter};
 
-/// The goal of the bootstrap adapter is to advertise for the first existing Era
-/// while it does not exist yet on any backend. This adapter is intended to be
-/// removed once Eras are effectively written in a backend.
+/// The goal of the bootstrap adapter is to advertise for the first existing Era (test-only)
 pub struct BootstrapAdapter;
 
 #[async_trait]

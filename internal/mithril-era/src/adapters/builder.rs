@@ -10,8 +10,8 @@ use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
 use crate::{
     EraMarker, EraReaderAdapter,
     adapters::{
-        EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
-        EraReaderFileAdapter,
+        EraReaderBootstrapAdapter, EraReaderBootstrapLatestAdapter, EraReaderCardanoChainAdapter,
+        EraReaderDummyAdapter, EraReaderFileAdapter,
     },
 };
 
@@ -28,6 +28,9 @@ pub enum AdapterType {
     Dummy,
     /// Bootstrap adapter.
     Bootstrap,
+    /// Bootstrap latest adapter.
+    #[serde(rename = "bootstrap-latest")]
+    BootstrapLatest,
 }
 
 impl Display for AdapterType {
@@ -37,6 +40,7 @@ impl Display for AdapterType {
             Self::CardanoChain => write!(f, "cardano chain"),
             Self::Dummy => write!(f, "dummy"),
             Self::File => write!(f, "file"),
+            Self::BootstrapLatest => write!(f, "bootstrap latest"),
         }
     }
 }
@@ -132,6 +136,7 @@ impl AdapterBuilder {
                 Ok(Arc::new(dummy_adapter))
             }
             AdapterType::Bootstrap => Ok(Arc::new(EraReaderBootstrapAdapter)),
+            AdapterType::BootstrapLatest => Ok(Arc::new(EraReaderBootstrapLatestAdapter)),
         }
     }
 }

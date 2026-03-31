@@ -17,7 +17,8 @@ resource "null_resource" "mithril_aggregator" {
     dmq_image_id                                                                     = var.dmq_image_id,
     dmq_image_registry                                                               = var.dmq_image_registry,
     mithril_aggregator_auth_username                                                 = var.mithril_aggregator_auth_username,
-    mithril_aggregator_auth_password                                                 = var.mithril_aggregator_auth_password
+    mithril_aggregator_auth_password                                                 = var.mithril_aggregator_auth_password,
+    mithril_aggregator_aggregate_signature_type                                      = var.mithril_aggregator_aggregate_signature_type,
     mithril_aggregator_signed_entity_types                                           = var.mithril_aggregator_signed_entity_types,
     mithril_aggregator_snapshot_compression_algorithm                                = var.mithril_aggregator_snapshot_compression_algorithm,
     mithril_aggregator_zstandard_parameters_level                                    = var.mithril_aggregator_zstandard_parameters_level,
