@@ -178,8 +178,6 @@ impl Aggregator {
         if aggregator_config.use_dmq {
             env.insert("DMQ_NODE_SOCKET_PATH", dmq_node_socket_path.as_str());
         }
-        let srs_dir = aggregator_config.work_dir.join("srs").to_str().unwrap().to_string();
-        env.insert("MITHRIL_STM_SRS_DIR", srs_dir.as_str());
         let args = vec![
             "--db-directory",
             aggregator_config.full_node.db_path.to_str().unwrap(),

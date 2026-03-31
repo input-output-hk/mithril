@@ -4,6 +4,12 @@
 //! [`SnarkSetup`]. The current implementation uses pre-generated SRS files with an
 //! unsafe deterministic fallback for testing. It will be replaced by production-ready
 //! setup code (trusted SRS ceremony, proper key management) before release.
+use std::{
+    env,
+    fs::File,
+    io::{BufReader, BufWriter, ErrorKind},
+    sync::{Arc, LazyLock, RwLock},
+};
 
 use anyhow::{Context, anyhow};
 use midnight_curves::Bls12;
@@ -11,13 +17,6 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use midnight_zk_stdlib::{self as zk, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{BufReader, BufWriter, ErrorKind},
-    path::PathBuf,
-    sync::{Arc, LazyLock, RwLock},
-};
 
 use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCircuit};
 
@@ -32,8 +31,8 @@ struct SnarkSetupCacheKey {
 
 type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCircuit>)>;
 
-static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<HashMap<SnarkSetupCacheKey, SnarkSetupKeyPair>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkSetupKeyPair)>>> =
+    LazyLock::new(|| RwLock::new(None));
 
 /// Base degree of the circuit when `k = 0`.
 ///
@@ -72,7 +71,10 @@ impl SnarkSetup {
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         let circuit_degree = compute_circuit_degree(params.k)?;
 
-        let srs_path = srs_assets_dir()
+        // Uses a temporary directory to store the srs generated
+        // and to access it again during execution
+        let srs_path = env::temp_dir()
+            .join("mithril-srs")
             .join(format!("params_kzg_unsafe_{}", circuit_degree));
 
         let srs = load_or_generate_srs(
@@ -98,25 +100,6 @@ impl SnarkSetup {
             proving_key: proving_key.clone(),
         })
     }
-}
-
-/// Resolve the directory where SRS asset files are stored.
-///
-/// Checks `MITHRIL_STM_SRS_DIR` at runtime first, then falls back to the path
-/// embedded at compile time (`CARGO_MANIFEST_DIR/src/circuits/halo2/assets`).
-/// The environment variable allows e2e tests and CI pipelines to supply a custom
-/// directory without requiring the original source tree to be present at runtime.
-fn srs_assets_dir() -> PathBuf {
-    std::env::var("MITHRIL_STM_SRS_DIR")
-        .ok()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("src")
-                .join("circuits")
-                .join("halo2")
-                .join("assets")
-        })
 }
 
 /// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
@@ -147,12 +130,11 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 /// Persist a KZG SRS to disk so subsequent calls to `load_or_generate_srs` can load it.
 fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
     if let Some(parent) = std::path::Path::new(path).parent() {
-        std::fs::create_dir_all(parent).with_context(|| {
-            format!("Failed to create SRS directory at '{}'", parent.display())
-        })?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create SRS directory at '{}'", parent.display()))?;
     }
-    let file = File::create(path)
-        .with_context(|| format!("Failed to create SRS file at '{path}'"))?;
+    let file =
+        File::create(path).with_context(|| format!("Failed to create SRS file at '{path}'"))?;
     let mut writer = BufWriter::new(file);
     srs.write_custom(&mut writer, SerdeFormat::RawBytesUnchecked)
         .with_context(|| format!("Failed to write SRS to '{path}'"))
@@ -171,8 +153,9 @@ fn get_or_build_snark_keys(
     if let Some(key_pair) = SNARK_SETUP_KEY_CACHE
         .read()
         .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
-        .get(&cache_key)
-        .cloned()
+        .as_ref()
+        .filter(|(k, _)| *k == cache_key)
+        .map(|(_, v)| v.clone())
     {
         return Ok(key_pair);
     }
@@ -181,10 +164,10 @@ fn get_or_build_snark_keys(
     let pk = zk::setup_pk(circuit, &vk);
     let key_pair = Arc::new((vk, pk));
 
-    SNARK_SETUP_KEY_CACHE
+    let mut cache = SNARK_SETUP_KEY_CACHE
         .write()
-        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))?
-        .insert(cache_key, key_pair.clone());
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))?;
+    *cache = Some((cache_key, key_pair.clone()));
 
     Ok(key_pair)
 }
