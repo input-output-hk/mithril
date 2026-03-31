@@ -64,6 +64,11 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> MKMap<K, V, S> {
         Ok(mk_map)
     }
 
+    /// Get the keys of the merkelized map
+    pub fn keys(&self) -> impl DoubleEndedIterator<Item = &K> {
+        self.inner_map_values.keys()
+    }
+
     /// Get the root of the merkle tree of a merkelized map built from an iterator
     ///
     /// Shortcut for `MKMap::new_from_iter(entries)?.compute_root()`
@@ -532,6 +537,18 @@ mod tests {
             .into_iter()
             .map(|(range, mktree)| (range, MKMapNode::TreeNode(mktree.try_into().unwrap())))
             .collect()
+    }
+
+    #[test]
+    fn get_keys() {
+        let keys = vec![BlockRange::new(0, 3), BlockRange::new(4, 6), BlockRange::new(7, 9)];
+        let entries = generate_merkle_trees_for_ranges(&keys);
+        let mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
+
+        assert_eq!(keys.first(), mk_map.keys().next());
+        assert_eq!(keys.last(), mk_map.keys().next_back());
+        assert_eq!(keys, mk_map.keys().cloned().collect::<Vec<_>>());
     }
 
     #[test]

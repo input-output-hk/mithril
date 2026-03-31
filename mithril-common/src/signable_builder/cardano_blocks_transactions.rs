@@ -53,8 +53,23 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
         let mut mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
             .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
 
+        // Notes about partial block ranges handling
+        // Precision: `up_to_beacon` is "partial" if it's not a value of a block range end (a multiple of 15 - 1)
+        //
+        // Several cases:
+        // - `up_to_beacon` is not partial: no partial block range to compute and insert
+        // - `up_to_beacon` is partial but contained in last already stored range: no partial block range to compute and insert
+        // - `up_to_beacon` is partial and not contained in last already computed range: compute and insert the partial block range
+        let is_beacon_contained_in_last_computed_range = mk_hash_map
+            .keys()
+            .next_back()
+            .map(|range| range.contains(&up_to_beacon))
+            .unwrap_or_default();
+
         let latest_block_range = BlockRange::from_block_number(up_to_beacon);
-        if !latest_block_range.is_complete_up_to(up_to_beacon) {
+        if !latest_block_range.is_complete_up_to(up_to_beacon)
+            && !is_beacon_contained_in_last_computed_range
+        {
             let range = latest_block_range.start..latest_block_range.end.min(up_to_beacon + 1);
             let latest_partial_block_range_nodes = self.retrieve_block_ranges_nodes(range).await?;
 
@@ -354,6 +369,50 @@ mod tests {
                 .concat()
                 .into_iter()
                 .map(|(k, v)| (k, v.into())),
+            )
+            .unwrap();
+            assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
+        }
+
+        #[tokio::test]
+        async fn compute_when_given_block_is_partial_but_a_range_were_already_computed() {
+            let stored_block_ranges_roots = vec![
+                (
+                    BlockRange::from_block_number(BlockNumber(15)),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(30)),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockNumber(45)),
+                    MKTreeNode::from_hex("CCCC").unwrap(),
+                ),
+            ];
+            let up_to_beacon = BlockNumber(47);
+
+            let retriever = DumbBlockRangeRootRetriever::new(
+                stored_block_ranges_roots.clone(),
+                BTreeSet::from([CardanoBlockTransactionMkTreeNode::Block {
+                    block_hash: "block_hash-47".to_string(),
+                    block_number: up_to_beacon,
+                    slot_number: SlotNumber(163),
+                }]),
+            );
+
+            let retrieved_mk_map = retriever
+                .compute_merkle_map_from_block_range_roots(up_to_beacon)
+                .await
+                .unwrap();
+
+            let retrieved_mk_map_root = retrieved_mk_map.compute_root().unwrap();
+            let expected_mk_map_root = MKMap::<
+                BlockRange,
+                MKMapNode<BlockRange, MKTreeStoreInMemory>,
+                MKTreeStoreInMemory,
+            >::compute_root_from_iter(
+                stored_block_ranges_roots.into_iter().map(|(k, v)| (k, v.into())),
             )
             .unwrap();
             assert_eq!(expected_mk_map_root, retrieved_mk_map_root);
