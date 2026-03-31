@@ -4351,7 +4351,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.124"
+version = "0.4.125"
 dependencies = [
  "anyhow",
  "async-recursion",
