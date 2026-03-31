@@ -41,6 +41,10 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "latest_block_number")]
     LatestBlockNumber,
 
+    /// The ProtocolMessage part key associated to the security parameter block number offset of the CardanoBlocksTransactions
+    #[serde(rename = "cardano_blocks_transactions_block_number_offset")]
+    CardanoBlocksTransactionsBlockNumberOffset,
+
     /// The ProtocolMessage part key associated to the epoch for which the Cardano stake distribution is computed
     #[serde(rename = "cardano_stake_distribution_epoch")]
     CardanoStakeDistributionEpoch,
@@ -73,6 +77,9 @@ impl Display for ProtocolMessagePartKey {
                 write!(f, "cardano_blocks_transactions_merkle_root")
             }
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
+            Self::CardanoBlocksTransactionsBlockNumberOffset => {
+                write!(f, "cardano_blocks_transactions_block_number_offset")
+            }
             Self::CardanoStakeDistributionEpoch => write!(f, "cardano_stake_distribution_epoch"),
             Self::CardanoStakeDistributionMerkleRoot => {
                 write!(f, "cardano_stake_distribution_merkle_root")
