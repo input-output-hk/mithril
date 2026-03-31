@@ -14,7 +14,7 @@ use std::{
 use anyhow::{Context, anyhow};
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
-use midnight_zk_stdlib::{self as zk, MidnightPK, MidnightVK};
+use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
@@ -33,11 +33,6 @@ type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCircuit>)>;
 
 static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkSetupKeyPair)>>> =
     LazyLock::new(|| RwLock::new(None));
-
-/// Base degree of the circuit when `k = 0`.
-///
-/// The actual circuit degree is `BASE_CIRCUIT_DEGREE + ceil_log2(k)`.
-const BASE_CIRCUIT_DEGREE: u32 = 11;
 
 /// Bundles the one-time setup artifacts needed to prove and verify SNARK proofs.
 ///
@@ -69,7 +64,8 @@ impl SnarkSetup {
     /// Returns an error if the SRS cannot be loaded or generated, or if the circuit
     /// cannot be compiled with the given parameters.
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
-        let circuit_degree = compute_circuit_degree(params.k)?;
+        let circuit = StmCircuit::try_new(params, merkle_tree_depth)?;
+        let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
 
         // Uses a temporary directory to store the srs generated
         // and to access it again during execution
@@ -81,8 +77,6 @@ impl SnarkSetup {
             circuit_degree,
             srs_path.to_str().with_context(|| "SRS path contains invalid UTF-8")?,
         )?;
-
-        let circuit = StmCircuit::try_new(params, merkle_tree_depth)?;
 
         let cache_key = SnarkSetupCacheKey {
             circuit_degree,
@@ -170,14 +164,4 @@ fn get_or_build_snark_keys(
     *cache = Some((cache_key, key_pair.clone()));
 
     Ok(key_pair)
-}
-
-/// Compute the circuit degree from the protocol parameter `k`.
-///
-/// Returns an error if `k` is zero, since a quorum threshold of zero is invalid.
-pub(crate) fn compute_circuit_degree(k: u64) -> StmResult<u32> {
-    if k == 0 {
-        return Err(anyhow!("Protocol parameter k must be greater than zero"));
-    }
-    Ok(BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros())
 }
