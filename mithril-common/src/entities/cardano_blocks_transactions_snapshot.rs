@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::entities::BlockNumberOffset;
+
 use super::BlockNumber;
 
 /// Snapshot of a set of Cardano blocks and transactions
@@ -24,7 +26,7 @@ impl CardanoBlocksTransactionsSnapshot {
     pub fn new(
         merkle_root: String,
         block_number_signed: BlockNumber,
-        offset_security_parameter: BlockNumber,
+        offset_security_parameter: BlockNumberOffset,
     ) -> Self {
         let mut snapshot = Self {
             merkle_root,
@@ -61,7 +63,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(50),
-                BlockNumber(15)
+                BlockNumberOffset(15)
             )
             .compute_hash()
         );
@@ -71,7 +73,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-456".to_string(),
                 BlockNumber(50),
-                BlockNumber(15)
+                BlockNumberOffset(15)
             )
             .compute_hash()
         );
@@ -81,7 +83,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(47),
-                BlockNumber(15)
+                BlockNumberOffset(15)
             )
             .compute_hash()
         );
@@ -91,7 +93,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "mk-root-123".to_string(),
                 BlockNumber(50),
-                BlockNumber(42)
+                BlockNumberOffset(42)
             )
             .compute_hash()
         );
@@ -105,7 +107,7 @@ mod tests {
         let snapshot = CardanoBlocksTransactionsSnapshot::new(
             "mk-root-123".to_string(),
             BlockNumber(block_number_signed_value),
-            BlockNumber(offset_security_parameter_value),
+            BlockNumberOffset(offset_security_parameter_value),
         );
 
         assert_eq!(

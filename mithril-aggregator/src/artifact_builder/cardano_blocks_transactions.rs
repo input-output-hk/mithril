@@ -50,7 +50,7 @@ impl ArtifactBuilder<(BlockNumber, BlockNumberOffset), CardanoBlocksTransactions
         Ok(CardanoBlocksTransactionsSnapshot::new(
             merkle_root.to_string(),
             block_number,
-            block_number_offset.into(), //TODO: clem to de want to use BlockNumberOffset for CardanoBlocksTransactionsSnapshot ?
+            block_number_offset,
         ))
     }
 }
@@ -99,7 +99,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "merkleroot".to_string(),
                 block_number,
-                block_number_offset.into(), //TODO: clem, do we want to use BlockNumberOffset in CardanoBlocksTransactionsSnapshot ?
+                block_number_offset,
             ),
             artifact
         );

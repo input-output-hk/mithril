@@ -933,7 +933,7 @@ mod tests {
         let expected = CardanoBlocksTransactionsSnapshot::new(
             "merkle_root".to_string(),
             block_number,
-            offset_security_parameter.into(), //TODO: clem, do we want to use BlockNumberOffset in CardanoBlocksTransactionsSnapshot ?
+            offset_security_parameter,
         );
 
         mock_container
@@ -944,7 +944,7 @@ mod tests {
                 Ok(CardanoBlocksTransactionsSnapshot::new(
                     "merkle_root".to_string(),
                     block_number,
-                    offset_security_parameter.into(), //TODO: clem, do we want to use BlockNumberOffset in CardanoBlocksTransactionsSnapshot ?
+                    offset_security_parameter,
                 ))
             });
 
@@ -977,7 +977,7 @@ mod tests {
             CardanoBlocksTransactionsSnapshot::new(
                 "merkle_root".to_string(),
                 block_number,
-                offset_security_parameter.into(), //TODO: clem, do we want to use BlockNumberOffset in CardanoBlocksTransactionsSnapshot ?
+                offset_security_parameter,
             ),
             &|mock_injector| &mut mock_injector.mock_cardano_blocks_transactions_artifact_builder,
         )
