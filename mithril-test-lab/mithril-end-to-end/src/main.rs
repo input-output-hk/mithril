@@ -149,6 +149,7 @@ pub struct Args {
     dmq_node_version: Option<String>,
 
     /// Skip cardano binaries download
+    /// (will use the ones in the `bin` folder of the `Args::devnet_scripts_directory`, which defaults to `./devnet/bin`)
     #[clap(long)]
     skip_cardano_bin_download: bool,
 

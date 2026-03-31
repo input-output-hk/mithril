@@ -11,8 +11,17 @@ To avoid this long downtime, a warmup process bootstraps a temporary Cardano nod
 
 ## Pre-requisites
 
-- At least **50% of free space** on the data disk (the Mithril snapshot download and the existing database backup require significant disk space)
 - The new Cardano node Docker image version to warm up with
+- Minimum memory available, at least the amount of memory used by the current aggregator Cardano node plus a margin of `1GB` (run `docker stats --no-stream --format "{{.MemUsage}}" cardano-node-aggregator` to check)
+- Minimum data disk space available, at least the amount required for the Mithril snapshot download and the existing database of the aggregator Cardano node plus a margin of `5GB` (run `du -sh /home/curry/data/$NETWORK/mithril-aggregator/cardano/db` to check the existing database size)
+
+Minimum requirement based on information gathered on 2026-03-31:
+
+| **network** | **available memory** | **available data disk** |
+| ----------- | -------------------- | ----------------------- |
+| preview     | `7GB`                | `22GB`                  |
+| preprod     | `8GB`                | `26GB`                  |
+| mainnet     | `21GB`               | `267GB`                 |
 
 ## Configure environment variables
 

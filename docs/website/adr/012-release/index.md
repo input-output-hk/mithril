@@ -29,7 +29,7 @@ A distribution version identifies a distribution of specific node versions and t
 A distribution is a software package built once and then promoted from the testing environment to the production environment. It may be signed.
 
 - Keep it simple.
-- Automate as much as possible: every step that does not require a human decision must be automated.
+- Automate as much as possible: every step that does not require a human decision shall be automated.
 - Minimize the mean time to release.
 
 ## Decision
@@ -55,52 +55,7 @@ Starting immediately after a new release has been published:
 1. The CI retrieves the built artifacts for this commit and generates a named release, which is deployed to `release-preprod` and `release-mainnet`.
 1. Create a commit to promote the documentation website from future to current.
 
-```mermaid
-flowchart LR
-    subgraph COMMITS["main branch"]
-        direction TB
-        ABC(["abc123"])
-        DEF(["def456\n● 2641.0"])
-        FED(["fed789\n● 2641.1"])
-        ABC --> DEF --> FED
-    end
-
-    subgraph ARTIFACTS["Artifacts"]
-        direction TB
-        ART1["artifacts-abc123\nDocker · Binaries · Doc · Terraform"]
-        ART2["artifacts-def456\nDocker · Binaries · Doc · Terraform"]
-        ART3["artifacts-fed789\nDocker · Binaries · Doc · Terraform"]
-    end
-
-    subgraph ENVIRONMENTS["Environments"]
-        direction TB
-        ENV_TP["testing-preview\nWebsite · Docker"]
-        ENV_PRP["pre-release-preview\nDocker"]
-        ENV_RPP["release-preprod\nCrates.io · Docker"]
-        ENV_RMN["release-mainnet\nCrates.io · Docker"]
-    end
-
-    ABC -->|build| ART1
-    DEF -->|build| ART2
-    FED -->|build| ART3
-
-    ART1 -->|deploy| ENV_TP
-    ART2 -->|deploy| ENV_PRP
-    ART3 -->|deploy| ENV_PRP
-    ART3 -->|deploy| ENV_RPP
-    ART3 -.->|deploy| ENV_RMN
-
-    style ABC fill:#e74c3c,color:#fff,stroke:#c0392b
-    style DEF fill:#f39c12,color:#fff,stroke:#d68910
-    style FED fill:#27ae60,color:#fff,stroke:#1e8449
-    style ART1 fill:#16a085,color:#fff,stroke:#16a085
-    style ART2 fill:#16a085,color:#fff,stroke:#16a085
-    style ART3 fill:#16a085,color:#fff,stroke:#16a085
-    style ENV_TP fill:#e74c3c,color:#fff,stroke:#c0392b
-    style ENV_PRP fill:#f39c12,color:#fff,stroke:#d68910
-    style ENV_RPP fill:#27ae60,color:#fff,stroke:#1e8449
-    style ENV_RMN fill:#27ae60,color:#fff,stroke:#1e8449
-```
+[![Release Process](./img/release_process.jpg)](./img/release_process.jpg)
 
 ### Hotfix Release
 
