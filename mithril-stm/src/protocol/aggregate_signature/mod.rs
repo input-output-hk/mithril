@@ -341,7 +341,7 @@ mod tests {
         fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
             let params = Parameters { m, k, phi_f };
 
-            let bytes = params.to_bytes();
+            let bytes = params.to_bytes().expect("Parameters serialization should not fail");
             let deserialised = Parameters::from_bytes(&bytes);
             assert!(deserialised.is_ok())
         }
@@ -353,7 +353,7 @@ mod tests {
             let stake = rng.next_u64();
             let initializer = Initializer::new(params, stake, &mut rng);
 
-            let bytes = initializer.to_bytes();
+            let bytes = initializer.to_bytes().expect("Initializer serialization should not fail");
             assert!(Initializer::from_bytes(&bytes).is_ok());
         }
 
@@ -365,7 +365,7 @@ mod tests {
             let avk: AggregateVerificationKey<D> = clerk.compute_aggregate_verification_key();
 
             if let Ok(sig) = ps[0].create_single_signature(&msg) {
-                let bytes = sig.to_bytes();
+                let bytes = sig.to_bytes().expect("SingleSignature serialization should not fail");
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &ps[0].get_bls_verification_key(), &ps[0].concatenation_proof_signer.stake, &avk, &msg, #[cfg(feature = "future_snark")] None).is_ok());
             }
@@ -383,7 +383,7 @@ mod tests {
             let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             if let Ok(aggr) = msig {
-                    let bytes: Vec<u8> = aggr.to_bytes().unwrap();
+                    let bytes: Vec<u8> = aggr.to_bytes().expect("AggregateSignature serialization should not fail");
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
             }
