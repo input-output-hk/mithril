@@ -62,10 +62,10 @@ export default function Explorer() {
   }, [selectedAggregatorSignedEntities]);
 
   useEffect(() => {
-    if (!enableCardanoTransactionTab && currentTab === signedEntityType.CardanoTransactions) {
+    if (!selectedAggregatorSignedEntities.includes(currentTab)) {
       setCurrentTab(defaultTab);
     }
-  }, [currentTab, enableCardanoTransactionTab]);
+  }, [currentTab, selectedAggregatorSignedEntities]);
 
   // Global mithril client wasm init
   useEffect(() => {
