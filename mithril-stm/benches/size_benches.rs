@@ -59,7 +59,9 @@ where
         k,
         m,
         nparties,
-        aggr.to_bytes().unwrap().len(),
+        aggr.to_bytes()
+            .expect("AggregateSignature serialization should not fail")
+            .len(),
     );
 }
 
