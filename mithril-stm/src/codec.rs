@@ -49,21 +49,6 @@ pub fn from_versioned_bytes<T: DeserializeOwned>(
     }
 }
 
-/// Deserialize a value from versioned bytes, with a legacy decoder that may fail with a custom error type.
-///
-/// If the first byte is `CODEC_VERSION_CBOR_V1`, the remaining bytes are decoded as CBOR.
-/// Otherwise, the `legacy_decoder` is called to handle legacy format.
-pub fn from_versioned_bytes_with_error<T: DeserializeOwned, E: Into<anyhow::Error>>(
-    bytes: &[u8],
-    legacy_decoder: impl FnOnce(&[u8]) -> Result<T, E>,
-) -> StmResult<T> {
-    if is_cbor_v1(bytes) {
-        from_cbor_bytes(&bytes[1..])
-    } else {
-        legacy_decoder(bytes).map_err(Into::into)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;
@@ -197,38 +182,5 @@ mod tests {
         })
         .expect("Empty input should dispatch to legacy decoder");
         assert_eq!(result.field_b, "empty");
-    }
-
-    #[test]
-    fn versioned_bytes_with_error_dispatches_to_cbor_for_version_1() {
-        let value = SampleStruct {
-            field_a: 7,
-            field_b: "with_error".to_string(),
-        };
-        let bytes = to_cbor_bytes(&value).expect("Serialization should not fail");
-
-        let decoded: SampleStruct =
-            from_versioned_bytes_with_error(&bytes, |_| -> Result<SampleStruct, std::io::Error> {
-                panic!("Legacy decoder should not be called")
-            })
-            .expect("CBOR deserialization should not fail");
-        assert_eq!(value, decoded);
-    }
-
-    #[test]
-    fn versioned_bytes_with_error_dispatches_to_legacy_and_converts_error() {
-        let legacy_bytes = vec![0, 0, 0, 0, 0, 0, 0, 42];
-
-        let result: Result<SampleStruct, _> = from_versioned_bytes_with_error(
-            &legacy_bytes,
-            |_| -> Result<SampleStruct, std::io::Error> {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "legacy error",
-                ))
-            },
-        );
-        let err = result.expect_err("Legacy error should propagate");
-        assert!(err.to_string().contains("legacy error"));
     }
 }
