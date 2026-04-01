@@ -27,7 +27,7 @@ import LinkButton from "#/LinkButton";
 import Stake from "#/Stake";
 import RawJsonButton from "#/RawJsonButton";
 import SignerTable from "#/SignerTable";
-import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
+import { fetchAggregatorStatus, fetchRegistrations } from "@/aggregator-api";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -77,7 +77,7 @@ export default function Registrations() {
           setIsLoading(false);
         });
 
-      fetchEpochSettings(aggregator)
+      fetchAggregatorStatus(aggregator)
         .then((data) => setCurrentEpoch(data?.epoch))
         .catch(() => {
           setCurrentEpoch(undefined);

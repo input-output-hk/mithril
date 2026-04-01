@@ -26,11 +26,11 @@ function fetchSignersTickers(aggregator) {
     });
 }
 
-function fetchEpochSettings(aggregator) {
-  return fetchAggregator(`${aggregator}/epoch-settings`)
+function fetchAggregatorStatus(aggregator) {
+  return fetchAggregator(`${aggregator}/status`)
     .then((response) => (response.status === 200 ? response.json() : {}))
     .catch((error) => {
-      console.error("Fetch epoch settings error:", error);
+      console.error("Fetch aggregator status error:", error);
     });
 }
 
@@ -46,6 +46,6 @@ module.exports = {
   fetchAggregator,
   fetchAggregatorCapabilities,
   fetchSignersTickers,
-  fetchEpochSettings,
+  fetchAggregatorStatus,
   fetchRegistrations,
 };

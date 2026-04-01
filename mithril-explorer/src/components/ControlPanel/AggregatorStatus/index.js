@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Card, Row, Col, Collapse, Container, Stack } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import EpochSettings from "#/ControlPanel/EpochSettings";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -52,7 +51,6 @@ export default function AggregatorStatus({ showContent = true }) {
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
-  const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
@@ -60,13 +58,10 @@ export default function AggregatorStatus({ showContent = true }) {
         .then((response) => (response.status === 200 ? response.json() : {}))
         .then((data) => {
           setAggregatorStatus(data);
-          setFallbackToEpochSetting(false);
         })
         .catch((error) => {
           setAggregatorStatus({});
-          setFallbackToEpochSetting(true);
-          // todo: uncomment when the fallback is removed
-          // console.error("Fetch status error:", error);
+          console.error("Fetch status error:", error);
         });
     };
 
@@ -103,15 +98,7 @@ export default function AggregatorStatus({ showContent = true }) {
     }
   }, [currentAggregator, aggregatorStatus]);
 
-  return fallbackToEpochSetting ? (
-    <Stack direction="horizontal">
-      <Collapse in={showContent}>
-        <div id="contentRow">
-          <EpochSettings />
-        </div>
-      </Collapse>
-    </Stack>
-  ) : (
+  return (
     <Container fluid>
       <Collapse in={showContent}>
         <div id="contentRow">

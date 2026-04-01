@@ -7,7 +7,7 @@ import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/
 import { Col, Alert, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
-import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
+import { fetchAggregatorStatus, fetchRegistrations } from "@/aggregator-api";
 import RegistrationMarkdownFormatModal from "#/RegistrationMarkdownFormatModal";
 import RegistrationsMovementsList from "@/app/registrations-in-out/RegistrationsMovementsList";
 
@@ -34,7 +34,7 @@ export default function RegistrationsChanges() {
     if (error === undefined) {
       setIsLoading(true);
 
-      fetchEpochSettings(aggregator)
+      fetchAggregatorStatus(aggregator)
         .then((data) => {
           let epoch = data?.epoch;
           setCurrentEpoch(epoch);
