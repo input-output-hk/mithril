@@ -224,7 +224,8 @@ mod tests {
             prop_assert_eq!(avk_from_registration.get_total_stake(), expected_total_stake);
             prop_assert_eq!(&avk_from_registration, &avk_from_signer);
 
-            let bytes = avk_from_registration.to_bytes();
+            let bytes = avk_from_registration.to_bytes()
+                .expect("serialization should succeed");
             let deserialized = AggregateVerificationKeyForSnark::<D>::from_bytes(&bytes)
                 .expect("deserialization should succeed");
             prop_assert_eq!(&avk_from_registration, &deserialized);
