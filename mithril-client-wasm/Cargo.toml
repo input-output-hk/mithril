@@ -23,7 +23,6 @@ crate-type = ["cdylib"]
 
 [features]
 default = ["rustls"]
-bundle_tls = ["mithril-client/native-tls-vendored"]
 rustls = ["mithril-client/rustls"]
 test-node = []
 

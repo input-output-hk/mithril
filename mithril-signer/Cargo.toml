@@ -15,7 +15,6 @@ ignored = ["reqwest"]
 
 [features]
 default = ["rustls"]
-bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
 rustls = ["reqwest/rustls"]
 

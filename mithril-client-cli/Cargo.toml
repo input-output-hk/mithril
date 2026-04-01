@@ -23,7 +23,6 @@ path = "src/main.rs"
 
 [features]
 default = ["rustls"]
-bundle_tls = ["mithril-client/native-tls-vendored"]
 rustls = ["mithril-client/rustls"]
 future_snark = ["mithril-client/future_snark"]
 

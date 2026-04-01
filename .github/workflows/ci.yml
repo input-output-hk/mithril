@@ -50,12 +50,12 @@ jobs:
       - name: Cargo build - Tooling
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
-        run: cargo build --release --bins --package mithril-end-to-end  --features bundle_tls
+        run: cargo build --release --bins --package mithril-end-to-end
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bins --package mithril-aggregator --package mithril-signer --package mithril-client-cli --package mithril-relay --features bundle_tls --target=${{ matrix.musl_target }}
+          binaries-build-args: --bins --package mithril-aggregator --package mithril-signer --package mithril-client-cli --package mithril-relay --target=${{ matrix.musl_target }}
           libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
           binaries-to-check-static: mithril-aggregator,mithril-signer,mithril-client,mithril-relay
           binaries-build-target: ${{ matrix.musl_target }}
@@ -102,10 +102,10 @@ jobs:
         include:
           # Only build client on windows & mac
           - os: macos-14
-            binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
+            binaries-build-args: --bins --package mithril-client-cli
             libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
           - os: windows-latest
-            binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
+            binaries-build-args: --bins --package mithril-client-cli
             libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
     runs-on: ${{ matrix.os }}
 
@@ -364,8 +364,6 @@ jobs:
           - deny-args: "--features rug-backend"
             manifest-path: ./Cargo.toml
           - deny-args: "--features num-integer-backend"
-            manifest-path: ./Cargo.toml
-          - deny-args: "--features bundle_tls"
             manifest-path: ./Cargo.toml
 
           # Mithril Client
