@@ -2964,6 +2964,7 @@ components:
         - certified_blocks
         - non_certified_blocks
         - latest_block_number
+        - security_parameter
       properties:
         certificate_hash:
           description: Hash of the certificate that validate the merkle root of this proof
@@ -2997,6 +2998,10 @@ components:
           description: Last block number
           type: integer
           format: int64
+        security_parameter:
+          description: The number of blocks from the tip of the chain at certification time
+          type: integer
+          format: int64
       examples:
         - {
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
@@ -3016,7 +3021,8 @@ components:
               [
                 "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
               ],
-            "latest_block_number": 7060000
+            "latest_block_number": 7060000,
+            "security_parameter": 15
           }
 
     CardanoTransactionProofV2Message:
@@ -3028,6 +3034,7 @@ components:
         - certified_transactions
         - non_certified_transactions
         - latest_block_number
+        - security_parameter
       properties:
         certificate_hash:
           description: Hash of the certificate that validate the merkle root of this proof
@@ -3061,6 +3068,10 @@ components:
           description: Last block number
           type: integer
           format: int64
+        security_parameter:
+          description: The number of blocks from the tip of the chain at certification time
+          type: integer
+          format: int64
       examples:
         - {
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
@@ -3082,7 +3093,8 @@ components:
               [
                 "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae340158745170"
               ],
-            "latest_block_number": 7060000
+            "latest_block_number": 7060000,
+            "security_parameter": 15
           }
 
     Error:

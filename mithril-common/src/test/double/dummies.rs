@@ -153,12 +153,13 @@ mod messages {
 
     use crate::crypto_helper::KesEvolutions;
     use crate::entities::{
-        AncillaryLocation, BlockNumber, CardanoBlock, CardanoBlocksTransactionsSigningConfig,
-        CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
-        CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
-        ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
-        StakeDistributionParty, SupportedEra, TemplateUri,
+        AncillaryLocation, BlockNumber, BlockNumberOffset, CardanoBlock,
+        CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon, CardanoTransaction,
+        CardanoTransactionsSetProof, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+        DigestLocation, Epoch, ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, SupportedEra,
+        TemplateUri,
     };
     use crate::messages::*;
 
@@ -196,6 +197,7 @@ mod messages {
                     "non-certified-block-2".to_string(),
                 ],
                 BlockNumber(100),
+                BlockNumberOffset(15),
             )
         }
     }
@@ -208,6 +210,7 @@ mod messages {
                 Some(MkSetProofMessagePart::dummy()),
                 vec!["non-certified-tx-1".to_string(), "non-certified-tx-2".to_string()],
                 BlockNumber(100),
+                BlockNumberOffset(15),
             )
         }
     }

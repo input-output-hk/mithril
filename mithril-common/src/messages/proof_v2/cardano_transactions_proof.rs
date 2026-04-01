@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{BlockNumber, CardanoTransaction, TransactionHash};
+use crate::entities::{BlockNumber, BlockNumberOffset, CardanoTransaction, TransactionHash};
 use crate::messages::proof_v2::ProofMessageVerifier;
 use crate::messages::{CardanoTransactionMessagePart, MkSetProofMessagePart, VerifyProofsV2Error};
 
@@ -27,6 +27,9 @@ pub struct CardanoTransactionsProofsV2Message {
 
     /// Latest block number that has been certified by the associated Mithril certificate
     pub latest_block_number: BlockNumber,
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub security_parameter: BlockNumberOffset,
 }
 
 #[cfg_attr(
@@ -104,12 +107,14 @@ impl CardanoTransactionsProofsV2Message {
         certified_transactions: Option<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
         non_certified_transactions: Vec<String>,
         latest_block_number: BlockNumber,
+        security_parameter: BlockNumberOffset,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
             latest_block_number,
+            security_parameter,
         }
     }
 

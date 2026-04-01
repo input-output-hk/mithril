@@ -70,6 +70,7 @@ mod tests {
             }),
             non_certified_transactions: vec![],
             latest_block_number: Default::default(),
+            security_parameter: Default::default(),
         };
 
         let _server_mock = server.mock(|when, then| {
