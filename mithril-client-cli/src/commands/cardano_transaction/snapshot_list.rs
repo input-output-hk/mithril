@@ -4,7 +4,7 @@ use cli_table::{Cell, Table, print_stdout};
 use mithril_client::common::SignedEntityTypeDiscriminants;
 
 use crate::CommandContext;
-use crate::commands::{build_client, cardano_transaction::CardanoTransactionCommandsBackend};
+use crate::commands::cardano_transaction::CardanoTransactionCommandsBackend;
 use mithril_client::{
     CardanoBlocksTransactionsSnapshotListItem, CardanoTransactionSnapshotListItem, MithrilResult,
 };
@@ -22,16 +22,20 @@ impl CardanoTransactionSnapshotListCommand {
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self.backend {
             CardanoTransactionCommandsBackend::V1 => {
-                let client =
-                    build_client(&context, SignedEntityTypeDiscriminants::CardanoTransactions)?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(SignedEntityTypeDiscriminants::CardanoTransactions.into())
+                    .build()?;
                 let lines = client.cardano_transaction().list_snapshots().await?;
                 Self::print_lines_v1(context.is_json_output_enabled(), lines)?;
             }
             CardanoTransactionCommandsBackend::V2 => {
-                let client = build_client(
-                    &context,
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                )?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(
+                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into(),
+                    )
+                    .build()?;
                 context.require_unstable("cardano-transaction snapshot list --backend v2", None)?;
                 let lines = client.cardano_transaction_v2().list_snapshots().await?;
                 Self::print_lines_v2(context.is_json_output_enabled(), lines)?;

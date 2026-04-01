@@ -4,7 +4,6 @@ use cli_table::{Cell, Table, print_stdout};
 use mithril_client::common::SignedEntityTypeDiscriminants;
 
 use crate::CommandContext;
-use crate::commands::build_client;
 use mithril_client::{CardanoBlocksTransactionsSnapshotListItem, MithrilResult};
 
 /// Cardano block snapshot list command
@@ -17,10 +16,10 @@ impl CardanoBlockSnapshotListCommand {
         //require unstable
         context.require_unstable("cardano-block snapshot list", None)?;
 
-        let client = build_client(
-            &context,
-            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-        )?;
+        let client = context
+            .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into())
+            .build()?;
 
         let lines = client.cardano_block().list_snapshots().await?;
         Self::print_lines(context.is_json_output_enabled(), lines)?;

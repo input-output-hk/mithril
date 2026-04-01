@@ -7,19 +7,16 @@ use std::{
 };
 
 use mithril_client::{
-    CardanoDatabaseSnapshot, MithrilResult, RequiredAggregatorCapabilities,
+    CardanoDatabaseSnapshot, MithrilResult,
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
     common::{ImmutableFileNumber, SignedEntityTypeDiscriminants},
 };
 
 use crate::{
     CommandContext,
-    commands::{
-        cardano_db::{
-            download::DB_DIRECTORY_NAME,
-            shared_steps::{self, ComputeCardanoDatabaseMessageOptions},
-        },
-        client_builder,
+    commands::cardano_db::{
+        download::DB_DIRECTORY_NAME,
+        shared_steps::{self, ComputeCardanoDatabaseMessageOptions},
     },
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
@@ -66,16 +63,14 @@ impl PreparedCardanoDbV2Download {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 7);
-        let client = client_builder(context.config_parameters())?
-            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
-                SignedEntityTypeDiscriminants::CardanoDatabase,
-            ))
+        let client = context
+            .setup_mithril_client_builder()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoDatabase.into())
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),
             )))
             .set_ancillary_verification_key(self.ancillary_verification_key.clone())
-            .with_logger(context.logger().clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {

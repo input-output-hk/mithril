@@ -3,8 +3,7 @@ use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 
 use crate::{
-    CommandContext,
-    commands::{build_client, cardano_transaction::CardanoTransactionCommandsBackend},
+    CommandContext, commands::cardano_transaction::CardanoTransactionCommandsBackend,
     utils::ExpanderUtils,
 };
 use mithril_client::{
@@ -28,8 +27,10 @@ impl CardanoTransactionsSnapshotShowCommand {
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self.backend {
             CardanoTransactionCommandsBackend::V1 => {
-                let client =
-                    build_client(&context, SignedEntityTypeDiscriminants::CardanoTransactions)?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(SignedEntityTypeDiscriminants::CardanoTransactions.into())
+                    .build()?;
                 let get_list_of_artifact_ids =
                     || async { Self::get_list_of_artifact_ids_v1(&client).await };
                 let snapshot = Self::retrieve_transaction_snapshot_v1(
@@ -42,10 +43,12 @@ impl CardanoTransactionsSnapshotShowCommand {
             }
             CardanoTransactionCommandsBackend::V2 => {
                 context.require_unstable("cardano-transaction snapshot show --backend v2", None)?;
-                let client = build_client(
-                    &context,
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                )?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(
+                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into(),
+                    )
+                    .build()?;
                 let get_list_of_artifact_ids =
                     || async { Self::get_list_of_artifact_ids_v2(&client).await };
                 let snapshot = Self::retrieve_transaction_snapshot_v2(

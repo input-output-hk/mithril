@@ -10,7 +10,6 @@ use std::collections::HashMap;
 
 use mithril_client::MithrilResult;
 
-use crate::commands::build_client;
 use crate::commands::cardano_transaction::CardanoTransactionCommandsBackend;
 use crate::utils::{ProgressOutputType, ProgressPrinter};
 use crate::{
@@ -49,8 +48,10 @@ impl CardanoTransactionsCertifyCommand {
 
         match self.backend {
             CardanoTransactionCommandsBackend::V1 => {
-                let client =
-                    build_client(&context, SignedEntityTypeDiscriminants::CardanoTransactions)?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(SignedEntityTypeDiscriminants::CardanoTransactions.into())
+                    .build()?;
                 certify_v1(
                     &self.transactions_hashes,
                     client,
@@ -65,10 +66,12 @@ impl CardanoTransactionsCertifyCommand {
                     "cardano-transaction certify <tx1>,<tx2>,...,<txn> --backend v2",
                     None,
                 )?;
-                let client = build_client(
-                    &context,
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                )?;
+                let client = context
+                    .setup_mithril_client_builder_with_fallback_genesis_key()?
+                    .with_capabilities(
+                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into(),
+                    )
+                    .build()?;
                 certify_v2(
                     &self.transactions_hashes,
                     client,

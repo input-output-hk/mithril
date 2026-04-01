@@ -3,7 +3,7 @@ use clap::Parser;
 use cli_table::{Cell, CellStruct, Table, print_stdout};
 
 use mithril_client::{
-    Client, MithrilResult, RequiredAggregatorCapabilities,
+    Client, MithrilResult,
     common::{
         AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri,
         SignedEntityTypeDiscriminants,
@@ -12,7 +12,7 @@ use mithril_client::{
 
 use crate::{
     CommandContext,
-    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
+    commands::cardano_db::CardanoDbCommandsBackend,
     utils::{CardanoDbUtils, ExpanderUtils},
 };
 
@@ -30,13 +30,9 @@ pub struct CardanoDbShowCommand {
 impl CardanoDbShowCommand {
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                RequiredAggregatorCapabilities::SignedEntityType(
-                    SignedEntityTypeDiscriminants::CardanoDatabase,
-                ),
-            ]))
-            .with_logger(context.logger().clone())
+        let client = context
+            .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoDatabase.into())
             .build()?;
 
         match self.backend {

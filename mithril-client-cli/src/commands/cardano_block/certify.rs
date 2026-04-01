@@ -10,7 +10,6 @@ use mithril_client::{
     VerifyProofsV2Error,
 };
 
-use crate::commands::build_client;
 use crate::utils::{ProgressOutputType, ProgressPrinter};
 use crate::{
     CommandContext,
@@ -41,10 +40,11 @@ impl CardanoBlocksCertifyCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = build_client(
-            &context,
-            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-        )?;
+        let client = context
+            .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into())
+            .build()?;
+
         Self::certify(
             &self.blocks_hashes,
             client,

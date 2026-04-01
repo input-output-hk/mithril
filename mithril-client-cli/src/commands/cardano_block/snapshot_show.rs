@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 
-use crate::{CommandContext, commands::build_client, utils::ExpanderUtils};
+use crate::{CommandContext, utils::ExpanderUtils};
 use mithril_client::{
     CardanoBlocksTransactionsSnapshot, Client, MithrilResult, common::SignedEntityTypeDiscriminants,
 };
@@ -18,10 +18,10 @@ impl CardanoBlocksSnapshotShowCommand {
     /// Cardano blocks transactions snapshot Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         context.require_unstable("cardano-block snapshot show", None)?;
-        let client = build_client(
-            &context,
-            SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-        )?;
+        let client = context
+            .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into())
+            .build()?;
         let get_list_of_artifact_ids = || async { Self::get_list_of_artifact_ids(&client).await };
         let snapshot =
             Self::retrieve_block_snapshot(&client, &self.hash, get_list_of_artifact_ids()).await?;
