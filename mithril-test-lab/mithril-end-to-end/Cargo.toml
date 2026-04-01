@@ -15,11 +15,11 @@ test = false
 bench = false
 
 [features]
-default = ["rustls-tls"]
+default = ["rustls"]
 allow_skip_signer_certification = []
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_snark = ["mithril-common/future_snark"]
-rustls-tls = ["reqwest/rustls-tls"]
+rustls = ["reqwest/rustls"]
 
 [dependencies]
 anyhow = { workspace = true }

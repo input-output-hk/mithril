@@ -111,45 +111,37 @@
 //!
 //! ## Optional Features
 //!
-//! The following are a list of [Cargo features](https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section) that can be
+//! The following is a list of [Cargo features](https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section) that can be
 //! enabled or disabled:
 //!
-//! - **fs**: Enables file system related functionalities.
+//! - **fs**: Enables file system-related functionalities.
 //! - **unstable**: Enables experimental or in-development `mithril-client` features that may change.
-//! - **rug-backend** : Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+//! - **rug-backend**: Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 //! - **num-integer-backend**: Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 //!
-//! To allow fine tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported.
+//! To allow fine-tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported.
 //! No TLS backend is enabled by default: you must enable at least one of the TLS-related
 //! features below, otherwise the crate will fail to compile.
 //! - **native-tls**: Enables TLS functionality provided by `native-tls`.
 //! - **native-tls-vendored**: Enables the `vendored` feature of `native-tls`.
-//! - **native-tls-alpn**: Enables the `alpn` feature of `native-tls`.
-//! - **rustls-tls**: Enables TLS functionality provided by `rustls`.
-//!   Equivalent to `rustls-tls-webpki-roots`.
-//! - **rustls-tls-manual-roots**: Enables TLS functionality provided by `rustls`,
-//!   without setting any root certificates. Roots have to be specified manually.
-//! - **rustls-tls-webpki-roots**: Enables TLS functionality provided by `rustls`,
-//!   while using root certificates from the `webpki-roots` crate.
-//! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
-//!   while using root certificates from the `rustls-native-certs` crate.
-//! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
+//! - **native-tls-no-alpn**: Enables `native-tls` without its `alpn` feature.
+//! - **native-tls-vendored-no-alpn**: Enables the `vendored` feature of `native-tls` without its `alpn` feature.
+//! - **rustls**: Enables TLS functionality provided by `rustls`.
+//! - **rustls-no-provider**: Enables TLS functionality provided by `rustls` without setting `aws-lc-rs` as its TLS provider.
 
 // Ensure at least one TLS backend is enabled
 #[cfg(not(any(
     feature = "native-tls",
-    feature = "native-tls-alpn",
+    feature = "native-tls-no-alpn",
     feature = "native-tls-vendored",
-    feature = "rustls-tls",
-    feature = "rustls-tls-manual-roots",
-    feature = "rustls-tls-webpki-roots",
-    feature = "rustls-tls-native-roots"
+    feature = "native-tls-vendored-no-alpn",
+    feature = "rustls",
+    feature = "rustls-no-provider",
 )))]
 compile_error!(
     "At least one TLS backend feature must be enabled. Choose from: \
-    'native-tls', 'native-tls-alpn', 'native-tls-vendored', \
-    'rustls-tls', 'rustls-tls-manual-roots', 'rustls-tls-webpki-roots', \
-    or 'rustls-tls-native-roots'"
+    'native-tls', 'native-tls-no-alpn', 'native-tls-vendored', 'native-tls-vendored-no-alpn', \
+    'rustls', or 'rustls-no-provider'"
 );
 
 macro_rules! cfg_fs {

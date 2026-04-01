@@ -12,7 +12,7 @@ repository = "https://github.com/input-output-hk/mithril/"
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
-mithril-client = { path = "../../mithril-client", features = ["unstable", "rustls-tls"] }
+mithril-client = { path = "../../mithril-client", features = ["unstable", "rustls"] }
 slog = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

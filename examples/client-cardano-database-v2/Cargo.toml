@@ -15,5 +15,5 @@ async-trait = { workspace = true }
 clap = { workspace = true }
 futures = "0.3.32"
 indicatif = "0.18.4"
-mithril-client = { path = "../../mithril-client", features = ["fs", "rustls-tls"] }
+mithril-client = { path = "../../mithril-client", features = ["fs", "rustls"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

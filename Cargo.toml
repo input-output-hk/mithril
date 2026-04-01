@@ -62,7 +62,7 @@ mockall = "0.14.0"
 rand_chacha = "0.3.1"
 rand_core = { version = "0.6.4", features = ["std"] }
 rayon = "1.11.0"
-reqwest = { version = "0.12.24", default-features = false, features = ["json"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["json"] }
 semver = "1.0.27"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.149"

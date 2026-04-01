@@ -56,7 +56,7 @@ jobs:
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
           binaries-build-args: --bins --package mithril-aggregator --package mithril-signer --package mithril-client-cli --package mithril-relay --features bundle_tls --target=${{ matrix.musl_target }}
-          libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
+          libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
           binaries-to-check-static: mithril-aggregator,mithril-signer,mithril-client,mithril-relay
           binaries-build-target: ${{ matrix.musl_target }}
 
@@ -103,10 +103,10 @@ jobs:
           # Only build client on windows & mac
           - os: macos-14
             binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
-            libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
+            libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
           - os: windows-latest
             binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
-            libraries-build-args: --package mithril-stm --package mithril-client --features rustls-tls,full,unstable
+            libraries-build-args: --package mithril-stm --package mithril-client --features rustls,full,unstable
     runs-on: ${{ matrix.os }}
 
     steps:

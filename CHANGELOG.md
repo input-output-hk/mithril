@@ -20,7 +20,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Implemented statically built Mithril nodes in CI:
   - **aggregator**, **signer**, **client**, and **relay** are statically built on both **GitHub** and **Hydra** CI pipelines using the `musl` target.
   - Feature updates:
-    - `rustls-tls` is now the default TLS feature for all nodes.
+    - `rustls` is now the default TLS feature for all nodes.
     - `num-integer-backend` is now the default feature in the `mithril-stm` library.
   - Memory allocator updates:
     - **Jemallocator** is now a default dependency (instead of an optional feature) on Linux.
