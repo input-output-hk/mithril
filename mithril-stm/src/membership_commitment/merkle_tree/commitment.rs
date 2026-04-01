@@ -5,6 +5,7 @@ use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
+use crate::codec;
 
 #[cfg(feature = "future_snark")]
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -66,20 +67,32 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
         if h == self.root {
             return Ok(());
         }
-        Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
+        Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes()?)))
     }
 
     /// Convert to bytes
-    /// # Layout
-    /// * Root of the Merkle commitment
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&self.root);
-        output
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Extract a `MerkleTreeCommitment` from a byte slice.
+    ///
+    /// The legacy format for this type is the raw hash digest (no length prefix),
+    /// so the first byte can be any value — including `0x01` which is also the CBOR
+    /// version prefix. To handle this ambiguity, this method tries CBOR decoding
+    /// first and falls back to legacy if CBOR decoding fails.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D, L>> {
+        if codec::is_cbor_v1(bytes) {
+            codec::from_cbor_bytes::<Self>(&bytes[1..]).or_else(|_| Self::from_bytes_legacy(bytes))
+        } else {
+            Self::from_bytes_legacy(bytes)
+        }
+    }
+
+    /// Extract a `MerkleTreeCommitment` from a byte slice using the legacy format.
+    /// # Layout
+    /// * Root of the Merkle commitment
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D, L>> {
         let root = bytes.to_vec();
 
         Ok(Self {
@@ -150,13 +163,17 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
         L: MerkleTreeLeaf,
     {
         if batch_val.len() != proof.indices.len() {
-            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())));
+            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(
+                proof.to_bytes()?
+            )));
         }
         let mut ordered_indices: Vec<usize> = proof.indices.clone();
         ordered_indices.sort_unstable();
 
         if ordered_indices != proof.indices {
-            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())));
+            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(
+                proof.to_bytes()?
+            )));
         }
 
         let nr_nodes = self.nr_leaves + self.nr_leaves.next_power_of_two() - 1;
@@ -239,22 +256,27 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
             return Ok(());
         }
 
-        Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())))
+        Err(anyhow!(MerkleTreeError::BatchPathInvalid(
+            proof.to_bytes()?
+        )))
     }
 
-    /// Convert to bytes
-    /// * Number of leaves as u64
-    /// * Root of the Merkle commitment as bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&u64::try_from(self.nr_leaves).unwrap().to_be_bytes());
-        output.extend_from_slice(&self.root);
-
-        output
+    /// Convert to bytes.
+    #[allow(dead_code)]
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D, L>> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    /// Extract a `MerkleTreeBatchCommitment` from a byte slice using the legacy format.
+    /// # Layout
+    /// * Number of leaves as u64
+    /// * Root of the Merkle commitment as bytes
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D, L>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let nr_leaves = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -278,3 +300,61 @@ impl<D: Digest, L: MerkleTreeLeaf> PartialEq for MerkleTreeBatchCommitment<D, L>
 }
 
 impl<D: Digest, L: MerkleTreeLeaf> Eq for MerkleTreeBatchCommitment<D, L> {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        MembershipDigest, MithrilMembershipDigest, VerificationKeyForConcatenation,
+        membership_commitment::merkle_tree::tree::MerkleTree,
+        membership_commitment::{MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf},
+    };
+
+    type ConcatenationHash = <MithrilMembershipDigest as MembershipDigest>::ConcatenationHash;
+
+    fn build_batch_commitment(
+        nr: usize,
+    ) -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf> {
+        let pks = vec![VerificationKeyForConcatenation::default(); nr];
+        let leaves = pks
+            .into_iter()
+            .enumerate()
+            .map(|(i, k)| MerkleTreeConcatenationLeaf(k, i as u64))
+            .collect::<Vec<_>>();
+        MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves)
+            .to_merkle_tree_batch_commitment()
+    }
+
+    mod golden_cbor {
+        use super::*;
+
+        const GOLDEN_CBOR_BYTES: &[u8; 91] = &[
+            1, 163, 100, 114, 111, 111, 116, 152, 32, 24, 178, 24, 30, 24, 231, 24, 127, 24, 65,
+            24, 247, 24, 162, 24, 149, 24, 33, 24, 29, 24, 147, 24, 148, 24, 224, 24, 156, 24, 96,
+            24, 113, 24, 140, 24, 42, 24, 98, 24, 166, 24, 137, 14, 24, 69, 24, 29, 24, 28, 24,
+            244, 24, 161, 24, 145, 24, 207, 24, 146, 24, 236, 24, 249, 105, 110, 114, 95, 108, 101,
+            97, 118, 101, 115, 4, 102, 104, 97, 115, 104, 101, 114, 246,
+        ];
+
+        fn golden_value()
+        -> MerkleTreeBatchCommitment<ConcatenationHash, MerkleTreeConcatenationLeaf> {
+            build_batch_commitment(4)
+        }
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = MerkleTreeBatchCommitment::<
+                ConcatenationHash,
+                MerkleTreeConcatenationLeaf,
+            >::from_bytes(GOLDEN_CBOR_BYTES)
+            .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(golden_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = MerkleTreeBatchCommitment::to_bytes(&golden_value())
+                .expect("CBOR serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+        }
+    }
+}
