@@ -4549,6 +4549,7 @@ dependencies = [
  "anyhow",
  "blake2 0.10.6",
  "blst",
+ "ciborium",
  "criterion",
  "digest 0.10.7",
  "ff",
