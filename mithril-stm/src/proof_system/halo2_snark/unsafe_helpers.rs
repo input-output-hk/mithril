@@ -69,6 +69,8 @@ impl SnarkSetup {
 
         // Uses a temporary directory to store the srs generated
         // and to access it again during execution
+        // TODO: Remove the use of temporary directory once the srs is
+        // properly handled
         let srs_path = env::temp_dir()
             .join("mithril-srs")
             .join(format!("params_kzg_unsafe_{}", circuit_degree));

@@ -249,9 +249,7 @@ mod tests {
 
     const BASE_CIRCUIT_DEGREE: u32 = 11;
 
-    /// Compute the circuit degree from the protocol parameter `k`.
-    ///
-    /// Returns an error if `k` is zero, since a quorum threshold of zero is invalid.
+    // Compute the circuit degree from the protocol parameter `k`.
     fn compute_circuit_degree(k: u64) -> u32 {
         BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
     }
