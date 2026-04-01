@@ -23,14 +23,14 @@ runs:
         foreach ($bin in $BINARIES -split ",") {
           $bin = $bin.Trim()
           $BIN_PATH = "$TARGET_PATH/$bin"
-          
+
           Write-Host "Checking $bin is statically linked..."
-          
+
           if (-Not (Test-Path $BIN_PATH)) {
             Write-Host "❌ Binary not found at $BIN_PATH"
             exit 1
           }
-          
+
           $output = & readelf -d $BIN_PATH 2>$null | Select-String NEEDED
           if ($output) {
             Write-Host "❌ $bin is NOT static (has dynamic dependencies)"
@@ -70,9 +70,9 @@ runs:
         foreach ($bin in $BINARIES -split ",") {
           $bin = $bin.Trim()
           $BIN_PATH = "$TARGET_PATH/$bin"
-          
+
           Write-Host "Checking $bin is statically linked..."
-          
+
           if (-Not (Test-Path $BIN_PATH)) {
             Write-Host "❌ Binary not found at $BIN_PATH"
             exit 1
@@ -80,19 +80,19 @@ runs:
 
           $disallowed_deps = @()
           $otool_output = & otool -L $BIN_PATH 2>$null | Select-Object -Skip 1
-          
+
           foreach ($line in $otool_output) {
             $dep = ($line -split '\s+')[0]
-            
+
             if ([string]::IsNullOrWhiteSpace($dep) -or $dep -like "@*") {
               continue
             }
-            
+
             if (-Not (IsMacosAllowed $dep)) {
               $disallowed_deps += $dep
             }
           }
-          
+
           if ($disallowed_deps.Count -gt 0) {
             Write-Host "❌ $bin has disallowed dynamic dependencies:"
             foreach ($dep in $disallowed_deps) {
@@ -133,6 +133,9 @@ runs:
           "api-ms-win-crt-stdio-l1-1-0.dll"
           "api-ms-win-crt-runtime-l1-1-0.dll"
           "api-ms-win-crt-locale-l1-1-0.dll"
+          "api-ms-win-crt-convert-l1-1-0.dll"
+          "api-ms-win-crt-environment-l1-1-0.dll"
+          "api-ms-win-crt-utility-l1-1-0.dll"
         )
 
         check_binary() {
