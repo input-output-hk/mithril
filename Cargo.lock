@@ -654,7 +654,7 @@ dependencies = [
  "blockfrost-openapi",
  "futures",
  "futures-timer",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -667,7 +667,7 @@ version = "0.1.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04869ede3a619d6eb27c3162b1060665a9b4c790dea81343dd0e30d1465dd5a5"
 dependencies = [
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_repr",
@@ -2155,16 +2155,16 @@ dependencies = [
 
 [[package]]
 name = "gcloud-auth"
-version = "1.2.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bdedbc36e6b9d8d79558fbf2ebc098745bc721e9d37d3e369558e420038e360"
+checksum = "b43924e3df02cb3b846ca66a7ee58e8c13eb2556d0308c71f6154083f6980365"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
  "gcloud-metadata",
  "home",
  "jsonwebtoken",
- "reqwest 0.12.28",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2177,9 +2177,9 @@ dependencies = [
 
 [[package]]
 name = "gcloud-gax"
-version = "1.3.2"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c0bd8a7c986d35cbe8acd226b34a2a9ff4ffcaa2b00c47e6fb74b730d351f1"
+checksum = "558634081d1cf458d1bc0166f69475a80f445b5b991f162028b293a38307059d"
 dependencies = [
  "http",
  "thiserror 2.0.18",
@@ -2205,9 +2205,9 @@ dependencies = [
 
 [[package]]
 name = "gcloud-kms"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71d913a52f4f21caa717d35be894d385b505538a13167a781fb9402fa636021e"
+checksum = "8e18cee391548d422fb8b9ee09fdf2a22e7b767d2ee6681b5dde13ee012b9973"
 dependencies = [
  "gcloud-auth",
  "gcloud-gax",
@@ -2218,20 +2218,20 @@ dependencies = [
 
 [[package]]
 name = "gcloud-metadata"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61f706788c1b58712c513e4d403234707fd255f49caa89d1c930197418b5fb2c"
+checksum = "bd3152612316be627be52fe9ca72331eb48425059b3a6a700e7adde223e061d5"
 dependencies = [
- "reqwest 0.12.28",
+ "reqwest",
  "thiserror 2.0.18",
  "tokio",
 ]
 
 [[package]]
 name = "gcloud-storage"
-version = "1.2.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6296e302b411580a7c9eeaba1677b604e31fbede80078b110228444eeb19cecf"
+checksum = "e17f9662a6966402de91daf0edb5accaae05c87f1a85479e57b95d2af7284b9f"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2244,7 +2244,7 @@ dependencies = [
  "percent-encoding",
  "pkcs8",
  "regex",
- "reqwest 0.12.28",
+ "reqwest",
  "reqwest-middleware",
  "ring",
  "serde",
@@ -3169,7 +3169,7 @@ dependencies = [
  "referencing",
  "regex",
  "regex-syntax",
- "reqwest 0.13.2",
+ "reqwest",
  "rustls",
  "serde",
  "serde_json",
@@ -4001,7 +4001,7 @@ dependencies = [
  "percent-encoding",
  "rayon",
  "regex",
- "reqwest 0.13.2",
+ "reqwest",
  "rustls",
  "semver",
  "serde",
@@ -4033,7 +4033,7 @@ dependencies = [
  "httpmock",
  "mithril-common",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",
@@ -4055,7 +4055,7 @@ dependencies = [
  "mithril-common",
  "mockall",
  "rand 0.10.0",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "slog-async",
@@ -4073,7 +4073,7 @@ dependencies = [
  "futures",
  "mithril-api-spec",
  "mithril-build-script",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "signal-hook",
@@ -4091,7 +4091,7 @@ version = "0.1.7"
 dependencies = [
  "jsonschema",
  "mithril-common",
- "reqwest 0.13.2",
+ "reqwest",
  "saphyr",
  "serde",
  "serde_json",
@@ -4189,7 +4189,7 @@ dependencies = [
  "mithril-common",
  "mockall",
  "rand 0.10.0",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
@@ -4227,7 +4227,7 @@ dependencies = [
  "mithril-common",
  "mithril-doc",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",
@@ -4359,7 +4359,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-common",
  "mithril-doc",
- "reqwest 0.13.2",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",
@@ -4395,7 +4395,7 @@ dependencies = [
  "paste",
  "prometheus",
  "prometheus-parse",
- "reqwest 0.13.2",
+ "reqwest",
  "slog",
  "slog-async",
  "slog-term",
@@ -4449,7 +4449,7 @@ dependencies = [
  "mithril-dmq",
  "mithril-doc",
  "mithril-test-http-server",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "slog",
@@ -4527,7 +4527,7 @@ dependencies = [
  "mockall",
  "prometheus-parse",
  "rand_core 0.6.4",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "slog",
@@ -4576,7 +4576,7 @@ dependencies = [
 name = "mithril-test-http-server"
 version = "0.1.1"
 dependencies = [
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "tokio",
  "warp",
@@ -5945,44 +5945,6 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "reqwest"
-version = "0.12.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-util",
- "js-sys",
- "log",
- "mime",
- "mime_guess",
- "percent-encoding",
- "pin-project-lite",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper",
- "tokio",
- "tokio-util",
- "tower",
- "tower-http",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-streams 0.4.2",
- "web-sys",
-]
-
-[[package]]
-name = "reqwest"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
@@ -6026,22 +5988,22 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-streams 0.5.0",
+ "wasm-streams",
  "web-sys",
 ]
 
 [[package]]
 name = "reqwest-middleware"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
+checksum = "199dda04a536b532d0cc04d7979e39b1c763ea749bf91507017069c00b96056f"
 dependencies = [
  "anyhow",
  "async-trait",
  "http",
- "reqwest 0.12.28",
+ "reqwest",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tower-service",
 ]
 
@@ -8022,19 +7984,6 @@ dependencies = [
  "indexmap 2.13.0",
  "wasm-encoder",
  "wasmparser",
-]
-
-[[package]]
-name = "wasm-streams"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
-dependencies = [
- "futures-util",
- "js-sys",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
