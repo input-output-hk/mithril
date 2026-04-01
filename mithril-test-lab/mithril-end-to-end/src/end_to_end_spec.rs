@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use slog_scope::info;
+use slog_scope::{info, warn};
 use tokio::task::JoinSet;
 
 use mithril_common::{
@@ -27,12 +27,27 @@ impl Spec {
         next_era: Option<String>,
         regenesis_on_era_switch: bool,
     ) -> Self {
+        let is_signing_cardano_blocks_transactions = {
+            let contains_cardano_blocks_transactions = signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string());
+
+            if contains_cardano_blocks_transactions
+                && !infrastructure.can_certify_cardano_blocks_transactions()
+            {
+                warn!(
+                    "Aggregator(s) version below 0.8.25 or Signer(s) version below 0.3.18, skipping CardanoBlocksTransactions checks"
+                );
+                false
+            } else {
+                contains_cardano_blocks_transactions
+            }
+        };
+
         Self {
             infrastructure,
             is_signing_cardano_transactions: signed_entity_types
                 .contains(&SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
-            is_signing_cardano_blocks_transactions: signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string()),
+            is_signing_cardano_blocks_transactions,
             is_signing_cardano_stake_distribution: signed_entity_types
                 .contains(&SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string()),
             is_signing_cardano_database: signed_entity_types
@@ -232,7 +247,7 @@ impl Spec {
             .await?;
 
             let mut client = infrastructure.build_client(aggregator).await?;
-            if client.version().is_below("0.13.0") {
+            if client.version().is_below("0.13.1") {
                 assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
             }
         }
@@ -303,6 +318,16 @@ impl Spec {
                 infrastructure.signers().len(),
             )
             .await?;
+
+            let transaction_hashes =
+                infrastructure.devnet().mithril_payments_transaction_hashes()?;
+            let mut client = infrastructure.build_client(aggregator).await?;
+            assertions::assert_client_can_verify_transactions_v2(&mut client, transaction_hashes)
+                .await?;
+
+            let block_hashes = infrastructure.devnet().mithril_payments_block_hashes()?;
+            let mut client = infrastructure.build_client(aggregator).await?;
+            assertions::assert_client_can_verify_blocks(&mut client, block_hashes).await?;
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly

@@ -7,7 +7,7 @@ use slog_scope::{info, warn};
 
 use mithril_common::{
     StdResult,
-    entities::{Epoch, EpochSpecifier, TransactionHash},
+    entities::{BlockHash, Epoch, EpochSpecifier, TransactionHash},
     messages::{
         CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
@@ -19,9 +19,9 @@ use mithril_common::{
 };
 
 use crate::{
-    Aggregator, CardanoDbCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
-    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand, attempt,
-    utils::AttemptResult,
+    Aggregator, CardanoBlockCommand, CardanoDbCommand, CardanoDbV2Command,
+    CardanoStakeDistributionCommand, CardanoTransactionCommand, CardanoTransactionV2Command,
+    Client, ClientCommand, MithrilStakeDistributionCommand, attempt, utils::AttemptResult,
 };
 
 async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
@@ -704,7 +704,7 @@ pub async fn assert_client_can_verify_transactions(
 ) -> StdResult<()> {
     #[allow(dead_code)]
     #[derive(Debug, serde::Deserialize)]
-    struct ClientCtxCertifyResult {
+    struct ClientCardanoTransactionCertifyResult {
         certified_transactions: Vec<TransactionHash>,
         non_certified_transactions: Vec<TransactionHash>,
     }
@@ -724,21 +724,143 @@ pub async fn assert_client_can_verify_transactions(
             result_file.display()
         )
     })?;
-    let result: ClientCtxCertifyResult = serde_json::from_str(&file).with_context(|| {
-        format!(
-            "Failed to parse client output as json from file `{}`",
-            result_file.display()
-        )
-    })?;
+    let result: ClientCardanoTransactionCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
 
-    info!("Asserting that all Cardano transactions where verified by the Client...");
+    info!("Asserting that all Cardano transactions were verified by the Client...");
     if tx_hashes.iter().all(|tx| result.certified_transactions.contains(tx)) {
         Ok(())
     } else {
         Err(anyhow!(
-            "Not all transactions where certified:\n'{:#?}'",
+            "Not all transactions were certified:\n'{:#?}'",
             result,
         ))
+    }
+}
+
+pub async fn assert_client_can_verify_transactions_v2(
+    client: &mut Client,
+    tx_hashes: Vec<TransactionHash>,
+) -> StdResult<()> {
+    #[allow(dead_code)]
+    #[derive(Debug, serde::Deserialize)]
+    struct ClientCardanoTransactionCertifyResult {
+        certified_transactions: Vec<CertifiedTransactionV2>,
+        non_certified_transactions: Vec<TransactionHash>,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct CertifiedTransactionV2 {
+        transaction_hash: String,
+    }
+
+    if !client.version().is_above_or_equal("0.13.1") {
+        warn!(
+            "Client version is below 0.13.1, skipping `cardano-transaction certify --backend v2` check"
+        );
+        return Ok(());
+    }
+
+    let result_file = client
+        .run(ClientCommand::CardanoTransactionV2(
+            CardanoTransactionV2Command::Certify {
+                tx_hashes: tx_hashes.clone(),
+            },
+        ))
+        .await?;
+    info!("Client verified the Cardano transactions V2"; "tx_hashes" => ?tx_hashes);
+
+    let file = std::fs::read_to_string(&result_file).with_context(|| {
+        format!(
+            "Failed to read client output from file `{}`",
+            result_file.display()
+        )
+    })?;
+    let result: ClientCardanoTransactionCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
+
+    info!("Asserting that all Cardano transactions V2 were verified by the Client...");
+    let certified_tx_hashes_result: Vec<String> = result
+        .certified_transactions
+        .iter()
+        .map(|tx| tx.transaction_hash.clone())
+        .collect();
+
+    if tx_hashes.iter().all(|tx| certified_tx_hashes_result.contains(tx)) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Not all transactions V2 were certified:\n'{:#?}'",
+            result,
+        ))
+    }
+}
+
+pub async fn assert_client_can_verify_blocks(
+    client: &mut Client,
+    block_hashes: Vec<BlockHash>,
+) -> StdResult<()> {
+    #[allow(dead_code)]
+    #[derive(Debug, serde::Deserialize)]
+    struct ClientCardanoBlockCertifyResult {
+        certified_blocks: Vec<CertifiedBlock>,
+        non_certified_blocks: Vec<BlockHash>,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct CertifiedBlock {
+        block_hash: String,
+    }
+
+    if !client.version().is_above_or_equal("0.13.1") {
+        warn!("Client version is below 0.13.1, skipping `cardano-block certify` check");
+        return Ok(());
+    }
+
+    let result_file = client
+        .run(ClientCommand::CardanoBlock(CardanoBlockCommand::Certify {
+            block_hashes: block_hashes.clone(),
+        }))
+        .await?;
+    info!("Client verified the Cardano blocks"; "block_hashes" => ?block_hashes);
+    let file = std::fs::read_to_string(&result_file).with_context(|| {
+        format!(
+            "Failed to read client output from file `{}`",
+            result_file.display()
+        )
+    })?;
+    let result: ClientCardanoBlockCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
+
+    info!("Asserting that all Cardano blocks were verified by the Client...");
+    let certified_blocks_hashes_result: Vec<String> = result
+        .certified_blocks
+        .iter()
+        .map(|block| block.block_hash.clone())
+        .collect();
+
+    if block_hashes
+        .iter()
+        .all(|block| certified_blocks_hashes_result.contains(block))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!("Not all blocks were certified:\n'{:#?}'", result,))
     }
 }
 

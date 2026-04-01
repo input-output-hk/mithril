@@ -10,12 +10,11 @@ use std::{
 use crate::utils::{self, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     CommandContext,
-    commands::client_builder,
     configuration::{ConfigError, ConfigSource},
     utils::ExpanderUtils,
 };
+use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
-use mithril_client::{MessageBuilder, RequiredAggregatorCapabilities};
 
 /// Download and verify a Mithril stake distribution information. If the
 /// verification fails, the file is not persisted.
@@ -50,15 +49,13 @@ impl MithrilStakeDistributionDownloadCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(context.config_parameters())?
-            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            ))
+        let client = context
+            .setup_mithril_client_builder()?
+            .with_capabilities(SignedEntityTypeDiscriminants::MithrilStakeDistribution.into())
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),
             )))
-            .with_logger(logger.clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {

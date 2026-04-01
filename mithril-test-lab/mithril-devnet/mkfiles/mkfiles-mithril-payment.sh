@@ -19,6 +19,7 @@ done
 ## Send funds to Mithril receiver addresses
 N=1
 TX_ID_OUTPUT_FILE=transaction-hashes.txt
+BLOCK_HASH_OUTPUT_FILE=block-hashes.txt
 cat >> payment-mithril.sh <<EOF
 #!/usr/bin/env bash
 set -e
@@ -76,6 +77,9 @@ cat >> payment-mithril.sh <<EOF
         --testnet-magic ${NETWORK_MAGIC} \\
         | jq  -r '.era |= ascii_downcase | .era')
     echo ">>>>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
+
+    ## Get the tip block hash
+    BLOCK_HASH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query tip --testnet-magic ${NETWORK_MAGIC} | jq -r '.hash')
 
     # Set the amount to be transferred
     AMOUNT_TRANSFERRED=\$(( 2000000 + 10 * ${i} + j))
@@ -135,11 +139,13 @@ cat >> payment-mithril.sh <<EOF
         ## Save the transaction id to file
         echo ">>>>>> Save transaction id #\${TX_ID_SUBMITTED} to ${TX_ID_OUTPUT_FILE} file"
         echo \$TX_ID_SUBMITTED >> ${TX_ID_OUTPUT_FILE}
+        ## Save the block hash to file
+        echo ">>>>>> Save block hash #\${BLOCK_HASH} to ${BLOCK_HASH_OUTPUT_FILE} file"
+        echo \$BLOCK_HASH >> ${BLOCK_HASH_OUTPUT_FILE}
     else
         ## Save the transaction id to file
         echo ">>>>>> Transaction #\${TX_ID_SUBMITTED} has likely been rolled-back and will not be recorded to ${TX_ID_OUTPUT_FILE} file"
     fi
-
 EOF
 done
 cat >> payment-mithril.sh <<EOF
@@ -162,6 +168,9 @@ if [ \$TOTAL_TX_SUBMITTED -eq 0 ]; then
     echo ">>>>>> Error: No transaction was successfully submitted!"
     exit 1
 fi
+
+# Deduplicate block hashes file
+sort -u ${BLOCK_HASH_OUTPUT_FILE} -o ${BLOCK_HASH_OUTPUT_FILE}
 
 EOF
 

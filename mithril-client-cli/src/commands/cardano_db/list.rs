@@ -2,12 +2,10 @@ use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
 
 use mithril_client::common::{EpochSpecifier, SignedEntityTypeDiscriminants};
-use mithril_client::{Client, MithrilResult, RequiredAggregatorCapabilities};
+use mithril_client::{Client, MithrilResult};
 
 use crate::{
-    CommandContext,
-    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
-    utils::CardanoDbUtils,
+    CommandContext, commands::cardano_db::CardanoDbCommandsBackend, utils::CardanoDbUtils,
 };
 
 /// Clap command to list existing Cardano dbs
@@ -25,13 +23,9 @@ pub struct CardanoDbListCommand {
 impl CardanoDbListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
-                RequiredAggregatorCapabilities::SignedEntityType(
-                    SignedEntityTypeDiscriminants::CardanoDatabase,
-                ),
-            ]))
-            .with_logger(context.logger().clone())
+        let client = context
+            .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .with_capabilities(SignedEntityTypeDiscriminants::CardanoDatabase.into())
             .build()?;
 
         match self.backend {

@@ -8,7 +8,7 @@ use thiserror::Error;
 use tokio::process::Command;
 
 use mithril_common::StdResult;
-use mithril_common::entities::{PartyId, TransactionHash};
+use mithril_common::entities::{BlockHash, PartyId, TransactionHash};
 
 use crate::utils::file_utils;
 
@@ -198,6 +198,19 @@ impl Devnet {
             .collect();
 
         Ok(transaction_hashes)
+    }
+
+    pub fn mithril_payments_block_hashes_path(&self) -> PathBuf {
+        self.artifacts_dir.join("block-hashes.txt")
+    }
+
+    pub fn mithril_payments_block_hashes(&self) -> StdResult<Vec<BlockHash>> {
+        let block_hashes = read_to_string(self.mithril_payments_block_hashes_path())?
+            .lines()
+            .map(String::from)
+            .collect();
+
+        Ok(block_hashes)
     }
 
     pub fn cardano_cli_path(&self) -> PathBuf {
