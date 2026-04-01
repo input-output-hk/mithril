@@ -340,9 +340,12 @@ impl ClientCommand {
                 cmd.cli_arg(client_version),
             ]
             .concat(),
-            ClientCommand::CardanoTransaction(cmd) => {
-                [vec!["cardano-transaction".to_string()], cmd.cli_arg(client_version)].concat()
-            }
+            ClientCommand::CardanoTransaction(cmd) => [
+                vec!["cardano-transaction".to_string()],
+                cmd.cli_arg(client_version),
+                vec!["--backend".to_string(), "v1".to_string()],
+            ]
+            .concat(),
             ClientCommand::CardanoTransactionV2(cmd) => [
                 vec!["cardano-transaction".to_string()],
                 cmd.cli_arg(client_version),
