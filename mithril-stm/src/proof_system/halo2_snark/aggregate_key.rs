@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, MembershipDigest, RegistrationEntryForSnark, Stake, StmResult,
+    ClosedKeyRegistration, MembershipDigest, RegistrationEntryForSnark, Stake, StmResult, codec,
     membership_commitment::{MerkleTreeCommitment, MerkleTreeError, MerkleTreeSnarkLeaf},
 };
 
@@ -29,19 +29,19 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
         self.total_stake
     }
 
-    /// Serialize the aggregate verification key for SNARK to bytes.
-    ///
-    /// Layout: `merkle_tree_commitment || total_stake (8 bytes BE)`
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend(self.merkle_tree_commitment.to_bytes());
-        bytes.extend(self.total_stake.to_be_bytes());
-
-        bytes
+    /// Serialize the aggregate verification key for SNARK to CBOR bytes with a version prefix.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Deserialize the aggregate verification key for SNARK from bytes.
+    ///
+    /// Supports both CBOR-encoded (version-prefixed) and legacy formats.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 8 {
             return Err(MerkleTreeError::SerializationError.into());
         }
@@ -152,10 +152,36 @@ mod tests {
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = AggregateVerificationKeyForSnark::<D>::to_bytes(&value);
+            let serialized = AggregateVerificationKeyForSnark::<D>::to_bytes(&value)
+                .expect("AggregateVerificationKeyForSnark serialization should not fail");
             let golden_serialized =
-                AggregateVerificationKeyForSnark::<D>::to_bytes(&golden_value());
+                AggregateVerificationKeyForSnark::<D>::to_bytes(&golden_value())
+                    .expect("AggregateVerificationKeyForSnark serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+
+        const GOLDEN_CBOR_BYTES: &[u8; 115] = &[
+            1, 162, 118, 109, 101, 114, 107, 108, 101, 95, 116, 114, 101, 101, 95, 99, 111, 109,
+            109, 105, 116, 109, 101, 110, 116, 162, 100, 114, 111, 111, 116, 152, 32, 24, 44, 24,
+            84, 24, 216, 24, 246, 24, 141, 24, 120, 24, 242, 24, 182, 24, 103, 24, 85, 24, 253, 24,
+            105, 24, 87, 24, 28, 24, 199, 24, 233, 24, 121, 24, 66, 21, 24, 104, 24, 195, 7, 24,
+            166, 24, 38, 24, 168, 15, 24, 50, 24, 78, 24, 108, 24, 149, 24, 244, 24, 92, 102, 104,
+            97, 115, 104, 101, 114, 246, 107, 116, 111, 116, 97, 108, 95, 115, 116, 97, 107, 101,
+            3,
+        ];
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = AggregateVerificationKeyForSnark::<D>::from_bytes(GOLDEN_CBOR_BYTES)
+                .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(golden_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = AggregateVerificationKeyForSnark::<D>::to_bytes(&golden_value())
+                .expect("AggregateVerificationKeyForSnark serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
         }
     }
 
