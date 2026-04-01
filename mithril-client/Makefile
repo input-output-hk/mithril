@@ -11,10 +11,10 @@ FEATURES := fs unstable
 all: test build
 
 build:
-	${CARGO} build --release --features rustls-tls,full,unstable
+	${CARGO} build --release --features rustls,full,unstable
 
 test:
-	${CARGO} test --features rustls-tls,full,unstable
+	${CARGO} test --features rustls,full,unstable
 
 check:
 	${CARGO} check --release --all-features --all-targets

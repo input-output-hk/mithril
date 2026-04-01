@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.13.1"
+version = "0.13.2"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,9 +22,8 @@ name = "mithril-client"
 path = "src/main.rs"
 
 [features]
-default = ["rustls-tls"]
-bundle_tls = ["mithril-client/native-tls-vendored"]
-rustls-tls = ["mithril-client/rustls-tls"]
+default = ["rustls"]
+rustls = ["mithril-client/rustls"]
 future_snark = ["mithril-client/future_snark"]
 
 [dependencies]

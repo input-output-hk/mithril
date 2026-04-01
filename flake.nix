@@ -196,7 +196,7 @@
         packages = {
           default = mithril;
           inherit mithril mithril-stm mithril-common;
-          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features rustls-tls,full"; };
+          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features rustls,full"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
 
         } // lib.optionalAttrs (pkgsMusl != null) {

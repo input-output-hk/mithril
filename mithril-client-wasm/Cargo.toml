@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.10.1"
+version = "0.10.2"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,9 +22,8 @@ ignored = ["wasm-bindgen-futures"]
 crate-type = ["cdylib"]
 
 [features]
-default = ["rustls-tls"]
-bundle_tls = ["mithril-client/native-tls-vendored"]
-rustls-tls = ["mithril-client/rustls-tls"]
+default = ["rustls"]
+rustls = ["mithril-client/rustls"]
 test-node = []
 
 [dependencies]
