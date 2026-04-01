@@ -4,6 +4,7 @@ use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
+use crate::codec;
 
 use super::{
     MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeError, MerkleTreeLeaf, left_child,
@@ -145,24 +146,23 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
         MerkleBatchPath::new(proof, indices)
     }
 
-    /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ bytes where $n$ is the
-    /// number of nodes and $S$ the output size of the hash function.
-    /// # Layout
-    /// * Number of leaves committed in the Merkle Tree (as u64)
-    /// * All nodes of the merkle tree (starting with the root)
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(8 + self.nodes.len() * <D as Digest>::output_size());
-        result.extend_from_slice(&u64::try_from(self.n).unwrap().to_be_bytes());
-        for node in self.nodes.iter() {
-            result.extend_from_slice(node);
-        }
-        result
+    /// Convert a `MerkleTree` into a byte string.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Try to convert a byte string into a `MerkleTree`.
     /// # Error
     /// It returns error if conversion fails.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    /// Try to convert a byte string into a `MerkleTree` using the legacy format.
+    /// # Layout
+    /// * Number of leaves committed in the Merkle Tree (as u64)
+    /// * All nodes of the merkle tree (starting with the root)
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -275,7 +275,7 @@ mod tests {
             fn test_bytes_path((t, values) in arb_tree(30)) {
                 values.iter().enumerate().for_each(|(i, _v)| {
                     let pf = t.compute_merkle_tree_path(i);
-                    let bytes = pf.to_bytes();
+                    let bytes = pf.to_bytes().expect("MerklePath serialization should not fail");
                     let deserialised = MerklePath::from_bytes(&bytes).unwrap();
                     assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &deserialised).is_ok());
                 })
@@ -284,7 +284,7 @@ mod tests {
             #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
-                let encoded = t.to_merkle_tree_commitment().to_bytes();
+                let encoded = t.to_merkle_tree_commitment().to_bytes().expect("MerkleTreeCommitment serialization should not fail");
                 let decoded = MerkleTreeCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
 
                 let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_commitment();
@@ -293,7 +293,7 @@ mod tests {
 
             #[test]
             fn test_bytes_tree((t, values) in arb_tree(5)) {
-                let bytes = t.to_bytes();
+                let bytes = t.to_bytes().expect("MerkleTree serialization should not fail");
                 let deserialised = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&bytes).unwrap();
                 let tree = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values);
                 assert_eq!(tree.nodes, deserialised.nodes);
@@ -302,7 +302,7 @@ mod tests {
             #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
-                let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
+                let encoded = t.to_merkle_tree_batch_commitment().to_bytes().expect("MerkleTreeBatchCommitment serialization should not fail");
                 let decoded = MerkleTreeBatchCommitment::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(&encoded).unwrap();
                 let tree_commitment = MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&values).to_merkle_tree_batch_commitment();
                 assert_eq!(tree_commitment.root, decoded.root);
@@ -390,8 +390,8 @@ mod tests {
             fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
                 let bp = t.compute_merkle_tree_batch_path(indices);
 
-                let bytes = &bp.to_bytes();
-                let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
+                let bytes = bp.to_bytes().expect("MerkleBatchPath serialization should not fail");
+                let deserialized = MerkleBatchPath::from_bytes(&bytes).unwrap();
                 assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
             }
         }
@@ -436,8 +436,10 @@ mod tests {
                 let serialized = MerkleTreeBatchCommitment::<
                     ConcatenationHash,
                     MerkleTreeConcatenationLeaf,
-                >::to_bytes(&value);
-                let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value());
+                >::to_bytes(&value)
+                .expect("MerkleTreeBatchCommitment serialization should not fail");
+                let golden_serialized = MerkleTreeBatchCommitment::to_bytes(&golden_value())
+                    .expect("MerkleTreeBatchCommitment serialization should not fail");
                 assert_eq!(golden_serialized, serialized);
             }
         }
@@ -483,6 +485,70 @@ mod tests {
                 assert_eq!(golden_serialized, serialized);
             }
         }
+
+        mod golden_cbor {
+            use super::*;
+
+            fn golden_value() -> MerkleTree<ConcatenationHash, MerkleTreeConcatenationLeaf> {
+                let number_of_leaves = 4;
+                let pks = vec![VerificationKeyForConcatenation::default(); number_of_leaves];
+                let stakes: Vec<u64> = (0..number_of_leaves).map(|i| i as u64).collect();
+                let leaves = pks
+                    .into_iter()
+                    .zip(stakes)
+                    .map(|(key, stake)| MerkleTreeConcatenationLeaf(key, stake))
+                    .collect::<Vec<MerkleTreeConcatenationLeaf>>();
+
+                MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves)
+            }
+
+            const GOLDEN_CBOR_BYTES: &[u8; 485] = &[
+                1, 165, 101, 110, 111, 100, 101, 115, 135, 152, 32, 24, 178, 24, 30, 24, 231, 24,
+                127, 24, 65, 24, 247, 24, 162, 24, 149, 24, 33, 24, 29, 24, 147, 24, 148, 24, 224,
+                24, 156, 24, 96, 24, 113, 24, 140, 24, 42, 24, 98, 24, 166, 24, 137, 14, 24, 69,
+                24, 29, 24, 28, 24, 244, 24, 161, 24, 145, 24, 207, 24, 146, 24, 236, 24, 249, 152,
+                32, 24, 135, 24, 51, 24, 101, 24, 36, 24, 82, 24, 28, 24, 47, 24, 190, 24, 104, 24,
+                152, 24, 106, 24, 167, 24, 128, 24, 167, 22, 24, 36, 24, 125, 24, 91, 24, 137, 24,
+                208, 24, 224, 14, 24, 82, 24, 41, 24, 130, 24, 214, 24, 108, 24, 254, 24, 77, 24,
+                44, 24, 160, 24, 117, 152, 32, 24, 75, 24, 152, 24, 193, 24, 39, 24, 81, 24, 31,
+                24, 79, 24, 34, 24, 232, 24, 192, 24, 38, 24, 94, 24, 109, 24, 160, 24, 171, 24,
+                148, 24, 173, 24, 203, 24, 85, 24, 33, 24, 116, 20, 24, 62, 24, 51, 1, 24, 112, 24,
+                227, 4, 24, 226, 24, 56, 24, 30, 24, 27, 152, 32, 24, 133, 24, 163, 24, 160, 24,
+                181, 24, 171, 24, 82, 24, 229, 24, 168, 24, 80, 24, 193, 24, 182, 24, 163, 24, 172,
+                24, 80, 24, 114, 21, 24, 169, 24, 159, 24, 100, 24, 68, 24, 217, 24, 39, 24, 34,
+                24, 37, 24, 155, 24, 218, 24, 120, 24, 101, 24, 51, 24, 25, 24, 43, 24, 84, 152,
+                32, 24, 57, 20, 24, 139, 24, 83, 24, 194, 24, 218, 24, 202, 24, 66, 24, 139, 24,
+                49, 24, 144, 24, 148, 24, 132, 6, 2, 24, 97, 24, 112, 24, 38, 24, 29, 24, 60, 24,
+                139, 24, 233, 24, 189, 24, 95, 24, 168, 24, 204, 24, 84, 24, 33, 24, 201, 24, 140,
+                23, 22, 152, 32, 24, 102, 24, 192, 24, 198, 24, 230, 0, 24, 203, 24, 217, 24, 240,
+                24, 214, 24, 244, 24, 135, 24, 236, 24, 49, 24, 219, 24, 229, 14, 24, 209, 24, 46,
+                24, 61, 24, 237, 24, 28, 24, 195, 24, 231, 24, 61, 24, 214, 24, 51, 24, 59, 24, 39,
+                24, 186, 24, 114, 24, 64, 24, 107, 152, 32, 24, 128, 24, 78, 24, 52, 24, 132, 24,
+                35, 24, 118, 24, 64, 24, 83, 24, 60, 24, 38, 24, 181, 24, 197, 24, 144, 24, 188,
+                24, 235, 24, 225, 2, 24, 223, 24, 135, 24, 104, 24, 193, 24, 226, 24, 148, 24, 170,
+                24, 114, 24, 26, 24, 173, 24, 161, 24, 34, 24, 70, 24, 241, 24, 90, 104, 108, 101,
+                97, 102, 95, 111, 102, 102, 3, 97, 110, 4, 102, 104, 97, 115, 104, 101, 114, 246,
+                102, 108, 101, 97, 118, 101, 115, 246,
+            ];
+
+            #[test]
+            fn cbor_golden_bytes_can_be_decoded() {
+                let decoded =
+                    MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::from_bytes(
+                        GOLDEN_CBOR_BYTES,
+                    )
+                    .expect("CBOR golden bytes deserialization should not fail");
+                assert_eq!(golden_value().nodes, decoded.nodes);
+                assert_eq!(golden_value().n, decoded.n);
+                assert_eq!(golden_value().leaf_off, decoded.leaf_off);
+            }
+
+            #[test]
+            fn cbor_encoding_is_stable() {
+                let bytes = golden_value().to_bytes().expect("CBOR serialization should not fail");
+                assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+            }
+        }
     }
 
     #[cfg(feature = "future_snark")]
@@ -525,7 +591,7 @@ mod tests {
             fn test_bytes_path((t, values) in arb_tree_poseidon(30)) {
                 values.iter().enumerate().for_each(|(i, _v)| {
                     let pf = t.compute_merkle_tree_path(i);
-                    let bytes = pf.to_bytes();
+                    let bytes = pf.to_bytes().expect("MerklePath serialization should not fail");
                     let deserialised = MerklePath::from_bytes(&bytes).unwrap();
                     assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &deserialised).is_ok());
                 })
@@ -534,7 +600,7 @@ mod tests {
             #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_tree_commitment((t, values) in arb_tree_poseidon(5)) {
-                let encoded = t.to_merkle_tree_commitment().to_bytes();
+                let encoded = t.to_merkle_tree_commitment().to_bytes().expect("MerkleTreeCommitment serialization should not fail");
                 let decoded = MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&encoded).unwrap();
 
                 let tree_commitment = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values).to_merkle_tree_commitment();
@@ -544,7 +610,7 @@ mod tests {
             #[cfg(feature = "future_snark")]
             #[test]
             fn test_bytes_tree((t, values) in arb_tree_poseidon(5)) {
-                let bytes = t.to_bytes();
+                let bytes = t.to_bytes().expect("MerkleTree serialization should not fail");
                 let deserialised = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&bytes).unwrap();
                 let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values);
                 assert_eq!(tree.nodes, deserialised.nodes);
@@ -610,8 +676,10 @@ mod tests {
                 assert_eq!(golden_value(), value);
 
                 let serialized =
-                    MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::to_bytes(&value);
-                let golden_serialized = MerkleTreeCommitment::to_bytes(&golden_value());
+                    MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::to_bytes(&value)
+                        .expect("serialization should not fail");
+                let golden_serialized = MerkleTreeCommitment::to_bytes(&golden_value())
+                    .expect("serialization should not fail");
                 assert_eq!(golden_serialized, serialized);
             }
         }
