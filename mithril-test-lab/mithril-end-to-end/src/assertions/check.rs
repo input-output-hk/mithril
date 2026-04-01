@@ -759,9 +759,9 @@ pub async fn assert_client_can_verify_transactions_v2(
         transaction_hash: String,
     }
 
-    if !client.version().is_above_or_equal("0.13.0") {
+    if !client.version().is_above_or_equal("0.13.1") {
         warn!(
-            "Client version is below 0.13.0, skipping `cardano-transaction certify --backend v2` check"
+            "Client version is below 0.13.1, skipping `cardano-transaction certify --backend v2` check"
         );
         return Ok(());
     }
@@ -822,8 +822,8 @@ pub async fn assert_client_can_verify_blocks(
         block_hash: String,
     }
 
-    if !client.version().is_above_or_equal("0.13.0") {
-        warn!("Client version is below 0.13.0, skipping `cardano-block certify` check");
+    if !client.version().is_above_or_equal("0.13.1") {
+        warn!("Client version is below 0.13.1, skipping `cardano-block certify` check");
         return Ok(());
     }
 
