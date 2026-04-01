@@ -647,14 +647,14 @@ dependencies = [
 
 [[package]]
 name = "blockfrost"
-version = "1.2.1"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22041e445c9606e04f7177f2dbedaef0ecded9bf34e97d7509e909828dfa7e8f"
+checksum = "8bf7354150cdebaa1cd0a503e1db16f6939385c405e234a7ceca4052bc7ed0e2"
 dependencies = [
  "blockfrost-openapi",
  "futures",
  "futures-timer",
- "reqwest 0.12.28",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -663,11 +663,11 @@ dependencies = [
 
 [[package]]
 name = "blockfrost-openapi"
-version = "0.1.83"
+version = "0.1.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62cc79368dcc9d7119091630b6a7b2b2801591836678261b4a79b7a62b559778"
+checksum = "04869ede3a619d6eb27c3162b1060665a9b4c790dea81343dd0e30d1465dd5a5"
 dependencies = [
- "reqwest 0.12.28",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "serde_repr",
@@ -5679,6 +5679,7 @@ version = "0.11.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1906b49b0c3bc04b5fe5d86a77925ae6524a19b816ae38ce1e426255f1d8a31"
 dependencies = [
+ "aws-lc-rs",
  "bytes",
  "getrandom 0.3.4",
  "lru-slab",
@@ -6001,6 +6002,7 @@ checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "encoding_rs",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -6013,13 +6015,17 @@ dependencies = [
  "hyper-util",
  "js-sys",
  "log",
+ "mime",
+ "mime_guess",
  "percent-encoding",
  "pin-project-lite",
+ "quinn",
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",

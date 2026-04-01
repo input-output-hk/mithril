@@ -19,7 +19,7 @@ future_snark = ["mithril-common/future_snark"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-blockfrost = { version = "1.2.1", default-features = false, features = ["rustls-tls-native-roots"] }
+blockfrost = { version = "1.2.3", default-features = false, features = ["rustls"] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
