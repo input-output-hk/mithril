@@ -23,6 +23,12 @@ pub enum RequiredAggregatorCapabilities {
     And(Vec<RequiredAggregatorCapabilities>),
 }
 
+impl From<SignedEntityTypeDiscriminants> for RequiredAggregatorCapabilities {
+    fn from(signed_entity_type: SignedEntityTypeDiscriminants) -> Self {
+        RequiredAggregatorCapabilities::SignedEntityType(signed_entity_type)
+    }
+}
+
 impl RequiredAggregatorCapabilities {
     /// Check if the available capabilities match the required capabilities.
     fn matches(&self, available: &AggregatorCapabilities) -> bool {
