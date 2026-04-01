@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-block"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.18"
+version = "0.0.19"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1025,7 +1025,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-stake-distribution"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -1038,7 +1038,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.26"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "clap",
@@ -1051,7 +1051,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction-v2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "anyhow",
  "clap",
@@ -3962,7 +3962,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.39"
+version = "0.8.40"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4168,7 +4168,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4207,7 +4207,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4244,7 +4244,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4349,7 +4349,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.126"
+version = "0.4.127"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4438,7 +4438,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -4499,7 +4499,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.3.26"
+version = "0.3.27"
 dependencies = [
  "anyhow",
  "async-trait",
