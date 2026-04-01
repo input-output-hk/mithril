@@ -33,7 +33,8 @@ import { updatePoolsForAggregator } from "@/store/poolsSlice";
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
 
-const defaultTab = signedEntityType.CardanoImmutableFilesFull;
+const certificateTab = "certificates";
+const defaultTab = certificateTab;
 
 export default function Explorer() {
   const searchParams = useSearchParams();
@@ -135,7 +136,7 @@ export default function Explorer() {
           eventKey={signedEntityType.MithrilStakeDistribution}>
           <MithrilStakeDistributionsList />
         </Tab>
-        <Tab title="Certificates" eventKey="certificates">
+        <Tab title="Certificates" eventKey={certificateTab}>
           <CertificatesList />
         </Tab>
       </Tabs>
