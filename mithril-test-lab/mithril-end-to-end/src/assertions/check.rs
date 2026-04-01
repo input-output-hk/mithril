@@ -704,7 +704,7 @@ pub async fn assert_client_can_verify_transactions(
 ) -> StdResult<()> {
     #[allow(dead_code)]
     #[derive(Debug, serde::Deserialize)]
-    struct ClientCtxCertifyResult {
+    struct ClientCardanoTransactionCertifyResult {
         certified_transactions: Vec<TransactionHash>,
         non_certified_transactions: Vec<TransactionHash>,
     }
@@ -724,12 +724,13 @@ pub async fn assert_client_can_verify_transactions(
             result_file.display()
         )
     })?;
-    let result: ClientCtxCertifyResult = serde_json::from_str(&file).with_context(|| {
-        format!(
-            "Failed to parse client output as json from file `{}`",
-            result_file.display()
-        )
-    })?;
+    let result: ClientCardanoTransactionCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
 
     info!("Asserting that all Cardano transactions were verified by the Client...");
     if tx_hashes.iter().all(|tx| result.certified_transactions.contains(tx)) {
@@ -746,9 +747,11 @@ pub async fn assert_client_can_verify_transactions_v2(
     client: &mut Client,
     tx_hashes: Vec<TransactionHash>,
 ) -> StdResult<()> {
+    #[allow(dead_code)]
     #[derive(Debug, serde::Deserialize)]
-    struct ClientCtxCertifyResult {
+    struct ClientCardanoTransactionCertifyResult {
         certified_transactions: Vec<CertifiedTransactionV2>,
+        non_certified_transactions: Vec<TransactionHash>,
     }
 
     #[derive(Debug, serde::Deserialize)]
@@ -778,15 +781,15 @@ pub async fn assert_client_can_verify_transactions_v2(
             result_file.display()
         )
     })?;
-    let result: ClientCtxCertifyResult = serde_json::from_str(&file).with_context(|| {
-        format!(
-            "Failed to parse client output as json from file `{}`",
-            result_file.display()
-        )
-    })?;
+    let result: ClientCardanoTransactionCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
 
     info!("Asserting that all Cardano transactions V2 were verified by the Client...");
-    //flatten all tx hashes
     let certified_tx_hashes_result: Vec<String> = result
         .certified_transactions
         .iter()
@@ -809,7 +812,7 @@ pub async fn assert_client_can_verify_blocks(
 ) -> StdResult<()> {
     #[allow(dead_code)]
     #[derive(Debug, serde::Deserialize)]
-    struct ClientCBlockCertifyResult {
+    struct ClientCardanoBlockCertifyResult {
         certified_blocks: Vec<CertifiedBlock>,
         non_certified_blocks: Vec<BlockHash>,
     }
@@ -836,15 +839,15 @@ pub async fn assert_client_can_verify_blocks(
             result_file.display()
         )
     })?;
-    let result: ClientCBlockCertifyResult = serde_json::from_str(&file).with_context(|| {
-        format!(
-            "Failed to parse client output as json from file `{}`",
-            result_file.display()
-        )
-    })?;
+    let result: ClientCardanoBlockCertifyResult =
+        serde_json::from_str(&file).with_context(|| {
+            format!(
+                "Failed to parse client output as json from file `{}`",
+                result_file.display()
+            )
+        })?;
 
     info!("Asserting that all Cardano blocks were verified by the Client...");
-    //flatten all block hashes
     let certified_blocks_hashes_result: Vec<String> = result
         .certified_blocks
         .iter()
