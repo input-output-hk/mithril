@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.37 (04-01-2026)
+
+### Added
+
+- Added a fix for the encoded message received not matching the expected length
+- Added a way to save and load the srs and to cache the circuit verification key (only for testing purposes)
+
 ## 0.9.36 (03-27-2026)
 
 ### Added
