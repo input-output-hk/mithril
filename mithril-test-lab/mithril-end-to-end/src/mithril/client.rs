@@ -340,12 +340,21 @@ impl ClientCommand {
                 cmd.cli_arg(client_version),
             ]
             .concat(),
-            ClientCommand::CardanoTransaction(cmd) => [
-                vec!["cardano-transaction".to_string()],
-                cmd.cli_arg(client_version),
-                vec!["--backend".to_string(), "v1".to_string()],
-            ]
-            .concat(),
+            ClientCommand::CardanoTransaction(cmd) => {
+                if client_version.is_below("0.13.1") {
+                    warn!(
+                        "client version is below 0.13.1, skip unsupported `--backend` flag for `cardano-transaction`"
+                    );
+                    [vec!["cardano-transaction".to_string()], cmd.cli_arg(client_version)].concat()
+                } else {
+                    [
+                        vec!["cardano-transaction".to_string()],
+                        cmd.cli_arg(client_version),
+                        vec!["--backend".to_string(), "v1".to_string()],
+                    ]
+                    .concat()
+                }
+            }
             ClientCommand::CardanoTransactionV2(cmd) => [
                 vec!["cardano-transaction".to_string()],
                 cmd.cli_arg(client_version),

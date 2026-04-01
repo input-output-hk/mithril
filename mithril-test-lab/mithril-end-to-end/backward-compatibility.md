@@ -26,6 +26,7 @@ format is: `- **since 'X.Y.Z' (distribution version) [to 'X.Y.Z' (distribution v
 
 ### Mithril client
 
+- **since `0.13.1`**: addition of `--backend` flag with `v1`/`v2` values for cardano-transaction
 - **since `0.13.0`**: removal of `v1` backend from the `cardano-db` commands
 - **since `0.12.34` (2543.0)**: test of new `--epoch` filter to `cardano-db list` (disabled on lower versions)
 - **since `0.12.11` (2524.0)**: removal of `cardano-db-v2` replaced with `cardano-db [command] --backend [v1,v2]`
