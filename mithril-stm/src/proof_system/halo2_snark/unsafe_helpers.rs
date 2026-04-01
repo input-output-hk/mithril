@@ -165,3 +165,164 @@ fn get_or_build_snark_keys(
 
     Ok(key_pair)
 }
+
+#[cfg(test)]
+mod test {
+    use std::{fs, sync::Arc};
+
+    use midnight_curves::Bls12;
+    use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
+    use midnight_zk_stdlib::MidnightCircuit;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        Parameters, circuits::halo2::circuit::StmCircuit, proof_system::halo2_snark::SnarkSetup,
+    };
+
+    use super::{SnarkSetupCacheKey, get_or_build_snark_keys, load_or_generate_srs, persist_srs};
+
+    fn small_srs() -> ParamsKZG<Bls12> {
+        ParamsKZG::unsafe_setup(3, ChaCha20Rng::seed_from_u64(42))
+    }
+
+    fn default_params() -> Parameters {
+        Parameters {
+            k: 5,
+            m: 10,
+            phi_f: 0.2,
+        }
+    }
+
+    #[test]
+    fn persist_srs_creates_file() {
+        let dir = std::env::temp_dir().join("mithril-test-srs-creates-file");
+        let path = dir.join("params");
+        fs::remove_dir_all(&dir).ok();
+
+        persist_srs(&small_srs(), path.to_str().unwrap()).unwrap();
+
+        assert!(path.exists());
+        assert!(fs::metadata(&path).unwrap().len() > 0);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn persist_srs_creates_missing_parent_directories() {
+        let root = std::env::temp_dir().join("mithril-test-srs-parent-dirs");
+        let path = root.join("nested").join("deep").join("params");
+        fs::remove_dir_all(&root).ok();
+
+        assert!(!root.exists());
+        persist_srs(&small_srs(), path.to_str().unwrap()).unwrap();
+
+        assert!(path.exists());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn load_or_generate_srs_loads_from_existing_file() {
+        let dir = std::env::temp_dir().join("mithril-test-srs-load-existing");
+        let path = dir.join("params_kzg_unsafe_3");
+        fs::remove_dir_all(&dir).ok();
+
+        let original = small_srs();
+        persist_srs(&original, path.to_str().unwrap()).unwrap();
+
+        let loaded = load_or_generate_srs(3, path.to_str().unwrap()).unwrap();
+
+        let mut original_bytes = vec![];
+        original
+            .write_custom(&mut original_bytes, SerdeFormat::RawBytesUnchecked)
+            .unwrap();
+        let mut loaded_bytes = vec![];
+        loaded
+            .write_custom(&mut loaded_bytes, SerdeFormat::RawBytesUnchecked)
+            .unwrap();
+        assert_eq!(
+            original_bytes, loaded_bytes,
+            "loaded SRS must match the persisted one"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn load_or_generate_srs_generates_and_persists_when_file_is_missing() {
+        let dir = std::env::temp_dir().join("mithril-test-srs-generates");
+        let path = dir.join("params_kzg_unsafe_3");
+        fs::remove_dir_all(&dir).ok();
+
+        assert!(!path.exists());
+        let _srs = load_or_generate_srs(3, path.to_str().unwrap()).unwrap();
+
+        assert!(
+            path.exists(),
+            "generated SRS should have been persisted to disk"
+        );
+        assert!(fs::metadata(&path).unwrap().len() > 0);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn get_or_build_snark_keys_caching_behavior() {
+        let params = default_params();
+        let circuit_a = StmCircuit::try_new(&params, 2).unwrap();
+        let circuit_b = StmCircuit::try_new(&params, 3).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit_a).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let key_a = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 2,
+        };
+        let key_b = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 3,
+        };
+
+        let pair_a1 = get_or_build_snark_keys(key_a, &circuit_a, &srs).unwrap();
+        let pair_a2 = get_or_build_snark_keys(key_a, &circuit_a, &srs).unwrap();
+        assert!(
+            Arc::ptr_eq(&pair_a1, &pair_a2),
+            "same key should return the cached Arc"
+        );
+
+        let pair_b = get_or_build_snark_keys(key_b, &circuit_b, &srs).unwrap();
+        assert!(
+            !Arc::ptr_eq(&pair_a1, &pair_b),
+            "different key must produce a different Arc"
+        );
+    }
+
+    #[test]
+    fn try_new_succeeds_with_valid_parameters() {
+        let result = SnarkSetup::try_new(&default_params(), 4);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_returns_same_verification_key_for_same_parameters() {
+        let params = default_params();
+        let setup1 = SnarkSetup::try_new(&params, 4).unwrap();
+        let setup2 = SnarkSetup::try_new(&params, 4).unwrap();
+
+        let mut vk_bytes1 = vec![];
+        setup1
+            .verification_key
+            .write(&mut vk_bytes1, SerdeFormat::RawBytes)
+            .unwrap();
+        let mut vk_bytes2 = vec![];
+        setup2
+            .verification_key
+            .write(&mut vk_bytes2, SerdeFormat::RawBytes)
+            .unwrap();
+
+        assert_eq!(
+            vk_bytes1, vk_bytes2,
+            "same parameters must produce the same verification key"
+        );
+    }
+}

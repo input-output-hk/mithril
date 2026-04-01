@@ -58,8 +58,9 @@ mod test {
     }
 
     #[test]
-    fn correct_size_message_but_random_bytes_fails() {
-        let merkle_root: Vec<u8> = (0..32).map(|_| random_range(0..255)).collect();
+    fn correct_size_message_but_invalid_root_bytes_fails() {
+        let mut merkle_root: Vec<u8> = (0..32).map(|_| random_range(0..255)).collect();
+        merkle_root[31] = 255;
         let message: Vec<u8> = (0..32).map(|_| random_range(0..255)).collect();
 
         let snark_message = build_snark_message(&merkle_root, &message);
