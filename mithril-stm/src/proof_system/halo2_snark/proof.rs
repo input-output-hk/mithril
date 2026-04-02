@@ -243,10 +243,16 @@ mod tests {
             SnarkClerk,
             halo2_snark::{
                 SnarkSetup, circuit_verification_key::CircuitVerificationKey, proof::SnarkProof,
-                unsafe_helpers::compute_circuit_degree,
             },
         },
     };
+
+    const BASE_CIRCUIT_DEGREE: u32 = 11;
+
+    // Compute the circuit degree from the protocol parameter `k`.
+    fn compute_circuit_degree(k: u64) -> u32 {
+        BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
+    }
 
     use super::{Parameters, SnarkProver};
 
@@ -459,12 +465,8 @@ mod tests {
 
         let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
         rng.fill_bytes(&mut random_bytes);
-        let random_proof = SnarkProof::try_new(
-            random_bytes,
-            params,
-            compute_circuit_degree(params.k).unwrap(),
-        )
-        .unwrap();
+        let random_proof =
+            SnarkProof::try_new(random_bytes, params, compute_circuit_degree(params.k)).unwrap();
         let result = random_proof.verify(message.as_slice(), &avk);
 
         assert!(result.is_err(), "Verification of random proof should fail");
@@ -473,7 +475,7 @@ mod tests {
         let small_proof = SnarkProof::try_new(
             not_enough_bytes.to_vec(),
             params,
-            compute_circuit_degree(params.k).unwrap(),
+            compute_circuit_degree(params.k),
         )
         .unwrap();
         assert!(
@@ -483,12 +485,8 @@ mod tests {
 
         let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
         too_many_bytes.push(0u8);
-        let large_proof = SnarkProof::try_new(
-            too_many_bytes,
-            params,
-            compute_circuit_degree(params.k).unwrap(),
-        )
-        .unwrap();
+        let large_proof =
+            SnarkProof::try_new(too_many_bytes, params, compute_circuit_degree(params.k)).unwrap();
         assert!(
             large_proof.verify(message.as_slice(), &avk).is_err(),
             "Verification of large proof should fail"

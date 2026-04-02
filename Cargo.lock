@@ -4543,7 +4543,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.9.36"
+version = "0.9.37"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
@@ -4552,6 +4552,7 @@ dependencies = [
  "digest 0.10.7",
  "ff",
  "group",
+ "hex",
  "midnight-circuits",
  "midnight-curves",
  "midnight-proofs",
