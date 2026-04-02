@@ -98,8 +98,11 @@ pub fn log_certify_information(
         println!("Following Cardano blocks have been successfully certified by Mithril.");
         for block in verified_blocks.certified_blocks() {
             println!(
-                r###"- block hash '{}', block number '{}', block slot '{}'"###,
-                block.block_hash, block.block_number, block.slot_number
+                r###"- block hash '{}', block number '{}', block slot '{}', block depth '{}'"###,
+                block.block_hash,
+                block.block_number,
+                block.slot_number,
+                verified_blocks.security_parameter()
             );
         }
     }
