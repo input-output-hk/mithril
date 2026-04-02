@@ -68,6 +68,7 @@ pub struct VerifiedCardanoTransactionsV2 {
     merkle_root: String,
     certified_transactions: Vec<CardanoTransactionMessagePart>,
     latest_block_number: BlockNumber,
+    security_parameter: BlockNumberOffset,
 }
 
 impl VerifiedCardanoTransactionsV2 {
@@ -97,6 +98,11 @@ impl VerifiedCardanoTransactionsV2 {
     /// Latest block number that has been certified by the associated Mithril certificate
     pub fn latest_certified_block_number(&self) -> BlockNumber {
         self.latest_block_number
+    }
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub fn security_parameter(&self) -> BlockNumberOffset {
+        self.security_parameter
     }
 }
 
@@ -145,6 +151,7 @@ impl CardanoTransactionsProofsV2Message {
             merkle_root,
             certified_transactions: certified_transactions.items.clone(),
             latest_block_number: self.latest_block_number,
+            security_parameter: self.security_parameter,
         })
     }
 }

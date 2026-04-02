@@ -54,6 +54,10 @@ impl FakeAggregator {
                 ProtocolMessagePartKey::LatestBlockNumber,
                 verified_proof.latest_certified_block_number().to_string(),
             );
+            cert.protocol_message.set_message_part(
+                ProtocolMessagePartKey::CardanoBlocksTransactionsBlockNumberOffset,
+                verified_proof.security_parameter().to_string(),
+            );
             cert.signed_message = cert.protocol_message.compute_hash();
             cert
         };
