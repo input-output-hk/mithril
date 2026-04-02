@@ -159,6 +159,7 @@ Mithril may not have signed those blocks yet, please try again later."
                                 "block_hash": block.block_hash,
                                 "block_number": block.block_number,
                                 "slot_number": block.slot_number,
+                                "block_depth": verified_blocks.security_parameter(),
                             })
                         })
                         .collect::<Vec<_>>()
@@ -185,12 +186,14 @@ No proof could be computed for some Cardano blocks. Mithril may not have signed 
                         block.block_hash.clone().cell(),
                         format!("{}", block.block_number).cell(),
                         format!("{}", block.slot_number).cell(),
+                        format!("{}", verified_blocks.security_parameter()).cell(),
                         "✅".cell().justify(cli_table::format::Justify::Center),
                     ]
                 })
                 .chain(non_certified_blocks.iter().map(|block| {
                     vec![
                         block.clone().cell(),
+                        String::new().cell(),
                         String::new().cell(),
                         String::new().cell(),
                         "❌".cell().justify(cli_table::format::Justify::Center),
@@ -201,6 +204,7 @@ No proof could be computed for some Cardano blocks. Mithril may not have signed 
                     "Block Hash".cell(),
                     "Block Number".cell(),
                     "Slot Number".cell(),
+                    "Block depth".cell(),
                     "Certified".cell(),
                 ]);
 

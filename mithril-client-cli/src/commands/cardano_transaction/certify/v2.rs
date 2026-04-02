@@ -112,6 +112,7 @@ fn log_certify_information(
                             "block_hash": tx.block_hash,
                             "block_number": tx.block_number,
                             "slot_number": tx.slot_number,
+                            "block_depth": verified_transactions.security_parameter(),
                         })
                     })
                     .collect::<Vec<_>>()
@@ -139,12 +140,14 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
                     tx.block_hash.clone().cell(),
                     format!("{}", tx.block_number).cell(),
                     format!("{}", tx.slot_number).cell(),
+                    format!("{}", verified_transactions.security_parameter()).cell(),
                     "✅".cell().justify(cli_table::format::Justify::Center),
                 ]
             })
             .chain(non_certified_transactions.iter().map(|tx| {
                 vec![
                     tx.cell(),
+                    String::new().cell(),
                     String::new().cell(),
                     String::new().cell(),
                     String::new().cell(),
@@ -157,6 +160,7 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
                 "Block Hash".cell(),
                 "Block Number".cell(),
                 "Slot Number".cell(),
+                "Block depth".cell(),
                 "Certified".cell(),
             ]);
 
