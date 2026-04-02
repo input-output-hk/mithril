@@ -35,7 +35,6 @@
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "next-router-mock": "^1.0.5",
-    "prettier": "^3.8.1",
-    "prettier-eslint": "^16.4.2"
+    "prettier": "^3.8.1"
   }
 }
