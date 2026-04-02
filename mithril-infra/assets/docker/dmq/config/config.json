@@ -1,21 +1,13 @@
 {
   "PeerSharing": true,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "LocalStateQueryTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": [
+        "Stdout MachineFormat",
+        "PrometheusSimple suffix 127.0.0.1 12000"
+      ],
+      "severity": "Debug"
+    }
+  }
 }
