@@ -3,11 +3,7 @@ import { Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 
 export default function CopyButton({ textToCopy, variant = "link", text = "" }) {
   const [isCopying, setIsCopying] = useState(false);
-  const [icon, setIcon] = useState("copy");
-
-  useEffect(() => {
-    setIcon(isCopying ? "check-circle" : "copy");
-  }, [isCopying]);
+  const icon = isCopying ? "check-circle" : "copy";
 
   function copyToClipboard() {
     if (window.isSecureContext && textToCopy) {

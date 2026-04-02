@@ -18,6 +18,19 @@ export const validationSteps = {
   done: 5,
 };
 
+function getTabForStep(step) {
+  switch (step) {
+    case validationSteps.validatingCertificateChain:
+    case validationSteps.validatingProof:
+    case validationSteps.done:
+      return `#step-${step}`;
+    case validationSteps.ready:
+    case validationSteps.fetchingProof:
+    default:
+      return `#step-${validationSteps.fetchingProof}`;
+  }
+}
+
 export default function CertifyCardanoTransactionsModal({
   transactionHashes,
   onHashesChange = (hash) => {},
@@ -36,6 +49,55 @@ export default function CertifyCardanoTransactionsModal({
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
   const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
   const [currentError, setCurrentError] = useState(undefined);
+
+  async function getTransactionsProofsAndCertificate(client, transactionHashes) {
+    const proofs = await client.get_cardano_transaction_proofs(transactionHashes);
+    const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
+
+    setTransactionsProofs(proofs);
+    setCertificate(certificate);
+  }
+
+  async function verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate) {
+    // Verify proof validity if so get its protocol message
+    const protocolMessage = await client.verify_cardano_transaction_proof_then_compute_message(
+      transactionsProofs,
+      certificate,
+    );
+    const isProofValid =
+      (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
+
+    setIsProofValid(isProofValid);
+    return isProofValid;
+  }
+
+  function handleError(error) {
+    console.error("Cardano Transactions Certification Error:", error);
+    setCurrentError(error);
+    setCurrentStep(validationSteps.done);
+  }
+
+  function handleStepClick(step) {
+    // Only allow navigation when the work is done
+    if (currentStep === validationSteps.done) {
+      setCurrentTab(getTabForStep(step));
+    }
+  }
+
+  function handleCertificateClick(hash) {
+    // Only allow to open the submodal when the work is done
+    if (currentStep === validationSteps.done) {
+      setSelectedCertificateHash(hash);
+    }
+  }
+
+  function closeIfNotRunning() {
+    if (currentStep !== validationSteps.done) {
+      setShowLoadingWarning(true);
+    } else {
+      onHashesChange([]);
+    }
+  }
 
   useEffect(() => {
     setShowLoadingWarning(false);
@@ -99,68 +161,6 @@ export default function CertifyCardanoTransactionsModal({
         .catch((err) => handleError(err));
     }
   }, [client, currentStep, transactionsProofs, certificate]);
-
-  async function getTransactionsProofsAndCertificate(client, transactionHashes) {
-    const proofs = await client.get_cardano_transaction_proofs(transactionHashes);
-    const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
-
-    setTransactionsProofs(proofs);
-    setCertificate(certificate);
-  }
-
-  async function verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate) {
-    // Verify proof validity if so get its protocol message
-    const protocolMessage = await client.verify_cardano_transaction_proof_then_compute_message(
-      transactionsProofs,
-      certificate,
-    );
-    const isProofValid =
-      (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
-
-    setIsProofValid(isProofValid);
-    return isProofValid;
-  }
-
-  function handleError(error) {
-    console.error("Cardano Transactions Certification Error:", error);
-    setCurrentError(error);
-    setCurrentStep(validationSteps.done);
-  }
-
-  function getTabForStep(step) {
-    switch (step) {
-      case validationSteps.validatingCertificateChain:
-      case validationSteps.validatingProof:
-      case validationSteps.done:
-        return `#step-${step}`;
-      case validationSteps.ready:
-      case validationSteps.fetchingProof:
-      default:
-        return `#step-${validationSteps.fetchingProof}`;
-    }
-  }
-
-  function handleStepClick(step) {
-    // Only allow navigation when the work is done
-    if (currentStep === validationSteps.done) {
-      setCurrentTab(getTabForStep(step));
-    }
-  }
-
-  function handleCertificateClick(hash) {
-    // Only allow to open the submodal when the work is done
-    if (currentStep === validationSteps.done) {
-      setSelectedCertificateHash(hash);
-    }
-  }
-
-  function closeIfNotRunning() {
-    if (currentStep !== validationSteps.done) {
-      setShowLoadingWarning(true);
-    } else {
-      onHashesChange([]);
-    }
-  }
 
   return (
     <Modal

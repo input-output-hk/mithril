@@ -17,9 +17,6 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
         newMithrilWasmClient,
       } = require("@/wasm-client-helpers");
 
-      // Reset existing warning when shown
-      setShowLoadingWarning(false);
-
       fetchGenesisVerificationKey(currentAggregator)
         .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
         .then((client) => {
@@ -31,17 +28,12 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
     }
   }, [show, currentAggregator, certificateHash]);
 
-  useEffect(() => {
-    if (!loading) {
-      setShowLoadingWarning(false);
-    }
-  }, [loading]);
-
   function handleModalClose() {
     // Only allow closing if not loading
     if (loading) {
       setShowLoadingWarning(true);
     } else {
+      setShowLoadingWarning(false);
       onClose();
     }
   }
