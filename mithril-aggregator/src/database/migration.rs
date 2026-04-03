@@ -310,5 +310,15 @@ alter table signer_registration add column verification_key_signature_for_snark 
 alter table certificate add column aggregate_verification_key_snark text;
         "#,
         ),
+        // Migration 42
+        // Delete blocks and transactions `signed_entity` and related `certificate` records
+        // since beacon has been modified to include the block_number_offset
+        SqlMigration::new(
+            42,
+            r#"
+delete from signed_entity where signed_entity.signed_entity_type_id = 5;
+delete from certificate where certificate.signed_entity_type_id = 5;
+        "#,
+        ),
     ]
 }
