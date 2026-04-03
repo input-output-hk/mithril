@@ -1,160 +1,200 @@
 [
   {
-    "digest": "d4ef84853eb11b5ca409b0c75a2a5e3c5affe6fbe18a20fc9c15340671fa7745",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 21,
-      "immutable_file_number": 5
-    },
-    "certificate_hash": "97c07626c103e427099969cfc6b31e989e51e9789cab4d94b7f8859a707ffeb0",
-    "size": 163778,
-    "ancillary_size": 13835,
-    "created_at": "2026-03-13T08:42:48.970831026Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e21-i5.d4ef84853eb11b5ca409b0c75a2a5e3c5affe6fbe18a20fc9c15340671fa7745.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e21-i5.d4ef84853eb11b5ca409b0c75a2a5e3c5affe6fbe18a20fc9c15340671fa7745.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "669fc81b08700272b49b9f2988999e56840ce0ce63640a6f7729616e0ed764de",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 20,
-      "immutable_file_number": 5
-    },
-    "certificate_hash": "70cfef9c00b300cf13dd2a1ae66c3568800403642551a250e9407f8a28edc0d4",
-    "size": 163778,
-    "ancillary_size": 5609,
-    "created_at": "2026-03-13T08:42:46.222414116Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e20-i5.669fc81b08700272b49b9f2988999e56840ce0ce63640a6f7729616e0ed764de.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e20-i5.669fc81b08700272b49b9f2988999e56840ce0ce63640a6f7729616e0ed764de.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "2408915ca6aff6294c72aee3ced0d2cbae8df0f799df5768194ca8a328ff6f5d",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 20,
-      "immutable_file_number": 4
-    },
-    "certificate_hash": "48e8b106fd1f11413d1eb4ca927c3ce35f0e080c88b3ca72fe02c007923129e9",
-    "size": 136794,
-    "ancillary_size": 33196,
-    "created_at": "2026-03-13T08:42:45.971276214Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e20-i4.2408915ca6aff6294c72aee3ced0d2cbae8df0f799df5768194ca8a328ff6f5d.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e20-i4.2408915ca6aff6294c72aee3ced0d2cbae8df0f799df5768194ca8a328ff6f5d.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "91a65d54351c6e9f6df3cd15c0364f59a686a68b460667cbcc58b16ca6346b95",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 19,
-      "immutable_file_number": 4
-    },
-    "certificate_hash": "f6bcde660bb71204ccceb58560a3eb8cb2d9753e494f19a4400d6090713117a1",
-    "size": 136794,
-    "ancillary_size": 25009,
-    "created_at": "2026-03-13T08:42:42.975832735Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e19-i4.91a65d54351c6e9f6df3cd15c0364f59a686a68b460667cbcc58b16ca6346b95.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e19-i4.91a65d54351c6e9f6df3cd15c0364f59a686a68b460667cbcc58b16ca6346b95.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "5595c7ddbed6ee910a6372125c6695f62cfb8b699b9542ab9fb2b418e2fa99ff",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 18,
-      "immutable_file_number": 4
-    },
-    "certificate_hash": "94d24f5b7c3e0bbcb5fc8235a8db168b4a4aa3ee58fb8a0297166d864eb61e07",
-    "size": 136794,
-    "ancillary_size": 16821,
-    "created_at": "2026-03-13T08:42:39.970836407Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e18-i4.5595c7ddbed6ee910a6372125c6695f62cfb8b699b9542ab9fb2b418e2fa99ff.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e18-i4.5595c7ddbed6ee910a6372125c6695f62cfb8b699b9542ab9fb2b418e2fa99ff.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "d2b0fabc7be2892008d3b4e6c1a30bb3773cf82337179f241f64e54bc3a5739b",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 17,
-      "immutable_file_number": 4
-    },
-    "certificate_hash": "c23fca694e18b1e6e3cec34e36bbb36e452ea8434c0215d370287056db52a67b",
-    "size": 136794,
-    "ancillary_size": 8162,
-    "created_at": "2026-03-13T08:42:36.972711778Z",
-    "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e17-i4.d2b0fabc7be2892008d3b4e6c1a30bb3773cf82337179f241f64e54bc3a5739b.tar.zst"
-    ],
-    "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e17-i4.d2b0fabc7be2892008d3b4e6c1a30bb3773cf82337179f241f64e54bc3a5739b.ancillary.tar.zst"
-    ],
-    "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
-  },
-  {
-    "digest": "9509a8c04b1222a2881ae8977af38ffb7682007c686a4fe159c97de11a5c14e8",
+    "digest": "6e0d192003c2bd6c8308388224d4eb4ebaf1d8594862045182dbc9dac49c1dff",
     "network": "devnet",
     "beacon": {
       "epoch": 16,
       "immutable_file_number": 3
     },
-    "certificate_hash": "b8173ece3d0826e5b16a1ee082fc9ac05ae8b85dbcbb8c347f887f1ecc814f45",
-    "size": 109763,
-    "ancillary_size": 27637,
-    "created_at": "2026-03-13T08:42:33.977683364Z",
+    "certificate_hash": "d2a42057e168a0f385d4652c07bf1de65b433442f4576079d21f751ec4261879",
+    "size": 110486,
+    "ancillary_size": 27584,
+    "created_at": "2026-04-08T08:02:24.974966901Z",
     "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e16-i3.9509a8c04b1222a2881ae8977af38ffb7682007c686a4fe159c97de11a5c14e8.tar.zst"
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e16-i3.6e0d192003c2bd6c8308388224d4eb4ebaf1d8594862045182dbc9dac49c1dff.tar.zst"
     ],
     "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e16-i3.9509a8c04b1222a2881ae8977af38ffb7682007c686a4fe159c97de11a5c14e8.ancillary.tar.zst"
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e16-i3.6e0d192003c2bd6c8308388224d4eb4ebaf1d8594862045182dbc9dac49c1dff.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "10.6.2"
   },
   {
-    "digest": "2d66765048c5bae516d6ea1239827d92b0b4597dc5b9804b9a5a3cc66555b80f",
+    "digest": "0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43",
     "network": "devnet",
     "beacon": {
       "epoch": 15,
       "immutable_file_number": 3
     },
-    "certificate_hash": "58da985b409687d0c0d42857423c28deda262df5a4e57259e46f4f06d3dcc5ba",
-    "size": 109763,
-    "ancillary_size": 19438,
-    "created_at": "2026-03-13T08:42:30.993393589Z",
+    "certificate_hash": "af506818c7a9806c527dcc7d97a95f3719254d8cf33938213b70ef8c26c5f212",
+    "size": 110486,
+    "ancillary_size": 19398,
+    "created_at": "2026-04-08T08:02:21.982445857Z",
     "locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e15-i3.2d66765048c5bae516d6ea1239827d92b0b4597dc5b9804b9a5a3cc66555b80f.tar.zst"
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e15-i3.0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43.tar.zst"
     ],
     "ancillary_locations": [
-      "http://localhost:8080/aggregator/snapshot_download/devnet-e15-i3.2d66765048c5bae516d6ea1239827d92b0b4597dc5b9804b9a5a3cc66555b80f.ancillary.tar.zst"
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e15-i3.0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 14,
+      "immutable_file_number": 3
+    },
+    "certificate_hash": "84409b810f03f820e3a2f1bbe66479aec09a8f7e1a8699a84d8c3d9936a5ae44",
+    "size": 110486,
+    "ancillary_size": 11193,
+    "created_at": "2026-04-08T08:02:18.982000207Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e14-i3.2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e14-i3.2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "aa74b8b231e60efa2c6b10d2699540728aae37198a31fd2f7a84ae561987dd8f",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 13,
+      "immutable_file_number": 3
+    },
+    "certificate_hash": "0538388b1ecfe3a276441dec5f6217fe8a7684c485a36528ed22e5601b6aac44",
+    "size": 110486,
+    "ancillary_size": 5366,
+    "created_at": "2026-04-08T08:02:17.220870506Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e13-i3.aa74b8b231e60efa2c6b10d2699540728aae37198a31fd2f7a84ae561987dd8f.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e13-i3.aa74b8b231e60efa2c6b10d2699540728aae37198a31fd2f7a84ae561987dd8f.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 13,
+      "immutable_file_number": 2
+    },
+    "certificate_hash": "5f4c3b3809098c2ddf6001b532b69ba1e38d077123f0b54f1b97175e472f4d0f",
+    "size": 83336,
+    "ancillary_size": 30453,
+    "created_at": "2026-04-08T08:02:15.981038166Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e13-i2.47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e13-i2.47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "dd5bb5e8e41e81627b8e6b845d5e8fa56d21321393b5a5ca763764be106a91bf",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 12,
+      "immutable_file_number": 2
+    },
+    "certificate_hash": "e4f2f1407aa06ec9b7964c04f6729003a5209864d65701cb6dcc6c50e1469c02",
+    "size": 83336,
+    "ancillary_size": 22254,
+    "created_at": "2026-04-08T08:02:12.972726157Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e12-i2.dd5bb5e8e41e81627b8e6b845d5e8fa56d21321393b5a5ca763764be106a91bf.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e12-i2.dd5bb5e8e41e81627b8e6b845d5e8fa56d21321393b5a5ca763764be106a91bf.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "071b6066fe150a637fc1d19822582990f2c7ec47e8199c3143a0b15e83b2dfa9",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 11,
+      "immutable_file_number": 2
+    },
+    "certificate_hash": "8c3fa708dabffb295a45cde300ac44d336163789fb9b5f2b461ff3693ceaee2e",
+    "size": 83336,
+    "ancillary_size": 13802,
+    "created_at": "2026-04-08T08:02:09.979847263Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e11-i2.071b6066fe150a637fc1d19822582990f2c7ec47e8199c3143a0b15e83b2dfa9.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e11-i2.071b6066fe150a637fc1d19822582990f2c7ec47e8199c3143a0b15e83b2dfa9.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "61514916b89cea75bfe40da7984280cf93101e9cbf6d8418906d3a30101759b5",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 10,
+      "immutable_file_number": 2
+    },
+    "certificate_hash": "772c31b4ace2d8e0d459cc1c8f0597e6f08d995469ae4c3192e7731297b72fa4",
+    "size": 83336,
+    "ancillary_size": 5323,
+    "created_at": "2026-04-08T08:02:07.209095654Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e10-i2.61514916b89cea75bfe40da7984280cf93101e9cbf6d8418906d3a30101759b5.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e10-i2.61514916b89cea75bfe40da7984280cf93101e9cbf6d8418906d3a30101759b5.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 10,
+      "immutable_file_number": 1
+    },
+    "certificate_hash": "1100a5aeb4f51f087af287b7823228b42bea96781f2396a48c6348ac9439e751",
+    "size": 56032,
+    "ancillary_size": 33255,
+    "created_at": "2026-04-08T08:02:06.973989493Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e10-i1.1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e10-i1.1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8.ancillary.tar.zst"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.6.2"
+  },
+  {
+    "digest": "72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 9,
+      "immutable_file_number": 1
+    },
+    "certificate_hash": "809b365412e72a70f765eed7e7eccd008e419707bcd10fe2ecaeac731fe813c9",
+    "size": 56032,
+    "ancillary_size": 24852,
+    "created_at": "2026-04-08T08:02:03.986917949Z",
+    "locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e9-i1.72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538.tar.zst"
+    ],
+    "ancillary_locations": [
+      "http://localhost:8080/aggregator/snapshot_download/devnet-e9-i1.72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "10.6.2"
