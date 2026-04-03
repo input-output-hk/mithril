@@ -52,35 +52,39 @@ function TransactionsTable({ transactions }) {
   );
 }
 
+function mapSortTransactions(certifiedTransactions, nonCertifiedTransactions, isSuccess) {
+  const transactionsList = certifiedTransactions
+    .map((tx) => ({
+      hash: tx,
+      // if the proof verification failed then even transactions that the proof
+      // said are certified must be shown as not certified
+      certified: isSuccess,
+    }))
+    .concat(nonCertifiedTransactions.map((tx) => ({ hash: tx, certified: false })));
+
+  transactionsList.sort((tx1, tx2) => {
+    if (tx1.hash < tx2.hash) {
+      return -1;
+    } else if (tx1.hash > tx2.hash) {
+      return 1;
+    }
+    return 0;
+  });
+
+  return transactionsList;
+}
+
 export default function TransactionCertificationResult({
   certificate,
   isSuccess,
   certifiedTransactions,
   nonCertifiedTransactions,
 }) {
-  const [transactions, setTransactions] = useState([]);
-
-  useEffect(() => {
-    const transactionsList = certifiedTransactions
-      .map((tx) => ({
-        hash: tx,
-        // if the proof verification failed then even transactions that the proof
-        // said are certified must be shown as not certified
-        certified: isSuccess,
-      }))
-      .concat(nonCertifiedTransactions.map((tx) => ({ hash: tx, certified: false })));
-
-    transactionsList.sort((tx1, tx2) => {
-      if (tx1.hash < tx2.hash) {
-        return -1;
-      } else if (tx1.hash > tx2.hash) {
-        return 1;
-      }
-      return 0;
-    });
-
-    setTransactions(transactionsList);
-  }, [isSuccess, certifiedTransactions, nonCertifiedTransactions]);
+  const transactions = mapSortTransactions(
+    certifiedTransactions,
+    nonCertifiedTransactions,
+    isSuccess,
+  );
 
   return (
     <>

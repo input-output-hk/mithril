@@ -27,17 +27,29 @@ import LinkButton from "#/LinkButton";
 import Stake from "#/Stake";
 import RawJsonButton from "#/RawJsonButton";
 import SignerTable from "#/SignerTable";
-import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
+import { fetchAggregatorStatus, fetchRegistrations } from "@/aggregator-api";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
 
+function initialCheck(aggregator, epoch) {
+  let error = undefined;
+  if (!checkUrl(aggregator)) {
+    error = "invalidAggregatorUrl";
+  } else if (epoch !== "latest" && !Number.isInteger(Number(epoch))) {
+    error = "invalidEpoch";
+  }
+  return error;
+}
+
 export default function Registrations() {
-  const dispatch = useDispatch();
   const searchParams = useSearchParams();
+  const dispatch = useDispatch();
+  const aggregator = searchParams.get(aggregatorSearchParam);
+  const epoch = searchParams.get("epoch");
+  const initialError = initialCheck(aggregator, epoch);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentError, setCurrentError] = useState(undefined);
-  const [aggregator, setAggregator] = useState(undefined);
+  const [currentError, setCurrentError] = useState(initialError);
   const [registrationEpoch, setRegistrationEpoch] = useState(undefined);
   const [signingEpoch, setSigningEpoch] = useState(undefined);
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
@@ -48,46 +60,34 @@ export default function Registrations() {
   });
 
   useEffect(() => {
-    const aggregator = searchParams.get(aggregatorSearchParam);
-    const epoch = searchParams.get("epoch");
-    let error = undefined;
-    setAggregator(aggregator);
-
-    if (!checkUrl(aggregator)) {
-      error = "invalidAggregatorUrl";
-    } else if (epoch !== "latest" && !Number.isInteger(Number(epoch))) {
-      error = "invalidEpoch";
+    if (initialError !== undefined) {
+      return;
     }
-
-    if (error === undefined) {
-      fetchRegistrations(aggregator, epoch)
-        .then((data) => {
-          setSigningEpoch(data.signing_at);
-          setRegistrationEpoch(data.registered_at);
-          setRegistrations(data.registrations);
-          setCharts({
-            stakesBreakdown: computeStakeShapesDataset(data.registrations),
-            signersWeight: computeSignersWeightDataset(data.registrations),
-          });
-          setIsLoading(false);
-        })
-        .catch(() => {
-          setSigningEpoch(undefined);
-          setRegistrations([]);
-          setIsLoading(false);
+    fetchRegistrations(aggregator, epoch)
+      .then((data) => {
+        setSigningEpoch(data.signing_at);
+        setRegistrationEpoch(data.registered_at);
+        setRegistrations(data.registrations);
+        setCharts({
+          stakesBreakdown: computeStakeShapesDataset(data.registrations),
+          signersWeight: computeSignersWeightDataset(data.registrations),
         });
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setSigningEpoch(undefined);
+        setRegistrations([]);
+        setIsLoading(false);
+      });
 
-      fetchEpochSettings(aggregator)
-        .then((data) => setCurrentEpoch(data?.epoch))
-        .catch(() => {
-          setCurrentEpoch(undefined);
-        });
+    fetchAggregatorStatus(aggregator)
+      .then((data) => setCurrentEpoch(data?.epoch))
+      .catch(() => {
+        setCurrentEpoch(undefined);
+      });
 
-      dispatch(updatePoolsForAggregator(aggregator));
-    } else {
-      setCurrentError(error);
-    }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+    dispatch(updatePoolsForAggregator(aggregator));
+  }, [aggregator, epoch, initialError, dispatch]);
 
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {

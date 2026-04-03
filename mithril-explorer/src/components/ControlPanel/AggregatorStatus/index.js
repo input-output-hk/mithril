@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Card, Row, Col, Collapse, Container, Stack } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import EpochSettings from "#/ControlPanel/EpochSettings";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -42,17 +41,28 @@ function PercentTooltip({ value, total, ...props }) {
   return <QuestionTooltip tooltip={`${value} out of ${total}`} {...props} />;
 }
 
+function parseVersion(version) {
+  const split_version = version?.split("+") ?? [];
+  return { number: split_version[0] ?? "0.0.0", sha: split_version[1] ?? undefined };
+}
+
 export default function AggregatorStatus({ showContent = true }) {
   const [aggregatorStatus, setAggregatorStatus] = useState({});
-  const [aggregatorVersion, setAggregatorVersion] = useState({});
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
+  const isAggregatorUrlValid = checkUrl(currentAggregator);
   const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
   const aggregatorCapabilities = useSelector(selectedAggregatorCapabilities);
-  const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
-  const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
-  const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
+
+  const aggregatorVersion = parseVersion(aggregatorStatus?.aggregator_node_version);
+  const inOutRegistrationsPageUrl = isAggregatorUrlValid
+    ? `/registrations-in-out?${new URLSearchParams({ aggregator: currentAggregator })}`
+    : undefined;
+  const registrationPageUrl =
+    isAggregatorUrlValid && Number.isInteger(aggregatorStatus?.epoch)
+      ? `/registrations?${new URLSearchParams({ aggregator: currentAggregator, epoch: aggregatorStatus.epoch })}`
+      : undefined;
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
@@ -60,13 +70,10 @@ export default function AggregatorStatus({ showContent = true }) {
         .then((response) => (response.status === 200 ? response.json() : {}))
         .then((data) => {
           setAggregatorStatus(data);
-          setFallbackToEpochSetting(false);
         })
         .catch((error) => {
           setAggregatorStatus({});
-          setFallbackToEpochSetting(true);
-          // todo: uncomment when the fallback is removed
-          // console.error("Fetch status error:", error);
+          console.error("Fetch status error:", error);
         });
     };
 
@@ -79,39 +86,7 @@ export default function AggregatorStatus({ showContent = true }) {
     }
   }, [aggregatorStatusEndpoint, updateInterval, refreshSeed]);
 
-  useEffect(() => {
-    if (!checkUrl(currentAggregator)) {
-      return;
-    }
-
-    const split_version = aggregatorStatus?.aggregator_node_version?.split("+") ?? [];
-    setAggregatorVersion({
-      number: split_version[0] ?? "0.0.0",
-      sha: split_version[1] ?? undefined,
-    });
-
-    const params = new URLSearchParams();
-    params.set("aggregator", currentAggregator);
-    setInOutRegistrationsPageUrl(`/registrations-in-out?${params.toString()}`);
-
-    if (Number.isInteger(aggregatorStatus?.epoch)) {
-      const params = new URLSearchParams();
-      params.set("aggregator", currentAggregator);
-      params.set("epoch", aggregatorStatus.epoch);
-
-      setRegistrationPageUrl(`/registrations?${params.toString()}`);
-    }
-  }, [currentAggregator, aggregatorStatus]);
-
-  return fallbackToEpochSetting ? (
-    <Stack direction="horizontal">
-      <Collapse in={showContent}>
-        <div id="contentRow">
-          <EpochSettings />
-        </div>
-      </Collapse>
-    </Stack>
-  ) : (
+  return (
     <Container fluid>
       <Collapse in={showContent}>
         <div id="contentRow">

@@ -4,8 +4,48 @@ import { useSelector } from "react-redux";
 import { getSelectedAggregatorPools } from "@/store/poolsSlice";
 import CopyButton from "#/CopyButton";
 
+function compareSigners(left, right) {
+  // Sort by pool_ticker then party_id
+  return (
+    left.pool_ticker.localeCompare(right.pool_ticker) || left.party_id.localeCompare(right.party_id)
+  );
+}
+
+function formatMarkdown(registrations, mode, aggregatorPools) {
+  if (mode === undefined) {
+    return;
+  }
+  let markdown = "";
+
+  for (const [epoch, movements] of Object.entries(registrations).reverse()) {
+    const signers = mode === "in" ? movements.in : movements.out;
+    if (signers.length === 0) {
+      continue;
+    }
+
+    markdown += `Since epoch **#${epoch}**:\n`;
+    for (const signer of signers
+      .map((s) => ({
+        party_id: s.party_id,
+        pool_ticker:
+          aggregatorPools?.pools?.find((p) => p.party_id === s.party_id)?.pool_ticker ?? "",
+      }))
+      .sort(compareSigners)) {
+      markdown += `* ${signer.party_id}`;
+
+      if (signer.pool_ticker !== "") {
+        markdown += ` **${signer.pool_ticker}**`;
+      }
+
+      markdown += `\n`;
+    }
+  }
+
+  return markdown;
+}
+
 /**
- * Modal to show a list of registrations in a markdown formatted code block
+ * Modal to show a list of registrations in a Markdown formatted code block
  *
  * @param registrations List of registrations movements
  * @param onClose Callback to call when the user ask to close the modal
@@ -13,49 +53,8 @@ import CopyButton from "#/CopyButton";
  */
 export default function RegistrationMarkdownFormatModal({ registrations, onClose, mode }) {
   const aggregatorPools = useSelector((state) => getSelectedAggregatorPools(state));
-  const [textToCopy, setTextToCopy] = useState(undefined);
   const variant = mode === "out" ? "danger" : "success";
-
-  useEffect(() => {
-    if (mode === undefined) {
-      return;
-    }
-    let text = "";
-
-    for (const [epoch, movements] of Object.entries(registrations).reverse()) {
-      const signers = mode === "in" ? movements.in : movements.out;
-      if (signers.length === 0) {
-        continue;
-      }
-
-      text += `Since epoch **#${epoch}**:\n`;
-      for (const signer of signers
-        .map((s) => ({
-          party_id: s.party_id,
-          pool_ticker:
-            aggregatorPools?.pools?.find((p) => p.party_id === s.party_id)?.pool_ticker ?? "",
-        }))
-        .sort(compareSigners)) {
-        text += `* ${signer.party_id}`;
-
-        if (signer.pool_ticker !== "") {
-          text += ` **${signer.pool_ticker}**`;
-        }
-
-        text += `\n`;
-      }
-    }
-
-    setTextToCopy(text);
-  }, [registrations, mode, aggregatorPools]);
-
-  function compareSigners(left, right) {
-    // Sort by pool_ticker then party_id
-    return (
-      left.pool_ticker.localeCompare(right.pool_ticker) ||
-      left.party_id.localeCompare(right.party_id)
-    );
-  }
+  const markdown = formatMarkdown(registrations, mode, aggregatorPools);
 
   function handleModalClose() {
     onClose();
@@ -79,14 +78,14 @@ export default function RegistrationMarkdownFormatModal({ registrations, onClose
           <Card bg="light" border={variant}>
             <Card.Body>
               <pre className="mb-0">
-                <code>{textToCopy}</code>
+                <code>{markdown}</code>
               </pre>
             </Card.Body>
           </Card>
         )}
       </Modal.Body>
       <Modal.Footer>
-        <CopyButton text="Copy to clipboard" variant="primary" textToCopy={textToCopy} />
+        <CopyButton text="Copy to clipboard" variant="primary" textToCopy={markdown} />
       </Modal.Footer>
     </Modal>
   );

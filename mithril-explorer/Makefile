@@ -53,7 +53,7 @@ clean:
 	rm package-lock.json || true
 
 upgrade: clean install
-	# Update to the latest version of react and react-dom when it is supported and does not create dependency conflicts
+	# Update to the latest version of eslint when it is supported by nextjs
 	npm install \
 		@popperjs/core@latest \
 		@reduxjs/toolkit@latest \
@@ -68,7 +68,7 @@ upgrade: clean install
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
-		eslint@latest \
+		eslint@^9.39.4 \
 		eslint-config-next@latest \
 		fantasticon@latest \
 		jest@latest \

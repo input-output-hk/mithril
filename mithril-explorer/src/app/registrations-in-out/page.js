@@ -7,56 +7,21 @@ import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/
 import { Col, Alert, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
-import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
+import { fetchAggregatorStatus, fetchRegistrations } from "@/aggregator-api";
 import RegistrationMarkdownFormatModal from "#/RegistrationMarkdownFormatModal";
 import RegistrationsMovementsList from "@/app/registrations-in-out/RegistrationsMovementsList";
 
 export default function RegistrationsChanges() {
-  const dispatch = useDispatch();
   const searchParams = useSearchParams();
+  const dispatch = useDispatch();
+  const aggregator = searchParams.get(aggregatorSearchParam);
+  const initialError = checkUrl(aggregator) ? undefined : "invalidAggregatorUrl";
+  const [currentError, setCurrentError] = useState(initialError);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentError, setCurrentError] = useState(undefined);
-  const [aggregator, setAggregator] = useState(undefined);
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [completeDiff, setCompleteDiff] = useState(undefined);
-  const [dedupDiff, setDedupDiff] = useState(undefined);
+  const [dedupDiff, setDedupDiff] = useState({});
   const [markdownFormatModalMode, setMarkdownFormatModalMode] = useState(undefined);
-
-  useEffect(() => {
-    const aggregator = searchParams.get(aggregatorSearchParam);
-    let error = undefined;
-    setAggregator(aggregator);
-
-    if (!checkUrl(aggregator)) {
-      error = "invalidAggregatorUrl";
-    }
-
-    if (error === undefined) {
-      setIsLoading(true);
-
-      fetchEpochSettings(aggregator)
-        .then((data) => {
-          let epoch = data?.epoch;
-          setCurrentEpoch(epoch);
-
-          if (epoch) {
-            return fetchInOutRegistrations(aggregator, epoch);
-          }
-        })
-        .then((inOutRegistrations) => {
-          setCompleteDiff(inOutRegistrations);
-          setDedupDiff(dedupInOutRegistrations(inOutRegistrations));
-        })
-        .then(() => setIsLoading(false))
-        .catch(() => {
-          setCurrentEpoch(undefined);
-        });
-
-      dispatch(updatePoolsForAggregator(aggregator));
-    } else {
-      setCurrentError(error);
-    }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fetchInOutRegistrations(aggregator, fromEpoch) {
     return Promise.all([
@@ -74,12 +39,50 @@ export default function RegistrationsChanges() {
     setMarkdownFormatModalMode(undefined);
   }
 
+  useEffect(() => {
+    if (initialError !== undefined) {
+      return;
+    }
+
+    fetchAggregatorStatus(aggregator)
+      .then((data) => {
+        let epoch = data?.epoch;
+        setCurrentEpoch(epoch);
+
+        if (epoch) {
+          return fetchInOutRegistrations(aggregator, epoch);
+        }
+      })
+      .then((inOutRegistrations) => {
+        setCompleteDiff(inOutRegistrations);
+        setDedupDiff(dedupInOutRegistrations(inOutRegistrations));
+      })
+      .then(() => setIsLoading(false))
+      .catch(() => {
+        setCurrentEpoch(undefined);
+        setCurrentError("fetchError");
+      });
+
+    dispatch(updatePoolsForAggregator(aggregator));
+  }, [aggregator, initialError, dispatch]);
+
   if (currentError !== undefined) {
     let errorDescription = "";
     switch (currentError) {
       case "invalidAggregatorUrl":
-        errorDescription =
-          "The given aggregator isn't a valid url, please correct it and try again.";
+        errorDescription = (
+          <p>The given aggregator isn&apos;t a valid url, please correct it and try again.</p>
+        );
+        break;
+      case "fetchError":
+        errorDescription = (
+          <>
+            <p>Something went wrong while fetching data from the aggregator.</p>
+            <p>
+              Aggregator url: <code>{aggregator}</code>
+            </p>
+          </>
+        );
         break;
       default:
         errorDescription = "Something went wrong";
@@ -91,7 +94,8 @@ export default function RegistrationsChanges() {
         <h2>In/Out Registrations</h2>
         <Alert variant="danger">
           <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
-          <p>{errorDescription}</p>
+          <hr />
+          <div>{errorDescription}</div>
         </Alert>
       </Stack>
     );
