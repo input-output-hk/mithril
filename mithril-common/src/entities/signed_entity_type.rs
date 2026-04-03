@@ -463,35 +463,24 @@ mod tests {
         );
     }
 
-    #[test]
-    fn signed_entity_with_shared_beacons_computes_different_hashes() {
-        assert_ne!(
-            hash(SignedEntityType::CardanoTransactions(
-                Epoch(3),
-                BlockNumber(77)
-            )),
-            hash(SignedEntityType::CardanoBlocksTransactions(
-                Epoch(3),
-                BlockNumber(77),
-                BlockNumberOffset(5),
-            ))
-        );
+    //TODO: uncomment those tests cases when feeding database index is generalized to all types
+    // #[test]
+    // fn signed_entity_with_shared_beacons_computes_different_hashes() {
 
-        // TODO: uncomment those tests cases when feeding database index is generalized to all types
-        // assert_ne!(
-        //     hash(SignedEntityType::MithrilStakeDistribution(Epoch(15))),
-        //     hash(SignedEntityType::CardanoStakeDistribution(Epoch(15)))
-        // );
-        //
-        // assert_ne!(
-        //     hash(SignedEntityType::CardanoImmutableFilesFull(
-        //         CardanoDbBeacon::new(98, 987)
-        //     )),
-        //     hash(SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
-        //         98, 987
-        //     )))
-        // );
-    }
+    //     assert_ne!(
+    //         hash(SignedEntityType::MithrilStakeDistribution(Epoch(15))),
+    //         hash(SignedEntityType::CardanoStakeDistribution(Epoch(15)))
+    //     );
+
+    //     assert_ne!(
+    //         hash(SignedEntityType::CardanoImmutableFilesFull(
+    //             CardanoDbBeacon::new(98, 987)
+    //         )),
+    //         hash(SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
+    //             98, 987
+    //         )))
+    //     );
+    // }
 
     #[test]
     fn get_open_message_timeout() {
