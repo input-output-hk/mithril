@@ -67,7 +67,7 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
             .unwrap_or_default();
 
         let latest_block_range = BlockRange::from_block_number(up_to_beacon);
-        if !latest_block_range.is_complete_up_to(up_to_beacon)
+        if !latest_block_range.is_fully_covered_at(up_to_beacon)
             && !is_beacon_contained_in_last_computed_range
         {
             let range = latest_block_range.start..latest_block_range.end.min(up_to_beacon + 1);
@@ -139,7 +139,10 @@ mod tests {
     use crate::{
         crypto_helper::MKTreeStoreInMemory,
         entities::{CardanoTransaction, SlotNumber},
-        test::builder::CardanoTransactionsBuilder,
+        test::{
+            builder::CardanoTransactionsBuilder,
+            crypto_helper::{MKMapTestExtension, MKTreeTestExtension},
+        },
     };
 
     use super::*;
@@ -375,7 +378,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn compute_when_given_block_is_partial_but_a_range_were_already_computed() {
+        async fn compute_when_given_block_is_partial_but_a_range_was_already_computed() {
             let stored_block_ranges_roots = vec![
                 (
                     BlockRange::from_block_number(BlockNumber(15)),

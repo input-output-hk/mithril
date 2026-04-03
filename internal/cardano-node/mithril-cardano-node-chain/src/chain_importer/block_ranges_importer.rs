@@ -63,9 +63,9 @@ impl BlockRangeImporter {
                 continue;
             }
 
-            let merkle_root = MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(
-                blocks_and_transactions_mk_node,
-            )?;
+            let merkle_root =
+                MKTree::<MKTreeStoreInMemory>::new_from_iter(blocks_and_transactions_mk_node)?
+                    .compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
@@ -128,7 +128,8 @@ impl BlockRangeImporter {
                 continue;
             }
 
-            let merkle_root = MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(transactions)?;
+            let merkle_root =
+                MKTree::<MKTreeStoreInMemory>::new_from_iter(transactions)?.compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= BLOCK_RANGE_BATCH_SIZE {
@@ -163,6 +164,7 @@ mod tests {
     use mithril_common::entities::{
         BlockRangesSequence, CardanoBlockWithTransactions, CardanoTransaction, SlotNumber,
     };
+    use mithril_common::test::crypto_helper::MKTreeTestExtension;
 
     use crate::chain_importer::MockChainDataStore;
     use crate::test::TestLogger;

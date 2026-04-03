@@ -13,6 +13,25 @@ use crate::messages::{CardanoBlocksProofsMessage, CardanoTransactionsProofsV2Mes
 use crate::test::crypto_helper::mkmap_helpers;
 use crate::test::entities_extensions::BlockNumberTestExtension;
 
+/// Extension trait adding test utilities to [MKTree]
+pub trait MKTreeTestExtension {
+    /// `TEST ONLY` - Generate root of the Merkle tree built from the given leaves
+    ///
+    /// Shortcut for `MKTree::new_from_iter(leaves)?.compute_root()`
+    fn compute_root_from_iter<T: IntoIterator<Item = U>, U: Into<MKTreeNode>>(
+        leaves: T,
+    ) -> StdResult<MKTreeNode>;
+}
+
+impl<S: MKTreeStorer> MKTreeTestExtension for MKTree<S> {
+    fn compute_root_from_iter<T: IntoIterator<Item = U>, U: Into<MKTreeNode>>(
+        leaves: T,
+    ) -> StdResult<MKTreeNode> {
+        let mk_tree = Self::new_from_iter(leaves)?;
+        mk_tree.compute_root()
+    }
+}
+
 /// Extension trait adding test utilities to [MKProof]
 pub trait MKProofTestExtension {
     /// `TEST ONLY` - Build a [MKProof] based on the given leaves
@@ -48,7 +67,12 @@ impl MKProofTestExtension for MKProof {
 }
 
 /// Extension trait adding test utilities to [MKMap]
-pub trait MKMapTestExtension<S: MKTreeStorer> {
+pub trait MKMapTestExtension<K, V, S: MKTreeStorer> {
+    /// `TEST ONLY` - Get the root of the merkle tree of a merkelized map built from an iterator
+    ///
+    /// Shortcut for `MKMap::new_from_iter(entries)?.compute_root()`
+    fn compute_root_from_iter<T: IntoIterator<Item = (K, V)>>(entries: T) -> StdResult<MKTreeNode>;
+
     /// `TEST ONLY` - Helper to create a MKMap from a list of cardano blocks with transactions
     fn from_blocks_with_transactions(
         leaves: &[CardanoBlockWithTransactions],
@@ -116,7 +140,16 @@ pub trait MKMapTestExtension<S: MKTreeStorer> {
     }
 }
 
-impl<S: MKTreeStorer> MKMapTestExtension<S> for MKMap<BlockRange, MKMapNode<BlockRange, S>, S> {
+impl<S: MKTreeStorer> MKMapTestExtension<BlockRange, MKMapNode<BlockRange, S>, S>
+    for MKMap<BlockRange, MKMapNode<BlockRange, S>, S>
+{
+    fn compute_root_from_iter<T: IntoIterator<Item = (BlockRange, MKMapNode<BlockRange, S>)>>(
+        entries: T,
+    ) -> StdResult<MKTreeNode> {
+        let mk_map = Self::new_from_iter(entries)?;
+        mk_map.compute_root()
+    }
+
     fn from_blocks_with_transactions(
         leaves: &[CardanoBlockWithTransactions],
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>> {

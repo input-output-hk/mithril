@@ -37,11 +37,9 @@ impl BlockRange {
         BlockRangesSequence::new(interval)
     }
 
-    /// Returns `true` if this block range is fully completed at the given block number.
+    /// Returns `true` if the given block number is included in, or beyond, this block range.
     ///
-    /// A block range `[start, end[` is considered complete up to a block number when
-    /// the block number has reached the last block covered by the range, i.e. when
-    /// `block_number >= end - 1`.
+    /// In other words, the range `[start, end[` is fully covered when `block_number >= end - 1`.
     ///
     /// # Examples
     ///
@@ -49,11 +47,11 @@ impl BlockRange {
     /// # use mithril_common::entities::{BlockNumber, BlockRange};
     /// let range = BlockRange::from_block_number(BlockNumber(15));
     ///
-    /// assert!(range.is_complete_up_to(BlockNumber(29)));
-    /// assert!(range.is_complete_up_to(BlockNumber(30)));
-    /// assert!(!range.is_complete_up_to(BlockNumber(28)));
+    /// assert!(range.is_fully_covered_at(BlockNumber(29)));
+    /// assert!(range.is_fully_covered_at(BlockNumber(30)));
+    /// assert!(!range.is_fully_covered_at(BlockNumber(28)));
     /// ```
-    pub fn is_complete_up_to(&self, block_number: BlockNumber) -> bool {
+    pub fn is_fully_covered_at(&self, block_number: BlockNumber) -> bool {
         block_number >= self.end - 1
     }
 
@@ -514,38 +512,38 @@ mod tests {
         assert!(sequence.is_empty());
     }
 
-    mod is_complete_up_to {
+    mod is_fully_covered_at {
         use super::*;
 
         #[test]
         fn returns_false_when_block_number_is_below_range_start() {
             let block_range = BlockRange::new(15, 30);
 
-            assert!(!block_range.is_complete_up_to(BlockNumber(0)));
-            assert!(!block_range.is_complete_up_to(BlockNumber(14)));
+            assert!(!block_range.is_fully_covered_at(BlockNumber(0)));
+            assert!(!block_range.is_fully_covered_at(BlockNumber(14)));
         }
 
         #[test]
         fn returns_false_when_block_number_is_inside_the_range_but_before_last_block() {
             let block_range = BlockRange::new(15, 30);
 
-            assert!(!block_range.is_complete_up_to(BlockNumber(15)));
-            assert!(!block_range.is_complete_up_to(BlockNumber(28)));
+            assert!(!block_range.is_fully_covered_at(BlockNumber(15)));
+            assert!(!block_range.is_fully_covered_at(BlockNumber(28)));
         }
 
         #[test]
         fn returns_true_when_block_number_reaches_the_last_block_of_the_range() {
             let block_range = BlockRange::new(15, 30);
 
-            assert!(block_range.is_complete_up_to(BlockNumber(29)));
+            assert!(block_range.is_fully_covered_at(BlockNumber(29)));
         }
 
         #[test]
         fn returns_true_when_block_number_is_after_the_range() {
             let block_range = BlockRange::new(15, 30);
 
-            assert!(block_range.is_complete_up_to(BlockNumber(30)));
-            assert!(block_range.is_complete_up_to(BlockNumber(31)));
+            assert!(block_range.is_fully_covered_at(BlockNumber(30)));
+            assert!(block_range.is_fully_covered_at(BlockNumber(31)));
         }
     }
 }

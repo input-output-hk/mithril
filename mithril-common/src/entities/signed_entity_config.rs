@@ -524,7 +524,7 @@ mod tests {
         }
 
         #[test]
-        fn can_use_step_right_after_than_a_multiple_of_a_block_range_length() {
+        fn can_use_step_right_after_a_multiple_of_a_block_range_length() {
             let block_number = BlockNumber(150);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -538,8 +538,7 @@ mod tests {
         }
 
         #[test]
-        fn can_use_step_higher_than_a_block_range_length_and_between_two_multiples_of_a_block_range_length()
-         {
+        fn can_use_step_higher_than_a_block_range_length_and_out_not_equal_to_a_range_boundaries() {
             let block_number = BlockNumber(150);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
@@ -553,8 +552,7 @@ mod tests {
         }
 
         #[test]
-        fn can_use_step_lower_than_a_block_range_length_and_between_two_multiples_of_a_block_range_length()
-         {
+        fn can_use_step_lower_than_a_block_range_length_and_out_not_equal_to_a_range_boundaries() {
             let block_number = BlockNumber(150);
             let signing_config = CardanoBlocksTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),

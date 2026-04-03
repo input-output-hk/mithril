@@ -69,16 +69,6 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> MKMap<K, V, S> {
         self.inner_map_values.keys()
     }
 
-    /// Get the root of the merkle tree of a merkelized map built from an iterator
-    ///
-    /// Shortcut for `MKMap::new_from_iter(entries)?.compute_root()`
-    pub fn compute_root_from_iter<T: IntoIterator<Item = (K, V)>>(
-        entries: T,
-    ) -> StdResult<MKTreeNode> {
-        let mk_map = Self::new_from_iter(entries)?;
-        mk_map.compute_root()
-    }
-
     /// Insert a new key-value pair
     /// Important: keys must be inserted in order to guarantee
     /// that the same set of key/values results in the same computation for the root.
