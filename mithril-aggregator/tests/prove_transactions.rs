@@ -1,8 +1,9 @@
 use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
+        BlockNumber, BlockNumberOffset, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     temp_dir,
     test::builder::MithrilFixtureBuilder,
@@ -27,7 +28,7 @@ async fn prove_transactions() {
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("prove_transactions"),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())

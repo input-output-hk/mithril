@@ -94,7 +94,7 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(10),
-                    security_parameter: BlockNumber(100),
+                    security_parameter: BlockNumberOffset(100),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(11),
@@ -113,7 +113,7 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(20),
-                    security_parameter: BlockNumber(200),
+                    security_parameter: BlockNumberOffset(200),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(22),
@@ -132,7 +132,7 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(30),
-                    security_parameter: BlockNumber(300),
+                    security_parameter: BlockNumberOffset(300),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(33),

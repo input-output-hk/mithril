@@ -37,7 +37,10 @@ pub struct EpochSettingsMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{crypto_helper::KesEvolutions, entities::BlockNumber};
+    use crate::{
+        crypto_helper::KesEvolutions,
+        entities::{BlockNumber, BlockNumberOffset},
+    };
 
     use super::*;
 
@@ -119,7 +122,7 @@ mod tests {
                 verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(70),
+                security_parameter: BlockNumberOffset(70),
                 step: BlockNumber(20),
             }),
             next_cardano_transactions_signing_config: None,
@@ -157,7 +160,7 @@ mod tests {
                 verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(70),
+                security_parameter: BlockNumberOffset(70),
                 step: BlockNumber(20),
             }),
         }
@@ -195,7 +198,7 @@ mod tests {
                 verification_key_signature_for_snark: None,
             }],
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(70),
+                security_parameter: BlockNumberOffset(70),
                 step: BlockNumber(20),
             }),
         }

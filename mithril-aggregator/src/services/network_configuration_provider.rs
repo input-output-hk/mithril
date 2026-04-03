@@ -270,7 +270,7 @@ mod tests {
         let local_configuration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(3000, 300, 0.3),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(3),
+                security_parameter: BlockNumberOffset(3),
                 step: BlockNumber(30),
             }),
             cardano_blocks_transactions_signing_config: Some(
@@ -292,7 +292,7 @@ mod tests {
                         protocol_parameters: ProtocolParameters::new(1000, 100, 0.1),
                         cardano_transactions_signing_config: Some(
                             CardanoTransactionsSigningConfig {
-                                security_parameter: BlockNumber(1),
+                                security_parameter: BlockNumberOffset(1),
                                 step: BlockNumber(10),
                             },
                         ),
@@ -310,7 +310,7 @@ mod tests {
                         protocol_parameters: ProtocolParameters::new(2000, 200, 0.2),
                         cardano_transactions_signing_config: Some(
                             CardanoTransactionsSigningConfig {
-                                security_parameter: BlockNumber(2),
+                                security_parameter: BlockNumberOffset(2),
                                 step: BlockNumber(20),
                             },
                         ),
@@ -336,7 +336,7 @@ mod tests {
                 enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(1),
+                        security_parameter: BlockNumberOffset(1),
                         step: BlockNumber(10),
                     }),
                     cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
@@ -354,7 +354,7 @@ mod tests {
                 enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(2),
+                        security_parameter: BlockNumberOffset(2),
                         step: BlockNumber(20),
                     }),
                     cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
@@ -372,7 +372,7 @@ mod tests {
                 enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(3),
+                        security_parameter: BlockNumberOffset(3),
                         step: BlockNumber(30),
                     }),
                     cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {

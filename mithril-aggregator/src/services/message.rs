@@ -571,7 +571,10 @@ mod tests {
     #[allow(deprecated)]
     mod epoch_settings {
         use mithril_common::{
-            entities::{CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityConfig},
+            entities::{
+                BlockNumberOffset, CardanoTransactionsSigningConfig, ProtocolParameters,
+                SignedEntityConfig,
+            },
             test::builder::MithrilFixtureBuilder,
         };
 
@@ -603,7 +606,7 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
+                    security_parameter: BlockNumberOffset(0),
                     step: BlockNumber(15)
                 })
             );
@@ -687,7 +690,7 @@ mod tests {
         #[tokio::test]
         async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
             let expected_ctx_config = CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(100),
+                security_parameter: BlockNumberOffset(100),
                 step: BlockNumber(15),
             };
             let epoch_service = FakeEpochServiceBuilder {
@@ -824,7 +827,7 @@ mod tests {
             let aggregator_epoch_settings = AggregatorEpochSettings {
                 protocol_parameters: ProtocolParameters::new(5, 100, 0.65),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(10),
+                    security_parameter: BlockNumberOffset(10),
                     step: BlockNumber(15),
                 }),
                 cardano_blocks_transactions_signing_config: Some(
@@ -852,7 +855,7 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(10),
+                    security_parameter: BlockNumberOffset(10),
                     step: BlockNumber(15)
                 })
             );

@@ -55,7 +55,7 @@ mod entities {
         /// Return a dummy [CardanoTransactionsSigningConfig] (test-only).
         fn dummy() -> Self {
             Self {
-                security_parameter: BlockNumber(0),
+                security_parameter: BlockNumberOffset(0),
                 step: BlockNumber(15),
             }
         }

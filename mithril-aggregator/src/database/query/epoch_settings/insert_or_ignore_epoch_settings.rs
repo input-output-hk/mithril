@@ -75,7 +75,7 @@ mod tests {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(24),
+                security_parameter: BlockNumberOffset(24),
                 step: BlockNumber(62),
             }),
             cardano_blocks_transactions_signing_config: Some(
@@ -116,7 +116,7 @@ mod tests {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(24),
+                security_parameter: BlockNumberOffset(24),
                 step: BlockNumber(62),
             }),
             cardano_blocks_transactions_signing_config: Some(
@@ -136,7 +136,7 @@ mod tests {
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(EpochSettingsRecord {
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(134),
+                    security_parameter: BlockNumberOffset(134),
                     step: BlockNumber(872),
                 }),
                 cardano_blocks_transactions_signing_config: Some(

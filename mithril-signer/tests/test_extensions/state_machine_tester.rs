@@ -157,7 +157,7 @@ impl StateMachineTester {
             immutable_observer.clone(),
         ));
         let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         };
         let cardano_blocks_transactions_signing_config = CardanoBlocksTransactionsSigningConfig {

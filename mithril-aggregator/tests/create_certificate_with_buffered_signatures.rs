@@ -3,9 +3,9 @@ mod test_extensions;
 use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
-        SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty,
-        TimePoint,
+        BlockNumber, BlockNumberOffset, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
+        StakeDistributionParty, TimePoint,
     },
     temp_dir,
     test::builder::MithrilFixtureBuilder,
@@ -26,7 +26,7 @@ async fn create_certificate_with_buffered_signatures() {
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("create_certificate_with_buffered_signatures"),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())

@@ -45,7 +45,7 @@ impl Query for GetEpochSettingsQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters,
+        BlockNumber, BlockNumberOffset, CardanoTransactionsSigningConfig, ProtocolParameters,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -70,7 +70,7 @@ mod tests {
 
         assert_eq!(
             Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(10),
+                security_parameter: BlockNumberOffset(10),
                 step: BlockNumber(15)
             }),
             epoch_settings_record.cardano_transactions_signing_config
@@ -87,7 +87,7 @@ mod tests {
         );
         assert_eq!(
             Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(30),
+                security_parameter: BlockNumberOffset(30),
                 step: BlockNumber(15),
             }),
             epoch_settings_record.cardano_transactions_signing_config

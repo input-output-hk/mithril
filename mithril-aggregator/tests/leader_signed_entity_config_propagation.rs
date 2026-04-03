@@ -44,7 +44,7 @@ async fn leader_signed_entity_config_propagation() {
         ),
         data_stores_directory: get_test_dir(current_function!()),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {

@@ -34,7 +34,7 @@ async fn create_certificate() {
         ),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {

@@ -126,7 +126,7 @@ mod tests {
         let configuration_epoch_41 = ProtocolConfigurationMessage {
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.1),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(1),
+                security_parameter: BlockNumberOffset(1),
                 step: BlockNumber(10),
             }),
             cardano_blocks_transactions_signing_config: Some(
@@ -188,7 +188,7 @@ mod tests {
                 .signed_entity_types_config
                 .cardano_transactions,
             Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(1),
+                security_parameter: BlockNumberOffset(1),
                 step: BlockNumber(10),
             })
         );

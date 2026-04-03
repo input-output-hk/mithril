@@ -4,7 +4,8 @@ use std::path::Path;
 use uuid::Uuid;
 
 use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
+    BlockNumber, BlockNumberOffset, CardanoTransactionsSigningConfig, ProtocolParameters,
+    SignerWithStake,
 };
 use mithril_common::{StdError, StdResult, entities::Epoch, test::double::fake_keys};
 use mithril_persistence::sqlite::{
@@ -207,7 +208,7 @@ pub fn insert_epoch_settings(
                 epoch,
                 ProtocolParameters::new(*epoch, epoch + 1, 1.0),
                 CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(epoch * 10),
+                    security_parameter: BlockNumberOffset(epoch * 10),
                     step: BlockNumber(15),
                 },
             )
