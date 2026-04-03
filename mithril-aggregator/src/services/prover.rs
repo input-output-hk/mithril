@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::ops::{Range, RangeToInclusive};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -60,10 +61,9 @@ pub trait BlocksTransactionsRetriever: Sync + Send {
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Get all [CardanoBlockTransactionMkTreeNode] in the given block ranges
-    async fn get_all_mk_nodes_by_block_ranges(
+    async fn get_all_mk_nodes_by_ranges_of_block_numbers(
         &self,
-        block_ranges: Vec<BlockRange>,
-        up_to_included: BlockNumber,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>>;
 }
 
@@ -91,15 +91,14 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         }
     }
 
-    async fn get_all_nodes_for_block_ranges(
+    async fn get_all_nodes_in_ranges_and_group_them_by_block_ranges(
         &self,
-        block_ranges: Vec<BlockRange>,
-        up_to: BlockNumber,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<HashMap<BlockRange, BTreeSet<CardanoBlockTransactionMkTreeNode>>> {
-        let mut block_ranges_map = HashMap::with_capacity(block_ranges.len());
+        let mut block_ranges_map = HashMap::with_capacity(ranges_of_block.len());
         let nodes = self
             .blocks_transactions_retriever
-            .get_all_mk_nodes_by_block_ranges(block_ranges, up_to)
+            .get_all_mk_nodes_by_ranges_of_block_numbers(ranges_of_block)
             .await?;
 
         for node in nodes {
@@ -154,14 +153,15 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         // 1 - Compute the set of block ranges with the items to prove
         let nodes_to_prove: Vec<CardanoBlockTransactionMkTreeNode> =
             items_to_prove.iter().cloned().map(Into::into).collect();
-        let block_ranges: BTreeSet<_> = items_to_prove
-            .iter()
-            .map(|t| BlockRange::from_block_number(extract_block_number(t)))
-            .collect();
 
         // 2 - Fetch all nodes contained in the block ranges
+        let ranges_to_retrieve = compute_ranges_of_block_number_to_retrieve(
+            &items_to_prove,
+            extract_block_number,
+            ..=up_to,
+        );
         let nodes_per_block_ranges = self
-            .get_all_nodes_for_block_ranges(block_ranges.into_iter().collect(), up_to)
+            .get_all_nodes_in_ranges_and_group_them_by_block_ranges(ranges_to_retrieve)
             .await?;
 
         // 3 - Fetch a cached Merkle map for the block ranges and replace its block ranges leaves with the fetched nodes
@@ -246,6 +246,29 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
     }
 }
 
+fn compute_ranges_of_block_number_to_retrieve<T>(
+    items_with_block_number: &[T],
+    extract_block_number: fn(&T) -> BlockNumber,
+    up_to: RangeToInclusive<BlockNumber>,
+) -> Vec<Range<BlockNumber>> {
+    // Note: Range<T> does not implement Ord and dedup only remove consecutive duplicates.
+    let ordered_block_numbers: BTreeSet<_> =
+        items_with_block_number.iter().map(extract_block_number).collect();
+    let mut ranges: Vec<_> = ordered_block_numbers
+        .into_iter()
+        .filter_map(|n| {
+            up_to
+                .contains(&n)
+                .then_some(BlockRange::from_block_number(n))
+                .map(|block_range| block_range.start..block_range.end.min(up_to.end + 1))
+                .filter(|r| !r.is_empty())
+        })
+        .collect();
+    ranges.dedup();
+
+    ranges
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
@@ -286,16 +309,14 @@ mod tests {
             Ok(transactions.into_iter().filter(|b| b.block_number <= up_to).collect())
         }
 
-        async fn get_all_mk_nodes_by_block_ranges(
+        async fn get_all_mk_nodes_by_ranges_of_block_numbers(
             &self,
-            block_ranges: Vec<BlockRange>,
-            up_to_included: BlockNumber,
+            ranges_of_block: Vec<Range<BlockNumber>>,
         ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>> {
             Ok(self
-                .get_blocks_with_transactions_in_block_ranges(&block_ranges)
+                .get_blocks_with_transactions_in_ranges(&ranges_of_block)
                 .await
                 .into_iter()
-                .filter(|b| b.block_number() <= up_to_included)
                 .collect())
         }
     }
@@ -364,6 +385,107 @@ mod tests {
             .filter(|(i, _)| indices.contains(i))
             .map(|(_, t)| t.to_owned())
             .collect()
+    }
+
+    mod compute_ranges_of_block_number_to_retrieve {
+        use super::*;
+
+        #[test]
+        fn for_empty_item_list() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                Vec::<Range<BlockNumber>>::new()
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_entirely_contained_in_the_first_block_range() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 5, 2],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15)]
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_contained_in_two_consecutive_block_ranges() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 16, 2, 15, 14, 11, 29],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15), BlockNumber(15)..BlockNumber(30)]
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_contained_in_two_non_consecutive_block_ranges() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 44, 2, 30, 14, 11, 31],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15), BlockNumber(30)..BlockNumber(45)]
+            );
+        }
+
+        #[test]
+        fn when_max_end_boundary_is_below_all_blocks() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[19, 15, 12],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10)
+                ),
+                Vec::<Range<BlockNumber>>::new()
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_equal_a_block_range_start() {
+            let block_range_start = BlockRange::from_block_number(BlockRange::LENGTH * 2).start;
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[block_range_start],
+                    |&x| x,
+                    ..=block_range_start
+                ),
+                [BlockNumber(30)..BlockNumber(31)]
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_equal_a_block_range_end() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[15, 31, 29, 28, 30],
+                    |&x| BlockNumber(x),
+                    ..=BlockRange::from_block_number(BlockRange::LENGTH).end
+                ),
+                vec![BlockNumber(15)..BlockNumber(30), BlockNumber(30)..BlockNumber(31)]
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_is_not_a_block_range_boundary() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[15, 31, 29, 28, 30],
+                    |&x| BlockNumber(x),
+                    ..=BlockRange::from_block_number(BlockRange::LENGTH).end - 1
+                ),
+                vec![BlockNumber(15)..BlockNumber(30)]
+            );
+        }
     }
 
     mod partial_block_ranges_proof {
@@ -760,8 +882,8 @@ mod tests {
         let prover = MithrilProverService {
             blocks_transactions_retriever:
                 MockBuilder::<MockBlocksTransactionsRetriever>::configure(|mock| {
-                    mock.expect_get_all_mk_nodes_by_block_ranges()
-                        .returning(|_, _| Err(anyhow!("fail")));
+                    mock.expect_get_all_mk_nodes_by_ranges_of_block_numbers()
+                        .returning(|_| Err(anyhow!("fail")));
                     mock.expect_get_block_by_hashes()
                         .returning(|_, _| Err(anyhow!("fail")));
                     mock.expect_get_transactions_by_hashes()
