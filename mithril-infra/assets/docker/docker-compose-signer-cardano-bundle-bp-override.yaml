@@ -1,0 +1,18 @@
+services:
+  mithril-signer:
+    entrypoint: ["true"]
+    command: []
+    restart: "no"
+
+  cardano-node-signer-block-producer:
+    environment:
+      - CARDANO_BLOCK_PRODUCER=true
+      - NETWORK=${NETWORK}
+      - CARDANO_SHELLEY_KES_KEY=/pool/kes.skey
+      - CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE=/pool/opcert.cert
+      - AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/data/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/data/mithril

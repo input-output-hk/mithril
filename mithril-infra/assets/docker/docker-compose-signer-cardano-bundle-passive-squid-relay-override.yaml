@@ -1,0 +1,4 @@
+services:
+  cardano-node-signer:
+    environment:
+      - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128

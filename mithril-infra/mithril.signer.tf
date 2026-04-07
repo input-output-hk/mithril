@@ -24,6 +24,7 @@ resource "null_resource" "mithril_signer" {
     dmq_image_registry             = var.dmq_image_registry,
     image_id                       = var.mithril_image_id,
     mithril_p2p_dmq_dense_topology = var.mithril_p2p_dmq_dense_topology,
+    signer_bundle                  = each.value.bundle,
   }
 
   connection {
@@ -238,7 +239,7 @@ EOT
 # Compute the docker compose files merge sequence for the signer
 DOCKER_DIRECTORY=/home/curry/docker
 DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-signer-base.yaml"
-# Support for signer verified signer with squid relay
+# Support for verified signer with squid relay
 if [ "${each.value.type}" = "verified" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-verified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bp-override.yaml"
@@ -248,7 +249,7 @@ if [ "${each.value.type}" = "verified-norelay" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-verified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bp-override.yaml"
 fi
-# Support for signer unverified signer with passive Cardano node
+# Support for unverified signer with passive Cardano node
 if [ "${each.value.type}" = "unverified-cardano-passive" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-passive-override.yaml"
@@ -258,7 +259,7 @@ if [ "${each.value.type}" = "unverified-cardano-passive-norelay" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-passive-override.yaml"
 fi
-# Support for signer unverified signer with shared Cardano node
+# Support for unverified signer with shared Cardano node
 if [ "${each.value.type}" = "unverified-cardano-shared" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-shared-override.yaml"
@@ -267,6 +268,22 @@ fi
 if [ "${each.value.type}" = "unverified-cardano-shared-norelay" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-shared-override.yaml"
+fi
+# Support for Cardano/Mithril bundle image (layers on top of any compatible type)
+if [ "${each.value.bundle}" = "true" ]; then
+  if [ "${each.value.type}" = "verified" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-bp-override.yaml"
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-bp-squid-relay-override.yaml"
+  elif [ "${each.value.type}" = "verified-norelay" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-bp-override.yaml"
+  elif [ "${each.value.type}" = "unverified-cardano-passive" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-passive-override.yaml"
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-passive-squid-relay-override.yaml"
+  elif [ "${each.value.type}" = "unverified-cardano-passive-norelay" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-passive-override.yaml"
+  else
+    echo "WARNING: bundle=true is not supported for signer type '${each.value.type}', falling back to non-bundled version"
+  fi
 fi
 # Support for signer P2P network
 if [ "${var.mithril_use_p2p_network}" = "true" ]; then
@@ -285,8 +302,24 @@ fi
 if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
   if [ "${var.mithril_p2p_use_real_dmq_node}" = "true" ]; then
     DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-real-node-override.yaml"
+    # Bundle: add DMQ env vars and deps to the cardano container instead of mithril-signer
+    if [ "${each.value.bundle}" = "true" ]; then
+      if [ "${each.value.type}" = "verified" ] || [ "${each.value.type}" = "verified-norelay" ]; then
+        DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-bp-p2p-dmq-real-node-override.yaml"
+      elif [ "${each.value.type}" = "unverified-cardano-passive" ] || [ "${each.value.type}" = "unverified-cardano-passive-norelay" ]; then
+        DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-passive-p2p-dmq-real-node-override.yaml"
+      fi
+    fi
   else
     DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-dmq-fake-node-override.yaml"
+    # Bundle: add DMQ env vars to the cardano container instead of mithril-signer
+    if [ "${each.value.bundle}" = "true" ]; then
+      if [ "${each.value.type}" = "verified" ] || [ "${each.value.type}" = "verified-norelay" ]; then
+        DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-bp-p2p-dmq-fake-node-override.yaml"
+      elif [ "${each.value.type}" = "unverified-cardano-passive" ] || [ "${each.value.type}" = "unverified-cardano-passive-norelay" ]; then
+        DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bundle-passive-p2p-dmq-fake-node-override.yaml"
+      fi
+    fi
   fi
 fi
 EOT

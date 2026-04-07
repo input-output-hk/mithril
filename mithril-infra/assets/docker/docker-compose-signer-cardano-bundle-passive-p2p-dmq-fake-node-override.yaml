@@ -1,0 +1,5 @@
+services:
+  cardano-node-signer:
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
