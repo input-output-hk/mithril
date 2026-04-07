@@ -31,7 +31,7 @@ struct ClosedRegistrationEntryCborEnvelope {
 }
 
 /// Represents a registration entry of a closed key registration.
-#[derive(PartialEq, Eq, Clone, Debug, Copy, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, Deserialize)]
 pub struct ClosedRegistrationEntry {
     verification_key_for_concatenation: VerificationKeyForConcatenation,
     stake: Stake,
@@ -104,7 +104,7 @@ impl ClosedRegistrationEntry {
     ///
     /// Uses an intermediate envelope struct to avoid ciborium incompatibility
     /// with the custom tuple-based `Serialize` implementation.
-    pub(crate) fn to_bytes(self) -> StmResult<Vec<u8>> {
+    pub(crate) fn to_bytes(&self) -> StmResult<Vec<u8>> {
         let envelope = ClosedRegistrationEntryCborEnvelope {
             verification_key_bytes: self.verification_key_for_concatenation.to_bytes().to_vec(),
             stake: self.stake,
@@ -115,7 +115,6 @@ impl ClosedRegistrationEntry {
             #[cfg(feature = "future_snark")]
             lottery_target_value_bytes: self
                 .lottery_target_value
-                .as_ref()
                 .map(|ltv| ltv.to_bytes().to_vec()),
         };
         codec::to_cbor_bytes(&envelope)
@@ -126,7 +125,7 @@ impl ClosedRegistrationEntry {
     /// If the bytes start with the CBOR v1 version prefix, decodes the remaining bytes as CBOR.
     /// Otherwise, falls back to the legacy byte-packing format.
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        if codec::is_cbor_v1(bytes) {
+        if codec::has_cbor_v1_prefix(bytes) {
             let envelope: ClosedRegistrationEntryCborEnvelope =
                 codec::from_cbor_bytes(&bytes[1..])?;
             let verification_key_for_concatenation =
@@ -420,9 +419,9 @@ mod tests {
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = ClosedRegistrationEntry::to_bytes(value)
+            let serialized = ClosedRegistrationEntry::to_bytes(&value)
                 .expect("ClosedRegistrationEntry serialization should not fail");
-            let golden_serialized = ClosedRegistrationEntry::to_bytes(golden_value())
+            let golden_serialized = ClosedRegistrationEntry::to_bytes(&golden_value())
                 .expect("ClosedRegistrationEntry serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
@@ -477,9 +476,76 @@ mod tests {
 
         #[test]
         fn cbor_encoding_is_stable() {
-            let bytes = ClosedRegistrationEntry::to_bytes(golden_value())
+            let bytes = ClosedRegistrationEntry::to_bytes(&golden_value())
                 .expect("ClosedRegistrationEntry serialization should not fail");
             assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+        }
+    }
+
+    mod envelope_compatibility {
+        use super::*;
+        use crate::codec;
+
+        #[test]
+        fn forward_compatible_with_extra_fields() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let entry = create_closed_registration_entry(&mut rng, 42);
+
+            #[derive(serde::Serialize)]
+            struct EvolvedEnvelope {
+                verification_key_bytes: Vec<u8>,
+                stake: Stake,
+                new_field: String,
+            }
+
+            let evolved = EvolvedEnvelope {
+                verification_key_bytes: entry
+                    .get_verification_key_for_concatenation()
+                    .to_bytes()
+                    .to_vec(),
+                stake: 42,
+                new_field: "extra".to_string(),
+            };
+            let evolved_bytes =
+                codec::to_cbor_bytes(&evolved).expect("evolved serialization should not fail");
+
+            let decoded = ClosedRegistrationEntry::from_bytes(&evolved_bytes)
+                .expect("decoding with extra field should succeed");
+            assert_eq!(entry.get_stake(), decoded.get_stake());
+            assert_eq!(
+                entry.get_verification_key_for_concatenation(),
+                decoded.get_verification_key_for_concatenation()
+            );
+        }
+
+        #[test]
+        fn backward_compatible_with_missing_optional_fields() {
+            #[derive(serde::Serialize)]
+            struct MinimalEnvelope {
+                verification_key_bytes: Vec<u8>,
+                stake: Stake,
+            }
+
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let entry = create_closed_registration_entry(&mut rng, 42);
+
+            let minimal = MinimalEnvelope {
+                verification_key_bytes: entry
+                    .get_verification_key_for_concatenation()
+                    .to_bytes()
+                    .to_vec(),
+                stake: 42,
+            };
+            let minimal_bytes =
+                codec::to_cbor_bytes(&minimal).expect("minimal serialization should not fail");
+
+            let decoded = ClosedRegistrationEntry::from_bytes(&minimal_bytes)
+                .expect("decoding with missing optional fields should succeed");
+            assert_eq!(42, decoded.get_stake());
+            assert_eq!(
+                entry.get_verification_key_for_concatenation(),
+                decoded.get_verification_key_for_concatenation()
+            );
         }
     }
 

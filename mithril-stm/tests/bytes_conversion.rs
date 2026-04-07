@@ -46,7 +46,8 @@ fn test_binary_conversions() {
     } = initialization_phase(nparties, rng.clone(), params);
 
     let encoded = params.to_bytes().expect("Parameters serialization should not fail");
-    Parameters::from_bytes(&encoded[1..]).expect_err("Decoding should fail with invalid bytes");
+    Parameters::from_bytes(&encoded[..23])
+        .expect_err("Decoding should fail with bytes shorter than the legacy 24-byte layout");
     let decoded = Parameters::from_bytes(&encoded).unwrap();
     assert_eq!(params, decoded);
 

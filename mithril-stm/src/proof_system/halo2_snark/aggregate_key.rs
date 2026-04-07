@@ -37,8 +37,16 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
     /// Deserialize the aggregate verification key for SNARK from bytes.
     ///
     /// Supports both CBOR-encoded (version-prefixed) and legacy formats.
+    /// The legacy format starts with a raw `MerkleTreeCommitment` hash digest,
+    /// so the first byte can be `0x01` which collides with the CBOR version
+    /// prefix. To handle this ambiguity, this method tries CBOR decoding first
+    /// and falls back to the legacy decoder if CBOR fails.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+        if codec::has_cbor_v1_prefix(bytes) {
+            codec::from_cbor_bytes::<Self>(&bytes[1..]).or_else(|_| Self::from_bytes_legacy(bytes))
+        } else {
+            Self::from_bytes_legacy(bytes)
+        }
     }
 
     fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
@@ -182,6 +190,21 @@ mod tests {
             let bytes = AggregateVerificationKeyForSnark::<D>::to_bytes(&golden_value())
                 .expect("AggregateVerificationKeyForSnark serialization should not fail");
             assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+        }
+    }
+
+    mod bytes_codec_ambiguity {
+        use super::*;
+
+        #[test]
+        fn legacy_data_starting_with_0x01_falls_back_correctly() {
+            let mut legacy_bytes = vec![0x01];
+            legacy_bytes.extend_from_slice(&[0xAA; 31]);
+            legacy_bytes.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 42]);
+
+            let decoded = AggregateVerificationKeyForSnark::<D>::from_bytes(&legacy_bytes)
+                .expect("Legacy data starting with 0x01 should fall back to legacy decoder");
+            assert_eq!(decoded.get_total_stake(), 42);
         }
     }
 

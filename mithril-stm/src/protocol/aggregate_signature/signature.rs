@@ -271,14 +271,25 @@ impl<D: MembershipDigest> AggregateSignature<D> {
     /// versioned CBOR format. Because the legacy `Snark` type prefix is `0x01`
     /// (same as the CBOR version byte), this method uses try-CBOR-then-fallback
     /// when the first byte is `0x01`.
+    ///
+    /// Note: if a valid CBOR payload is corrupted in transit, CBOR decoding
+    /// will fail and the legacy decoder may accept the corrupted bytes as a
+    /// structurally valid (but semantically garbage) proof. This is acceptable
+    /// because the resulting proof will always fail cryptographic verification.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        if codec::is_cbor_v1(bytes) {
+        if codec::has_cbor_v1_prefix(bytes) {
             Self::from_bytes_cbor(&bytes[1..]).or_else(|_| Self::from_bytes_legacy(bytes))
         } else {
             Self::from_bytes_legacy(bytes)
         }
     }
 
+    /// Decode from CBOR envelope bytes (without version prefix).
+    ///
+    /// The `signature_type` field in the envelope selects which inner decoder
+    /// to call. A mismatch between `signature_type` and the actual content of
+    /// `proof_bytes` is caught implicitly: the inner `from_bytes` call will
+    /// fail because the byte layout of each proof type is incompatible.
     fn from_bytes_cbor(bytes: &[u8]) -> StmResult<Self> {
         let envelope: AggregateSignatureCborEnvelope = codec::from_cbor_bytes(bytes)?;
         let proof_type = AggregateSignatureType::from_byte_encoding_prefix(envelope.signature_type)
@@ -333,6 +344,55 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod envelope_compatibility {
+        use super::*;
+        use crate::codec;
+
+        #[test]
+        fn forward_compatible_with_extra_fields() {
+            #[derive(Serialize)]
+            struct EvolvedEnvelope {
+                signature_type: u8,
+                proof_bytes: Vec<u8>,
+                extra_field: String,
+            }
+
+            let evolved = EvolvedEnvelope {
+                signature_type: 0,
+                proof_bytes: vec![1, 2, 3],
+                extra_field: "future".to_string(),
+            };
+            let bytes =
+                codec::to_cbor_bytes(&evolved).expect("evolved serialization should not fail");
+
+            let envelope: AggregateSignatureCborEnvelope = codec::from_cbor_bytes(&bytes[1..])
+                .expect("decoding with extra field should succeed");
+            assert_eq!(0, envelope.signature_type);
+            assert_eq!(vec![1, 2, 3], envelope.proof_bytes);
+        }
+
+        #[test]
+        fn backward_compatible_with_missing_optional_fields() {
+            #[derive(Serialize, Deserialize)]
+            struct MinimalEnvelope {
+                signature_type: u8,
+                proof_bytes: Vec<u8>,
+            }
+
+            let minimal = MinimalEnvelope {
+                signature_type: 0,
+                proof_bytes: vec![4, 5, 6],
+            };
+            let bytes =
+                codec::to_cbor_bytes(&minimal).expect("minimal serialization should not fail");
+
+            let envelope: AggregateSignatureCborEnvelope =
+                codec::from_cbor_bytes(&bytes[1..]).expect("decoding from minimal should succeed");
+            assert_eq!(0, envelope.signature_type);
+            assert_eq!(vec![4, 5, 6], envelope.proof_bytes);
+        }
+    }
 
     mod batch_verify {
         use rand_chacha::ChaCha20Rng;
@@ -2295,6 +2355,16 @@ mod tests {
                 .to_bytes()
                 .expect("AggregateSignature CBOR serialization should not fail");
             assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), cbor_bytes.as_slice());
+        }
+
+        #[test]
+        fn legacy_snark_starting_with_0x01_falls_back_correctly() {
+            let value = AggregateSignature::<D>::from_bytes(GOLDEN_BYTES)
+                .expect("Legacy Snark data starting with 0x01 should fall back to legacy decoder");
+            assert!(
+                value.get_snark_proof().is_some(),
+                "Should decode as Snark variant"
+            );
         }
     }
 }

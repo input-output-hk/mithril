@@ -44,7 +44,7 @@ impl SingleSignatureWithRegisteredParty {
     pub fn from_bytes<D: MembershipDigest>(
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
-        if codec::is_cbor_v1(bytes) {
+        if codec::has_cbor_v1_prefix(bytes) {
             let envelope: SingleSignatureWithRegisteredPartyCborEnvelope =
                 codec::from_cbor_bytes(&bytes[1..])?;
             let sig = SingleSignature::from_bytes::<D>(&envelope.signature_bytes)?;

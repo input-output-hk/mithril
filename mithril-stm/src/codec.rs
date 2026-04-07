@@ -30,7 +30,7 @@ pub fn from_cbor_bytes<T: DeserializeOwned>(bytes: &[u8]) -> StmResult<T> {
 }
 
 /// Check whether the given bytes start with the CBOR v1 version prefix.
-pub fn is_cbor_v1(bytes: &[u8]) -> bool {
+pub fn has_cbor_v1_prefix(bytes: &[u8]) -> bool {
     bytes.first() == Some(&CODEC_VERSION_CBOR_V1)
 }
 
@@ -42,7 +42,7 @@ pub fn from_versioned_bytes<T: DeserializeOwned>(
     bytes: &[u8],
     legacy_decoder: impl FnOnce(&[u8]) -> StmResult<T>,
 ) -> StmResult<T> {
-    if is_cbor_v1(bytes) {
+    if has_cbor_v1_prefix(bytes) {
         from_cbor_bytes(&bytes[1..])
     } else {
         legacy_decoder(bytes)
@@ -92,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    fn versioned_bytes_dispatches_to_legacy_for_unknown_version() {
+    fn versioned_bytes_dispatches_to_legacy_for_non_cbor_v1_prefix() {
         let legacy_bytes = vec![0, 0, 0, 0, 0, 0, 0, 42];
         let expected = SampleStruct {
             field_a: 42,
@@ -106,11 +106,11 @@ mod tests {
     }
 
     #[test]
-    fn is_cbor_v1_detects_version_byte() {
-        assert!(is_cbor_v1(&[CODEC_VERSION_CBOR_V1, 0, 0]));
-        assert!(!is_cbor_v1(&[0, 0, 0]));
-        assert!(!is_cbor_v1(&[2, 0, 0]));
-        assert!(!is_cbor_v1(&[]));
+    fn has_cbor_v1_prefix_detects_version_byte() {
+        assert!(has_cbor_v1_prefix(&[CODEC_VERSION_CBOR_V1, 0, 0]));
+        assert!(!has_cbor_v1_prefix(&[0, 0, 0]));
+        assert!(!has_cbor_v1_prefix(&[2, 0, 0]));
+        assert!(!has_cbor_v1_prefix(&[]));
     }
 
     #[test]

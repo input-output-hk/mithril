@@ -82,7 +82,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeCommitment<D, L> {
     /// version prefix. To handle this ambiguity, this method tries CBOR decoding
     /// first and falls back to legacy if CBOR decoding fails.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D, L>> {
-        if codec::is_cbor_v1(bytes) {
+        if codec::has_cbor_v1_prefix(bytes) {
             codec::from_cbor_bytes::<Self>(&bytes[1..]).or_else(|_| Self::from_bytes_legacy(bytes))
         } else {
             Self::from_bytes_legacy(bytes)
@@ -262,6 +262,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTreeBatchCommitment<D, L>
     }
 
     /// Convert to bytes.
+    // TODO: remove this once the 'to_bytes' function is used.
     #[allow(dead_code)]
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         codec::to_cbor_bytes(self)
@@ -322,6 +323,27 @@ mod tests {
             .collect::<Vec<_>>();
         MerkleTree::<ConcatenationHash, MerkleTreeConcatenationLeaf>::new(&leaves)
             .to_merkle_tree_batch_commitment()
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod bytes_codec_ambiguity {
+        use crate::{
+            MembershipDigest, MithrilMembershipDigest,
+            membership_commitment::{MerkleTreeCommitment, MerkleTreeSnarkLeaf},
+        };
+
+        type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
+
+        #[test]
+        fn legacy_data_starting_with_0x01_falls_back_correctly() {
+            let mut legacy_root = vec![0x01];
+            legacy_root.extend_from_slice(&[0xAA; 31]);
+
+            let decoded =
+                MerkleTreeCommitment::<SnarkHash, MerkleTreeSnarkLeaf>::from_bytes(&legacy_root)
+                    .expect("Legacy data starting with 0x01 should fall back to legacy decoder");
+            assert_eq!(legacy_root, decoded.root);
+        }
     }
 
     mod golden_cbor {

@@ -145,7 +145,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
         let leaves = self
             .signatures
             .iter()
-            .filter_map(|r| r.reg_party.into())
+            .filter_map(|r| r.reg_party.clone().into())
             .collect::<Vec<RegistrationEntryForConcatenation>>();
 
         avk.get_merkle_tree_batch_commitment()
@@ -251,7 +251,7 @@ impl<D: MembershipDigest> ConcatenationProof<D> {
     ///
     /// Supports both the new versioned CBOR format and the legacy byte-packed format.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<ConcatenationProof<D>> {
-        if codec::is_cbor_v1(bytes) {
+        if codec::has_cbor_v1_prefix(bytes) {
             let envelope: ConcatenationProofCborEnvelope = codec::from_cbor_bytes(&bytes[1..])?;
             let signatures = envelope
                 .signature_bytes

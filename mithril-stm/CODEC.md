@@ -26,34 +26,36 @@ realistic value (values below `2^56`).
 
 The following table lists every type's legacy first byte and why it is safe:
 
-| Type                                       | Legacy first byte                                       | Why safe                                                        |
-| ------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------------- |
-| `Parameters`                               | `u64 m` → `0x00`                                        | `m` is a protocol parameter (tens of thousands)                 |
-| `SingleSignature`                          | `u64 nr_indexes` → `0x00`                               | Bounded by `m`                                                  |
-| `SingleSignatureWithRegisteredParty`       | `u64 size` → `0x00`                                     | Byte length of inner struct                                     |
-| `AggregateSignature`                       | Discriminator `0x00` or `0x01` (Snark)                  | **Ambiguous when `future_snark` — uses try-CBOR-then-fallback** |
-| `Initializer`                              | `u64 stake` → `0x00`                                    | Stake fits in 6 bytes                                           |
-| `ClosedRegistrationEntry`                  | BLS compressed key → `≥ 0x80`                           | BLS12-381 compressed points set bit 7                           |
-| `AggregateVerificationKeyForConcatenation` | `u64 nr_leaves` → `0x00`                                | Few thousand leaves                                             |
-| `ConcatenationProof`                       | `u64 total_sigs` → `0x00`                               | Bounded by signer count                                         |
-| `MerkleTreeBatchCommitment`                | `u64 nr_leaves` → `0x00`                                | Few thousand leaves                                             |
-| `MerkleTree`                               | `u64 n` → `0x00`                                        | Few thousand leaves                                             |
-| `MerklePath`                               | `u64 index` → `0x00`                                    | Bounded by tree size                                            |
-| `MerkleBatchPath`                          | `u64 len_v` → `0x00`                                    | Bounded by tree depth × batch size                              |
-| `SnarkProof`                               | `u64 m` (via Parameters) → `0x00`                       | Parameters starts with `m`                                      |
-| `AggregateVerificationKeyForSnark`         | Raw hash digest (via `MerkleTreeCommitment`) → any byte | Uses version-byte dispatch (legacy commitment is raw hash)      |
-| **`MerkleTreeCommitment`**                 | **Raw hash digest → any byte**                          | **Ambiguous — uses try-CBOR-then-fallback**                     |
+| Type                                       | Legacy first byte                                       | Why safe                                                                     |
+| ------------------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `Parameters`                               | `u64 m` → `0x00`                                        | `m` is a protocol parameter (tens of thousands)                              |
+| `SingleSignature`                          | `u64 nr_indexes` → `0x00`                               | Bounded by `m`                                                               |
+| `SingleSignatureWithRegisteredParty`       | `u64 size` → `0x00`                                     | Byte length of inner struct                                                  |
+| `AggregateSignature`                       | Discriminator `0x00` or `0x01` (Snark)                  | **Ambiguous when `future_snark` — uses try-CBOR-then-fallback**              |
+| `Initializer`                              | `u64 stake` → `0x00`                                    | Stake fits in 6 bytes                                                        |
+| `ClosedRegistrationEntry`                  | BLS compressed key → `≥ 0x80`                           | BLS12-381 compressed points set bit 7                                        |
+| `AggregateVerificationKeyForConcatenation` | `u64 nr_leaves` → `0x00`                                | Few thousand leaves                                                          |
+| `ConcatenationProof`                       | `u64 total_sigs` → `0x00`                               | Bounded by signer count                                                      |
+| `MerkleTreeBatchCommitment`                | `u64 nr_leaves` → `0x00`                                | Few thousand leaves                                                          |
+| `MerkleTree`                               | `u64 n` → `0x00`                                        | Few thousand leaves                                                          |
+| `MerklePath`                               | `u64 index` → `0x00`                                    | Bounded by tree size                                                         |
+| `MerkleBatchPath`                          | `u64 len_v` → `0x00`                                    | Bounded by tree depth × batch size                                           |
+| `SnarkProof`                               | `u64 m` (via Parameters) → `0x00`                       | Parameters starts with `m`                                                   |
+| `AggregateVerificationKeyForSnark`         | Raw hash digest (via `MerkleTreeCommitment`) → any byte | **Ambiguous — uses try-CBOR-then-fallback (same as `MerkleTreeCommitment`)** |
+| **`MerkleTreeCommitment`**                 | **Raw hash digest → any byte**                          | **Ambiguous — uses try-CBOR-then-fallback**                                  |
 
-### Special case: `MerkleTreeCommitment`
+### Special case: `MerkleTreeCommitment` and `AggregateVerificationKeyForSnark`
 
 `MerkleTreeCommitment` (gated behind `future_snark`) stores its legacy format
 as the raw Merkle root hash with no length prefix. The first byte of a hash
-digest is pseudo-random and can be `0x01` (~0.4% probability). To handle this
-ambiguity, its `from_bytes` method tries CBOR decoding first and falls back to
-the legacy decoder if CBOR fails:
+digest is pseudo-random and can be `0x01` (~0.4% probability). Because the
+legacy encoding of `AggregateVerificationKeyForSnark` begins with a
+`MerkleTreeCommitment` hash digest, it is subject to the same ambiguity. To
+handle this, their `from_bytes` methods try CBOR decoding first and fall back
+to the legacy decoder if CBOR fails:
 
 ```rust
-if codec::is_cbor_v1(bytes) {
+if codec::has_cbor_v1_prefix(bytes) {
     codec::from_cbor_bytes(&bytes[1..])
         .or_else(|_| Self::from_bytes_legacy(bytes))
 } else {
@@ -82,7 +84,7 @@ dispatch.
 Handled automatically by the dual-read dispatch:
 
 ```rust
-if codec::is_cbor_v1(bytes) {
+if codec::has_cbor_v1_prefix(bytes) {
     // decode CBOR
 } else {
     Self::from_bytes_legacy(bytes)
@@ -97,6 +99,21 @@ continue to be decoded through the legacy path.
 ciborium deserializes CBOR maps and **silently ignores unknown keys**. This
 means that data produced by a newer version of the code (with extra fields) can
 still be read by an older version that does not know about those fields.
+
+> **Non-idempotent round-trip:** because unknown keys are silently dropped
+> during deserialization, a deserialize-then-reserialize cycle performed by
+> older code will **not** reproduce the original bytes. The extra fields
+> written by the newer version are lost. This means the transformation is
+> **not idempotent**: `to_bytes(from_bytes(data)) ≠ data` when `data`
+> contains keys unknown to the running code. Keep this in mind when older
+> nodes store or relay re-encoded values, downstream consumers running
+> newer code will see the additional fields missing.
+>
+> The same applies to **feature-gated fields** (`#[cfg(feature = "...")]`):
+> if data is serialized with a feature enabled (e.g. `future_snark`) and
+> then deserialized by a binary compiled **without** that feature, the
+> gated fields are silently dropped at compile time — the struct simply
+> does not have them. Re-serializing will permanently lose those fields.
 
 ## Adding a new field
 
@@ -159,7 +176,7 @@ migration. If you bump to `0x02`, add a new decoder branch:
 ```rust
 if bytes[0] == 0x02 {
     // decode v2 CBOR
-} else if codec::is_cbor_v1(bytes) {
+} else if codec::has_cbor_v1_prefix(bytes) {
     // decode v1 CBOR
 } else {
     Self::from_bytes_legacy(bytes)
@@ -221,13 +238,14 @@ accordingly.
 
 ## Summary
 
-| Scenario                                | Action                                                         |
-| --------------------------------------- | -------------------------------------------------------------- |
-| New code reads legacy bytes             | Automatic — `is_cbor_v1()` dispatches to `from_bytes_legacy()` |
-| New code reads old CBOR (missing field) | `#[serde(default)]` on new fields                              |
-| Old code reads new CBOR (extra field)   | Automatic — ciborium ignores unknown map keys                  |
-| Add a field                             | Add with `#[serde(default)]`, no version bump                  |
-| Remove or rename a field                | Do not — deprecate instead                                     |
-| Change a field type                     | Do not — add a new field instead                               |
-| Breaking format change                  | Bump version byte, add new decoder branch                      |
-| New type with raw crypto first byte     | Use try-CBOR-then-fallback pattern                             |
+| Scenario                                | Action                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| New code reads legacy bytes             | Automatic — `has_cbor_v1_prefix()` dispatches to `from_bytes_legacy()` |
+| New code reads old CBOR (missing field) | `#[serde(default)]` on new fields                                      |
+| Old code reads new CBOR (extra field)   | Automatic — ciborium ignores unknown map keys                          |
+| Old code re-encodes new CBOR            | Non-idempotent — unknown fields are dropped on round-trip              |
+| Add a field                             | Add with `#[serde(default)]`, no version bump                          |
+| Remove or rename a field                | Do not — deprecate instead                                             |
+| Change a field type                     | Do not — add a new field instead                                       |
+| Breaking format change                  | Bump version byte, add new decoder branch                              |
+| New type with raw crypto first byte     | Use try-CBOR-then-fallback pattern                                     |
