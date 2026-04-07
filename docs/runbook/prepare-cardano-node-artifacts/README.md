@@ -75,6 +75,16 @@ gcloud artifacts repositories create ${GCP_DOCKER_REPOSITORY} \
     --description="Test repository for unreleased Cardano node images"
 ```
 
+Make the repository publicly readable so that the infrastructure can pull the image without authentication:
+
+```bash
+gcloud artifacts repositories add-iam-policy-binding ${GCP_DOCKER_REPOSITORY} \
+    --project=${GCP_PROJECT_ID} \
+    --location=${GCP_REGION} \
+    --member=allUsers \
+    --role=roles/artifactregistry.reader
+```
+
 Verify the repository was created:
 
 ```bash
