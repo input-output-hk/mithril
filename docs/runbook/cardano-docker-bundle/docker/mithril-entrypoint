@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+#####################################################################
+#
+# Run the Mithril signer in the background
+#
+#####################################################################
+mithrilNetwork() {
+  case "$1" in
+    preview)
+      echo "pre-release-preview"
+      ;;
+    preprod)
+      echo "release-preprod"
+      ;;
+    mainnet)
+      echo "release-mainnet"
+      ;;
+  esac
+}
+
+mithrilNetworkForConfigFiles() {
+  case "$1" in
+    preview)
+      echo "pre-release-preview"
+      ;;
+    preprod)
+      echo "release-preprod"
+      ;;
+    mainnet)
+      echo "release-mainnet"
+      ;;
+  esac
+}
+
+setRunEnv () {
+    MITHRIL_NETWORK=$(mithrilNetwork $NETWORK)
+    MITHRIL_NETWORK_CONFIG_FILES=$(mithrilNetworkForConfigFiles $NETWORK)
+    CONFIGURATION_DIR=/usr/local/bin/mithril-configuration/
+
+    export PARTY_ID=$PARTY_ID
+    if [[ -z "$PARTY_ID" ]]; then
+      export KES_SECRET_KEY_PATH=${KES_SECRET_KEY_PATH:-$CARDANO_SHELLEY_KES_KEY}
+      export OPERATIONAL_CERTIFICATE_PATH=${OPERATIONAL_CERTIFICATE_PATH:-$CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE}
+    fi
+    export NETWORK=$NETWORK
+    export AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT:-https://aggregator.${MITHRIL_NETWORK}.api.mithril.network/aggregator}
+    export RUN_INTERVAL=${RUN_INTERVAL:-120000}
+    export DB_DIRECTORY=${DB_DIRECTORY:-/data/db}
+    export CARDANO_NODE_SOCKET_PATH=${CARDANO_NODE_SOCKET_PATH:-/ipc/node.socket}
+    export CARDANO_CLI_PATH=${CARDANO_CLI_PATH:-/usr/local/bin/cardano-cli}
+    export DATA_STORES_DIRECTORY=${DATA_STORES_DIRECTORY:-/data/mithril/stores}
+    export STORE_RETENTION_LIMIT=${STORE_RETENTION_LIMIT:-5}
+    export ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE:-cardano-chain}
+    if [[ -z "$ERA_READER_ADAPTER_PARAMS" ]]; then
+      ERA_ADDR=$(cat ${CONFIGURATION_DIR}${MITHRIL_NETWORK_CONFIG_FILES}/era.addr)
+      ERA_VKEY=$(cat ${CONFIGURATION_DIR}${MITHRIL_NETWORK_CONFIG_FILES}/era.vkey)
+      export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $ERA_ADDR --arg verification_key $ERA_VKEY '{"address": $address, "verification_key": $verification_key}')
+    fi
+}
+
+#####################################################################
+#
+# Run the Mithril signer in the background
+#
+#####################################################################
+runMithrilSignerNode () {
+    local max_retries=1000
+    local count=0
+    local success=0
+
+    while [[ $count -lt $max_retries ]]; do
+        /usr/local/bin/mithril-signer -vvv 2>&1 | tee -a /data/mithril/signer.log && success=1 && break
+        echo "Signer failed to start (attempt $((count+1))/$max_retries), retrying in 5 seconds..."
+        sleep 5
+        ((count++))
+    done
+
+    if [[ $success -eq 0 ]]; then
+        echo "Signer failed to start after $max_retries attempts."
+        return 1
+    fi
+}
+
+if [[ $CARDANO_BLOCK_PRODUCER == true ]]; then
+  # Start Mithril signer in the background
+  echo "Starting Mithril Signer..."
+  setRunEnv
+  runMithrilSignerNode
+else
+  echo "No Mithril node to start"
+fi

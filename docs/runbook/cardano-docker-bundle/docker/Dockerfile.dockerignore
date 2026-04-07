@@ -1,0 +1,6 @@
+.git
+.sock
+.socket
+/**/artifacts
+/**/data
+/**/node_modules
