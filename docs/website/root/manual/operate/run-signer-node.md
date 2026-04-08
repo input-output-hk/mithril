@@ -973,7 +973,7 @@ As we are still in a testing stage, we only support the `pre-release-preview` ne
 
 You can use these parameters for the **pre-release-preview** network:
 
-- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.3.0.1/dmq-node-linux.tar.gz`
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.4.1.0/dmq-node-linux.tar.gz`
 
 _These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
 
@@ -1044,23 +1044,16 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": true,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": [
+        "Stdout MachineFormat",
+        "PrometheusSimple suffix 127.0.0.1 12000"
+      ],
+      "severity": "Debug"
+    }
+  }
 }
 EOF'
 ```
@@ -1075,23 +1068,16 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": true,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": [
+        "Stdout MachineFormat",
+        "PrometheusSimple suffix 127.0.0.1 12000"
+      ],
+      "severity": "Debug"
+    }
+  }
 }
 EOF'
 ```
@@ -1106,23 +1092,16 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": false,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": [
+        "Stdout MachineFormat",
+        "PrometheusSimple suffix 127.0.0.1 12000"
+      ],
+      "severity": "Debug"
+    }
+  }
 }
 EOF'
 ```
@@ -1137,23 +1116,16 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": false,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": [
+        "Stdout MachineFormat",
+        "PrometheusSimple suffix 127.0.0.1 12000"
+      ],
+      "severity": "Debug"
+    }
+  }
 }
 EOF'
 ```

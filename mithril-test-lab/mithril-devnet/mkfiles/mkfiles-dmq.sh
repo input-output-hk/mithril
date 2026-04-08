@@ -5,24 +5,13 @@ for NODE in ${ALL_NODES}; do
   "CardanoNodeSocket": "${NODE}/ipc/node.sock",
   "CardanoNetworkMagic": ${NETWORK_MAGIC},
   "PeerSharing": true,
-  "LocalMsgSubmissionTracer": true,
-  "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": true,
-  "DiffusionTracer": true,
-  "InboundGovernorTracer": true,
-  "LocalInboundGovernorTracer": true,
-  "PeerSelectionTracer": true,
   "PeerSelectionCounters": true,
-  "SigSubmissionLogicTracer": true,
-  "SigSubmissionClientTracer": true,
-  "SigSubmissionServerTracer": true,
-  "SigSubmissionClientProtocolTracer": true,
-  "SigSubmissionServerProtocolTracer": true,
-  "MuxTracer": true,
-  "ChannelTracer": false,
-  "DebugPeerSelectionTracer": true,
-  "ValidationTracer": true
+  "TraceOptions": {
+    "": {
+      "backends": ["Stdout MachineFormat"],
+      "severity": "Debug"
+    }
+  }
 }
-
 EOF
 done
