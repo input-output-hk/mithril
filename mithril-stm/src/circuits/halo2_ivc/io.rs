@@ -30,7 +30,7 @@ impl Write for Msm<S> {
         for (key, value) in &fixed_base_scalars {
             let key_bytes = key.as_bytes();
             writer.write_all(&(key_bytes.len() as u32).to_le_bytes())?;
-            writer.write_all(&key_bytes)?;
+            writer.write_all(key_bytes)?;
             value.write_raw(writer)?;
         }
 

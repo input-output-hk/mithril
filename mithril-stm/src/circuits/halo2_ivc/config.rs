@@ -1,9 +1,9 @@
 use super::{
-    C, CBase, ComposableChip, ConstraintSystem, EccChip, EccConfig, F, FieldChip,
-    ForeignEccChip, ForeignEccConfig, Jubjub, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
-    NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NG, NativeChip,
-    NativeConfig, P2RDecompositionChip, P2RDecompositionConfig, PoseidonChip, PoseidonConfig,
-    Pow2RangeChip, nb_foreign_ecc_chip_columns,
+    C, CBase, ComposableChip, ConstraintSystem, EccChip, EccConfig, F, FieldChip, ForeignEccChip,
+    ForeignEccConfig, Jubjub, NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS,
+    NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NG, NativeChip, NativeConfig,
+    P2RDecompositionChip, P2RDecompositionConfig, PoseidonChip, PoseidonConfig, Pow2RangeChip,
+    nb_foreign_ecc_chip_columns,
 };
 use midnight_circuits::hash::sha256::{
     NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS, Sha256Chip, Sha256Config,
@@ -30,14 +30,10 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     .max()
     .unwrap_or(0);
 
-    let nb_fixed_cols = [
-        NB_ARITH_FIXED_COLS,
-        NB_POSEIDON_FIXED_COLS,
-        NB_SHA256_FIXED_COLS,
-    ]
-    .into_iter()
-    .max()
-    .unwrap_or(0);
+    let nb_fixed_cols = [NB_ARITH_FIXED_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_FIXED_COLS]
+        .into_iter()
+        .max()
+        .unwrap_or(0);
 
     let advice_columns: Vec<_> = (0..nb_advice_cols).map(|_| meta.advice_column()).collect();
     let fixed_columns: Vec<_> = (0..nb_fixed_cols).map(|_| meta.fixed_column()).collect();
@@ -67,9 +63,7 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     let poseidon_config = PoseidonChip::configure(
         meta,
         &(
-            advice_columns[..NB_POSEIDON_ADVICE_COLS]
-                .try_into()
-                .unwrap(),
+            advice_columns[..NB_POSEIDON_ADVICE_COLS].try_into().unwrap(),
             fixed_columns[..NB_POSEIDON_FIXED_COLS].try_into().unwrap(),
         ),
     );

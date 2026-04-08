@@ -1,10 +1,10 @@
-use crate::circuits::halo2_ivc::{
-    DST_UNIQUE_SIGNATURE, HashCPU, HashToCurveCPU, Jubjub, JubjubBase, JubjubHashToCurve,
-    JubjubScalar, JubjubSubgroup, PoseidonHash,
-};
 use crate::circuits::halo2_ivc::helpers::{
     signatures::SignatureError,
     utils::{get_coordinates, is_on_curve, jubjub_base_to_scalar},
+};
+use crate::circuits::halo2_ivc::{
+    DST_UNIQUE_SIGNATURE, HashCPU, HashToCurveCPU, Jubjub, JubjubBase, JubjubHashToCurve,
+    JubjubScalar, JubjubSubgroup, PoseidonHash,
 };
 use ff::Field;
 use group::Group;
@@ -21,13 +21,13 @@ impl SigningKey {
 
     pub fn sign(&self, msg: &[JubjubBase], rng: &mut (impl RngCore + CryptoRng)) -> Signature {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &self.0;
+        let vk = g * self.0;
 
         let hash = JubjubHashToCurve::hash_to_curve(msg);
-        let sigma = &hash * &self.0;
+        let sigma = hash * self.0;
         let r = JubjubScalar::random(rng);
-        let cap_r_1 = &hash * &r;
-        let cap_r_2 = &g * &r;
+        let cap_r_1 = hash * r;
+        let cap_r_2 = g * r;
 
         let (hx, hy) = get_coordinates(hash);
         let (vk_x, vk_y) = get_coordinates(vk);
@@ -60,13 +60,13 @@ impl SigningKey {
         rng: &mut (impl RngCore + CryptoRng),
     ) -> LongSignature {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &self.0;
+        let vk = g * self.0;
 
         let hash = JubjubHashToCurve::hash_to_curve(msg);
-        let sigma = &hash * &self.0;
+        let sigma = hash * self.0;
         let r = JubjubScalar::random(rng);
-        let cap_r_1 = &hash * &r;
-        let cap_r_2 = &g * &r;
+        let cap_r_1 = hash * r;
+        let cap_r_2 = g * r;
 
         let (hx, hy) = get_coordinates(hash);
         let (vk_x, vk_y) = get_coordinates(vk);
@@ -105,7 +105,7 @@ pub struct VerificationKey(pub JubjubSubgroup);
 impl From<&SigningKey> for VerificationKey {
     fn from(sk: &SigningKey) -> Self {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &sk.0;
+        let vk = g * sk.0;
         VerificationKey(vk)
     }
 }
@@ -167,8 +167,8 @@ impl Signature {
         let (hx, hy) = get_coordinates(hash);
         let (vk_x, vk_y) = get_coordinates(vk.0);
         let (sigma_x, sigma_y) = get_coordinates(self.sigma);
-        let cap_r_1_prime = &hash * &self.s + &self.sigma * &c_scalar;
-        let cap_r_2_prime = &g * &self.s + &vk.0 * &c_scalar;
+        let cap_r_1_prime = hash * self.s + self.sigma * c_scalar;
+        let cap_r_2_prime = g * self.s + vk.0 * c_scalar;
         let (cap_r_1_x_prime, cap_r_1_y_prime) = get_coordinates(cap_r_1_prime);
         let (cap_r_2_x_prime, cap_r_2_y_prime) = get_coordinates(cap_r_2_prime);
         let c_prime = PoseidonHash::hash(&[
@@ -232,14 +232,14 @@ impl LongSignature {
         let c = jubjub_base_to_scalar(c_prime);
 
         {
-            let right = &hash * &self.s + &self.sigma * &c;
+            let right = hash * self.s + self.sigma * c;
             if self.cap_r_1 != right {
                 return Err(SignatureError::VerificationFailed);
             }
         }
 
         {
-            let right = &g * &self.s + vk.0 * &c;
+            let right = g * self.s + vk.0 * c;
             if self.cap_r_2 != right {
                 return Err(SignatureError::VerificationFailed);
             }
@@ -249,7 +249,7 @@ impl LongSignature {
     }
 
     pub fn to_short_signature(&self, hash_msg: &JubjubSubgroup, vk: &VerificationKey) -> Signature {
-        let (hx, hy) = get_coordinates(hash_msg.clone());
+        let (hx, hy) = get_coordinates(*hash_msg);
         let (vk_x, vk_y) = get_coordinates(vk.0);
         let (sigma_x, sigma_y) = get_coordinates(self.sigma);
         let (cap_r_1_x, cap_r_1_y) = get_coordinates(self.cap_r_1);
@@ -309,9 +309,7 @@ mod tests {
             "Signature c component should not be zero."
         );
 
-        signature
-            .verify(&[msg], &VerificationKey::from(&sk))
-            .unwrap();
+        signature.verify(&[msg], &VerificationKey::from(&sk)).unwrap();
     }
 
     #[test]

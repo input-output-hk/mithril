@@ -1,6 +1,6 @@
 use super::{
-    Accumulator, BinaryInstructions, Circuit, ComposableChip, ConstraintSystem, E,
-    EvaluationDomain, Error, F, K, KZGCommitmentScheme, Layouter, PublicInputInstructions, S,
+    Accumulator, BinaryInstructions, Circuit, ComposableChip, ConstraintSystem, E, Error,
+    EvaluationDomain, F, K, KZGCommitmentScheme, Layouter, PublicInputInstructions, S,
     SimpleFloorPlanner, Value, VerifyingKey,
     config::{IvcConfig, configure_ivc_circuit},
     gadget::IvcGadget,
@@ -28,6 +28,7 @@ pub struct IvcCircuit {
 }
 
 impl IvcCircuit {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         global: Global,
         state: State,

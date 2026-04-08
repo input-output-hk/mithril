@@ -1,5 +1,5 @@
-use crate::circuits::halo2_ivc::{HashCPU, JubjubBase, PoseidonHash, Target};
 use crate::circuits::halo2_ivc::helpers::signatures::unique_signature::VerificationKey;
+use crate::circuits::halo2_ivc::{HashCPU, JubjubBase, PoseidonHash, Target};
 use ff::Field;
 use thiserror::Error;
 
@@ -33,9 +33,7 @@ impl MTLeaf {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
-        let bytes = bytes
-            .get(0..96)
-            .ok_or(MerkleTreeError::SerializationError)?;
+        let bytes = bytes.get(0..96).ok_or(MerkleTreeError::SerializationError)?;
         let target_bytes: [u8; 32] = bytes[64..96]
             .try_into()
             .map_err(|_| MerkleTreeError::SerializationError)?;
@@ -192,7 +190,7 @@ impl MerkleTree {
 
         while idx > 0 {
             let h = if sibling(idx) < self.nodes.len() {
-                self.nodes[sibling(idx)].clone()
+                self.nodes[sibling(idx)]
             } else {
                 z
             };
@@ -210,7 +208,7 @@ impl MerkleTree {
         MerklePath::new(proof)
     }
     pub fn to_merkle_tree_commitment(&self) -> MerkleTreeCommitment {
-        MerkleTreeCommitment::new(self.nodes[0].clone(), self.n as u32)
+        MerkleTreeCommitment::new(self.nodes[0], self.n as u32)
     }
 }
 
@@ -319,10 +317,10 @@ mod tests {
 
         let tree = MerkleTree::create(&leaves);
 
-        for i in 0..leaves.len() {
+        for (i, leaf) in leaves.iter().copied().enumerate() {
             let path = tree.get_path(i);
             println!("{:?}", path.get_siblings().len());
-            let computed_root = path.compute_root(leaves[i]);
+            let computed_root = path.compute_root(leaf);
             assert_eq!(
                 tree.root(),
                 computed_root,

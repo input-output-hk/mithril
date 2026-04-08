@@ -1,10 +1,9 @@
-use crate::circuits::halo2_ivc::{
-    DST_SCHNORR_SIGNATURE, HashCPU, Jubjub, JubjubBase, JubjubScalar, JubjubSubgroup,
-    PoseidonHash,
-};
 use crate::circuits::halo2_ivc::helpers::{
     signatures::SignatureError,
     utils::{get_coordinates, is_on_curve, jubjub_base_to_scalar},
+};
+use crate::circuits::halo2_ivc::{
+    DST_SCHNORR_SIGNATURE, HashCPU, Jubjub, JubjubBase, JubjubScalar, JubjubSubgroup, PoseidonHash,
 };
 use ff::Field;
 use group::Group;
@@ -21,9 +20,9 @@ impl SigningKey {
 
     pub fn sign(&self, msg: &[JubjubBase], rng: &mut (impl RngCore + CryptoRng)) -> Signature {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &self.0;
+        let vk = g * self.0;
         let r = JubjubScalar::random(rng);
-        let cap_r = &g * &r;
+        let cap_r = g * r;
         let (vk_x, vk_y) = get_coordinates(vk);
         let (cap_r_x, cap_r_y) = get_coordinates(cap_r);
 
@@ -44,7 +43,7 @@ pub struct VerificationKey(pub JubjubSubgroup);
 impl From<&SigningKey> for VerificationKey {
     fn from(sk: &SigningKey) -> Self {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &sk.0;
+        let vk = g * sk.0;
         VerificationKey(vk)
     }
 }
@@ -102,16 +101,10 @@ impl Signature {
         let c_scalar = jubjub_base_to_scalar(self.c);
 
         let (vk_x, vk_y) = get_coordinates(vk.0);
-        let cap_r_prime = &g * &self.s + &vk.0 * &c_scalar;
+        let cap_r_prime = g * self.s + vk.0 * c_scalar;
         let (cap_r_x_prime, cap_r_y_prime) = get_coordinates(cap_r_prime);
 
-        let mut to_hash = vec![
-            DST_SCHNORR_SIGNATURE,
-            vk_x,
-            vk_y,
-            cap_r_x_prime,
-            cap_r_y_prime,
-        ];
+        let mut to_hash = vec![DST_SCHNORR_SIGNATURE, vk_x, vk_y, cap_r_x_prime, cap_r_y_prime];
         to_hash.extend_from_slice(msg);
 
         let c_prime = PoseidonHash::hash(&to_hash);
@@ -150,9 +143,7 @@ mod tests {
             "Schnorr signature c component should not be zero."
         );
 
-        signature
-            .verify(&[msg], &VerificationKey::from(&sk))
-            .unwrap();
+        signature.verify(&[msg], &VerificationKey::from(&sk)).unwrap();
     }
 
     #[test]

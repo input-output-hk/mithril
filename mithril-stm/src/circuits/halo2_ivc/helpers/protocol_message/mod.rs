@@ -114,7 +114,7 @@ impl ProtocolMessage {
         let mut preimage = Vec::new();
         self.message_parts.iter().for_each(|(k, v)| {
             preimage.extend_from_slice(k.to_string().as_bytes());
-            preimage.extend_from_slice(&v);
+            preimage.extend_from_slice(v);
         });
         preimage
     }

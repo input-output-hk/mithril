@@ -118,7 +118,7 @@ mod tests {
         let mut reconstructed = JubjubBase::ZERO;
         let base = JubjubBase::from_u128(1_u128 << limb_bits);
         for (i, limb) in limbs.iter().enumerate() {
-            reconstructed += base.pow_vartime(&[i as u64]) * limb;
+            reconstructed += base.pow_vartime([i as u64]) * limb;
         }
         assert_eq!(
             reconstructed.ct_eq(&ran).unwrap_u8(),

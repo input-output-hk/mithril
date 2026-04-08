@@ -182,10 +182,7 @@ pub fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
         Msm::new(
             &[C::default()],
             &[F::ONE],
-            &fixed_base_names
-                .iter()
-                .map(|name| (name.clone(), F::ZERO))
-                .collect(),
+            &fixed_base_names.iter().map(|name| (name.clone(), F::ZERO)).collect(),
         ),
     )
 }
