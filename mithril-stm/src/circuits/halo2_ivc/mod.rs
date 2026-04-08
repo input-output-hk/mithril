@@ -7,12 +7,8 @@
 //! is kept locally here until the recursive circuit is wired into STM.
 
 pub(crate) use midnight_curves::{
-    Bls12, EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar, G1Affine as BlstG1Affine,
-    G1Projective as BlstG1, G2Affine as BlstG2Affine, JubjubAffine, JubjubExtended as Jubjub,
-    JubjubSubgroup,
+    Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub, JubjubSubgroup,
 };
-
-pub(crate) use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 pub(crate) use midnight_circuits::{
     ecc::{
@@ -32,7 +28,6 @@ pub(crate) use midnight_circuits::{
     },
     hash::poseidon::{
         NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, PoseidonChip, PoseidonConfig,
-        PoseidonState,
     },
     instructions::{
         ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
@@ -94,8 +89,4 @@ type JubjubHashToCurve = HashToCurveGadget<
 
 type PoseidonHash = PoseidonChip<JubjubBase>;
 
-pub(crate) type Msg = JubjubBase;
 pub(crate) type Target = JubjubBase;
-pub(crate) type MerkleRoot = JubjubBase;
-
-pub(crate) use helpers::signatures::SignatureError;
