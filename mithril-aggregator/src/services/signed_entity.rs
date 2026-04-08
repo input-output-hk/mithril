@@ -12,8 +12,8 @@ use tokio::task::JoinHandle;
 use mithril_common::{
     StdResult,
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot, CardanoDbBeacon,
-        CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
+        CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
         MithrilStakeDistribution, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     logging::LoggerExtensions,
@@ -103,8 +103,9 @@ pub struct MithrilSignedEntityService {
         Arc<dyn ArtifactBuilder<CardanoDbBeacon, Snapshot>>,
     cardano_transactions_artifact_builder:
         Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
-    cardano_blocks_transactions_artifact_builder:
-        Arc<dyn ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>>,
+    cardano_blocks_transactions_artifact_builder: Arc<
+        dyn ArtifactBuilder<(BlockNumber, BlockNumberOffset), CardanoBlocksTransactionsSnapshot>,
+    >,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
@@ -122,8 +123,9 @@ pub struct SignedEntityServiceArtifactsDependencies {
         Arc<dyn ArtifactBuilder<CardanoDbBeacon, Snapshot>>,
     cardano_transactions_artifact_builder:
         Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
-    cardano_blocks_transactions_artifact_builder:
-        Arc<dyn ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>>,
+    cardano_blocks_transactions_artifact_builder: Arc<
+        dyn ArtifactBuilder<(BlockNumber, BlockNumberOffset), CardanoBlocksTransactionsSnapshot>,
+    >,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
     cardano_database_artifact_builder:
@@ -143,7 +145,7 @@ impl SignedEntityServiceArtifactsDependencies {
             dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
         >,
         cardano_blocks_transactions_artifact_builder: Arc<
-            dyn ArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>,
+            dyn ArtifactBuilder<(BlockNumber, BlockNumberOffset), CardanoBlocksTransactionsSnapshot>,
         >,
         cardano_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
@@ -281,9 +283,9 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number) => Ok(Arc::new(
+            SignedEntityType::CardanoBlocksTransactions(_epoch, block_number, block_number_offset) => Ok(Arc::new(
                 self.cardano_blocks_transactions_artifact_builder
-                    .compute_artifact(block_number, certificate)
+                    .compute_artifact((block_number, block_number_offset), certificate)
                     .await
                     .with_context(|| {
                         format!(
@@ -538,7 +540,7 @@ mod tests {
     use std::{sync::atomic::Ordering, time::Duration};
 
     use mithril_common::{
-        entities::{CardanoTransactionsSnapshot, Epoch, StakeDistribution},
+        entities::{BlockNumberOffset, CardanoTransactionsSnapshot, Epoch, StakeDistribution},
         signable_builder,
         test::double::fake_data,
     };
@@ -587,8 +589,10 @@ mod tests {
             MockArtifactBuilder<CardanoDbBeacon, Snapshot>,
         mock_cardano_transactions_artifact_builder:
             MockArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
-        mock_cardano_blocks_transactions_artifact_builder:
-            MockArtifactBuilder<BlockNumber, CardanoBlocksTransactionsSnapshot>,
+        mock_cardano_blocks_transactions_artifact_builder: MockArtifactBuilder<
+            (BlockNumber, BlockNumberOffset),
+            CardanoBlocksTransactionsSnapshot,
+        >,
         mock_cardano_stake_distribution_artifact_builder:
             MockArtifactBuilder<Epoch, CardanoStakeDistribution>,
         mock_cardano_database_artifact_builder:
@@ -612,7 +616,7 @@ mod tests {
                     CardanoTransactionsSnapshot,
                 >::new(),
                 mock_cardano_blocks_transactions_artifact_builder: MockArtifactBuilder::<
-                    BlockNumber,
+                    (BlockNumber, BlockNumberOffset),
                     CardanoBlocksTransactionsSnapshot,
                 >::new(),
                 mock_cardano_stake_distribution_artifact_builder: MockArtifactBuilder::<
@@ -925,7 +929,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
 
         let block_number = BlockNumber(151);
-        let offset_security_parameter = BlockNumber(15);
+        let offset_security_parameter = BlockNumberOffset(15);
         let expected = CardanoBlocksTransactionsSnapshot::new(
             "merkle_root".to_string(),
             block_number,
@@ -947,8 +951,11 @@ mod tests {
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
-        let signed_entity_type =
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), block_number);
+        let signed_entity_type = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(1),
+            block_number,
+            offset_security_parameter,
+        );
         let artifact = artifact_builder_service
             .compute_artifact(signed_entity_type.clone(), &certificate)
             .await
@@ -960,9 +967,13 @@ mod tests {
     #[tokio::test]
     async fn should_store_the_artifact_when_creating_artifact_for_cardano_blocks_transactions() {
         let block_number = BlockNumber(149);
-        let offset_security_parameter = BlockNumber(15);
+        let offset_security_parameter = BlockNumberOffset(15);
         generic_test_that_the_artifact_is_stored(
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), block_number),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                block_number,
+                offset_security_parameter,
+            ),
             CardanoBlocksTransactionsSnapshot::new(
                 "merkle_root".to_string(),
                 block_number,

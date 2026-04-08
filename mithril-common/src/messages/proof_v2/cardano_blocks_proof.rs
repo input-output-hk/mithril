@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{BlockHash, BlockNumber, CardanoBlock};
+use crate::entities::{BlockHash, BlockNumber, BlockNumberOffset, CardanoBlock};
 use crate::messages::proof_v2::ProofMessageVerifier;
 use crate::messages::{CardanoBlockMessagePart, MkSetProofMessagePart, VerifyProofsV2Error};
 
@@ -27,6 +27,9 @@ pub struct CardanoBlocksProofsMessage {
 
     /// Latest block number that has been certified by the associated Mithril certificate
     pub latest_block_number: BlockNumber,
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub security_parameter: BlockNumberOffset,
 }
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen(js_class = "CardanoBlocksProofs"))]
@@ -62,6 +65,7 @@ pub struct VerifiedCardanoBlocks {
     merkle_root: String,
     certified_blocks: Vec<CardanoBlockMessagePart>,
     latest_block_number: BlockNumber,
+    security_parameter: BlockNumberOffset,
 }
 
 impl VerifiedCardanoBlocks {
@@ -89,6 +93,11 @@ impl VerifiedCardanoBlocks {
     pub fn latest_certified_block_number(&self) -> BlockNumber {
         self.latest_block_number
     }
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub fn security_parameter(&self) -> BlockNumberOffset {
+        self.security_parameter
+    }
 }
 
 impl CardanoBlocksProofsMessage {
@@ -98,12 +107,14 @@ impl CardanoBlocksProofsMessage {
         certified_blocks: Option<MkSetProofMessagePart<CardanoBlockMessagePart>>,
         non_certified_blocks: Vec<String>,
         latest_block_number: BlockNumber,
+        security_parameter: BlockNumberOffset,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_blocks,
             non_certified_blocks,
             latest_block_number,
+            security_parameter,
         }
     }
 
@@ -133,6 +144,7 @@ impl CardanoBlocksProofsMessage {
             merkle_root,
             certified_blocks: certified_blocks.items.clone(),
             latest_block_number: self.latest_block_number,
+            security_parameter: self.security_parameter,
         })
     }
 }

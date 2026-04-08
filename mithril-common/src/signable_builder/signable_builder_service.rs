@@ -6,8 +6,8 @@ use std::sync::Arc;
 use crate::{
     StdResult,
     entities::{
-        BlockNumber, CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        SignedEntityType,
+        BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch, ProtocolMessage,
+        ProtocolMessagePartKey, SignedEntityType,
     },
     logging::LoggerExtensions,
     signable_builder::{SignableBuilder, SignableSeedBuilder},
@@ -30,7 +30,8 @@ pub struct MithrilSignableBuilderService {
     mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
-    cardano_blocks_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+    cardano_blocks_transactions_signable_builder:
+        Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     logger: Logger,
@@ -41,7 +42,8 @@ pub struct SignableBuilderServiceDependencies {
     mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
-    cardano_blocks_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+    cardano_blocks_transactions_signable_builder:
+        Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
 }
@@ -52,7 +54,9 @@ impl SignableBuilderServiceDependencies {
         mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
         immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
         cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
-        cardano_blocks_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+        cardano_blocks_transactions_signable_builder: Arc<
+            dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>,
+        >,
         cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
         cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     ) -> Self {
@@ -118,9 +122,9 @@ impl MithrilSignableBuilderService {
                     .compute_protocol_message(*block_number)
                     .await
             }
-            SignedEntityType::CardanoBlocksTransactions(_, block_number) => {
+            SignedEntityType::CardanoBlocksTransactions(_, block_number, block_number_offset) => {
                 self.cardano_blocks_transactions_signable_builder
-                    .compute_protocol_message(*block_number)
+                    .compute_protocol_message((*block_number, *block_number_offset))
                     .await
             }
             SignedEntityType::CardanoDatabase(beacon) => {
@@ -196,7 +200,7 @@ mod tests {
 
     use crate::{
         StdResult,
-        entities::{BlockNumber, Epoch, ProtocolMessage},
+        entities::{BlockNumber, BlockNumberOffset, Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         test::TestLogger,
     };
@@ -220,7 +224,8 @@ mod tests {
         mock_cardano_immutable_files_full_signable_builder:
             MockSignableBuilderImpl<CardanoDbBeacon>,
         mock_cardano_transactions_signable_builder: MockSignableBuilderImpl<BlockNumber>,
-        mock_cardano_blocks_transactions_signable_builder: MockSignableBuilderImpl<BlockNumber>,
+        mock_cardano_blocks_transactions_signable_builder:
+            MockSignableBuilderImpl<(BlockNumber, BlockNumberOffset)>,
         mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
         mock_cardano_database_signable_builder: MockSignableBuilderImpl<CardanoDbBeacon>,
     }
@@ -346,8 +351,11 @@ mod tests {
             .once()
             .return_once(|_| Ok(ProtocolMessage::new()));
         let signable_builder_service = mock_container.build_signable_builder_service();
-        let signed_entity_type =
-            SignedEntityType::CardanoBlocksTransactions(Epoch(6), BlockNumber(1010));
+        let signed_entity_type = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(6),
+            BlockNumber(1010),
+            BlockNumberOffset(15),
+        );
 
         signable_builder_service
             .compute_protocol_message(signed_entity_type)

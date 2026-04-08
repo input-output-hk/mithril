@@ -56,8 +56,8 @@ impl Query for InsertOrIgnoreEpochSettingsQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Epoch,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Epoch,
     };
     use mithril_common::test::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
@@ -75,12 +75,12 @@ mod tests {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(24),
+                security_parameter: BlockNumberOffset(24),
                 step: BlockNumber(62),
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(48),
+                    security_parameter: BlockNumberOffset(48),
                     step: BlockNumber(96),
                 },
             ),
@@ -116,12 +116,12 @@ mod tests {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(24),
+                security_parameter: BlockNumberOffset(24),
                 step: BlockNumber(62),
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(48),
+                    security_parameter: BlockNumberOffset(48),
                     step: BlockNumber(96),
                 },
             ),
@@ -136,12 +136,12 @@ mod tests {
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(EpochSettingsRecord {
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(134),
+                    security_parameter: BlockNumberOffset(134),
                     step: BlockNumber(872),
                 }),
                 cardano_blocks_transactions_signing_config: Some(
                     CardanoBlocksTransactionsSigningConfig {
-                        security_parameter: BlockNumber(321),
+                        security_parameter: BlockNumberOffset(321),
                         step: BlockNumber(987),
                     },
                 ),

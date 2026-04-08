@@ -571,7 +571,10 @@ mod tests {
     #[allow(deprecated)]
     mod epoch_settings {
         use mithril_common::{
-            entities::{CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityConfig},
+            entities::{
+                BlockNumberOffset, CardanoTransactionsSigningConfig, ProtocolParameters,
+                SignedEntityConfig,
+            },
             test::builder::MithrilFixtureBuilder,
         };
 
@@ -603,7 +606,7 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
+                    security_parameter: BlockNumberOffset(0),
                     step: BlockNumber(15)
                 })
             );
@@ -687,7 +690,7 @@ mod tests {
         #[tokio::test]
         async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
             let expected_ctx_config = CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(100),
+                security_parameter: BlockNumberOffset(100),
                 step: BlockNumber(15),
             };
             let epoch_service = FakeEpochServiceBuilder {
@@ -812,8 +815,8 @@ mod tests {
         use super::*;
 
         use mithril_common::entities::{
-            CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-            ProtocolParameters,
+            BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+            CardanoTransactionsSigningConfig, ProtocolParameters,
         };
 
         use crate::entities::AggregatorEpochSettings;
@@ -824,12 +827,12 @@ mod tests {
             let aggregator_epoch_settings = AggregatorEpochSettings {
                 protocol_parameters: ProtocolParameters::new(5, 100, 0.65),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(10),
+                    security_parameter: BlockNumberOffset(10),
                     step: BlockNumber(15),
                 }),
                 cardano_blocks_transactions_signing_config: Some(
                     CardanoBlocksTransactionsSigningConfig {
-                        security_parameter: BlockNumber(20),
+                        security_parameter: BlockNumberOffset(20),
                         step: BlockNumber(30),
                     },
                 ),
@@ -852,14 +855,14 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(10),
+                    security_parameter: BlockNumberOffset(10),
                     step: BlockNumber(15)
                 })
             );
             assert_eq!(
                 message.cardano_blocks_transactions_signing_config,
                 Some(CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(20),
+                    security_parameter: BlockNumberOffset(20),
                     step: BlockNumber(30)
                 })
             );
@@ -1502,6 +1505,8 @@ mod tests {
         }
     }
     mod cardano_blocks_transactions {
+        use mithril_common::entities::BlockNumberOffset;
+
         use super::*;
 
         #[tokio::test]
@@ -1511,11 +1516,12 @@ mod tests {
                 signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
                     Epoch(18),
                     BlockNumber(120),
+                    BlockNumberOffset(15),
                 ),
                 certificate_id: "cert_id".to_string(),
                 artifact: serde_json::to_string(&fake_data::cardano_blocks_transactions_snapshot(
                     BlockNumber(1),
-                    BlockNumber(15),
+                    BlockNumberOffset(15),
                 ))
                 .unwrap(),
                 created_at: Default::default(),
@@ -1557,12 +1563,13 @@ mod tests {
                     signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
                         Epoch(18),
                         BlockNumber(120),
+                        BlockNumberOffset(15),
                     ),
                     certificate_id: "cert_id-1".to_string(),
                     artifact: serde_json::to_string(
                         &fake_data::cardano_blocks_transactions_snapshot(
                             BlockNumber(1),
-                            BlockNumber(15),
+                            BlockNumberOffset(15),
                         ),
                     )
                     .unwrap(),

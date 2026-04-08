@@ -35,9 +35,9 @@ use mithril_common::{
     api_version::APIVersionProvider,
     crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        ChainPoint, Epoch, SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake,
-        SlotNumber, SupportedEra, TimePoint,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityType,
+        SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra, TimePoint,
     },
     signable_builder::{
         CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
@@ -157,11 +157,11 @@ impl StateMachineTester {
             immutable_observer.clone(),
         ));
         let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         };
         let cardano_blocks_transactions_signing_config = CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         };
         let fake_aggregator = Arc::new(FakeAggregator::new(ticker_service.clone()));

@@ -6,8 +6,8 @@ use crate::crypto_helper::{
     MKMap, MKMapNode, MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
 };
 use crate::entities::{
-    BlockNumber, BlockRange, CardanoBlock, CardanoBlockWithTransactions, CardanoTransaction,
-    IntoMKTreeNode, MkSetProof,
+    BlockNumber, BlockNumberOffset, BlockRange, CardanoBlock, CardanoBlockWithTransactions,
+    CardanoTransaction, IntoMKTreeNode, MkSetProof,
 };
 use crate::messages::{CardanoBlocksProofsMessage, CardanoTransactionsProofsV2Message};
 use crate::test::crypto_helper::mkmap_helpers;
@@ -104,6 +104,7 @@ pub trait MKMapTestExtension<K, V, S: MKTreeStorer> {
             Some(proof.try_into()?),
             Vec::new(),
             BlockNumber(9999),
+            BlockNumberOffset(15),
         );
 
         Ok(message)
@@ -134,6 +135,7 @@ pub trait MKMapTestExtension<K, V, S: MKTreeStorer> {
             Some(proof.try_into()?),
             Vec::new(),
             BlockNumber(9999),
+            BlockNumberOffset(15),
         );
 
         Ok(message)

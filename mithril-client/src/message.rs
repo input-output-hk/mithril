@@ -204,6 +204,10 @@ impl MessageBuilder {
                 ProtocolMessagePartKey::LatestBlockNumber,
                 verified_blocks.latest_certified_block_number().to_string(),
             );
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoBlocksTransactionsBlockNumberOffset,
+                verified_blocks.security_parameter().to_string(),
+            );
             message
         }
 
@@ -221,6 +225,10 @@ impl MessageBuilder {
             message.set_message_part(
                 ProtocolMessagePartKey::LatestBlockNumber,
                 verified_transactions.latest_certified_block_number().to_string(),
+            );
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoBlocksTransactionsBlockNumberOffset,
+                verified_transactions.security_parameter().to_string(),
             );
             message
         }

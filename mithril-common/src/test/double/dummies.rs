@@ -55,7 +55,7 @@ mod entities {
         /// Return a dummy [CardanoTransactionsSigningConfig] (test-only).
         fn dummy() -> Self {
             Self {
-                security_parameter: BlockNumber(0),
+                security_parameter: BlockNumberOffset(0),
                 step: BlockNumber(15),
             }
         }
@@ -65,7 +65,7 @@ mod entities {
         /// Return a dummy [CardanoBlocksTransactionsSigningConfig] (test-only).
         fn dummy() -> Self {
             Self {
-                security_parameter: BlockNumber(0),
+                security_parameter: BlockNumberOffset(0),
                 step: BlockNumber(15),
             }
         }
@@ -153,12 +153,13 @@ mod messages {
 
     use crate::crypto_helper::KesEvolutions;
     use crate::entities::{
-        AncillaryLocation, BlockNumber, CardanoBlock, CardanoBlocksTransactionsSigningConfig,
-        CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
-        CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
-        ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
-        StakeDistributionParty, SupportedEra, TemplateUri,
+        AncillaryLocation, BlockNumber, BlockNumberOffset, CardanoBlock,
+        CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon, CardanoTransaction,
+        CardanoTransactionsSetProof, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+        DigestLocation, Epoch, ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, SupportedEra,
+        TemplateUri,
     };
     use crate::messages::*;
 
@@ -196,6 +197,7 @@ mod messages {
                     "non-certified-block-2".to_string(),
                 ],
                 BlockNumber(100),
+                BlockNumberOffset(15),
             )
         }
     }
@@ -208,6 +210,7 @@ mod messages {
                 Some(MkSetProofMessagePart::dummy()),
                 vec!["non-certified-tx-1".to_string(), "non-certified-tx-2".to_string()],
                 BlockNumber(100),
+                BlockNumberOffset(15),
             )
         }
     }
@@ -832,16 +835,18 @@ mod signable_builder {
         /// Create a dummy [SignedEntity] for [CardanoBlocksTransactionsSnapshot] entity
         fn dummy() -> Self {
             let block_number = crate::entities::BlockNumber(50);
+            let block_number_offset = crate::entities::BlockNumberOffset(15);
             SignedEntity {
                 signed_entity_id: "snapshot-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoBlocksTransactions(
                     Epoch(5),
                     block_number,
+                    block_number_offset,
                 ),
                 certificate_id: "certificate-hash-123".to_string(),
                 artifact: fake_data::cardano_blocks_transactions_snapshot(
                     block_number,
-                    crate::entities::BlockNumber(15),
+                    block_number_offset,
                 ),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()

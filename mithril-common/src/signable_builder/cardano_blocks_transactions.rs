@@ -9,8 +9,8 @@ use crate::{
     StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode, MKTreeStorer},
     entities::{
-        BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, ProtocolMessage,
-        ProtocolMessagePartKey,
+        BlockNumber, BlockNumberOffset, BlockRange, CardanoBlockTransactionMkTreeNode,
+        ProtocolMessage, ProtocolMessagePartKey,
     },
     signable_builder::SignableBuilder,
 };
@@ -110,13 +110,20 @@ impl<S: MKTreeStorer> CardanoBlocksTransactionsSignableBuilder<S> {
 }
 
 #[async_trait]
-impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoBlocksTransactionsSignableBuilder<S> {
-    async fn compute_protocol_message(&self, beacon: BlockNumber) -> StdResult<ProtocolMessage> {
-        self.blocks_transactions_importer.import(beacon).await?;
+impl<S: MKTreeStorer> SignableBuilder<(BlockNumber, BlockNumberOffset)>
+    for CardanoBlocksTransactionsSignableBuilder<S>
+{
+    async fn compute_protocol_message(
+        &self,
+        beacon: (BlockNumber, BlockNumberOffset),
+    ) -> StdResult<ProtocolMessage> {
+        let (block_number, block_number_offset) = beacon;
+
+        self.blocks_transactions_importer.import(block_number).await?;
 
         let mk_root = self
             .block_range_root_retriever
-            .compute_merkle_map_from_block_range_roots(beacon)
+            .compute_merkle_map_from_block_range_roots(block_number)
             .await?
             .compute_root()?;
 
@@ -127,7 +134,11 @@ impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoBlocksTransactions
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::LatestBlockNumber,
-            beacon.to_string(),
+            block_number.to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsBlockNumberOffset,
+            block_number_offset.to_string(),
         );
 
         Ok(protocol_message)
@@ -163,6 +174,7 @@ mod tests {
     async fn test_compute_signable() {
         // Arrange
         let block_number = BlockNumber(1453);
+        let block_number_offset = BlockNumberOffset(10);
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut blocks_transactions_importer = MockBlocksTransactionsImporter::new();
@@ -181,7 +193,10 @@ mod tests {
         );
 
         // Action
-        let signable = signable_builder.compute_protocol_message(block_number).await.unwrap();
+        let signable = signable_builder
+            .compute_protocol_message((block_number, block_number_offset))
+            .await
+            .unwrap();
 
         // Assert
         let mut signable_expected = ProtocolMessage::new();
@@ -193,12 +208,17 @@ mod tests {
             ProtocolMessagePartKey::LatestBlockNumber,
             format!("{block_number}"),
         );
+        signable_expected.set_message_part(
+            ProtocolMessagePartKey::CardanoBlocksTransactionsBlockNumberOffset,
+            format!("{block_number_offset}"),
+        );
         assert_eq!(signable_expected, signable);
     }
 
     #[tokio::test]
     async fn test_compute_signable_with_no_block_range_root_return_error() {
         let block_number = BlockNumber(50);
+        let block_number_offset = BlockNumberOffset(10);
         let mut blocks_transactions_importer = MockBlocksTransactionsImporter::new();
         blocks_transactions_importer.expect_import().return_once(|_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
@@ -210,7 +230,9 @@ mod tests {
             Arc::new(block_range_root_retriever),
         );
 
-        let result = signable_builder.compute_protocol_message(block_number).await;
+        let result = signable_builder
+            .compute_protocol_message((block_number, block_number_offset))
+            .await;
 
         assert!(result.is_err());
     }

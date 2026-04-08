@@ -6,7 +6,7 @@ use semver::Version;
 use crate::CardanoNetwork;
 use crate::crypto_helper::{self, KesPeriod, ProtocolMultiSignature};
 use crate::entities::{
-    self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
+    self, AncillaryLocations, BlockNumber, BlockNumberOffset, CardanoDatabaseSnapshotArtifactData,
     CertificateMetadata, CertificateSignature, CompressionAlgorithm, DigestsLocations, Epoch,
     ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
@@ -248,7 +248,7 @@ pub fn cardano_transactions_snapshots(total: u64) -> Vec<entities::CardanoTransa
 /// Fake Cardano Blocks Transactions
 pub fn cardano_blocks_transactions_snapshot(
     block_number_signed: BlockNumber,
-    offset_security_parameter: BlockNumber,
+    offset_security_parameter: BlockNumberOffset,
 ) -> entities::CardanoBlocksTransactionsSnapshot {
     entities::CardanoBlocksTransactionsSnapshot::new(
         format!("merkleroot-{block_number_signed}"),
@@ -262,7 +262,7 @@ pub fn cardano_blocks_transactions_snapshots(
     total: u64,
 ) -> Vec<entities::CardanoBlocksTransactionsSnapshot> {
     (1..total + 1)
-        .map(|idx| cardano_blocks_transactions_snapshot(BlockNumber(idx), BlockNumber(15)))
+        .map(|idx| cardano_blocks_transactions_snapshot(BlockNumber(idx), BlockNumberOffset(15)))
         .collect()
 }
 

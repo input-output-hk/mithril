@@ -808,8 +808,8 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Stake, StakeDistribution, SupportedEra,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test::{
         builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
@@ -1103,12 +1103,12 @@ mod tests {
         let epoch = Epoch(5);
 
         let cardano_transactions_signing_config = Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(29),
+            security_parameter: BlockNumberOffset(29),
             step: BlockNumber(986),
         });
         let cardano_blocks_transactions_signing_config =
             Some(CardanoBlocksTransactionsSigningConfig {
-                security_parameter: BlockNumber(45),
+                security_parameter: BlockNumberOffset(45),
                 step: BlockNumber(999),
             });
 
@@ -1322,12 +1322,12 @@ mod tests {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(6, 89, 0.124),
             cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(1),
+                security_parameter: BlockNumberOffset(1),
                 step: BlockNumber(11),
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumber(111),
+                    security_parameter: BlockNumberOffset(111),
                     step: BlockNumber(1111),
                 },
             ),
@@ -1337,7 +1337,7 @@ mod tests {
         aggregation_configuration
             .signed_entity_types_config
             .cardano_transactions = Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(2),
+            security_parameter: BlockNumberOffset(2),
             step: BlockNumber(22),
         });
 
@@ -1345,7 +1345,7 @@ mod tests {
         next_aggregation_configuration
             .signed_entity_types_config
             .cardano_transactions = Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(3),
+            security_parameter: BlockNumberOffset(3),
             step: BlockNumber(33),
         });
 

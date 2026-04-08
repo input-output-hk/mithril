@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{BlockNumber, CardanoTransaction, TransactionHash};
+use crate::entities::{BlockNumber, BlockNumberOffset, CardanoTransaction, TransactionHash};
 use crate::messages::proof_v2::ProofMessageVerifier;
 use crate::messages::{CardanoTransactionMessagePart, MkSetProofMessagePart, VerifyProofsV2Error};
 
@@ -27,6 +27,9 @@ pub struct CardanoTransactionsProofsV2Message {
 
     /// Latest block number that has been certified by the associated Mithril certificate
     pub latest_block_number: BlockNumber,
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub security_parameter: BlockNumberOffset,
 }
 
 #[cfg_attr(
@@ -65,6 +68,7 @@ pub struct VerifiedCardanoTransactionsV2 {
     merkle_root: String,
     certified_transactions: Vec<CardanoTransactionMessagePart>,
     latest_block_number: BlockNumber,
+    security_parameter: BlockNumberOffset,
 }
 
 impl VerifiedCardanoTransactionsV2 {
@@ -95,6 +99,11 @@ impl VerifiedCardanoTransactionsV2 {
     pub fn latest_certified_block_number(&self) -> BlockNumber {
         self.latest_block_number
     }
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    pub fn security_parameter(&self) -> BlockNumberOffset {
+        self.security_parameter
+    }
 }
 
 impl CardanoTransactionsProofsV2Message {
@@ -104,12 +113,14 @@ impl CardanoTransactionsProofsV2Message {
         certified_transactions: Option<MkSetProofMessagePart<CardanoTransactionMessagePart>>,
         non_certified_transactions: Vec<String>,
         latest_block_number: BlockNumber,
+        security_parameter: BlockNumberOffset,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
             latest_block_number,
+            security_parameter,
         }
     }
 
@@ -140,6 +151,7 @@ impl CardanoTransactionsProofsV2Message {
             merkle_root,
             certified_transactions: certified_transactions.items.clone(),
             latest_block_number: self.latest_block_number,
+            security_parameter: self.security_parameter,
         })
     }
 }

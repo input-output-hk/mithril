@@ -3,8 +3,8 @@ use std::sync::Arc;
 use mithril_aggregator::{ServeCommandConfiguration, services::ProverService};
 use mithril_common::{
     entities::{
-        BlockNumber, BlockRange, CardanoBlocksTransactionsSigningConfig, ChainPoint, Epoch,
-        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        BlockNumber, BlockNumberOffset, BlockRange, CardanoBlocksTransactionsSigningConfig,
+        ChainPoint, Epoch, ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     temp_dir,
@@ -37,7 +37,7 @@ async fn prove_blocks_transactions() {
         ),
         data_stores_directory: get_test_dir("prove_blocks_transactions"),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(5),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
@@ -119,7 +119,11 @@ async fn prove_blocks_transactions() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(164)),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(164),
+                BlockNumberOffset(0)
+            ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -161,7 +165,11 @@ async fn prove_blocks_transactions() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(184)),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(184),
+                BlockNumberOffset(0)
+            ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

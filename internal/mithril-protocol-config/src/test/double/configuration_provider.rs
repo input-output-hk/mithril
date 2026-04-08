@@ -72,8 +72,8 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig,
-        Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
     };
 
     use crate::{
@@ -94,11 +94,11 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(10),
-                    security_parameter: BlockNumber(100),
+                    security_parameter: BlockNumberOffset(100),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(11),
-                    security_parameter: BlockNumber(111),
+                    security_parameter: BlockNumberOffset(111),
                 }),
             },
         };
@@ -113,11 +113,11 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(20),
-                    security_parameter: BlockNumber(200),
+                    security_parameter: BlockNumberOffset(200),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(22),
-                    security_parameter: BlockNumber(222),
+                    security_parameter: BlockNumberOffset(222),
                 }),
             },
         };
@@ -132,11 +132,11 @@ mod tests {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig {
                     step: BlockNumber(30),
-                    security_parameter: BlockNumber(300),
+                    security_parameter: BlockNumberOffset(300),
                 }),
                 cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
                     step: BlockNumber(33),
-                    security_parameter: BlockNumber(333),
+                    security_parameter: BlockNumberOffset(333),
                 }),
             },
         };

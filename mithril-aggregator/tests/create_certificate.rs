@@ -3,7 +3,7 @@ mod test_extensions;
 use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon,
         CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty, TimePoint,
     },
@@ -34,11 +34,11 @@ async fn create_certificate() {
         ),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(30),
         }),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumber(0),
+            security_parameter: BlockNumberOffset(0),
             step: BlockNumber(24),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
@@ -197,7 +197,11 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(167)),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(167),
+                BlockNumberOffset(0)
+            ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -260,7 +264,11 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(143)),
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(143),
+                BlockNumberOffset(0)
+            ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

@@ -1,5 +1,6 @@
 use crate::entities::{
-    BlockNumber, BlockRange, CardanoBlockWithTransactions, CardanoTransaction, SlotNumber,
+    BlockNumber, BlockNumberOffset, BlockRange, CardanoBlockWithTransactions, CardanoTransaction,
+    SlotNumber,
 };
 
 /// Builder to easily build transactions with consistent values.
@@ -218,7 +219,7 @@ impl CardanoTransactionsBuilder {
         let mut transactions_numbers: Vec<_> = (0..transactions_count)
             .map(|i| i + Self::FIRST_TRANSACTION_NUMBER)
             .collect();
-        let mut block_number_offset = 0;
+        let mut block_number_offset = BlockNumberOffset(0);
         let mut current_block_range_index = 0;
 
         while match fill_behavior {

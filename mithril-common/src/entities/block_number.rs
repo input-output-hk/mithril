@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
 
+use crate::entities::BlockNumberOffset;
 use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_div_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper,
     impl_rem_to_wrapper, impl_sub_to_wrapper,
@@ -54,6 +55,28 @@ impl_mul_to_wrapper!(BlockNumber, u64);
 impl_div_to_wrapper!(BlockNumber, u64);
 impl_rem_to_wrapper!(BlockNumber, u64);
 impl_partial_eq_to_wrapper!(BlockNumber, u64);
+
+impl Add<BlockNumberOffset> for BlockNumber {
+    type Output = Self;
+
+    fn add(self, rhs: BlockNumberOffset) -> Self::Output {
+        self + *rhs
+    }
+}
+
+impl AddAssign<BlockNumberOffset> for BlockNumber {
+    fn add_assign(&mut self, rhs: BlockNumberOffset) {
+        *self = *self + rhs;
+    }
+}
+
+impl Sub<BlockNumberOffset> for BlockNumber {
+    type Output = Self;
+
+    fn sub(self, rhs: BlockNumberOffset) -> Self::Output {
+        self - *rhs
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -200,5 +223,29 @@ mod tests {
         assert_eq!(10, &BlockNumber(10));
         assert_eq!(&11, BlockNumber(11));
         assert_eq!(&12, &BlockNumber(12));
+    }
+
+    #[test]
+    fn test_add_block_number_offset_to_block_number() {
+        assert_eq!(BlockNumber(4), BlockNumber(1) + BlockNumberOffset(3));
+    }
+
+    #[test]
+    fn test_sub_block_number_offset_from_block_number() {
+        assert_eq!(BlockNumber(1), BlockNumber(4) - BlockNumberOffset(3));
+    }
+
+    #[test]
+    fn test_add_asign_block_number_offset() {
+        test_op_assign!(BlockNumber(1), +=, BlockNumberOffset(3) => BlockNumber(4));
+        test_op_assign!(BlockNumber(1), +=, BlockNumberOffset(3) => &BlockNumber(4));
+        test_op_assign!(BlockNumber(1), +=, 3 => BlockNumber(4));
+        test_op_assign!(BlockNumber(1), +=, &3 => BlockNumber(4));
+    }
+
+    #[test]
+    fn test_add_asign_block_number_to_block_number_offset() {
+        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => BlockNumberOffset(4));
+        test_op_assign!(BlockNumberOffset(1), +=, BlockNumber(3) => &BlockNumberOffset(4));
     }
 }

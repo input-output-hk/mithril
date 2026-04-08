@@ -3,7 +3,8 @@
 use serde::Deserialize;
 
 use mithril_common::entities::{
-    BlockNumber, CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
+    BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch, SignedEntityType,
+    SignedEntityTypeDiscriminants,
 };
 
 use crate::sqlite::HydrationError;
@@ -90,6 +91,7 @@ impl Hydrator {
                 struct CardanoBlocksTransactionsBeacon {
                     epoch: Epoch,
                     block_number: BlockNumber,
+                    block_number_offset: BlockNumberOffset,
                 }
 
                 let beacon: CardanoBlocksTransactionsBeacon = serde_json::from_str(beacon_str)
@@ -98,7 +100,11 @@ impl Hydrator {
                             "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
                         ))
                     })?;
-                SignedEntityType::CardanoBlocksTransactions(beacon.epoch, beacon.block_number)
+                SignedEntityType::CardanoBlocksTransactions(
+                    beacon.epoch,
+                    beacon.block_number,
+                    beacon.block_number_offset,
+                )
             }
             SignedEntityTypeDiscriminants::CardanoDatabase => {
                 let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
@@ -132,7 +138,11 @@ mod tests {
 
     #[test]
     fn hydrate_cardano_blocks_transactions_signed_entity_type() {
-        let expected = SignedEntityType::CardanoBlocksTransactions(Epoch(37), BlockNumber(79));
+        let expected = SignedEntityType::CardanoBlocksTransactions(
+            Epoch(37),
+            BlockNumber(79),
+            BlockNumberOffset(5),
+        );
         let signed_entity = Hydrator::hydrate_signed_entity_type(
             SignedEntityTypeDiscriminants::CardanoBlocksTransactions.index(),
             &expected.get_json_beacon().unwrap(),

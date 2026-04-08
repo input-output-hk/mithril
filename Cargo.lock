@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-block"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -1051,7 +1051,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction-v2"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -3962,7 +3962,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.41"
+version = "0.8.42"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4026,7 +4026,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4066,7 +4066,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.18"
+version = "0.4.19"
 dependencies = [
  "anyhow",
  "axum",
@@ -4169,7 +4169,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.2"
+version = "0.14.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4208,7 +4208,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4265,7 +4265,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.62"
+version = "0.6.63"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4405,7 +4405,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.70"
+version = "0.2.71"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4423,7 +4423,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-protocol-config"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4500,7 +4500,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "anyhow",
  "async-trait",

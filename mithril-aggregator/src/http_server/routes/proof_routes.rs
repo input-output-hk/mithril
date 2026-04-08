@@ -105,7 +105,9 @@ mod handlers {
 
     use mithril_common::{
         StdResult,
-        entities::{CardanoBlocksTransactionsSnapshot, CardanoTransactionsSnapshot},
+        entities::{
+            BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoTransactionsSnapshot,
+        },
         messages::{
             CardanoBlocksProofsMessage, CardanoTransactionsProofsMessage,
             CardanoTransactionsProofsV2Message,
@@ -359,11 +361,16 @@ mod handlers {
             None => (None, transaction_hashes),
         };
 
+        let security_parameter = BlockNumberOffset::from(
+            signed_entity.artifact.block_number_tip - signed_entity.artifact.block_number_signed,
+        );
+
         Ok(CardanoTransactionsProofsV2Message::new(
             &signed_entity.certificate_id,
             certified_transactions,
             non_certified_transactions,
             signed_entity.artifact.block_number_signed,
+            security_parameter,
         ))
     }
 
@@ -390,11 +397,16 @@ mod handlers {
             None => (None, block_hashes),
         };
 
+        let security_parameter = BlockNumberOffset::from(
+            signed_entity.artifact.block_number_tip - signed_entity.artifact.block_number_signed,
+        );
+
         Ok(CardanoBlocksProofsMessage::new(
             &signed_entity.certificate_id,
             certified_blocks,
             non_certified_blocks,
             signed_entity.artifact.block_number_signed,
+            security_parameter,
         ))
     }
 }
