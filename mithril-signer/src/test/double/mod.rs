@@ -4,6 +4,8 @@
 
 mod dummies;
 #[cfg(test)]
+pub mod mocks;
+#[cfg(test)]
 mod signer_registration_publisher;
 #[cfg(test)]
 mod signer_registration_retriever;

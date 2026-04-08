@@ -88,14 +88,11 @@ impl InMemoryChainDataStoreBuilder {
         self
     }
 
-    /// Computes the block ranges roots, new and legacy, up to the block range that includes the given
-    /// block number and based on the blocks given in [Self::with_blocks_and_transactions]
+    /// Computes the block ranges roots, new and legacy, for all block ranges ending at or below the
+    /// given block number, and based on the blocks given in [Self::with_blocks_and_transactions]
     ///
     /// Replace any existing block ranges roots and legacy block ranges roots.
-    pub async fn compute_block_ranges(
-        mut self,
-        up_to_block_range_that_include: BlockNumber,
-    ) -> Self {
+    pub async fn compute_block_ranges(mut self, up_to_block_range_end: BlockNumber) -> Self {
         // Leverage tested `BlockRangeImporter` to compute the block ranges roots.
         let worker_store = Arc::new(InMemoryChainDataStore {
             blocks_with_txs: Mutex::new(self.blocks_with_txs.clone()),
@@ -105,8 +102,8 @@ impl InMemoryChainDataStoreBuilder {
 
         let discard_logger = Logger::root(slog::Discard, slog::o!());
         let importer = BlockRangeImporter::new(worker_store.clone(), discard_logger);
-        importer.run(up_to_block_range_that_include).await.unwrap();
-        importer.run_legacy(up_to_block_range_that_include).await.unwrap();
+        importer.run(up_to_block_range_end).await.unwrap();
+        importer.run_legacy(up_to_block_range_end).await.unwrap();
 
         self.block_range_roots = worker_store.get_all_block_range_root().await;
         self.legacy_block_range_roots = worker_store.get_all_legacy_block_range_root().await;
@@ -341,6 +338,13 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for InMemoryChainDataStore {
             .map(|r| (r.range, r.merkle_root))
             .collect();
         Ok(Box::new(result.into_iter()))
+    }
+
+    async fn retrieve_block_ranges_nodes(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        Ok(self.get_blocks_with_transactions_in_ranges(&[range]).await)
     }
 }
 

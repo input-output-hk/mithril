@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use mockall::mock;
+use std::collections::BTreeSet;
+use std::ops::Range;
 
 use mithril_cardano_node_chain::{
     chain_observer::{ChainObserver, ChainObserverError},
@@ -11,7 +13,10 @@ use mithril_common::{
     crypto_helper::{
         KesPeriod, MKMap, MKMapNode, MKTreeNode, MKTreeStorer, ProtocolGenesisVerificationKey,
     },
-    entities::{BlockNumber, BlockRange, Certificate, ChainPoint, Epoch, StakeDistribution},
+    entities::{
+        BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, Certificate, ChainPoint, Epoch,
+        StakeDistribution,
+    },
     signable_builder::BlockRangeRootRetriever,
 };
 use mithril_persistence::store::StakeStorer;
@@ -93,6 +98,11 @@ mock! {
             &'a self,
             up_to_beacon: BlockNumber,
         ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
+
+        async fn retrieve_block_ranges_nodes(
+            &self,
+            _range: Range<BlockNumber>,
+        ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>>;
 
         async fn compute_merkle_map_from_block_range_roots(
             &self,

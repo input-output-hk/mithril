@@ -380,7 +380,6 @@ mod tests {
     use std::collections::BTreeSet;
     use std::{path::Path, sync::Arc};
 
-    use mockall::mock;
     use mockall::predicate::eq;
     use tokio::sync::RwLock;
 
@@ -396,12 +395,11 @@ mod tests {
     };
     use mithril_common::{
         api_version::APIVersionProvider,
-        crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
-        entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
+        crypto_helper::MKTreeStoreInMemory,
+        entities::{BlockNumber, Epoch, SignedEntityTypeDiscriminants},
         signable_builder::{
-            BlockRangeRootRetriever, CardanoBlocksTransactionsSignableBuilder,
-            CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
-            LegacyBlockRangeRootRetriever, MithrilSignableBuilderService,
+            CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
+            CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
         test::{
@@ -429,54 +427,14 @@ mod tests {
         SignerSignedEntityConfigProvider,
     };
     use crate::test::TestLogger;
+    use crate::test::double::mocks::{
+        MockBlockRangeRootRetriever, MockFakeTimePointProvider, MockLegacyBlockRangeRootRetriever,
+    };
     use crate::test::double::{DumbSignersRegistrationRetriever, SpySignerRegistrationPublisher};
 
     use super::*;
 
     const DIGESTER_RESULT: &str = "a digest";
-
-    mock! {
-        pub FakeTimePointProvider { }
-
-        #[async_trait]
-        impl TickerService for FakeTimePointProvider {
-            async fn get_current_time_point(&self) -> StdResult<TimePoint>;
-        }
-    }
-
-    mock! {
-        pub BlockRangeRootRetriever<S: MKTreeStorer> { }
-
-        #[async_trait]
-        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetriever<S> {
-            async fn retrieve_block_range_roots<'a>(
-                &'a self,
-                up_to_beacon: BlockNumber,
-            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
-
-            async fn compute_merkle_map_from_block_range_roots(
-                &self,
-                up_to_beacon: BlockNumber,
-            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange,S>, S>>;
-        }
-    }
-
-    mock! {
-        pub LegacyBlockRangeRootRetriever<S: MKTreeStorer> { }
-
-        #[async_trait]
-        impl<S: MKTreeStorer> LegacyBlockRangeRootRetriever<S> for LegacyBlockRangeRootRetriever<S> {
-            async fn retrieve_block_range_roots<'a>(
-                &'a self,
-                up_to_beacon: BlockNumber,
-            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
-
-            async fn compute_merkle_map_from_block_range_roots(
-                &self,
-                up_to_beacon: BlockNumber,
-            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange,S>, S>>;
-        }
-    }
 
     async fn init_services() -> SignerDependencyContainer {
         let logger = TestLogger::stdout();

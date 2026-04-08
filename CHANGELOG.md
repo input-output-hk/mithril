@@ -35,6 +35,7 @@ As a minor extension, we have adopted a slightly different versioning convention
     - Support for computing and sending signatures for the `CardanoBlocksTransactions` signed entity type in the signer.
     - Support for verifying and aggregating signatures for the `CardanoBlocksTransactions` signed entity type in the aggregator.
     - Support for computing proofs of inclusions for a list of Cardano blocks or transactions hashes in the aggregator; the proof includes extra metadata about the included blocks or transactions.
+    - Support for signing with an interval lower than 15 blocks.
 
 - **UNSTABLE**:
   - Support for **DMQ consumer deduplication** to prevent processing the same message multiple times upon reconnection to the DMQ server.

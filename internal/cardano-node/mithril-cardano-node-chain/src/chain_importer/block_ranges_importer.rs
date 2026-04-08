@@ -27,17 +27,21 @@ impl BlockRangeImporter {
         }
     }
 
-    /// Compute and store all block ranges up to the provided block number for Cardano Blocks Transactions.
-    pub async fn run(&self, until: BlockNumber) -> StdResult<()> {
+    /// Compute and store Merkle roots for all missing block ranges whose end block is at or below
+    /// the given block number.
+    ///
+    /// Computation resumes from the end of the latest stored block range, or from block `0` if
+    /// none exists.
+    pub async fn run(&self, up_to_block_range_end: BlockNumber) -> StdResult<()> {
         let block_ranges = match self.transaction_store.get_highest_block_range().await?.map(
             |highest_stored_block_range| {
                 BlockRange::all_block_ranges_in(
-                    BlockRange::start(highest_stored_block_range.end)..=(until),
+                    BlockRange::start(highest_stored_block_range.end)..=(up_to_block_range_end),
                 )
             },
         ) {
             // No block range root stored yet, start from the beginning
-            None => BlockRange::all_block_ranges_in(BlockNumber(0)..=(until)),
+            None => BlockRange::all_block_ranges_in(BlockNumber(0)..=(up_to_block_range_end)),
             // Not enough block to form at least one block range
             Some(ranges) if ranges.is_empty() => return Ok(()),
             Some(ranges) => ranges,
@@ -88,17 +92,21 @@ impl BlockRangeImporter {
             .await
     }
 
-    /// Compute and store all block ranges up to the provided block number for Cardano Transactions.
-    pub async fn run_legacy(&self, until: BlockNumber) -> StdResult<()> {
+    /// Compute and store Merkle roots for all missing legacy block ranges whose end block is at or
+    /// below the given block number.
+    ///
+    /// Computation resumes from the end of the latest stored legacy block range, or from block `0`
+    /// if none exists.
+    pub async fn run_legacy(&self, up_to_block_range_end: BlockNumber) -> StdResult<()> {
         let block_ranges = match self.transaction_store.get_highest_legacy_block_range().await?.map(
             |highest_stored_block_range| {
                 BlockRange::all_block_ranges_in(
-                    BlockRange::start(highest_stored_block_range.end)..=(until),
+                    BlockRange::start(highest_stored_block_range.end)..=(up_to_block_range_end),
                 )
             },
         ) {
             // No block range root stored yet, start from the beginning
-            None => BlockRange::all_block_ranges_in(BlockNumber(0)..=(until)),
+            None => BlockRange::all_block_ranges_in(BlockNumber(0)..=(up_to_block_range_end)),
             // Not enough block to form at least one block range
             Some(ranges) if ranges.is_empty() => return Ok(()),
             Some(ranges) => ranges,
@@ -156,6 +164,7 @@ mod tests {
     use mithril_common::entities::{
         BlockRangesSequence, CardanoBlockWithTransactions, CardanoTransaction, SlotNumber,
     };
+    use mithril_common::test::crypto_helper::MKTreeTestExtension;
 
     use crate::chain_importer::MockChainDataStore;
     use crate::test::TestLogger;
@@ -191,10 +200,7 @@ mod tests {
                 .iter()
                 .flat_map(|br| br.clone().into_mk_tree_node())
                 .collect();
-            MKTree::<MKTreeStoreInMemory>::new_from_iter(nodes)
-                .unwrap()
-                .compute_root()
-                .unwrap()
+            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(nodes).unwrap()
         }
 
         #[tokio::test]
@@ -429,10 +435,7 @@ mod tests {
                 .iter()
                 .flat_map(|br| br.clone().into_transactions())
                 .collect();
-            MKTree::<MKTreeStoreInMemory>::new(&tx)
-                .unwrap()
-                .compute_root()
-                .unwrap()
+            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(&tx).unwrap()
         }
 
         #[tokio::test]

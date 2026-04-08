@@ -38,7 +38,7 @@ use mithril_common::{
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 
 use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
-use crate::test_extensions::utilities::{async_wait, tx_hash};
+use crate::test_extensions::utilities::{async_wait, block_hash, tx_hash};
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
 #[macro_export]
@@ -353,9 +353,8 @@ impl RuntimeTester {
             .map(|index_number| {
                 let block_number = expected_block_number - increment + index_number;
                 let slot_number = expected_slot_number - increment + index_number;
-                let block_hash = format!("block_hash-{block_number}");
                 ScannedBlock::new(
-                    block_hash,
+                    block_hash(*block_number),
                     block_number,
                     slot_number,
                     vec![tx_hash(*block_number, 1)],

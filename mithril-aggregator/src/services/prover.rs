@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::ops::{Range, RangeToInclusive};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -60,9 +61,9 @@ pub trait BlocksTransactionsRetriever: Sync + Send {
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Get all [CardanoBlockTransactionMkTreeNode] in the given block ranges
-    async fn get_all_mk_nodes_by_block_ranges(
+    async fn get_all_mk_nodes_by_ranges_of_block_numbers(
         &self,
-        block_ranges: Vec<BlockRange>,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>>;
 }
 
@@ -90,14 +91,14 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         }
     }
 
-    async fn get_all_nodes_for_block_ranges(
+    async fn get_all_nodes_in_ranges_and_group_them_by_block_ranges(
         &self,
-        block_ranges: Vec<BlockRange>,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<HashMap<BlockRange, BTreeSet<CardanoBlockTransactionMkTreeNode>>> {
-        let mut block_ranges_map = HashMap::with_capacity(block_ranges.len());
+        let mut block_ranges_map = HashMap::with_capacity(ranges_of_block.len());
         let nodes = self
             .blocks_transactions_retriever
-            .get_all_mk_nodes_by_block_ranges(block_ranges)
+            .get_all_mk_nodes_by_ranges_of_block_numbers(ranges_of_block)
             .await?;
 
         for node in nodes {
@@ -138,6 +139,7 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
 
     async fn compute_proof<T>(
         &self,
+        up_to: BlockNumber,
         items_to_prove: Vec<T>,
         extract_block_number: fn(&T) -> BlockNumber,
     ) -> StdResult<Option<MkSetProof<T>>>
@@ -151,14 +153,15 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
         // 1 - Compute the set of block ranges with the items to prove
         let nodes_to_prove: Vec<CardanoBlockTransactionMkTreeNode> =
             items_to_prove.iter().cloned().map(Into::into).collect();
-        let block_ranges: BTreeSet<_> = items_to_prove
-            .iter()
-            .map(|t| BlockRange::from_block_number(extract_block_number(t)))
-            .collect();
 
         // 2 - Fetch all nodes contained in the block ranges
+        let ranges_to_retrieve = compute_ranges_of_block_number_to_retrieve(
+            &items_to_prove,
+            extract_block_number,
+            ..=up_to,
+        );
         let nodes_per_block_ranges = self
-            .get_all_nodes_for_block_ranges(block_ranges.into_iter().collect())
+            .get_all_nodes_in_ranges_and_group_them_by_block_ranges(ranges_to_retrieve)
             .await?;
 
         // 3 - Fetch a cached Merkle map for the block ranges and replace its block ranges leaves with the fetched nodes
@@ -186,7 +189,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
             .get_block_by_hashes(block_hashes.to_vec(), up_to)
             .await?;
 
-        self.compute_proof(blocks, |b| b.block_number).await
+        self.compute_proof(up_to, blocks, |b| b.block_number).await
     }
 
     async fn compute_transactions_proofs(
@@ -199,7 +202,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
             .get_transactions_by_hashes(transaction_hashes.to_vec(), up_to)
             .await?;
 
-        self.compute_proof(transactions, |t| t.block_number).await
+        self.compute_proof(up_to, transactions, |t| t.block_number).await
     }
 
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {
@@ -243,15 +246,43 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
     }
 }
 
+fn compute_ranges_of_block_number_to_retrieve<T>(
+    items_with_block_number: &[T],
+    extract_block_number: fn(&T) -> BlockNumber,
+    up_to: RangeToInclusive<BlockNumber>,
+) -> Vec<Range<BlockNumber>> {
+    // Note: Range<T> does not implement Ord and dedup only remove consecutive duplicates.
+    let ordered_block_numbers: BTreeSet<_> =
+        items_with_block_number.iter().map(extract_block_number).collect();
+    let mut ranges: Vec<_> = ordered_block_numbers
+        .into_iter()
+        .filter_map(|n| {
+            up_to
+                .contains(&n)
+                .then_some(BlockRange::from_block_number(n))
+                .map(|block_range| block_range.start..block_range.end.min(up_to.end + 1))
+                .filter(|r| !r.is_empty())
+        })
+        .collect();
+    ranges.dedup();
+
+    ranges
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
 
+    use mithril_cardano_node_chain::chain_importer::ChainDataStore;
     use mithril_cardano_node_chain::test::double::InMemoryChainDataStore;
-    use mithril_common::crypto_helper::MKTreeStoreInMemory;
-    use mithril_common::entities::CardanoBlockWithTransactions;
-    use mithril_common::test::builder::CardanoTransactionsBuilder;
-    use mithril_common::test::mock_extensions::MockBuilder;
+    use mithril_common::{
+        crypto_helper::MKTreeStoreInMemory,
+        entities::{CardanoBlockWithTransactions, SlotNumber},
+        test::{
+            builder::CardanoTransactionsBuilder, crypto_helper::MKMapTestExtension,
+            mock_extensions::MockBuilder,
+        },
+    };
 
     use crate::test::TestLogger;
     use crate::test::double::mocks::MockBlockRangeRootRetriever;
@@ -278,12 +309,12 @@ mod tests {
             Ok(transactions.into_iter().filter(|b| b.block_number <= up_to).collect())
         }
 
-        async fn get_all_mk_nodes_by_block_ranges(
+        async fn get_all_mk_nodes_by_ranges_of_block_numbers(
             &self,
-            block_ranges: Vec<BlockRange>,
+            ranges_of_block: Vec<Range<BlockNumber>>,
         ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>> {
             Ok(self
-                .get_blocks_with_transactions_in_block_ranges(&block_ranges)
+                .get_blocks_with_transactions_in_ranges(&ranges_of_block)
                 .await
                 .into_iter()
                 .collect())
@@ -291,13 +322,13 @@ mod tests {
     }
 
     async fn setup_prover_for_test<S: MKTreeStorer>(
-        stored_blocks: Vec<CardanoBlockWithTransactions>,
-        block_ranges_available_up_to: BlockNumber,
+        stored_blocks: &[CardanoBlockWithTransactions],
+        block_ranges_ending_up_to: BlockNumber,
     ) -> MithrilProverService<S> {
         let repository = Arc::new(
             InMemoryChainDataStore::builder()
-                .with_blocks_and_transactions(&stored_blocks)
-                .compute_block_ranges(block_ranges_available_up_to)
+                .with_blocks_and_transactions(stored_blocks)
+                .compute_block_ranges(block_ranges_ending_up_to)
                 .await
                 .build(),
         );
@@ -311,6 +342,42 @@ mod tests {
         )
     }
 
+    fn compute_certificate_merkle_root(
+        leaves: &[CardanoBlockWithTransactions],
+        max_block_to_include: BlockNumber,
+    ) -> String {
+        let filtered_leaves: Vec<_> = leaves
+            .iter()
+            .filter(|t| t.block_number <= max_block_to_include)
+            .cloned()
+            .collect();
+        let map =
+            MKMap::<_, _, MKTreeStoreInMemory>::from_blocks_with_transactions(&filtered_leaves)
+                .unwrap();
+        let merkle_root = map.compute_root().unwrap();
+        merkle_root.to_hex()
+    }
+
+    fn into_blocks(blocks: &[CardanoBlockWithTransactions]) -> Vec<CardanoBlock> {
+        blocks.iter().cloned().map(Into::into).collect()
+    }
+
+    fn into_transactions(blocks: &[CardanoBlockWithTransactions]) -> Vec<CardanoTransaction> {
+        blocks
+            .iter()
+            .cloned()
+            .flat_map(|block| block.into_transactions())
+            .collect()
+    }
+
+    fn transactions_hashes(transactions: &[CardanoTransaction]) -> Vec<TransactionHash> {
+        transactions.iter().map(|t| t.transaction_hash.clone()).collect()
+    }
+
+    fn blocks_hashes(blocks: &[CardanoBlock]) -> Vec<BlockHash> {
+        blocks.iter().map(|t| t.block_hash.clone()).collect()
+    }
+
     fn filter_items_for_indices<T: Clone>(indices: &[usize], items: &[T]) -> Vec<T> {
         items
             .iter()
@@ -320,28 +387,288 @@ mod tests {
             .collect()
     }
 
+    mod compute_ranges_of_block_number_to_retrieve {
+        use super::*;
+
+        #[test]
+        fn for_empty_item_list() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                Vec::<Range<BlockNumber>>::new()
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_entirely_contained_in_the_first_block_range() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 5, 2],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15)]
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_contained_in_two_consecutive_block_ranges() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 16, 2, 15, 14, 11, 29],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15), BlockNumber(15)..BlockNumber(30)]
+            );
+        }
+
+        #[test]
+        fn for_unordered_list_contained_in_two_non_consecutive_block_ranges() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[1, 44, 2, 30, 14, 11, 31],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10_000)
+                ),
+                vec![BlockNumber(0)..BlockNumber(15), BlockNumber(30)..BlockNumber(45)]
+            );
+        }
+
+        #[test]
+        fn when_max_end_boundary_is_below_all_blocks() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[19, 15, 12],
+                    |&x| BlockNumber(x),
+                    ..=BlockNumber(10)
+                ),
+                Vec::<Range<BlockNumber>>::new()
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_equal_a_block_range_start() {
+            let block_range_start = BlockRange::from_block_number(BlockRange::LENGTH * 2).start;
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[block_range_start],
+                    |&x| x,
+                    ..=block_range_start
+                ),
+                [BlockNumber(30)..BlockNumber(31)]
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_equal_a_block_range_end() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[15, 31, 29, 28, 30],
+                    |&x| BlockNumber(x),
+                    ..=BlockRange::from_block_number(BlockRange::LENGTH).end
+                ),
+                vec![BlockNumber(15)..BlockNumber(30), BlockNumber(30)..BlockNumber(31)]
+            );
+        }
+
+        #[test]
+        fn when_up_to_included_is_not_a_block_range_boundary() {
+            assert_eq!(
+                compute_ranges_of_block_number_to_retrieve(
+                    &[15, 31, 29, 28, 30],
+                    |&x| BlockNumber(x),
+                    ..=BlockRange::from_block_number(BlockRange::LENGTH).end - 1
+                ),
+                vec![BlockNumber(15)..BlockNumber(30)]
+            );
+        }
+    }
+
+    mod partial_block_ranges_proof {
+        use super::*;
+
+        #[tokio::test]
+        async fn compute_proof_when_last_range_is_partial_and_additional_block_range_were_stored_after_cache_computation()
+         {
+            let initial_blocks_with_txs = vec![
+                CardanoBlockWithTransactions::new(
+                    "block_hash-30",
+                    BlockRange::LENGTH * 2,
+                    SlotNumber(100),
+                    vec!["tx_hash-1"],
+                ),
+                CardanoBlockWithTransactions::new(
+                    "block_hash-48",
+                    BlockRange::LENGTH * 3 + 3,
+                    SlotNumber(101),
+                    vec!["tx_hash-2"],
+                ),
+            ];
+            let additional_blocks_with_txs = vec![CardanoBlockWithTransactions::new(
+                "block_hash-50",
+                BlockRange::LENGTH * 3 + 5,
+                SlotNumber(102),
+                vec!["tx_hash-3"],
+            )];
+            let transactions: Vec<_> = into_transactions(&initial_blocks_with_txs);
+            // Transaction in a complete range
+            let transactions_to_prove = filter_items_for_indices(&[1], &transactions);
+            let beacon_to_prove = BlockRange::LENGTH * 3 + 3;
+            // Partial block ranges are not pre-computed and stored in the database
+            let stored_block_ranges_max_end = BlockRange::LENGTH * 3;
+
+            let repository = Arc::new(
+                InMemoryChainDataStore::builder()
+                    .with_blocks_and_transactions(&initial_blocks_with_txs)
+                    .compute_block_ranges(stored_block_ranges_max_end)
+                    .await
+                    .build(),
+            );
+            let mk_map_pool_size = 1;
+            let prover = MithrilProverService::<MKTreeStoreInMemory>::new(
+                repository.clone(),
+                repository.clone(),
+                mk_map_pool_size,
+                TestLogger::stdout(),
+            );
+            prover.compute_cache(beacon_to_prove).await.unwrap();
+            repository
+                .store_blocks_and_transactions(additional_blocks_with_txs.clone())
+                .await
+                .unwrap();
+
+            let transactions_set_proof = prover
+                .compute_transactions_proofs(
+                    beacon_to_prove,
+                    &transactions_hashes(&transactions_to_prove),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
+            transactions_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(
+                &[initial_blocks_with_txs, additional_blocks_with_txs].concat(),
+                beacon_to_prove,
+            );
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
+        }
+
+        // Note: In that case the last block range will be retrieved from the cached merkle map and not substituted
+        #[tokio::test]
+        async fn compute_proof_when_last_block_range_is_partial_for_transactions_only_in_complete_ranges()
+         {
+            let blocks_with_txs = vec![
+                CardanoBlockWithTransactions::new(
+                    "block_hash-30",
+                    BlockRange::LENGTH * 2,
+                    SlotNumber(100),
+                    vec!["tx_hash-1"],
+                ),
+                CardanoBlockWithTransactions::new(
+                    "block_hash-48",
+                    BlockRange::LENGTH * 3 + 3,
+                    SlotNumber(100),
+                    vec!["tx_hash-2"],
+                ),
+            ];
+            let transactions: Vec<_> = into_transactions(&blocks_with_txs);
+            let transactions_to_prove = filter_items_for_indices(&[1], &transactions);
+            let beacon_to_prove = BlockRange::LENGTH * 3 + 3;
+            // Partial block ranges are not pre-computed and stored in the database
+            let stored_block_ranges_max_end = BlockRange::LENGTH * 3;
+
+            let prover = setup_prover_for_test::<MKTreeStoreInMemory>(
+                &blocks_with_txs,
+                stored_block_ranges_max_end,
+            )
+            .await;
+            prover.compute_cache(beacon_to_prove).await.unwrap();
+
+            let transactions_set_proof = prover
+                .compute_transactions_proofs(
+                    beacon_to_prove,
+                    &transactions_hashes(&transactions_to_prove),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
+            transactions_set_proof.verify().unwrap();
+            let expected_merkle_root =
+                compute_certificate_merkle_root(&blocks_with_txs, beacon_to_prove);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
+        }
+
+        // Note: in that case the last and partial range will be recomputed and substituted to its value in the cached merkle map
+        #[tokio::test]
+        async fn compute_proof_when_last_block_range_is_partial_for_at_least_one_transaction_the_last_and_partial_range()
+         {
+            let blocks_with_txs = vec![
+                CardanoBlockWithTransactions::new(
+                    "block_hash-30",
+                    BlockRange::LENGTH * 2,
+                    SlotNumber(100),
+                    vec!["tx_hash-1"],
+                ),
+                CardanoBlockWithTransactions::new(
+                    "block_hash-48",
+                    BlockRange::LENGTH * 3 + 3,
+                    SlotNumber(100),
+                    vec!["tx_hash-2"],
+                ),
+            ];
+            let transactions: Vec<_> = into_transactions(&blocks_with_txs);
+            let transactions_to_prove = filter_items_for_indices(&[0], &transactions);
+            let beacon_to_prove = BlockRange::LENGTH * 3 + 3;
+            // Partial block ranges are not pre-computed and stored in the database
+            let stored_block_ranges_max_end = BlockRange::LENGTH * 3;
+
+            let prover = setup_prover_for_test::<MKTreeStoreInMemory>(
+                &blocks_with_txs,
+                stored_block_ranges_max_end,
+            )
+            .await;
+            prover.compute_cache(beacon_to_prove).await.unwrap();
+
+            let transactions_set_proof = prover
+                .compute_transactions_proofs(
+                    beacon_to_prove,
+                    &transactions_hashes(&transactions_to_prove),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
+            transactions_set_proof.verify().unwrap();
+            let expected_merkle_root =
+                compute_certificate_merkle_root(&blocks_with_txs, beacon_to_prove);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
+        }
+    }
+
     mod blocks_proof {
         use super::*;
 
-        fn into_blocks(blocks: &[CardanoBlockWithTransactions]) -> Vec<CardanoBlock> {
-            blocks.iter().cloned().map(Into::into).collect()
-        }
-
-        fn blocks_hashes(blocks: &[CardanoBlock]) -> Vec<BlockHash> {
-            blocks.iter().map(|t| t.block_hash.clone()).collect()
-        }
-
         #[tokio::test]
         async fn compute_proof_for_one_set_of_three_certified_blocks() {
-            let blocks_with_tx = CardanoTransactionsBuilder::new()
+            let blocks_with_txs = CardanoTransactionsBuilder::new()
                 .max_transactions_per_block(1)
                 .blocks_per_block_range(3)
                 .build_blocks_for_block_ranges(5);
-            let blocks = into_blocks(&blocks_with_tx);
+            let blocks = into_blocks(&blocks_with_txs);
             let blocks_to_prove = filter_items_for_indices(&[1, 2, 4], &blocks);
-            let beacon = blocks_with_tx.last().unwrap().block_number;
+            let beacon = blocks_with_txs.last().unwrap().block_number;
 
-            let prover = setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_tx, beacon).await;
+            let prover =
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -352,6 +679,8 @@ mod tests {
 
             assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
             blocks_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(blocks_set_proof.merkle_root(), expected_merkle_root)
         }
 
         #[tokio::test]
@@ -367,7 +696,7 @@ mod tests {
             let blocks_to_prove = filter_items_for_indices(&[10, 14], &blocks);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -387,7 +716,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -406,11 +735,11 @@ mod tests {
                 .build_blocks_for_block_ranges(5);
             let blocks = into_blocks(&blocks_with_txs);
             // Only certify blocks for the first three ranges
-            let beacon = blocks_with_txs[3 * 3].block_number;
+            let beacon = blocks_with_txs[3 * 3].block_number - 1;
             let blocks_to_prove = filter_items_for_indices(&[1, 4, 8], &blocks);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let blocks_set_proof = prover
@@ -428,23 +757,13 @@ mod tests {
 
             assert_eq!(blocks_set_proof.blocks(), blocks_to_prove);
             blocks_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(blocks_set_proof.merkle_root(), expected_merkle_root)
         }
     }
 
     mod transactions_proof {
         use super::*;
-
-        fn into_transactions(blocks: &[CardanoBlockWithTransactions]) -> Vec<CardanoTransaction> {
-            blocks
-                .iter()
-                .cloned()
-                .flat_map(|block| block.into_transactions())
-                .collect()
-        }
-
-        fn transactions_hashes(transactions: &[CardanoTransaction]) -> Vec<TransactionHash> {
-            transactions.iter().map(|t| t.transaction_hash.clone()).collect()
-        }
 
         #[tokio::test]
         async fn compute_proof_for_one_set_of_three_certified_transactions() {
@@ -457,7 +776,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -468,6 +787,8 @@ mod tests {
 
             assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
             transactions_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
         }
 
         #[tokio::test]
@@ -483,7 +804,7 @@ mod tests {
             let transactions_to_prove = filter_items_for_indices(&[10, 14], &transactions);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -503,7 +824,7 @@ mod tests {
             let beacon = blocks_with_txs.last().unwrap().block_number;
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -522,11 +843,11 @@ mod tests {
                 .build_blocks_for_block_ranges(5);
             let transactions: Vec<_> = into_transactions(&blocks_with_txs);
             // Only certify transactions for the first three ranges
-            let beacon = blocks_with_txs[3 * 3].block_number;
+            let beacon = blocks_with_txs[3 * 3].block_number - 1;
             let transactions_to_prove = filter_items_for_indices(&[1, 4, 8], &transactions);
 
             let prover =
-                setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await;
+                setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await;
             prover.compute_cache(beacon).await.unwrap();
 
             let transactions_set_proof = prover
@@ -544,6 +865,8 @@ mod tests {
 
             assert_eq!(transactions_set_proof.transactions(), transactions_to_prove);
             transactions_set_proof.verify().unwrap();
+            let expected_merkle_root = compute_certificate_merkle_root(&blocks_with_txs, beacon);
+            assert_eq!(transactions_set_proof.merkle_root(), expected_merkle_root)
         }
     }
 
@@ -559,14 +882,14 @@ mod tests {
         let prover = MithrilProverService {
             blocks_transactions_retriever:
                 MockBuilder::<MockBlocksTransactionsRetriever>::configure(|mock| {
-                    mock.expect_get_all_mk_nodes_by_block_ranges()
+                    mock.expect_get_all_mk_nodes_by_ranges_of_block_numbers()
                         .returning(|_| Err(anyhow!("fail")));
                     mock.expect_get_block_by_hashes()
                         .returning(|_, _| Err(anyhow!("fail")));
                     mock.expect_get_transactions_by_hashes()
                         .returning(|_, _| Err(anyhow!("fail")));
                 }),
-            ..setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await
+            ..setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await
         };
         prover.compute_cache(beacon).await.unwrap();
 
@@ -599,7 +922,7 @@ mod tests {
                 mock.expect_retrieve_block_range_roots()
                     .returning(|_| Err(anyhow!("fail")));
             }),
-            ..setup_prover_for_test::<MKTreeStoreInMemory>(blocks_with_txs, beacon).await
+            ..setup_prover_for_test::<MKTreeStoreInMemory>(&blocks_with_txs, beacon).await
         };
         prover
             .compute_cache(beacon)

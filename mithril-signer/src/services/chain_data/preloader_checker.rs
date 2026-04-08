@@ -57,35 +57,19 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use std::collections::BTreeSet;
+
     use mithril_common::{
-        entities::{Epoch, SignedEntityTypeDiscriminants, TimePoint},
+        entities::{Epoch, SignedEntityTypeDiscriminants},
         test::double::Dummy,
     };
     use mithril_protocol_config::model::{
         MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch,
     };
-    use mockall::mock;
-    use std::collections::BTreeSet;
+
+    use crate::test::double::mocks::{MockMithrilNetworkConfigurationProvider, MockTickerService};
 
     use super::*;
-
-    mock! {
-        pub MithrilNetworkConfigurationProvider {}
-
-        #[async_trait]
-        impl MithrilNetworkConfigurationProvider for MithrilNetworkConfigurationProvider {
-            async fn get_network_configuration(&self, epoch: Epoch) -> StdResult<MithrilNetworkConfiguration>;
-        }
-    }
-    mock! {
-        pub TickerService {}
-
-        #[async_trait]
-        impl TickerService for TickerService {
-            async fn get_current_time_point(&self) -> StdResult<TimePoint>;
-            async fn get_current_epoch(&self) -> StdResult<Epoch>;
-        }
-    }
 
     #[tokio::test]
     async fn preloader_activation_is_not_activated_when_cardano_transactions_not_in_current_or_next_configuration_for_aggregation()

@@ -209,13 +209,15 @@ impl<S: MKTreeStorer> LegacyProverService for LegacyMithrilProverService<S> {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use mockall::mock;
+    use mockall::predicate::eq;
+
     use mithril_common::crypto_helper::{
         MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
     };
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test::builder::CardanoTransactionsBuilder;
-    use mockall::mock;
-    use mockall::predicate::eq;
+    use mithril_common::test::crypto_helper::MKTreeTestExtension;
 
     use crate::test::TestLogger;
 
@@ -295,11 +297,8 @@ mod tests {
                     (
                         block_range,
                         MKMapNode::TreeNode(
-                            MKTree::<MKTreeStoreInMemory>::new(&transactions)
-                                .unwrap()
-                                .compute_root()
-                                .unwrap()
-                                .clone(),
+                            MKTree::<MKTreeStoreInMemory>::compute_root_from_iter(&transactions)
+                                .unwrap(),
                         ),
                     )
                 }),

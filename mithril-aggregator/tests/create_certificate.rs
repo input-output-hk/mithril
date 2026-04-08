@@ -39,7 +39,7 @@ async fn create_certificate() {
         }),
         cardano_blocks_transactions_signing_config: Some(CardanoBlocksTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
-            step: BlockNumber(30),
+            step: BlockNumber(24),
         }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
@@ -174,7 +174,7 @@ async fn create_certificate() {
     );
 
     comment!(
-        "Now the state machine should be signing the same block (179) for CardanoBlocksTransactions"
+        "Now the state machine should be signing the block (167) for CardanoBlocksTransactions"
     );
     cycle!(tester, "signing");
     let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
@@ -197,7 +197,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(179)),
+            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(167)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -237,7 +237,7 @@ async fn create_certificate() {
     );
 
     comment!(
-        "the rollback to block number 149 should also trigger state machine to be sign CardanoBlocksTransactions for block 120"
+        "the rollback to block number 149 should also trigger state machine to be sign CardanoBlocksTransactions for block 143"
     );
     cycle!(tester, "signing");
     let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
@@ -260,7 +260,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
-            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(119)),
+            SignedEntityType::CardanoBlocksTransactions(Epoch(1), BlockNumber(143)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

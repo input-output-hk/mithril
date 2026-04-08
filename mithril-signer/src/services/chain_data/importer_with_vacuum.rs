@@ -52,24 +52,14 @@ impl ChainDataImporter for ChainDataImporterWithVacuum {
 
 #[cfg(test)]
 mod tests {
-    use mockall::mock;
-
     use mithril_common::test::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::database::test_helper::cardano_tx_db_connection_builder;
     use crate::test::TestLogger;
+    use crate::test::double::mocks::MockChainDataImporter;
 
     use super::*;
-
-    mock! {
-        pub ChainDataImporter {}
-
-        #[async_trait]
-        impl ChainDataImporter for ChainDataImporter {
-            async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
-        }
-    }
 
     impl ChainDataImporterWithVacuum {
         pub(crate) fn new_with_mock<I>(

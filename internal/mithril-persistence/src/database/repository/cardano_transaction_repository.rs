@@ -365,19 +365,19 @@ from (select max(start) as highest from block_range_root) max_new,
         Ok(transactions)
     }
 
-    /// Get the [CardanoBlockTransactionsRecord] for the given block ranges.
-    pub async fn get_blocks_with_transactions_by_block_ranges(
+    /// Get the [CardanoBlockTransactionsRecord] for the given ranges of block numbers
+    pub async fn get_blocks_with_transactions_by_ranges_of_block_numbers(
         &self,
-        block_ranges: Vec<BlockRange>,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<Vec<CardanoBlockTransactionsRecord>> {
         let mut blocks_with_transactions = vec![];
         // Make one query per block range to optimize throughput as asking multiple block ranges at once
         // made SQLite quickly collapse (see PR #1723)
-        for block_range in block_ranges {
-            let block_range_transactions: Vec<CardanoBlockTransactionsRecord> =
-                self.connection_pool.connection()?.fetch_collect(
-                    GetCardanoBlockTransactionsQuery::between_blocks(block_range),
-                )?;
+        for range in ranges_of_block {
+            let block_range_transactions: Vec<CardanoBlockTransactionsRecord> = self
+                .connection_pool
+                .connection()?
+                .fetch_collect(GetCardanoBlockTransactionsQuery::between_blocks(range))?;
             blocks_with_transactions.extend(block_range_transactions);
         }
 
@@ -1288,7 +1288,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_blocks_with_transactions_by_block_ranges() {
+    async fn repository_get_blocks_with_transactions_by_ranges_of_block_numbers() {
         let temp_dir = temp_dir_create!();
         let repository = CardanoTransactionRepository::new(Arc::new(
             cardano_tx_db_connection_builder(&temp_dir).build_pool(1).unwrap(),
@@ -1315,7 +1315,7 @@ mod tests {
             ),
             CardanoBlockWithTransactions::new(
                 "block_hash-4",
-                BlockNumber(31),
+                BlockNumber(30),
                 SlotNumber(53),
                 vec!["tx_hash-4"],
             ),
@@ -1339,11 +1339,12 @@ mod tests {
         let expected_blocks: Vec<CardanoBlockTransactionsRecord> =
             blocks.into_iter().map(Into::into).collect();
 
+        // Get for a range higher for which no blocks are stored
         {
             let transaction_result = repository
-                .get_blocks_with_transactions_by_block_ranges(vec![BlockRange::from_block_number(
-                    BlockNumber(100),
-                )])
+                .get_blocks_with_transactions_by_ranges_of_block_numbers(vec![
+                    BlockNumber(100)..BlockNumber(1000),
+                ])
                 .await
                 .unwrap();
             assert_eq!(
@@ -1351,30 +1352,33 @@ mod tests {
                 transaction_result
             );
         }
+        // Get for the first 15 blocks
         {
             let transaction_result = repository
-                .get_blocks_with_transactions_by_block_ranges(vec![BlockRange::from_block_number(
-                    BlockNumber(0),
-                )])
+                .get_blocks_with_transactions_by_ranges_of_block_numbers(vec![
+                    BlockNumber(0)..BlockNumber(15),
+                ])
                 .await
                 .unwrap();
             assert_eq!(expected_blocks[0..=1].to_vec(), transaction_result);
         }
+        // Get for two consecutive ranges of 15 blocks
         {
             let transaction_result = repository
-                .get_blocks_with_transactions_by_block_ranges(vec![
-                    BlockRange::from_block_number(BlockNumber(0)),
-                    BlockRange::from_block_number(BlockNumber(15)),
+                .get_blocks_with_transactions_by_ranges_of_block_numbers(vec![
+                    BlockNumber(0)..BlockNumber(15),
+                    BlockNumber(15)..BlockNumber(30),
                 ])
                 .await
                 .unwrap();
             assert_eq!(expected_blocks[0..=2].to_vec(), transaction_result);
         }
+        // Get for two non-consecutive ranges of 15 blocks
         {
             let transaction_result = repository
-                .get_blocks_with_transactions_by_block_ranges(vec![
-                    BlockRange::from_block_number(BlockNumber(0)),
-                    BlockRange::from_block_number(BlockNumber(30)),
+                .get_blocks_with_transactions_by_ranges_of_block_numbers(vec![
+                    BlockNumber(0)..BlockNumber(15),
+                    BlockNumber(30)..BlockNumber(45),
                 ])
                 .await
                 .unwrap();

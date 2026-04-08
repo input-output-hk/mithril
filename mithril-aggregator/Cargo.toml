@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.8.40"
+version = "0.8.41"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -71,6 +71,7 @@ mimalloc = { version = "0.1.43" }
 axum = { version = "0.8.8", features = ["json"] }
 axum-test = "18.7.0"
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
+hex = { workspace = true }
 http = "1.4.0"
 httpmock = "0.8.3"
 mithril-api-spec = { path = "../internal/tests/mithril-api-spec" }

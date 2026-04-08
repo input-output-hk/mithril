@@ -133,6 +133,16 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for AggregatorCardanoChainDataR
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
         self.inner.retrieve_block_range_roots_up_to(up_to_beacon).await
     }
+
+    async fn retrieve_block_ranges_nodes(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<BTreeSet<CardanoBlockTransactionMkTreeNode>> {
+        self.inner
+            .get_blocks_with_transactions_in_range_blocks(range)
+            .await
+            .map(|v| v.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
+    }
 }
 
 #[async_trait::async_trait]
@@ -187,13 +197,13 @@ impl BlocksTransactionsRetriever for AggregatorCardanoChainDataRepository {
         Ok(records.into_iter().map(Into::into).collect())
     }
 
-    async fn get_all_mk_nodes_by_block_ranges(
+    async fn get_all_mk_nodes_by_ranges_of_block_numbers(
         &self,
-        block_ranges: Vec<BlockRange>,
+        ranges_of_block: Vec<Range<BlockNumber>>,
     ) -> StdResult<Vec<CardanoBlockTransactionMkTreeNode>> {
         let blocks = self
             .inner
-            .get_blocks_with_transactions_by_block_ranges(block_ranges)
+            .get_blocks_with_transactions_by_ranges_of_block_numbers(ranges_of_block)
             .await?;
         Ok(blocks.into_iter().flat_map(|b| b.into_mk_tree_nodes()).collect())
     }
