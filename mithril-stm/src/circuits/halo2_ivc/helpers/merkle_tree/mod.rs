@@ -259,7 +259,7 @@ impl TryFrom<&[u8]> for MerkleTreeCommitment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::unique_signature::SigningKey;
+    use crate::circuits::halo2_ivc::helpers::signatures::unique_signature::SigningKey;
     use rand_core::OsRng;
 
     fn create_leaf(value: F) -> MTLeaf {
