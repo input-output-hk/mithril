@@ -10,9 +10,9 @@ use midnight_zk_stdlib::{Relation, ZkStdLib, ZkStdLibArch};
 
 use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::gadgets::{
-    MerklePathInputs, UniqueSchnorrSignatureInputs, assert_lottery_index_in_bounds,
-    assert_lottery_won, assert_strictly_increasing_lottery_index, verify_merkle_path,
-    verify_unique_signature,
+    LOTTERY_INDEX_BITS, MerklePathInputs, UniqueSchnorrSignatureInputs,
+    assert_lottery_index_in_bounds, assert_lottery_won, assert_strictly_increasing_lottery_index,
+    verify_merkle_path, verify_unique_signature,
 };
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 use crate::circuits::halo2::witness::{CircuitInstance, CircuitWitness};
@@ -75,10 +75,10 @@ impl StmCircuit {
 
     /// Validates witness lottery indices against circuit constraints.
     ///
-    /// The circuit uses 32-bit comparison constraints (`lower_than(..., 32)`), so each
-    /// index must fit in `u32` and must satisfy `index < m`.
+    /// The circuit uses [`LOTTERY_INDEX_BITS`]-bit comparison constraints, so each
+    /// index must fit in that range and must satisfy `index < m`.
     pub(crate) fn validate_lottery_index(&self, index: LotteryIndex) -> StmResult<()> {
-        let max_supported = u32::MAX as LotteryIndex;
+        let max_supported = ((1u64 << LOTTERY_INDEX_BITS) - 1) as LotteryIndex;
         if index > max_supported {
             return Err(anyhow!(StmCircuitError::LotteryIndexTooLarge {
                 index,

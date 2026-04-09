@@ -15,7 +15,7 @@ pub enum StmCircuitError {
     #[error("Circuit::validate_witness_length failed: expected k {expected_k}, got {actual}")]
     WitnessLengthMismatch { expected_k: u32, actual: u32 },
 
-    /// Witness lottery index does not fit in the circuit's 32-bit constraint representation.
+    /// Witness lottery index exceeds the circuit's maximum supported value.
     #[error(
         "Circuit::validate_lottery_index failed: index ({index}) exceeds max supported ({max_supported})"
     )]

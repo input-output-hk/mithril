@@ -1,5 +1,6 @@
 use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
+use crate::circuits::halo2::gadgets::LOTTERY_INDEX_BITS;
 use crate::circuits::halo2::tests::golden::helpers::{
     LOTTERIES_PER_K, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
     assert_proving_backend_message_contains, assert_proving_circuit_error, build_witness,
@@ -248,28 +249,28 @@ fn index_out_of_bounds() {
 }
 
 #[test]
-fn index_too_large_for_u32_circuit_range() {
+fn index_too_large_for_circuit_range() {
     const CIRCUIT_DEGREE: u32 = 13;
     const K: u32 = 3;
     let message = SignedMessageWithoutPrefix::from(42);
     let env = setup_stm_circuit_env(current_function!(), CIRCUIT_DEGREE, K, K * LOTTERIES_PER_K)
-        .expect("index_too_large_for_u32_circuit_range env setup should succeed");
+        .expect("index_too_large_for_circuit_range env setup should succeed");
     let merkle_tree = create_default_merkle_tree(env.num_signers())
-        .expect("index_too_large_for_u32_circuit_range tree creation should succeed");
+        .expect("index_too_large_for_circuit_range tree creation should succeed");
 
     let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
-    let too_large = (u32::MAX as LotteryIndex) + 1;
+    let max_supported = ((1u64 << LOTTERY_INDEX_BITS) - 1) as LotteryIndex;
+    let too_large = max_supported + 1;
     let indices = vec![6, 14, too_large];
     let witness =
         build_witness_with_indices(&merkle_tree, merkle_tree_commitment, message, &indices)
-            .expect("index_too_large_for_u32_circuit_range witness build should succeed");
+            .expect("index_too_large_for_circuit_range witness build should succeed");
 
     let scenario = StmCircuitScenario::new(merkle_tree_commitment, message, witness);
     assert_proving_backend_message_contains(
         prove_and_verify_result(&env, scenario),
         &format!(
-            "Circuit::validate_lottery_index failed: index ({too_large}) exceeds max supported ({})",
-            u32::MAX as LotteryIndex
+            "Circuit::validate_lottery_index failed: index ({too_large}) exceeds max supported ({max_supported})",
         ),
     );
 }
