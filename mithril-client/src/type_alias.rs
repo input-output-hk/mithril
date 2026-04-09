@@ -91,10 +91,10 @@ pub mod common {
     pub use mithril_common::AggregateSignatureType;
     pub use mithril_common::crypto_helper::MKProof;
     pub use mithril_common::entities::{
-        AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, CardanoNetwork, ChainPoint,
-        CompressionAlgorithm, DigestLocation, Epoch, EpochSpecifier, ImmutableFileNumber,
-        ImmutablesLocation, MagicId, MithrilNetwork, MultiFilesUri, ProtocolMessage,
-        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        AncillaryLocation, BlockHash, BlockNumber, BlockNumberOffset, CardanoDbBeacon,
+        CardanoNetwork, ChainPoint, CompressionAlgorithm, DigestLocation, Epoch, EpochSpecifier,
+        ImmutableFileNumber, ImmutablesLocation, MagicId, MithrilNetwork, MultiFilesUri,
+        ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, SupportedEra, TemplateUri,
         TransactionHash,
     };
