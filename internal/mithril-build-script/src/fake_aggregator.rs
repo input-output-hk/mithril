@@ -175,6 +175,12 @@ impl FakeAggregatorData {
                     ),
                 ),
                 generate_ids_array(
+                    "cardano_blocks_transactions_snapshot_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_blocks_transactions_snapshots.keys().cloned(),
+                    ),
+                ),
+                generate_ids_array(
                     "proof_transaction_hashes",
                     BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
                 ),
