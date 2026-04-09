@@ -115,6 +115,7 @@
 
 #[cfg(feature = "future_snark")]
 pub mod circuits;
+pub(crate) mod codec;
 #[cfg(feature = "future_snark")]
 mod hash;
 mod membership_commitment;

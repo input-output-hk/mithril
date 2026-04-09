@@ -246,13 +246,13 @@ impl StmInitializerWrapper {
     /// * Length-prefixed STM Initializer (dynamic size)
     /// * Optional KES signature for the concatenation proof system (fixed size)
     /// * Optional KES signature for the SNARK proof system (fixed size, when `future_snark` feature is enabled and if some KES signature for concatenation)
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> StdResult<Vec<u8>> {
         let mut out = Vec::new();
 
-        let stm_initializer_bytes = self.stm_initializer.to_bytes();
+        let stm_initializer_bytes = self.stm_initializer.to_bytes()?;
         out.extend_from_slice(
             &u64::try_from(stm_initializer_bytes.len())
-                .expect("STM initializer byte length should always fit in u64")
+                .context("STM initializer byte length should fit in u64")?
                 .to_be_bytes(),
         );
         out.extend_from_slice(&stm_initializer_bytes);
@@ -266,7 +266,7 @@ impl StmInitializerWrapper {
             }
         }
 
-        out
+        Ok(out)
     }
 
     /// Convert a slice of bytes to an `StmInitializerWrapper`
@@ -672,8 +672,11 @@ mod test {
             serde_json::to_string(&stm_initializer_wrapper_from_json)
                 .expect("Serializing a StmInitializerWrapper to json should not fail");
 
+        let stm_initializer_wrapper_bytes = stm_initializer_wrapper_from_json
+            .to_bytes()
+            .expect("Serializing a StmInitializerWrapper to bytes should not fail");
         let stm_initializer_wrapper_from_bytes =
-            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_from_json.to_bytes())
+            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_bytes)
                 .expect("Deserializing a StmInitializerWrapper from bytes should not fail");
         let stm_initializer_wrapper_from_bytes_to_json =
             serde_json::to_string(&stm_initializer_wrapper_from_bytes)
@@ -687,8 +690,11 @@ mod test {
         let mut stm_initializer_wrapper_from_json = stm_initializer_wrapper_from_json;
         stm_initializer_wrapper_from_json.kes_signature_for_concatenation = None;
 
+        let stm_initializer_wrapper_bytes = stm_initializer_wrapper_from_json
+            .to_bytes()
+            .expect("Serializing a StmInitializerWrapper to bytes should not fail");
         let stm_initializer_wrapper_from_bytes =
-            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_from_json.to_bytes())
+            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_bytes)
                 .expect("Deserializing a StmInitializerWrapper from bytes should not fail");
         assert_eq!(
             None,

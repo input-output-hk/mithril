@@ -16,6 +16,8 @@ use crate::{
     proof_system::SnarkProofSigner, signature_scheme::SchnorrSigningKey,
 };
 
+use crate::codec;
+
 use super::Signer;
 
 /// Structure responsible of creating a signer
@@ -176,41 +178,31 @@ impl Initializer {
         self.schnorr_verification_key = None;
     }
 
-    /// Convert to bytes
+    /// Convert to bytes using CBOR encoding with a version prefix.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
+    }
+
+    /// Convert a slice of bytes to an `Initializer`.
+    ///
+    /// Supports both CBOR-encoded (version-prefixed) and legacy big-endian byte formats.
+    ///
+    /// # Error
+    /// The function fails if the given bytes cannot be decoded in either format.
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Initializer> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    /// Decode an `Initializer` from the legacy big-endian byte-packed format.
+    ///
     /// # Layout
     /// * Stake (u64)
-    /// * Params
+    /// * Parameters
     /// * BLS signing key
     /// * BLS verification key (including PoP)
     /// * [Future Snark - Schnorr Signing Key]
     /// * [Future Snark - Schnorr Verification Key]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let capacity = if cfg!(feature = "future_snark") {
-            352
-        } else {
-            256
-        };
-        let mut out = Vec::with_capacity(capacity);
-        out.extend_from_slice(&self.stake.to_be_bytes());
-        out.extend_from_slice(&self.parameters.to_bytes());
-        out.extend_from_slice(&self.bls_signing_key.to_bytes());
-        out.extend_from_slice(&self.bls_verification_key_proof_of_possession.to_bytes());
-
-        #[cfg(feature = "future_snark")]
-        if let (Some(schnorr_sk), Some(schnorr_vk)) =
-            (&self.schnorr_signing_key, &self.schnorr_verification_key)
-        {
-            out.extend_from_slice(&schnorr_sk.to_bytes());
-            out.extend_from_slice(&schnorr_vk.to_bytes());
-        }
-
-        out
-    }
-
-    /// Convert a slice of bytes to an `Initializer`
-    /// # Error
-    /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> StmResult<Initializer> {
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Initializer> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
@@ -330,6 +322,49 @@ mod tests {
             let golden_serialized = serde_json::to_string(&golden_value())
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+
+        const GOLDEN_CBOR_BYTES: &[u8; 490] = &[
+            1, 164, 101, 115, 116, 97, 107, 101, 1, 102, 112, 97, 114, 97, 109, 115, 163, 97, 109,
+            25, 81, 237, 97, 107, 25, 9, 118, 101, 112, 104, 105, 95, 102, 251, 63, 201, 153, 153,
+            153, 153, 153, 154, 98, 115, 107, 152, 32, 24, 64, 24, 129, 24, 87, 24, 121, 24, 27,
+            24, 239, 24, 221, 24, 215, 2, 24, 103, 24, 45, 24, 207, 24, 207, 24, 201, 24, 157, 24,
+            163, 24, 81, 24, 47, 24, 156, 14, 24, 168, 24, 24, 24, 137, 15, 24, 203, 24, 106, 24,
+            183, 24, 73, 24, 88, 14, 24, 242, 24, 207, 98, 112, 107, 162, 98, 118, 107, 152, 96,
+            24, 143, 24, 161, 24, 255, 24, 48, 24, 78, 24, 57, 24, 204, 24, 220, 24, 25, 24, 221,
+            24, 164, 24, 252, 24, 248, 14, 24, 56, 24, 126, 24, 186, 24, 135, 24, 228, 24, 188, 24,
+            145, 24, 181, 24, 52, 24, 200, 24, 97, 24, 99, 24, 213, 24, 46, 0, 24, 199, 24, 193,
+            24, 89, 24, 187, 24, 88, 24, 29, 24, 135, 24, 173, 24, 244, 24, 86, 24, 36, 24, 83, 24,
+            54, 24, 67, 24, 164, 6, 24, 137, 24, 94, 24, 72, 6, 24, 105, 24, 128, 24, 128, 24, 93,
+            24, 48, 24, 176, 11, 4, 24, 246, 24, 138, 24, 48, 24, 180, 24, 133, 24, 90, 24, 142,
+            24, 192, 24, 24, 24, 193, 24, 111, 24, 142, 24, 31, 24, 76, 24, 111, 24, 110, 24, 234,
+            24, 153, 24, 90, 24, 208, 24, 192, 24, 31, 24, 124, 24, 95, 24, 102, 24, 49, 24, 158,
+            24, 99, 24, 52, 24, 220, 24, 165, 24, 94, 24, 251, 24, 68, 24, 69, 24, 121, 16, 24,
+            224, 24, 194, 99, 112, 111, 112, 152, 96, 24, 168, 24, 50, 24, 233, 24, 193, 15, 24,
+            136, 24, 65, 24, 72, 24, 123, 24, 148, 24, 129, 24, 176, 24, 38, 24, 198, 24, 209, 24,
+            47, 24, 28, 24, 204, 24, 176, 24, 144, 24, 57, 24, 251, 24, 42, 24, 28, 24, 66, 24, 76,
+            24, 89, 24, 97, 24, 158, 24, 63, 24, 54, 24, 198, 24, 194, 24, 176, 24, 135, 24, 221,
+            14, 24, 185, 24, 197, 24, 225, 24, 202, 24, 98, 24, 243, 24, 74, 24, 233, 24, 225, 24,
+            143, 24, 151, 24, 147, 24, 177, 24, 170, 24, 117, 24, 66, 24, 165, 24, 66, 24, 62, 24,
+            33, 24, 216, 24, 232, 24, 75, 24, 68, 24, 114, 24, 195, 22, 24, 100, 24, 65, 24, 44,
+            24, 198, 4, 24, 166, 24, 102, 24, 233, 24, 253, 24, 240, 24, 59, 24, 175, 24, 60, 24,
+            117, 24, 142, 24, 114, 24, 140, 24, 122, 17, 24, 87, 24, 110, 24, 187, 1, 17, 10, 24,
+            195, 24, 154, 13, 24, 249, 24, 86, 24, 54, 24, 226,
+        ];
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = Initializer::from_bytes(GOLDEN_CBOR_BYTES)
+                .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(golden_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = golden_value()
+                .to_bytes()
+                .expect("Initializer serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
         }
     }
 }

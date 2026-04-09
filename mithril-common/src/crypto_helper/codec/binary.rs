@@ -44,19 +44,19 @@ mod binary_mithril_stm {
 
     impl TryToBytes for Parameters {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 
     impl TryFromBytes for Parameters {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 
     impl TryToBytes for SingleSignature {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 
@@ -68,7 +68,7 @@ mod binary_mithril_stm {
 
     impl TryToBytes for SingleSignatureWithRegisteredParty {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 
@@ -131,7 +131,7 @@ mod binary_mithril_stm {
 
     impl TryToBytes for AggregateVerificationKeyForConcatenation<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 
@@ -144,7 +144,7 @@ mod binary_mithril_stm {
     #[cfg(feature = "future_snark")]
     impl TryToBytes for AggregateVerificationKeyForSnark<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes())
+            self.to_bytes()
         }
     }
 
@@ -157,7 +157,7 @@ mod binary_mithril_stm {
 
     impl TryToBytes for Initializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            Ok(self.to_bytes().to_vec())
+            self.to_bytes()
         }
     }
 

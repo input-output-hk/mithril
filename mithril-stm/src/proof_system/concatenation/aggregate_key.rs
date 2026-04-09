@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ClosedKeyRegistration, MembershipDigest, RegistrationEntryForConcatenation, Stake, StmResult,
+    codec,
     membership_commitment::{
         MerkleBatchPath, MerkleTreeBatchCommitment, MerkleTreeConcatenationLeaf, MerkleTreeError,
     },
@@ -32,15 +33,18 @@ impl<D: MembershipDigest> AggregateVerificationKeyForConcatenation<D> {
     }
 
     /// Convert the aggregate verification key for concatenation to bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend(self.mt_commitment.to_bytes());
-        bytes.extend(self.total_stake.to_be_bytes());
-
-        bytes
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
+    /// Deserialize an aggregate verification key for concatenation from bytes.
+    ///
+    /// Supports both CBOR-encoded (version-prefixed) and legacy formats.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         let size = bytes.len();
 
@@ -145,10 +149,37 @@ mod tests {
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = AggregateVerificationKeyForConcatenation::to_bytes(&value);
-            let golden_serialized =
-                AggregateVerificationKeyForConcatenation::to_bytes(&golden_value());
+            let serialized = AggregateVerificationKeyForConcatenation::to_bytes(&value)
+                .expect("AggregateVerificationKeyForConcatenation serialization should not fail");
+            let golden_serialized = AggregateVerificationKeyForConcatenation::to_bytes(
+                &golden_value(),
+            )
+            .expect("AggregateVerificationKeyForConcatenation serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+
+        const GOLDEN_CBOR_BYTES: &[u8; 118] = &[
+            1, 162, 109, 109, 116, 95, 99, 111, 109, 109, 105, 116, 109, 101, 110, 116, 163, 100,
+            114, 111, 111, 116, 152, 32, 24, 56, 24, 37, 24, 95, 24, 107, 24, 157, 24, 98, 24, 252,
+            24, 194, 24, 190, 24, 204, 24, 170, 24, 26, 24, 224, 10, 24, 212, 7, 24, 214, 24, 89,
+            24, 116, 24, 196, 24, 217, 24, 122, 24, 111, 24, 56, 24, 113, 24, 253, 24, 96, 24, 45,
+            24, 170, 24, 121, 24, 235, 24, 159, 105, 110, 114, 95, 108, 101, 97, 118, 101, 115, 2,
+            102, 104, 97, 115, 104, 101, 114, 246, 107, 116, 111, 116, 97, 108, 95, 115, 116, 97,
+            107, 101, 2,
+        ];
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = AggregateVerificationKeyForConcatenation::from_bytes(GOLDEN_CBOR_BYTES)
+                .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(golden_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = AggregateVerificationKeyForConcatenation::to_bytes(&golden_value())
+                .expect("AggregateVerificationKeyForConcatenation serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
         }
     }
 

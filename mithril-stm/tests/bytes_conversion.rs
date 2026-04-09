@@ -21,7 +21,7 @@ fn test_stm_parameters_serialization() {
         k: 2,
         phi_f: 0.2,
     };
-    let bytes = params.to_bytes();
+    let bytes = params.to_bytes().expect("Parameters serialization should not fail");
     let deserialized_params = Parameters::from_bytes(&bytes).unwrap();
 
     assert_eq!(params, deserialized_params);
@@ -45,8 +45,9 @@ fn test_binary_conversions() {
         initializers,
     } = initialization_phase(nparties, rng.clone(), params);
 
-    let encoded = params.to_bytes();
-    Parameters::from_bytes(&encoded[1..]).expect_err("Decoding should fail with invalid bytes");
+    let encoded = params.to_bytes().expect("Parameters serialization should not fail");
+    Parameters::from_bytes(&encoded[..23])
+        .expect_err("Decoding should fail with bytes shorter than the legacy 24-byte layout");
     let decoded = Parameters::from_bytes(&encoded).unwrap();
     assert_eq!(params, decoded);
 
@@ -58,26 +59,41 @@ fn test_binary_conversions() {
     assert_eq!(verification_key, decoded);
 
     let initializer = &initializers[0];
-    let encoded = initializer.to_bytes();
+    let encoded = initializer
+        .to_bytes()
+        .expect("Initializer serialization should not fail");
     Initializer::from_bytes(&encoded[1..])
         .expect_err("Initializer decoding should fail with invalid bytes");
     let decoded = Initializer::from_bytes(&encoded).unwrap();
-    assert_eq!(initializer.to_bytes(), decoded.to_bytes());
+    assert_eq!(
+        initializer
+            .to_bytes()
+            .expect("Initializer serialization should not fail"),
+        decoded.to_bytes().expect("Initializer serialization should not fail")
+    );
 
     let OperationPhaseResult { msig, avk: _, sigs } =
         operation_phase(params, signers, reg_parties, msg);
 
     let sig = &sigs[0];
-    let encoded = sig.to_bytes();
+    let encoded = sig.to_bytes().expect("SingleSignature serialization should not fail");
     SingleSignature::from_bytes::<D>(&encoded[1..])
         .expect_err("SingleSignature decoding should fail with invalid bytes");
     let decoded = SingleSignature::from_bytes::<D>(&encoded).unwrap();
     assert_eq!(sig, &decoded);
 
     let msig = msig.unwrap();
-    let encoded = msig.to_bytes().unwrap();
+    let encoded = msig
+        .to_bytes()
+        .expect("AggregateSignature serialization should not fail");
     AggregateSignature::<D>::from_bytes(&encoded[1..])
         .expect_err("AggregateSignature decoding should fail with invalid bytes");
     let decoded = AggregateSignature::<D>::from_bytes(&encoded).unwrap();
-    assert_eq!(msig.to_bytes().unwrap(), decoded.to_bytes().unwrap());
+    assert_eq!(
+        msig.to_bytes()
+            .expect("AggregateSignature serialization should not fail"),
+        decoded
+            .to_bytes()
+            .expect("AggregateSignature serialization should not fail")
+    );
 }

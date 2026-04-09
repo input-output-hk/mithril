@@ -21,6 +21,8 @@ impl CircuitVerificationKey {
 
     /// Convert the CircuitVerificationKey into bytes using the underlying
     /// MidnightVK functionalities
+    // TODO: remove this once the 'to_bytes' function is used.
+    #[allow(dead_code)]
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         let mut buf_cvk = vec![];
         self.0.write(&mut buf_cvk, SerdeFormat::RawBytes)?;

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
     circuits::halo2::{circuit::StmCircuit, types::CircuitBase},
+    codec,
     proof_system::halo2_snark::{
         SnarkError, build_snark_message, circuit_verification_key::CircuitVerificationKey,
         prover_input::SnarkProverInput,
@@ -92,19 +93,28 @@ impl<D: MembershipDigest> SnarkProof<D> {
         verify_result.map_err(|_| SnarkError::VerifyProofFail.into())
     }
 
-    /// Converts a SnarkProof to bytes
+    /// Converts a SnarkProof to CBOR bytes with a version prefix.
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
-        let mut buf = vec![];
-        buf.extend_from_slice(&self.params.to_bytes());
-        buf.extend_from_slice(&self.merkle_tree_depth.to_le_bytes());
-        buf.extend_from_slice(&self.circuit_proof.len().to_le_bytes());
-        buf.extend_from_slice(&self.circuit_proof);
-        buf.extend_from_slice(&self.circuit_verification_key.to_bytes()?);
-        Ok(buf)
+        codec::to_cbor_bytes(self)
     }
 
-    /// Deserialise a proof from raw bytes.
+    /// Deserialise a proof from bytes.
+    ///
+    /// Supports both the new versioned CBOR format and the legacy fixed-offset format.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    /// Deserialise a proof from the legacy fixed-offset byte format.
+    ///
+    /// # Layout
+    /// * Parameters (24 bytes, big-endian m/k/phi_f)
+    /// * Merkle tree depth (u32, little-endian)
+    /// * Circuit proof length (u64, little-endian)
+    /// * Circuit proof bytes
+    /// * Circuit verification key bytes (remaining)
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
+        // Legacy Parameters format is exactly 24 bytes (m: u64 + k: u64 + phi_f: f64, big-endian).
         let params =
             Parameters::from_bytes(bytes.get(0..24).ok_or(SnarkError::SerializationError)?)?;
 

@@ -6,8 +6,8 @@ use std::{
 
 use crate::{
     AggregateVerificationKey, LotteryIndex, MembershipDigest, Parameters, SignerIndex, Stake,
-    StmResult, VerificationKeyForConcatenation, proof_system::SingleSignatureForConcatenation,
-    signature_scheme::BlsSignature,
+    StmResult, VerificationKeyForConcatenation, codec,
+    proof_system::SingleSignatureForConcatenation, signature_scheme::BlsSignature,
 };
 #[cfg(feature = "future_snark")]
 use crate::{RegistrationEntryForSnark, proof_system::SingleSignatureForSnark};
@@ -76,47 +76,20 @@ impl SingleSignature {
             .check_indices(params, stake, msg, total_stake)
     }
 
-    /// Convert a `SingleSignature` into bytes
-    ///
-    /// # Layout
-    /// * Concatenation proof system single signature bytes:
-    /// *   Length of indices
-    /// *   Indices
-    /// *   Sigma
-    /// * Merkle index of the signer.
-    /// * (Optional) - `future_snark` Snark proof system single signature bytes:
-    /// *   Schnorr signature bytes
-    /// *   Length of indices
-    /// *   Indices
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        let indices = self.get_concatenation_signature_indices();
-        output.extend_from_slice(&(indices.len() as u64).to_be_bytes());
-
-        for index in indices {
-            output.extend_from_slice(&index.to_be_bytes());
-        }
-
-        output.extend_from_slice(&self.get_concatenation_signature_sigma().to_bytes());
-
-        output.extend_from_slice(&self.signer_index.to_be_bytes());
-
-        #[cfg(feature = "future_snark")]
-        if let Some(snark_signature) = &self.snark_signature {
-            let unique_schnorr_signature = snark_signature.get_schnorr_signature();
-            output.extend_from_slice(&unique_schnorr_signature.to_bytes());
-            let snark_indices = snark_signature.get_indices();
-            output.extend_from_slice(&(snark_indices.len() as u64).to_be_bytes());
-            for index in snark_indices {
-                output.extend_from_slice(&index.to_be_bytes());
-            }
-        }
-
-        output
+    /// Convert a `SingleSignature` into bytes using CBOR encoding.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Extract a `SingleSignature` from a byte slice.
+    ///
+    /// Supports both CBOR-encoded (version-prefixed) and legacy manually packed formats.
     pub fn from_bytes<D: MembershipDigest>(bytes: &[u8]) -> StmResult<SingleSignature> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    /// Extract a `SingleSignature` from a legacy manually packed byte slice.
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
@@ -398,9 +371,62 @@ mod tests {
                 .expect("This from bytes should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SingleSignature::to_bytes(&value);
-            let golden_serialized = SingleSignature::to_bytes(&golden_value());
+            let serialized = SingleSignature::to_bytes(&value)
+                .expect("SingleSignature serialization should not fail");
+            let golden_serialized = SingleSignature::to_bytes(&golden_value())
+                .expect("SingleSignature serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+
+        #[cfg(not(feature = "future_snark"))]
+        const GOLDEN_CBOR_BYTES: &[u8; 131] = &[
+            1, 191, 101, 115, 105, 103, 109, 97, 152, 48, 24, 149, 24, 157, 24, 201, 24, 187, 24,
+            140, 24, 54, 0, 24, 128, 24, 209, 24, 88, 16, 24, 203, 24, 61, 24, 78, 24, 77, 24, 98,
+            24, 161, 24, 133, 24, 58, 24, 152, 24, 29, 24, 74, 24, 217, 24, 113, 24, 64, 24, 100,
+            10, 24, 161, 24, 186, 24, 167, 24, 133, 24, 114, 24, 211, 24, 153, 24, 218, 24, 56, 24,
+            223, 24, 84, 24, 105, 24, 242, 24, 41, 24, 54, 24, 224, 24, 170, 24, 208, 24, 185, 24,
+            126, 24, 83, 103, 105, 110, 100, 101, 120, 101, 115, 132, 1, 4, 5, 8, 108, 115, 105,
+            103, 110, 101, 114, 95, 105, 110, 100, 101, 120, 1, 255,
+        ];
+
+        #[cfg(feature = "future_snark")]
+        const GOLDEN_CBOR_BYTES: &[u8; 396] = &[
+            1, 191, 101, 115, 105, 103, 109, 97, 152, 48, 24, 140, 18, 24, 156, 24, 86, 24, 86, 16,
+            24, 179, 24, 117, 24, 148, 17, 24, 195, 24, 177, 24, 207, 24, 235, 24, 93, 24, 252, 24,
+            78, 24, 244, 24, 112, 24, 94, 24, 47, 18, 24, 158, 15, 24, 78, 24, 76, 24, 80, 24, 43,
+            24, 116, 24, 242, 24, 116, 24, 205, 24, 252, 21, 24, 194, 24, 58, 24, 162, 24, 117, 24,
+            201, 24, 62, 24, 40, 24, 190, 21, 24, 183, 24, 178, 24, 186, 24, 196, 24, 136, 103,
+            105, 110, 100, 101, 120, 101, 115, 133, 3, 4, 5, 6, 7, 108, 115, 105, 103, 110, 101,
+            114, 95, 105, 110, 100, 101, 120, 1, 111, 115, 110, 97, 114, 107, 95, 115, 105, 103,
+            110, 97, 116, 117, 114, 101, 162, 113, 115, 99, 104, 110, 111, 114, 114, 95, 115, 105,
+            103, 110, 97, 116, 117, 114, 101, 163, 112, 99, 111, 109, 109, 105, 116, 109, 101, 110,
+            116, 95, 112, 111, 105, 110, 116, 152, 32, 24, 137, 24, 215, 24, 216, 24, 65, 24, 180,
+            24, 96, 24, 160, 24, 51, 24, 223, 24, 205, 24, 207, 24, 72, 24, 126, 24, 244, 24, 123,
+            24, 254, 24, 158, 24, 173, 24, 49, 24, 64, 2, 24, 89, 24, 94, 24, 217, 24, 101, 24,
+            233, 24, 98, 24, 174, 24, 110, 16, 24, 119, 24, 210, 104, 114, 101, 115, 112, 111, 110,
+            115, 101, 152, 32, 24, 31, 24, 131, 24, 67, 24, 139, 24, 239, 24, 68, 24, 151, 24, 50,
+            24, 252, 1, 16, 24, 202, 24, 248, 24, 152, 24, 179, 24, 131, 24, 85, 24, 107, 24, 185,
+            24, 90, 24, 47, 24, 252, 24, 229, 24, 113, 24, 101, 24, 42, 24, 149, 0, 24, 244, 24,
+            60, 24, 113, 10, 105, 99, 104, 97, 108, 108, 101, 110, 103, 101, 152, 32, 8, 24, 157,
+            24, 99, 24, 181, 24, 204, 24, 141, 24, 102, 24, 113, 24, 104, 24, 162, 24, 218, 24,
+            158, 24, 147, 6, 24, 158, 24, 179, 24, 52, 24, 210, 24, 159, 24, 147, 1, 24, 83, 24,
+            70, 24, 199, 24, 198, 0, 24, 238, 24, 93, 24, 62, 24, 180, 10, 24, 43, 103, 105, 110,
+            100, 105, 99, 101, 115, 128, 255,
+        ];
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = SingleSignature::from_bytes::<D>(GOLDEN_CBOR_BYTES)
+                .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(golden_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = golden_value()
+                .to_bytes()
+                .expect("SingleSignature serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
         }
     }
 

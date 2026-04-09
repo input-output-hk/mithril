@@ -107,7 +107,7 @@ impl ClosedKeyRegistration {
             &self
                 .closed_registration_entries
                 .iter()
-                .filter_map(|entry| (*entry).into())
+                .filter_map(|entry| (*entry).clone().into())
                 .collect::<Vec<L>>(),
         )
     }
@@ -378,7 +378,7 @@ mod tests {
             if !kr.registration_entries.is_empty() {
                 let closed = kr.close_registration(&params).unwrap();
                 let retrieved_keys = closed.closed_registration_entries.iter()
-                    .map(|entry| (*entry).into())
+                    .map(|entry| (*entry).clone().into())
                     .collect::<BTreeSet<RegistrationEntry>>();
                 assert!(retrieved_keys == keys);
             }

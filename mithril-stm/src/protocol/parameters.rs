@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::PhiFValue;
+use crate::codec;
+use crate::{PhiFValue, StmResult};
 
 use super::RegisterError;
 
@@ -22,23 +23,26 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    /// Convert to bytes
-    /// # Layout
-    /// * Security parameter, `m` (as u64)
-    /// * Quorum parameter, `k` (as u64)
-    /// * Phi f, as (f64)
-    pub fn to_bytes(&self) -> [u8; 24] {
-        let mut out = [0; 24];
-        out[..8].copy_from_slice(&self.m.to_be_bytes());
-        out[8..16].copy_from_slice(&self.k.to_be_bytes());
-        out[16..].copy_from_slice(&self.phi_f.to_be_bytes());
-        out
+    /// Convert to CBOR bytes with a version prefix.
+    ///
+    /// Legacy readers that encounter the version prefix byte will fail
+    /// gracefully, while new readers will decode the CBOR payload.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
     }
 
     /// Extract the `Parameters` from a byte slice.
+    ///
+    /// Supports both the legacy big-endian byte format and the new
+    /// versioned CBOR format.
+    ///
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        codec::from_versioned_bytes(bytes, Self::from_bytes_legacy)
+    }
+
+    fn from_bytes_legacy(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let m = u64::from_be_bytes(u64_bytes);
@@ -85,6 +89,57 @@ mod tests {
             let golden_serialized = serde_json::to_string(&golden_value())
                 .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod cbor {
+        use super::*;
+
+        const LEGACY_BYTES: &[u8; 24] = &[
+            0, 0, 0, 0, 0, 0, 81, 237, 0, 0, 0, 0, 0, 0, 9, 118, 63, 201, 153, 153, 153, 153, 153,
+            154,
+        ];
+
+        fn test_value() -> Parameters {
+            Parameters {
+                m: 20973,
+                k: 2422,
+                phi_f: 0.2,
+            }
+        }
+
+        #[test]
+        fn cbor_roundtrip() {
+            let value = test_value();
+            let bytes = value.to_bytes().expect("CBOR serialization should not fail");
+            let decoded =
+                Parameters::from_bytes(&bytes).expect("CBOR deserialization should not fail");
+            assert_eq!(value, decoded);
+        }
+
+        #[test]
+        fn legacy_bytes_can_still_be_decoded() {
+            let decoded = Parameters::from_bytes(LEGACY_BYTES)
+                .expect("Legacy deserialization should not fail");
+            assert_eq!(test_value(), decoded);
+        }
+
+        const GOLDEN_CBOR_BYTES: &[u8; 27] = &[
+            1, 163, 97, 109, 25, 81, 237, 97, 107, 25, 9, 118, 101, 112, 104, 105, 95, 102, 251,
+            63, 201, 153, 153, 153, 153, 153, 154,
+        ];
+
+        #[test]
+        fn cbor_golden_bytes_can_be_decoded() {
+            let decoded = Parameters::from_bytes(GOLDEN_CBOR_BYTES)
+                .expect("CBOR golden bytes deserialization should not fail");
+            assert_eq!(test_value(), decoded);
+        }
+
+        #[test]
+        fn cbor_encoding_is_stable() {
+            let bytes = test_value().to_bytes().expect("CBOR serialization should not fail");
+            assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
         }
     }
 }
