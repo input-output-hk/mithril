@@ -1,0 +1,17 @@
+services:
+  mithril-signer:
+    entrypoint: ["true"]
+    command: []
+    restart: "no"
+
+  cardano-node-signer:
+    environment:
+      - CARDANO_BLOCK_PRODUCER=true
+      - NETWORK=${NETWORK}
+      - PARTY_ID=${PARTY_ID}
+      - AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/data/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/data/mithril

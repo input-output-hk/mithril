@@ -549,6 +549,7 @@ variable "mithril_signers" {
   type = map(object({
     type    = string
     pool_id = string
+    bundle  = optional(bool, false)
   }))
   description = "The Mithril signers configuration to deploy"
   default = {
