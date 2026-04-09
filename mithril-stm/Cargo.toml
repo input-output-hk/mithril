@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.9.37"
+version = "0.9.38"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -56,6 +56,7 @@ rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
 serde = { workspace = true }
 sha2 = { version = "0.10.9", optional = true }
+subtle = "2.6.1"
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]

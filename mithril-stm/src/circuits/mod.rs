@@ -6,6 +6,7 @@
 // Currently, we expose the Halo2-based prototype under `circuits::halo2`.
 
 pub mod halo2;
+pub mod halo2_ivc;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
