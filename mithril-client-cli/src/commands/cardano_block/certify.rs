@@ -10,7 +10,7 @@ use mithril_client::{
     VerifyProofsV2Error,
 };
 
-use crate::utils::{ProgressOutputType, ProgressPrinter};
+use crate::utils::{ProgressOutputType, ProgressPrinter, compute_depth};
 use crate::{
     CommandContext,
     configuration::{ConfigError, ConfigSource},
@@ -147,6 +147,9 @@ Mithril may not have signed those blocks yet, please try again later."
         non_certified_blocks: &[BlockHash],
         json_output: bool,
     ) -> MithrilResult<()> {
+        let latest_certified_block_number = verified_blocks.latest_certified_block_number();
+        let security_parameter = verified_blocks.security_parameter();
+
         if json_output {
             println!(
                 r#"{{"certified_blocks": {}, "non_certified_blocks": {}}}"#,
@@ -159,7 +162,11 @@ Mithril may not have signed those blocks yet, please try again later."
                                 "block_hash": block.block_hash,
                                 "block_number": block.block_number,
                                 "slot_number": block.slot_number,
-                                "block_depth": verified_blocks.security_parameter(),
+                                "block_depth": compute_depth(
+                                    latest_certified_block_number,
+                                    security_parameter,
+                                    block.block_number,
+                                ),
                             })
                         })
                         .collect::<Vec<_>>()
@@ -186,7 +193,15 @@ No proof could be computed for some Cardano blocks. Mithril may not have signed 
                         block.block_hash.clone().cell(),
                         format!("{}", block.block_number).cell(),
                         format!("{}", block.slot_number).cell(),
-                        format!("{}", verified_blocks.security_parameter()).cell(),
+                        format!(
+                            "{}",
+                            compute_depth(
+                                latest_certified_block_number,
+                                security_parameter,
+                                block.block_number,
+                            )
+                        )
+                        .cell(),
                         "✅".cell().justify(cli_table::format::Justify::Center),
                     ]
                 })

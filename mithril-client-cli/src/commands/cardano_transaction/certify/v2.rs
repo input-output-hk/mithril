@@ -6,7 +6,7 @@ use mithril_client::{
 };
 use slog::debug;
 
-use crate::utils::ProgressPrinter;
+use crate::utils::{ProgressPrinter, compute_depth};
 
 pub async fn execute(
     transactions_hashes: &[String],
@@ -99,6 +99,9 @@ fn log_certify_information(
     non_certified_transactions: &[TransactionHash],
     json_output: bool,
 ) -> MithrilResult<()> {
+    let latest_certified_block_number = verified_transactions.latest_certified_block_number();
+    let security_parameter = verified_transactions.security_parameter();
+
     if json_output {
         println!(
             r#"{{"certified_transactions": {}, "non_certified_transactions": {}}}"#,
@@ -112,7 +115,11 @@ fn log_certify_information(
                             "block_hash": tx.block_hash,
                             "block_number": tx.block_number,
                             "slot_number": tx.slot_number,
-                            "block_depth": verified_transactions.security_parameter(),
+                            "block_depth": compute_depth(
+                                latest_certified_block_number,
+                                security_parameter,
+                                tx.block_number,
+                            )
                         })
                     })
                     .collect::<Vec<_>>()
@@ -140,7 +147,15 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
                     tx.block_hash.clone().cell(),
                     format!("{}", tx.block_number).cell(),
                     format!("{}", tx.slot_number).cell(),
-                    format!("{}", verified_transactions.security_parameter()).cell(),
+                    format!(
+                        "{}",
+                        compute_depth(
+                            latest_certified_block_number,
+                            security_parameter,
+                            tx.block_number,
+                        )
+                    )
+                    .cell(),
                     "✅".cell().justify(cli_table::format::Justify::Center),
                 ]
             })

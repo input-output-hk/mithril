@@ -2,6 +2,7 @@
 //! This module contains tools needed for the commands layer.
 
 mod archive_unpacker;
+mod block_helper;
 mod cardano_db;
 mod cardano_db_download_checker;
 mod expander;
@@ -15,6 +16,7 @@ mod progress_reporter;
 mod version;
 
 pub use archive_unpacker::*;
+pub use block_helper::*;
 pub use cardano_db::*;
 pub use cardano_db_download_checker::*;
 pub use expander::*;
