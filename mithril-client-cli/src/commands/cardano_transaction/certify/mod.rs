@@ -5,13 +5,14 @@ use v1::execute as certify_v1;
 use v2::execute as certify_v2;
 
 use clap::Parser;
-use mithril_client::common::SignedEntityTypeDiscriminants;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use mithril_client::MithrilResult;
+use mithril_client::common::SignedEntityTypeDiscriminants;
 
 use crate::commands::cardano_transaction::CardanoTransactionCommandsBackend;
-use crate::utils::{ProgressOutputType, ProgressPrinter};
+use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     CommandContext,
     configuration::{ConfigError, ConfigSource},
@@ -45,12 +46,17 @@ impl CardanoTransactionsCertifyCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
+        let feedback_receiver = Arc::new(IndicatifFeedbackReceiver::new(
+            progress_output_type,
+            logger.clone(),
+        ));
 
         match self.backend {
             CardanoTransactionCommandsBackend::V1 => {
                 let client = context
                     .setup_mithril_client_builder_with_fallback_genesis_key()?
                     .with_capabilities(SignedEntityTypeDiscriminants::CardanoTransactions.into())
+                    .add_feedback_receiver(feedback_receiver)
                     .build()?;
                 certify_v1(
                     &self.transactions_hashes,
@@ -71,6 +77,7 @@ impl CardanoTransactionsCertifyCommand {
                     .with_capabilities(
                         SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into(),
                     )
+                    .add_feedback_receiver(feedback_receiver)
                     .build()?;
                 certify_v2(
                     &self.transactions_hashes,
