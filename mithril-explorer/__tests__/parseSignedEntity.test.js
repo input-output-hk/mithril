@@ -81,6 +81,22 @@ describe("parseSignedEntity", () => {
     });
   });
 
+  it("parse correctly formed `CardanoBlocksTransactions` signed entity", () => {
+    const [epoch, block_number, security_parameter] = [1432, 23891, 1000];
+    const signed_entity = {
+      [signedEntityType.CardanoBlocksTransactions]: [epoch, block_number, security_parameter],
+    };
+
+    expect(parseSignedEntity(signed_entity)).toEqual({
+      name: signedEntityType.CardanoBlocksTransactions,
+      fields: {
+        epoch: epoch,
+        block_number: block_number,
+        security_parameter: security_parameter,
+      },
+    });
+  });
+
   it("parse unknown array value", () => {
     const [foo, bar] = ["foo", "bar"];
     const signed_entity = {

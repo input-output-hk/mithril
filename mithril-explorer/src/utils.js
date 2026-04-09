@@ -189,6 +189,12 @@ function parseSignedEntity(entityType) {
     result.fields = {
       epoch: entityType[type_name][0],
     };
+  } else if (type_name === signedEntityType.CardanoBlocksTransactions) {
+    result.fields = {
+      epoch: entityType[type_name][0],
+      block_number: entityType[type_name][1],
+      security_parameter: entityType[type_name][2],
+    };
   } else if (type_name === signedEntityType.CardanoTransactions) {
     result.fields = {
       epoch: entityType[type_name][0],
