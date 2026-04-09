@@ -174,7 +174,7 @@ async fn create_certificate() {
     );
 
     comment!(
-        "Now the state machine should be signing the block (167) for CardanoBlocksTransactions"
+        "Now the state machine should be signing the block (168) for CardanoBlocksTransactions"
     );
     cycle!(tester, "signing");
     let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
@@ -199,7 +199,7 @@ async fn create_certificate() {
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
                 Epoch(1),
-                BlockNumber(167),
+                BlockNumber(168),
                 BlockNumberOffset(0)
             ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
@@ -241,7 +241,7 @@ async fn create_certificate() {
     );
 
     comment!(
-        "the rollback to block number 149 should also trigger state machine to be sign CardanoBlocksTransactions for block 143"
+        "the rollback to block number 149 should also trigger state machine to be sign CardanoBlocksTransactions for block 144"
     );
     cycle!(tester, "signing");
     let signers_for_blocks_transactions = &fixture.signers_fixture()[2..=6];
@@ -266,7 +266,7 @@ async fn create_certificate() {
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
                 Epoch(1),
-                BlockNumber(143),
+                BlockNumber(144),
                 BlockNumberOffset(0)
             ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),

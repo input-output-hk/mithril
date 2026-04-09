@@ -137,12 +137,29 @@ pub struct CardanoTransactionsSigningConfig {
 
 impl CardanoTransactionsSigningConfig {
     /// Compute the block number to be signed based on the chain tip block number.
+    ///
+    /// The latest block number to be signed is the highest multiple of the step less or equal than the
+    /// block number minus the security parameter.
+    ///
+    /// The formula is as follows:
+    ///
+    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step - 1`
+    ///
+    /// where `⌊x⌋` is the floor function that rounds to the greatest integer less than or equal to `x`.
+    ///
+    /// *Notes:*
+    /// * *The step is adjusted to be a multiple of the block range length in order
+    ///   to guarantee that the block number signed in a certificate is effectively signed.*
+    /// * *1 is subtracted to the result because the block range end is exclusive (ie: a BlockRange over
+    ///   `30..45` finishes at 44 included, 45 is included in the next block range).*
     pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
         let adjusted_step = BlockRange::from_block_number(self.step).start;
         // We can't have a step lower than the block range length.
         let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
 
-        compute_block_number_to_be_signed(block_number, self.security_parameter, adjusted_step)
+        let block_number_to_be_signed =
+            compute_block_number_to_be_signed(block_number, self.security_parameter, adjusted_step);
+        block_number_to_be_signed - 1
     }
 }
 
@@ -161,37 +178,28 @@ pub struct CardanoBlocksTransactionsSigningConfig {
 
 impl CardanoBlocksTransactionsSigningConfig {
     /// Compute the block number to be signed based on the chain tip block number.
+    ///
+    /// The latest block number to be signed is the highest multiple of the step less or equal than the
+    /// block number minus the security parameter.
+    ///
+    /// The formula is as follows:
+    ///
+    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step`
+    ///
+    /// where `⌊x⌋` is the floor function that rounds to the greatest integer less than or equal to `x`.
     pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
         compute_block_number_to_be_signed(block_number, self.security_parameter, self.step)
     }
 }
 
 /// Compute the block number to be signed based on the chain tip block number.
-///
-/// The latest block number to be signed is the highest multiple of the step less or equal than the
-/// block number minus the security parameter.
-///
-/// The formula is as follows:
-///
-/// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step - 1`
-///
-/// where `⌊x⌋` is the floor function which rounds to the greatest integer less than or equal to `x`.
-///
-/// *Notes:*
-/// * *The step is adjusted to be a multiple of the block range length in order
-///   to guarantee that the block number signed in a certificate is effectively signed.*
-/// * *1 is subtracted to the result because block range end is exclusive (ie: a BlockRange over
-///   `30..45` finish at 44 included, 45 is included in the next block range).*
 fn compute_block_number_to_be_signed(
     block_number: BlockNumber,
     security_parameter: BlockNumberOffset,
     step: BlockNumber,
 ) -> BlockNumber {
     let adjusted_step = std::cmp::max(step, BlockNumber(1));
-
-    let block_number_to_be_signed =
-        (block_number - security_parameter) / adjusted_step * adjusted_step;
-    block_number_to_be_signed - 1
+    (block_number - security_parameter) / adjusted_step * adjusted_step
 }
 
 #[cfg(test)]
@@ -223,8 +231,8 @@ mod tests {
             }),
             cardano_blocks_transactions_signing_config: Some(
                 CardanoBlocksTransactionsSigningConfig {
-                    security_parameter: BlockNumberOffset(1),
-                    step: BlockNumber(30),
+                    security_parameter: BlockNumberOffset(5),
+                    step: BlockNumber(15),
                 },
             ),
         };
@@ -262,12 +270,29 @@ mod tests {
 
         // The block number to be signed is 14 because the step is 15, the block number is 20, and
         // the security parameter is 0.
-        // This is further tested in the "computing_block_number_to_be_signed" tests below.
+        // This is further tested in the "compute_block_number_to_be_signed_for_cardano_transactions" tests below.
         assert_eq!(
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(14)),
             config
                 .time_point_to_signed_entity(
                     SignedEntityTypeDiscriminants::CardanoTransactions,
+                    &time_point
+                )
+                .unwrap()
+        );
+
+        // The block number to be signed is 15 because the step is 15, the block number is 20, and
+        // the security parameter is 5.
+        // This is further tested in the "compute_block_number_to_be_signed_for_cardano_blocks_transactions" tests below.
+        assert_eq!(
+            SignedEntityType::CardanoBlocksTransactions(
+                Epoch(1),
+                BlockNumber(15),
+                BlockNumberOffset(5)
+            ),
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
                     &time_point
                 )
                 .unwrap()
@@ -450,10 +475,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockNumber(15),
             };
-            // ((105 - 0).div_euclid(15) * 15) - 1 = (105.div_euclid(15) * 15) - 1 = 7 * 15 - 1 = 104
+            // ((105 - 0).div_euclid(15) * 15)  = (105.div_euclid(15) * 15)  = 7 * 15  = 105
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                104
+                105
             );
         }
 
@@ -464,10 +489,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(5),
                 step: BlockNumber(15),
             };
-            // ((100 - 5).div_euclid(15) * 15) - 1 = (95.div_euclid(15) * 15) - 1 = 6 * 15 - 1 = 89
+            // ((100 - 5).div_euclid(15) * 15)  = (95.div_euclid(15) * 15)  = 6 * 15  = 90
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                89
+                90
             );
         }
 
@@ -478,10 +503,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(85),
                 step: BlockNumber(15),
             };
-            // ((100 - 85).div_euclid(15) * 15) - 1 = (15.div_euclid(15) * 15) - 1 = 1 * 15 - 1 = 14
+            // ((100 - 85).div_euclid(15) * 15)  = (15.div_euclid(15) * 15)  = 1 * 15  = 15
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                14
+                15
             );
         }
 
@@ -518,10 +543,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockRange::LENGTH - 1,
             };
-            // ((150 - 0).div_euclid(15 - 1) * (15 - 1)) - 1 = (150.div_euclid(14) * 14) - 1 = 10 * 14 - 1 = 139
+            // ((150 - 0).div_euclid(15 - 1) * (15 - 1)) = (150.div_euclid(14) * 14) - 1 = 10 * 14 = 140
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                139,
+                140,
             );
         }
 
@@ -532,10 +557,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockRange::LENGTH + 1,
             };
-            // ((150 - 0).div_euclid(15 + 1) * (15 + 1)) - 1 = (150.div_euclid(16) * 16) - 1 = 9 * 16 - 1 = 143
+            // ((150 - 0).div_euclid(15 + 1) * (15 + 1))  = (150.div_euclid(16) * 16)  = 9 * 16  = 144
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                143,
+                144,
             );
         }
 
@@ -546,10 +571,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockRange::LENGTH + 6,
             };
-            // ((150 - 0).div_euclid(15 + 6) * (15 + 6)) - 1 = (150.div_euclid(21) * 21) - 1 = 7 * 21 - 1 = 146
+            // ((150 - 0).div_euclid(15 + 6) * (15 + 6))  = (150.div_euclid(21) * 21)  = 7 * 21  = 147
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                146,
+                147,
             );
         }
 
@@ -560,10 +585,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockRange::LENGTH - 6,
             };
-            // ((150 - 0).div_euclid(15 - 6) * (15 - 6)) - 1 = (150.div_euclid(9) * 9) - 1 = 16 * 9 - 1 = 143
+            // ((150 - 0).div_euclid(15 - 6) * (15 - 6))  = (150.div_euclid(9) * 9)  = 16 * 9  = 144
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                143,
+                144,
             );
         }
 
@@ -574,10 +599,10 @@ mod tests {
                 security_parameter: BlockNumberOffset(0),
                 step: BlockRange::LENGTH - 10,
             };
-            // ((15 - 1).div_euclid(15 - 10) * (15 - 10)) - 1 = (14.div_euclid(5) * 5) - 1 = 2 * 5 - 1 = 9
+            // ((15 - 1).div_euclid(15 - 10) * (15 - 10))  = (14.div_euclid(5) * 5)  = 2 * 5  = 10
             assert_eq!(
                 signing_config.compute_block_number_to_be_signed(block_number),
-                9,
+                10,
             );
         }
     }
@@ -710,7 +735,7 @@ mod tests {
                 SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number - 1),
                 SignedEntityType::CardanoBlocksTransactions(
                     beacon.epoch,
-                    chain_point.block_number - 1,
+                    chain_point.block_number,
                     BlockNumberOffset(0)
                 ),
             ],

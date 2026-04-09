@@ -74,8 +74,8 @@ async fn test_create_cardano_blocks_transactions_single_signature() {
         .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(3))).await.unwrap()
 
         .comment("signer signs a single signature for CardanoTransactions = ReadyToSign")
-        .comment("Signing up to a partial block range - BlockNumber 99 (in range 90..105)")
-        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(99), BlockNumberOffset(0))).await.unwrap()
+        .comment("Signing up to a partial block range - BlockNumber 100 (in range 90..105)")
+        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(100), BlockNumberOffset(0))).await.unwrap()
 
         .comment("more cycles do not change the state = ReadyToSign")
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
@@ -84,8 +84,8 @@ async fn test_create_cardano_blocks_transactions_single_signature() {
         .comment("new blocks means a new signature with the same stake distribution → ReadyToSign")
         .increase_block_number_and_slot_number(125, SlotNumber(135), BlockNumber(225)).await.unwrap()
         .cardano_chain_send_rollback(SlotNumber(135), BlockNumber(150)).await.unwrap()
-        .comment("Signing up to a complete block range - BlockNumber 149")
-        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(149), BlockNumberOffset(0))).await.unwrap()
+        .comment("Signing up to a complete block range - BlockNumber 150")
+        .cycle_ready_to_sign_with_signature_registration(CardanoBlocksTransactions(Epoch(3), BlockNumber(150), BlockNumberOffset(0))).await.unwrap()
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected, total_signature_registrations_expected).await.unwrap()
