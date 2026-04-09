@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
-    AggregatorDiscoveryType, CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions,
-    GenesisVerificationKey, MessageBuilder, MithrilCertificate,
+    AggregatorDiscoveryType, CardanoTransactionsProofs, CardanoTransactionsProofsV2, Client,
+    ClientBuilder, ClientOptions, GenesisVerificationKey, MessageBuilder, MithrilCertificate,
     certificate_client::CertificateVerifierCache,
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
@@ -355,6 +355,35 @@ impl MithrilClient {
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
+    /// Call the client for the list of available Cardano transactions V2 snapshots
+    #[wasm_bindgen]
+    pub async fn list_cardano_transactions_v2_snapshots(&self) -> WasmResult {
+        let result = self
+            .client
+            .cardano_transaction_v2()
+            .list_snapshots()
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to get a Cardano transactions V2 snapshot from a hash
+    #[wasm_bindgen]
+    pub async fn get_cardano_transactions_v2_snapshot(&self, hash: &str) -> WasmResult {
+        let result = self
+            .client
+            .cardano_transaction_v2()
+            .get_snapshot(hash)
+            .await
+            .map_err(|err| format!("{err:?}"))?
+            .ok_or(JsValue::from_str(&format!(
+                "No cardano transactions V2 snapshot found for hash: '{hash}'"
+            )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
     /// Call the client to get a Cardano transactions proofs
     #[wasm_bindgen]
     pub async fn get_cardano_transaction_proofs(
@@ -381,6 +410,32 @@ impl MithrilClient {
         Ok(result)
     }
 
+    /// Call the client to get a Cardano transactions V2 proof
+    #[wasm_bindgen]
+    pub async fn get_cardano_transaction_v2_proof(
+        &self,
+        ctx_hashes: Box<[JsValue]>,
+    ) -> Result<CardanoTransactionsProofsV2, JsValue> {
+        let hashes = ctx_hashes
+            .iter()
+            .map(|h| {
+                h.as_string().ok_or(JsValue::from_str(&format!(
+                    "All transaction hashes must be strings: '{h:?}'"
+                )))
+            })
+            .collect::<Result<Vec<String>, JsValue>>()
+            .map_err(|err| format!("{err:?}"))?;
+
+        let result = self
+            .client
+            .cardano_transaction_v2()
+            .get_proof(&hashes)
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(result)
+    }
+
     /// Call the client to verify a cardano transaction proof and compute a message
     #[wasm_bindgen]
     pub async fn verify_cardano_transaction_proof_then_compute_message(
@@ -394,6 +449,23 @@ impl MithrilClient {
             cardano_transaction_proof.verify().map_err(|err| format!("{err:?}"))?;
         let result = MessageBuilder::new()
             .compute_cardano_transactions_proofs_message(&certificate, &verified_proof);
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to verify a cardano transaction V2 proof and compute a message
+    #[wasm_bindgen]
+    pub async fn verify_cardano_transaction_v2_proof_then_compute_message(
+        &self,
+        cardano_transaction_proof: &CardanoTransactionsProofsV2,
+        certificate: JsValue,
+    ) -> WasmResult {
+        let certificate: MithrilCertificate =
+            serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
+        let verified_proof =
+            cardano_transaction_proof.verify().map_err(|err| format!("{err:?}"))?;
+        let result = MessageBuilder::new()
+            .compute_cardano_transactions_proofs_v2_message(&certificate, &verified_proof);
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
@@ -539,7 +611,8 @@ mod tests {
     use wasm_bindgen_test::*;
 
     use mithril_client::{
-        CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
+        CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
+        CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
         CardanoStakeDistributionListItem, CardanoTransactionSnapshot, MithrilCertificateListItem,
         MithrilStakeDistribution, MithrilStakeDistributionListItem, common::ProtocolMessage,
         common::SupportedEra, era::FetchedEra,
@@ -796,6 +869,24 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
+    async fn list_cardano_transactions_v2_snapshots_should_return_value_convertible_in_rust_type() {
+        let cardano_tx_sets_js_value = get_mithril_client_stable()
+            .list_cardano_transactions_v2_snapshots()
+            .await
+            .expect("list_cardano_transactions_v2_snapshots should not fail");
+        let cardano_tx_sets = serde_wasm_bindgen::from_value::<
+            Vec<CardanoBlocksTransactionsSnapshot>,
+        >(cardano_tx_sets_js_value)
+        .expect("conversion should not fail");
+
+        assert_eq!(
+            cardano_tx_sets.len(),
+            // Aggregator return up to 20 items for a list route
+            test_data::cardano_blocks_transactions_snapshot_hashes().len().min(20)
+        );
+    }
+
+    #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_return_value_convertible_in_rust_type() {
         let cardano_tx_set_js_value = get_mithril_client_stable()
             .get_cardano_transactions_snapshot(test_data::cardano_transaction_snapshot_hashes()[0])
@@ -812,11 +903,38 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
+    async fn get_cardano_transactions_v2_snapshot_should_return_value_convertible_in_rust_type() {
+        let cardano_blocks_transactions_set_js_value = get_mithril_client_stable()
+            .get_cardano_transactions_v2_snapshot(
+                test_data::cardano_blocks_transactions_snapshot_hashes()[0],
+            )
+            .await
+            .expect("get_cardano_transactions_v2_snapshot should not fail");
+        let cardano_blocks_transactions_set = serde_wasm_bindgen::from_value::<
+            CardanoBlocksTransactionsSnapshot,
+        >(cardano_blocks_transactions_set_js_value)
+        .expect("conversion should not fail");
+
+        assert_eq!(
+            cardano_blocks_transactions_set.hash,
+            test_data::cardano_blocks_transactions_snapshot_hashes()[0]
+        );
+    }
+
+    #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_fail_with_unknown_digest() {
         get_mithril_client_stable()
             .get_cardano_transactions_snapshot("whatever")
             .await
             .expect_err("get_cardano_transactions_snapshot should fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_transactions_v2_snapshot_should_fail_with_unknown_digest() {
+        get_mithril_client_stable()
+            .get_cardano_transactions_v2_snapshot("whatever")
+            .await
+            .expect_err("get_cardano_transactions_v2_snapshot should fail");
     }
 
     #[wasm_bindgen_test]
@@ -836,6 +954,27 @@ mod tests {
 
         client
             .verify_cardano_transaction_proof_then_compute_message(&tx_proof, certificate)
+            .await
+            .expect("Compute tx proof message for matching cert failed");
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_transaction_v2_proof_should_return_value_convertible_in_rust_type() {
+        let tx_hash = test_data::proof_v2_transaction_hashes()[0];
+        let ctx_hashes = Box::new([JsValue::from(tx_hash)]);
+        let client = get_mithril_client_stable();
+
+        let tx_proof = client
+            .get_cardano_transaction_v2_proof(ctx_hashes)
+            .await
+            .expect("get_verified_cardano_transaction_v2_proof should not fail");
+        let certificate = client
+            .get_mithril_certificate(&tx_proof.certificate_hash)
+            .await
+            .unwrap();
+
+        client
+            .verify_cardano_transaction_v2_proof_then_compute_message(&tx_proof, certificate)
             .await
             .expect("Compute tx proof message for matching cert failed");
     }
