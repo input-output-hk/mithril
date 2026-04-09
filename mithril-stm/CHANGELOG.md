@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.1 (04-09-2026)
+
+### Changed
+
+- Non-recursive circuit implementation is synchronized with prototype for commit 6812066.
+- As part of this synchronization, the `lower_than` constraint bit-length was reduced from 32 bits to 16 bits.
+
 ## 0.10.0 (04-09-2026)
 
 ### Changed
