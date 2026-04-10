@@ -3,6 +3,7 @@ use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 use slog::debug;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use mithril_client::common::{BlockHash, SignedEntityTypeDiscriminants};
 use mithril_client::{
@@ -10,7 +11,7 @@ use mithril_client::{
     VerifyProofsV2Error,
 };
 
-use crate::utils::{ProgressOutputType, ProgressPrinter, compute_depth};
+use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter, compute_depth};
 use crate::{
     CommandContext,
     configuration::{ConfigError, ConfigSource},
@@ -42,6 +43,10 @@ impl CardanoBlocksCertifyCommand {
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
         let client = context
             .setup_mithril_client_builder_with_fallback_genesis_key()?
+            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
+                progress_output_type,
+                logger.clone(),
+            )))
             .with_capabilities(SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into())
             .build()?;
 
