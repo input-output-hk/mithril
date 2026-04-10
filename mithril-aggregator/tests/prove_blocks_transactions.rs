@@ -92,7 +92,7 @@ async fn prove_blocks_transactions() {
 
     comment!(
         "Increase the Cardano chain block number to 166; \
-        the state machine should sign `CardanoBlocksTransactions` up to block 164 inclusive, \
+        the state machine should sign `CardanoBlocksTransactions` up to block 165 inclusive, \
         and all block ranges should be complete"
     );
     tester
@@ -121,7 +121,7 @@ async fn prove_blocks_transactions() {
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
                 Epoch(1),
-                BlockNumber(164),
+                BlockNumber(165),
                 BlockNumberOffset(0)
             ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
@@ -130,7 +130,7 @@ async fn prove_blocks_transactions() {
 
     cycle!(tester, "ready");
 
-    get_verify_proofs_for_blocks_and_for_transactions(BlockNumber(164), &observer, &prover).await;
+    get_verify_proofs_for_blocks_and_for_transactions(BlockNumber(165), &observer, &prover).await;
 
     comment!("Check that the database stored the last signed block range because it is complete");
     let last_stored_block_range = observer.list_stored_block_ranges().unwrap().pop().unwrap();
@@ -138,7 +138,7 @@ async fn prove_blocks_transactions() {
 
     comment!(
         "Increase the Cardano chain block number to 188;\
-        the state machine should sign `CardanoBlocksTransactions` up to block 184 inclusive, \
+        the state machine should sign `CardanoBlocksTransactions` up to block 185 inclusive, \
         and the last block range should remain incomplete"
     );
     tester
@@ -167,7 +167,7 @@ async fn prove_blocks_transactions() {
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoBlocksTransactions(
                 Epoch(1),
-                BlockNumber(184),
+                BlockNumber(185),
                 BlockNumberOffset(0)
             ),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
@@ -176,10 +176,10 @@ async fn prove_blocks_transactions() {
 
     cycle!(tester, "ready");
 
-    get_verify_proofs_for_blocks_and_for_transactions(BlockNumber(184), &observer, &prover).await;
+    get_verify_proofs_for_blocks_and_for_transactions(BlockNumber(185), &observer, &prover).await;
 
     comment!(
-        "Check that the database did not store the last block range because it is partial (block range 180..194 contains transactions only up to 184)"
+        "Check that the database did not store the last block range because it is partial (block range 180..194 contains transactions only up to 185)"
     );
     let last_stored_block_range = observer.list_stored_block_ranges().unwrap().pop().unwrap();
     assert_eq!(BlockRange::new(165, 180), last_stored_block_range);
