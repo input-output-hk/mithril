@@ -54,6 +54,7 @@ pub struct Aggregator {
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
+    pub aggregate_signature_type: String,
 }
 
 impl Aggregator {
@@ -206,6 +207,7 @@ impl Aggregator {
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
             chain_observer,
+            aggregate_signature_type: aggregator_config.aggregate_signature_type.to_string(),
         })
     }
 
@@ -224,6 +226,7 @@ impl Aggregator {
             command: other.command.clone(),
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
+            aggregate_signature_type: other.aggregate_signature_type.clone(),
         }
     }
 
