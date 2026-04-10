@@ -82,6 +82,7 @@
             pkgsRustOverlay.pkg-config
             pkgsRustOverlay.gnum4
             pkgsRustOverlay.openssl
+            pkgsRustOverlay.cacert
           ]
           ++ lib.optionals (pkgsRustOverlay.stdenv.isDarwin) [
             pkgsRustOverlay.libiconv
@@ -112,6 +113,7 @@
           src = clean ./.;
           inherit buildInputs;
           CARGO_TERM_VERBOSE = "true";
+          SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
         };
 
         commonsArgsMusl =
@@ -125,6 +127,7 @@
             OPENSSL_STATIC = "1";
             OPENSSL_LIB_DIR = "${opensslMusl.out}/lib";
             OPENSSL_INCLUDE_DIR = "${opensslMusl.dev}/include";
+            SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
           }
           else {};
 
