@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Non-recursive circuit implementation is synchronized with prototype for commit 6812066.
-- As part of this synchronization, the `lower_than` constraint bit-length was reduced from 32 bits to 16 bits.
+- Reduced the `lower_than` constraint bit-length from 32 bits to 16 bits in the non-recursive circuit implementation.
 
 ## 0.10.0 (04-09-2026)
 

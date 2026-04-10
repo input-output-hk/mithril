@@ -7,7 +7,7 @@ use midnight_zk_stdlib::ZkStdLib;
 use crate::circuits::halo2::gadgets::comparison::lower_than_native;
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
-use super::LOTTERY_INDEX_BITS;
+use super::LOTTERY_BIT_BOUND;
 
 /// Constrains the current witness to have won the lottery for the assigned index.
 pub(crate) fn assert_lottery_won(
@@ -49,7 +49,7 @@ pub(crate) fn assert_strictly_increasing_lottery_index(
         layouter,
         previous_lottery_index,
         lottery_index,
-        LOTTERY_INDEX_BITS,
+        LOTTERY_BIT_BOUND,
     )?;
     std_lib.assert_true(layouter, &is_less)
 }
@@ -61,7 +61,7 @@ pub(crate) fn assert_lottery_index_in_bounds(
     lottery_index: &AssignedNative<CircuitBase>,
     m: &AssignedNative<CircuitBase>,
 ) -> Result<(), Error> {
-    let is_less = std_lib.lower_than(layouter, lottery_index, m, LOTTERY_INDEX_BITS)?;
+    let is_less = std_lib.lower_than(layouter, lottery_index, m, LOTTERY_BIT_BOUND)?;
     std_lib.assert_true(layouter, &is_less)
 }
 

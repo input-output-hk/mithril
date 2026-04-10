@@ -1,6 +1,6 @@
 use crate::LotteryIndex;
 use crate::circuits::halo2::errors::StmCircuitError;
-use crate::circuits::halo2::gadgets::LOTTERY_INDEX_BITS;
+use crate::circuits::halo2::gadgets::LOTTERY_BIT_BOUND;
 use crate::circuits::halo2::tests::golden::helpers::{
     LOTTERIES_PER_K, LeafSelector, StmCircuitScenario, assert_proof_rejected_by_verifier,
     assert_proving_backend_message_contains, assert_proving_circuit_error, build_witness,
@@ -18,6 +18,19 @@ fn k_not_less_than_m() {
     const CIRCUIT_DEGREE: u32 = 13;
     const K: u32 = 3;
     const M: u32 = 3;
+    let result = setup_stm_circuit_env(current_function!(), CIRCUIT_DEGREE, K, M);
+    let error = assert_proving_circuit_error(result);
+    assert!(matches!(
+        error,
+        StmCircuitError::InvalidCircuitParameters { k: K, m: M }
+    ));
+}
+
+#[test]
+fn m_exceeds_lottery_bit_bound() {
+    const CIRCUIT_DEGREE: u32 = 13;
+    const K: u32 = 3;
+    const M: u32 = (1 << LOTTERY_BIT_BOUND) as u32;
     let result = setup_stm_circuit_env(current_function!(), CIRCUIT_DEGREE, K, M);
     let error = assert_proving_circuit_error(result);
     assert!(matches!(
@@ -259,7 +272,7 @@ fn index_too_large_for_circuit_range() {
         .expect("index_too_large_for_circuit_range tree creation should succeed");
 
     let merkle_tree_commitment = merkle_tree.merkle_tree_commitment();
-    let max_supported = ((1u64 << LOTTERY_INDEX_BITS) - 1) as LotteryIndex;
+    let max_supported = ((1u64 << LOTTERY_BIT_BOUND) - 1) as LotteryIndex;
     let too_large = max_supported + 1;
     let indices = vec![6, 14, too_large];
     let witness =
