@@ -81,29 +81,17 @@
           [
             pkgsRustOverlay.pkg-config
             pkgsRustOverlay.gnum4
-            pkgsRustOverlay.openssl
             pkgsRustOverlay.cacert
           ]
           ++ lib.optionals (pkgsRustOverlay.stdenv.isDarwin) [
             pkgsRustOverlay.libiconv
           ];
 
-        opensslMusl =
-          if pkgsMusl != null then
-            pkgsMusl.openssl.override { static = true; }
-          else null;
-
         nativeBuildInputsMusl =
           if pkgsMusl != null then [
             pkgsMusl.stdenv.cc
             pkgsMusl.pkg-config
             pkgsMusl.gnum4
-          ]
-          else [];
-
-        buildInputsMusl =
-          if pkgsMusl != null then [
-            opensslMusl
           ]
           else [];
 
@@ -122,11 +110,7 @@
             version = "0.0.1";
             src = cleanMusl ./.;
             nativeBuildInputs = nativeBuildInputsMusl;
-            buildInputs = buildInputsMusl;
             CARGO_TERM_VERBOSE = "true";
-            OPENSSL_STATIC = "1";
-            OPENSSL_LIB_DIR = "${opensslMusl.out}/lib";
-            OPENSSL_INCLUDE_DIR = "${opensslMusl.dev}/include";
             SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
           }
           else {};
