@@ -142,7 +142,7 @@ impl TryFrom<Certificate> for CertificateRecord {
         let (signature, parent_certificate_id) = match other.signature {
             CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex()?, None),
             CertificateSignature::MultiSignature(_, signature) => {
-                (signature.to_json_hex()?, Some(other.previous_hash))
+                (signature.to_bytes_hex()?, Some(other.previous_hash))
             }
         };
 
