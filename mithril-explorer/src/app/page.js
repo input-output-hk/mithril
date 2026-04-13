@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from "chart.js";
 import ControlPanel from "#/ControlPanel";
+import CardanoBlocksTransactionsSnapshotsList from "#/Artifacts/CardanoBlocksTransactionsSnapshotsList";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoDbV2SnapshotsList from "#/Artifacts/CardanoDbV2SnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
@@ -43,6 +44,7 @@ export default function Explorer() {
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
+  const [enableCardanoBlocksTransactionTab, setEnableCardanoBlocksTransactionTab] = useState(false);
   const [enableCardanoStakeDistributionTab, setEnableCardanoStakeDistributionTab] = useState(false);
   const [enableCardanoDbV2Tab, setEnableCardanoDbV2Tab] = useState(false);
   const [currentTab, setCurrentTab] = useState(defaultTab);
@@ -54,6 +56,9 @@ export default function Explorer() {
   useEffect(() => {
     setEnableCardanoTransactionTab(
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
+    );
+    setEnableCardanoBlocksTransactionTab(
+      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoBlocksTransactions),
     );
     setEnableCardanoStakeDistributionTab(
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoStakeDistribution),
@@ -122,6 +127,13 @@ export default function Explorer() {
         {enableCardanoTransactionTab && (
           <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
             <CardanoTransactionsSnapshotsList />
+          </Tab>
+        )}
+        {enableCardanoBlocksTransactionTab && (
+          <Tab
+            title="Cardano Blocks & Transactions"
+            eventKey={signedEntityType.CardanoBlocksTransactions}>
+            <CardanoBlocksTransactionsSnapshotsList />
           </Tab>
         )}
         {enableCardanoStakeDistributionTab && (

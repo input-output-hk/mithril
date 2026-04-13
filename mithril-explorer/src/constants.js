@@ -6,6 +6,7 @@ export const signedEntityType = {
   CardanoImmutableFilesFull: "CardanoImmutableFilesFull",
   CardanoDb: "CardanoDatabase",
   CardanoTransactions: "CardanoTransactions",
+  CardanoBlocksTransactions: "CardanoBlocksTransactions",
 };
 
 export const defaultAggregatorCapabilities = {

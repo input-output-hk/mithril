@@ -1,3 +1,5 @@
+import { signedEntityType } from "@/constants";
+
 function checkUrl(url) {
   try {
     // Use the url constructor to check if the value is an url
@@ -173,24 +175,33 @@ function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
   );
 }
 
-function parseSignedEntity(signedEntityType) {
-  let type_name = Object.keys(signedEntityType).at(0);
+function parseSignedEntity(entityType) {
+  let type_name = Object.keys(entityType).at(0);
   const result = {
     name: type_name,
     fields: {},
   };
 
-  if (type_name === "MithrilStakeDistribution" || type_name === "CardanoStakeDistribution") {
+  if (
+    type_name === signedEntityType.MithrilStakeDistribution ||
+    type_name === signedEntityType.CardanoStakeDistribution
+  ) {
     result.fields = {
-      epoch: signedEntityType[type_name],
+      epoch: entityType[type_name][0],
     };
-  } else if (type_name === "CardanoTransactions") {
+  } else if (type_name === signedEntityType.CardanoBlocksTransactions) {
     result.fields = {
-      epoch: signedEntityType[type_name][0],
-      block_number: signedEntityType[type_name][1],
+      epoch: entityType[type_name][0],
+      block_number: entityType[type_name][1],
+      security_parameter: entityType[type_name][2],
+    };
+  } else if (type_name === signedEntityType.CardanoTransactions) {
+    result.fields = {
+      epoch: entityType[type_name][0],
+      block_number: entityType[type_name][1],
     };
   } else {
-    result.fields = signedEntityType[type_name] ?? {};
+    result.fields = entityType[type_name] ?? {};
   }
 
   return result;
