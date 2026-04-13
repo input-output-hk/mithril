@@ -16,23 +16,28 @@ use crate::{
 
 use super::{BlockNumber, CardanoDbBeacon, Epoch};
 
+/// Unique numeric identifier of a [`SignedEntityType`] variant, as stored in the database.
+///
+/// These values are **immutable**: existing mappings must never change or be reused.
+pub type SignedEntityTypeId = u16;
+
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
-const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
+const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: SignedEntityTypeId = 0;
 
 /// Database representation of the SignedEntityType::CardanoStakeDistribution value
-const ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION: usize = 1;
+const ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION: SignedEntityTypeId = 1;
 
 /// Database representation of the SignedEntityType::CardanoImmutableFilesFull value
-const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
+const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: SignedEntityTypeId = 2;
 
 /// Database representation of the SignedEntityType::CardanoTransactions value
-const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
+const ENTITY_TYPE_CARDANO_TRANSACTIONS: SignedEntityTypeId = 3;
 
 /// Database representation of the SignedEntityType::CardanoDatabase value
-const ENTITY_TYPE_CARDANO_DATABASE: usize = 4;
+const ENTITY_TYPE_CARDANO_DATABASE: SignedEntityTypeId = 4;
 
 /// Database representation of the SignedEntityType::CardanoBlocksTransactions value
-const ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS: usize = 5;
+const ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS: SignedEntityTypeId = 5;
 
 /// The signed entity type that represents a type of data signed by the Mithril
 /// protocol Note: Each variant of this enum must be associated to an entry in
@@ -103,7 +108,7 @@ impl SignedEntityType {
     }
 
     /// Get the database value from enum's instance
-    pub fn index(&self) -> usize {
+    pub fn index(&self) -> SignedEntityTypeId {
         match self {
             Self::MithrilStakeDistribution(..) => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution(..) => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
@@ -215,7 +220,7 @@ impl SignedEntityTypeDiscriminants {
     }
 
     /// Get the database value from enum's instance
-    pub fn index(&self) -> usize {
+    pub fn index(&self) -> SignedEntityTypeId {
         match self {
             Self::MithrilStakeDistribution => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
@@ -227,7 +232,9 @@ impl SignedEntityTypeDiscriminants {
     }
 
     /// Get the discriminant associated with the given id
-    pub fn from_id(signed_entity_type_id: usize) -> StdResult<SignedEntityTypeDiscriminants> {
+    pub fn from_id(
+        signed_entity_type_id: SignedEntityTypeId,
+    ) -> StdResult<SignedEntityTypeDiscriminants> {
         match signed_entity_type_id {
             ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => Ok(Self::MithrilStakeDistribution),
             ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => Ok(Self::CardanoStakeDistribution),

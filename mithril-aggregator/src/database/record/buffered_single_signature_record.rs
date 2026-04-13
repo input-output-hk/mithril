@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
-    HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignature,
+    HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SignedEntityTypeId,
+    SingleSignature,
 };
 #[cfg(test)]
 use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
@@ -100,9 +101,10 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
     where
         Self: Sized,
     {
-        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(0)).map_err(|e| {
-            panic!("Integer field signed_entity_type_id cannot be turned into usize: {e}")
-        })?;
+        let signed_entity_type_id =
+            SignedEntityTypeId::try_from(row.read::<i64, _>(0)).map_err(|e| {
+                panic!("Integer field signed_entity_type_id cannot be turned into u16: {e}")
+            })?;
         let party_id = row.read::<&str, _>(1).to_string();
         let lottery_indexes_str = row.read::<&str, _>(2);
         let signature = row.read::<&str, _>(3).to_string();
