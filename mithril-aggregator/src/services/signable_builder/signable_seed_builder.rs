@@ -95,8 +95,10 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "future_snark")]
+    use mithril_common::entities::SignerWithStake;
     use mithril_common::{
-        entities::{Epoch, SignerWithStake, SupportedEra},
+        entities::{Epoch, SupportedEra},
         test::{
             builder::{MithrilFixture, MithrilFixtureBuilder},
             double::Dummy,

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlite::Row;
 use uuid::Uuid;
 
-use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
+use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeId};
 use mithril_persistence::database::Hydrator;
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
@@ -66,9 +66,9 @@ impl SqLiteEntity for OpenMessageRecord {
         let epoch_val = u64::try_from(epoch_settings_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_settings_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
         let beacon_str = Hydrator::read_signed_entity_beacon_column(&row, 2);
-        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(3)).map_err(|e| {
+        let signed_entity_type_id = SignedEntityTypeId::try_from(row.read::<i64, _>(3)).map_err(|e| {
             panic!(
-                "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
+                "Integer field open_message.signed_entity_type_id cannot be turned into u16: {e}"
             )
         })?;
         let signed_entity_type =

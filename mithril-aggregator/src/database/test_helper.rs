@@ -256,9 +256,7 @@ pub fn insert_signed_entities(
                 (1, signed_entity_record.signed_entity_id.into()),
                 (
                     2,
-                    i64::try_from(signed_entity_record.signed_entity_type.index())
-                        .unwrap()
-                        .into(),
+                    i64::from(signed_entity_record.signed_entity_type.index()).into(),
                 ),
                 (3, signed_entity_record.certificate_id.into()),
                 (

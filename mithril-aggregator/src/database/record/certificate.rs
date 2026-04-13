@@ -322,7 +322,7 @@ impl SqLiteEntity for CertificateRecord {
             signed_entity_type: Hydrator::hydrate_signed_entity_type(
                 signed_entity_type_id.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
-                        "Could not cast i64 ({signed_entity_type_id}) to u64. Error: '{e}'"
+                        "Could not cast i64 ({signed_entity_type_id}) to u16. Error: '{e}'"
                     ))
                 })?,
                 &signed_entity_beacon_string,

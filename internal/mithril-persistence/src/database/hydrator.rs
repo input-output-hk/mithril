@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use mithril_common::entities::{
     BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch, SignedEntityType,
-    SignedEntityTypeDiscriminants,
+    SignedEntityTypeDiscriminants, SignedEntityTypeId,
 };
 
 use crate::sqlite::HydrationError;
@@ -40,7 +40,7 @@ impl Hydrator {
 
     /// Create a [SignedEntityType] from data coming from the database
     pub fn hydrate_signed_entity_type(
-        signed_entity_type_id: usize,
+        signed_entity_type_id: SignedEntityTypeId,
         beacon_str: &str,
     ) -> Result<SignedEntityType, HydrationError> {
         let signed_entity = match SignedEntityTypeDiscriminants::from_id(signed_entity_type_id)
