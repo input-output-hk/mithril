@@ -65,8 +65,10 @@ impl SnarkClerk {
     /// Deduplicate signatures by lottery index and select exactly `k` winners.
     ///
     /// When multiple signatures claim the same lottery index, the one with the smallest Schnorr
-    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. After all signatures have been
-    /// processed, the map is trimmed to the `k` smallest lottery indices.
+    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. After deduplication, `k` indices
+    /// are selected via a deterministic pseudo-random shuffle seeded by the signed message. This
+    /// ensures uniform selection across the full index range, avoiding bias toward any region of
+    /// `[0, m)`. The returned `BTreeMap` preserves strictly increasing lottery index order.
     ///
     /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
     /// can be collected.
