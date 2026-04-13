@@ -1,7 +1,8 @@
+use std::collections::{BTreeMap, btree_map::Entry};
+
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, btree_map::Entry};
 
 use crate::{
     AggregationError, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
@@ -75,7 +76,7 @@ impl SnarkClerk {
     pub(crate) fn select_valid_signatures_for_k_indices(
         parameters: &Parameters,
         signatures: &[SingleSignature],
-        message: &[BaseFieldElement; 2],
+        message_to_sign: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
         let mut unique_index_signature_map: BTreeMap<LotteryIndex, SingleSignature> =
             BTreeMap::new();
@@ -110,23 +111,45 @@ impl SnarkClerk {
         }
 
         let mut hasher = Sha256::new();
-        hasher.update(message[0].to_bytes());
-        hasher.update(message[1].to_bytes());
+        hasher.update(message_to_sign[0].to_bytes());
+        hasher.update(message_to_sign[1].to_bytes());
         let seed: [u8; 32] = hasher.finalize().into();
 
         let mut rng = ChaCha20Rng::from_seed(seed);
         let k = parameters.k as usize;
         let mut entries: Vec<(LotteryIndex, SingleSignature)> =
             unique_index_signature_map.into_iter().collect();
-        // Partial Fisher-Yates: randomly select k entries
+        // Randomly select k entries using Lemire's
+        // nearly divisionless method for unbiased index generation.
         for i in 0..k {
-            let j = i + (rng.next_u64() as usize % (entries.len() - i));
+            let range = (entries.len() - i) as u64;
+            let j = i + unbiased_random_below(&mut rng, range) as usize;
             entries.swap(i, j);
         }
         entries.truncate(k);
 
         Ok(entries.into_iter().collect())
     }
+}
+
+/// Generate a uniformly random `u64` in `[0, range)` without modulo bias.
+///
+/// Uses Lemire's "nearly divisionless" rejection sampling: draw a 128-bit
+/// product `rng.next_u64() * range`, reject only when the low 64 bits fall
+/// below `(-range) % range` (the remainder that causes bias). For typical
+/// ranges this rejects with probability < `range / 2^64`, so almost never.
+fn unbiased_random_below(rng: &mut ChaCha20Rng, range: u64) -> u64 {
+    debug_assert!(range > 0);
+    let mut product = (rng.next_u64() as u128) * (range as u128);
+    let mut low = product as u64;
+    if low < range {
+        let threshold = range.wrapping_neg() % range;
+        while low < threshold {
+            product = (rng.next_u64() as u128) * (range as u128);
+            low = product as u64;
+        }
+    }
+    (product >> 64) as u64
 }
 
 #[cfg(test)]
