@@ -58,10 +58,10 @@ const HomepageHero: FC = () => {
             transition={{ ease: "easeInOut", duration: 0.75, delay: 1.2 }}
           >
             <Link
-              className="inline-block px-4 py-3 font-bold text-sm text-white rounded-lg border-[0.5px] border-gray-border no-underline bg-secondary hover:no-underline hover:scale-105 transition-all hover:text-white"
-              to="/manual/welcome"
+              className="inline-block px-6 py-4 font-bold text-base text-white rounded-lg border-[0.5px] border-gray-border no-underline bg-secondary hover:no-underline hover:scale-105 transition-all hover:text-white"
+              to="/manual/operate/run-signer-node"
             >
-              Learn more
+              Run a Signer Node
             </Link>
           </motion.div>
         </div>

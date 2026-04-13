@@ -9,8 +9,8 @@ import rehypeKatex from "rehype-katex";
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Mithril. A complete guide.",
-  tagline: "Explore the user manual, key concepts, and API reference",
+  title: "Mithril | Trustless Light Client Access for Cardano",
+  tagline: "Trustless, lightweight access to verified Cardano blockchain state — no full node required.",
   url: "https://mithril.network",
   baseUrl: "/doc/",
   onBrokenLinks: "throw",
@@ -210,7 +210,7 @@ const config = {
       announcementBar: {
         id: "announcement",
         content:
-          'Participate in Mithril Protocol’s Mainnet Beta! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">here</a>!',
+          'SPOs: the Mithril Signer Node is stable and production-ready. <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">Install it today!</a>',
         backgroundColor: "#2A598E",
         textColor: "#f1f1f1",
         isCloseable: true,
