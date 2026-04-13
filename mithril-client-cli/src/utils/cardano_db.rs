@@ -17,8 +17,10 @@ pub enum LedgerFormat {
     Legacy,
     /// UTxO-HD in-memory format (since cardano-node `10.4.1`)
     InMemory,
-    /// UTxO-HD Lmdb format (since cardano-node `10.4.1`)
+    /// UTxO-HD LMDB format (since cardano-node `10.4.1`)
     Lmdb,
+    /// UTxO-HD LSM format (since cardano-node `10.7.0`)
+    Lsm,
 }
 
 impl CardanoDbUtils {
@@ -80,15 +82,23 @@ impl CardanoDbUtils {
             LedgerFormat::Lmdb => {
                 r#" -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V1LMDB" }}'"#
             }
+            LedgerFormat::Lsm => {
+                r#" -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V2LSM" }}'"#
+            }
             _ => "",
         };
 
-        let docker_cmd = format!(
-            "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{db_path}\",target=/data/db/ -e NETWORK={cardano_network}{cardano_node_config} ghcr.io/intersectmbo/cardano-node:{cardano_node_version}",
-            db_path = db_path.display(),
-        );
+        let security_opt = if matches!(ledger_format, LedgerFormat::Lsm) {
+            // The LSM backend requires `seccomp=unconfined` to work properly, as it uses io_uring syscalls which is blocked by default in Docker.
+            " --security-opt seccomp=unconfined"
+        } else {
+            ""
+        };
 
-        docker_cmd
+        format!(
+            "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{db_path}\",target=/data/db/ -e NETWORK={cardano_network}{cardano_node_config}{security_opt} ghcr.io/intersectmbo/cardano-node:{cardano_node_version}",
+            db_path = db_path.display(),
+        )
     }
 }
 
@@ -194,6 +204,21 @@ mod test {
         assert_eq!(
             run_command,
             r#"docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/path/to/db",target=/data/db/ -e NETWORK=mainnet -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V1LMDB" }}' ghcr.io/intersectmbo/cardano-node:10.6.2"#
+        )
+    }
+
+    #[test]
+    fn get_docker_run_command_for_lsm_ledger() {
+        let run_command = CardanoDbUtils::get_docker_run_command(
+            Path::new("/path/to/db"),
+            "mainnet",
+            "10.7.0",
+            LedgerFormat::Lsm,
+        );
+
+        assert_eq!(
+            run_command,
+            r#"docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/path/to/db",target=/data/db/ -e NETWORK=mainnet -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V2LSM" }}' --security-opt seccomp=unconfined ghcr.io/intersectmbo/cardano-node:10.7.0"#
         )
     }
 }
