@@ -1,10 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # Start Mithril signer in the background
 /usr/local/bin/mithril-entrypoint &
 
-# Unset NETWORK to prevent the Cardano entrypoint from using scripts mode
-unset NETWORK
+if [ "$CARDANO_BLOCK_PRODUCER" = "true" ]; then
+  # Unset NETWORK to prevent the Cardano entrypoint from using scripts mode
+  # and enable full configuration via CARDANO_* environment variables (custom mode).
+  # The Mithril signer (forked above) still has access to NETWORK in its own environment.
+  unset NETWORK
+fi
 
 # Replace the current process with the Cardano entrypoint so it becomes PID 1 and receives signals directly
 exec /usr/local/bin/entrypoint "$@"
