@@ -7,15 +7,17 @@ use crate::StmError;
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum StmCircuitError {
-    /// Invalid relation parameters: k must be strictly lower than m.
-    #[error("Circuit::validate_parameters failed: k ({k}) must be lower than m ({m})")]
+    /// Invalid relation parameters: requires `k < m <= 2^LOTTERY_BIT_BOUND - 1`.
+    #[error(
+        "Circuit::validate_parameters failed: expected k < m <= 2^LOTTERY_BIT_BOUND - 1, got k={k}, m={m}"
+    )]
     InvalidCircuitParameters { k: u32, m: u32 },
 
     /// Witness vector length does not match the configured k.
     #[error("Circuit::validate_witness_length failed: expected k {expected_k}, got {actual}")]
     WitnessLengthMismatch { expected_k: u32, actual: u32 },
 
-    /// Witness lottery index does not fit in the circuit's 32-bit constraint representation.
+    /// Witness lottery index exceeds the circuit's maximum supported value.
     #[error(
         "Circuit::validate_lottery_index failed: index ({index}) exceeds max supported ({max_supported})"
     )]
