@@ -35,6 +35,10 @@ on:
         description: Comma separated list of transactions hashes to test certification on.
         required: false
         type: string
+      blocks_hashes_to_certify:
+        description: Comma separated list of blocks hashes to test certification on.
+        required: false
+        type: string
       ancillary_verification_key:
         description: The ancillary verification key location to verify the ancillary files.
         required: false
@@ -66,7 +70,7 @@ on:
         default: 1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd
       blocks_hashes_to_certify:
         type: string
-        default: TODO,TODO,TODO
+        default: ccaac23d5444c5ca5c0948e0062d50738d961e3f953b1b230ef5206055aceed6,d5720d553b2f547605e7f5f64ebdabb1325b65b37a28525b06ff5b722c320ba7,e5234b6e99fe2763629e396cd37852040e0587e32d2a37c2d473ab046ca38ca9
       ancillary_verification_key:
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
@@ -607,6 +611,7 @@ jobs:
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./ci-test/.env
           echo "GENESIS_VERIFICATION_KEY=${{ needs.prepare.outputs.genesis_verification_key }}" >> ./ci-test/.env
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./ci-test/.env
+          echo "BLOCKS_HASHES_TO_CERTIFY=${{ inputs.blocks_hashes_to_certify }}" >> ./ci-test/.env
 
       - name: Start the server
         working-directory: mithril-client-wasm
