@@ -1,8 +1,12 @@
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, btree_map::Entry};
 
 use crate::{
     AggregationError, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
     RegistrationEntryForSnark, Signer, SingleSignature, StmResult,
+    signature_scheme::BaseFieldElement,
 };
 
 use super::AggregateVerificationKeyForSnark;
@@ -69,6 +73,7 @@ impl SnarkClerk {
     pub(crate) fn select_valid_signatures_for_k_indices(
         parameters: &Parameters,
         signatures: &[SingleSignature],
+        message: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
         let mut unique_index_signature_map: BTreeMap<LotteryIndex, SingleSignature> =
             BTreeMap::new();
@@ -102,11 +107,23 @@ impl SnarkClerk {
             return Err(AggregationError::NotEnoughSignatures(count, parameters.k).into());
         }
 
-        while unique_index_signature_map.len() as u64 > parameters.k {
-            unique_index_signature_map.pop_last();
-        }
+        let mut hasher = Sha256::new();
+        hasher.update(message[0].to_bytes());
+        hasher.update(message[1].to_bytes());
+        let seed: [u8; 32] = hasher.finalize().into();
 
-        Ok(unique_index_signature_map)
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let k = parameters.k as usize;
+        let mut entries: Vec<(LotteryIndex, SingleSignature)> =
+            unique_index_signature_map.into_iter().collect();
+        // Partial Fisher-Yates: randomly select k entries
+        for i in 0..k {
+            let j = i + (rng.next_u64() as usize % (entries.len() - i));
+            entries.swap(i, j);
+        }
+        entries.truncate(k);
+
+        Ok(entries.into_iter().collect())
     }
 }
 
@@ -118,8 +135,8 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::{
-        AggregationError, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
-        RegistrationEntry, Signer, SingleSignature,
+        AggregationError, Initializer, KeyRegistration, LotteryIndex, MithrilMembershipDigest,
+        Parameters, RegistrationEntry, Signer, SingleSignature,
         proof_system::{
             SnarkClerk,
             halo2_snark::{
@@ -254,6 +271,10 @@ mod tests {
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
 
+            let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
+            let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
+                .expect("build_snark_message should succeed");
+
             // Collect valid signatures with SNARK indices
             let mut all_sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
 
@@ -270,7 +291,7 @@ mod tests {
             }
 
             let dedup_result =
-                SnarkClerk::select_valid_signatures_for_k_indices(&params, &all_sigs);
+                SnarkClerk::select_valid_signatures_for_k_indices(&params, &all_sigs, &message_to_sign);
 
             match dedup_result {
                 Ok(unique_index_map) => {
@@ -324,6 +345,86 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn selection_is_deterministic() {
+        let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+
+        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+        let msg = [7u8; 32];
+        let sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
+        let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
+        let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
+            .expect("build_snark_message should succeed");
+
+        let result_1 =
+            SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign)
+                .expect("should succeed");
+        let result_2 =
+            SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign)
+                .expect("should succeed");
+
+        let indices_1: Vec<LotteryIndex> = result_1.keys().copied().collect();
+        let indices_2: Vec<LotteryIndex> = result_2.keys().copied().collect();
+        assert_eq!(
+            indices_1, indices_2,
+            "Same inputs must produce the same selection"
+        );
+    }
+
+    #[test]
+    fn selection_distributes_fairly_across_index_range() {
+        let mut rng = ChaCha20Rng::from_seed([99u8; 32]);
+        let m = 200_u64;
+        let k = 5_u64;
+        let params = Parameters { m, k, phi_f: 0.8 };
+
+        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+
+        let midpoint = m / 2;
+        let mut lower_half_count: u64 = 0;
+        let mut upper_half_count: u64 = 0;
+        let num_rounds = 100;
+
+        for round in 0..num_rounds {
+            let mut msg = [0u8; 32];
+            msg[0] = round;
+
+            let sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
+            let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
+            let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
+                .expect("build_snark_message should succeed");
+
+            let result =
+                SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign);
+
+            if let Ok(selected) = result {
+                for &index in selected.keys() {
+                    if index < midpoint {
+                        lower_half_count += 1;
+                    } else {
+                        upper_half_count += 1;
+                    }
+                }
+            }
+        }
+
+        let total = lower_half_count + upper_half_count;
+        if total > 0 {
+            let lower_ratio = lower_half_count as f64 / total as f64;
+            assert!(
+                (0.2..=0.8).contains(&lower_ratio),
+                "Selection is biased: lower half got {lower_half_count}/{total} \
+                 ({:.1}%), expected roughly even distribution",
+                lower_ratio * 100.0,
+            );
         }
     }
 }
