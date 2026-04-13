@@ -14,8 +14,9 @@ function display_test_result_in_dom(test_name, test_number, result, error) {
   let div = document.createElement("div");
   div.id = test_name;
   div.title = result;
-  div.innerHTML = `Result test n°${test_number}: ${result}; function_name: ${test_name}${error ? `; reason: ${error}` : ""
-    }`;
+  div.innerHTML = `Result test n°${test_number}: ${result}; function_name: ${test_name}${
+    error ? `; reason: ${error}` : ""
+  }`;
   document.body.appendChild(div);
 }
 
@@ -56,6 +57,7 @@ await run_test("constructor", test_number, async () => {
 if (aggregator_capabilities.includes("CardanoBlocksTransactions")) {
   const transactions_hashes_to_certify =
     process.env.TRANSACTIONS_HASHES_TO_CERTIFY?.split(",") ?? [];
+  const blocks_hashes_to_certify = process.env.BLOCKS_HASHES_TO_CERTIFY?.split(",") ?? [];
 
   let ctx_sets;
   test_number++;
@@ -70,8 +72,8 @@ if (aggregator_capabilities.includes("CardanoBlocksTransactions")) {
     console.log("cardano_blocks_transactions_set", ctx_set);
   });
 
-  console.log("Testing transactions V2 certification with txs:", transactions_hashes_to_certify);
   if (transactions_hashes_to_certify.length > 0) {
+    console.log("Testing transactions V2 certification with txs:", transactions_hashes_to_certify);
 
     let ctx_proof;
     test_number++;
@@ -88,7 +90,6 @@ if (aggregator_capabilities.includes("CardanoBlocksTransactions")) {
     let proof_certificate;
     test_number++;
     await run_test("proof_v2_verify_certificate_chain", test_number, async () => {
-      console.log("gonna verify certificate chain for certificate hash: ", ctx_proof.certificate_hash);
       proof_certificate = await client.verify_certificate_chain(ctx_proof.certificate_hash);
       console.log("proof_certificate", proof_certificate);
     });
@@ -111,6 +112,65 @@ if (aggregator_capabilities.includes("CardanoBlocksTransactions")) {
     await run_test("proof_v2_verify_message_match_certificate", test_number, async () => {
       const valid_stake_distribution_message = await client.verify_message_match_certificate(
         ctx_proof_message,
+        proof_certificate,
+      );
+      console.log("valid_stake_distribution_message", valid_stake_distribution_message);
+    });
+  }
+
+  let cardano_blocks_sets;
+  test_number++;
+  await run_test("list_cardano_blocks_snapshots", test_number, async () => {
+    cardano_blocks_sets = await client.list_cardano_blocks_snapshots();
+    console.log("cardano_blocks_sets", cardano_blocks_sets);
+  });
+
+  test_number++;
+  await run_test("get_cardano_blocks_snapshot", test_number, async () => {
+    const cardano_blocks_set = await client.get_cardano_blocks_snapshot(
+      cardano_blocks_sets[0].hash,
+    );
+    console.log("cardano_blocks_set", cardano_blocks_set);
+  });
+
+  if (blocks_hashes_to_certify.length > 0) {
+    console.log("Testing blocks certification with blocks hashes:", blocks_hashes_to_certify);
+
+    let cardano_block_proof;
+    test_number++;
+    await run_test("get_cardano_block_proof", test_number, async () => {
+      cardano_block_proof = await client.get_cardano_block_proof(blocks_hashes_to_certify);
+      console.log(
+        "got proof for blocks: ",
+        cardano_block_proof.blocks_hashes,
+        "\nnon_certified_blocks: ",
+        cardano_block_proof.non_certified_blocks,
+      );
+    });
+
+    let proof_certificate;
+    test_number++;
+    await run_test("proof_v2_verify_certificate_chain", test_number, async () => {
+      proof_certificate = await client.verify_certificate_chain(
+        cardano_block_proof.certificate_hash,
+      );
+      console.log("proof_certificate", proof_certificate);
+    });
+
+    let cardano_block_proof_message;
+    test_number++;
+    await run_test("verify_cardano_block_proof_then_compute_message", test_number, async () => {
+      cardano_block_proof_message = await client.verify_cardano_block_proof_then_compute_message(
+        cardano_block_proof,
+        proof_certificate,
+      );
+      console.log("verify_cardano_block_proof_then_compute_message", cardano_block_proof_message);
+    });
+
+    test_number++;
+    await run_test("proof_v2_verify_message_match_certificate", test_number, async () => {
+      const valid_stake_distribution_message = await client.verify_message_match_certificate(
+        cardano_block_proof_message,
         proof_certificate,
       );
       console.log("valid_stake_distribution_message", valid_stake_distribution_message);
