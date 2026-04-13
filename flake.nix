@@ -159,6 +159,7 @@
             nativeBuildInputs = nativeBuildInputsWindows;
             buildInputs = buildInputsWindows;
             CARGO_TERM_VERBOSE = "true";
+            SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
           }
           else {};
 
