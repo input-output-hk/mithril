@@ -76,7 +76,7 @@
       "mithril-signer": "10.5.2",
       "mithril-aggregator": "10.5.2"
     },
-    "dmq-minimum-version": "0.4.1.0",
+    "dmq-minimum-version": "0.4.2.0",
     "mithril-networks": [
       {
         "pre-release-preview": {
