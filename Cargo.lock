@@ -4101,7 +4101,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.30"
+version = "0.2.31"
 dependencies = [
  "saphyr",
  "semver",
@@ -4245,7 +4245,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "anyhow",
  "async-trait",
