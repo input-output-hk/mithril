@@ -10,7 +10,8 @@ use mithril_client::{
 };
 
 use crate::utils::{
-    CARDANO_NODE_V10_6_2, CardanoDbUtils, LedgerFormat, ProgressPrinter, is_version_equal_or_upper,
+    CARDANO_NODE_V10_6_2, CARDANO_NODE_V10_7_0, CardanoDbUtils, LedgerFormat, ProgressPrinter,
+    is_version_equal_or_upper,
 };
 
 pub struct ComputeCardanoDatabaseMessageOptions {
@@ -192,6 +193,10 @@ pub fn log_download_information(
             json["run_docker_cmd"] = serde_json::Value::String(docker_cmd);
 
             if include_ancillary {
+                if is_version_at_least_10_7_0_or_latest(cardano_node_version) {
+                    json["snapshot_converter_cmd_to_lsm"] =
+                        serde_json::Value::String(snapshot_converter_cmd("LSM"));
+                }
                 json["snapshot_converter_cmd_to_lmdb"] =
                     serde_json::Value::String(snapshot_converter_cmd("LMDB"));
                 json["snapshot_converter_cmd_to_legacy"] =
@@ -220,6 +225,16 @@ pub fn log_download_information(
             );
 
             if include_ancillary {
+                if is_version_at_least_10_7_0_or_latest(cardano_node_version) {
+                    println!(
+                        r###"Upgrade and replace the restored ledger state snapshot to 'LSM' flavor by running the command:
+
+    {}
+    "###,
+                        snapshot_converter_cmd("LSM"),
+                    );
+                }
+
                 println!(
                     r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
@@ -230,7 +245,7 @@ pub fn log_download_information(
 
                 if !is_version_at_least_10_6_2_or_latest(cardano_node_version) {
                     println!(
-                        r###"Or to 'Legacy' flavor by running the command:
+                        r###"Upgrade and replace the restored ledger state snapshot to 'Legacy' flavor by running the command:
 
     {}
     "###,
@@ -242,6 +257,10 @@ pub fn log_download_information(
     }
 
     Ok(())
+}
+
+pub fn is_version_at_least_10_7_0_or_latest(version: &str) -> bool {
+    is_version_equal_or_upper(version, CARDANO_NODE_V10_7_0)
 }
 
 pub fn is_version_at_least_10_6_2_or_latest(version: &str) -> bool {
