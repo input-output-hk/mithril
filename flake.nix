@@ -38,13 +38,30 @@
         then pkgsRustOverlay.pkgsCross.musl64
         else null;
 
+      pkgsWindows =
+        if system == "x86_64-linux"
+        then pkgsRustOverlay.pkgsCross.mingwW64
+        else null;
+
       craneLib = inputs.crane.mkLib pkgsRustOverlay;
+
+      workspaceVersion = (craneLib.crateNameFromCargoToml { cargoToml = ./mithril-common/Cargo.toml; }).version;
 
       craneLibMusl =
         if pkgsMusl != null then
           (inputs.crane.mkLib pkgsMusl).overrideToolchain (p:
             p.rust-bin.stable.latest.default.override {
               targets = [ "x86_64-unknown-linux-musl" ];
+            }
+          )
+        else
+          null;
+
+      craneLibWindows =
+        if pkgsWindows != null then
+          (inputs.crane.mkLib pkgsWindows).overrideToolchain (p:
+            p.rust-bin.stable.latest.default.override {
+              targets = [ "x86_64-pc-windows-gnu" ];
             }
           )
         else
@@ -77,6 +94,12 @@
             filter = sourceFilter;
           };
 
+        cleanWindows = root:
+          lib.cleanSourceWith {
+            src = lib.cleanSource (craneLibWindows.path root);
+            filter = sourceFilter;
+          };
+
         buildInputs =
           [
             pkgsRustOverlay.pkg-config
@@ -95,9 +118,22 @@
           ]
           else [];
 
+        nativeBuildInputsWindows =
+          if pkgsWindows != null then [
+            pkgsWindows.stdenv.cc
+          ]
+          else [];
+
+        buildInputsWindows =
+          if pkgsWindows != null then [
+            pkgsWindows.windows.pthreads
+          ]
+          else [];
+
+
         commonsArgs = {
           pname = "mithril";
-          version = "0.0.1";
+          version = workspaceVersion;
           src = clean ./.;
           inherit buildInputs;
           CARGO_TERM_VERBOSE = "true";
@@ -107,9 +143,21 @@
         commonsArgsMusl =
           if pkgsMusl != null then {
             pname = "mithril";
-            version = "0.0.1";
+            version = workspaceVersion;
             src = cleanMusl ./.;
             nativeBuildInputs = nativeBuildInputsMusl;
+            CARGO_TERM_VERBOSE = "true";
+            SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
+          }
+          else {};
+
+        commonsArgsWindows =
+          if pkgsWindows != null then {
+            pname = "mithril";
+            version = workspaceVersion;
+            src = cleanWindows ./.;
+            nativeBuildInputs = nativeBuildInputsWindows;
+            buildInputs = buildInputsWindows;
             CARGO_TERM_VERBOSE = "true";
             SSL_CERT_FILE = "${pkgsRustOverlay.cacert}/etc/ssl/certs/ca-bundle.crt";
           }
@@ -169,6 +217,19 @@
             }
             // args);
 
+        buildPackageWindows = cargoToml: baseCargoArtifacts: args:
+          craneLibWindows.buildPackage (commonsArgsWindows
+            // lib.optionalAttrs (cargoToml != null) rec {
+              inherit (craneLibWindows.crateNameFromCargoToml {inherit cargoToml;}) pname version;
+              cargoExtraArgs = "-p ${pname}";
+            }
+            // {
+              cargoArtifacts = buildDeps craneLibWindows commonsArgsWindows cargoToml baseCargoArtifacts;
+              RUSTFLAGS = "-C target-feature=+crt-static";
+              doCheck = false;
+            }
+            // args);
+
         # Standard (glibc) builds
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
         mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; };
@@ -179,6 +240,10 @@
         # Static (musl) base dependencies
         mithril-stm-musl = if pkgsMusl != null then buildPackageMusl ./mithril-stm/Cargo.toml null {} else null;
         mithril-common-musl = if pkgsMusl != null then buildPackageMusl ./mithril-common/Cargo.toml mithril-stm-musl.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; } else null;
+
+        # Windows (mingw64) base dependencies
+        mithril-stm-windows = if pkgsWindows != null then buildPackageWindows ./mithril-stm/Cargo.toml null {} else null;
+        mithril-common-windows = if pkgsWindows != null then buildPackageWindows ./mithril-common/Cargo.toml mithril-stm-windows.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; } else null;
       in {
         packages = {
           default = mithril;
@@ -196,6 +261,14 @@
             buildPackageMusl ./mithril-client-cli/Cargo.toml mithril-common-musl.cargoArtifacts {
               pname = "mithril-client";
             };
+
+        } // lib.optionalAttrs (pkgsWindows != null) {
+
+          mithril-client-cli-windows =
+            buildPackageWindows ./mithril-client-cli/Cargo.toml mithril-common-windows.cargoArtifacts {
+              pname = "mithril-client";
+            };
+
         };
 
         devShells.default = pkgsRustOverlay.mkShell {
