@@ -5,6 +5,12 @@ sidebar_label: Cardano transactions
 
 # Cardano transactions
 
+:::info
+
+- This certification will be superseded by the new [Cardano blocks and transactions](./cardano-blocks-and-transactions.md) certification.
+
+:::
+
 The Mithril protocol supports the certification of the **full Cardano transactions set (since genesis)**. This allows users to verify a transaction's authenticity without downloading the entire Cardano blockchain.
 This is particularly useful for lightweight clients, such as mobile wallets, which may lack the resources to store the entire blockchain.
 
