@@ -237,7 +237,7 @@ variable "mithril_p2p_dmq_dense_topology" {
 variable "dmq_image_id" {
   type        = string
   description = "The DMQ image tag of service to deploy"
-  default     = "0.4.1.0"
+  default     = "0.4.2.0"
 }
 
 variable "dmq_image_registry" {
