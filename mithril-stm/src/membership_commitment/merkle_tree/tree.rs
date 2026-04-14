@@ -225,6 +225,41 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
 
         MerklePath::new(proof, i)
     }
+
+    #[cfg(feature = "future_snark")]
+    #[allow(dead_code)]
+    pub(crate) fn compute_merkle_tree_path_fixed_length(
+        &self,
+        i: usize,
+        path_length: u32,
+    ) -> MerklePath<D> {
+        assert!(
+            i < self.n,
+            "Proof index out of bounds: asked for {} out of {}",
+            i,
+            self.n
+        );
+        let mut idx = self.get_leaf_index(i);
+        let mut proof = Vec::new();
+
+        while idx > 0 {
+            let h = if sibling(idx) < self.nodes.len() {
+                self.nodes[sibling(idx)].clone()
+            } else {
+                D::digest([0u8]).to_vec()
+            };
+            proof.push(h.clone());
+            idx = parent(idx);
+        }
+        println!("base proof length{:?}", proof.len());
+
+        while proof.len() < path_length as usize {
+            proof.push(vec![0u8; 32]);
+        }
+        println!("padded proof length{:?}", proof.len());
+
+        MerklePath::new(proof, i)
+    }
 }
 
 #[cfg(test)]

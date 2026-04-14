@@ -1,5 +1,5 @@
 use midnight_circuits::instructions::{
-    AssertionInstructions, ControlFlowInstructions, EccInstructions,
+    AssertionInstructions, ControlFlowInstructions, EccInstructions, ZeroInstructions,
 };
 use midnight_circuits::types::{AssignedBit, AssignedNative, AssignedNativePoint};
 use midnight_proofs::circuit::Layouter;
@@ -38,14 +38,27 @@ pub(crate) fn verify_merkle_path(
             inputs.lottery_target_value.clone(),
         ],
     )?;
+    // Compute the first node after the leaves outside the loop
+    // to not ignore a potential padding zero leaf
+    // other zero leaf are ignored
+    let first_sibling = inputs.merkle_siblings.first().ok_or(Error::InvalidInstances)?;
+    let first_position = inputs.merkle_positions.first().ok_or(Error::InvalidInstances)?;
+    let first_left = std_lib.select(layouter, first_position, &leaf, first_sibling)?;
+    let first_right = std_lib.select(layouter, first_position, first_sibling, &leaf)?;
+    let first_node = std_lib.poseidon(layouter, &[first_left, first_right])?;
+
     let root = inputs
         .merkle_siblings
         .iter()
-        .zip(inputs.merkle_positions.iter())
-        .try_fold(leaf, |acc, (x, pos)| {
+        .skip(1)
+        .zip(inputs.merkle_positions.iter().skip(1))
+        .try_fold(first_node, |acc, (x, pos)| {
             let left = std_lib.select(layouter, pos, &acc, x)?;
             let right = std_lib.select(layouter, pos, x, &acc)?;
-            std_lib.poseidon(layouter, &[left, right])
+            let current_node = std_lib.poseidon(layouter, &[left, right])?;
+
+            let is_zero = std_lib.is_zero(layouter, x)?;
+            std_lib.select(layouter, &is_zero, &acc, &current_node)
         })?;
 
     std_lib.assert_equal(layouter, &root, inputs.merkle_tree_commitment)

@@ -23,9 +23,9 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct SnarkProverInput {
     /// Public inputs to the SNARK circuit.
-    instance: CircuitInstance,
+    pub(crate) instance: CircuitInstance,
     /// Per-winning-lottery-index witness data.
-    witness: CircuitWitness,
+    pub(crate) witness: CircuitWitness,
 }
 
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
@@ -79,7 +79,7 @@ impl SnarkProverInput {
     /// or yield no winning indices are discarded. Since the goal is to gather as many valid
     /// signatures as possible, individual failures are not propagated, the caller decides
     /// whether the collected set is sufficient.
-    fn collect_valid_signatures_with_indices(
+    pub(crate) fn collect_valid_signatures_with_indices(
         clerk: &SnarkClerk,
         signatures: &[SingleSignature],
         message_to_sign: &[BaseFieldElement; 2],
