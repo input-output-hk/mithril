@@ -340,18 +340,37 @@ fn write_in_memory_ledger_snapshot(
         &ledger_folder_path,
         LedgerStateSnapshot::IN_MEMORY_STATE,
     );
-    write_dummy_file(
-        optional_file_size,
-        &ledger_folder_path,
-        LedgerStateSnapshot::IN_MEMORY_META,
-    );
+    write_in_memory_meta_file(optional_file_size, &ledger_folder_path);
     write_dummy_file(
         optional_file_size,
         &ledger_folder_path.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
         LedgerStateSnapshot::IN_MEMORY_TVAR,
     );
 
-    LedgerStateSnapshot::in_memory(ledger_folder_path, slot_number, ledger_folder_name.into())
+    LedgerStateSnapshot::InMemoryUpTo10_6 {
+        path: ledger_folder_path,
+        slot_number,
+        folder_name: ledger_folder_name.into(),
+    }
+}
+
+/// Write a valid UTxO-HD in-memory ledger snapshot `meta` file with `{"backend": "utxohd-mem"}` to
+/// the given directory, optionally padding it to the given size with whitespace so the content
+/// remains valid JSON.
+fn write_in_memory_meta_file(optional_size: Option<u64>, dir: &Path) -> PathBuf {
+    const META_JSON: &str = r#"{"backend": "utxohd-mem"}"#;
+
+    let file_path = dir.join(LedgerStateSnapshot::IN_MEMORY_META);
+    let mut file = File::create(&file_path).unwrap();
+    write!(file, "{META_JSON}").unwrap();
+    if let Some(file_size) = optional_size {
+        let json_size = META_JSON.len() as u64;
+        if file_size > json_size {
+            let padding = vec![b' '; (file_size - json_size) as usize];
+            file.write_all(&padding).unwrap();
+        }
+    }
+    file_path
 }
 
 /// Create a file with the given name in the given dir, write some text to it, and then
@@ -547,7 +566,7 @@ mod tests {
                 LedgerStateSnapshot::Legacy { path, .. } => {
                     assert_eq!(get_file_size(path), ledger_file_size);
                 }
-                LedgerStateSnapshot::InMemory { path, .. } => {
+                LedgerStateSnapshot::InMemoryUpTo10_6 { path, .. } => {
                     assert_eq!(
                         get_file_size(&path.join(LedgerStateSnapshot::IN_MEMORY_STATE)),
                         ledger_file_size / 3
@@ -564,6 +583,11 @@ mod tests {
                         ),
                         ledger_file_size / 3
                     );
+                }
+                LedgerStateSnapshot::InMemoryFrom10_7 { .. } => {
+                    unreachable!(
+                        "DummyCardanoDbBuilder does not create InMemoryFrom10_7 snapshots in this test"
+                    )
                 }
             }
         }

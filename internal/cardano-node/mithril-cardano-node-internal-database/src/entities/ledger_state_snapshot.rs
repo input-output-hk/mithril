@@ -1,12 +1,13 @@
 use std::{
     cmp::Ordering,
     ffi::OsString,
+    fs,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
 use walkdir::WalkDir;
 
-use mithril_common::entities::SlotNumber;
+use mithril_common::{StdResult, entities::SlotNumber};
 
 use crate::LEDGER_DIR;
 
@@ -20,21 +21,30 @@ fn find_ledger_dir(path_to_walk: &Path) -> Option<PathBuf> {
         .map(|e| e.into_path())
 }
 
+/// Returns true if the `meta` file in the given path exists and contains a JSON object
+/// with the `backend` field set to `"utxohd-mem"`.
+fn has_in_memory_meta_backend(path: &Path) -> StdResult<bool> {
+    let meta_content = fs::read_to_string(path.join(LedgerStateSnapshot::IN_MEMORY_META))?;
+    let meta_json = serde_json::from_str::<serde_json::Value>(&meta_content)?;
+
+    Ok(meta_json.get("backend").and_then(|v| v.as_str()) == Some("utxohd-mem"))
+}
+
 fn is_ledger_state_snapshot(path: &Path) -> bool {
     if path.is_dir() {
-        path.join(LedgerStateSnapshot::IN_MEMORY_META).exists()
-            && path.join(LedgerStateSnapshot::IN_MEMORY_STATE).exists()
-            && path.join(LedgerStateSnapshot::IN_MEMORY_TABLES).exists()
-            && path
+        has_in_memory_meta_backend(path).unwrap_or(false)
+            && path.join(LedgerStateSnapshot::IN_MEMORY_STATE).is_file()
+            && (path
                 .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
                 .join(LedgerStateSnapshot::IN_MEMORY_TVAR)
-                .exists()
+                .is_file()
+                || path.join(LedgerStateSnapshot::IN_MEMORY_TABLES).is_file())
     } else {
         path.is_file()
     }
 }
 
-/// Represent an ledger file in a Cardano node database directory
+/// Represent a ledger file in a Cardano node database directory
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum LedgerStateSnapshot {
     /// Snapshot of a legacy ledger state (before UTxO-HD)
@@ -46,8 +56,17 @@ pub enum LedgerStateSnapshot {
         /// The filename
         filename: OsString,
     },
-    /// Snapshot of an UTxO-HD in-memory ledger state
-    InMemory {
+    /// Snapshot of a UTxO-HD in-memory ledger state (Cardano node up to 10.6)
+    InMemoryUpTo10_6 {
+        /// The path to the ledger file
+        path: PathBuf,
+        /// The ledger file slot number
+        slot_number: SlotNumber,
+        /// Name of the ledger state folder
+        folder_name: OsString,
+    },
+    /// Snapshot of a UTxO-HD in-memory ledger state (Cardano node 10.7 and above)
+    InMemoryFrom10_7 {
         /// The path to the ledger file
         path: PathBuf,
         /// The ledger file slot number
@@ -84,15 +103,6 @@ impl LedgerStateSnapshot {
         }
     }
 
-    /// `LedgerStateSnapshot::InMemory` factory
-    pub fn in_memory(path: PathBuf, slot_number: SlotNumber, folder_name: OsString) -> Self {
-        Self::InMemory {
-            path,
-            slot_number,
-            folder_name,
-        }
-    }
-
     /// Convert a path to a [LedgerStateSnapshot] if it satisfies the constraints.
     ///
     /// The constraints are:
@@ -105,11 +115,20 @@ impl LedgerStateSnapshot {
                 .parse::<u64>()
                 .map(|number| {
                     if path.is_dir() {
-                        Self::in_memory(
-                            path.to_path_buf(),
-                            SlotNumber(number),
-                            filename.to_os_string(),
-                        )
+                        let tables_path = path.join(Self::IN_MEMORY_TABLES);
+                        if tables_path.is_file() {
+                            Self::InMemoryFrom10_7 {
+                                path: path.to_path_buf(),
+                                slot_number: SlotNumber(number),
+                                folder_name: filename.to_os_string(),
+                            }
+                        } else {
+                            Self::InMemoryUpTo10_6 {
+                                path: path.to_path_buf(),
+                                slot_number: SlotNumber(number),
+                                folder_name: filename.to_os_string(),
+                            }
+                        }
                     } else {
                         Self::legacy(
                             path.to_path_buf(),
@@ -149,17 +168,26 @@ impl LedgerStateSnapshot {
 
     /// Return paths to all files that constitute this snapshot
     ///
-    /// Returned path are relative to the cardano node database ledger dir
+    /// Returned paths are relative to the cardano node database ledger dir
     pub fn get_files_relative_path(&self) -> Vec<PathBuf> {
         match self {
-            LedgerStateSnapshot::Legacy { filename, .. } => vec![PathBuf::from(filename)],
-            LedgerStateSnapshot::InMemory { folder_name, .. } => {
+            LedgerStateSnapshot::Legacy { filename, .. } => {
+                vec![PathBuf::from(filename)]
+            }
+            LedgerStateSnapshot::InMemoryUpTo10_6 { folder_name, .. } => {
                 vec![
                     PathBuf::from(folder_name).join(Self::IN_MEMORY_META),
                     PathBuf::from(folder_name).join(Self::IN_MEMORY_STATE),
                     PathBuf::from(folder_name)
                         .join(Self::IN_MEMORY_TABLES)
                         .join(Self::IN_MEMORY_TVAR),
+                ]
+            }
+            LedgerStateSnapshot::InMemoryFrom10_7 { folder_name, .. } => {
+                vec![
+                    PathBuf::from(folder_name).join(Self::IN_MEMORY_META),
+                    PathBuf::from(folder_name).join(Self::IN_MEMORY_STATE),
+                    PathBuf::from(folder_name).join(Self::IN_MEMORY_TABLES),
                 ]
             }
         }
@@ -169,7 +197,8 @@ impl LedgerStateSnapshot {
     pub fn slot_number(&self) -> SlotNumber {
         match self {
             LedgerStateSnapshot::Legacy { slot_number, .. }
-            | LedgerStateSnapshot::InMemory { slot_number, .. } => *slot_number,
+            | LedgerStateSnapshot::InMemoryUpTo10_6 { slot_number, .. }
+            | LedgerStateSnapshot::InMemoryFrom10_7 { slot_number, .. } => *slot_number,
         }
     }
 }
@@ -207,6 +236,11 @@ mod tests {
             let mut source_file = File::create(file).unwrap();
             write!(source_file, "This is a test file named '{filename}'").unwrap();
         }
+    }
+
+    fn create_in_memory_meta_file(dir: &Path) {
+        let mut f = File::create(dir.join(LedgerStateSnapshot::IN_MEMORY_META)).unwrap();
+        write!(f, r#"{{"backend": "utxohd-mem"}}"#).unwrap();
     }
 
     fn extract_filenames(ledger_files: &[LedgerStateSnapshot]) -> Vec<String> {
@@ -272,7 +306,7 @@ mod tests {
     // - contains three files, with one in a subfolder:
     //   - "/meta"
     //   - "/state"
-    //   - "/tables/tvar"
+    //   - "/tables/tvar" (Cardano node up to 10.6) or "/tables" as a file (Cardano node 10.7+)
     mod utxo_hd_in_memory_ledger_state {
         use std::fs::create_dir_all;
 
@@ -306,12 +340,9 @@ mod tests {
                 ledger_with_missing_state_files.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
             )
             .unwrap();
+            create_in_memory_meta_file(&ledger_with_missing_state_files);
             create_fake_files(
-                &ledger_with_missing_state_files,
-                &[LedgerStateSnapshot::IN_MEMORY_META],
-            );
-            create_fake_files(
-                &ledger_with_missing_meta_files.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
+                &ledger_with_missing_state_files.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
                 &[LedgerStateSnapshot::IN_MEMORY_TVAR],
             );
 
@@ -320,22 +351,18 @@ mod tests {
                 ledger_with_missing_tvar_files.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
             )
             .unwrap();
+            create_in_memory_meta_file(&ledger_with_missing_tvar_files);
             create_fake_files(
                 &ledger_with_missing_tvar_files,
-                &[
-                    LedgerStateSnapshot::IN_MEMORY_STATE,
-                    LedgerStateSnapshot::IN_MEMORY_META,
-                ],
+                &[LedgerStateSnapshot::IN_MEMORY_STATE],
             );
 
             let ledger_with_missing_table_folder = ledger_dir.join("400");
             create_dir(&ledger_with_missing_table_folder).unwrap();
+            create_in_memory_meta_file(&ledger_with_missing_table_folder);
             create_fake_files(
                 &ledger_with_missing_table_folder,
-                &[
-                    LedgerStateSnapshot::IN_MEMORY_STATE,
-                    LedgerStateSnapshot::IN_MEMORY_META,
-                ],
+                &[LedgerStateSnapshot::IN_MEMORY_STATE],
             );
 
             let result = LedgerStateSnapshot::list_all_in_dir(&target_dir).unwrap();
@@ -344,19 +371,65 @@ mod tests {
         }
 
         #[test]
-        fn list_all_ledger_state_with_valid_utxo_hd_folder_structure() {
+        fn list_all_ledger_state_should_not_include_utxo_hd_folder_with_wrong_meta_backend() {
             let target_dir = temp_dir_create!();
             let ledger_dir = create_ledger_dir(&target_dir);
 
-            let ledger_state = ledger_dir.join("200");
-            create_dir_all(ledger_state.join(LedgerStateSnapshot::IN_MEMORY_TABLES)).unwrap();
+            let ledger_with_wrong_backend = ledger_dir.join("100");
+            create_dir_all(ledger_with_wrong_backend.join(LedgerStateSnapshot::IN_MEMORY_TABLES))
+                .unwrap();
+            let mut meta =
+                File::create(ledger_with_wrong_backend.join(LedgerStateSnapshot::IN_MEMORY_META))
+                    .unwrap();
+            write!(meta, r#"{{"backend": "utxohd-lmdb"}}"#).unwrap();
             create_fake_files(
-                &ledger_state,
+                &ledger_with_wrong_backend,
+                &[LedgerStateSnapshot::IN_MEMORY_STATE],
+            );
+            create_fake_files(
+                &ledger_with_wrong_backend.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
+                &[LedgerStateSnapshot::IN_MEMORY_TVAR],
+            );
+
+            let result = LedgerStateSnapshot::list_all_in_dir(&target_dir).unwrap();
+
+            assert_eq!(Vec::<LedgerStateSnapshot>::new(), result);
+        }
+
+        #[test]
+        fn list_all_ledger_state_should_not_include_utxo_hd_folder_with_non_json_meta() {
+            let target_dir = temp_dir_create!();
+            let ledger_dir = create_ledger_dir(&target_dir);
+
+            let ledger_with_non_json_meta = ledger_dir.join("200");
+            create_dir_all(ledger_with_non_json_meta.join(LedgerStateSnapshot::IN_MEMORY_TABLES))
+                .unwrap();
+            create_fake_files(
+                &ledger_with_non_json_meta,
                 &[
                     LedgerStateSnapshot::IN_MEMORY_META,
                     LedgerStateSnapshot::IN_MEMORY_STATE,
                 ],
             );
+            create_fake_files(
+                &ledger_with_non_json_meta.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
+                &[LedgerStateSnapshot::IN_MEMORY_TVAR],
+            );
+
+            let result = LedgerStateSnapshot::list_all_in_dir(&target_dir).unwrap();
+
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn list_all_ledger_state_with_valid_up_to_10_6_folder_structure() {
+            let target_dir = temp_dir_create!();
+            let ledger_dir = create_ledger_dir(&target_dir);
+
+            let ledger_state = ledger_dir.join("200");
+            create_dir_all(ledger_state.join(LedgerStateSnapshot::IN_MEMORY_TABLES)).unwrap();
+            create_in_memory_meta_file(&ledger_state);
+            create_fake_files(&ledger_state, &[LedgerStateSnapshot::IN_MEMORY_STATE]);
             create_fake_files(
                 &ledger_state.join(LedgerStateSnapshot::IN_MEMORY_TABLES),
                 &[LedgerStateSnapshot::IN_MEMORY_TVAR],
@@ -365,26 +438,50 @@ mod tests {
             let result = LedgerStateSnapshot::list_all_in_dir(&target_dir).unwrap();
 
             assert_eq!(
-                vec![LedgerStateSnapshot::in_memory(
-                    ledger_state,
-                    SlotNumber(200),
-                    "200".into()
-                )],
+                vec![LedgerStateSnapshot::InMemoryUpTo10_6 {
+                    path: ledger_state,
+                    slot_number: SlotNumber(200),
+                    folder_name: "200".into(),
+                }],
                 result
             );
         }
 
         #[test]
-        fn get_relative_path_only_list_meta_state_and_tvar_files_even_if_there_are_other_files_in_the_folder()
-         {
+        fn list_all_ledger_state_with_valid_from_10_7_folder_structure() {
             let target_dir = temp_dir_create!();
-            create_dir_all(target_dir.join("050").join(LedgerStateSnapshot::IN_MEMORY_TABLES))
-                .unwrap();
-            let ledger_state = LedgerStateSnapshot::in_memory(
-                target_dir.join("050"),
-                SlotNumber(50),
-                "050".into(),
+            let ledger_dir = create_ledger_dir(&target_dir);
+
+            let ledger_state = ledger_dir.join("200");
+            create_dir(&ledger_state).unwrap();
+            create_in_memory_meta_file(&ledger_state);
+            create_fake_files(
+                &ledger_state,
+                &[
+                    LedgerStateSnapshot::IN_MEMORY_STATE,
+                    LedgerStateSnapshot::IN_MEMORY_TABLES,
+                ],
             );
+
+            let result = LedgerStateSnapshot::list_all_in_dir(&target_dir).unwrap();
+
+            assert_eq!(
+                vec![LedgerStateSnapshot::InMemoryFrom10_7 {
+                    path: ledger_state,
+                    slot_number: SlotNumber(200),
+                    folder_name: "200".into(),
+                }],
+                result
+            );
+        }
+
+        #[test]
+        fn get_relative_path_for_up_to_10_6_lists_meta_state_and_tvar() {
+            let ledger_state = LedgerStateSnapshot::InMemoryUpTo10_6 {
+                path: PathBuf::from("/tmp/050"),
+                slot_number: SlotNumber(50),
+                folder_name: "050".into(),
+            };
 
             assert_eq!(
                 vec![
@@ -393,6 +490,24 @@ mod tests {
                     PathBuf::from("050")
                         .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
                         .join(LedgerStateSnapshot::IN_MEMORY_TVAR)
+                ],
+                ledger_state.get_files_relative_path(),
+            )
+        }
+
+        #[test]
+        fn get_relative_path_for_from_10_7_lists_meta_state_and_tables_file() {
+            let ledger_state = LedgerStateSnapshot::InMemoryFrom10_7 {
+                path: PathBuf::from("/tmp/050"),
+                slot_number: SlotNumber(50),
+                folder_name: "050".into(),
+            };
+
+            assert_eq!(
+                vec![
+                    PathBuf::from("050").join(LedgerStateSnapshot::IN_MEMORY_META),
+                    PathBuf::from("050").join(LedgerStateSnapshot::IN_MEMORY_STATE),
+                    PathBuf::from("050").join(LedgerStateSnapshot::IN_MEMORY_TABLES),
                 ],
                 ledger_state.get_files_relative_path(),
             )
