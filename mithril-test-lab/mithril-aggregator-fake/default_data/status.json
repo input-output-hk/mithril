@@ -3,7 +3,7 @@
   "cardano_era": "Conway",
   "cardano_network": "devnet",
   "mithril_era": "pythagoras",
-  "cardano_node_version": "10.6.2",
+  "cardano_node_version": "10.7.1",
   "aggregator_node_version": "0.8.40",
   "protocol": {
     "k": 70,

@@ -73,8 +73,8 @@
   },
   "preview": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.5.2",
-      "mithril-aggregator": "10.5.2"
+      "mithril-signer": "10.6.2",
+      "mithril-aggregator": "10.6.2"
     },
     "dmq-minimum-version": "0.4.2.0",
     "mithril-networks": [

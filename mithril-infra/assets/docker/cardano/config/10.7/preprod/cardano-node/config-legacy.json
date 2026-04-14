@@ -15,7 +15,7 @@
     "QueryBatchSize": 100000,
     "SnapshotInterval": 4320
   },
-  "MinNodeVersion": "10.7.0",
+  "MinNodeVersion": "10.7.1",
   "Protocol": "Cardano",
   "RequiresNetworkMagic": "RequiresMagic",
   "ShelleyGenesisFile": "shelley-genesis.json",

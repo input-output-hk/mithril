@@ -30,7 +30,7 @@ version_lt() {
 
 # Cardano node version
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
-  CARDANO_NODE_VERSION="10.6.2"
+  CARDANO_NODE_VERSION="10.7.1"
 fi
 if [ -z "${CARDANO_NODE_VERSION_RELEASE}" ]; then 
   CARDANO_NODE_VERSION_RELEASE=$(echo "${CARDANO_NODE_VERSION}" | cut -d'-' -f1)

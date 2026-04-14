@@ -1781,7 +1781,7 @@ mod tests {
 
         #[test]
         fn should_return_from_10_7_with_cardano_version_10_7_0_or_upper() {
-            let converter_bin = get_snapshot_converter_bin_by_version("10.7.0", dummy_config());
+            let converter_bin = get_snapshot_converter_bin_by_version("10.7.1", dummy_config());
             assert!(
                 matches!(converter_bin, SnapshotConverterBin::From10_7(_)),
                 "returned type is not SnapshotConverterBin::From10_7"

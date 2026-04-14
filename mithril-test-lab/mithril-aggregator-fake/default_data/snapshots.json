@@ -17,7 +17,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e11-i2.071b6066fe150a637fc1d19822582990f2c7ec47e8199c3143a0b15e83b2dfa9.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43": {
     "digest": "0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43",
@@ -37,7 +37,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e15-i3.0a74b1872774e7fe4d404b94cb554a88359e554ba232939b1c3323db1c2c0e43.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8": {
     "digest": "1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8",
@@ -57,7 +57,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e10-i1.1439e1e841ff2b5a21db6ac02d93e761d2cd7ae3c6375224709248d1bd9007d8.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc": {
     "digest": "2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc",
@@ -77,7 +77,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e14-i3.2767ccc033f7625d0b531c943039b4a4adcaf80846dfc5b3c809d92f733864dc.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef": {
     "digest": "47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef",
@@ -97,7 +97,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e13-i2.47acc0d10e6423607e20dd0e93f8d55d243a8d8fad680d47b5ef9135b6c7b0ef.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "61514916b89cea75bfe40da7984280cf93101e9cbf6d8418906d3a30101759b5": {
     "digest": "61514916b89cea75bfe40da7984280cf93101e9cbf6d8418906d3a30101759b5",
@@ -137,7 +137,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e16-i3.6e0d192003c2bd6c8308388224d4eb4ebaf1d8594862045182dbc9dac49c1dff.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538": {
     "digest": "72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538",
@@ -157,7 +157,7 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e9-i1.72f8d23cc53f9ed7a19e17bdb50ce66a2267e544dc37838dbcf8698790992538.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   },
   "aa74b8b231e60efa2c6b10d2699540728aae37198a31fd2f7a84ae561987dd8f": {
     "digest": "aa74b8b231e60efa2c6b10d2699540728aae37198a31fd2f7a84ae561987dd8f",
@@ -197,6 +197,6 @@
       "http://localhost:8080/aggregator/snapshot_download/devnet-e12-i2.dd5bb5e8e41e81627b8e6b845d5e8fa56d21321393b5a5ca763764be106a91bf.ancillary.tar.zst"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.6.2"
+    "cardano_node_version": "10.7.1"
   }
 }
