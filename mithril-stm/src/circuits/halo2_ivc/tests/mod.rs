@@ -4,3 +4,5 @@
 // the STM crate layout.
 
 pub(crate) mod fixtures;
+pub(crate) mod generators;
+mod test_certificate;
