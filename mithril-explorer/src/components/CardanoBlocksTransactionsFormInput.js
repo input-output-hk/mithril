@@ -1,36 +1,35 @@
 import { Button, Form, FormGroup, InputGroup, ToggleButton } from "react-bootstrap";
 import React, { useState } from "react";
+import { certifiedMessageTypes } from "#/CertifyCardanoBlocksOrTransactionsModal";
 
-export default function CardanoBlocksTransactionsFormInput({ maxAllowedHashesByRequest }) {
+export default function CardanoBlocksTransactionsFormInput({
+  maxAllowedHashesByRequest,
+  certifiedMessageType,
+  onCertifiedMessageTypeChange = (type) => {},
+}) {
   const maxHashesAllowed = Math.max(maxAllowedHashesByRequest, 1);
   const validationPattern = ` *(\\w+ *, *){0,${maxHashesAllowed - 1}}\\w+,? *`;
-  const [certifiedItemType, setCertifiedItemType] = useState("transaction");
   const [transactionHashes, setTransactionHashes] = useState("");
   const [blockHashes, setBlockHashes] = useState("");
-
-  const certifiedItemTypes = [
-    { value: "transaction", label: "Transactions" },
-    { value: "block", label: "Blocks" },
-  ];
 
   return (
     <FormGroup>
       <InputGroup hasValidation>
         <Button type="submit">Certify</Button>
-        {certifiedItemTypes.map((type) => (
+        {Object.values(certifiedMessageTypes).map((type) => (
           <ToggleButton
-            key={type.value}
-            id={`toogle-${type.value}`}
-            name="certifiedItemType"
-            value={type.value}
+            key={type.name}
+            id={`toogle-${type.name}`}
+            name="certifiedMessageType"
+            value={type.name}
             type="radio"
             variant="outline-dark"
-            checked={certifiedItemType === type.value}
-            onChange={() => setCertifiedItemType(type.value)}>
-            {type.label}
+            checked={certifiedMessageType === type}
+            onChange={() => onCertifiedMessageTypeChange(type)}>
+            <span className="text-capitalize">{type.pluralName}</span>
           </ToggleButton>
         ))}
-        {certifiedItemType === "block" ? (
+        {certifiedMessageType === certifiedMessageTypes.block ? (
           <Form.Control
             id="blockHashes"
             name="blockHashes"
@@ -54,7 +53,7 @@ export default function CardanoBlocksTransactionsFormInput({ maxAllowedHashesByR
           />
         )}
         <Form.Control.Feedback type="invalid">
-          Please provide a comma-separated list of {certifiedItemType} hashes.
+          Please provide a comma-separated list of {certifiedMessageType.pluralName} hashes.
         </Form.Control.Feedback>
       </InputGroup>
     </FormGroup>

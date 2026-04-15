@@ -19,6 +19,9 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
   const [cardanoBlocksTransactionsSnapshots, setCardanoBlocksTransactionsSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const [showCertificationFormValidation, setShowCertificationFormValidation] = useState(false);
+  const [certifiedMessageType, setCertifiedMessageType] = useState(
+    certifiedMessageTypes.transaction,
+  );
   const [itemHashesToCertify, setItemHashesToCertify] = useState([]);
   const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
@@ -73,9 +76,9 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
       const formJson = Object.fromEntries(formData.entries());
       let hashesString = "";
 
-      if (formJson?.certifiedItemType === certifiedMessageTypes.block.name) {
+      if (formJson?.certifiedMessageType === certifiedMessageTypes.block.name) {
         hashesString = formJson?.blockHashes ?? "";
-      } else if (formJson?.certifiedItemType === certifiedMessageTypes.transaction.name) {
+      } else if (formJson?.certifiedMessageType === certifiedMessageTypes.transaction.name) {
         hashesString = formJson?.txHashes ?? "";
       } else {
         console.error("Invalid certified item type");
@@ -99,7 +102,7 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
     <>
       <CertificateModal hash={selectedCertificateHash} onHashChange={handleCertificateHashChange} />
       <CertifyCardanoBlocksOrTransactionsModal
-        certifiedMessageType={certifiedMessageTypes.transaction}
+        certifiedMessageType={certifiedMessageType}
         hashes={itemHashesToCertify}
         onHashesChange={handleItemHashesToCertifyChange}
       />
@@ -117,6 +120,8 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
               validated={showCertificationFormValidation}>
               <Row>
                 <CardanoBlocksTransactionsFormInput
+                  certifiedMessageType={certifiedMessageType}
+                  onCertifiedMessageTypeChange={(type) => setCertifiedMessageType(type)}
                   maxAllowedHashesByRequest={
                     currentAggregatorCapabilities?.cardano_transactions_prover
                       ?.max_hashes_allowed_by_request ??
