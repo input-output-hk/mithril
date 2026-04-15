@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, btree_map::Entry};
 
-use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -65,11 +63,15 @@ impl SnarkClerk {
 
     /// Deduplicate signatures by lottery index and select exactly `k` winners.
     ///
-    /// When multiple signatures claim the same lottery index, the one with the smallest Schnorr
-    /// signature (by `Ord` on `UniqueSchnorrSignature`) is kept. After deduplication, `k` indices
-    /// are selected via a deterministic pseudo-random shuffle seeded by the signed message. This
-    /// ensures uniform selection across the full index range, avoiding bias toward any region of
-    /// `[0, m)`. The returned `BTreeMap` preserves strictly increasing lottery index order.
+    /// Each candidate is assigned a priority hash `SHA-256(seed || index || signature)` where
+    /// the seed is derived from the signed message and a commitment to the collected signature
+    /// set. This single hash drives both deduplication and selection: when multiple signatures
+    /// claim the same lottery index the one with the smallest hash wins, and the `k` candidates
+    /// with the smallest hashes overall are selected. This ensures uniform selection across the
+    /// full index range, avoiding bias toward any region of `[0, m)`. Including the signature
+    /// set in the seed prevents grinding, since a signer cannot predict the final seed without
+    /// knowing every other signature that will be collected. The returned `BTreeMap` preserves
+    /// strictly increasing lottery index order.
     ///
     /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
     /// can be collected.
@@ -78,8 +80,21 @@ impl SnarkClerk {
         signatures: &[SingleSignature],
         message_to_sign: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
-        let mut unique_index_signature_map: BTreeMap<LotteryIndex, SingleSignature> =
-            BTreeMap::new();
+        let mut sig_set_hasher = Sha256::new();
+        for signature in signatures {
+            if let Some(snark_sig) = signature.snark_signature.as_ref() {
+                sig_set_hasher.update(snark_sig.get_schnorr_signature().to_bytes());
+            }
+        }
+        let sig_set_commitment: [u8; 32] = sig_set_hasher.finalize().into();
+
+        let mut seed_hasher = Sha256::new();
+        seed_hasher.update(message_to_sign[0].to_bytes());
+        seed_hasher.update(message_to_sign[1].to_bytes());
+        seed_hasher.update(sig_set_commitment);
+        let seed: [u8; 32] = seed_hasher.finalize().into();
+
+        let mut candidates: BTreeMap<LotteryIndex, ([u8; 32], SingleSignature)> = BTreeMap::new();
 
         for signature in signatures {
             let (Some(snark_indices), Some(snark_signature)) = (
@@ -89,67 +104,43 @@ impl SnarkClerk {
                 continue;
             };
 
+            let sig_bytes = snark_signature.get_schnorr_signature().to_bytes();
             for index in snark_indices {
-                match unique_index_signature_map.entry(index) {
+                let hash = hash_candidate(&seed, index, &sig_bytes);
+                match candidates.entry(index) {
                     Entry::Occupied(mut existing) => {
-                        if existing.get().snark_signature.as_ref().is_some_and(|s| {
-                            s.get_schnorr_signature() > snark_signature.get_schnorr_signature()
-                        }) {
-                            existing.insert(signature.clone());
+                        if existing.get().0 > hash {
+                            existing.insert((hash, signature.clone()));
                         }
                     }
                     Entry::Vacant(vacant) => {
-                        vacant.insert(signature.clone());
+                        vacant.insert((hash, signature.clone()));
                     }
                 }
             }
         }
 
-        let count = unique_index_signature_map.len() as u64;
+        let count = candidates.len() as u64;
         if count < parameters.k {
             return Err(AggregationError::NotEnoughSignatures(count, parameters.k).into());
         }
 
-        let mut hasher = Sha256::new();
-        hasher.update(message_to_sign[0].to_bytes());
-        hasher.update(message_to_sign[1].to_bytes());
-        let seed: [u8; 32] = hasher.finalize().into();
+        let mut entries: Vec<_> = candidates.into_iter().collect();
+        entries.sort_by(|(_, (hash_a, _)), (_, (hash_b, _))| hash_a.cmp(hash_b));
+        entries.truncate(parameters.k as usize);
 
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let k = parameters.k as usize;
-        let mut entries: Vec<(LotteryIndex, SingleSignature)> =
-            unique_index_signature_map.into_iter().collect();
-        // Randomly select k entries using Lemire's
-        // nearly divisionless method for unbiased index generation.
-        for i in 0..k {
-            let range = (entries.len() - i) as u64;
-            let j = i + unbiased_random_below(&mut rng, range) as usize;
-            entries.swap(i, j);
-        }
-        entries.truncate(k);
-
-        Ok(entries.into_iter().collect())
+        Ok(entries.into_iter().map(|(index, (_, sig))| (index, sig)).collect())
     }
 }
 
-/// Generate a uniformly random `u64` in `[0, range)` without modulo bias.
-///
-/// Uses Lemire's "nearly divisionless" rejection sampling: draw a 128-bit
-/// product `rng.next_u64() * range`, reject only when the low 64 bits fall
-/// below `(-range) % range` (the remainder that causes bias). For typical
-/// ranges this rejects with probability < `range / 2^64`, so almost never.
-fn unbiased_random_below(rng: &mut ChaCha20Rng, range: u64) -> u64 {
-    debug_assert!(range > 0);
-    let mut product = (rng.next_u64() as u128) * (range as u128);
-    let mut low = product as u64;
-    if low < range {
-        let threshold = range.wrapping_neg() % range;
-        while low < threshold {
-            product = (rng.next_u64() as u128) * (range as u128);
-            low = product as u64;
-        }
-    }
-    (product >> 64) as u64
+/// Hash a candidate (lottery index + signature) with a seed for deterministic
+/// deduplication tie-breaking and selection priority.
+fn hash_candidate(seed: &[u8; 32], index: LotteryIndex, signature_bytes: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(seed);
+    hasher.update(index.to_le_bytes());
+    hasher.update(signature_bytes);
+    hasher.finalize().into()
 }
 
 #[cfg(test)]
