@@ -7,6 +7,6 @@ export const hero = {
   }),
   standfirst: translate({
     id: "homepage.hero.standfirst",
-    message: `Mithril enables lightweight, trustless access to Cardano blockchain state. Built on stake-based threshold multisignatures, it lets clients verify chain data without running a full node.`,
+    message: `Mithril enables lightweight, trustless access to the Cardano blockchain state. Built on stake-based threshold multisignatures, it lets clients verify chain data without running a full node.`,
   }),
 };
