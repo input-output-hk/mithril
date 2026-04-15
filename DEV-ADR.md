@@ -28,34 +28,42 @@ To complete
 **Date:** 2025-01-06
 **Status:** Accepted
 
-### Context
+#### Context
 
-Numeric values in the codebase often represent distinct domain concepts (e.g.,`BlockNumber`, `Epoch`, `SlotNumber`, `KesPeriod`, `KesEvolutions`). Using raw primitive types makes it easy to accidentally mix unrelated values, leading to subtle bugs that the compiler cannot catch.
+Numeric values in the codebase often represent distinct domain concepts (e.g.,`BlockNumber`, `Epoch`, `SlotNumber`,
+`KesPeriod`, `KesEvolutions`). Using raw primitive types makes it easy to accidentally mix unrelated values, leading
+to subtle bugs that the compiler cannot catch.
 
-### Decision
+#### Decision
 
 When wrapping arithmetic types, follow these guidelines:
 
-1. **Restrict direct conversions**: Do not implement `From`/`Into` traits for conversions between the wrapper and primitive types. This prevents accidental escaping from the wrapper and forces explicit usage.
+1. **Restrict direct conversions**: Do not implement `From`/`Into` traits for conversions between the wrapper and
+   primitive types. This prevents accidental escaping from the wrapper and forces explicit usage.
 
-2. **Use constructor notation**: Prefer the `Type(value)` pattern for creating instances (e.g., `KesPeriod(42)`). This is more readable than `.into()` and makes the intent explicit.
+2. **Use constructor notation**: Prefer the `Type(value)` pattern for creating instances (e.g., `KesPeriod(42)`).
+   This is more readable than `.into()` and makes the intent explicit.
 
-3. **Implement arithmetic traits selectively**: Only implement arithmetic operations (`Add`, `Sub`, etc.) that make semantic sense for the domain concept.
+3. **Implement arithmetic traits selectively**: Only implement arithmetic operations (`Add`, `Sub`, etc.) that make
+   semantic sense for the domain concept.
 
-4. **Exception for persistence**: Fallible conversions to `i64` (`TryFrom`) may be implemented when required by the persistence layer, as explicit wrapper usage there provides limited benefit.
+4. **Exception for persistence**: Fallible conversions to `i64` (`TryFrom`) may be implemented when required by the
+   persistence layer, as explicit wrapper usage there provides limited benefit.
 
-### Consequences
+#### Consequences
 
 - The compiler enforces type safety, preventing accidental mixing of unrelated numeric values.
 - Code is more readable with explicit `Type(value)` notation.
 - Developers must consciously decide when to escape the wrapper, making type boundaries intentional.
+
+---
 
 ### 5. Guidelines for writing useful log messages, error context, or error structure
 
 **Date:** 2025-07-25
 **Status:** Accepted
 
-### Context
+#### Context
 
 Some errors and logs currently lack enough context to understand the cause of an issue.
 
@@ -64,7 +72,7 @@ This is especially true for failures that occur during requests to or from exter
 At the same time, adding too much context can make logs noisy and hard to read, and can flood log storage with low-value
 or sensitive data.
 
-### Decision
+#### Decision
 
 When writing log messages, adding error context, or designing error structures, follow these guidelines:
 
@@ -88,23 +96,25 @@ When writing log messages, adding error context, or designing error structures, 
   - When logging external payloads, prefer safeguards such as truncation/size limits and logging only at error/debug
     level (and redaction when applicable).
 
-### Consequences
+#### Consequences
 
 - Logs are more readable and actionable.
 - Errors are easier to understand and troubleshoot without routinely leaking sensitive data or producing excessive log volume.
+
+---
 
 ### 4. Guidelines for crate test utilities
 
 **Date:** 2025-07-25
 **Status:** Accepted
 
-### Context
+#### Context
 
 - Testing requires reusable utilities that may need to be shared across crates
 - Test utilities should be isolated from production code while remaining accessible to child crates
 - We need to minimize feature flags to optimize Rust compiler artifact reuse and reduce build times
 
-### Decision
+#### Decision
 
 Test utilities must follow this organizational structure:
 
