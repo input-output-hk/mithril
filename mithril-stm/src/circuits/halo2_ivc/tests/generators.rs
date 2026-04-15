@@ -22,7 +22,7 @@ use midnight_proofs::{
 use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{CryptoRng, OsRng, RngCore, SeedableRng};
 
 use super::super::helpers::{
     merkle_tree::{MTLeaf as MerkleTreeLeaf, MerklePath, MerkleTree},
@@ -44,12 +44,8 @@ use super::{asset_readers::load_recursive_chain_state_asset, test_certificate::C
 
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names, trivial_acc};
 
-/// Base seed used to derive all deterministic asset-generation randomness.
+/// Fixed seed used for the deterministic universal KZG setup.
 const ASSET_SEED: u64 = 42;
-/// Seed used for certificate and recursive proof generation in `recursive_chain_state`.
-const RECURSIVE_CHAIN_STATE_SEED: u64 = ASSET_SEED + 1;
-/// Seed used for certificate and recursive proof generation in `recursive_step_output`.
-const RECURSIVE_STEP_OUTPUT_SEED: u64 = ASSET_SEED + 2;
 const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
 const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 const INITIAL_CHAIN_LENGTH: usize = 3;
@@ -118,8 +114,8 @@ fn insert_protocol_message_part(
     protocol_message.set_message_part(part_key, encoded_value);
 }
 
-fn build_merkle_tree_with_seed(
-    random_generator: &mut ChaCha20Rng,
+fn build_merkle_tree(
+    random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
 ) -> (Vec<SigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
     let mut signing_keys = Vec::with_capacity(signer_count);
@@ -138,11 +134,6 @@ fn build_merkle_tree_with_seed(
 /// Builds the shared universal KZG parameters that both circuits derive from.
 fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
     ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
-}
-
-/// Builds a deterministic RNG for asset generation sub-steps.
-fn build_deterministic_random_generator(seed: u64) -> ChaCha20Rng {
-    ChaCha20Rng::seed_from_u64(seed)
 }
 
 /// Generates a recursive proof using the Poseidon transcript.
@@ -233,7 +224,7 @@ fn build_next_certificate_asset_data(
     certificate_relation: &Certificate,
     certificate_verifying_key: &MidnightVK,
     recursive_chain_state: &State,
-    random_generator: &mut ChaCha20Rng,
+    random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (
     Vec<u8>,
     Accumulator<crate::circuits::halo2_ivc::S>,
@@ -366,8 +357,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let total_stake = 1_000_000u64;
 
     let certificate_relation = Certificate::new(QUORUM_SIZE, number_of_lotteries, depth);
-    let (signing_keys, merkle_tree_leaves, merkle_tree) =
-        build_merkle_tree_with_seed(&mut rng, SIGNER_COUNT);
+    let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
     let aggregate_verification_key =
         AggregateVerificationKey::new(merkle_tree.to_merkle_tree_commitment(), total_stake);
 
@@ -489,8 +479,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
         &recursive_verifying_key,
     );
 
-    let mut certificate_random_generator =
-        build_deterministic_random_generator(RECURSIVE_CHAIN_STATE_SEED);
+    let mut certificate_random_generator = OsRng;
     let mut current_epoch = 5u64;
     let mut recursive_next_states = vec![State::new(
         F::ONE,
@@ -631,8 +620,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
     let mut recursive_proof = vec![];
     let mut current_accumulator = trivial_acc(&combined_fixed_base_names);
     let mut next_accumulator = current_accumulator.clone();
-    let mut recursive_random_generator =
-        build_deterministic_random_generator(RECURSIVE_CHAIN_STATE_SEED + 1);
+    let mut recursive_random_generator = OsRng;
 
     for i in 0..=INITIAL_CHAIN_LENGTH {
         println!(
@@ -900,8 +888,7 @@ pub(crate) fn generate_recursive_step_output_asset(
         &recursive_verifying_key,
     );
 
-    let mut recursive_step_output_random_generator =
-        build_deterministic_random_generator(RECURSIVE_STEP_OUTPUT_SEED);
+    let mut recursive_step_output_random_generator = OsRng;
     println!("generate_recursive_step_output: building next certificate");
     let certificate_start = Instant::now();
     let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =

@@ -36,8 +36,15 @@ Assets are generated from ignored tests in
 Generation uses:
 
 - deterministic shared setup
-- deterministic random seeds for proof generation
+- OS randomness for signatures and proof generation, aligned with `ivc_e2e`
 - deterministic universal KZG parameters built with `ParamsKZG::unsafe_setup(...)`
+
+The public-state evolution is reproducible at the semantic level, but the
+proof-bearing assets are not expected to be byte-identical across regenerations.
+In practice:
+
+- `verification_context.bin` should stay stable unless the verifier-side setup changes
+- `recursive_chain_state.bin` and `recursive_step_output.bin` may differ bytewise across runs because they contain proofs and proof-dependent accumulators
 
 The three manual generation entrypoints are:
 
@@ -69,25 +76,17 @@ Regenerate the assets when one of the following changes:
 - the accumulator encoding
 - the recursive or certificate verifying key inputs
 - the verifier-side SRS data format
-- the deterministic generation setup or seeds
+- the generation setup or proving randomness model
 
 Regenerate them with:
 
 ```bash
-cargo test --features future_snark generate_verification_context_only -- --ignored --nocapture
-cargo test --features future_snark generate_recursive_chain_state_only -- --ignored --nocapture
-cargo test --features future_snark generate_recursive_step_output_only -- --ignored --nocapture
+cargo test --release --features future_snark generate_verification_context_only -- --ignored --nocapture
+cargo test --release --features future_snark generate_recursive_chain_state_only -- --ignored --nocapture
+cargo test --release --features future_snark generate_recursive_step_output_only -- --ignored --nocapture
 ```
 
 Run these commands from the `mithril-stm` crate directory.
-
-To validate that the stored assets still deserialize correctly, also run:
-
-```bash
-cargo test --features future_snark load_generated_assets_only -- --ignored --nocapture
-```
-
-This is a manual smoke test for the asset readers.
 
 ## Temporary certificate relation dependency
 
