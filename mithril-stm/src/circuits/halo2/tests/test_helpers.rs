@@ -91,7 +91,9 @@ pub(crate) fn sample_valid_circuit_witness_entry()
     let message = SignedMessageWithoutPrefix::from(42u64);
     let transcript = [merkle_tree_commitment.into(), message.into()];
     let unique_schnorr_signature = signing_key.sign(&transcript, &mut rng)?;
-    let merkle_path: MerklePath = (&stm_tree.compute_merkle_tree_path(0)).try_into()?;
+    let merkle_path: MerklePath = (&stm_tree
+        .compute_merkle_tree_path_fixed_length(0, TEST_MERKLE_TREE_DEPTH as u32))
+        .try_into()?;
     let entry = CircuitWitnessEntry {
         leaf: CircuitMerkleTreeLeaf(verification_key, circuit_lottery_target_value),
         merkle_path,

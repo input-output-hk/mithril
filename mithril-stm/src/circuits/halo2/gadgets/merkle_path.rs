@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use midnight_circuits::instructions::{
     AssertionInstructions, ControlFlowInstructions, EccInstructions, ZeroInstructions,
 };
@@ -6,6 +7,7 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
+use crate::circuits::halo2::errors::to_synthesis_error;
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
 /// Assigned inputs required to verify one Merkle authentication path inside the circuit.
@@ -41,8 +43,16 @@ pub(crate) fn verify_merkle_path(
     // Compute the first node after the leaves outside the loop
     // to not ignore a potential padding zero leaf
     // other zero leaf are ignored
-    let first_sibling = inputs.merkle_siblings.first().ok_or(Error::InvalidInstances)?;
-    let first_position = inputs.merkle_positions.first().ok_or(Error::InvalidInstances)?;
+    let first_sibling = inputs
+        .merkle_siblings
+        .first()
+        .ok_or(anyhow!("Missing siblings"))
+        .map_err(to_synthesis_error)?;
+    let first_position = inputs
+        .merkle_positions
+        .first()
+        .ok_or(anyhow!("Missing position!"))
+        .map_err(to_synthesis_error)?;
     let first_left = std_lib.select(layouter, first_position, &leaf, first_sibling)?;
     let first_right = std_lib.select(layouter, first_position, first_sibling, &leaf)?;
     let first_node = std_lib.poseidon(layouter, &[first_left, first_right])?;

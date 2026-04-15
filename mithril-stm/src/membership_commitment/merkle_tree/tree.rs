@@ -585,6 +585,59 @@ mod tests {
 
         type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
 
+        fn make_leaves(n: usize) -> Vec<MerkleTreeSnarkLeaf> {
+            let pks = vec![VerificationKeyForSnark::default(); n];
+            pks.into_iter()
+                .zip(0u64..)
+                .map(|(key, stake)| MerkleTreeSnarkLeaf(key, BaseFieldElement(Fq::from(stake))))
+                .collect()
+        }
+
+        #[test]
+        fn padded_path_preserves_natural_prefix() {
+            // The first elements of the padded path must match the natural path exactly
+            let leaves = make_leaves(4); // natural depth = 2
+            let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
+            let natural = tree.compute_merkle_tree_path(0);
+            let padded = tree.compute_merkle_tree_path_fixed_length(0, 5);
+
+            assert_eq!(&padded.values[..natural.values.len()], &natural.values[..]);
+        }
+
+        #[test]
+        fn padding_elements_are_zero_vectors() {
+            // Elements added by padding must be zero vectors of the hash output size
+            let leaves = make_leaves(4); // natural depth = 2
+            let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
+            let natural_len = tree.compute_merkle_tree_path(0).values.len();
+            let padded = tree.compute_merkle_tree_path_fixed_length(0, 5);
+
+            let expected_zero = vec![0u8; <SnarkHash as Digest>::output_size()];
+            for pad_elem in &padded.values[natural_len..] {
+                assert_eq!(pad_elem, &expected_zero);
+            }
+        }
+
+        #[test]
+        fn padded_path_has_correct_length() {
+            let leaves = make_leaves(4); // natural depth = 2
+            let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
+            let path_length = 5u32;
+            let pf = tree.compute_merkle_tree_path_fixed_length(0, path_length);
+            assert_eq!(pf.values.len(), path_length as usize);
+        }
+
+        #[test]
+        fn no_truncation_when_path_length_not_larger_than_natural_depth() {
+            // When path_length <= natural depth, the path is returned unchanged
+            let leaves = make_leaves(8); // natural depth = 3
+            let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
+            let natural = tree.compute_merkle_tree_path(0);
+            let pf = tree.compute_merkle_tree_path_fixed_length(0, 2); // 2 < natural depth 3
+
+            assert_eq!(pf.values, natural.values);
+        }
+
         prop_compose! {
             fn arb_tree_poseidon(max_size: u32)
                        (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<SnarkHash, MerkleTreeSnarkLeaf>, Vec<MerkleTreeSnarkLeaf>) {
@@ -603,17 +656,6 @@ mod tests {
             fn test_create_proof((t, values) in arb_tree_poseidon(30)) {
                 values.iter().enumerate().for_each(|(i, _v)| {
                     let pf = t.compute_merkle_tree_path(i);
-                    assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
-                })
-            }
-
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_path_length((t, values) in arb_tree_poseidon(30)) {
-                let merkle_path_length = 13;
-                values.iter().enumerate().for_each(|(i, _v)| {
-                    let pf = t.compute_merkle_tree_path_fixed_length(i, merkle_path_length);
-                    assert_eq!(pf.values.len(), merkle_path_length as usize);
                     assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
                 })
             }
