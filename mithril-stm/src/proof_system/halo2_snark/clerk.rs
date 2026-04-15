@@ -63,15 +63,16 @@ impl SnarkClerk {
 
     /// Deduplicate signatures by lottery index and select exactly `k` winners.
     ///
-    /// Each candidate is assigned a priority hash `SHA-256(seed || index || signature)` where
-    /// the seed is derived from the signed message and a commitment to the collected signature
-    /// set. This single hash drives both deduplication and selection: when multiple signatures
-    /// claim the same lottery index the one with the smallest hash wins, and the `k` candidates
-    /// with the smallest hashes overall are selected. This ensures uniform selection across the
-    /// full index range, avoiding bias toward any region of `[0, m)`. Including the signature
-    /// set in the seed prevents grinding, since a signer cannot predict the final seed without
-    /// knowing every other signature that will be collected. The returned `BTreeMap` preserves
-    /// strictly increasing lottery index order.
+    /// Each candidate is assigned a priority hash `SHA-256(seed || index || commitment_point)`
+    /// where the seed is derived from the signed message. Only the commitment point (the
+    /// deterministic component of the signature, fixed per signer+message) is included in
+    /// the hash, so grinding via nonce variation has no effect. This single hash drives both
+    /// deduplication and selection: when multiple signatures claim the same lottery index the
+    /// one with the smallest hash wins, and the `k` candidates with the smallest hashes
+    /// overall are selected. This ensures uniform selection across the full index range,
+    /// avoiding bias toward any region of `[0, m)`. The seed depends only on public inputs,
+    /// so the selection is publicly verifiable. The returned `BTreeMap` preserves strictly
+    /// increasing lottery index order.
     ///
     /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
     /// can be collected.
@@ -80,22 +81,9 @@ impl SnarkClerk {
         signatures: &[SingleSignature],
         message_to_sign: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
-        let mut sig_bytes_list: Vec<_> = signatures
-            .iter()
-            .filter_map(|s| s.snark_signature.as_ref())
-            .map(|snark_sig| snark_sig.get_schnorr_signature().to_bytes())
-            .collect();
-        sig_bytes_list.sort();
-        let mut sig_set_hasher = Sha256::new();
-        for sig_bytes in &sig_bytes_list {
-            sig_set_hasher.update(sig_bytes);
-        }
-        let sig_set_commitment: [u8; 32] = sig_set_hasher.finalize().into();
-
         let mut seed_hasher = Sha256::new();
         seed_hasher.update(message_to_sign[0].to_bytes());
         seed_hasher.update(message_to_sign[1].to_bytes());
-        seed_hasher.update(sig_set_commitment);
         let seed: [u8; 32] = seed_hasher.finalize().into();
 
         let mut candidates: BTreeMap<LotteryIndex, ([u8; 32], SingleSignature)> = BTreeMap::new();
@@ -108,9 +96,10 @@ impl SnarkClerk {
                 continue;
             };
 
-            let sig_bytes = snark_signature.get_schnorr_signature().to_bytes();
+            let commitment_bytes =
+                snark_signature.get_schnorr_signature().commitment_point.to_bytes();
             for index in snark_indices {
-                let hash = hash_candidate(&seed, index, &sig_bytes);
+                let hash = hash_candidate(&seed, index, &commitment_bytes);
                 match candidates.entry(index) {
                     Entry::Occupied(mut existing) => {
                         if existing.get().0 > hash {
@@ -139,13 +128,15 @@ impl SnarkClerk {
     }
 }
 
-/// Hash a candidate (lottery index + signature) with a seed for deterministic
-/// deduplication tie-breaking and selection priority.
-fn hash_candidate(seed: &[u8; 32], index: LotteryIndex, signature_bytes: &[u8]) -> [u8; 32] {
+/// Hash a candidate (lottery index + commitment point) with a seed for deterministic
+/// deduplication tie-breaking and selection priority. Only the commitment point is
+/// used because it is the sole deterministic component of the signature (fixed per
+/// signer+message), making the hash immune to grinding via nonce variation.
+fn hash_candidate(seed: &[u8; 32], index: LotteryIndex, commitment_point_bytes: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(seed);
     hasher.update(index.to_le_bytes());
-    hasher.update(signature_bytes);
+    hasher.update(commitment_point_bytes);
     hasher.finalize().into()
 }
 
