@@ -10,14 +10,10 @@ use crate::entities::arithmetic_operation_wrapper::{
     impl_rem_to_wrapper, impl_sub_to_wrapper,
 };
 
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
-
 /// BlockNumber is the block number of a Cardano transaction.
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
-#[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct BlockNumber(pub u64);
 
 impl Display for BlockNumber {

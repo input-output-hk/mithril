@@ -23,6 +23,68 @@ To complete
 To complete
 -->
 
+### 7. Do not expose arithmetic wrapper types to WebAssembly
+
+**Date:** 2025-04-15
+**Status:** Accepted
+
+#### Context
+
+As specified in [DEV-ADR-6](#6-guidelines-for-arithmetic-wrapper-types), arithmetic wrapper types enforce type safety for
+numeric values.
+
+However, when such types are exposed to WebAssembly, `wasm_bindgen` represents their inner tuple field as `.0` in
+JavaScript, forcing callers to access the underlying primitive through that field:
+
+```javascript
+const block_number = cardano_transaction_proof.latest_block_number;
+// Expected usage:
+console.log(block_number);
+// Actual usage:
+console.log(block_number.0);
+```
+
+The `.0` accessor is an escape hatch for Rust interop, not an intended public interface. Exposing it to JavaScript
+consumers makes the API awkward and leaks implementation details.
+
+#### Decision
+
+1. **Do not annotate arithmetic wrapper types with `#[wasm_bindgen]`**: The attribute should be absent from all wrapper
+   types so they are never exposed as JavaScript classes.
+
+2. **Hide arithmetic wrapper fields on exposed types**: On any `#[wasm_bindgen]` struct that holds an arithmetic wrapper
+   field, mark that field with `#[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]` to prevent it from being
+   directly accessible in JavaScript.
+
+3. **Expose the value through a getter instead**: Provide a `#[wasm_bindgen(getter)]` method that returns the underlying
+   primitive type, scoped to `#[cfg(target_family = "wasm")]` so Rust code continues to access the field directly.
+
+```Rust
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+pub struct ExampleType {
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
+    pub block_number: BlockNumber,
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+impl ExampleType {
+    #[wasm_bindgen(getter)]
+    pub fn block_number(&self) -> u64 {
+        *self.block_number
+    }
+}
+```
+
+#### Consequences
+
+- Arithmetic wrapper types remain internal to Rust and are never surfaced as JavaScript classes.
+- JavaScript consumers receive plain primitives (e.g. `number`, `bigint`) from getters, keeping the API idiomatic and free
+  of Rust-specific field naming conventions.
+
+---
+
 ### 6. Guidelines for arithmetic wrapper types
 
 **Date:** 2025-01-06

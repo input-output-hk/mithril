@@ -26,9 +26,11 @@ pub struct CardanoTransactionsProofsV2Message {
     pub non_certified_transactions: Vec<String>,
 
     /// Latest block number that has been certified by the associated Mithril certificate
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub latest_block_number: BlockNumber,
 
     /// Security parameter that has been certified by the associated Mithril certificate
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub security_parameter: BlockNumberOffset,
 }
 
@@ -37,9 +39,20 @@ pub struct CardanoTransactionsProofsV2Message {
     wasm_bindgen(js_class = "CardanoTransactionsProofsV2")
 )]
 impl CardanoTransactionsProofsV2Message {
+    /// Hashes of the Cardano transactions that have been certified
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
+    pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
+        self.certified_transactions
+            .as_ref()
+            .map(|ctxs| ctxs.items.iter().map(|t| t.transaction_hash.clone()).collect())
+            .unwrap_or_default()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_class = "CardanoTransactionsProofsV2")]
+impl CardanoTransactionsProofsV2Message {
     /// Cardano transactions that have been certified
-    // Note: Wasm only as rust code can access them through the field directly
-    #[cfg(target_family = "wasm")]
     #[wasm_bindgen(getter)]
     pub fn certified_transactions(&self) -> Vec<CardanoTransactionMessagePart> {
         self.certified_transactions
@@ -48,13 +61,16 @@ impl CardanoTransactionsProofsV2Message {
             .unwrap_or_default()
     }
 
-    /// Hashes of the Cardano transactions that have been certified
-    #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
-    pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
-        self.certified_transactions
-            .as_ref()
-            .map(|ctxs| ctxs.items.iter().map(|t| t.transaction_hash.clone()).collect())
-            .unwrap_or_default()
+    /// Latest block number that has been certified by the associated Mithril certificate
+    #[wasm_bindgen(getter)]
+    pub fn latest_block_number(&self) -> u64 {
+        *self.latest_block_number
+    }
+
+    /// Security parameter that has been certified by the associated Mithril certificate
+    #[wasm_bindgen(getter)]
+    pub fn security_parameter(&self) -> u64 {
+        *self.latest_block_number
     }
 }
 
