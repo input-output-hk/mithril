@@ -13,7 +13,7 @@ export default function HomePage() {
       <div style={{ zIndex: 1000 }}>
         <Layout
           title="Mithril | Trustless Light Client Access for Cardano"
-          description="Mithril is a stake-based threshold multisignature protocol for Cardano. It enables trustless, lightweight access to verified blockchain state — no full node required."
+          description="Mithril is a stake-based threshold multisignature protocol for Cardano, enabling trustless, lightweight access to verified blockchain state without requiring a full node."
         >
           <HomepageHero />
           <main>
