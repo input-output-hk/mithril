@@ -157,6 +157,7 @@ mod tests {
                 compute_winning_lottery_indices,
             },
         },
+        signature_scheme::BaseFieldElement,
     };
 
     type D = MithrilMembershipDigest;
@@ -193,16 +194,14 @@ mod tests {
         (signers, clerk)
     }
 
-    // Collect signatures and populate their SNARK winning indices.
+    // Collect signatures, populate their SNARK winning indices, and return
+    // the derived `message_to_sign` so callers can reuse it.
     fn collect_signatures_with_indices(
         signers: &[Signer<D>],
         clerk: &SnarkClerk,
         message: &[u8],
+        message_to_sign: &[BaseFieldElement; 2],
     ) -> Vec<SingleSignature> {
-        let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
-        let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, message)
-            .expect("build_snark_message should succeed");
-
         signers
             .iter()
             .filter_map(|signer| {
@@ -212,7 +211,7 @@ mod tests {
                     clerk.get_snark_registration_entry(sig.signer_index).ok().flatten()?;
                 let indices = compute_winning_lottery_indices(
                     clerk.parameters.m,
-                    &message_to_sign,
+                    message_to_sign,
                     &snark_sig.get_schnorr_signature(),
                     reg_entry.1,
                 )
@@ -221,6 +220,12 @@ mod tests {
                 Some(sig)
             })
             .collect()
+    }
+
+    fn compute_message_to_sign(clerk: &SnarkClerk, message: &[u8]) -> [BaseFieldElement; 2] {
+        let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
+        build_snark_message(&avk.get_merkle_tree_commitment().root, message)
+            .expect("build_snark_message should succeed")
     }
 
     proptest! {
@@ -283,13 +288,10 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-
-            let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
-            let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
-                .expect("build_snark_message should succeed");
+            let message_to_sign = compute_message_to_sign(&clerk, &msg);
 
             // Collect valid signatures with SNARK indices
-            let mut all_sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
+            let mut all_sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
 
             // Also create signatures for false messages
             for _ in 0..num_false_msgs {
@@ -298,8 +300,9 @@ mod tests {
                 if false_msg[..msg.len()] == msg[..] {
                     false_msg[0] = msg[0].wrapping_add(1);
                 }
+                let false_message_to_sign = compute_message_to_sign(&clerk, &false_msg);
                 let false_sigs =
-                    collect_signatures_with_indices(&signers, &clerk, &false_msg);
+                    collect_signatures_with_indices(&signers, &clerk, &false_msg, &false_message_to_sign);
                 all_sigs.extend(false_sigs);
             }
 
@@ -372,10 +375,8 @@ mod tests {
 
         let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
         let msg = [7u8; 32];
-        let sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
-        let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
-        let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
-            .expect("build_snark_message should succeed");
+        let message_to_sign = compute_message_to_sign(&clerk, &msg);
+        let sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
 
         let result_1 =
             SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign)
@@ -410,10 +411,8 @@ mod tests {
             let mut msg = [0u8; 32];
             msg[0] = round;
 
-            let sigs = collect_signatures_with_indices(&signers, &clerk, &msg);
-            let avk = clerk.compute_aggregate_verification_key_for_snark::<D>();
-            let message_to_sign = build_snark_message(&avk.get_merkle_tree_commitment().root, &msg)
-                .expect("build_snark_message should succeed");
+            let message_to_sign = compute_message_to_sign(&clerk, &msg);
+            let sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
 
             let result =
                 SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign);
