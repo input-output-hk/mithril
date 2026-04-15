@@ -1,10 +1,11 @@
 use std::{
     collections::BTreeMap,
     fs::File,
-    io::{self, BufReader, Read},
+    io::{self, BufReader, Cursor, Read},
     path::{Path, PathBuf},
 };
 
+use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     poly::kzg::params::ParamsVerifierKZG,
     utils::{SerdeFormat, helpers::ProcessedSerdeObject},
@@ -43,6 +44,7 @@ pub(crate) struct VerificationContextAsset {
     pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
     pub(crate) verifier_params: ParamsVerifierKZG<E>,
+    pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
 }
 
 /// Stored recursive step output asset.
@@ -169,14 +171,23 @@ pub(crate) fn load_verification_context_asset(path: &Path) -> io::Result<Verific
         (),
     )?;
     let combined_fixed_bases = read_named_fixed_bases(&mut reader)?;
+    let mut verifier_param_bytes = Vec::new();
+    reader.read_to_end(&mut verifier_param_bytes)?;
+
+    let mut verifier_params_reader = Cursor::new(&verifier_param_bytes);
     let verifier_params =
-        ParamsVerifierKZG::<E>::read(&mut reader, SerdeFormat::RawBytesUnchecked)?;
+        ParamsVerifierKZG::<E>::read(&mut verifier_params_reader, SerdeFormat::RawBytesUnchecked)?;
+
+    let mut verifier_tau_reader = Cursor::new(&verifier_param_bytes);
+    let verifier_tau_in_g2 =
+        <E as Engine>::G2::read(&mut verifier_tau_reader, SerdeFormat::RawBytesUnchecked)?.into();
 
     Ok(VerificationContextAsset {
         global_field_elements,
         recursive_verifying_key,
         combined_fixed_bases,
         verifier_params,
+        verifier_tau_in_g2,
     })
 }
 
@@ -226,6 +237,7 @@ mod tests {
 
         let _ = &verification_context.recursive_verifying_key;
         let _ = &verification_context.verifier_params;
+        let _ = &verification_context.verifier_tau_in_g2;
         let _ = &recursive_chain_state.state;
         let _ = &recursive_chain_state.accumulator;
         let _ = &recursive_step_output.next_accumulator;
