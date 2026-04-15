@@ -3,13 +3,16 @@ use std::collections::{BTreeMap, btree_map::Entry};
 use crate::{
     AggregationError, BaseFieldElement, LotteryIndex, MembershipDigest, SignerIndex,
     SingleSignature, StmResult,
-    circuits::MerklePath as Halo2MerklePath,
-    circuits::halo2::witness::CircuitWitnessEntry,
-    circuits::{CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness},
+    circuits::{
+        CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath as Halo2MerklePath,
+        halo2::witness::CircuitWitnessEntry,
+    },
     membership_commitment::{MerkleTree, MerkleTreeSnarkLeaf},
     proof_system::{
         AggregateVerificationKeyForSnark, SnarkClerk,
-        halo2_snark::{build_snark_message, compute_winning_lottery_indices},
+        halo2_snark::{
+            MERKLE_TREE_DEPTH_FOR_SNARK, build_snark_message, compute_winning_lottery_indices,
+        },
     },
 };
 
@@ -142,7 +145,10 @@ impl SnarkProverInput {
                     Ok(None) => continue,
                     Err(_) => continue,
                 };
-                let merkle_path = merkle_tree.compute_merkle_tree_path(sig.signer_index as usize);
+                let merkle_path = merkle_tree.compute_merkle_tree_path_fixed_length(
+                    sig.signer_index as usize,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                );
                 let merkle_path_circuit: Halo2MerklePath = Halo2MerklePath::try_from(&merkle_path)?;
                 vacant.insert((leaf, merkle_path_circuit));
             }

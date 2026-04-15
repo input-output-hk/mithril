@@ -227,38 +227,24 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     }
 
     #[cfg(feature = "future_snark")]
+    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
     #[allow(dead_code)]
+    /// Get a path (hashes of siblings of the path to the root node)
+    /// for the `i`th value stored in the tree and pad it to reach the
+    /// given length.
+    /// Requires `i < self.n`
     pub(crate) fn compute_merkle_tree_path_fixed_length(
         &self,
         i: usize,
         path_length: u32,
     ) -> MerklePath<D> {
-        assert!(
-            i < self.n,
-            "Proof index out of bounds: asked for {} out of {}",
-            i,
-            self.n
-        );
-        let mut idx = self.get_leaf_index(i);
-        let mut proof = Vec::new();
+        let mut path = self.compute_merkle_tree_path(i);
 
-        while idx > 0 {
-            let h = if sibling(idx) < self.nodes.len() {
-                self.nodes[sibling(idx)].clone()
-            } else {
-                D::digest([0u8]).to_vec()
-            };
-            proof.push(h.clone());
-            idx = parent(idx);
+        while path.values.len() < path_length as usize {
+            path.values.push(vec![0u8; <D as Digest>::output_size()]);
         }
-        println!("base proof length{:?}", proof.len());
 
-        while proof.len() < path_length as usize {
-            proof.push(vec![0u8; 32]);
-        }
-        println!("padded proof length{:?}", proof.len());
-
-        MerklePath::new(proof, i)
+        path
     }
 }
 
@@ -617,6 +603,17 @@ mod tests {
             fn test_create_proof((t, values) in arb_tree_poseidon(30)) {
                 values.iter().enumerate().for_each(|(i, _v)| {
                     let pf = t.compute_merkle_tree_path(i);
+                    assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
+                })
+            }
+
+            #[cfg(feature = "future_snark")]
+            #[test]
+            fn test_path_length((t, values) in arb_tree_poseidon(30)) {
+                let merkle_path_length = 13;
+                values.iter().enumerate().for_each(|(i, _v)| {
+                    let pf = t.compute_merkle_tree_path_fixed_length(i, merkle_path_length);
+                    assert_eq!(pf.values.len(), merkle_path_length as usize);
                     assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &pf).is_ok());
                 })
             }

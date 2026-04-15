@@ -12,8 +12,8 @@ use crate::{
     circuits::halo2::{circuit::StmCircuit, types::CircuitBase},
     codec,
     proof_system::halo2_snark::{
-        SnarkError, build_snark_message, circuit_verification_key::CircuitVerificationKey,
-        prover_input::SnarkProverInput,
+        MERKLE_TREE_DEPTH_FOR_SNARK, SnarkError, build_snark_message,
+        circuit_verification_key::CircuitVerificationKey, prover_input::SnarkProverInput,
     },
 };
 
@@ -76,7 +76,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         message: &[u8],
         aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
     ) -> StmResult<()> {
-        let snark_setup = SnarkSetup::try_new(&self.params, self.merkle_tree_depth)?;
+        let snark_setup = SnarkSetup::try_new(&self.params, MERKLE_TREE_DEPTH_FOR_SNARK)?;
 
         let merkle_root = &aggregate_verification_key_for_snark.get_merkle_tree_commitment().root;
         let proof_message = build_snark_message(merkle_root, message)?;
@@ -244,12 +244,7 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
 #[cfg(feature = "future_snark")]
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{BTreeMap, btree_map::Entry},
-        marker::PhantomData,
-    };
 
-    use midnight_circuits::hash::poseidon::PoseidonState;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
@@ -258,7 +253,7 @@ mod tests {
         proof_system::{
             SnarkClerk,
             halo2_snark::{
-                MERKLE_TREE_DEPTH_FOR_SNARK, SnarkSetup, build_snark_message,
+                MERKLE_TREE_DEPTH_FOR_SNARK, SnarkSetup,
                 circuit_verification_key::CircuitVerificationKey, proof::SnarkProof,
                 prover_input::SnarkProverInput,
             },
@@ -307,13 +302,8 @@ mod tests {
             .collect()
     }
 
-    fn create_prover(
-        params: Parameters,
-        number_of_signers: usize,
-        seed: [u8; 32],
-    ) -> SnarkProver<ChaCha20Rng> {
-        let merkle_tree_depth = number_of_signers.next_power_of_two().trailing_zeros();
-        SnarkProver::try_new_deterministic(&params, merkle_tree_depth, seed).unwrap()
+    fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
+        SnarkProver::try_new_deterministic(&params, MERKLE_TREE_DEPTH_FOR_SNARK, seed).unwrap()
     }
 
     #[test]
@@ -329,13 +319,10 @@ mod tests {
 
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(params, [0u8; 32]);
 
-        let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
+        let result: Result<SnarkProof<MithrilMembershipDigest>, anyhow::Error> =
+            prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
         assert!(
             result.is_ok(),
             "Expected proof creation to succeed, got: {result:?}"
@@ -346,6 +333,42 @@ mod tests {
             !proof.circuit_proof.is_empty(),
             "Proof bytes should not be empty"
         );
+    }
+
+    #[test]
+    fn valid_snark_proof_with_different_path_length() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 3,
+            phi_f: 0.8,
+        };
+        let nparties = 10;
+        let message = [1u8; 32];
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+        let avk = clerk.compute_aggregate_verification_key_for_snark();
+
+        let current_merkle_tree_depth = clerk
+            .closed_key_registration
+            .number_of_registered_parties()
+            .next_power_of_two()
+            .trailing_zeros();
+        let mut prover = create_prover(params, [0u8; 32]);
+
+        let prover_prep =
+            SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
+
+        let path_length = prover_prep.into_witness().first().unwrap().merkle_path.siblings.len();
+
+        assert!(path_length >= current_merkle_tree_depth as usize);
+
+        let snark_proof = prover
+            .aggregate_signatures::<D>(&clerk, &signatures, &message)
+            .unwrap();
+        let result = snark_proof.verify(message.as_slice(), &avk);
+
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -361,11 +384,7 @@ mod tests {
 
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [1u8; 32],
-        );
+        let mut prover = create_prover(params, [1u8; 32]);
 
         let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
         assert!(
@@ -385,11 +404,7 @@ mod tests {
         let nparties = 5;
 
         let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [2u8; 32],
-        );
+        let mut prover = create_prover(params, [2u8; 32]);
 
         let result = prover.aggregate_signatures::<D>(&clerk, &[], &[3u8; 32]);
         assert!(result.is_err(), "Expected failure with empty signatures");
@@ -408,131 +423,11 @@ mod tests {
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
         let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(params, [0u8; 32]);
 
         let snark_proof = prover
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
             .unwrap();
-        let result = snark_proof.verify(message.as_slice(), &avk);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn incomplete_merkle_tree_generates_full_path() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 3,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
-            clerk.compute_aggregate_verification_key_for_snark();
-        let mut snark_prover = create_prover(params, [0u8; 32]);
-
-        // clerk, &signatures, &message
-        let snark_input = {
-            let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
-                clerk.compute_aggregate_verification_key_for_snark();
-            let message_to_sign =
-                build_snark_message(&avk.get_merkle_tree_commitment().root, &message).unwrap();
-
-            let valid_sigs = SnarkProverInput::collect_valid_signatures_with_indices(
-                &clerk,
-                &signatures,
-                &message_to_sign,
-            );
-            let unique_index_signature_map =
-                SnarkClerk::select_valid_signatures_for_k_indices(&clerk.parameters, &valid_sigs)
-                    .unwrap();
-
-            // Witness creation
-            // we want the tree used here to be smaller than the depth of the circuit
-            // and pad the path to generate a correct proof anyway
-
-            let merkle_tree: MerkleTree<
-                <MithrilMembershipDigest as MembershipDigest>::SnarkHash,
-                MerkleTreeSnarkLeaf,
-            > = clerk
-                .closed_key_registration
-                .to_merkle_tree_given_depth(MERKLE_TREE_DEPTH_FOR_SNARK);
-            let mut unique_signers: BTreeMap<SignerIndex, (MerkleTreeSnarkLeaf, MerklePath)> =
-                BTreeMap::new();
-
-            for sig in unique_index_signature_map.values() {
-                if let Entry::Vacant(vacant) = unique_signers.entry(sig.signer_index) {
-                    let leaf = match clerk.get_snark_registration_entry(sig.signer_index) {
-                        Ok(Some(entry)) => entry,
-                        Ok(None) => continue,
-                        Err(_) => continue,
-                    };
-                    let merkle_path = merkle_tree
-                        .compute_merkle_tree_path_fixed_length(sig.signer_index as usize, 13);
-                    let merkle_path_circuit: MerklePath =
-                        MerklePath::try_from(&merkle_path).unwrap();
-                    vacant.insert((leaf, merkle_path_circuit));
-                }
-            }
-
-            let witness = unique_index_signature_map
-                .into_iter()
-                .map(|(lottery_index, sig)| {
-                    let (leaf, merkle_path) = unique_signers
-                        .get(&sig.signer_index)
-                        .ok_or(AggregationError::MissingSnarkSignerData(sig.signer_index))
-                        .unwrap();
-                    let schnorr_sig = sig
-                        .snark_signature
-                        .as_ref()
-                        .ok_or(AggregationError::MissingSnarkSignature(lottery_index))
-                        .unwrap()
-                        .get_schnorr_signature();
-                    let circuit_leaf = CircuitMerkleTreeLeaf(leaf.0, leaf.1.into());
-                    CircuitWitnessEntry {
-                        leaf: circuit_leaf,
-                        merkle_path: merkle_path.clone(),
-                        unique_schnorr_signature: schnorr_sig,
-                        lottery_index,
-                    }
-                })
-                .collect();
-
-            let instance = (message_to_sign[0].into(), message_to_sign[1].into());
-
-            SnarkProverInput { witness, instance }
-        };
-
-        let instance = snark_input.get_instance();
-        let witness = snark_input.into_witness();
-
-        let circuit_proof = midnight_zk_stdlib::prove::<StmCircuit, PoseidonState<CircuitBase>>(
-            &snark_prover.setup.srs,
-            &snark_prover.setup.proving_key,
-            &snark_prover.setup.circuit,
-            &instance,
-            witness,
-            &mut snark_prover.rng,
-        )
-        .unwrap();
-
-        let snark_proof = SnarkProof {
-            circuit_proof,
-            circuit_verification_key: CircuitVerificationKey::new(
-                snark_prover.setup.verification_key.clone(),
-            ),
-            params: clerk.parameters,
-            merkle_tree_depth: 13,
-            phantom: PhantomData,
-        };
-
         let result = snark_proof.verify(message.as_slice(), &avk);
 
         assert!(result.is_ok());
@@ -556,11 +451,7 @@ mod tests {
         let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
             clerk.compute_aggregate_verification_key_for_snark();
 
-        let mut prover = create_prover(
-            forged_params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(forged_params, [0u8; 32]);
 
         let forged_snark_proof = prover
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -588,11 +479,7 @@ mod tests {
         let signatures = collect_signatures(&signers, &message);
         let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
             clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(params, [0u8; 32]);
         let snark_proof = prover
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
             .unwrap();
@@ -641,11 +528,7 @@ mod tests {
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
         let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(params, [0u8; 32]);
 
         let snark_proof = prover
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -669,11 +552,7 @@ mod tests {
         let signatures = collect_signatures(&signers, &message);
         let avk = clerk.compute_aggregate_verification_key_for_snark();
 
-        let mut prover_1 = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover_1 = create_prover(params, [0u8; 32]);
 
         let snark_proof_1 = prover_1
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -703,11 +582,7 @@ mod tests {
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
         let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(
-            params,
-            clerk.closed_key_registration.number_of_registered_parties(),
-            [0u8; 32],
-        );
+        let mut prover = create_prover(params, [0u8; 32]);
         let snark_proof = prover
             .aggregate_signatures::<D>(&clerk, &signatures, &message)
             .unwrap();
@@ -735,12 +610,11 @@ mod tests {
             phi_f: 0.8,
         };
         let nparties = 10;
-        let merkle_tree_depth = (nparties as u32).next_power_of_two().trailing_zeros();
         let message = [1u8; 32];
         let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
         let signatures = collect_signatures(&signers, &message);
         let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let snark_setup = SnarkSetup::try_new(&params, merkle_tree_depth).unwrap();
+        let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
         let mut prover = SnarkProver {
             setup: snark_setup,
             rng: ChaCha20Rng::from_seed([0u8; 32]),
@@ -811,11 +685,7 @@ mod tests {
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
-            let mut prover = create_prover(
-                params,
-                clerk.closed_key_registration.number_of_registered_parties(),
-                [0u8; 32],
-            );
+            let mut prover = create_prover(params, [0u8; 32]);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
             let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
 

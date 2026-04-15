@@ -26,7 +26,7 @@ pub(crate) use unsafe_helpers::SnarkSetup;
 /// Changing this value means changing the circuit and the circuit verification key
 ///
 /// For now set to 13 to allow for 2^13 = 8192 signers
-pub const MERKLE_TREE_DEPTH_FOR_SNARK: u32 = 8;
+pub const MERKLE_TREE_DEPTH_FOR_SNARK: u32 = 13;
 
 /// Errors which can be outputted by the snark proof creation or verification.
 #[cfg(feature = "future_snark")]
