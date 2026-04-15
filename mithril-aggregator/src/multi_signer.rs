@@ -169,7 +169,7 @@ mod tests {
         signatures: &mut Vec<entities::SingleSignature>,
         quorum: usize,
     ) -> Vec<entities::SingleSignature> {
-        signatures.sort_by(|l, r| l.won_indexes.len().cmp(&r.won_indexes.len()));
+        signatures.sort_by_key(|sig| sig.won_indexes.len());
 
         let mut result = vec![];
         let mut nb_won_indexes = 0;

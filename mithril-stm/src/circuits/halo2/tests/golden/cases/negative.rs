@@ -99,7 +99,7 @@ fn signature_other_message() {
     // Witness membership/path/index match (merkle_tree_commitment, message1),
     // but signature is from (merkle_tree_commitment, message0).
     let mut witness = Vec::with_capacity(witness1.len());
-    for (w1, w0) in witness1.into_iter().zip(witness0.into_iter()) {
+    for (w1, w0) in witness1.into_iter().zip(witness0) {
         witness.push(CircuitWitnessEntry {
             leaf: w1.leaf,
             merkle_path: w1.merkle_path,
