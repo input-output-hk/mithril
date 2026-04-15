@@ -15,7 +15,7 @@ use crate::circuits::halo2_ivc::{
     helpers::utils::jubjub_base_from_le_bytes, io::Read as IvcRead, state::State,
 };
 
-/// Stored chain state fixture.
+/// Stored recursive chain state asset.
 ///
 /// Layout:
 /// - `global_field_elements`: 5 field elements
@@ -23,14 +23,14 @@ use crate::circuits::halo2_ivc::{
 /// - `proof`: length-prefixed proof bytes
 /// - `accumulator`: serialized accumulator
 #[derive(Debug)]
-pub(crate) struct RecursiveChainStateFixture {
+pub(crate) struct RecursiveChainStateAsset {
     pub(crate) global_field_elements: Vec<F>,
     pub(crate) state: State,
     pub(crate) proof: Vec<u8>,
     pub(crate) accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
 }
 
-/// Stored verification context fixture.
+/// Stored verification context asset.
 ///
 /// Layout:
 /// - `global_field_elements`: 5 field elements
@@ -38,43 +38,46 @@ pub(crate) struct RecursiveChainStateFixture {
 /// - `combined_fixed_bases`: count + named points
 /// - `verifier_params`: shared verifier-side SRS data
 #[derive(Debug)]
-pub(crate) struct VerificationContextFixture {
+pub(crate) struct VerificationContextAsset {
     pub(crate) global_field_elements: Vec<F>,
     pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
     pub(crate) verifier_params: ParamsVerifierKZG<E>,
 }
 
-/// Stored recursive step output fixture.
+/// Stored recursive step output asset.
 ///
 /// Layout:
 /// - `proof`: length-prefixed proof bytes
 /// - `next_accumulator`: serialized accumulator
 /// - `next_state`: 7 field elements
 #[derive(Debug)]
-pub(crate) struct RecursiveStepOutputFixture {
+pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) proof: Vec<u8>,
     pub(crate) next_accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
     pub(crate) next_state: State,
 }
 
-fn fixture_assets_directory() -> PathBuf {
+fn stored_asset_directory() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/assets")
 }
 
-pub(super) fn recursive_chain_state_fixture_path() -> PathBuf {
-    fixture_assets_directory().join("recursive_chain_state.bin")
+/// Returns the committed asset path for the stored recursive chain snapshot.
+pub(super) fn recursive_chain_state_asset_path() -> PathBuf {
+    stored_asset_directory().join("recursive_chain_state.bin")
 }
 
-pub(super) fn verification_context_fixture_path() -> PathBuf {
-    fixture_assets_directory().join("verification_context.bin")
+/// Returns the committed asset path for the static verifier-side context.
+pub(super) fn verification_context_asset_path() -> PathBuf {
+    stored_asset_directory().join("verification_context.bin")
 }
 
-pub(super) fn recursive_step_output_fixture_path() -> PathBuf {
-    fixture_assets_directory().join("recursive_step_output.bin")
+/// Returns the committed asset path for the final recursive step output.
+pub(super) fn recursive_step_output_asset_path() -> PathBuf {
+    stored_asset_directory().join("recursive_step_output.bin")
 }
 
-fn open_fixture_file(path: &Path) -> io::Result<BufReader<File>> {
+fn open_asset_file(path: &Path) -> io::Result<BufReader<File>> {
     File::open(path).map(BufReader::new)
 }
 
@@ -130,8 +133,10 @@ fn read_named_fixed_bases<R: Read>(reader: &mut R) -> io::Result<BTreeMap<String
     Ok(map)
 }
 
-pub(crate) fn load_recursive_chain_state(path: &Path) -> io::Result<RecursiveChainStateFixture> {
-    let mut reader = open_fixture_file(path)?;
+pub(crate) fn load_recursive_chain_state_asset(
+    path: &Path,
+) -> io::Result<RecursiveChainStateAsset> {
+    let mut reader = open_asset_file(path)?;
 
     let global_field_elements = (0..5)
         .map(|_| read_field_element(&mut reader))
@@ -143,7 +148,7 @@ pub(crate) fn load_recursive_chain_state(path: &Path) -> io::Result<RecursiveCha
         SerdeFormat::RawBytesUnchecked,
     )?;
 
-    Ok(RecursiveChainStateFixture {
+    Ok(RecursiveChainStateAsset {
         global_field_elements,
         state,
         proof,
@@ -151,8 +156,9 @@ pub(crate) fn load_recursive_chain_state(path: &Path) -> io::Result<RecursiveCha
     })
 }
 
-pub(crate) fn load_verification_context(path: &Path) -> io::Result<VerificationContextFixture> {
-    let mut reader = open_fixture_file(path)?;
+/// Loads the static verifier-side asset set used by the golden tests.
+pub(crate) fn load_verification_context_asset(path: &Path) -> io::Result<VerificationContextAsset> {
+    let mut reader = open_asset_file(path)?;
 
     let global_field_elements = (0..5)
         .map(|_| read_field_element(&mut reader))
@@ -166,7 +172,7 @@ pub(crate) fn load_verification_context(path: &Path) -> io::Result<VerificationC
     let verifier_params =
         ParamsVerifierKZG::<E>::read(&mut reader, SerdeFormat::RawBytesUnchecked)?;
 
-    Ok(VerificationContextFixture {
+    Ok(VerificationContextAsset {
         global_field_elements,
         recursive_verifying_key,
         combined_fixed_bases,
@@ -174,8 +180,11 @@ pub(crate) fn load_verification_context(path: &Path) -> io::Result<VerificationC
     })
 }
 
-pub(crate) fn load_recursive_step_output(path: &Path) -> io::Result<RecursiveStepOutputFixture> {
-    let mut reader = open_fixture_file(path)?;
+/// Loads the stored output of extending the recursive chain by one more step.
+pub(crate) fn load_recursive_step_output_asset(
+    path: &Path,
+) -> io::Result<RecursiveStepOutputAsset> {
+    let mut reader = open_asset_file(path)?;
 
     let proof = read_length_prefixed_proof(&mut reader)?;
     let next_accumulator = Accumulator::<crate::circuits::halo2_ivc::S>::read(
@@ -184,7 +193,7 @@ pub(crate) fn load_recursive_step_output(path: &Path) -> io::Result<RecursiveSte
     )?;
     let next_state = read_state_public_input(&mut reader)?;
 
-    Ok(RecursiveStepOutputFixture {
+    Ok(RecursiveStepOutputAsset {
         proof,
         next_accumulator,
         next_state,
@@ -195,17 +204,19 @@ pub(crate) fn load_recursive_step_output(path: &Path) -> io::Result<RecursiveSte
 mod tests {
     use super::*;
 
+    // This is a manual smoke test for already-generated assets.
     #[test]
     #[ignore]
-    fn load_generated_fixtures_only() {
+    fn load_generated_assets_only() {
         let recursive_chain_state =
-            load_recursive_chain_state(&recursive_chain_state_fixture_path())
-                .expect("recursive chain state fixture should load");
-        let verification_context = load_verification_context(&verification_context_fixture_path())
-            .expect("verification context fixture should load");
+            load_recursive_chain_state_asset(&recursive_chain_state_asset_path())
+                .expect("recursive chain state asset should load");
+        let verification_context =
+            load_verification_context_asset(&verification_context_asset_path())
+                .expect("verification context asset should load");
         let recursive_step_output =
-            load_recursive_step_output(&recursive_step_output_fixture_path())
-                .expect("recursive step output fixture should load");
+            load_recursive_step_output_asset(&recursive_step_output_asset_path())
+                .expect("recursive step output asset should load");
 
         assert_eq!(recursive_chain_state.global_field_elements.len(), 5);
         assert_eq!(verification_context.global_field_elements.len(), 5);

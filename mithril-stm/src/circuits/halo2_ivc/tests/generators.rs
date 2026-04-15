@@ -40,16 +40,16 @@ use super::super::{
     Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit,
     io::Write, state::Global,
 };
-use super::{fixtures::load_recursive_chain_state, test_certificate::Certificate};
+use super::{asset_readers::load_recursive_chain_state_asset, test_certificate::Certificate};
 
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names, trivial_acc};
 
-/// Base seed used to derive all deterministic fixture-generation randomness.
-const FIXTURE_SEED: u64 = 42;
+/// Base seed used to derive all deterministic asset-generation randomness.
+const ASSET_SEED: u64 = 42;
 /// Seed used for certificate and recursive proof generation in `recursive_chain_state`.
-const RECURSIVE_CHAIN_STATE_SEED: u64 = FIXTURE_SEED + 1;
+const RECURSIVE_CHAIN_STATE_SEED: u64 = ASSET_SEED + 1;
 /// Seed used for certificate and recursive proof generation in `recursive_step_output`.
-const RECURSIVE_STEP_OUTPUT_SEED: u64 = FIXTURE_SEED + 2;
+const RECURSIVE_STEP_OUTPUT_SEED: u64 = ASSET_SEED + 2;
 const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
 const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 const INITIAL_CHAIN_LENGTH: usize = 3;
@@ -58,15 +58,15 @@ const QUORUM_SIZE: u32 = 2;
 
 type CertificateWitnessEntry = (MerkleTreeLeaf, MerklePath, Signature, u32);
 
-/// Paths for the minimal fixture set used by asset-based golden tests.
+/// Paths for the minimal stored asset set used by asset-based golden tests.
 #[derive(Debug, Clone)]
-pub(crate) struct FixturePaths {
+pub(crate) struct AssetPaths {
     pub(crate) recursive_chain_state: PathBuf,
     pub(crate) verification_context: PathBuf,
     pub(crate) recursive_step_output: PathBuf,
 }
 
-impl FixturePaths {
+impl AssetPaths {
     pub(crate) fn new(base_dir: PathBuf) -> Self {
         Self {
             recursive_chain_state: base_dir.join("recursive_chain_state.bin"),
@@ -76,18 +76,16 @@ impl FixturePaths {
     }
 }
 
-pub(crate) fn default_fixture_paths() -> FixturePaths {
-    FixturePaths::new(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/assets"),
-    )
+pub(crate) fn default_asset_paths() -> AssetPaths {
+    AssetPaths::new(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/assets"))
 }
 
-/// Deterministic setup data for fixture generation.
+/// Deterministic setup data for asset generation.
 ///
 /// This carries the shared `halo2_ivc` context needed to reproduce the same
-/// fixture contents across runs.
+/// stored asset contents across runs.
 #[derive(Debug)]
-pub(crate) struct FixtureGenerationSetup {
+pub(crate) struct AssetGenerationSetup {
     pub(crate) certificate_relation: Certificate,
     pub(crate) genesis_verification_key: SchnorrVerificationKey,
     pub(crate) genesis_message: F,
@@ -109,6 +107,8 @@ fn write_shared_verifier_params(
         .expect("failed to write verifier-side SRS data");
 }
 
+/// Wraps the protocol-message API so the call sites stay explicit about which
+/// fields define a generated asset.
 fn insert_protocol_message_part(
     protocol_message: &mut ProtocolMessage,
     part_key: ProtocolMessagePartKey,
@@ -135,14 +135,17 @@ fn build_merkle_tree_with_seed(
     (signing_keys, merkle_tree_leaves, merkle_tree)
 }
 
+/// Builds the shared universal KZG parameters that both circuits derive from.
 fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
-    ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(FIXTURE_SEED))
+    ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
 }
 
+/// Builds a deterministic RNG for asset generation sub-steps.
 fn build_deterministic_random_generator(seed: u64) -> ChaCha20Rng {
     ChaCha20Rng::seed_from_u64(seed)
 }
 
+/// Generates a recursive proof using the Poseidon transcript.
 fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
@@ -164,6 +167,7 @@ fn prove_poseidon_ivc(
     transcript.finalize()
 }
 
+/// Verifies a recursive proof using the Poseidon transcript and returns the prepared MSM.
 fn verify_and_prepare_poseidon_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
@@ -181,6 +185,7 @@ fn verify_and_prepare_poseidon_ivc(
     dual_msm
 }
 
+/// Generates the final recursive proof using the Blake2b transcript.
 fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
@@ -202,6 +207,7 @@ fn prove_blake2b_ivc(
     transcript.finalize()
 }
 
+/// Verifies the final recursive proof using the Blake2b transcript.
 fn verify_and_prepare_blake2b_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
@@ -219,8 +225,10 @@ fn verify_and_prepare_blake2b_ivc(
     dual_msm
 }
 
-fn build_next_certificate_fixture_data(
-    setup: &FixtureGenerationSetup,
+/// Builds the certificate proof, next accumulator input, and next recursive
+/// witness needed to extend the stored recursive chain by one step.
+fn build_next_certificate_asset_data(
+    setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &Certificate,
     certificate_verifying_key: &MidnightVK,
@@ -349,9 +357,9 @@ fn build_next_certificate_fixture_data(
     )
 }
 
-/// Build the deterministic shared setup used by fixture generation.
-pub(crate) fn build_fixture_generation_setup() -> FixtureGenerationSetup {
-    let mut rng = ChaCha20Rng::seed_from_u64(FIXTURE_SEED);
+/// Builds the deterministic shared setup used by all asset generators.
+pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
+    let mut rng = ChaCha20Rng::seed_from_u64(ASSET_SEED);
 
     let depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
     let number_of_lotteries = QUORUM_SIZE * 10;
@@ -400,7 +408,7 @@ pub(crate) fn build_fixture_generation_setup() -> FixtureGenerationSetup {
         .verify(&[genesis_message], &genesis_verification_key)
         .expect("deterministic genesis signature should verify");
 
-    FixtureGenerationSetup {
+    AssetGenerationSetup {
         certificate_relation,
         genesis_verification_key,
         genesis_message,
@@ -414,10 +422,10 @@ pub(crate) fn build_fixture_generation_setup() -> FixtureGenerationSetup {
     }
 }
 
-/// Generate and write the `recursive_chain_state` fixture.
-pub(crate) fn generate_recursive_chain_state_fixture(
-    setup: &FixtureGenerationSetup,
-    paths: &FixturePaths,
+/// Generates and writes the stored recursive chain snapshot asset.
+pub(crate) fn generate_recursive_chain_state_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
 ) {
     println!(
         "generate_recursive_chain_state: start -> {}",
@@ -696,15 +704,14 @@ pub(crate) fn generate_recursive_chain_state_fixture(
     }
 
     if let Some(parent) = paths.recursive_chain_state.parent() {
-        fs::create_dir_all(parent)
-            .expect("failed to create recursive_chain_state fixture directory");
+        fs::create_dir_all(parent).expect("failed to create recursive_chain_state asset directory");
     }
     assert_eq!(
         current_state.next_merkle_root, setup.genesis_next_merkle_root,
         "recursive_chain_state writer is about to persist a next_merkle_root that does not match setup"
     );
     println!(
-        "generate_recursive_chain_state: writing fixture -> {}",
+        "generate_recursive_chain_state: writing asset -> {}",
         paths.recursive_chain_state.display()
     );
     {
@@ -726,11 +733,11 @@ pub(crate) fn generate_recursive_chain_state_fixture(
         current_accumulator
             .write(&mut writer, SerdeFormat::RawBytesUnchecked)
             .unwrap();
-        writer.flush().expect("failed to flush recursive_chain_state fixture");
+        writer.flush().expect("failed to flush recursive_chain_state asset");
     }
 
-    let reloaded = load_recursive_chain_state(&paths.recursive_chain_state)
-        .expect("failed to reload recursive_chain_state fixture after writing");
+    let reloaded = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+        .expect("failed to reload recursive_chain_state asset after writing");
     assert_eq!(
         reloaded.state.next_merkle_root, setup.genesis_next_merkle_root,
         "reloaded recursive_chain_state next_merkle_root does not match setup"
@@ -741,10 +748,10 @@ pub(crate) fn generate_recursive_chain_state_fixture(
     );
 }
 
-/// Generate and write the `verification_context` fixture.
-pub(crate) fn generate_verification_context_fixture(
-    setup: &FixtureGenerationSetup,
-    paths: &FixturePaths,
+/// Generates and writes the static verifier-side asset bundle.
+pub(crate) fn generate_verification_context_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
 ) {
     println!(
         "generate_verification_context: start -> {}",
@@ -798,8 +805,7 @@ pub(crate) fn generate_verification_context_fixture(
     );
 
     if let Some(parent) = paths.verification_context.parent() {
-        fs::create_dir_all(parent)
-            .expect("failed to create verification_context fixture directory");
+        fs::create_dir_all(parent).expect("failed to create verification_context asset directory");
     }
     let mut writer = BufWriter::new(
         File::create(&paths.verification_context).expect("failed to create verification_context"),
@@ -829,10 +835,10 @@ pub(crate) fn generate_verification_context_fixture(
     );
 }
 
-/// Generate and write the `recursive_step_output` fixture.
-pub(crate) fn generate_recursive_step_output_fixture(
-    setup: &FixtureGenerationSetup,
-    paths: &FixturePaths,
+/// Generates and writes the asset produced by one more recursive step.
+pub(crate) fn generate_recursive_step_output_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
 ) {
     println!(
         "generate_recursive_step_output: start -> {}",
@@ -843,8 +849,8 @@ pub(crate) fn generate_recursive_step_output_fixture(
         "generate_recursive_step_output: loading recursive chain state <- {}",
         paths.recursive_chain_state.display()
     );
-    let recursive_chain_state = load_recursive_chain_state(&paths.recursive_chain_state)
-        .expect("failed to load recursive_chain_state fixture");
+    let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+        .expect("failed to load recursive_chain_state asset");
 
     let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
     let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
@@ -899,7 +905,7 @@ pub(crate) fn generate_recursive_step_output_fixture(
     println!("generate_recursive_step_output: building next certificate");
     let certificate_start = Instant::now();
     let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
-        build_next_certificate_fixture_data(
+        build_next_certificate_asset_data(
             setup,
             &certificate_commitment_parameters,
             &setup.certificate_relation,
@@ -979,11 +985,10 @@ pub(crate) fn generate_recursive_step_output_fixture(
     );
 
     if let Some(parent) = paths.recursive_step_output.parent() {
-        fs::create_dir_all(parent)
-            .expect("failed to create recursive_step_output fixture directory");
+        fs::create_dir_all(parent).expect("failed to create recursive_step_output asset directory");
     }
     println!(
-        "generate_recursive_step_output: writing fixture -> {}",
+        "generate_recursive_step_output: writing asset -> {}",
         paths.recursive_step_output.display()
     );
     let mut writer = BufWriter::new(
@@ -1011,27 +1016,27 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_verification_context_only() {
-        let setup = build_fixture_generation_setup();
-        let paths = default_fixture_paths();
+        let setup = build_asset_generation_setup();
+        let paths = default_asset_paths();
 
-        generate_verification_context_fixture(&setup, &paths);
+        generate_verification_context_asset(&setup, &paths);
     }
 
     #[test]
     #[ignore]
     fn generate_recursive_chain_state_only() {
-        let setup = build_fixture_generation_setup();
-        let paths = default_fixture_paths();
+        let setup = build_asset_generation_setup();
+        let paths = default_asset_paths();
 
-        generate_recursive_chain_state_fixture(&setup, &paths);
+        generate_recursive_chain_state_asset(&setup, &paths);
     }
 
     #[test]
     #[ignore]
     fn generate_recursive_step_output_only() {
-        let setup = build_fixture_generation_setup();
-        let paths = default_fixture_paths();
+        let setup = build_asset_generation_setup();
+        let paths = default_asset_paths();
 
-        generate_recursive_step_output_fixture(&setup, &paths);
+        generate_recursive_step_output_asset(&setup, &paths);
     }
 }

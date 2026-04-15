@@ -3,6 +3,6 @@
 // tree and will be re-enabled when the recursive test harness is adapted to
 // the STM crate layout.
 
-pub(crate) mod fixtures;
+pub(crate) mod asset_readers;
 pub(crate) mod generators;
 mod test_certificate;
