@@ -35,7 +35,8 @@ The Cardano node internal database:
 ## Mithril certification
 
 [![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/end-to-end-process.jpg)](./images/cardano-node-database-v2/end-to-end-process.jpg)
-<small><center>End-to-end certification for Cardano transactions</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano transactions</small></div>
 
 :::info
 
@@ -53,7 +54,8 @@ The message is the root of the Merkle tree composed of the hash of the immutable
 The message computation is the same on the signers and the aggregators.
 
 [![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/message.jpg)](./images/cardano-node-database-v2/message.jpg)
-<small><center>Message creation on the signers and aggregators</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation on the signers and aggregators</small></div>
 
 :::info
 
@@ -77,4 +79,5 @@ The verification process for a subset of immutable files in the Cardano internal
   - The Merkle root is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/proof-client.jpg)](./images/cardano-node-database-v2/proof-client.jpg)
-<small><center>Proof creation on the clients</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Proof creation on the clients</small></div>
