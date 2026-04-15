@@ -3,7 +3,7 @@ import { translate } from "@docusaurus/Translate";
 export const hero = {
   title: translate({
     id: "homepage.hero.title",
-    message: "Power Cardano's Light Clients.",
+    message: "Powering Cardano state proofs.",
   }),
   standfirst: translate({
     id: "homepage.hero.standfirst",
