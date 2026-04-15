@@ -210,37 +210,3 @@ pub(crate) fn load_recursive_step_output_asset(
         next_state,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // This is a manual smoke test for already-generated assets.
-    #[test]
-    #[ignore]
-    fn load_generated_assets_only() {
-        let recursive_chain_state =
-            load_recursive_chain_state_asset(&recursive_chain_state_asset_path())
-                .expect("recursive chain state asset should load");
-        let verification_context =
-            load_verification_context_asset(&verification_context_asset_path())
-                .expect("verification context asset should load");
-        let recursive_step_output =
-            load_recursive_step_output_asset(&recursive_step_output_asset_path())
-                .expect("recursive step output asset should load");
-
-        assert_eq!(recursive_chain_state.global_field_elements.len(), 5);
-        assert_eq!(verification_context.global_field_elements.len(), 5);
-        assert!(!recursive_chain_state.proof.is_empty());
-        assert!(!recursive_step_output.proof.is_empty());
-        assert!(!verification_context.combined_fixed_bases.is_empty());
-
-        let _ = &verification_context.recursive_verifying_key;
-        let _ = &verification_context.verifier_params;
-        let _ = &verification_context.verifier_tau_in_g2;
-        let _ = &recursive_chain_state.state;
-        let _ = &recursive_chain_state.accumulator;
-        let _ = &recursive_step_output.next_accumulator;
-        let _ = &recursive_step_output.next_state;
-    }
-}
