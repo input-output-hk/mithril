@@ -42,6 +42,47 @@ function getTabForStep(step) {
   }
 }
 
+async function getProofAndCertificate(client, itemHashes, certifiedMessageType) {
+  let proof;
+
+  if (certifiedMessageType === certifiedMessageTypes.block) {
+    proof = await client.get_cardano_block_proof(itemHashes);
+  } else if (certifiedMessageType === certifiedMessageTypes.transaction) {
+    proof = await client.get_cardano_transaction_v2_proof(itemHashes);
+  } else {
+    throw new Error(`Unsupported certified message type: ${certifiedMessageType.name}`);
+  }
+
+  const certificate = await client.get_mithril_certificate(proof.certificate_hash);
+  return {
+    proof: proof,
+    certificate: certificate,
+  };
+}
+
+async function verifyProofAgainstCertificate(client, proof, certificate, certifiedMessageType) {
+  let protocolMessage;
+
+  if (certifiedMessageType === certifiedMessageTypes.block) {
+    protocolMessage = await client.verify_cardano_block_proof_then_compute_message(
+      proof,
+      certificate,
+    );
+  } else if (certifiedMessageType === certifiedMessageTypes.transaction) {
+    protocolMessage = await client.verify_cardano_transaction_v2_proof_then_compute_message(
+      proof,
+      certificate,
+    );
+  } else {
+    throw new Error(`Unsupported certified message type: ${certifiedMessageType.name}`);
+  }
+
+  const isProofValid =
+    (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
+
+  return isProofValid;
+}
+
 export default function CertifyCardanoBlocksOrTransactionsModal({
   hashes,
   certifiedMessageType,
@@ -55,6 +96,19 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
     certificateValidationSteps.ready,
   );
   const [proof, setProof] = useState({});
+  const certifiedItems =
+    certifiedMessageType === certifiedMessageTypes.block
+      ? proof?.certified_blocks
+      : certifiedMessageType === certifiedMessageTypes.transaction
+        ? proof?.certified_transactions
+        : [];
+  const nonCertifiedItems =
+    certifiedMessageType === certifiedMessageTypes.block
+      ? proof?.non_certified_blocks
+      : certifiedMessageType === certifiedMessageTypes.transaction
+        ? proof?.non_certified_transactions
+        : [];
+
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [isProofValid, setIsProofValid] = useState(false);
   const [isCertificateChainValid, setIsCertificateChainValid] = useState(true);
@@ -62,41 +116,8 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
   const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
   const [currentError, setCurrentError] = useState(undefined);
 
-  async function getProofAndCertificate(client, itemHashes, certifiedMessageType) {
-    let proofs;
-
-    if (certifiedMessageType === certifiedMessageTypes.block) {
-      proofs = await client.get_cardano_block_proof(itemHashes);
-    } else if (certifiedMessageType === certifiedMessageTypes.transaction) {
-      proofs = await client.get_cardano_transaction_v2_proof(itemHashes);
-    } else {
-      setCurrentError(
-        new Error(`Unsupported certified message type: ${certifiedMessageType.name}`),
-      );
-      return;
-    }
-
-    const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
-
-    setProof(proofs);
-    setCertificate(certificate);
-  }
-
-  async function verifyProofAgainstCertificate(client, transactionsProofs, certificate) {
-    // Verify proof validity if so get its protocol message
-    const protocolMessage = await client.verify_cardano_transaction_v2_proof_then_compute_message(
-      transactionsProofs,
-      certificate,
-    );
-    const isProofValid =
-      (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
-
-    setIsProofValid(isProofValid);
-    return isProofValid;
-  }
-
-  function handleError(error, certifiedMessageType) {
-    console.error(`Cardano ${certifiedMessageType.pluralName}} certification error:`, error);
+  function handleError(error) {
+    console.error(`Cardano blocks/transactions certification error:`, error);
     setCurrentError(error);
     setCurrentStep(validationSteps.done);
   }
@@ -159,20 +180,25 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
   useEffect(() => {
     if (currentStep === validationSteps.fetchingProof) {
       getProofAndCertificate(client, hashes, certifiedMessageType)
-        .then(() =>
+        .then((res) => {
+          setProof(res.proof);
+          setCertificate(res.certificate);
+
           // Artificial wait to give the user a feel of the workload under-hood
-          setTimeout(() => {
+          return setTimeout(() => {
             setCurrentStep(validationSteps.validatingProof);
-          }, 350),
-        )
+          }, 350);
+        })
         .catch((err) => handleError(err));
     }
   }, [client, currentStep, hashes, certifiedMessageType]);
 
   useEffect(() => {
     if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
-      verifyProofAgainstCertificate(client, proof, certificate)
+      verifyProofAgainstCertificate(client, proof, certificate, certifiedMessageType)
         .then((proofValid) => {
+          setIsProofValid(proofValid);
+
           if (proofValid) {
             // Artificial wait to give the user a feel of the workload under-hood
             return setTimeout(() => {
@@ -184,7 +210,7 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
         })
         .catch((err) => handleError(err));
     }
-  }, [client, currentStep, proof, certificate]);
+  }, [client, currentStep, proof, certificate, certifiedMessageType]);
 
   return (
     <Modal
@@ -256,8 +282,8 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
                         certifiedMessageType={certifiedMessageType}
                         isSuccess={isProofValid && isCertificateChainValid}
                         certificate={certificate}
-                        certifiedItems={proof.certified_transactions}
-                        nonCertifiedItems={proof.non_certified_transactions}
+                        certifiedItems={certifiedItems}
+                        nonCertifiedItems={nonCertifiedItems}
                       />
                     )}
                     {currentStep === validationSteps.done && currentError !== undefined && (
