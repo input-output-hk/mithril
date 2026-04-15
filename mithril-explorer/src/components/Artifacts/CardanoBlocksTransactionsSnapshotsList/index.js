@@ -6,20 +6,20 @@ import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
+import CardanoBlocksTransactionsFormInput from "#/CardanoBlocksTransactionsFormInput";
 import CertificateModal from "#/CertificateModal";
 import CertifyCardanoBlocksOrTransactionsModal, {
   certifiedMessageTypes,
 } from "#/CertifyCardanoBlocksOrTransactionsModal";
 import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
-import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
 import { defaultAggregatorCapabilities } from "@/constants";
 
 export default function CardanoBlocksTransactionsSnapshotsList(props) {
   const [cardanoBlocksTransactionsSnapshots, setCardanoBlocksTransactionsSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const [showCertificationFormValidation, setShowCertificationFormValidation] = useState(false);
-  const [transactionHashesToCertify, setTransactionHashesToCertify] = useState([]);
+  const [itemHashesToCertify, setItemHashesToCertify] = useState([]);
   const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/artifact/cardano-blocks-transactions`,
@@ -54,8 +54,8 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
     setSelectedCertificateHash(hash);
   }
 
-  function handleTransactionHashesToCertifyChange(hashes) {
-    setTransactionHashesToCertify(hashes);
+  function handleItemHashesToCertifyChange(hashes) {
+    setItemHashesToCertify(hashes);
   }
 
   function showCertificate(hash) {
@@ -71,13 +71,24 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
     if (form.checkValidity() === true) {
       const formData = new FormData(form);
       const formJson = Object.fromEntries(formData.entries());
-      const hashes = (formJson?.txHashes ?? "")
+      let hashesString = "";
+
+      if (formJson?.certifiedItemType === certifiedMessageTypes.block.name) {
+        hashesString = formJson?.blockHashes ?? "";
+      } else if (formJson?.certifiedItemType === certifiedMessageTypes.transaction.name) {
+        hashesString = formJson?.txHashes ?? "";
+      } else {
+        console.error("Invalid certified item type");
+        return;
+      }
+
+      const hashes = hashesString
         .split(",")
         .map((hash) => hash.trim())
         .filter((hash) => hash.length > 0);
       hashes.sort();
 
-      setTransactionHashesToCertify(hashes);
+      setItemHashesToCertify(hashes);
       setShowCertificationFormValidation(false);
     } else {
       setShowCertificationFormValidation(true);
@@ -89,8 +100,8 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
       <CertificateModal hash={selectedCertificateHash} onHashChange={handleCertificateHashChange} />
       <CertifyCardanoBlocksOrTransactionsModal
         certifiedMessageType={certifiedMessageTypes.transaction}
-        hashes={transactionHashesToCertify}
-        onHashesChange={handleTransactionHashesToCertifyChange}
+        hashes={itemHashesToCertify}
+        onHashesChange={handleItemHashesToCertifyChange}
       />
 
       <div className={props.className}>
@@ -105,7 +116,7 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
               noValidate
               validated={showCertificationFormValidation}>
               <Row>
-                <CardanoTransactionsFormInput
+                <CardanoBlocksTransactionsFormInput
                   maxAllowedHashesByRequest={
                     currentAggregatorCapabilities?.cardano_transactions_prover
                       ?.max_hashes_allowed_by_request ??
