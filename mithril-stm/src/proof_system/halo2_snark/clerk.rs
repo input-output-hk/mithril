@@ -80,11 +80,15 @@ impl SnarkClerk {
         signatures: &[SingleSignature],
         message_to_sign: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
+        let mut sig_bytes_list: Vec<_> = signatures
+            .iter()
+            .filter_map(|s| s.snark_signature.as_ref())
+            .map(|snark_sig| snark_sig.get_schnorr_signature().to_bytes())
+            .collect();
+        sig_bytes_list.sort();
         let mut sig_set_hasher = Sha256::new();
-        for signature in signatures {
-            if let Some(snark_sig) = signature.snark_signature.as_ref() {
-                sig_set_hasher.update(snark_sig.get_schnorr_signature().to_bytes());
-            }
+        for sig_bytes in &sig_bytes_list {
+            sig_set_hasher.update(sig_bytes);
         }
         let sig_set_commitment: [u8; 32] = sig_set_hasher.finalize().into();
 
@@ -126,7 +130,9 @@ impl SnarkClerk {
         }
 
         let mut entries: Vec<_> = candidates.into_iter().collect();
-        entries.sort_by(|(_, (hash_a, _)), (_, (hash_b, _))| hash_a.cmp(hash_b));
+        entries.sort_by(|(index_a, (hash_a, _)), (index_b, (hash_b, _))| {
+            hash_a.cmp(hash_b).then_with(|| index_a.cmp(index_b))
+        });
         entries.truncate(parameters.k as usize);
 
         Ok(entries.into_iter().map(|(index, (_, sig))| (index, sig)).collect())
@@ -433,14 +439,16 @@ mod tests {
         }
 
         let total = lower_half_count + upper_half_count;
-        if total > 0 {
-            let lower_ratio = lower_half_count as f64 / total as f64;
-            assert!(
-                (0.2..=0.8).contains(&lower_ratio),
-                "Selection is biased: lower half got {lower_half_count}/{total} \
-                 ({:.1}%), expected roughly even distribution",
-                lower_ratio * 100.0,
-            );
-        }
+        assert!(
+            total > 0,
+            "Expected at least one successful signature selection across {num_rounds} rounds",
+        );
+        let lower_ratio = lower_half_count as f64 / total as f64;
+        assert!(
+            (0.2..=0.8).contains(&lower_ratio),
+            "Selection is biased: lower half got {lower_half_count}/{total} \
+             ({:.1}%), expected roughly even distribution",
+            lower_ratio * 100.0,
+        );
     }
 }
