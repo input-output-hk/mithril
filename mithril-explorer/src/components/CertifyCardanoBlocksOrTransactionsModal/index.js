@@ -19,13 +19,13 @@ export const validationSteps = {
 };
 
 export const certifiedMessageTypes = {
-  block: {
-    name: "block",
-    pluralName: "blocks",
-  },
   transaction: {
     name: "transaction",
     pluralName: "transactions",
+  },
+  block: {
+    name: "block",
+    pluralName: "blocks",
   },
 };
 
