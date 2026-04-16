@@ -8,17 +8,18 @@ use crate::circuits::halo2_ivc::tests::{
     },
     generators::{
         build_asset_generation_setup, build_genesis_base_case_next_state,
-        build_genesis_base_case_witness,
+        build_genesis_base_case_witness, build_next_certificate_asset_data,
     },
     golden::helpers::{
         assert_recursive_mock_prover_accepts, build_recursive_mock_prover_setup,
-        verify_and_prepare_blake2b_recursive_proof, verify_and_prepare_poseidon_recursive_proof,
+        compute_expected_next_accumulator, verify_and_prepare_blake2b_recursive_proof,
+        verify_and_prepare_poseidon_recursive_proof,
     },
 };
 use crate::circuits::halo2_ivc::{AssignedAccumulator, circuit::IvcCircuit, state::State};
 
 #[test]
-fn accepts_genesis_base_case_with_mock_prover() {
+fn genesis_base_case_mock_prover() {
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
@@ -44,7 +45,53 @@ fn accepts_genesis_base_case_with_mock_prover() {
 }
 
 #[test]
-fn verifies_stored_recursive_chain_state() {
+fn normal_recursive_step_mock_prover() {
+    let setup = build_asset_generation_setup();
+    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+    let recursive_chain_state =
+        load_recursive_chain_state_asset(&recursive_chain_state_asset_path())
+            .expect("recursive chain state asset should load");
+
+    // Reuse the stored previous recursive artifacts, but build the fresh
+    // certificate-side data for the next step inside the test.
+    let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
+        build_next_certificate_asset_data(
+            &setup,
+            &mock_prover_setup.certificate_commitment_parameters,
+            &setup.certificate_relation,
+            &mock_prover_setup.certificate_verifying_key,
+            &recursive_chain_state.state,
+            &mut rand_core::OsRng,
+        );
+    let next_accumulator = compute_expected_next_accumulator(
+        &mock_prover_setup,
+        &recursive_chain_state,
+        certificate_accumulator,
+    );
+
+    let circuit = IvcCircuit::new(
+        mock_prover_setup.global.clone(),
+        recursive_chain_state.state.clone(),
+        recursive_witness,
+        certificate_proof,
+        recursive_chain_state.proof.clone(),
+        recursive_chain_state.accumulator.clone(),
+        mock_prover_setup.certificate_verifying_key.vk(),
+        &mock_prover_setup.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        mock_prover_setup.global.as_public_input(),
+        next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&next_accumulator),
+    ]
+    .concat();
+
+    assert_recursive_mock_prover_accepts(circuit, public_inputs);
+}
+
+#[test]
+fn recursive_chain_state_asset_valid() {
     let verification_context = load_verification_context_asset(&verification_context_asset_path())
         .expect("verification context asset should load");
     let recursive_chain_state =
@@ -76,7 +123,7 @@ fn verifies_stored_recursive_chain_state() {
 }
 
 #[test]
-fn verifies_stored_recursive_step_output() {
+fn recursive_step_output_asset_valid() {
     let verification_context = load_verification_context_asset(&verification_context_asset_path())
         .expect("verification context asset should load");
     let recursive_step_output =

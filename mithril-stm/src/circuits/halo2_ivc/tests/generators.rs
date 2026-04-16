@@ -302,9 +302,18 @@ fn verify_and_prepare_blake2b_ivc(
     dual_msm
 }
 
-/// Builds the certificate proof, next accumulator input, and next recursive
-/// witness needed to extend the stored recursive chain by one step.
-fn build_next_certificate_asset_data(
+/// Builds the fresh certificate-side data for one normal non-genesis recursive step.
+///
+/// This reuses the same flow as the recursive-step asset generator:
+/// - derive the next protocol message from the stored recursive state
+/// - generate one fresh certificate proof for that message
+/// - derive the certificate accumulator contribution
+/// - return the next recursive witness and next state expected by the circuit
+///
+/// Golden tests reuse this helper so the "normal recursive-step" scenario stays
+/// aligned with the existing asset-generation path rather than rebuilding the
+/// message/proof/state logic independently.
+pub(crate) fn build_next_certificate_asset_data(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &Certificate,
