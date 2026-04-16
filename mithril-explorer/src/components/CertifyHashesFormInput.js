@@ -2,6 +2,7 @@ import { Button, Form, InputGroup } from "react-bootstrap";
 import React, { useState } from "react";
 
 export default function CertifyHashesFormInput({
+  submitButtonLabel = "Run",
   maxAllowedHashesByRequest,
   certifiedMessageType,
 }) {
@@ -15,7 +16,7 @@ export default function CertifyHashesFormInput({
   return (
     <Form.Group>
       <InputGroup hasValidation>
-        <Button type="submit">Run</Button>
+        <Button type="submit">{submitButtonLabel}</Button>
         <Form.Control
           id={`${certifiedMessageType.name}Hashes`}
           name={`${certifiedMessageType.name}Hashes`}
