@@ -37,8 +37,8 @@ use super::super::helpers::{
     utils::jubjub_base_from_le_bytes,
 };
 use super::super::{
-    Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit,
-    io::Write, state::Global,
+    Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, PREIMAGE_SIZE,
+    circuit::IvcCircuit, io::Write, state::Global,
 };
 use super::{asset_readers::load_recursive_chain_state_asset, test_certificate::Certificate};
 
@@ -112,6 +112,92 @@ fn insert_protocol_message_part(
 ) {
     // Keep the protocol-message boundary explicit at the call site.
     protocol_message.set_message_part(part_key, encoded_value);
+}
+
+/// Builds the genesis protocol message whose hash becomes `setup.genesis_message`.
+///
+/// This is the same genesis message shape used by the asset generators and the
+/// recursive base-case path, so future tests can reuse it without re-encoding
+/// the protocol-message layout by hand.
+fn build_genesis_protocol_message(
+    aggregate_verification_key: &AggregateVerificationKey,
+    genesis_next_protocol_params: F,
+    genesis_epoch: u64,
+) -> ProtocolMessage {
+    let mut protocol_message = ProtocolMessage::new();
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::Digest,
+        vec![2u8; 32],
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::NextAggregateVerificationKey,
+        aggregate_verification_key.clone().into(),
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::NextProtocolParameters,
+        genesis_next_protocol_params.to_bytes_le().to_vec(),
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::CurrentEpoch,
+        genesis_epoch.to_le_bytes().into(),
+    );
+    protocol_message
+}
+
+/// Builds the genesis protocol-message preimage consumed by the recursive base case.
+///
+/// The circuit hashes these bytes and compares the result with
+/// `global.genesis_msg`, so this helper keeps the preimage aligned with the
+/// genesis message construction used during asset generation.
+pub(crate) fn build_genesis_protocol_message_preimage(
+    setup: &AssetGenerationSetup,
+) -> [u8; PREIMAGE_SIZE] {
+    build_genesis_protocol_message(
+        &setup.aggregate_verification_key,
+        setup.genesis_next_protocol_params,
+        5u64,
+    )
+    .get_preimage()
+    .try_into()
+    .expect("genesis protocol message preimage should match PREIMAGE_SIZE")
+}
+
+/// Builds the witness used by the recursive genesis/base-case branch.
+///
+/// The genesis branch selects `global.genesis_msg` and a zero merkle root in
+/// circuit, so the certificate-specific witness fields remain zero here while
+/// the genesis signature and preimage carry the real trusted input.
+pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> Witness {
+    Witness::new(
+        setup.genesis_signature.clone(),
+        F::ZERO,
+        F::ZERO,
+        build_genesis_protocol_message_preimage(setup),
+    )
+}
+
+/// Builds the first next-state public output produced by the recursive base case.
+///
+/// This matches the transition logic in the circuit when the previous state is
+/// `State::genesis()`: the message and next-merkle-root come from the genesis
+/// setup, while the current merkle root and protocol parameters remain zero.
+pub(crate) fn build_genesis_base_case_next_state(
+    setup: &AssetGenerationSetup,
+    genesis_epoch: u64,
+) -> State {
+    State::new(
+        F::ONE,
+        setup.genesis_message,
+        F::ZERO,
+        setup.genesis_next_merkle_root,
+        F::ZERO,
+        setup.genesis_next_protocol_params,
+        F::from(genesis_epoch),
+    )
 }
 
 fn build_merkle_tree(
@@ -368,26 +454,10 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_next_protocol_params = F::from(7u64);
 
     let genesis_message = {
-        let mut protocol_message = ProtocolMessage::new();
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::Digest,
-            vec![2u8; 32],
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            aggregate_verification_key.clone().into(),
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::NextProtocolParameters,
-            genesis_next_protocol_params.to_bytes_le().to_vec(),
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::CurrentEpoch,
-            genesis_epoch.to_le_bytes().into(),
+        let protocol_message = build_genesis_protocol_message(
+            &aggregate_verification_key,
+            genesis_next_protocol_params,
+            genesis_epoch,
         );
         let message_hash = protocol_message.compute_hash();
         jubjub_base_from_le_bytes(&message_hash)
