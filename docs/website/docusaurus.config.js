@@ -9,7 +9,7 @@ import rehypeKatex from "rehype-katex";
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Mithril | Trustless Light Client Access for Cardano",
+  title: "Mithril | Trustless state proofs for Cardano",
   tagline:
     "Trustless, lightweight access to verified Cardano blockchain state — no full node required.",
   url: "https://mithril.network",

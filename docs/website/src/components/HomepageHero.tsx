@@ -6,7 +6,7 @@ import { hero } from "../../homepage-content/hero";
 
 const HomepageHero: FC = () => {
   return (
-    <div className="relative bg-cover bg-[url(/mobile-mithril-hero-thumbnail.jpg)] tablet:bg-[url(/desktop-mithril-hero-thumbnail.jpg)] bg-secondary z-20 -mt-[var(--ifm-navbar-height)] pt-[var(--ifm-navbar-height)]">
+    <div className="relative bg-cover bg-[url(/mobile-mithril-hero-thumbnail.jpg)] tablet:bg-[url(/desktop-mithril-hero-thumbnail.jpg)] bg-secondary z-20 -mt-[var(--ifm-navbar-height)] pt-[var(--ifm-navbar-height)] tablet:h-[calc(100vh-2rem)] tablet:flex tablet:flex-col tablet:justify-center">
       <video
         autoPlay
         muted
@@ -31,11 +31,11 @@ const HomepageHero: FC = () => {
           data-testid="video-background-source-narrow"
         />
       </video>
-      <div className="pageContainer pb-16 tablet:pb-40 pt-10 tablet:pt-[11.438rem]">
+<div className="pageContainer tablet:pb-10 pb-16 pt-10 tablet:-mt-16">
         <div className="component-lg">
           <div className="tablet:pb-6 pb-10 tablet:max-w-[544px] text-primary">
             <motion.h1
-              className="tablet:text-[4rem] tablet:leading-[73px] text-4xl leading-[48px] tablet:pb-6 pb-10"
+              className="tablet:text-[3.5rem] tablet:leading-[73px] text-4xl leading-[48px] tablet:pb-6 pb-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ ease: "easeInOut", duration: 0.75, delay: 0.4 }}
