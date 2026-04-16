@@ -54,8 +54,8 @@ function BlocksTable({ blocks }) {
             <td>
               <BlockHash hash={block.hash} />
             </td>
-            <td>{block.block_number}</td>
-            <td>{block.slot_number}</td>
+            <td>{block.block_number ?? <em>N/A</em>}</td>
+            <td>{block.slot_number ?? <em>N/A</em>}</td>
             <td>
               <CertificationStatusBadge certified={block.certified} />
             </td>
@@ -87,8 +87,8 @@ function TransactionsTable({ transactions }) {
             <td>
               <BlockHash hash={tx.block_hash} />
             </td>
-            <td>{tx.block_number}</td>
-            <td>{tx.slot_number}</td>
+            <td>{tx.block_number ?? <em>N/A</em>}</td>
+            <td>{tx.slot_number ?? <em>N/A</em>}</td>
             <td>
               <CertificationStatusBadge certified={tx.certified} />
             </td>
@@ -177,7 +177,7 @@ export default function CertificationResult({
       ) : (
         <Alert variant="danger" className="mb-2">
           <Alert.Heading>
-            <i className="text-danger bi bi-shield-slash"></i> Mithril could not certify the
+            <i className="text-danger bi bi-shield-slash"></i> Mithril could not certify the{" "}
             {certifiedMessageType.pluralName}
           </Alert.Heading>
           <p className="mb-1">
@@ -185,7 +185,7 @@ export default function CertificationResult({
             {certifiedMessageType.pluralName} is certified.
           </p>
           <p className="mb-0 fst-italic">
-            <i className="bi bi-info-circle"></i> Mithril may still have to certify those
+            <i className="bi bi-info-circle"></i> Mithril may still have to certify those{" "}
             {certifiedMessageType.pluralName}.
           </p>
         </Alert>

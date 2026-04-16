@@ -42,6 +42,22 @@ function getTabForStep(step) {
   }
 }
 
+function certifiedItemsFromProof(proof, certifiedMessageType) {
+  return certifiedMessageType === certifiedMessageTypes.block
+    ? (proof?.certified_blocks ?? [])
+    : certifiedMessageType === certifiedMessageTypes.transaction
+      ? (proof?.certified_transactions ?? [])
+      : [];
+}
+
+function nonCertifiedItemsFromProof(proof, certifiedMessageType) {
+  return certifiedMessageType === certifiedMessageTypes.block
+    ? (proof?.non_certified_blocks ?? [])
+    : certifiedMessageType === certifiedMessageTypes.transaction
+      ? (proof?.non_certified_transactions ?? [])
+      : [];
+}
+
 async function getProofAndCertificate(client, itemHashes, certifiedMessageType) {
   let proof;
 
@@ -96,18 +112,8 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
     certificateValidationSteps.ready,
   );
   const [proof, setProof] = useState({});
-  const certifiedItems =
-    certifiedMessageType === certifiedMessageTypes.block
-      ? proof?.certified_blocks
-      : certifiedMessageType === certifiedMessageTypes.transaction
-        ? proof?.certified_transactions
-        : [];
-  const nonCertifiedItems =
-    certifiedMessageType === certifiedMessageTypes.block
-      ? proof?.non_certified_blocks
-      : certifiedMessageType === certifiedMessageTypes.transaction
-        ? proof?.non_certified_transactions
-        : [];
+  const certifiedItems = certifiedItemsFromProof(proof, certifiedMessageType);
+  const nonCertifiedItems = nonCertifiedItemsFromProof(proof, certifiedMessageType);
 
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [isProofValid, setIsProofValid] = useState(false);
@@ -186,7 +192,15 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
 
           // Artificial wait to give the user a feel of the workload under-hood
           return setTimeout(() => {
-            setCurrentStep(validationSteps.validatingProof);
+            const haveCertifiedItems =
+              certifiedItemsFromProof(res.proof, certifiedMessageType).length > 0;
+
+            if (haveCertifiedItems) {
+              setCurrentStep(validationSteps.validatingProof);
+            } else {
+              setIsProofValid(false);
+              setCurrentStep(validationSteps.done);
+            }
           }, 350);
         })
         .catch((err) => handleError(err));
