@@ -20,7 +20,7 @@ use crate::circuits::halo2_ivc::tests::golden::{
 use crate::circuits::halo2_ivc::{AssignedAccumulator, circuit::IvcCircuit, state::State};
 
 #[test]
-fn genesis_base_case_mock_prover() {
+fn slow_genesis_base_case_mock_prover() {
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
@@ -46,7 +46,7 @@ fn genesis_base_case_mock_prover() {
 }
 
 #[test]
-fn normal_recursive_step_mock_prover() {
+fn slow_normal_recursive_step_mock_prover() {
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
     let recursive_chain_state =
@@ -158,7 +158,7 @@ fn recursive_step_output_asset_valid() {
 }
 
 #[test]
-fn recursive_step_output_chain_flow_asset_valid() {
+fn slow_recursive_step_output_chain_flow_asset_valid() {
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
     let recursive_chain_state =

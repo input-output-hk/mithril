@@ -16,6 +16,10 @@ scenarios:
 4. the stored next checkpoint
 5. the continuity between those two checkpoints
 
+Tests prefixed with `slow_` are expected to be the heavier positive golden
+checks. They are good candidates for a different CI lane than the always-on
+fast checks.
+
 ## Why The Suite Uses Different Test Styles
 
 The suite mixes two styles on purpose:
@@ -35,7 +39,7 @@ In short:
 
 ## Positive Scenarios
 
-### `genesis_base_case_mock_prover`
+### `slow_genesis_base_case_mock_prover`
 
 Checks the recursive base case.
 
@@ -44,7 +48,7 @@ previous recursive proof yet. It protects the explicit base-case branch in the
 recursive circuit and makes sure the circuit accepts the first valid recursive
 transition.
 
-### `normal_recursive_step_mock_prover`
+### `slow_normal_recursive_step_mock_prover`
 
 Checks one normal non-genesis recursive step.
 
@@ -70,7 +74,7 @@ This protects the stored final recursive proof and the stored next accumulator
 as one consistent "next step" checkpoint. It tells us that the stored output
 artifact is still valid in isolation.
 
-### `recursive_step_output_chain_flow_asset_valid`
+### `slow_recursive_step_output_chain_flow_asset_valid`
 
 Checks the continuity between the two stored recursive checkpoints.
 

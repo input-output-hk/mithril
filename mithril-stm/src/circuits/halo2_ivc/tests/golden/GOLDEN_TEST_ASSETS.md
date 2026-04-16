@@ -107,12 +107,6 @@ That command regenerates:
 It does not require regenerating `verification_context.bin` or
 `recursive_chain_state.bin` unless their inputs changed.
 
-## Running The Golden Tests
-
-The golden tests themselves can be run with the default debug profile. That
-matches the current CI configuration and avoids requiring `--release` for normal
-test execution.
-
 ## When Regeneration Is Needed
 
 Regenerate the assets when one of these changes:
