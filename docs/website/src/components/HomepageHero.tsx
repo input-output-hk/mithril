@@ -61,7 +61,7 @@ const HomepageHero: FC = () => {
               className="inline-block px-6 py-4 font-bold text-base text-white rounded-lg border-[0.5px] border-gray-border no-underline bg-secondary hover:no-underline hover:scale-105 transition-all hover:text-white"
               to="/manual/operate/run-signer-node"
             >
-              Run a Signer Node
+              Run a signer node
             </Link>
           </motion.div>
         </div>
