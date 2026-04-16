@@ -1,5 +1,6 @@
-use std::collections::{BTreeMap, btree_map::Entry};
+use std::collections::BTreeMap;
 
+use anyhow::anyhow;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -61,21 +62,20 @@ impl SnarkClerk {
         Ok(closed_registration_entry.into())
     }
 
-    /// Deduplicate signatures by lottery index and select exactly `k` winners.
+    /// Select exactly `k` winning lottery indices and resolve contested indices.
     ///
-    /// Each candidate is assigned a priority hash `SHA-256(seed || index || commitment_point)`
-    /// where the seed is derived from the signed message. Only the commitment point (the
-    /// deterministic component of the signature, fixed per signer+message) is included in
-    /// the hash, so grinding via nonce variation has no effect. This single hash drives both
-    /// deduplication and selection: when multiple signatures claim the same lottery index the
-    /// one with the smallest hash wins, and the `k` candidates with the smallest hashes
-    /// overall are selected. This ensures uniform selection across the full index range,
-    /// avoiding bias toward any region of `[0, m)`. The seed depends only on public inputs,
-    /// so the selection is publicly verifiable. The returned `BTreeMap` preserves strictly
-    /// increasing lottery index order.
+    /// Uses separate hashes derived from public inputs only:
+    /// 1. **Index selection:** `SHA-256(seed || lottery_index)` assigns a priority to each
+    ///    lottery index independent of who signed it. The `k` indices with the smallest
+    ///    hashes are selected.
+    /// 2. **Deduplication:** for each selected index claimed by multiple signers,
+    ///    `SHA-256(seed || lottery_index || signer_index)` picks the winner.
     ///
-    /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning indices
-    /// can be collected.
+    /// The selection is fully deterministic from public inputs, publicly verifiable, and immune to
+    /// grinding. The returned `BTreeMap` preserves strictly increasing lottery index order.
+    ///
+    /// Returns `AggregationError::NotEnoughSignatures` if fewer than `k` unique winning
+    /// indices can be collected.
     pub(crate) fn select_valid_signatures_for_k_indices(
         parameters: &Parameters,
         signatures: &[SingleSignature],
@@ -86,57 +86,75 @@ impl SnarkClerk {
         seed_hasher.update(message_to_sign[1].to_bytes());
         let seed: [u8; 32] = seed_hasher.finalize().into();
 
-        let mut candidates: BTreeMap<LotteryIndex, ([u8; 32], SingleSignature)> = BTreeMap::new();
-
+        // Collect all valid signatures grouped by lottery index.
+        let mut index_to_signatures: BTreeMap<LotteryIndex, Vec<SingleSignature>> = BTreeMap::new();
         for signature in signatures {
-            let (Some(snark_indices), Some(snark_signature)) = (
+            let (Some(snark_indices), Some(_)) = (
                 signature.get_snark_signature_indices(),
                 signature.snark_signature.as_ref(),
             ) else {
                 continue;
             };
 
-            let commitment_bytes =
-                snark_signature.get_schnorr_signature().commitment_point.to_bytes();
             for index in snark_indices {
-                let hash = hash_candidate(&seed, index, &commitment_bytes);
-                match candidates.entry(index) {
-                    Entry::Occupied(mut existing) => {
-                        if existing.get().0 > hash {
-                            existing.insert((hash, signature.clone()));
-                        }
-                    }
-                    Entry::Vacant(vacant) => {
-                        vacant.insert((hash, signature.clone()));
-                    }
-                }
+                index_to_signatures.entry(index).or_default().push(signature.clone());
             }
         }
 
-        let count = candidates.len() as u64;
+        let count = index_to_signatures.len() as u64;
         if count < parameters.k {
             return Err(AggregationError::NotEnoughSignatures(count, parameters.k).into());
         }
 
-        let mut entries: Vec<_> = candidates.into_iter().collect();
-        entries.sort_by(|(index_a, (hash_a, _)), (index_b, (hash_b, _))| {
-            hash_a.cmp(hash_b).then_with(|| index_a.cmp(index_b))
+        // Select: sort indices by `hash_index(seed, lottery_index)` and take the k smallest.
+        let mut indices: Vec<_> = index_to_signatures.keys().copied().collect();
+        indices.sort_by(|a, b| {
+            hash_index(&seed, *a)
+                .cmp(&hash_index(&seed, *b))
+                .then_with(|| a.cmp(b))
         });
-        entries.truncate(parameters.k as usize);
+        indices.truncate(parameters.k as usize);
 
-        Ok(entries.into_iter().map(|(index, (_, sig))| (index, sig)).collect())
+        // Deduplicate: for each selected index, pick the signer with the smallest
+        // `hash_dedup(seed || lottery_index || signer_index)`.
+        let mut result = BTreeMap::new();
+        for index in indices {
+            let candidates = index_to_signatures.remove(&index).ok_or_else(|| {
+                anyhow!(
+                    "Unexpected deduplication state: signature map missing lottery index {index}"
+                )
+            })?;
+            let winner = candidates
+                .into_iter()
+                .min_by_key(|sig| hash_dedup(&seed, index, sig.signer_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "Unexpected deduplication state: no candidates for lottery index {index}"
+                    )
+                })?;
+            result.insert(index, winner);
+        }
+
+        Ok(result)
     }
 }
 
-/// Hash a candidate (lottery index + commitment point) with a seed for deterministic
-/// deduplication tie-breaking and selection priority. Only the commitment point is
-/// used because it is the sole deterministic component of the signature (fixed per
-/// signer+message), making the hash immune to grinding via nonce variation.
-fn hash_candidate(seed: &[u8; 32], index: LotteryIndex, commitment_point_bytes: &[u8]) -> [u8; 32] {
+/// Hash for index selection: `SHA-256(seed || lottery_index)`.
+/// Determines which k indices are selected, independent of who signed them.
+fn hash_index(seed: &[u8; 32], lottery_index: LotteryIndex) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(seed);
-    hasher.update(index.to_le_bytes());
-    hasher.update(commitment_point_bytes);
+    hasher.update(lottery_index.to_le_bytes());
+    hasher.finalize().into()
+}
+
+/// Hash for deduplication: `SHA-256(seed || lottery_index || signer_index)`.
+/// When multiple signers claim the same lottery index, the smallest hash wins.
+fn hash_dedup(seed: &[u8; 32], lottery_index: LotteryIndex, signer_index: u64) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(seed);
+    hasher.update(lottery_index.to_le_bytes());
+    hasher.update(signer_index.to_le_bytes());
     hasher.finalize().into()
 }
 
