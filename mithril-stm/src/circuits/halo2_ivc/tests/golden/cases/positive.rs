@@ -1,6 +1,6 @@
 use midnight_circuits::types::Instantiable;
 
-use crate::circuits::halo2_ivc::tests::{
+use crate::circuits::halo2_ivc::tests::golden::{
     asset_readers::{
         load_recursive_chain_state_asset, load_recursive_step_output_asset,
         load_verification_context_asset, recursive_chain_state_asset_path,
@@ -11,7 +11,7 @@ use crate::circuits::halo2_ivc::tests::{
         build_genesis_base_case_witness, build_next_certificate_asset_data,
         next_message_and_preimage_for_step, next_state_for_step,
     },
-    golden::helpers::{
+    helpers::{
         assert_recursive_mock_prover_accepts, build_recursive_mock_prover_setup,
         compute_exact_next_accumulator_from_assets, compute_expected_next_accumulator,
         verify_and_prepare_blake2b_recursive_proof, verify_and_prepare_poseidon_recursive_proof,

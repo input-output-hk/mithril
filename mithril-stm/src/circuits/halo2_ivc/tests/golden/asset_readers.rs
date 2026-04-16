@@ -63,7 +63,7 @@ pub(crate) struct RecursiveStepOutputAsset {
 }
 
 fn stored_asset_directory() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/assets")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/tests/golden/assets")
 }
 
 /// Returns the committed asset path for the stored recursive chain snapshot.

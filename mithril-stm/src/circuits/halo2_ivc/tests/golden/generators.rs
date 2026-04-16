@@ -24,7 +24,7 @@ use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, OsRng, RngCore, SeedableRng};
 
-use super::super::helpers::{
+use crate::circuits::halo2_ivc::helpers::{
     merkle_tree::{MTLeaf as MerkleTreeLeaf, MerklePath, MerkleTree},
     protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
     signatures::{
@@ -36,13 +36,14 @@ use super::super::helpers::{
     },
     utils::jubjub_base_from_le_bytes,
 };
-use super::super::{
+use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names, trivial_acc};
+use crate::circuits::halo2_ivc::tests::{
+    golden::asset_readers::load_recursive_chain_state_asset, test_certificate::Certificate,
+};
+use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, PREIMAGE_SIZE,
     circuit::IvcCircuit, io::Write, state::Global,
 };
-use super::{asset_readers::load_recursive_chain_state_asset, test_certificate::Certificate};
-
-use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names, trivial_acc};
 
 /// Fixed seed used for the deterministic universal KZG setup.
 const ASSET_SEED: u64 = 42;
@@ -73,7 +74,10 @@ impl AssetPaths {
 }
 
 pub(crate) fn default_asset_paths() -> AssetPaths {
-    AssetPaths::new(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/assets"))
+    AssetPaths::new(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/circuits/halo2_ivc/tests/golden/assets"),
+    )
 }
 
 /// Deterministic setup data for asset generation.

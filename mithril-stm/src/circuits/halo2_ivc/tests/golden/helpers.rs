@@ -19,7 +19,7 @@ use midnight_zk_stdlib as zk_lib;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use crate::circuits::halo2_ivc::tests::{
+use crate::circuits::halo2_ivc::tests::golden::{
     asset_readers::RecursiveChainStateAsset,
     generators::{AssetGenerationSetup, certificate_public_inputs_for_step},
 };

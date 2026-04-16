@@ -6,18 +6,18 @@
 can validate recursive behavior without regenerating the full proving flow.
 
 The expensive proofs are generated manually through ignored tests in
-`mithril-stm/src/circuits/halo2_ivc/tests/generators.rs`.
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators.rs`.
 The positive golden tests then load those stored outputs.
 
 ## Asset Set
 
 The committed asset files live under:
 
-`mithril-stm/src/circuits/halo2_ivc/assets`
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/assets`
 
 Reader helpers live in:
 
-`mithril-stm/src/circuits/halo2_ivc/tests/asset_readers.rs`
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/asset_readers.rs`
 
 The current asset set is:
 
@@ -80,7 +80,7 @@ These commands intentionally use `--release` because asset generation is a
 manual workflow dominated by real proof generation.
 
 These commands correspond to the ignored generator entrypoints in
-`mithril-stm/src/circuits/halo2_ivc/tests/generators.rs`:
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators.rs`:
 
 - `generate_verification_context_only`
 - `generate_recursive_chain_state_only`
