@@ -39,7 +39,7 @@ export CARDANO_NODE_VERSION=10.7.1
 
 The Cardano node configuration files (topology, genesis, config) for each network must be updated in the `mithril-infra` directory. The configuration files are available in the release bundle of the Cardano node in the `share` directory.
 
-When deploying the infrastructure, the version of the Cardano node is matched exactly and fails over the minor version by matching the folder name in the `mithril-infra/assets/docker/cardano/config` folder. If the new version configuration files are valid for all minor versions you can name the folder by ommitting the patch version (eg `10.7` instead of `10.7.1`).
+When deploying the infrastructure, the version of the Cardano node is matched exactly and fails over the minor version by matching the folder name in the `mithril-infra/assets/docker/cardano/config` folder. If the new version configuration files are valid for all minor versions you can name the folder by omitting the patch version (eg `10.7` instead of `10.7.1`).
 
 Update the Cardano node image version in the infrastructure configuration for each network:
 
