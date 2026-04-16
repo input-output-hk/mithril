@@ -1,12 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Button, Card, Col, Container, Form, Row, Stack } from "react-bootstrap";
+import {
+  Button,
+  Card,
+  Col,
+  Container,
+  Form,
+  Row,
+  Stack,
+  ToggleButton,
+  ButtonGroup,
+  Nav,
+} from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
-import CardanoBlocksTransactionsFormInput from "#/CardanoBlocksTransactionsFormInput";
+import CertifyHashesFormInput from "#/CertifyHashesFormInput";
 import CertificateModal from "#/CertificateModal";
 import CertifyCardanoBlocksOrTransactionsModal, {
   certifiedMessageTypes,
@@ -79,7 +90,7 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
       if (formJson?.certifiedMessageType === certifiedMessageTypes.block.name) {
         hashesString = formJson?.blockHashes ?? "";
       } else if (formJson?.certifiedMessageType === certifiedMessageTypes.transaction.name) {
-        hashesString = formJson?.txHashes ?? "";
+        hashesString = formJson?.transactionHashes ?? "";
       } else {
         console.error("Invalid certified item type");
         return;
@@ -118,10 +129,27 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
               onSubmit={handleCtxCertificationSubmit}
               noValidate
               validated={showCertificationFormValidation}>
+              <Nav
+                className="mb-1"
+                variant="underline"
+                activeKey={certifiedMessageType.name}
+                onSelect={(e) => setCertifiedMessageType(certifiedMessageTypes[e])}>
+                {Object.values(certifiedMessageTypes).map((type) => (
+                  <Nav.Item key={type.name}>
+                    <Nav.Link eventKey={type.name} className="text-capitalize">
+                      Certify {type.pluralName}
+                    </Nav.Link>
+                  </Nav.Item>
+                ))}
+              </Nav>
               <Row>
-                <CardanoBlocksTransactionsFormInput
+                <input
+                  type="hidden"
+                  name="certifiedMessageType"
+                  value={certifiedMessageType.name}
+                />
+                <CertifyHashesFormInput
                   certifiedMessageType={certifiedMessageType}
-                  onCertifiedMessageTypeChange={(type) => setCertifiedMessageType(type)}
                   maxAllowedHashesByRequest={
                     currentAggregatorCapabilities?.cardano_transactions_prover
                       ?.max_hashes_allowed_by_request ??
