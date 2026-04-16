@@ -7,7 +7,7 @@ use midnight_proofs::circuit::Layouter;
 use midnight_proofs::plonk::Error;
 use midnight_zk_stdlib::ZkStdLib;
 
-use crate::circuits::halo2::errors::to_synthesis_error;
+use crate::circuits::halo2::errors::{StmCircuitError, to_synthesis_error};
 use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
 
 /// Assigned inputs required to verify one Merkle authentication path inside the circuit.
@@ -22,6 +22,8 @@ pub(crate) struct MerklePathInputs<'a> {
     pub(crate) merkle_siblings: &'a [AssignedNative<CircuitBase>],
     /// Assigned sibling positions for each Merkle path level.
     pub(crate) merkle_positions: &'a [AssignedBit<CircuitBase>],
+    /// Assigned sibling positions for each Merkle path level.
+    pub(crate) merkle_tree_depth: u32,
 }
 
 /// Verifies that the assigned Merkle path opens the witness leaf to the public commitment.
@@ -46,12 +48,18 @@ pub(crate) fn verify_merkle_path(
     let first_sibling = inputs
         .merkle_siblings
         .first()
-        .ok_or(anyhow!("Missing siblings"))
+        .ok_or(anyhow!(StmCircuitError::MerkleSiblingLengthMismatch {
+            expected_depth: inputs.merkle_tree_depth,
+            actual: 0,
+        }))
         .map_err(to_synthesis_error)?;
     let first_position = inputs
         .merkle_positions
         .first()
-        .ok_or(anyhow!("Missing position!"))
+        .ok_or(anyhow!(StmCircuitError::MerklePositionLengthMismatch {
+            expected_depth: inputs.merkle_tree_depth,
+            actual: 0,
+        }))
         .map_err(to_synthesis_error)?;
     let first_left = std_lib.select(layouter, first_position, &leaf, first_sibling)?;
     let first_right = std_lib.select(layouter, first_position, first_sibling, &leaf)?;
@@ -152,6 +160,7 @@ mod tests {
                     merkle_tree_commitment: &merkle_tree_commitment,
                     merkle_siblings: &merkle_siblings,
                     merkle_positions: &merkle_positions,
+                    merkle_tree_depth: TEST_MERKLE_TREE_DEPTH as u32,
                 },
             )
         }

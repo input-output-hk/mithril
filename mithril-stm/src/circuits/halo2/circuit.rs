@@ -241,6 +241,7 @@ impl Relation for StmCircuit {
                     merkle_tree_commitment: &merkle_tree_commitment,
                     merkle_siblings: &assigned_witness_entry.merkle_path.siblings,
                     merkle_positions: &assigned_witness_entry.merkle_path.positions,
+                    merkle_tree_depth: self.merkle_tree_depth,
                 },
             )?;
 
