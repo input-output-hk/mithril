@@ -232,13 +232,13 @@ fn prove_poseidon_ivc(
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
     public_inputs: &[F],
-    random_generator: impl RngCore + rand_core::CryptoRng,
+    random_generator: &mut (impl RngCore + rand_core::CryptoRng),
 ) -> Vec<u8> {
     let mut transcript = CircuitTranscript::<PoseidonState<F>>::init();
     create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<PoseidonState<F>>, IvcCircuit>(
         commitment_parameters,
         proving_key,
-        &[circuit.clone()],
+        std::slice::from_ref(circuit),
         1,
         &[&[&[], public_inputs]],
         random_generator,
@@ -272,13 +272,13 @@ fn prove_blake2b_ivc(
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
     public_inputs: &[F],
-    random_generator: impl RngCore + rand_core::CryptoRng,
+    random_generator: &mut (impl RngCore + rand_core::CryptoRng),
 ) -> Vec<u8> {
     let mut transcript = CircuitTranscript::<blake2b_simd::State>::init();
     create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<blake2b_simd::State>, IvcCircuit>(
         commitment_parameters,
         proving_key,
-        &[circuit.clone()],
+        std::slice::from_ref(circuit),
         1,
         &[&[&[], public_inputs]],
         random_generator,
@@ -596,7 +596,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
 
     let global = Global::new(
         setup.genesis_message,
-        setup.genesis_verification_key.clone(),
+        setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         &recursive_verifying_key,
     );
@@ -909,7 +909,7 @@ pub(crate) fn generate_verification_context_asset(
 
     let global = Global::new(
         setup.genesis_message,
-        setup.genesis_verification_key.clone(),
+        setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         &recursive_verifying_key,
     );
@@ -1005,7 +1005,7 @@ pub(crate) fn generate_recursive_step_output_asset(
 
     let global = Global::new(
         setup.genesis_message,
-        setup.genesis_verification_key.clone(),
+        setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         &recursive_verifying_key,
     );

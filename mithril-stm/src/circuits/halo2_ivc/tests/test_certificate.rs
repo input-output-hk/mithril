@@ -38,8 +38,8 @@ fn decompose_unsafe(
     let base127 = F::from_u128(1_u128 << 127);
     let (x_low, x_high) = x_value.map(|v| split(v, 127)).unzip();
 
-    let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low.clone())?;
-    let x_high_assigned: AssignedNative<_> = std_lib.assign(layouter, x_high.clone())?;
+    let x_low_assigned: AssignedNative<_> = std_lib.assign(layouter, x_low)?;
+    let x_high_assigned: AssignedNative<_> = std_lib.assign(layouter, x_high)?;
 
     let x_combined: AssignedNative<_> = std_lib.linear_combination(
         layouter,
@@ -97,6 +97,7 @@ fn verify_merkle_path(
     std_lib.assert_equal(layouter, &root, merkle_root)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn verify_unique_signature(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,

@@ -106,7 +106,7 @@ pub(crate) fn build_recursive_mock_prover_setup(
 
     let global = Global::new(
         setup.genesis_message,
-        setup.genesis_verification_key.clone(),
+        setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         &recursive_verifying_key,
     );
