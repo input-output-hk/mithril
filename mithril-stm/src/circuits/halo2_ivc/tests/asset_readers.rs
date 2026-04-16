@@ -53,11 +53,13 @@ pub(crate) struct VerificationContextAsset {
 /// - `proof`: length-prefixed proof bytes
 /// - `next_accumulator`: serialized accumulator
 /// - `next_state`: 7 field elements
+/// - `certificate_proof`: length-prefixed proof bytes
 #[derive(Debug)]
 pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) proof: Vec<u8>,
     pub(crate) next_accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
     pub(crate) next_state: State,
+    pub(crate) certificate_proof: Vec<u8>,
 }
 
 fn stored_asset_directory() -> PathBuf {
@@ -203,10 +205,12 @@ pub(crate) fn load_recursive_step_output_asset(
         SerdeFormat::RawBytesUnchecked,
     )?;
     let next_state = read_state_public_input(&mut reader)?;
+    let certificate_proof = read_length_prefixed_proof(&mut reader)?;
 
     Ok(RecursiveStepOutputAsset {
         proof,
         next_accumulator,
         next_state,
+        certificate_proof,
     })
 }

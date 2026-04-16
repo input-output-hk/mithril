@@ -330,46 +330,9 @@ pub(crate) fn build_next_certificate_asset_data(
     let (certificate_fixed_bases, _) =
         fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
 
-    let current_epoch = {
-        let bytes = recursive_chain_state.current_epoch.to_bytes_le();
-        u64::from_le_bytes(bytes[0..8].try_into().unwrap())
-    };
-    let new_epoch = current_epoch + 1;
-    let step = {
-        let bytes = recursive_chain_state.counter.to_bytes_le();
-        u64::from_le_bytes(bytes[0..8].try_into().unwrap()) as usize
-    };
-
     let merkle_root = recursive_chain_state.next_merkle_root;
-    let (message, message_preimage) = {
-        let mut protocol_message = ProtocolMessage::new();
-        // These entries define the certificate message consumed by the recursive step.
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::Digest,
-            vec![(step as u8) + 2; 32],
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            setup.aggregate_verification_key.clone().into(),
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::NextProtocolParameters,
-            setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
-        );
-        insert_protocol_message_part(
-            &mut protocol_message,
-            ProtocolMessagePartKey::CurrentEpoch,
-            new_epoch.to_le_bytes().into(),
-        );
-        let message_preimage = protocol_message.get_preimage();
-        let message_hash = protocol_message.compute_hash();
-        (jubjub_base_from_le_bytes(&message_hash), message_preimage)
-    };
-
-    let certificate_instance = Certificate::format_instance(&(merkle_root, message)).unwrap();
+    let (message, message_preimage) =
+        next_message_and_preimage_for_step(setup, recursive_chain_state);
     let mut certificate_witness_entries: Vec<CertificateWitnessEntry> = vec![];
     assert_eq!(
         merkle_root, setup.genesis_next_merkle_root,
@@ -393,6 +356,10 @@ pub(crate) fn build_next_certificate_asset_data(
             (j + 1) as u32,
         ));
     }
+
+    let next_state = next_state_for_step(recursive_chain_state, message);
+    let certificate_instance =
+        certificate_public_inputs_for_step(recursive_chain_state, &next_state);
 
     let certificate_proof = zk_lib::prove::<Certificate, PoseidonState<F>>(
         certificate_commitment_parameters,
@@ -425,21 +392,93 @@ pub(crate) fn build_next_certificate_asset_data(
         message,
         message_preimage.try_into().unwrap(),
     );
-    let next_state = State::new(
-        F::from((step + 1) as u64),
-        message,
-        merkle_root,
-        merkle_root,
-        recursive_chain_state.next_protocol_params,
-        recursive_chain_state.next_protocol_params,
-        F::from(new_epoch),
-    );
 
     (
         certificate_proof,
         certificate_accumulator,
         next_state,
         ivc_witness,
+    )
+}
+
+/// Returns the certificate public inputs for one recursive-step transition.
+///
+/// The certificate relation for a non-genesis step is parameterized by:
+/// - the previous state's `next_merkle_root`
+/// - the next state's `msg`
+///
+/// The generator path and the chained-flow golden test both use this helper so
+/// they prepare the certificate proof against the same public-input contract.
+pub(crate) fn certificate_public_inputs_for_step(
+    previous_state: &State,
+    next_state: &State,
+) -> Vec<F> {
+    Certificate::format_instance(&(previous_state.next_merkle_root, next_state.msg)).unwrap()
+}
+
+/// Returns the deterministic next certificate message and preimage for one
+/// non-genesis recursive step.
+pub(crate) fn next_message_and_preimage_for_step(
+    setup: &AssetGenerationSetup,
+    previous_state: &State,
+) -> (F, Vec<u8>) {
+    let current_epoch = {
+        let bytes = previous_state.current_epoch.to_bytes_le();
+        u64::from_le_bytes(bytes[0..8].try_into().unwrap())
+    };
+    let step = {
+        let bytes = previous_state.counter.to_bytes_le();
+        u64::from_le_bytes(bytes[0..8].try_into().unwrap()) as usize
+    };
+
+    let mut protocol_message = ProtocolMessage::new();
+    // These entries define the certificate message consumed by the recursive step.
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::Digest,
+        vec![(step as u8) + 2; 32],
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::NextAggregateVerificationKey,
+        setup.aggregate_verification_key.clone().into(),
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::NextProtocolParameters,
+        setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
+    );
+    insert_protocol_message_part(
+        &mut protocol_message,
+        ProtocolMessagePartKey::CurrentEpoch,
+        (current_epoch + 1).to_le_bytes().into(),
+    );
+
+    let message_preimage = protocol_message.get_preimage();
+    let message_hash = protocol_message.compute_hash();
+    (jubjub_base_from_le_bytes(&message_hash), message_preimage)
+}
+
+/// Returns the recursive next state for a non-genesis step once the next
+/// certificate message has been fixed.
+pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
+    let current_epoch = {
+        let bytes = previous_state.current_epoch.to_bytes_le();
+        u64::from_le_bytes(bytes[0..8].try_into().unwrap())
+    };
+    let step = {
+        let bytes = previous_state.counter.to_bytes_le();
+        u64::from_le_bytes(bytes[0..8].try_into().unwrap()) as usize
+    };
+
+    State::new(
+        F::from((step + 1) as u64),
+        message,
+        previous_state.next_merkle_root,
+        previous_state.next_merkle_root,
+        previous_state.next_protocol_params,
+        previous_state.next_protocol_params,
+        F::from(current_epoch + 1),
     )
 }
 
@@ -1020,7 +1059,7 @@ pub(crate) fn generate_recursive_step_output_asset(
         global.clone(),
         recursive_chain_state.state.clone(),
         recursive_witness,
-        certificate_proof,
+        certificate_proof.clone(),
         recursive_chain_state.proof.clone(),
         recursive_chain_state.accumulator.clone(),
         certificate_verifying_key.vk(),
@@ -1068,6 +1107,10 @@ pub(crate) fn generate_recursive_step_output_asset(
     for value in next_state.as_public_input() {
         writer.write_all(&value.to_bytes_le()).unwrap();
     }
+    writer
+        .write_all(&(certificate_proof.len() as u32).to_le_bytes())
+        .unwrap();
+    writer.write_all(&certificate_proof).unwrap();
     println!(
         "generate_recursive_step_output: done in {:?}",
         total_start.elapsed()

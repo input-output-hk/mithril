@@ -20,7 +20,8 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use crate::circuits::halo2_ivc::tests::{
-    asset_readers::RecursiveChainStateAsset, generators::AssetGenerationSetup,
+    asset_readers::RecursiveChainStateAsset,
+    generators::{AssetGenerationSetup, certificate_public_inputs_for_step},
 };
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, K, VerifyingKey,
@@ -38,6 +39,7 @@ pub(crate) struct RecursiveMockProverSetup {
     pub(crate) certificate_verifying_key: midnight_zk_stdlib::MidnightVK,
     pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
     pub(crate) global: Global,
+    pub(crate) certificate_fixed_bases: BTreeMap<String, C>,
     pub(crate) recursive_fixed_bases: BTreeMap<String, C>,
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
     pub(crate) universal_verifier_params: ParamsVerifierKZG<E>,
@@ -114,6 +116,7 @@ pub(crate) fn build_recursive_mock_prover_setup(
         certificate_verifying_key,
         recursive_verifying_key,
         global,
+        certificate_fixed_bases,
         recursive_fixed_bases,
         combined_fixed_bases,
         universal_verifier_params,
@@ -190,6 +193,56 @@ pub(crate) fn compute_expected_next_accumulator(
         "expected next accumulator should verify before the normal step check"
     );
     next_accumulator
+}
+
+/// Prepares the stored certificate proof used by the committed recursive step.
+///
+/// The certificate proof is verified against the public inputs implied by the
+/// stored chain transition:
+/// - `merkle_root` comes from the previous state's `next_merkle_root`
+/// - `message` is the committed `next_state.msg`
+pub(crate) fn prepare_stored_step_certificate_accumulator(
+    setup: &RecursiveMockProverSetup,
+    recursive_chain_state: &RecursiveChainStateAsset,
+    expected_next_state: &crate::circuits::halo2_ivc::state::State,
+    certificate_proof: &[u8],
+) -> Accumulator<crate::circuits::halo2_ivc::S> {
+    let certificate_public_inputs =
+        certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
+
+    let certificate_dual_msm = verify_and_prepare_poseidon_recursive_proof(
+        setup.certificate_verifying_key.vk(),
+        certificate_proof,
+        &certificate_public_inputs,
+    );
+    assert!(
+        certificate_dual_msm
+            .clone()
+            .check(&setup.certificate_commitment_parameters.verifier_params()),
+        "stored step certificate proof should verify before the chained-flow check"
+    );
+
+    let mut certificate_accumulator: Accumulator<crate::circuits::halo2_ivc::S> =
+        certificate_dual_msm.into();
+    certificate_accumulator.extract_fixed_bases(&setup.certificate_fixed_bases);
+    certificate_accumulator.collapse();
+    certificate_accumulator
+}
+
+/// Recomputes the exact next accumulator from stored step artifacts.
+pub(crate) fn compute_exact_next_accumulator_from_assets(
+    setup: &RecursiveMockProverSetup,
+    recursive_chain_state: &RecursiveChainStateAsset,
+    expected_next_state: &crate::circuits::halo2_ivc::state::State,
+    certificate_proof: &[u8],
+) -> Accumulator<crate::circuits::halo2_ivc::S> {
+    let certificate_accumulator = prepare_stored_step_certificate_accumulator(
+        setup,
+        recursive_chain_state,
+        expected_next_state,
+        certificate_proof,
+    );
+    compute_expected_next_accumulator(setup, recursive_chain_state, certificate_accumulator)
 }
 
 /// Verifies a stored recursive proof that uses the Poseidon transcript.
