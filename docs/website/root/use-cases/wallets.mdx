@@ -1,12 +1,12 @@
 ---
 id: wallets
-title: Wallets
-sidebar_label: Wallets
+title: Light Wallets
+sidebar_label: Light wallets
 ---
 
 # Using Mithril for light wallets
 
-## For Wallet Developers
+## For wallet developers
 
 Cardano users expect fast, reliable confirmation that their transactions have landed. Traditionally, delivering that required either running a full node or trusting a third-party service. Mithril offers a third option: cryptographic proof of transaction inclusion, backed by Cardano's stake pool operators, that any wallet can verify independently.
 
@@ -38,7 +38,7 @@ The easiest path for most wallet teams to integrate is using the official WASM p
 npm install @mithril-dev/mithril-client-wasm
 ```
 
-It works in the browser and in Node.js, supporting desktop, web, and mobile wallets built on web technologies – including iOS Safari and Android Chrome. A Rust crate is also available for native desktop applications.
+It works in the browser and in Node.js. All major browsers are supported — see the [Browser Compatibility](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm#browser-compatibility) section of the npm package for details. A [browser integration example](https://github.com/input-output-hk/mithril/tree/main/examples/client-wasm-web) is available if you want to see it in action. A [Rust crate](https://crates.io/crates/mithril-client) is also available for native desktop applications.
 
 Native mobile bindings for Swift and Kotlin are not yet available, but are on the roadmap. If you're building a native iOS or Android wallet and want to get ahead of this, reach out — the underlying C libraries are already being compiled as part of the build.
 
@@ -87,12 +87,6 @@ Have a question during integration? Reach out in the [#ask-mithril](https://disc
   </svg>
   <span>#ask-mithril</span>
 </a>
-
-:::note
-
-You'll need to be a member of the [IOG Discord server](https://discord.gg/5kaErDKDRq) to access this channel.
-
-:::
 
 ## For wallet users
 
