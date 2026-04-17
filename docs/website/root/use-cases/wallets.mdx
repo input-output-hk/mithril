@@ -22,13 +22,13 @@ When a user submits a transaction, Mithril verifies that it was included on the 
 
 For users, this provides faster perceived finality. A wallet can present a meaningful ‘confirmed’ state earlier, with stronger guarantees than relying on block confirmations alone.
 
-### How It Fits Into Your Existing Stack
+### How it fits into existing stacks
 
-Most light wallets already rely on a hosted API or indexer for balance lookups and UTxO queries — services like Blockfrost or Koios. Mithril doesn't replace that. What it adds is a trustless verification layer on top: rather than taking your data provider's word that a transaction landed, you can cryptographically confirm it against a certificate chain secured by Cardano's actual stake distribution.
+Most light wallets already rely on a hosted API or indexer for balance lookups and UTXO queries, such as Blockfrost or Koios. Mithril does not replace these services. Instead, it adds a trustless verification layer: rather than relying on a data provider to confirm that a transaction was included, the wallet can verify this cryptographically against a certificate chain secured by Cardano’s stake distribution.
 
-This matters for security. If your data provider is compromised or returns bad data, a Mithril proof will fail to verify — your wallet catches the discrepancy rather than silently showing users incorrect state. A compromised API can't fabricate a valid Mithril proof.
+This improves security. If a data provider is compromised or returns incorrect data, a Mithril proof will fail to verify, allowing the wallet to detect the discrepancy instead of presenting an incorrect state. A compromised API cannot produce a valid Mithril proof.
 
-The result is an architecture that keeps what already works while meaningfully reducing the trust your users have to place in third-party infrastructure.
+The result is an architecture that preserves existing components while reducing the level of trust required in third-party infrastructure.
 
 ### Integration
 
