@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-sidebar_label: Cardano blocks & transactions
+sidebar_label: Cardano blocks and transactions
 ---
 
 # Cardano blocks and transactions
@@ -11,9 +11,9 @@ This new certification will supersede the current [certification](./cardano-tran
 
 :::
 
-The Mithril protocol supports the certification of **Cardano blocks and their transactions (since genesis)**. This allows users to verify the authenticity of both a block and its transactions without downloading the entire Cardano blockchain. This is particularly useful for lightweight clients, such as mobile wallets, which may lack the resources to store the entire blockchain.
+The Mithril protocol supports the certification of **Cardano blocks and their transactions (since genesis)**. This enables users to verify the authenticity of both blocks and their transactions without downloading the entire blockchain. This is particularly useful for lightweight clients, such as mobile wallets, which may lack the resources to store it.
 
-To achieve this, Mithril signers and aggregators independently compute a message representing the **Cardano blocks and their transactions** and apply the Mithril protocol to jointly sign it. A proof of membership is then generated on demand for the subset of blocks or transactions a Mithril client attempts to verify. This proof can be validated against the signed message, which is included in the Mithril certificate.
+To achieve this, Mithril signers and aggregators independently compute a message representing **Cardano blocks and their transactions**, then apply the Mithril protocol to jointly sign it. A proof of membership is then generated on demand for the subset of blocks or transactions that a Mithril client attempts to verify. This proof can be validated against the signed message included in the Mithril certificate.
 
 A key design choice is the **combination of blocks and transactions in the same Merkle structure**. This avoids running multiple signing rounds (one for blocks and one for transactions), which would have increased the overall operating costs for SPOs participating in the Mithril protocol.
 
@@ -51,13 +51,13 @@ The leaf identifier for a transaction is: `Tx/{transaction_hash}/{block_hash}/{b
 
 ### Depth from the tip of the chain
 
-Unlike the previous Cardano transactions certification, the **depth from the tip of the chain** is certified alongside the block number. The signed message includes three parts:
+Unlike the previous Cardano transaction certification, the **depth from the tip of the chain** is certified alongside the block number. The signed message includes three parts:
 
 - The **Merkle root** of the blocks and transactions set
 - The **latest block number** signed
 - The **block number offset** (the security parameter representing the distance from the tip).
 
-The block number of the chain tip at the time of the snapshot can be derived as `block_number_signed + block_number_offset`. This allows the end user to **decide for themselves whether a block or transaction is final enough** for their use case, rather than relying on a fixed finality threshold chosen by the protocol. A user who needs stronger finality guarantees can wait for a greater depth, while a user who tolerates more risk can accept blocks closer to the tip.
+The block number of the chain tip at the time of the snapshot can be derived as `block_number_signed + block_number_offset`. This allows the end user to **decide for themselves whether a block or transaction is final enough** for their use case, rather than relying on a fixed finality threshold set by the protocol. A user who needs stronger finality guarantees can wait for a greater depth, while a user who tolerates more risk can accept blocks closer to the tip.
 
 :::info
 
@@ -69,7 +69,7 @@ It is also worth noting that a new signature round is **triggered at a constant 
 
 [![Design of the certification of the Cardano blocks and transactions](./images/cardano-blocks-transactions/end-to-end-process.jpg)](./images/cardano-blocks-transactions/end-to-end-process.jpg)
 
-<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End to end certification for Cardano blocks and transactions</small></div>
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano blocks and transactions</small></div>
 
 :::info
 
@@ -79,14 +79,14 @@ Learn about the Mithril certification steps [here](./README.mdx).
 
 ### Message computation
 
-Creating a Merkle tree with millions of blocks and `100 million` transactions is impractical due to high memory usage and long computation times, which exceed the operational capacity of the signer. However, a **Merkle forest** offers a suitable solution. In this structure, the leaves of the signed Merkle tree are the roots of separate Merkle trees, each representing a contiguous block range. Each block range Merkle tree contains both the block leaves and the transaction leaves for the blocks within that range.
+Creating a Merkle tree with millions of blocks and `100 million` transactions is impractical due to high memory usage and long computation times that exceed the signer's operational capacity. However, a **Merkle forest** offers a suitable solution. In this structure, the leaves of the signed Merkle tree are the roots of separate Merkle trees, each representing a contiguous block range. Each Merkle tree block range contains both the block leaves and the transaction leaves for the blocks within that range.
 
-Within each block range Merkle tree, the leaves follow a **strict ordering**:
+Within each Merkle tree block range, leaves follow a **strict ordering**:
 
 1. All **blocks** come first, sorted by block number, then slot number, then block hash
 2. All **transactions** come after, sorted by block number, then slot number, then block hash, then transaction hash.
 
-The blocks are divided into **block ranges** of `15` blocks. Each block range Merkle tree contains the block leaves and their associated transaction leaves (`~150-1.5k` transactions per block range on the Cardano mainnet).
+The blocks are divided into **block ranges** of `15` blocks. Each Merkle tree block range contains the block leaves and their associated transaction leaves (`~150-1.5k` transactions per block range on the Cardano mainnet).
 This reduces the number of leaves in the Merkle forest to approximately `1 million` on the Cardano mainnet, about `100` times fewer than the total number of blocks and transactions in the blockchain.
 
 #### Partial block ranges
@@ -97,7 +97,7 @@ When the signed block number does not align with a block range boundary, the las
 
 <div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation when aggregating on the aggregator</small></div>
 
-The process is almost the same on the signer, except that the blocks and transactions of the block ranges are ephemerally stored and only their compressed representation is kept in the long run (the Merkle root of the block range Merkle tree) once the blocks are final (older than `k` blocks from the tip of the chain, `2160` on the Cardano mainnet). This allows drastic compression of the storage on the signers.
+The process is almost the same on the signer, except that the blocks and transactions of the block ranges are ephemerally stored and only their compressed representation is kept in the long run (the Merkle root of the Merkle tree block range) once the blocks are final (older than `k` blocks from the tip of the chain, `2160` on the Cardano mainnet). This allows drastic compression of the signers' storage.
 
 [![Design of the certification of the Cardano blocks and transactions](./images/cardano-blocks-transactions/message-signer.jpg)](./images/cardano-blocks-transactions/message-signer.jpg)
 

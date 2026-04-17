@@ -28,7 +28,7 @@ The stake distribution is:
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/end-to-end-process.jpg)](./images/stake-distribution/end-to-end-process.jpg)
 
-<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End to end certification for Cardano transactions</small></div>
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano transactions</small></div>
 
 :::info
 
