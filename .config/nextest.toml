@@ -6,6 +6,8 @@
 failure-output = "immediate-final"
 # Do not cancel the test run on the first failure.
 fail-fast = false
+# Report test as "slow" if they take more than 30s to run
+slow-timeout = "30s"
 
 [profile.ci.junit]
 path = "tests-result.junit.xml"
