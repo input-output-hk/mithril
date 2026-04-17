@@ -5,11 +5,18 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     AggregationError, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
-    RegistrationEntryForSnark, Signer, SingleSignature, StmResult,
+    RegistrationEntryForSnark, Signer, SignerIndex, SingleSignature, StmResult,
     signature_scheme::BaseFieldElement,
 };
 
 use super::AggregateVerificationKeyForSnark;
+
+/// Domain Separation Tag (DST) for deriving the selection seed from the signed message.
+const DOMAIN_SEPARATION_TAG_SELECTION_SEED: &[u8] = b"MITHRIL_SNARK_SELECTION_SEED";
+/// Domain Separation Tag (DST) for the index selection hash.
+const DOMAIN_SEPARATION_TAG_SELECTION_INDEX: &[u8] = b"MITHRIL_SNARK_SELECTION_INDEX";
+/// Domain Separation Tag (DST) for the deduplication hash.
+const DOMAIN_SEPARATION_TAG_SELECTION_DEDUP: &[u8] = b"MITHRIL_SNARK_SELECTION_DEDUP";
 
 /// Clerk for managing the SNARK proof system.
 ///
@@ -82,6 +89,7 @@ impl SnarkClerk {
         message_to_sign: &[BaseFieldElement; 2],
     ) -> StmResult<BTreeMap<LotteryIndex, SingleSignature>> {
         let mut seed_hasher = Sha256::new();
+        seed_hasher.update(DOMAIN_SEPARATION_TAG_SELECTION_SEED);
         seed_hasher.update(message_to_sign[0].to_bytes());
         seed_hasher.update(message_to_sign[1].to_bytes());
         let seed: [u8; 32] = seed_hasher.finalize().into();
@@ -89,10 +97,7 @@ impl SnarkClerk {
         // Collect all valid signatures grouped by lottery index.
         let mut index_to_signatures: BTreeMap<LotteryIndex, Vec<SingleSignature>> = BTreeMap::new();
         for signature in signatures {
-            let (Some(snark_indices), Some(_)) = (
-                signature.get_snark_signature_indices(),
-                signature.snark_signature.as_ref(),
-            ) else {
+            let Some(snark_indices) = signature.get_snark_signature_indices() else {
                 continue;
             };
 
@@ -106,56 +111,79 @@ impl SnarkClerk {
             return Err(AggregationError::NotEnoughSignatures(count, parameters.k).into());
         }
 
-        // Select: sort indices by `hash_index(seed, lottery_index)` and take the k smallest.
-        let mut indices: Vec<_> = index_to_signatures.keys().copied().collect();
-        indices.sort_by(|a, b| {
-            hash_index(&seed, *a)
-                .cmp(&hash_index(&seed, *b))
-                .then_with(|| a.cmp(b))
-        });
-        indices.truncate(parameters.k as usize);
+        // Select: rank indices by their hash and keep the k smallest.
+        let mut hashed_indices: Vec<HashedKey> = index_to_signatures
+            .keys()
+            .map(|&lottery_index| HashedKey::for_lottery_index(&seed, lottery_index))
+            .collect();
+        hashed_indices.sort();
+        hashed_indices.truncate(parameters.k as usize);
 
-        // Deduplicate: for each selected index, pick the signer with the smallest
-        // `hash_dedup(seed || lottery_index || signer_index)`.
+        // Deduplicate: for each selected index, keep the signer with the smallest hash.
         let mut result = BTreeMap::new();
-        for index in indices {
-            let candidates = index_to_signatures.remove(&index).ok_or_else(|| {
+        for hashed_index in hashed_indices {
+            let lottery_index = hashed_index.index;
+            let candidates = index_to_signatures.remove(&lottery_index).ok_or_else(|| {
                 anyhow!(
-                    "Unexpected deduplication state: signature map missing lottery index {index}"
+                    "Unexpected deduplication state: signature map missing lottery index {lottery_index}"
                 )
             })?;
             let winner = candidates
                 .into_iter()
-                .min_by_key(|sig| hash_dedup(&seed, index, sig.signer_index))
+                .min_by_key(|sig| HashedKey::for_signer_index(&seed, lottery_index, sig.signer_index))
                 .ok_or_else(|| {
                     anyhow!(
-                        "Unexpected deduplication state: no candidates for lottery index {index}"
+                        "Unexpected deduplication state: no candidates for lottery index {lottery_index}"
                     )
                 })?;
-            result.insert(index, winner);
+            result.insert(lottery_index, winner);
         }
 
         Ok(result)
     }
 }
 
-/// Hash for index selection: `SHA-256(seed || lottery_index)`.
-/// Determines which k indices are selected, independent of who signed them.
-fn hash_index(seed: &[u8; 32], lottery_index: LotteryIndex) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(seed);
-    hasher.update(lottery_index.to_le_bytes());
-    hasher.finalize().into()
+/// A hash paired with a tie-breaker for deterministic ordering.
+///
+/// Used in two contexts:
+/// - **Index selection:** hash is `SHA-256(seed || lottery_index)`, tie-breaker is the lottery index.
+/// - **Deduplication:** hash is `SHA-256(seed || lottery_index || signer_index)`, tie-breaker is
+///   the signer index.
+///
+/// Ordering is by hash first, then by the tie-breaker to ensure a total ordering.
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+struct HashedKey {
+    hash: [u8; 32],
+    index: u64,
 }
 
-/// Hash for deduplication: `SHA-256(seed || lottery_index || signer_index)`.
-/// When multiple signers claim the same lottery index, the smallest hash wins.
-fn hash_dedup(seed: &[u8; 32], lottery_index: LotteryIndex, signer_index: u64) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(seed);
-    hasher.update(lottery_index.to_le_bytes());
-    hasher.update(signer_index.to_le_bytes());
-    hasher.finalize().into()
+impl HashedKey {
+    fn for_lottery_index(seed: &[u8; 32], lottery_index: LotteryIndex) -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(DOMAIN_SEPARATION_TAG_SELECTION_INDEX);
+        hasher.update(seed);
+        hasher.update(lottery_index.to_le_bytes());
+        Self {
+            hash: hasher.finalize().into(),
+            index: lottery_index,
+        }
+    }
+
+    fn for_signer_index(
+        seed: &[u8; 32],
+        lottery_index: LotteryIndex,
+        signer_index: SignerIndex,
+    ) -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(DOMAIN_SEPARATION_TAG_SELECTION_DEDUP);
+        hasher.update(seed);
+        hasher.update(lottery_index.to_le_bytes());
+        hasher.update(signer_index.to_le_bytes());
+        Self {
+            hash: hasher.finalize().into(),
+            index: signer_index,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -163,8 +191,10 @@ mod tests {
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
+    use sha2::{Digest, Sha256};
     use std::collections::HashSet;
 
+    use super::{DOMAIN_SEPARATION_TAG_SELECTION_SEED, HashedKey};
     use crate::{
         AggregationError, Initializer, KeyRegistration, LotteryIndex, MithrilMembershipDigest,
         Parameters, RegistrationEntry, Signer, SingleSignature,
@@ -212,8 +242,8 @@ mod tests {
         (signers, clerk)
     }
 
-    // Collect signatures, populate their SNARK winning indices, and return
-    // the derived `message_to_sign` so callers can reuse it.
+    // Collect signatures and populate their SNARK winning indices using the
+    // provided `message_to_sign`.
     fn collect_signatures_with_indices(
         signers: &[Signer<D>],
         clerk: &SnarkClerk,
@@ -412,6 +442,74 @@ mod tests {
     }
 
     #[test]
+    fn different_messages_produce_different_selections() {
+        let mut rng = ChaCha20Rng::from_seed([17u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+
+        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+
+        let msg_a = [1u8; 32];
+        let msg_b = [2u8; 32];
+        let message_to_sign_a = compute_message_to_sign(&clerk, &msg_a);
+        let message_to_sign_b = compute_message_to_sign(&clerk, &msg_b);
+        let sigs_a = collect_signatures_with_indices(&signers, &clerk, &msg_a, &message_to_sign_a);
+        let sigs_b = collect_signatures_with_indices(&signers, &clerk, &msg_b, &message_to_sign_b);
+
+        let selection_a =
+            SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs_a, &message_to_sign_a)
+                .expect("should succeed");
+        let selection_b =
+            SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs_b, &message_to_sign_b)
+                .expect("should succeed");
+
+        let indices_a: Vec<LotteryIndex> = selection_a.keys().copied().collect();
+        let indices_b: Vec<LotteryIndex> = selection_b.keys().copied().collect();
+        assert_ne!(
+            indices_a, indices_b,
+            "Different messages should produce different selections"
+        );
+    }
+
+    #[test]
+    fn selection_is_independent_of_input_order() {
+        let mut rng = ChaCha20Rng::from_seed([21u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 5,
+            phi_f: 0.8,
+        };
+
+        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+        let msg = [9u8; 32];
+        let message_to_sign = compute_message_to_sign(&clerk, &msg);
+        let sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
+
+        let mut sigs_shuffled = sigs.clone();
+        sigs_shuffled.reverse();
+
+        let selection =
+            SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign)
+                .expect("should succeed");
+        let selection_shuffled = SnarkClerk::select_valid_signatures_for_k_indices(
+            &params,
+            &sigs_shuffled,
+            &message_to_sign,
+        )
+        .expect("should succeed");
+
+        let indices: Vec<LotteryIndex> = selection.keys().copied().collect();
+        let indices_shuffled: Vec<LotteryIndex> = selection_shuffled.keys().copied().collect();
+        assert_eq!(
+            indices, indices_shuffled,
+            "Selection must be independent of input signature order"
+        );
+    }
+
+    #[test]
     fn selection_distributes_fairly_across_index_range() {
         let mut rng = ChaCha20Rng::from_seed([99u8; 32]);
         let m = 200_u64;
@@ -453,10 +551,58 @@ mod tests {
         );
         let lower_ratio = lower_half_count as f64 / total as f64;
         assert!(
-            (0.2..=0.8).contains(&lower_ratio),
+            (0.4..=0.6).contains(&lower_ratio),
             "Selection is biased: lower half got {lower_half_count}/{total} \
              ({:.1}%), expected roughly even distribution",
             lower_ratio * 100.0,
         );
+    }
+
+    #[test]
+    fn deduplication_picks_smaller_hash_winner() {
+        let mut rng = ChaCha20Rng::from_seed([33u8; 32]);
+        let params = Parameters {
+            m: 200,
+            k: 1,
+            phi_f: 0.8,
+        };
+
+        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+        let msg = [11u8; 32];
+        let message_to_sign = compute_message_to_sign(&clerk, &msg);
+        let mut sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
+        assert!(sigs.len() >= 2, "need at least two valid signatures");
+
+        // Force the first two signatures to both claim the same lottery index.
+        let contested_index: LotteryIndex = 7;
+        sigs[0].set_snark_signature_indices(&[contested_index]);
+        sigs[1].set_snark_signature_indices(&[contested_index]);
+        let contested_sigs = vec![sigs[0].clone(), sigs[1].clone()];
+
+        // Recompute the seed the same way production does.
+        let mut seed_hasher = Sha256::new();
+        seed_hasher.update(DOMAIN_SEPARATION_TAG_SELECTION_SEED);
+        seed_hasher.update(message_to_sign[0].to_bytes());
+        seed_hasher.update(message_to_sign[1].to_bytes());
+        let seed: [u8; 32] = seed_hasher.finalize().into();
+
+        let expected_winner_signer_index = contested_sigs
+            .iter()
+            .min_by_key(|sig| HashedKey::for_signer_index(&seed, contested_index, sig.signer_index))
+            .expect("at least one candidate")
+            .signer_index;
+
+        let result = SnarkClerk::select_valid_signatures_for_k_indices(
+            &params,
+            &contested_sigs,
+            &message_to_sign,
+        )
+        .expect("selection should succeed");
+
+        assert_eq!(result.len(), 1);
+        let winner = result
+            .get(&contested_index)
+            .expect("contested index should be selected");
+        assert_eq!(winner.signer_index, expected_winner_signer_index);
     }
 }
