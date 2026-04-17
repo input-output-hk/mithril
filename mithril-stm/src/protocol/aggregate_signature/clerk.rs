@@ -13,7 +13,7 @@ use crate::{
 #[cfg(feature = "future_snark")]
 use crate::AggregateSignatureError;
 #[cfg(feature = "future_snark")]
-use crate::proof_system::{SnarkClerk, SnarkProver};
+use crate::proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver};
 
 use super::{AggregateSignature, AggregateSignatureType};
 
@@ -90,20 +90,18 @@ impl<D: MembershipDigest> Clerk<D> {
                 let clerk = self
                     .get_snark_clerk()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
-                let merkle_tree_depth = clerk
-                    .closed_key_registration
-                    .number_of_registered_parties()
-                    .next_power_of_two()
-                    .trailing_zeros();
-                SnarkProver::try_new_non_deterministic(&clerk.parameters, merkle_tree_depth)?
-                    .aggregate_signatures(clerk, sigs, msg)
-                    .map(|p| AggregateSignature::Snark(Box::new(p)))
-                    .with_context(|| {
-                        format!(
-                            "Signatures failed to aggregate for type {}",
-                            AggregateSignatureType::Snark
-                        )
-                    })
+                SnarkProver::try_new_non_deterministic(
+                    &clerk.parameters,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                )?
+                .aggregate_signatures(clerk, sigs, msg)
+                .map(|p| AggregateSignature::Snark(Box::new(p)))
+                .with_context(|| {
+                    format!(
+                        "Signatures failed to aggregate for type {}",
+                        AggregateSignatureType::Snark
+                    )
+                })
             }
         }
     }

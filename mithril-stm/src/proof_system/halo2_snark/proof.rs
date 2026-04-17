@@ -369,6 +369,9 @@ mod tests {
         let result = snark_proof.verify(message.as_slice(), &avk);
 
         assert!(result.is_ok());
+        snark_proof
+            .verify(message.as_slice(), &avk)
+            .expect("SNARK proof verification should succeed");
     }
 
     #[test]

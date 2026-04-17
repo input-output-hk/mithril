@@ -22,7 +22,7 @@ pub(crate) struct MerklePathInputs<'a> {
     pub(crate) merkle_siblings: &'a [AssignedNative<CircuitBase>],
     /// Assigned sibling positions for each Merkle path level.
     pub(crate) merkle_positions: &'a [AssignedBit<CircuitBase>],
-    /// Assigned sibling positions for each Merkle path level.
+    /// Expected Merkle tree depth, used for error reporting on empty paths.    
     pub(crate) merkle_tree_depth: u32,
 }
 
@@ -42,9 +42,41 @@ pub(crate) fn verify_merkle_path(
             inputs.lottery_target_value.clone(),
         ],
     )?;
-    // Compute the first node after the leaves outside the loop
-    // to not ignore a potential padding zero leaf
-    // other zero leaf are ignored
+
+    // Compute the root of the merkle tree by ignoring the padding of 0 values
+    // present in the merkle path.
+    //
+    // Example: A merkle tree of depth 2 with merkle path padded to depth 3
+    //
+    // Regular merkle tree of depth 2, the letter represent the hash of the leaves
+    //
+    //          root = H(H(A,B), H(C,H(0)))
+    //         /    \
+    //      H(A,B)   H(C,H(0))
+    //      /   \   /
+    //     A     B C
+    //
+    // In this context, the regular merkle path of C is: [H(0), H(A,B)]
+    //
+    // Padded merkle tree representation to a depth 3
+    //
+    //             fake root (never computed)
+    //             /       \
+    //            /         \
+    //          root         0
+    //         /    \
+    //      H(A,B)   H(C,H(0))
+    //      /   \   /
+    //     A     B C
+    //
+    // In this context, the merkle path of C is: [H(0), H(A,B), 0]. This process can be
+    // extended to any arbitrary depth.
+    //
+    //  During the computation of the root, the values 0 are ignored in the accumulator
+    // so the final result is the root of the original merkle tree.
+    //
+    // The first sibling can never be padding so there is not need to check for a 0 value.
+    // This saves a few constraints per loop.
     let first_sibling = inputs
         .merkle_siblings
         .first()

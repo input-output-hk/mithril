@@ -48,8 +48,8 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
             nodes[num_nodes - n + i] = D::digest(leaves[i].as_bytes_for_merkle_tree()).to_vec();
         }
 
+        let z = D::digest([0u8]).to_vec();
         for i in (0..num_nodes - n).rev() {
-            let z = D::digest([0u8]).to_vec();
             let left = if left_child(i) < num_nodes {
                 &nodes[left_child(i)]
             } else {
@@ -227,8 +227,6 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     }
 
     #[cfg(feature = "future_snark")]
-    // TODO: remove this allow dead_code directive when function is called or future_snark is activated
-    #[allow(dead_code)]
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree and pad it to reach the
     /// given length.
@@ -623,7 +621,9 @@ mod tests {
             let leaves = make_leaves(4); // natural depth = 2
             let tree = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&leaves);
             let path_length = 5u32;
+
             let pf = tree.compute_merkle_tree_path_fixed_length(0, path_length);
+
             assert_eq!(pf.values.len(), path_length as usize);
         }
 
