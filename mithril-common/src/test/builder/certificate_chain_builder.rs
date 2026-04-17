@@ -270,8 +270,8 @@ impl<'a> CertificateChainBuilder<'a> {
             total_signers_per_epoch_processor: &|epoch| min(2 + *epoch as usize, 5),
             genesis_certificate_processor: &|certificate, _, _| certificate,
             standard_certificate_processor: &|certificate, _| certificate,
-            certificate_chaining_method: Default::default(),
-            aggregate_signature_type: Default::default(),
+            certificate_chaining_method: CertificateChainingMethod::default(),
+            aggregate_signature_type: AggregateSignatureType::default(),
             mithril_era: *SupportedEra::eras().first().unwrap(),
         }
     }
@@ -657,7 +657,7 @@ mod test {
             .with_certificates_per_epoch(certificates_per_epoch)
             .build_epochs_sequence()
             .map(|epoch| *epoch)
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn build_certificate_index_and_epoch_numbers_sequence(
@@ -669,7 +669,7 @@ mod test {
             .with_certificates_per_epoch(certificates_per_epoch)
             .build_certificate_index_and_epoch_sequence()
             .map(|(certificate_index, epoch)| (certificate_index, *epoch))
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn build_epoch_numbers_sequence_in_certificate_chain(
@@ -682,19 +682,7 @@ mod test {
         )
         .iter()
         .map(|(_certificate_index, epoch)| *epoch)
-        .collect::<Vec<_>>()
-    }
-
-    fn build_certificate_chain(
-        total_certificates: u64,
-        certificates_per_epoch: u64,
-    ) -> Vec<Certificate> {
-        let certificate_chain_fixture = CertificateChainBuilder::default()
-            .with_total_certificates(total_certificates)
-            .with_certificates_per_epoch(certificates_per_epoch)
-            .build();
-
-        certificate_chain_fixture.certificates_chained
+        .collect()
     }
 
     #[test]
@@ -773,20 +761,48 @@ mod test {
     }
 
     #[test]
-    fn builds_certificate_chain_with_correct_length() {
-        assert_eq!(4, build_certificate_chain(4, 1).len());
-        assert_eq!(4, build_certificate_chain(4, 2).len());
-        assert_eq!(4, build_certificate_chain(4, 3).len());
-        assert_eq!(4, build_certificate_chain(4, 4).len());
-        assert_eq!(5, build_certificate_chain(5, 1).len());
-        assert_eq!(5, build_certificate_chain(5, 2).len());
-        assert_eq!(5, build_certificate_chain(5, 3).len());
-        assert_eq!(7, build_certificate_chain(7, 3).len());
-        assert_eq!(15, build_certificate_chain(15, 3).len());
+    fn built_chain_sequence_always_contains_exactly_the_requested_number_of_certificates() {
+        assert_eq!(
+            4,
+            build_certificate_index_and_epoch_numbers_sequence(4, 1).len()
+        );
+        assert_eq!(
+            4,
+            build_certificate_index_and_epoch_numbers_sequence(4, 2).len()
+        );
+        assert_eq!(
+            4,
+            build_certificate_index_and_epoch_numbers_sequence(4, 3).len()
+        );
+        assert_eq!(
+            4,
+            build_certificate_index_and_epoch_numbers_sequence(4, 4).len()
+        );
+        assert_eq!(
+            5,
+            build_certificate_index_and_epoch_numbers_sequence(5, 1).len()
+        );
+        assert_eq!(
+            5,
+            build_certificate_index_and_epoch_numbers_sequence(5, 2).len()
+        );
+        assert_eq!(
+            5,
+            build_certificate_index_and_epoch_numbers_sequence(5, 3).len()
+        );
+        assert_eq!(
+            7,
+            build_certificate_index_and_epoch_numbers_sequence(7, 3).len()
+        );
+        assert_eq!(
+            15,
+            build_certificate_index_and_epoch_numbers_sequence(15, 3).len()
+        );
     }
 
     #[test]
-    fn builds_valid_epochs_sequence() {
+    fn epoch_sequence_includes_two_extra_epochs_one_for_the_genesis_certificate_and_one_for_last_next_avk_computation()
+     {
         assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(3, 1));
         assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(4, 2));
         assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(5, 2));
@@ -798,7 +814,7 @@ mod test {
     }
 
     #[test]
-    fn builds_valid_certificate_index_and_epoch_numbers_sequence() {
+    fn certificates_in_chain_are_grouped_under_the_right_epoch() {
         assert_eq!(
             vec![1, 2, 3],
             build_epoch_numbers_sequence_in_certificate_chain(3, 1)
@@ -823,14 +839,13 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn panics_building_invalid_epochs_sequence_no_certificates_per_epoch() {
+    fn epoch_sequence_panics_when_certificates_per_epoch_is_zero() {
         build_epoch_numbers_sequence(3, 0);
     }
 
     #[test]
     #[should_panic]
-    fn panics_building_invalid_epochs_sequence_less_total_certificates_than_certificates_per_epoch()
-    {
+    fn epoch_sequence_panics_when_certificates_per_epoch_exceeds_total_certificates() {
         build_epoch_numbers_sequence(3, 5);
     }
 
@@ -962,7 +977,7 @@ mod test {
     }
 
     #[test]
-    fn builds_certificate_chain_chained_by_default_to_master_certificates() {
+    fn master_chaining_links_each_certificate_to_the_first_certificate_of_its_epoch() {
         fn create_fake_certificate(epoch: Epoch, index_in_epoch: u64) -> Certificate {
             Certificate {
                 epoch,
@@ -1020,7 +1035,7 @@ mod test {
     }
 
     #[test]
-    fn builds_certificate_chain_chained_sequentially() {
+    fn sequential_chaining_links_each_certificate_to_its_immediate_predecessor() {
         fn create_fake_certificate(epoch: Epoch, index_in_epoch: u64) -> Certificate {
             Certificate {
                 epoch,
@@ -1127,24 +1142,24 @@ mod test {
         use super::*;
 
         #[test]
-        fn get_genesis_certificate() {
+        fn genesis_certificate_is_always_the_last_element_of_the_chain() {
             let chain_with_only_a_genesis =
                 CertificateChainBuilder::new().with_total_certificates(1).build();
             assert!(chain_with_only_a_genesis.genesis_certificate().is_genesis());
 
             let chain_with_multiple_certificates =
-                CertificateChainBuilder::new().with_total_certificates(10).build();
+                CertificateChainBuilder::new().with_total_certificates(3).build();
             assert!(chain_with_multiple_certificates.genesis_certificate().is_genesis());
         }
 
         #[test]
-        fn get_latest_certificate() {
+        fn latest_certificate_is_the_first_element_of_the_chain() {
             let chain_with_only_a_genesis =
                 CertificateChainBuilder::new().with_total_certificates(1).build();
             assert!(chain_with_only_a_genesis.latest_certificate().is_genesis());
 
             let chain_with_multiple_certificates =
-                CertificateChainBuilder::new().with_total_certificates(10).build();
+                CertificateChainBuilder::new().with_total_certificates(3).build();
             assert_eq!(
                 chain_with_multiple_certificates.latest_certificate(),
                 chain_with_multiple_certificates.first().unwrap()
@@ -1152,7 +1167,7 @@ mod test {
         }
 
         #[test]
-        fn path_to_genesis_from_a_chain_with_one_certificate_per_epoch() {
+        fn path_to_genesis_traverses_the_full_chain_when_one_certificate_per_epoch() {
             let chain = CertificateChainBuilder::new()
                 .with_total_certificates(5)
                 .with_certificates_per_epoch(1)
@@ -1165,7 +1180,7 @@ mod test {
         }
 
         #[test]
-        fn path_to_genesis_from_a_chain_with_multiple_certificates_per_epoch() {
+        fn path_to_genesis_skips_sibling_certificates_of_the_same_epoch() {
             let chain = CertificateChainBuilder::new()
                 .with_total_certificates(9)
                 .with_certificates_per_epoch(3)
@@ -1180,7 +1195,7 @@ mod test {
         }
 
         #[test]
-        fn reversed_chain() {
+        fn reversed_chain_returns_certificates_from_genesis_to_latest() {
             let chain = CertificateChainBuilder::new()
                 .with_total_certificates(5)
                 .with_certificates_per_epoch(2)
@@ -1189,6 +1204,7 @@ mod test {
             let expected: Vec<Certificate> =
                 chain.certificates_chained.clone().into_iter().rev().collect();
             assert_eq!(chain.reversed_chain(), expected);
+            assert!(chain.reversed_chain()[0].is_genesis());
         }
     }
 }
