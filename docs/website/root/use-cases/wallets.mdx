@@ -16,11 +16,11 @@ Cardano users expect fast, reliable confirmation that their transactions have la
 
 :::
 
-### What Mithril Gives Your Wallet
+### What Mithril provides for wallets
 
-When a user submits a transaction, Mithril lets you confirm it was included in the Cardano chain without running a full node and without trusting a centralized API. Instead of relying on a server telling your wallet "yes, that tx went through," you get a Merkle proof tied to a certificate signed by a quorum of SPOs weighted by stake. Your wallet verifies the proof locally.
+When a user submits a transaction, Mithril verifies that it was included on the Cardano blockchain without running a full node or relying on a centralized API. Instead of depending on a server response, the wallet receives a Merkle proof linked to a certificate signed by a stake-weighted quorum of SPOs. The wallet verifies this proof locally.
 
-For users, this means faster perceived finality — you can surface a meaningful "confirmed" state sooner, and with stronger guarantees than a block count alone provides.
+For users, this provides faster perceived finality. A wallet can present a meaningful ‘confirmed’ state earlier, with stronger guarantees than relying on block confirmations alone.
 
 ### How It Fits Into Your Existing Stack
 
