@@ -10,7 +10,7 @@ export default function FetchingProofPane({ certifiedMessageType, itemHashes }) 
         <thead>
           <tr>
             <th>
-              <span className="text-capitalize">{certifiedMessageType.name}</span> Hash to certify
+              <span className="text-capitalize">{certifiedMessageType.name}</span> hash to certify
             </th>
           </tr>
         </thead>
