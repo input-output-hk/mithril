@@ -34,18 +34,18 @@ mithril-client = { path = "../mithril-client", default-features = false, feature
 serde = { workspace = true }
 serde-wasm-bindgen = "0.6.5"
 serde_json = { workspace = true }
-wasm-bindgen = "0.2.108"
-wasm-bindgen-futures = "0.4.58"
-web-sys = { version = "0.3.85", features = ["BroadcastChannel", "console", "Storage", "Window"] }
+wasm-bindgen = "0.2.118"
+wasm-bindgen-futures = "0.4.68"
+web-sys = { version = "0.3.95", features = ["BroadcastChannel", "console", "Storage", "Window"] }
 
 [target.'cfg(all(target_family = "wasm"))'.dependencies]
 # This getrandom version is required without the future_snark feature, and it can be removed once the future_snark feature is enabled.
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.4", features = ["js"] }
 # This getrandom version is required with the future_snark feature (because of Midnight ZK dependency)
-getrandom-future-snark = { package = "getrandom", version = "0.4.0", features = ["wasm_js"] }
+getrandom-future-snark = { package = "getrandom", version = "0.4.2", features = ["wasm_js"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script" }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.58"
+wasm-bindgen-test = "0.3.68"

@@ -43,7 +43,7 @@ ciborium = "0.2.2"
 ckb-merkle-mountain-range = "0.6.1"
 digest = { workspace = true }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
-fixed = "1.30.0"
+fixed = "1.31.0"
 hex = { workspace = true }
 kes-summed-ed25519 = { version = "0.2.1", features = ["serde_enabled", "sk_clone_enabled"] }
 mithril-stm = { path = "../mithril-stm", version = ">=0.5", default-features = false }
@@ -55,8 +55,8 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.19"
 serde_json = { workspace = true }
-serde_with = "3.16.1"
-sha2 = "0.10.9"
+serde_with = "3.18.0"
+sha2 = "0.11.0"
 slog = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
@@ -65,7 +65,7 @@ typetag = "0.2.21"
 walkdir = "2.5.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen = "0.2.108"
+wasm-bindgen = "0.2.118"
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
