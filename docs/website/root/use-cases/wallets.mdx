@@ -47,7 +47,7 @@ The core flow is straightforward:
 1. Submit the transaction as you normally would
 2. Query the Mithril aggregator for a transaction proof once the tx hash is known
 3. Verify the proof against the current Mithril certificate chain
-4. Surface the confirmation to the user
+4. Surface the confirmation to the user.
 
 Proofs are available roughly every 30 blocks, with certification running ~100 blocks behind the tip to ensure finality. Factor this into how you communicate confirmation status to users.
 
