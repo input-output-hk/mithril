@@ -528,6 +528,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 
 [[package]]
+name = "binary-layout"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5845e3504cf59b9588fff324710f27ee519515b8a8a9f1207042da9a9e64f819"
+dependencies = [
+ "doc-comment",
+ "paste",
+]
+
+[[package]]
 name = "bincode"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1678,6 +1688,12 @@ checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
 dependencies = [
  "const-random",
 ]
+
+[[package]]
+name = "doc-comment"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "780955b8b195a21ab8e4ac6b60dd1dbdcec1dc6c51c0617964b08c81785e12c9"
 
 [[package]]
 name = "downcast"
@@ -4055,7 +4071,7 @@ dependencies = [
  "mithril-aggregator-client",
  "mithril-common",
  "mockall",
- "rand 0.10.0",
+ "rand 0.10.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -4189,7 +4205,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-common",
  "mockall",
- "rand 0.10.0",
+ "rand 0.10.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -4360,6 +4376,9 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-common",
  "mithril-doc",
+ "pallas-hardano",
+ "pallas-traverse",
+ "rand 0.10.1",
  "reqwest",
  "semver",
  "serde",
@@ -4564,7 +4583,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "proptest",
- "rand 0.10.0",
+ "rand 0.10.1",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "rayon",
@@ -5119,6 +5138,20 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "zeroize",
+]
+
+[[package]]
+name = "pallas-hardano"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "663e2e071fa7d655213f00c0a5bc17c7683b1a6a0b511bc8af4c16df8345a090"
+dependencies = [
+ "binary-layout",
+ "pallas-network",
+ "pallas-traverse",
+ "tap",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -5755,9 +5788,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc266eb313df6c5c09c1c7b1fbe2510961e5bcd3add930c1e31f7ed9da0feff8"
+checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
 dependencies = [
  "chacha20 0.10.0",
  "getrandom 0.4.1",

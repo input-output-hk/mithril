@@ -8,7 +8,13 @@ use mithril_common::{
     entities::{Epoch, SignedEntityTypeDiscriminants},
 };
 
-use crate::{Aggregator, MithrilInfrastructure, assertions};
+use crate::{
+    Aggregator, MithrilInfrastructure, assertions,
+    utils::{
+        randomly_take_blocks_hashes, randomly_take_transactions_hashes,
+        retrieve_blocks_transactions_from_immutable_files,
+    },
+};
 
 pub struct Spec {
     pub infrastructure: Arc<MithrilInfrastructure>,
@@ -208,6 +214,13 @@ impl Spec {
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<Epoch> {
         let expected_epoch_min = target_epoch - 3;
+        let immutable_files_directory = aggregator.db_directory().join("immutable");
+        let blocks_transactions =
+            retrieve_blocks_transactions_from_immutable_files(&immutable_files_directory)?;
+
+        let transaction_hashes = randomly_take_transactions_hashes(&blocks_transactions, 5);
+        let block_hashes = randomly_take_blocks_hashes(&blocks_transactions, 5);
+
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {
             let hash =
@@ -293,11 +306,12 @@ impl Spec {
             )
             .await?;
 
-            let transaction_hashes =
-                infrastructure.devnet().mithril_payments_transaction_hashes()?;
             let mut client = infrastructure.build_client(aggregator).await?;
-            assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
-                .await?;
+            assertions::assert_client_can_verify_transactions(
+                &mut client,
+                transaction_hashes.clone(),
+            )
+            .await?;
         }
 
         // Verify that Cardano blocks transactions artifacts are produced and signed correctly
@@ -319,13 +333,10 @@ impl Spec {
             )
             .await?;
 
-            let transaction_hashes =
-                infrastructure.devnet().mithril_payments_transaction_hashes()?;
             let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_transactions_v2(&mut client, transaction_hashes)
                 .await?;
 
-            let block_hashes = infrastructure.devnet().mithril_payments_block_hashes()?;
             let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_blocks(&mut client, block_hashes).await?;
         }

@@ -4,10 +4,12 @@ mod spec_utils;
 mod compatibility_checker;
 pub(crate) mod file_utils;
 mod formatting;
+mod immutable_files_utils;
 mod version_req;
 
 pub use compatibility_checker::*;
 pub use formatting::*;
+pub use immutable_files_utils::*;
 pub use mithril_command::MithrilCommand;
 pub use spec_utils::AttemptResult;
 pub use version_req::NodeVersion;
