@@ -13,14 +13,10 @@ use crate::entities::{
     },
 };
 
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
-
 /// BlockNumberOffset represents the offset of a block number
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
-#[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct BlockNumberOffset(pub u64);
 
 impl Display for BlockNumberOffset {

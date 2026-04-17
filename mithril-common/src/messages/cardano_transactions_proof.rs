@@ -1,11 +1,12 @@
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 use crate::StdError;
 use crate::entities::{
     BlockNumber, CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey,
     TransactionHash,
 };
 use crate::messages::CardanoTransactionsSetProofMessagePart;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -27,7 +28,18 @@ pub struct CardanoTransactionsProofsMessage {
     pub non_certified_transactions: Vec<TransactionHash>,
 
     /// Latest block number that has been certified
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub latest_block_number: BlockNumber,
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_class = "CardanoTransactionsProofs")]
+impl CardanoTransactionsProofsMessage {
+    /// Latest block number that has been certified
+    #[wasm_bindgen(getter)]
+    pub fn latest_block_number(&self) -> u64 {
+        *self.latest_block_number
+    }
 }
 
 #[cfg_attr(

@@ -1,10 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
+import CertifyHashesFormInput from "#/CertifyHashesFormInput";
+import { certifiedMessageTypes } from "#/CertifyCardanoBlocksOrTransactionsModal";
 
 function setup(maxHashesAllowedByRequest = 100) {
   const utils = [
-    render(<CardanoTransactionsFormInput maxAllowedHashesByRequest={maxHashesAllowedByRequest} />),
+    render(
+      <CertifyHashesFormInput
+        certifiedMessageType={certifiedMessageTypes.transaction}
+        maxAllowedHashesByRequest={maxHashesAllowedByRequest}
+      />,
+    ),
   ];
   return {
     input: screen.getByRole("textbox"),
@@ -12,7 +18,7 @@ function setup(maxHashesAllowedByRequest = 100) {
   };
 }
 
-describe("CardanoTransactionsFormInput", () => {
+describe("CertifyHashesFormInput", () => {
   it("Empty default to invalid", () => {
     const { input } = setup();
     expect(input.checkValidity()).toBeFalsy();

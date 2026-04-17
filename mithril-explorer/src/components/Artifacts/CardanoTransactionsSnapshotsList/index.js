@@ -6,12 +6,13 @@ import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
-import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
+import CertifyHashesFormInput from "#/CertifyHashesFormInput";
 import CertificateModal from "#/CertificateModal";
 import CertifyCardanoTransactionsModal from "#/CertifyCardanoTransactionsModal";
 import { defaultAggregatorCapabilities } from "@/constants";
 import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
+import { certifiedMessageTypes } from "#/CertifyCardanoBlocksOrTransactionsModal";
 
 export default function CardanoTransactionsSnapshotsList(props) {
   const [cardanoTransactionsSnapshots, setCardanoTransactionsSnapshots] = useState([]);
@@ -69,7 +70,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
     if (form.checkValidity() === true) {
       const formData = new FormData(form);
       const formJson = Object.fromEntries(formData.entries());
-      const hashes = (formJson?.txHashes ?? "")
+      const hashes = (formJson?.transactionHashes ?? "")
         .split(",")
         .map((hash) => hash.trim())
         .filter((hash) => hash.length > 0);
@@ -102,7 +103,9 @@ export default function CardanoTransactionsSnapshotsList(props) {
               noValidate
               validated={showCertificationFormValidation}>
               <Row>
-                <CardanoTransactionsFormInput
+                <CertifyHashesFormInput
+                  submitButtonLabel="Certify Transactions"
+                  certifiedMessageType={certifiedMessageTypes.transaction}
                   maxAllowedHashesByRequest={
                     currentAggregatorCapabilities?.cardano_transactions_prover
                       ?.max_hashes_allowed_by_request ??

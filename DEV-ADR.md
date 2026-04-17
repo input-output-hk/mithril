@@ -23,39 +23,109 @@ To complete
 To complete
 -->
 
+### 7. Do not expose arithmetic wrapper types to WebAssembly
+
+**Date:** 2025-04-15
+**Status:** Accepted
+
+#### Context
+
+As specified in [DEV-ADR-6](#6-guidelines-for-arithmetic-wrapper-types), arithmetic wrapper types enforce type safety for
+numeric values.
+
+However, when such types are exposed to WebAssembly, `wasm_bindgen` represents their inner tuple field as `.0` in
+JavaScript, forcing callers to access the underlying primitive through that field:
+
+```javascript
+const block_number = cardano_transaction_proof.latest_block_number;
+// Expected usage:
+console.log(block_number);
+// Actual usage:
+console.log(block_number.0);
+```
+
+The `.0` accessor is an escape hatch for Rust interop, not an intended public interface. Exposing it to JavaScript
+consumers makes the API awkward and leaks implementation details.
+
+#### Decision
+
+1. **Do not annotate arithmetic wrapper types with `#[wasm_bindgen]`**: The attribute should be absent from all wrapper
+   types so they are never exposed as JavaScript classes.
+
+2. **Hide arithmetic wrapper fields on exposed types**: On any `#[wasm_bindgen]` struct that holds an arithmetic wrapper
+   field, mark that field with `#[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]` to prevent it from being
+   directly accessible in JavaScript.
+
+3. **Expose the value through a getter instead**: Provide a `#[wasm_bindgen(getter)]` method that returns the underlying
+   primitive type, scoped to `#[cfg(target_family = "wasm")]` so Rust code continues to access the field directly.
+
+```Rust
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+pub struct ExampleType {
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
+    pub block_number: BlockNumber,
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+impl ExampleType {
+    #[wasm_bindgen(getter)]
+    pub fn block_number(&self) -> u64 {
+        *self.block_number
+    }
+}
+```
+
+#### Consequences
+
+- Arithmetic wrapper types remain internal to Rust and are never surfaced as JavaScript classes.
+- JavaScript consumers receive plain primitives (e.g. `number`, `bigint`) from getters, keeping the API idiomatic and free
+  of Rust-specific field naming conventions.
+
+---
+
 ### 6. Guidelines for arithmetic wrapper types
 
 **Date:** 2025-01-06
 **Status:** Accepted
 
-### Context
+#### Context
 
-Numeric values in the codebase often represent distinct domain concepts (e.g.,`BlockNumber`, `Epoch`, `SlotNumber`, `KesPeriod`, `KesEvolutions`). Using raw primitive types makes it easy to accidentally mix unrelated values, leading to subtle bugs that the compiler cannot catch.
+Numeric values in the codebase often represent distinct domain concepts (e.g.,`BlockNumber`, `Epoch`, `SlotNumber`,
+`KesPeriod`, `KesEvolutions`). Using raw primitive types makes it easy to accidentally mix unrelated values, leading
+to subtle bugs that the compiler cannot catch.
 
-### Decision
+#### Decision
 
 When wrapping arithmetic types, follow these guidelines:
 
-1. **Restrict direct conversions**: Do not implement `From`/`Into` traits for conversions between the wrapper and primitive types. This prevents accidental escaping from the wrapper and forces explicit usage.
+1. **Restrict direct conversions**: Do not implement `From`/`Into` traits for conversions between the wrapper and
+   primitive types. This prevents accidental escaping from the wrapper and forces explicit usage.
 
-2. **Use constructor notation**: Prefer the `Type(value)` pattern for creating instances (e.g., `KesPeriod(42)`). This is more readable than `.into()` and makes the intent explicit.
+2. **Use constructor notation**: Prefer the `Type(value)` pattern for creating instances (e.g., `KesPeriod(42)`).
+   This is more readable than `.into()` and makes the intent explicit.
 
-3. **Implement arithmetic traits selectively**: Only implement arithmetic operations (`Add`, `Sub`, etc.) that make semantic sense for the domain concept.
+3. **Implement arithmetic traits selectively**: Only implement arithmetic operations (`Add`, `Sub`, etc.) that make
+   semantic sense for the domain concept.
 
-4. **Exception for persistence**: Fallible conversions to `i64` (`TryFrom`) may be implemented when required by the persistence layer, as explicit wrapper usage there provides limited benefit.
+4. **Exception for persistence**: Fallible conversions to `i64` (`TryFrom`) may be implemented when required by the
+   persistence layer, as explicit wrapper usage there provides limited benefit.
 
-### Consequences
+#### Consequences
 
 - The compiler enforces type safety, preventing accidental mixing of unrelated numeric values.
 - Code is more readable with explicit `Type(value)` notation.
 - Developers must consciously decide when to escape the wrapper, making type boundaries intentional.
+
+---
 
 ### 5. Guidelines for writing useful log messages, error context, or error structure
 
 **Date:** 2025-07-25
 **Status:** Accepted
 
-### Context
+#### Context
 
 Some errors and logs currently lack enough context to understand the cause of an issue.
 
@@ -64,7 +134,7 @@ This is especially true for failures that occur during requests to or from exter
 At the same time, adding too much context can make logs noisy and hard to read, and can flood log storage with low-value
 or sensitive data.
 
-### Decision
+#### Decision
 
 When writing log messages, adding error context, or designing error structures, follow these guidelines:
 
@@ -88,23 +158,25 @@ When writing log messages, adding error context, or designing error structures, 
   - When logging external payloads, prefer safeguards such as truncation/size limits and logging only at error/debug
     level (and redaction when applicable).
 
-### Consequences
+#### Consequences
 
 - Logs are more readable and actionable.
 - Errors are easier to understand and troubleshoot without routinely leaking sensitive data or producing excessive log volume.
+
+---
 
 ### 4. Guidelines for crate test utilities
 
 **Date:** 2025-07-25
 **Status:** Accepted
 
-### Context
+#### Context
 
 - Testing requires reusable utilities that may need to be shared across crates
 - Test utilities should be isolated from production code while remaining accessible to child crates
 - We need to minimize feature flags to optimize Rust compiler artifact reuse and reduce build times
 
-### Decision
+#### Decision
 
 Test utilities must follow this organizational structure:
 

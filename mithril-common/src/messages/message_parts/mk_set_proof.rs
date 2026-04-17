@@ -65,8 +65,10 @@ pub struct CardanoBlockMessagePart {
     #[cfg_attr(target_family = "wasm", wasm_bindgen(getter_with_clone))]
     pub block_hash: BlockHash,
     /// Block number
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub block_number: BlockNumber,
     /// Slot number of the block
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub slot_number: SlotNumber,
 }
 
@@ -82,6 +84,22 @@ impl CardanoBlockMessagePart {
             block_number,
             slot_number,
         }
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_class = "CardanoBlock")]
+impl CardanoBlockMessagePart {
+    /// Block number
+    #[wasm_bindgen(getter)]
+    pub fn block_number(&self) -> u64 {
+        *self.block_number
+    }
+
+    /// Block number
+    #[wasm_bindgen(getter)]
+    pub fn slot_number(&self) -> u64 {
+        *self.slot_number
     }
 }
 
@@ -114,9 +132,11 @@ pub struct CardanoTransactionMessagePart {
     pub transaction_hash: TransactionHash,
 
     /// Block number of the transaction
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub block_number: BlockNumber,
 
     /// Slot number of the transaction
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(skip))]
     pub slot_number: SlotNumber,
 
     /// Block hash of the transaction
@@ -138,6 +158,22 @@ impl CardanoTransactionMessagePart {
             slot_number,
             block_hash: block_hash.into(),
         }
+    }
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_class = "CardanoTransaction")]
+impl CardanoTransactionMessagePart {
+    /// Block number
+    #[wasm_bindgen(getter)]
+    pub fn block_number(&self) -> u64 {
+        *self.block_number
+    }
+
+    /// Block number
+    #[wasm_bindgen(getter)]
+    pub fn slot_number(&self) -> u64 {
+        *self.slot_number
     }
 }
 

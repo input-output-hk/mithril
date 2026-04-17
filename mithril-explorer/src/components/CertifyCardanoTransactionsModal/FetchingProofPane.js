@@ -9,7 +9,7 @@ export default function FetchingProofPane({ transactionHashes }) {
       <Table responsive striped>
         <thead>
           <tr>
-            <th>Transaction Hash to certify</th>
+            <th>Transaction hash to certify</th>
           </tr>
         </thead>
         <tbody>
