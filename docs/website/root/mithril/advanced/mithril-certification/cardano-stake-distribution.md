@@ -21,12 +21,14 @@ The stake distribution is:
 :::
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/cardano-snapshots.jpg)](./images/stake-distribution/cardano-snapshots.jpg)
-<small><center>Stake distribution snapshots done by the Cardano node</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Stake distribution snapshots done by the Cardano node</small></div>
 
 ## Mithril certification
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/end-to-end-process.jpg)](./images/stake-distribution/end-to-end-process.jpg)
-<small><center>End to end certification for Cardano transactions</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano transactions</small></div>
 
 :::info
 
@@ -44,7 +46,8 @@ The message is the Merkle root of the Merkle tree, where the leaves are the hash
 The message computation is the same for both signers and aggregators.
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/message.jpg)](./images/stake-distribution/message.jpg)
-<small><center>Message creation on the signers and aggregators</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation on the signers and aggregators</small></div>
 
 :::info
 
@@ -60,4 +63,5 @@ Due to the relatively small size of the stake distribution, the computation of t
 - The client computes the Merkle root (the message) and verifies that it is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/message.jpg)](./images/stake-distribution/message.jpg)
-<small><center>Message creation on the clients (same as on signers and aggregators)</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation on the clients (same as on signers and aggregators)</small></div>

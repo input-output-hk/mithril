@@ -29,7 +29,8 @@ The Cardano node internal database:
 ## Mithril certification
 
 [![Design of the certification of the Cardano node internal database](./images/cardano-node-database/end-to-end-process.jpg)](./images/cardano-node-database/end-to-end-process.jpg)
-<small><center>End-to-end certification for Cardano transactions</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano transactions</small></div>
 
 :::info
 
@@ -48,7 +49,8 @@ The message is the hash of the concatenation of the immutable files in the Carda
 The message computation is the same on the signers and the aggregators.
 
 [![Design of the certification of the Cardano node internal database](./images/cardano-node-database/message.jpg)](./images/cardano-node-database/message.jpg)
-<small><center>Message creation on the signers and aggregators</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation on the signers and aggregators</small></div>
 
 ### Authenticity verification
 
@@ -58,4 +60,5 @@ The verification process operates on the full Cardano node internal database:
 - The client computes the message from the downloaded artifact and verifies that it is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano node internal database](./images/cardano-node-database/message.jpg)](./images/cardano-node-database/message.jpg)
-<small><center>Message creation on the clients (same as on signers and aggregators)</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation on the clients (same as on signers and aggregators)</small></div>

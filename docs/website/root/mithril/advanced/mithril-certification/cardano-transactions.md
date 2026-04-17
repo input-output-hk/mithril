@@ -5,6 +5,12 @@ sidebar_label: Cardano transactions
 
 # Cardano transactions
 
+:::info
+
+- This certification will be superseded by the new [Cardano blocks and transactions](./cardano-blocks-and-transactions.md) certification.
+
+:::
+
 The Mithril protocol supports the certification of the **full Cardano transactions set (since genesis)**. This allows users to verify a transaction's authenticity without downloading the entire Cardano blockchain.
 This is particularly useful for lightweight clients, such as mobile wallets, which may lack the resources to store the entire blockchain.
 
@@ -34,7 +40,8 @@ It is also worth noting that a new signature round is **triggered at a constant 
 ## Mithril certification
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/end-to-end-process.jpg)](./images/cardano-transactions/end-to-end-process.jpg)
-<small><center>End to end certification for Cardano transactions</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End to end certification for Cardano transactions</small></div>
 
 :::info
 
@@ -53,12 +60,14 @@ This reduces the number of leaves in the Merkle forest to approximately `1 milli
 This allows the creation of a Merkle forest with, on average, `100` times fewer leaves than the number of transactions in the Cardano blockchain (`~1` million leaves on the Cardano mainnet).
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-aggregator.jpg)](./images/cardano-transactions/message-aggregator.jpg)
-<small><center>Message creation when aggregating on the aggregator</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation when aggregating on the aggregator</small></div>
 
 The process is almost the same on the signer, except that the transactions of the block ranges are ephemerally stored and only their compressed representation is kept in the long run (the Merkle root of the block range Merkle tree) once the blocks are final (older than `k` blocks from the tip of the chain, `2160` on the Cardano mainnet). This allows drastic compression of the storage on the signers.
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-signer.jpg)](./images/cardano-transactions/message-signer.jpg)
-<small><center>Message creation when signing on the aggregator</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Message creation when signing on the aggregator</small></div>
 
 :::info
 
@@ -74,4 +83,5 @@ The verification process operates on a subset of the Cardano set that can be cer
 - The client verifies that the proof of membership is valid and that its Merkle root (the message) is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/proof-client.jpg)](./images/cardano-transactions/proof-client.jpg)
-<small><center>Proof creation done by the aggregator _(to verify 'Tx4' and `Tx62')_</center></small>
+
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>Proof creation done by the aggregator _(to verify 'Tx4' and `Tx62')_</small></div>
