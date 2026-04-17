@@ -32,14 +32,14 @@ export CARDANO_NODE_REF=**CARDANO_NODE_REF**
 export GCP_CARDANO_IMAGE_REGISTRY=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_DOCKER_REPOSITORY}/cardano-node
 ```
 
-Here is an example for version `10.7.0-integration`:
+Here is an example for version `10.7.1-integration`:
 
 ```bash
 export GCP_PROJECT_ID=iog-hydra
 export GCP_REGION=europe-west1
 export GCP_DOCKER_REPOSITORY=mithril-cardano-node-docker-test
 export GCP_ARTIFACTS_BUCKET=mithril-cardano-node-artifacts-test
-export CARDANO_NODE_VERSION=10.7.0-integration
+export CARDANO_NODE_VERSION=10.7.1-integration
 export CARDANO_NODE_REF=release/10.7
 export GCP_CARDANO_IMAGE_REGISTRY=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_DOCKER_REPOSITORY}/cardano-node
 ```
@@ -198,7 +198,7 @@ echo $CARDANO_SHARE_DIR
 
 #### Create the configuration directory for the new version
 
-The Cardano node configuration files are stored under `mithril-infra/assets/docker/cardano/config/`. The version folder name can omit the patch version if the configuration is valid for all patch versions of the minor release (e.g. use `10.7` instead of `10.7.0`):
+The Cardano node configuration files are stored under `mithril-infra/assets/docker/cardano/config/`. The version folder name can omit the patch version if the configuration is valid for all patch versions of the minor release (e.g. use `10.7` instead of `10.7.1`):
 
 ```bash
 export CARDANO_CONFIG_VERSION=**CARDANO_CONFIG_VERSION**

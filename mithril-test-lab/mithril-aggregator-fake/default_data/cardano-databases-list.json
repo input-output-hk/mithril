@@ -32,7 +32,7 @@
     },
     "certificate_hash": "2b91e654a62a5d34ee989101c4a2a8362cbed44280836122a7bdb2cbed3fed02",
     "total_db_size_uncompressed": 317959,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:19.224537365Z"
   },
   {
@@ -44,7 +44,7 @@
     },
     "certificate_hash": "59cf9a7f10a453df30892d3dc6a0173efc6846a5c1b8e5f9c5f20d39cb656269",
     "total_db_size_uncompressed": 300580,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:17.463161851Z"
   },
   {
@@ -56,7 +56,7 @@
     },
     "certificate_hash": "39c00306eeef28263944bfe0ddc239d1d8fe7048d6d1d1589fe183bba9eed316",
     "total_db_size_uncompressed": 288637,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:16.206769240Z"
   },
   {
@@ -68,7 +68,7 @@
     },
     "certificate_hash": "f00a3f5039195c81d3f9a47c566cdc549264b000287007f38fcf2a0b9d940d99",
     "total_db_size_uncompressed": 261097,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:13.210452377Z"
   },
   {
@@ -80,7 +80,7 @@
     },
     "certificate_hash": "d3da763f3e1bf078031419394c6f81415096f89094794df38bab1694806cddec",
     "total_db_size_uncompressed": 233315,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:10.214302150Z"
   },
   {
@@ -92,7 +92,7 @@
     },
     "certificate_hash": "24d1800a5c2564000418398fa864f53f34a62db0172d87dc54ae578f252cc529",
     "total_db_size_uncompressed": 208529,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:07.460303703Z"
   },
   {
@@ -104,7 +104,7 @@
     },
     "certificate_hash": "ce91a1c3f44e65526703086a95603996538fadd33f20f48e611f3173b26dd6bd",
     "total_db_size_uncompressed": 177984,
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:04.228718606Z"
   }
 ]

@@ -19,7 +19,7 @@ pub enum LedgerFormat {
     InMemory,
     /// UTxO-HD LMDB format (since cardano-node `10.4.1`)
     Lmdb,
-    /// UTxO-HD LSM format (since cardano-node `10.7.0`)
+    /// UTxO-HD LSM format (since cardano-node `10.7.1`)
     Lsm,
 }
 
@@ -212,13 +212,13 @@ mod test {
         let run_command = CardanoDbUtils::get_docker_run_command(
             Path::new("/path/to/db"),
             "mainnet",
-            "10.7.0",
+            "10.7.1",
             LedgerFormat::Lsm,
         );
 
         assert_eq!(
             run_command,
-            r#"docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/path/to/db",target=/data/db/ -e NETWORK=mainnet -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V2LSM" }}' --security-opt seccomp=unconfined ghcr.io/intersectmbo/cardano-node:10.7.0"#
+            r#"docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/path/to/db",target=/data/db/ -e NETWORK=mainnet -e CARDANO_CONFIG_JSON_MERGE='{"LedgerDB": { "Backend": "V2LSM" }}' --security-opt seccomp=unconfined ghcr.io/intersectmbo/cardano-node:10.7.1"#
         )
     }
 }

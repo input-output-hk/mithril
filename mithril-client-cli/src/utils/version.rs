@@ -31,7 +31,7 @@ mod tests {
         assert!(!is_version_equal_or_upper("10.5.1", VERSION_10_6_2));
 
         assert!(is_version_equal_or_upper("10.6.2", VERSION_10_6_2));
-        assert!(is_version_equal_or_upper("10.7.0", VERSION_10_6_2));
+        assert!(is_version_equal_or_upper("10.7.1", VERSION_10_6_2));
         assert!(is_version_equal_or_upper("10.7.3", VERSION_10_6_2));
         assert!(is_version_equal_or_upper("latest", VERSION_10_6_2));
     }

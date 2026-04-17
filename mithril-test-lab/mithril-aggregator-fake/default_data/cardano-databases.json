@@ -143,7 +143,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:22.231594386Z"
   },
   "6623a1c5044a041077e949ebe9b5542d582bf54bfea061c593b425fbe1e519af": {
@@ -192,7 +192,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:10.214302150Z"
   },
   "c37b55b4e5e3bedeeffd468a38f7949b2bd09a4ca795bf9420433ff1cc3cad13": {
@@ -241,7 +241,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:07.460303703Z"
   },
   "cf9ac4a0ae2f90d0b86b51e5244f2ee9c179d4251021a1fbfee520f2f079777b": {
@@ -290,7 +290,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:16.206769240Z"
   },
   "f7f15e52351d22a47d1d1cba29ac6fa79cc33c01446dd198add258ae40452097": {
@@ -339,7 +339,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:19.224537365Z"
   },
   "fc883452a34e5858086136cbb1b86aa88e82c63fe10ed6daafc61d4d97c5c7a6": {
@@ -388,7 +388,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:25.219571641Z"
   },
   "fd669893dc54754a94530a291d84d194aed57f9c673ac63294fa9ba6e9af9300": {
@@ -437,7 +437,7 @@
         }
       ]
     },
-    "cardano_node_version": "10.6.2",
+    "cardano_node_version": "10.7.1",
     "created_at": "2026-04-08T08:02:13.210452377Z"
   }
 }
