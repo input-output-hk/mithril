@@ -124,42 +124,44 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
         <Container fluid>
-          <Row className="mb-2">
-            <Form
-              onSubmit={handleCtxCertificationSubmit}
-              noValidate
-              validated={showCertificationFormValidation}>
-              <Nav
-                className="mb-1"
-                variant="underline"
-                activeKey={certifiedMessageType.name}
-                onSelect={(e) => setCertifiedMessageType(certifiedMessageTypes[e])}>
-                {Object.values(certifiedMessageTypes).map((type) => (
-                  <Nav.Item key={type.name}>
-                    <Nav.Link eventKey={type.name} className="text-capitalize">
-                      Certify {type.pluralName}
-                    </Nav.Link>
-                  </Nav.Item>
-                ))}
-              </Nav>
-              <Row>
-                <input
-                  type="hidden"
-                  name="certifiedMessageType"
-                  value={certifiedMessageType.name}
-                />
-                <CertifyHashesFormInput
-                  certifiedMessageType={certifiedMessageType}
-                  maxAllowedHashesByRequest={
-                    currentAggregatorCapabilities?.cardano_transactions_prover
-                      ?.max_hashes_allowed_by_request ??
-                    defaultAggregatorCapabilities.cardano_transactions_prover
-                      .max_hashes_allowed_by_request
-                  }
-                />
-              </Row>
-            </Form>
-          </Row>
+          {process.env.UNSTABLE && (
+            <Row className="mb-2">
+              <Form
+                onSubmit={handleCtxCertificationSubmit}
+                noValidate
+                validated={showCertificationFormValidation}>
+                <Nav
+                  className="mb-1"
+                  variant="underline"
+                  activeKey={certifiedMessageType.name}
+                  onSelect={(e) => setCertifiedMessageType(certifiedMessageTypes[e])}>
+                  {Object.values(certifiedMessageTypes).map((type) => (
+                    <Nav.Item key={type.name}>
+                      <Nav.Link eventKey={type.name} className="text-capitalize">
+                        Certify {type.pluralName}
+                      </Nav.Link>
+                    </Nav.Item>
+                  ))}
+                </Nav>
+                <Row>
+                  <input
+                    type="hidden"
+                    name="certifiedMessageType"
+                    value={certifiedMessageType.name}
+                  />
+                  <CertifyHashesFormInput
+                    certifiedMessageType={certifiedMessageType}
+                    maxAllowedHashesByRequest={
+                      currentAggregatorCapabilities?.cardano_transactions_prover
+                        ?.max_hashes_allowed_by_request ??
+                      defaultAggregatorCapabilities.cardano_transactions_prover
+                        .max_hashes_allowed_by_request
+                    }
+                  />
+                </Row>
+              </Form>
+            </Row>
+          )}
           <Row>
             {Object.entries(cardanoBlocksTransactionsSnapshots).length === 0 ? (
               <p>No Cardano Blocks & Transactions Snapshot available</p>
