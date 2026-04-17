@@ -243,6 +243,12 @@ const config = {
             label: "Manual",
           },
           {
+            type: "doc",
+            docId: "mithril/intro",
+            label: "Protocol",
+            position: "left",
+          },
+          {
             type: "dropdown",
             label: "Use Cases",
             position: "left",
@@ -250,15 +256,9 @@ const config = {
               {
                 type: "doc",
                 docId: "use-cases/wallets",
-                label: "Wallets",
+                label: "Light wallets",
               },
             ],
-          },
-          {
-            type: "doc",
-            docId: "mithril/intro",
-            label: "Protocol",
-            position: "left",
           },
           {
             type: "docsVersionDropdown",
