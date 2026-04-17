@@ -3,5 +3,5 @@
 //! `golden` groups the committed assets, asset readers, generators, and test
 //! cases used to lock in recursive verification behavior.
 
-pub(crate) mod golden;
+mod golden;
 mod test_certificate;

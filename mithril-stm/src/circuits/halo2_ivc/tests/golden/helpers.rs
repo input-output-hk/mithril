@@ -1,5 +1,17 @@
 use std::collections::BTreeMap;
 
+use crate::circuits::halo2_ivc::tests::golden::{
+    asset_readers::RecursiveChainStateAsset,
+    generators::{
+        AssetGenerationSetup, build_recursive_fixed_bases, build_shared_recursive_context,
+        certificate_public_inputs_for_step,
+    },
+};
+use crate::circuits::halo2_ivc::{
+    Accumulator, AssignedAccumulator, C, E, F, K, VerifyingKey,
+    circuit::IvcCircuit,
+    state::{Global, trivial_acc},
+};
 use group::Group;
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_circuits::types::Instantiable;
@@ -7,7 +19,7 @@ use midnight_curves::Bls12;
 use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     dev::MockProver,
-    plonk::{keygen_vk_with_k, prepare},
+    plonk::prepare,
     poly::kzg::{
         KZGCommitmentScheme,
         msm::DualMSM,
@@ -15,23 +27,6 @@ use midnight_proofs::{
     },
     transcript::{CircuitTranscript, Transcript},
 };
-use midnight_zk_stdlib as zk_lib;
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
-
-use crate::circuits::halo2_ivc::tests::golden::{
-    asset_readers::RecursiveChainStateAsset,
-    generators::{AssetGenerationSetup, certificate_public_inputs_for_step},
-};
-use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, K, VerifyingKey,
-    circuit::IvcCircuit,
-    state::{Global, fixed_bases_and_names, trivial_acc},
-};
-
-const ASSET_SEED: u64 = 42;
-const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
-const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 
 /// Shared recursive context reused by MockProver-based golden cases.
 pub(crate) struct RecursiveMockProverSetup {
@@ -48,10 +43,6 @@ pub(crate) struct RecursiveMockProverSetup {
         crate::circuits::halo2_ivc::Accumulator<crate::circuits::halo2_ivc::S>,
 }
 
-fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
-    ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
-}
-
 /// Builds the shared recursive circuit context needed by MockProver-based golden tests.
 ///
 /// This mirrors the verifier-side setup used by the asset generators, but keeps
@@ -60,66 +51,31 @@ fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
 pub(crate) fn build_recursive_mock_prover_setup(
     setup: &AssetGenerationSetup,
 ) -> RecursiveMockProverSetup {
-    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
-    let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
-    let universal_verifier_params = universal_kzg_parameters.verifier_params();
-    let verifier_tau_in_g2 = universal_kzg_parameters.s_g2().into();
-
-    let certificate_commitment_parameters = {
-        let mut certificate_commitment_parameters = universal_kzg_parameters.clone();
-        if CERTIFICATE_CIRCUIT_DEGREE < shared_srs_degree {
-            certificate_commitment_parameters.downsize(CERTIFICATE_CIRCUIT_DEGREE);
-        }
-        certificate_commitment_parameters
-    };
-
-    let recursive_commitment_parameters = {
-        let mut recursive_commitment_parameters = universal_kzg_parameters.clone();
-        if RECURSIVE_CIRCUIT_DEGREE < shared_srs_degree {
-            recursive_commitment_parameters.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        }
-        recursive_commitment_parameters
-    };
-
-    let certificate_verifying_key = zk_lib::setup_vk(
-        &certificate_commitment_parameters,
-        &setup.certificate_relation,
-    );
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
-    let recursive_verifying_key = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("recursive verifying key generation should not fail");
-
-    let (certificate_fixed_bases, certificate_fixed_base_names) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
-    let (recursive_fixed_bases, recursive_fixed_base_names) =
-        fixed_bases_and_names(IVC_ONE_NAME, &recursive_verifying_key);
-    let mut combined_fixed_bases = certificate_fixed_bases.clone();
-    combined_fixed_bases.extend(recursive_fixed_bases.clone());
-    let fixed_base_names = certificate_fixed_base_names
-        .into_iter()
-        .chain(recursive_fixed_base_names)
-        .collect::<Vec<_>>();
+    let context = build_shared_recursive_context(setup);
+    let verifier_tau_in_g2 = context.universal_kzg_parameters.s_g2().into();
+    let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
+        build_recursive_fixed_bases(
+            &context.certificate_verifying_key,
+            &context.recursive_verifying_key,
+        );
+    let fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
 
     let global = Global::new(
         setup.genesis_message,
         setup.genesis_verification_key,
-        certificate_verifying_key.vk(),
-        &recursive_verifying_key,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
     );
 
     RecursiveMockProverSetup {
-        certificate_commitment_parameters,
-        certificate_verifying_key,
-        recursive_verifying_key,
+        certificate_commitment_parameters: context.certificate_commitment_parameters,
+        certificate_verifying_key: context.certificate_verifying_key,
+        recursive_verifying_key: context.recursive_verifying_key,
         global,
         certificate_fixed_bases,
         recursive_fixed_bases,
         combined_fixed_bases,
-        universal_verifier_params,
+        universal_verifier_params: context.universal_verifier_params,
         verifier_tau_in_g2,
         trivial_accumulator: trivial_acc(&fixed_base_names),
     }

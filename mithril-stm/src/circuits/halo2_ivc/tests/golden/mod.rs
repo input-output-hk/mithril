@@ -2,7 +2,11 @@
 //! This subtree also owns the committed assets, asset readers, generators, and
 //! scenario/docs for the golden workflow.
 
-pub(crate) mod asset_readers;
-pub(crate) mod cases;
-pub(crate) mod generators;
-pub(crate) mod helpers;
+pub(crate) const ASSET_SEED: u64 = 42;
+pub(crate) const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
+pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
+
+mod asset_readers;
+mod cases;
+mod generators;
+mod helpers;

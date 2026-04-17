@@ -1,9 +1,4 @@
-use std::{
-    fs::{self, File},
-    io::{BufWriter, Write as IoWrite},
-    path::PathBuf,
-    time::Instant,
-};
+use std::{collections::BTreeMap, path::PathBuf, time::Instant};
 
 use ff::Field;
 use group::Group;
@@ -17,7 +12,6 @@ use midnight_proofs::{
         params::{ParamsKZG, ParamsVerifierKZG},
     },
     transcript::{CircuitTranscript, Transcript},
-    utils::{SerdeFormat, helpers::ProcessedSerdeObject},
 };
 use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::{MidnightVK, Relation};
@@ -38,17 +32,21 @@ use crate::circuits::halo2_ivc::helpers::{
 };
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names, trivial_acc};
 use crate::circuits::halo2_ivc::tests::{
-    golden::asset_readers::load_recursive_chain_state_asset, test_certificate::Certificate,
+    golden::{
+        ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE,
+        asset_readers::{
+            RecursiveChainStateAsset, RecursiveStepOutputAsset, VerificationContextAsset,
+            load_recursive_chain_state_asset, store_recursive_chain_state_asset,
+            store_recursive_step_output_asset, store_verification_context_asset,
+        },
+    },
+    test_certificate::Certificate,
 };
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, CERT_VK_NAME, E, F, IVC_ONE_NAME, PREIMAGE_SIZE,
-    circuit::IvcCircuit, io::Write, state::Global,
+    circuit::IvcCircuit, state::Global,
 };
 
-/// Fixed seed used for the deterministic universal KZG setup.
-const ASSET_SEED: u64 = 42;
-const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
-const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 const INITIAL_CHAIN_LENGTH: usize = 3;
 const SIGNER_COUNT: usize = 3000;
 const QUORUM_SIZE: u32 = 2;
@@ -64,6 +62,7 @@ pub(crate) struct AssetPaths {
 }
 
 impl AssetPaths {
+    /// Builds the three committed asset paths rooted at `base_dir`.
     pub(crate) fn new(base_dir: PathBuf) -> Self {
         Self {
             recursive_chain_state: base_dir.join("recursive_chain_state.bin"),
@@ -73,6 +72,7 @@ impl AssetPaths {
     }
 }
 
+/// Returns the default committed asset paths under `tests/golden/assets`.
 pub(crate) fn default_asset_paths() -> AssetPaths {
     AssetPaths::new(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -98,24 +98,14 @@ pub(crate) struct AssetGenerationSetup {
     pub(crate) genesis_next_protocol_params: F,
 }
 
-fn write_shared_verifier_params(
-    writer: &mut impl IoWrite,
-    verifier_params: &ParamsVerifierKZG<Bls12>,
-) {
-    verifier_params
-        .write(writer, SerdeFormat::RawBytesUnchecked)
-        .expect("failed to write verifier-side SRS data");
-}
-
-/// Wraps the protocol-message API so the call sites stay explicit about which
-/// fields define a generated asset.
-fn insert_protocol_message_part(
-    protocol_message: &mut ProtocolMessage,
-    part_key: ProtocolMessagePartKey,
-    encoded_value: Vec<u8>,
-) {
-    // Keep the protocol-message boundary explicit at the call site.
-    protocol_message.set_message_part(part_key, encoded_value);
+/// Shared recursive verifier-side setup reused by generators and golden helpers.
+pub(crate) struct SharedRecursiveContext {
+    pub(crate) universal_kzg_parameters: ParamsKZG<Bls12>,
+    pub(crate) universal_verifier_params: ParamsVerifierKZG<E>,
+    pub(crate) certificate_commitment_parameters: ParamsKZG<Bls12>,
+    pub(crate) recursive_commitment_parameters: ParamsKZG<Bls12>,
+    pub(crate) certificate_verifying_key: MidnightVK,
+    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
 }
 
 /// Builds the genesis protocol message whose hash becomes `setup.genesis_message`.
@@ -129,23 +119,16 @@ fn build_genesis_protocol_message(
     genesis_epoch: u64,
 ) -> ProtocolMessage {
     let mut protocol_message = ProtocolMessage::new();
-    insert_protocol_message_part(
-        &mut protocol_message,
-        ProtocolMessagePartKey::Digest,
-        vec![2u8; 32],
-    );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![2u8; 32]);
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::NextAggregateVerificationKey,
         aggregate_verification_key.clone().into(),
     );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::NextProtocolParameters,
         genesis_next_protocol_params.to_bytes_le().to_vec(),
     );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::CurrentEpoch,
         genesis_epoch.to_le_bytes().into(),
     );
@@ -204,6 +187,7 @@ pub(crate) fn build_genesis_base_case_next_state(
     )
 }
 
+/// Builds the deterministic signer keys, leaves, and commitment tree used by the assets.
 fn build_merkle_tree(
     random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
@@ -222,8 +206,96 @@ fn build_merkle_tree(
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
-fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
+pub(crate) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
     ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
+}
+
+/// Derives circuit-specific commitment parameters from a shared universal SRS.
+pub(crate) fn derive_commitment_params(
+    universal_kzg_parameters: &ParamsKZG<Bls12>,
+    shared_srs_degree: u32,
+    circuit_degree: u32,
+) -> ParamsKZG<Bls12> {
+    let mut commitment_parameters = universal_kzg_parameters.clone();
+    if circuit_degree < shared_srs_degree {
+        commitment_parameters.downsize(circuit_degree);
+    }
+    commitment_parameters
+}
+
+/// Builds the shared verifier-side recursive setup from the deterministic SRS.
+pub(crate) fn build_shared_recursive_context(
+    setup: &AssetGenerationSetup,
+) -> SharedRecursiveContext {
+    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
+    let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
+    let universal_verifier_params = universal_kzg_parameters.verifier_params();
+
+    let certificate_commitment_parameters = derive_commitment_params(
+        &universal_kzg_parameters,
+        shared_srs_degree,
+        CERTIFICATE_CIRCUIT_DEGREE,
+    );
+    let recursive_commitment_parameters = derive_commitment_params(
+        &universal_kzg_parameters,
+        shared_srs_degree,
+        RECURSIVE_CIRCUIT_DEGREE,
+    );
+
+    let certificate_verifying_key = zk_lib::setup_vk(
+        &certificate_commitment_parameters,
+        &setup.certificate_relation,
+    );
+    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
+    let recursive_verifying_key = keygen_vk_with_k(
+        &recursive_commitment_parameters,
+        &default_ivc_circuit,
+        RECURSIVE_CIRCUIT_DEGREE,
+    )
+    .expect("recursive verifying key generation should not fail");
+
+    SharedRecursiveContext {
+        universal_kzg_parameters,
+        universal_verifier_params,
+        certificate_commitment_parameters,
+        recursive_commitment_parameters,
+        certificate_verifying_key,
+        recursive_verifying_key,
+    }
+}
+
+/// Builds the recursive proving key for the default IVC circuit shape.
+pub(crate) fn build_recursive_proving_key(
+    context: &SharedRecursiveContext,
+) -> ProvingKey<F, KZGCommitmentScheme<E>> {
+    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk());
+    keygen_pk(
+        context.recursive_verifying_key.clone(),
+        &default_ivc_circuit,
+    )
+    .expect("recursive proving key generation should not fail")
+}
+
+/// Returns the certificate, recursive, and combined fixed-base maps.
+pub(crate) fn build_recursive_fixed_bases(
+    certificate_verifying_key: &MidnightVK,
+    recursive_verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+) -> (
+    BTreeMap<String, C>,
+    BTreeMap<String, C>,
+    BTreeMap<String, C>,
+) {
+    let (certificate_fixed_bases, _) =
+        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
+    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, recursive_verifying_key);
+    let mut combined_fixed_bases = certificate_fixed_bases.clone();
+    combined_fixed_bases.extend(recursive_fixed_bases.clone());
+
+    (
+        certificate_fixed_bases,
+        recursive_fixed_bases,
+        combined_fixed_bases,
+    )
 }
 
 /// Generates a recursive proof using the Poseidon transcript.
@@ -437,23 +509,16 @@ pub(crate) fn next_message_and_preimage_for_step(
 
     let mut protocol_message = ProtocolMessage::new();
     // These entries define the certificate message consumed by the recursive step.
-    insert_protocol_message_part(
-        &mut protocol_message,
-        ProtocolMessagePartKey::Digest,
-        vec![(step as u8) + 2; 32],
-    );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![(step as u8) + 2; 32]);
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::NextAggregateVerificationKey,
         setup.aggregate_verification_key.clone().into(),
     );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::NextProtocolParameters,
         setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
     );
-    insert_protocol_message_part(
-        &mut protocol_message,
+    protocol_message.set_message_part(
         ProtocolMessagePartKey::CurrentEpoch,
         (current_epoch + 1).to_le_bytes().into(),
     );
@@ -545,60 +610,32 @@ pub(crate) fn generate_recursive_chain_state_asset(
     );
     let total_start = Instant::now();
 
-    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
-    let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
-    let universal_verifier_params = universal_kzg_parameters.verifier_params();
-
-    let certificate_commitment_parameters = {
-        let mut certificate_commitment_parameters = universal_kzg_parameters.clone();
-        if CERTIFICATE_CIRCUIT_DEGREE < shared_srs_degree {
-            certificate_commitment_parameters.downsize(CERTIFICATE_CIRCUIT_DEGREE);
-        }
-        certificate_commitment_parameters
-    };
-
-    let recursive_commitment_parameters = {
-        let mut recursive_commitment_parameters = universal_kzg_parameters.clone();
-        if RECURSIVE_CIRCUIT_DEGREE < shared_srs_degree {
-            recursive_commitment_parameters.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        }
-        recursive_commitment_parameters
-    };
-
-    let certificate_verifying_key = zk_lib::setup_vk(
-        &certificate_commitment_parameters,
+    let context = build_shared_recursive_context(setup);
+    let certificate_proving_key = zk_lib::setup_pk(
         &setup.certificate_relation,
+        &context.certificate_verifying_key,
     );
-    let certificate_proving_key =
-        zk_lib::setup_pk(&setup.certificate_relation, &certificate_verifying_key);
     println!("generate_recursive_chain_state: certificate verifying/proving keys ready");
 
-    let (certificate_fixed_bases, certificate_fixed_base_names) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
+    let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
+        build_recursive_fixed_bases(
+            &context.certificate_verifying_key,
+            &context.recursive_verifying_key,
+        );
+    let certificate_fixed_base_names = certificate_fixed_bases.keys().cloned().collect::<Vec<_>>();
     let mut certificate_proofs = vec![vec![]];
     let mut certificate_accumulators = vec![trivial_acc(&certificate_fixed_base_names)];
 
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
-    let recursive_verifying_key = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("IVC verifying key generation should not fail");
-    let recursive_proving_key = keygen_pk(recursive_verifying_key.clone(), &default_ivc_circuit)
-        .expect("IVC proving key generation should not fail");
+    let recursive_proving_key = build_recursive_proving_key(&context);
     println!("generate_recursive_chain_state: recursive verifying/proving keys ready");
 
-    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, &recursive_verifying_key);
-    let mut combined_fixed_bases = certificate_fixed_bases.clone();
-    combined_fixed_bases.extend(recursive_fixed_bases.clone());
     let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
 
     let global = Global::new(
         setup.genesis_message,
         setup.genesis_verification_key,
-        certificate_verifying_key.vk(),
-        &recursive_verifying_key,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
     );
 
     let mut certificate_random_generator = OsRng;
@@ -615,23 +652,16 @@ pub(crate) fn generate_recursive_chain_state_asset(
     let mut recursive_witnesses =
         vec![Witness::new(setup.genesis_signature.clone(), F::ZERO, F::ZERO, {
             let mut protocol_message = ProtocolMessage::new();
-            insert_protocol_message_part(
-                &mut protocol_message,
-                ProtocolMessagePartKey::Digest,
-                vec![2u8; 32],
-            );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![2u8; 32]);
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 setup.aggregate_verification_key.clone().into(),
             );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextProtocolParameters,
                 setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
             );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::CurrentEpoch,
                 current_epoch.to_le_bytes().into(),
             );
@@ -646,23 +676,17 @@ pub(crate) fn generate_recursive_chain_state_asset(
         current_epoch += 1;
         let (message, message_preimage) = {
             let mut protocol_message = ProtocolMessage::new();
-            insert_protocol_message_part(
-                &mut protocol_message,
-                ProtocolMessagePartKey::Digest,
-                vec![(step as u8) + 2; 32],
-            );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message
+                .set_message_part(ProtocolMessagePartKey::Digest, vec![(step as u8) + 2; 32]);
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 setup.aggregate_verification_key.clone().into(),
             );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextProtocolParameters,
                 setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
             );
-            insert_protocol_message_part(
-                &mut protocol_message,
+            protocol_message.set_message_part(
                 ProtocolMessagePartKey::CurrentEpoch,
                 current_epoch.to_le_bytes().into(),
             );
@@ -705,7 +729,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
         }
 
         let certificate_proof = zk_lib::prove::<Certificate, PoseidonState<F>>(
-            &certificate_commitment_parameters,
+            &context.certificate_commitment_parameters,
             &certificate_proving_key,
             &setup.certificate_relation,
             &(certificate_instance[0], certificate_instance[1]),
@@ -715,14 +739,14 @@ pub(crate) fn generate_recursive_chain_state_asset(
         .expect("Certificate proof generation should not fail");
 
         let certificate_dual_msm = verify_and_prepare_poseidon_ivc(
-            certificate_verifying_key.vk(),
+            context.certificate_verifying_key.vk(),
             &certificate_proof,
             &certificate_instance,
         );
         assert!(
             certificate_dual_msm
                 .clone()
-                .check(&certificate_commitment_parameters.verifier_params())
+                .check(&context.certificate_commitment_parameters.verifier_params())
         );
         let mut certificate_accumulator: Accumulator<crate::circuits::halo2_ivc::S> =
             certificate_dual_msm.into();
@@ -758,8 +782,8 @@ pub(crate) fn generate_recursive_chain_state_asset(
             certificate_proofs[i].clone(),
             recursive_proof.clone(),
             current_accumulator.clone(),
-            certificate_verifying_key.vk(),
-            &recursive_verifying_key,
+            context.certificate_verifying_key.vk(),
+            &context.recursive_verifying_key,
         );
 
         let public_inputs = [
@@ -770,15 +794,18 @@ pub(crate) fn generate_recursive_chain_state_asset(
         .concat();
 
         let proof = prove_poseidon_ivc(
-            &recursive_commitment_parameters,
+            &context.recursive_commitment_parameters,
             &recursive_proving_key,
             &circuit,
             &public_inputs,
             &mut recursive_random_generator,
         );
-        let dual_msm =
-            verify_and_prepare_poseidon_ivc(&recursive_verifying_key, &proof, &public_inputs);
-        assert!(dual_msm.clone().check(&universal_verifier_params));
+        let dual_msm = verify_and_prepare_poseidon_ivc(
+            &context.recursive_verifying_key,
+            &proof,
+            &public_inputs,
+        );
+        assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
         let mut proof_accumulator: Accumulator<crate::circuits::halo2_ivc::S> = dual_msm.into();
         proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
@@ -804,7 +831,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
             accumulated_accumulator.collapse();
             assert!(
                 accumulated_accumulator.check(
-                    &universal_kzg_parameters.s_g2().into(),
+                    &context.universal_kzg_parameters.s_g2().into(),
                     &combined_fixed_bases,
                 ),
                 "recursive accumulator verification failed at step {i}"
@@ -813,9 +840,6 @@ pub(crate) fn generate_recursive_chain_state_asset(
         }
     }
 
-    if let Some(parent) = paths.recursive_chain_state.parent() {
-        fs::create_dir_all(parent).expect("failed to create recursive_chain_state asset directory");
-    }
     assert_eq!(
         current_state.next_merkle_root, setup.genesis_next_merkle_root,
         "recursive_chain_state writer is about to persist a next_merkle_root that does not match setup"
@@ -824,27 +848,14 @@ pub(crate) fn generate_recursive_chain_state_asset(
         "generate_recursive_chain_state: writing asset -> {}",
         paths.recursive_chain_state.display()
     );
-    {
-        let mut writer = BufWriter::new(
-            File::create(&paths.recursive_chain_state)
-                .expect("failed to create recursive_chain_state"),
-        );
-
-        for value in global.as_public_input() {
-            writer.write_all(&value.to_bytes_le()).unwrap();
-        }
-        for value in current_state.as_public_input() {
-            writer.write_all(&value.to_bytes_le()).unwrap();
-        }
-        writer
-            .write_all(&(recursive_proof.len() as u32).to_le_bytes())
-            .unwrap();
-        writer.write_all(&recursive_proof).unwrap();
-        current_accumulator
-            .write(&mut writer, SerdeFormat::RawBytesUnchecked)
-            .unwrap();
-        writer.flush().expect("failed to flush recursive_chain_state asset");
-    }
+    let asset = RecursiveChainStateAsset {
+        global_field_elements: global.as_public_input(),
+        state: current_state.clone(),
+        proof: recursive_proof.clone(),
+        accumulator: current_accumulator.clone(),
+    };
+    store_recursive_chain_state_asset(&paths.recursive_chain_state, &asset)
+        .expect("failed to write recursive_chain_state asset");
 
     let reloaded = load_recursive_chain_state_asset(&paths.recursive_chain_state)
         .expect("failed to reload recursive_chain_state asset after writing");
@@ -868,77 +879,30 @@ pub(crate) fn generate_verification_context_asset(
         paths.verification_context.display()
     );
     let total_start = Instant::now();
-    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
-    let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
-    let verifier_params = universal_kzg_parameters.verifier_params();
-
-    let certificate_commitment_parameters = {
-        let mut certificate_commitment_parameters = universal_kzg_parameters.clone();
-        if CERTIFICATE_CIRCUIT_DEGREE < shared_srs_degree {
-            certificate_commitment_parameters.downsize(CERTIFICATE_CIRCUIT_DEGREE);
-        }
-        certificate_commitment_parameters
-    };
-
-    let recursive_commitment_parameters = {
-        let mut recursive_commitment_parameters = universal_kzg_parameters.clone();
-        if RECURSIVE_CIRCUIT_DEGREE < shared_srs_degree {
-            recursive_commitment_parameters.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        }
-        recursive_commitment_parameters
-    };
-
-    let certificate_verifying_key = zk_lib::setup_vk(
-        &certificate_commitment_parameters,
-        &setup.certificate_relation,
-    );
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
-    let recursive_verifying_key = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("IVC verifying key generation should not fail");
+    let context = build_shared_recursive_context(setup);
     println!("generate_verification_context: certificate and recursive verifying keys ready");
 
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
-    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, &recursive_verifying_key);
-    let mut combined_fixed_bases = certificate_fixed_bases;
-    combined_fixed_bases.extend(recursive_fixed_bases);
+    let (_, _, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
 
     let global = Global::new(
         setup.genesis_message,
         setup.genesis_verification_key,
-        certificate_verifying_key.vk(),
-        &recursive_verifying_key,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
     );
 
-    if let Some(parent) = paths.verification_context.parent() {
-        fs::create_dir_all(parent).expect("failed to create verification_context asset directory");
-    }
-    let mut writer = BufWriter::new(
-        File::create(&paths.verification_context).expect("failed to create verification_context"),
-    );
-
-    for value in global.as_public_input() {
-        writer.write_all(&value.to_bytes_le()).unwrap();
-    }
-
-    recursive_verifying_key
-        .write(&mut writer, SerdeFormat::RawBytesUnchecked)
-        .unwrap();
-
-    writer
-        .write_all(&(combined_fixed_bases.len() as u32).to_le_bytes())
-        .unwrap();
-    for (name, point) in &combined_fixed_bases {
-        let name_bytes = name.as_bytes();
-        writer.write_all(&(name_bytes.len() as u32).to_le_bytes()).unwrap();
-        writer.write_all(name_bytes).unwrap();
-        point.write(&mut writer, SerdeFormat::RawBytesUnchecked).unwrap();
-    }
-    write_shared_verifier_params(&mut writer, &verifier_params);
+    let asset = VerificationContextAsset {
+        global_field_elements: global.as_public_input(),
+        recursive_verifying_key: context.recursive_verifying_key.clone(),
+        combined_fixed_bases,
+        verifier_params: context.universal_verifier_params,
+        verifier_tau_in_g2: context.universal_kzg_parameters.s_g2().into(),
+    };
+    store_verification_context_asset(&paths.verification_context, &asset)
+        .expect("failed to write verification_context asset");
     println!(
         "generate_verification_context: done in {:?}",
         total_start.elapsed()
@@ -962,52 +926,20 @@ pub(crate) fn generate_recursive_step_output_asset(
     let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
         .expect("failed to load recursive_chain_state asset");
 
-    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE.max(CERTIFICATE_CIRCUIT_DEGREE);
-    let universal_kzg_parameters = build_deterministic_params(shared_srs_degree);
-    let universal_verifier_params = universal_kzg_parameters.verifier_params();
-
-    let certificate_commitment_parameters = {
-        let mut certificate_commitment_parameters = universal_kzg_parameters.clone();
-        if CERTIFICATE_CIRCUIT_DEGREE < shared_srs_degree {
-            certificate_commitment_parameters.downsize(CERTIFICATE_CIRCUIT_DEGREE);
-        }
-        certificate_commitment_parameters
-    };
-
-    let recursive_commitment_parameters = {
-        let mut recursive_commitment_parameters = universal_kzg_parameters.clone();
-        if RECURSIVE_CIRCUIT_DEGREE < shared_srs_degree {
-            recursive_commitment_parameters.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        }
-        recursive_commitment_parameters
-    };
-
-    let certificate_verifying_key = zk_lib::setup_vk(
-        &certificate_commitment_parameters,
-        &setup.certificate_relation,
-    );
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
-    let recursive_verifying_key = keygen_vk_with_k(
-        &recursive_commitment_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("IVC verifying key generation should not fail");
-    let recursive_proving_key = keygen_pk(recursive_verifying_key.clone(), &default_ivc_circuit)
-        .expect("IVC proving key generation should not fail");
+    let context = build_shared_recursive_context(setup);
+    let recursive_proving_key = build_recursive_proving_key(&context);
     println!("generate_recursive_step_output: certificate and recursive keys ready");
 
-    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, &recursive_verifying_key);
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
-    let mut combined_fixed_bases = certificate_fixed_bases;
-    combined_fixed_bases.extend(recursive_fixed_bases.clone());
+    let (_, recursive_fixed_bases, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
 
     let global = Global::new(
         setup.genesis_message,
         setup.genesis_verification_key,
-        certificate_verifying_key.vk(),
-        &recursive_verifying_key,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
     );
 
     let mut recursive_step_output_random_generator = OsRng;
@@ -1016,9 +948,9 @@ pub(crate) fn generate_recursive_step_output_asset(
     let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
         build_next_certificate_asset_data(
             setup,
-            &certificate_commitment_parameters,
+            &context.certificate_commitment_parameters,
             &setup.certificate_relation,
-            &certificate_verifying_key,
+            &context.certificate_verifying_key,
             &recursive_chain_state.state,
             &mut recursive_step_output_random_generator,
         );
@@ -1034,11 +966,11 @@ pub(crate) fn generate_recursive_step_output_asset(
     ]
     .concat();
     let previous_dual_msm = verify_and_prepare_poseidon_ivc(
-        &recursive_verifying_key,
+        &context.recursive_verifying_key,
         &recursive_chain_state.proof,
         &previous_public_inputs,
     );
-    assert!(previous_dual_msm.clone().check(&universal_verifier_params));
+    assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
     let mut previous_proof_accumulator: Accumulator<crate::circuits::halo2_ivc::S> =
         previous_dual_msm.into();
     previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
@@ -1052,7 +984,7 @@ pub(crate) fn generate_recursive_step_output_asset(
     next_accumulator.collapse();
     assert!(
         next_accumulator.check(
-            &universal_kzg_parameters.s_g2().into(),
+            &context.universal_kzg_parameters.s_g2().into(),
             &combined_fixed_bases,
         ),
         "next accumulator check failed"
@@ -1066,8 +998,8 @@ pub(crate) fn generate_recursive_step_output_asset(
         certificate_proof.clone(),
         recursive_chain_state.proof.clone(),
         recursive_chain_state.accumulator.clone(),
-        certificate_verifying_key.vk(),
-        &recursive_verifying_key,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
     );
     let public_inputs = [
         global.as_public_input(),
@@ -1079,42 +1011,35 @@ pub(crate) fn generate_recursive_step_output_asset(
     println!("generate_recursive_step_output: final blake2b recursive proof starting");
     let final_proof_start = Instant::now();
     let final_proof = prove_blake2b_ivc(
-        &recursive_commitment_parameters,
+        &context.recursive_commitment_parameters,
         &recursive_proving_key,
         &circuit,
         &public_inputs,
         &mut recursive_step_output_random_generator,
     );
-    let final_dual_msm =
-        verify_and_prepare_blake2b_ivc(&recursive_verifying_key, &final_proof, &public_inputs);
-    assert!(final_dual_msm.check(&universal_verifier_params));
+    let final_dual_msm = verify_and_prepare_blake2b_ivc(
+        &context.recursive_verifying_key,
+        &final_proof,
+        &public_inputs,
+    );
+    assert!(final_dual_msm.check(&context.universal_verifier_params));
     println!(
         "generate_recursive_step_output: final blake2b recursive proof done in {:?}",
         final_proof_start.elapsed()
     );
 
-    if let Some(parent) = paths.recursive_step_output.parent() {
-        fs::create_dir_all(parent).expect("failed to create recursive_step_output asset directory");
-    }
     println!(
         "generate_recursive_step_output: writing asset -> {}",
         paths.recursive_step_output.display()
     );
-    let mut writer = BufWriter::new(
-        File::create(&paths.recursive_step_output).expect("failed to create recursive_step_output"),
-    );
-    writer.write_all(&(final_proof.len() as u32).to_le_bytes()).unwrap();
-    writer.write_all(&final_proof).unwrap();
-    next_accumulator
-        .write(&mut writer, SerdeFormat::RawBytesUnchecked)
-        .unwrap();
-    for value in next_state.as_public_input() {
-        writer.write_all(&value.to_bytes_le()).unwrap();
-    }
-    writer
-        .write_all(&(certificate_proof.len() as u32).to_le_bytes())
-        .unwrap();
-    writer.write_all(&certificate_proof).unwrap();
+    let asset = RecursiveStepOutputAsset {
+        proof: final_proof,
+        next_accumulator,
+        next_state,
+        certificate_proof,
+    };
+    store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
+        .expect("failed to write recursive_step_output asset");
     println!(
         "generate_recursive_step_output: done in {:?}",
         total_start.elapsed()
