@@ -10,14 +10,14 @@ use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::tests::golden::{
     asset_readers::{
-        load_recursive_chain_state_asset, load_recursive_step_output_asset,
-        load_verification_context_asset,
+        load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+        load_embedded_verification_context_asset,
     },
     generators::{
         build_asset_generation_setup, build_genesis_base_case_next_state,
         build_genesis_base_case_witness, build_next_certificate_asset_data,
-        build_same_epoch_certificate_asset_data, default_asset_paths,
-        next_message_and_preimage_for_step, next_state_for_step,
+        build_same_epoch_certificate_asset_data, next_message_and_preimage_for_step,
+        next_state_for_step,
     },
     helpers::{
         assert_recursive_mock_prover_accepts, build_recursive_mock_prover_setup,
@@ -63,8 +63,7 @@ fn slow_recursive_step_next_epoch_accepts_valid_public_inputs() {
     // generated in-test.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-    let paths = default_asset_paths();
-    let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
 
     // Reuse the stored previous recursive artifacts, but build the fresh
@@ -112,8 +111,7 @@ fn slow_recursive_step_same_epoch_accepts_valid_public_inputs() {
     // generated in-test.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-    let paths = default_asset_paths();
-    let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
 
     let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
@@ -156,10 +154,9 @@ fn slow_recursive_step_same_epoch_accepts_valid_public_inputs() {
 fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
     // Asset-based check that the stored previous recursive checkpoint remains a
     // coherent proof/state/accumulator bundle on its own.
-    let paths = default_asset_paths();
-    let verification_context = load_verification_context_asset(&paths.verification_context)
-        .expect("verification context asset should load");
-    let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
 
     assert_eq!(
@@ -191,10 +188,9 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     // Asset-based check that the stored next recursive checkpoint remains
     // valid in isolation, including both the final proof and the folded
     // accumulator.
-    let paths = default_asset_paths();
-    let verification_context = load_verification_context_asset(&paths.verification_context)
-        .expect("verification context asset should load");
-    let recursive_step_output = load_recursive_step_output_asset(&paths.recursive_step_output)
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
     let public_inputs = [
@@ -230,10 +226,9 @@ fn slow_recursive_step_output_asset_matches_replayed_chain_flow() {
     // artifact is truly its continuation.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-    let paths = default_asset_paths();
-    let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
-    let recursive_step_output = load_recursive_step_output_asset(&paths.recursive_step_output)
+    let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
     let (expected_message, _) =
         next_message_and_preimage_for_step(&setup, &recursive_chain_state.state);

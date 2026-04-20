@@ -62,6 +62,10 @@ pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) certificate_proof: Vec<u8>,
 }
 
+const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] = include_bytes!("assets/recursive_chain_state.bin");
+const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] = include_bytes!("assets/verification_context.bin");
+const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("assets/recursive_step_output.bin");
+
 /// Opens a committed golden asset for buffered reading.
 fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {
     Ok(BufReader::new(File::open(path)?))
@@ -202,6 +206,13 @@ pub(crate) fn load_recursive_chain_state_asset(path: &Path) -> StmResult<Recursi
     })
 }
 
+/// Loads the embedded recursive chain snapshot compiled into the test binary.
+pub(crate) fn load_embedded_recursive_chain_state_asset() -> StmResult<RecursiveChainStateAsset> {
+    let mut reader = Cursor::new(RECURSIVE_CHAIN_STATE_ASSET_BYTES);
+    load_recursive_chain_state_asset_from_reader(&mut reader)
+        .context("failed to decode embedded recursive chain state asset")
+}
+
 /// Writes the recursive chain state asset using the committed binary layout.
 pub(crate) fn store_recursive_chain_state_asset(
     path: &Path,
@@ -265,20 +276,11 @@ fn load_verification_context_asset_from_reader<R: Read>(
     })
 }
 
-/// Loads the stored verifier-side context from a committed asset file.
-pub(crate) fn load_verification_context_asset(path: &Path) -> StmResult<VerificationContextAsset> {
-    let mut reader = open_asset_file(path).with_context(|| {
-        format!(
-            "failed to open verification context asset: {}",
-            path.display()
-        )
-    })?;
-    load_verification_context_asset_from_reader(&mut reader).with_context(|| {
-        format!(
-            "failed to decode verification context asset: {}",
-            path.display()
-        )
-    })
+/// Loads the embedded verifier-side context compiled into the test binary.
+pub(crate) fn load_embedded_verification_context_asset() -> StmResult<VerificationContextAsset> {
+    let mut reader = Cursor::new(VERIFICATION_CONTEXT_ASSET_BYTES);
+    load_verification_context_asset_from_reader(&mut reader)
+        .context("failed to decode embedded verification context asset")
 }
 
 /// Writes the verification-context asset using the committed binary layout.
@@ -329,20 +331,11 @@ fn load_recursive_step_output_asset_from_reader<R: Read>(
     })
 }
 
-/// Loads the stored recursive step output from a committed asset file.
-pub(crate) fn load_recursive_step_output_asset(path: &Path) -> StmResult<RecursiveStepOutputAsset> {
-    let mut reader = open_asset_file(path).with_context(|| {
-        format!(
-            "failed to open recursive step output asset: {}",
-            path.display()
-        )
-    })?;
-    load_recursive_step_output_asset_from_reader(&mut reader).with_context(|| {
-        format!(
-            "failed to decode recursive step output asset: {}",
-            path.display()
-        )
-    })
+/// Loads the embedded recursive step output compiled into the test binary.
+pub(crate) fn load_embedded_recursive_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
+    let mut reader = Cursor::new(RECURSIVE_STEP_OUTPUT_ASSET_BYTES);
+    load_recursive_step_output_asset_from_reader(&mut reader)
+        .context("failed to decode embedded recursive step output asset")
 }
 
 /// Writes the recursive step output asset using the committed binary layout.
