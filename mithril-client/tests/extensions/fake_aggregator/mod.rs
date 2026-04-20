@@ -48,8 +48,7 @@ impl FakeAggregator {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let test_server = TestServer::builder()
             .http_transport()
-            .build(router.route_layer(from_fn_with_state(calls.clone(), log_route_call)))
-            .unwrap();
+            .build(router.route_layer(from_fn_with_state(calls.clone(), log_route_call)));
 
         Self { calls, test_server }
     }

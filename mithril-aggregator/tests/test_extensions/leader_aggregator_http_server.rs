@@ -39,7 +39,7 @@ impl LeaderAggregatorHttpServer {
             )
             .with_state(state);
 
-        let server = TestServer::builder().http_transport().build(router)?;
+        let server = TestServer::builder().http_transport().build(router);
         let url = server.server_address().unwrap();
 
         Ok(Self { server, url })
