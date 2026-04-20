@@ -26,6 +26,8 @@ use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey, SchnorrVerifi
 
 /// Small Merkle depth shared by focused gadget tests to keep proving cheap in CI.
 pub(crate) const TEST_MERKLE_TREE_DEPTH: usize = 3;
+/// Small Merkle depth to test the proper implementation of the merkle path padding.
+pub(crate) const TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING: usize = 5;
 
 /// Proves and verifies a tiny test-only relation.
 pub(crate) fn prove_and_verify_relation<R>(
@@ -75,8 +77,9 @@ pub(crate) fn jubjub_poseidon_used_chips() -> midnight_zk_stdlib::ZkStdLibArch {
 }
 
 /// Builds one valid circuit witness entry for focused gadget tests.
-pub(crate) fn sample_valid_circuit_witness_entry()
--> Result<(CircuitWitnessEntry, MerkleRoot, SignedMessageWithoutPrefix)> {
+pub(crate) fn sample_valid_circuit_witness_entry(
+    merkle_path_length: u32,
+) -> Result<(CircuitWitnessEntry, MerkleRoot, SignedMessageWithoutPrefix)> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let signing_key = SchnorrSigningKey::generate(&mut rng);
     let verification_key = SchnorrVerificationKey::new_from_signing_key(signing_key.clone());
@@ -91,9 +94,8 @@ pub(crate) fn sample_valid_circuit_witness_entry()
     let message = SignedMessageWithoutPrefix::from(42u64);
     let transcript = [merkle_tree_commitment.into(), message.into()];
     let unique_schnorr_signature = signing_key.sign(&transcript, &mut rng)?;
-    let merkle_path: MerklePath = (&stm_tree
-        .compute_merkle_tree_path_fixed_length(0, TEST_MERKLE_TREE_DEPTH as u32))
-        .try_into()?;
+    let merkle_path: MerklePath =
+        (&stm_tree.compute_merkle_tree_path_fixed_length(0, merkle_path_length)).try_into()?;
     let entry = CircuitWitnessEntry {
         leaf: CircuitMerkleTreeLeaf(verification_key, circuit_lottery_target_value),
         merkle_path,

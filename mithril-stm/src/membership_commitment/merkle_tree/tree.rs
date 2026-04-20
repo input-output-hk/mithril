@@ -219,7 +219,7 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
             } else {
                 D::digest([0u8]).to_vec()
             };
-            proof.push(h.clone());
+            proof.push(h);
             idx = parent(idx);
         }
 

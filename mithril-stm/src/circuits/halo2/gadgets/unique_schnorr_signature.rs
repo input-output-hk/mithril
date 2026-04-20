@@ -83,8 +83,8 @@ mod tests {
     use midnight_circuits::types::AssignedNative;
 
     use crate::circuits::halo2::tests::test_helpers::{
-        assert_relation_rejected, impl_focused_test_relation, jubjub_poseidon_used_chips,
-        prove_and_verify_relation, sample_valid_circuit_witness_entry,
+        TEST_MERKLE_TREE_DEPTH, assert_relation_rejected, impl_focused_test_relation,
+        jubjub_poseidon_used_chips, prove_and_verify_relation, sample_valid_circuit_witness_entry,
     };
     use crate::circuits::halo2::types::{CircuitBase, CircuitCurve};
     use crate::circuits::halo2::witness::{
@@ -167,8 +167,10 @@ mod tests {
     #[test]
     fn unique_schnorr_signature_accepts_valid_witness_entry() {
         let relation = UniqueSchnorrSignatureRelation;
-        let (entry, merkle_tree_commitment, message) = sample_valid_circuit_witness_entry()
-            .expect("unique_schnorr_signature_accepts_valid_witness_entry should build fixture");
+        let (entry, merkle_tree_commitment, message) = sample_valid_circuit_witness_entry(
+            TEST_MERKLE_TREE_DEPTH as u32,
+        )
+        .expect("unique_schnorr_signature_accepts_valid_witness_entry should build fixture");
 
         prove_and_verify_relation(&relation, &(), (entry, merkle_tree_commitment, message))
             .expect("unique_schnorr_signature_accepts_valid_witness_entry should succeed");
@@ -177,8 +179,9 @@ mod tests {
     #[test]
     fn unique_schnorr_signature_rejects_wrong_challenge() {
         let relation = UniqueSchnorrSignatureRelation;
-        let (mut entry, merkle_tree_commitment, message) = sample_valid_circuit_witness_entry()
-            .expect("unique_schnorr_signature_rejects_wrong_challenge should build fixture");
+        let (mut entry, merkle_tree_commitment, message) =
+            sample_valid_circuit_witness_entry(TEST_MERKLE_TREE_DEPTH as u32)
+                .expect("unique_schnorr_signature_rejects_wrong_challenge should build fixture");
         entry.unique_schnorr_signature.challenge =
             entry.unique_schnorr_signature.challenge + BaseFieldElement::from(1u64);
 

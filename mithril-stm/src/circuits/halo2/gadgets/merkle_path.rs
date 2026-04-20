@@ -120,11 +120,12 @@ mod tests {
     use midnight_proofs::plonk::Error;
 
     use crate::circuits::halo2::tests::test_helpers::{
-        TEST_MERKLE_TREE_DEPTH, assert_relation_rejected, impl_focused_test_relation,
-        jubjub_poseidon_used_chips, prove_and_verify_relation, sample_valid_circuit_witness_entry,
+        TEST_MERKLE_TREE_DEPTH, TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING, assert_relation_rejected,
+        impl_focused_test_relation, jubjub_poseidon_used_chips, prove_and_verify_relation,
+        sample_valid_circuit_witness_entry,
     };
-    use crate::circuits::halo2::types::CircuitBase;
-    use crate::circuits::halo2::witness::{CircuitWitnessEntry, MerkleRoot};
+    use crate::circuits::halo2::types::{CircuitBase, CircuitBaseField};
+    use crate::circuits::halo2::witness::{CircuitWitnessEntry, MerkleRoot, Position};
 
     use super::{MerklePathInputs, verify_merkle_path};
 
@@ -198,11 +199,82 @@ mod tests {
         }
     );
 
+    impl_focused_test_relation!(
+        MerklePathRelation,
+        (CircuitWitnessEntry, MerkleRoot),
+        jubjub_poseidon_used_chips(),
+        |std_lib, layouter, witness| {
+            let verification_key = std_lib.jubjub().assign(
+                layouter,
+                witness
+                    .clone()
+                    .map(|(entry, _)| entry.leaf.verification_key_point().0),
+            )?;
+            let lottery_target_value = std_lib.assign(
+                layouter,
+                witness
+                    .clone()
+                    .map(|(entry, _)| entry.leaf.lottery_target_value().into()),
+            )?;
+            let merkle_tree_commitment = std_lib.assign(
+                layouter,
+                witness.clone().map(|(_, commitment)| commitment.into()),
+            )?;
+            let merkle_siblings = std_lib.assign_many(
+                layouter,
+                witness
+                    .clone()
+                    .map(|(entry, _)| {
+                        entry
+                            .merkle_path
+                            .siblings
+                            .iter()
+                            .map(|(_, sibling)| (*sibling).into())
+                            .collect::<Vec<_>>()
+                    })
+                    .transpose_vec(TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING)
+                    .as_slice(),
+            )?;
+            let merkle_positions = std_lib.assign_many(
+                layouter,
+                witness
+                    .map(|(entry, _)| {
+                        entry
+                            .merkle_path
+                            .siblings
+                            .iter()
+                            .map(|(position, _)| CircuitBase::from(*position))
+                            .collect::<Vec<_>>()
+                    })
+                    .transpose_vec(TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING)
+                    .as_slice(),
+            )?;
+            let merkle_positions = merkle_positions
+                .iter()
+                .map(|position| std_lib.convert(layouter, position))
+                .collect::<Result<Vec<_>, Error>>()?;
+
+            verify_merkle_path(
+                std_lib,
+                layouter,
+                MerklePathInputs {
+                    verification_key: &verification_key,
+                    lottery_target_value: &lottery_target_value,
+                    merkle_tree_commitment: &merkle_tree_commitment,
+                    merkle_siblings: &merkle_siblings,
+                    merkle_positions: &merkle_positions,
+                    merkle_tree_depth: TEST_MERKLE_TREE_DEPTH as u32,
+                },
+            )
+        }
+    );
+
     #[test]
     fn merkle_path_accepts_valid_witness_entry() {
         let relation = MerkleRelation;
-        let (entry, merkle_tree_commitment, _) = sample_valid_circuit_witness_entry()
-            .expect("merkle_path_accepts_valid_witness_entry should build fixture");
+        let (entry, merkle_tree_commitment, _) =
+            sample_valid_circuit_witness_entry(TEST_MERKLE_TREE_DEPTH as u32)
+                .expect("merkle_path_accepts_valid_witness_entry should build fixture");
 
         prove_and_verify_relation(&relation, &(), (entry, merkle_tree_commitment))
             .expect("merkle_path_accepts_valid_witness_entry should succeed");
@@ -211,8 +283,42 @@ mod tests {
     #[test]
     fn merkle_path_rejects_wrong_merkle_tree_commitment() {
         let relation = MerkleRelation;
-        let (entry, _, _) = sample_valid_circuit_witness_entry()
+        let (entry, _, _) = sample_valid_circuit_witness_entry(TEST_MERKLE_TREE_DEPTH as u32)
             .expect("merkle_path_rejects_wrong_merkle_tree_commitment should build fixture");
+
+        assert_relation_rejected(prove_and_verify_relation(
+            &relation,
+            &(),
+            (entry, MerkleRoot::from(999u64)),
+        ));
+    }
+
+    #[test]
+    fn merkle_path_accepts_padding() {
+        let relation = MerklePathRelation;
+
+        let (entry, merkle_tree_commitment, _) =
+            sample_valid_circuit_witness_entry(TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING as u32)
+                .expect("merkle_path_rejects_wrong_merkle_tree_commitment should build fixture");
+        assert_eq!(
+            entry.merkle_path.siblings.last().unwrap(),
+            &(Position::Right, CircuitBaseField::ZERO),
+            "The last element of the siblings should be a zero padding"
+        );
+
+        prove_and_verify_relation(&relation, &(), (entry.clone(), merkle_tree_commitment))
+            .expect("merkle_path_accepts_valid_witness_entry should succeed");
+    }
+
+    #[test]
+    fn merkle_path_rejects_wrong_padding() {
+        let relation = MerklePathRelation;
+        let (mut entry, _, _) =
+            sample_valid_circuit_witness_entry(TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING as u32)
+                .expect("merkle_path_rejects_wrong_merkle_tree_commitment should build fixture");
+
+        let sibling_length = entry.merkle_path.siblings.len();
+        entry.merkle_path.siblings[sibling_length - 1] = (Position::Right, CircuitBaseField::ONE);
 
         assert_relation_rejected(prove_and_verify_relation(
             &relation,
