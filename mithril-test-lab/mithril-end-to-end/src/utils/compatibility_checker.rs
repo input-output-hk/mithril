@@ -28,6 +28,11 @@ impl Default for CompatibilityChecker {
                 "mithril-signer", min_supported_version: semver::Version::new(0, 2, 221),
                 context: "older signers raise errors when an aggregator propagate a signed entity types that they don't know (i.e. CardanoDatabase signed entity type)"
             ),
+            incompatibility_rule!(
+                "mithril-aggregator", below_version: semver::Version::new(0, 8, 46),
+                is_incompatible_with: "cardano-node", starting_version: semver::Version::new(10, 7, 0),
+                context: "older aggregator doesn't support new UTxO-HD ledger state snapshot format"
+            ),
         ])
     }
 }
