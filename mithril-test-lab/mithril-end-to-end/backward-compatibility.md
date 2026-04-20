@@ -64,6 +64,7 @@ format is:
 - **below `0.7.91` (next to 2543.1) with signer `0.2.277` (next to 2543.1) and up**: new `/protocol-configuration/{epoch}`aggregator
   route to update network parameters (required by signer`0.2.277` and up)
 - **below `0.7.55` (2524.0) with cardano-node version `10.4.1` and up**: support of UTxO-HD was added only on aggregator `0.7.55` and up
+- **below `0.8.46` (next to 2543.1) with cardano-node version `10.7.0` and up**: changes in the UTxO-HD ledger state snapshot format
 
 ### Mithril signer
 
