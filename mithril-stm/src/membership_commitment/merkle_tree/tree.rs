@@ -230,6 +230,9 @@ impl<D: Digest + FixedOutput, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree and pad it to reach the
     /// given length.
+    /// The padding is done by adding values of `0` to the path in the form
+    /// of `[0u8; hash_output_size]`. Since finding the preimage is hard, this allows us
+    /// to use this value to detect when the "real" path ends.
     /// Requires `i < self.n`
     pub(crate) fn compute_merkle_tree_path_fixed_length(
         &self,
