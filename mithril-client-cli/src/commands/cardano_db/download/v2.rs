@@ -237,6 +237,16 @@ impl PreparedCardanoDbV2Download {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
         CardanoDbDownloadChecker::ensure_dir_exist(&restoration_options.db_dir)?;
+
+        let free_space = fs2::available_space(&restoration_options.db_dir)?;
+        let total_size_uncompressed =
+            Self::compute_required_disk_space_for_snapshot(cardano_db, restoration_options);
+        let message = format!(
+            "free space is {} bytes, required space for the snapshot is {} bytes",
+            free_space, total_size_uncompressed
+        );
+        progress_printer.report_step(step_number, &message)?;
+
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(
             &restoration_options.db_dir,
             Self::compute_required_disk_space_for_snapshot(cardano_db, restoration_options),

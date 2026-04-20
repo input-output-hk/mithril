@@ -48,6 +48,19 @@ impl DownloadTask {
         let mut download_succeeded = false;
 
         for location_to_try in &self.locations_to_try {
+            #[cfg(not(target_family = "wasm"))]
+            {
+                //print a log with space disk of target dir before downloading
+                let free_space = fs2::available_space(target_dir)?;
+                slog::warn!(
+                    logger,
+                    "Attempting to download {} from location {:?} (available disk space: {} bytes)",
+                    self.name(),
+                    location_to_try.file_downloader_uri,
+                    free_space
+                );
+            }
+
             let downloaded = location_to_try
                 .file_downloader
                 .download_unpack(

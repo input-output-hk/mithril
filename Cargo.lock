@@ -4179,6 +4179,7 @@ dependencies = [
  "chrono",
  "flate2",
  "flume",
+ "fs2",
  "futures",
  "getrandom 0.4.1",
  "hex",
