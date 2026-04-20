@@ -40,7 +40,7 @@ web-sys = { version = "0.3.95", features = ["BroadcastChannel", "console", "Stor
 
 [target.'cfg(all(target_family = "wasm"))'.dependencies]
 # This getrandom version is required without the future_snark feature, and it can be removed once the future_snark feature is enabled.
-getrandom = { version = "0.4", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 # This getrandom version is required with the future_snark feature (because of Midnight ZK dependency)
 getrandom-future-snark = { package = "getrandom", version = "0.4.2", features = ["wasm_js"] }
 

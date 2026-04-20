@@ -56,11 +56,11 @@ async-trait = "0.1.89"
 chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 config = "0.15.22"
-digest = { version = "0.11.2", features = ["alloc"] }
+digest = { version = "0.10.7", features = ["alloc"] }
 hex = "0.4.3"
 mockall = "0.14.0"
-rand_chacha = "0.10.0"
-rand_core = { version = "0.10.1", features = ["std"] }
+rand_chacha = "0.3.1"
+rand_core = { version = "0.6.4", features = ["std"] }
 rayon = "1.12.0"
 reqwest = { version = "0.13.2", default-features = false, features = ["json"] }
 semver = "1.0.28"
