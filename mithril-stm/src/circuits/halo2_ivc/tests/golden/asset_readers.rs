@@ -1,116 +1,95 @@
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{self, BufReader, BufWriter, Cursor, Read, Write},
-    path::{Path, PathBuf},
+    io::{BufReader, BufWriter, Cursor, Read, Write},
+    path::Path,
 };
 
+use anyhow::{Context, anyhow};
 use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     poly::kzg::params::ParamsVerifierKZG,
     utils::{SerdeFormat, helpers::ProcessedSerdeObject},
 };
 
+use crate::StmResult;
 use crate::circuits::halo2_ivc::{
-    Accumulator, C, E, F, KZGCommitmentScheme, VerifyingKey,
+    Accumulator, C, E, F, KZGCommitmentScheme, S, VerifyingKey,
     circuit::IvcCircuit,
     helpers::utils::jubjub_base_from_le_bytes,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
 };
 
-/// Stored recursive chain state asset.
-///
-/// Layout:
-/// - `global_field_elements`: 5 field elements
-/// - `state`: 7 field elements
-/// - `proof`: length-prefixed proof bytes
-/// - `accumulator`: serialized accumulator
+/// Stored recursive chain checkpoint used by the golden tests.
 #[derive(Debug)]
 pub(crate) struct RecursiveChainStateAsset {
+    /// Stored global public inputs for the recursive flow.
     pub(crate) global_field_elements: Vec<F>,
+    /// Stored recursive state checkpoint.
     pub(crate) state: State,
+    /// Stored previous recursive proof bytes.
     pub(crate) proof: Vec<u8>,
-    pub(crate) accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
+    /// Stored folded accumulator for the checkpoint.
+    pub(crate) accumulator: Accumulator<S>,
 }
 
-/// Stored verification context asset.
-///
-/// Layout:
-/// - `global_field_elements`: 5 field elements
-/// - `recursive_verifying_key`: serialized IVC verifying key
-/// - `combined_fixed_bases`: count + named points
-/// - `verifier_params`: shared verifier-side SRS data
+/// Stored verifier-side context shared by the golden assets.
 #[derive(Debug)]
 pub(crate) struct VerificationContextAsset {
+    /// Shared global public inputs used by the committed assets.
     pub(crate) global_field_elements: Vec<F>,
+    /// Stored recursive verifying key.
     pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    /// Combined fixed bases needed to check recursive accumulators.
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
+    /// Shared verifier-side KZG parameters.
     pub(crate) verifier_params: ParamsVerifierKZG<E>,
+    /// The verifier-side `s_g2` element extracted from the stored params.
     pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
 }
 
-/// Stored recursive step output asset.
-///
-/// Layout:
-/// - `proof`: length-prefixed proof bytes
-/// - `next_accumulator`: serialized accumulator
-/// - `next_state`: 7 field elements
-/// - `certificate_proof`: length-prefixed proof bytes
+/// Stored output of extending the recursive chain by one more step.
 #[derive(Debug)]
 pub(crate) struct RecursiveStepOutputAsset {
+    /// Stored final recursive proof bytes for the next step.
     pub(crate) proof: Vec<u8>,
-    pub(crate) next_accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
+    /// Stored folded accumulator after extending the chain by one step.
+    pub(crate) next_accumulator: Accumulator<S>,
+    /// Stored next recursive state.
     pub(crate) next_state: State,
+    /// Stored certificate proof consumed by the recursive step.
     pub(crate) certificate_proof: Vec<u8>,
 }
 
-fn stored_asset_directory() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/tests/golden/assets")
-}
-
-/// Returns the committed asset path for the stored recursive chain snapshot.
-pub(super) fn recursive_chain_state_asset_path() -> PathBuf {
-    stored_asset_directory().join("recursive_chain_state.bin")
-}
-
-/// Returns the committed asset path for the static verifier-side context.
-pub(super) fn verification_context_asset_path() -> PathBuf {
-    stored_asset_directory().join("verification_context.bin")
-}
-
-/// Returns the committed asset path for the final recursive step output.
-pub(super) fn recursive_step_output_asset_path() -> PathBuf {
-    stored_asset_directory().join("recursive_step_output.bin")
-}
-
 /// Opens a committed golden asset for buffered reading.
-fn open_asset_file(path: &Path) -> io::Result<BufReader<File>> {
-    File::open(path).map(BufReader::new)
+fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {
+    Ok(BufReader::new(File::open(path)?))
 }
 
 /// Creates a golden asset file and its parent directory if needed.
-fn create_asset_file(path: &Path) -> io::Result<BufWriter<File>> {
+fn create_asset_file(path: &Path) -> StmResult<BufWriter<File>> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    File::create(path).map(BufWriter::new)
+    Ok(BufWriter::new(File::create(path)?))
 }
 
 /// Reads one field element encoded as 32 little-endian bytes.
-fn read_field_element<R: Read>(reader: &mut R) -> io::Result<F> {
+fn read_field_element<R: Read>(reader: &mut R) -> StmResult<F> {
     let mut bytes = [0u8; 32];
     reader.read_exact(&mut bytes)?;
     Ok(jubjub_base_from_le_bytes(&bytes))
 }
 
 /// Writes one field element as 32 little-endian bytes.
-fn write_field_element<W: Write>(writer: &mut W, value: &F) -> io::Result<()> {
-    writer.write_all(&value.to_bytes_le())
+fn write_field_element<W: Write>(writer: &mut W, value: &F) -> StmResult<()> {
+    writer.write_all(&value.to_bytes_le())?;
+    Ok(())
 }
 
 /// Reads the seven public-input field elements that define a recursive state.
-fn read_state_public_input<R: Read>(reader: &mut R) -> io::Result<State> {
+fn read_state_public_input<R: Read>(reader: &mut R) -> StmResult<State> {
     Ok(State::new(
         read_field_element(reader)?,
         read_field_element(reader)?,
@@ -123,7 +102,7 @@ fn read_state_public_input<R: Read>(reader: &mut R) -> io::Result<State> {
 }
 
 /// Writes the seven public-input field elements of a recursive state.
-fn write_state_public_input<W: Write>(writer: &mut W, state: &State) -> io::Result<()> {
+fn write_state_public_input<W: Write>(writer: &mut W, state: &State) -> StmResult<()> {
     for value in state.as_public_input() {
         write_field_element(writer, &value)?;
     }
@@ -131,7 +110,7 @@ fn write_state_public_input<W: Write>(writer: &mut W, state: &State) -> io::Resu
 }
 
 /// Reads proof bytes stored behind a 32-bit little-endian length prefix.
-fn read_length_prefixed_proof<R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
+fn read_length_prefixed_proof<R: Read>(reader: &mut R) -> StmResult<Vec<u8>> {
     let mut len = [0u8; 4];
     reader.read_exact(&mut len)?;
     let proof_len = u32::from_le_bytes(len) as usize;
@@ -143,13 +122,14 @@ fn read_length_prefixed_proof<R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
 }
 
 /// Writes proof bytes with a 32-bit little-endian length prefix.
-fn write_length_prefixed_proof<W: Write>(writer: &mut W, proof: &[u8]) -> io::Result<()> {
+fn write_length_prefixed_proof<W: Write>(writer: &mut W, proof: &[u8]) -> StmResult<()> {
     writer.write_all(&(proof.len() as u32).to_le_bytes())?;
-    writer.write_all(proof)
+    writer.write_all(proof)?;
+    Ok(())
 }
 
 /// Reads the named fixed-base map stored in the verification-context asset.
-fn read_named_fixed_bases<R: Read>(reader: &mut R) -> io::Result<BTreeMap<String, C>> {
+fn read_named_fixed_bases<R: Read>(reader: &mut R) -> StmResult<BTreeMap<String, C>> {
     let mut count = [0u8; 4];
     reader.read_exact(&mut count)?;
     let count = u32::from_le_bytes(count) as usize;
@@ -163,7 +143,7 @@ fn read_named_fixed_bases<R: Read>(reader: &mut R) -> io::Result<BTreeMap<String
         let mut name_bytes = vec![0u8; name_len];
         reader.read_exact(&mut name_bytes)?;
         let name = String::from_utf8(name_bytes)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid UTF-8 key"))?;
+            .map_err(|_| anyhow!("invalid UTF-8 key in verification-context fixed-base map"))?;
 
         let point = C::read(reader, SerdeFormat::RawBytesUnchecked)?;
         map.insert(name, point);
@@ -176,7 +156,7 @@ fn read_named_fixed_bases<R: Read>(reader: &mut R) -> io::Result<BTreeMap<String
 fn write_named_fixed_bases<W: Write>(
     writer: &mut W,
     fixed_bases: &BTreeMap<String, C>,
-) -> io::Result<()> {
+) -> StmResult<()> {
     writer.write_all(&(fixed_bases.len() as u32).to_le_bytes())?;
     for (name, point) in fixed_bases {
         let name_bytes = name.as_bytes();
@@ -187,21 +167,16 @@ fn write_named_fixed_bases<W: Write>(
     Ok(())
 }
 
-/// Loads the stored recursive chain snapshot used by the golden tests.
-pub(crate) fn load_recursive_chain_state_asset(
-    path: &Path,
-) -> io::Result<RecursiveChainStateAsset> {
-    let mut reader = open_asset_file(path)?;
-
+/// Loads a recursive chain snapshot from the committed binary asset layout.
+fn load_recursive_chain_state_asset_from_reader<R: Read>(
+    reader: &mut R,
+) -> StmResult<RecursiveChainStateAsset> {
     let global_field_elements = (0..5)
-        .map(|_| read_field_element(&mut reader))
+        .map(|_| read_field_element(reader))
         .collect::<Result<Vec<_>, _>>()?;
-    let state = read_state_public_input(&mut reader)?;
-    let proof = read_length_prefixed_proof(&mut reader)?;
-    let accumulator = Accumulator::<crate::circuits::halo2_ivc::S>::read(
-        &mut reader,
-        SerdeFormat::RawBytesUnchecked,
-    )?;
+    let state = read_state_public_input(reader)?;
+    let proof = read_length_prefixed_proof(reader)?;
+    let accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
 
     Ok(RecursiveChainStateAsset {
         global_field_elements,
@@ -211,12 +186,33 @@ pub(crate) fn load_recursive_chain_state_asset(
     })
 }
 
+/// Loads the stored recursive chain snapshot from a committed asset file.
+pub(crate) fn load_recursive_chain_state_asset(path: &Path) -> StmResult<RecursiveChainStateAsset> {
+    let mut reader = open_asset_file(path).with_context(|| {
+        format!(
+            "failed to open recursive chain state asset: {}",
+            path.display()
+        )
+    })?;
+    load_recursive_chain_state_asset_from_reader(&mut reader).with_context(|| {
+        format!(
+            "failed to decode recursive chain state asset: {}",
+            path.display()
+        )
+    })
+}
+
 /// Writes the recursive chain state asset using the committed binary layout.
 pub(crate) fn store_recursive_chain_state_asset(
     path: &Path,
     asset: &RecursiveChainStateAsset,
-) -> io::Result<()> {
-    let mut writer = create_asset_file(path)?;
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create recursive chain state asset file: {}",
+            path.display()
+        )
+    })?;
 
     for value in &asset.global_field_elements {
         write_field_element(&mut writer, value)?;
@@ -224,22 +220,28 @@ pub(crate) fn store_recursive_chain_state_asset(
     write_state_public_input(&mut writer, &asset.state)?;
     write_length_prefixed_proof(&mut writer, &asset.proof)?;
     asset.accumulator.write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
-    writer.flush()
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush recursive chain state asset: {}",
+            path.display()
+        )
+    })?;
+    Ok(())
 }
 
-/// Loads the static verifier-side asset set used by the golden tests.
-pub(crate) fn load_verification_context_asset(path: &Path) -> io::Result<VerificationContextAsset> {
-    let mut reader = open_asset_file(path)?;
-
+/// Loads a verifier-side context from the committed binary asset layout.
+fn load_verification_context_asset_from_reader<R: Read>(
+    reader: &mut R,
+) -> StmResult<VerificationContextAsset> {
     let global_field_elements = (0..5)
-        .map(|_| read_field_element(&mut reader))
+        .map(|_| read_field_element(reader))
         .collect::<Result<Vec<_>, _>>()?;
     let recursive_verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuit>(
-        &mut reader,
+        reader,
         SerdeFormat::RawBytesUnchecked,
         (),
     )?;
-    let combined_fixed_bases = read_named_fixed_bases(&mut reader)?;
+    let combined_fixed_bases = read_named_fixed_bases(reader)?;
     let mut verifier_param_bytes = Vec::new();
     reader.read_to_end(&mut verifier_param_bytes)?;
 
@@ -263,12 +265,33 @@ pub(crate) fn load_verification_context_asset(path: &Path) -> io::Result<Verific
     })
 }
 
+/// Loads the stored verifier-side context from a committed asset file.
+pub(crate) fn load_verification_context_asset(path: &Path) -> StmResult<VerificationContextAsset> {
+    let mut reader = open_asset_file(path).with_context(|| {
+        format!(
+            "failed to open verification context asset: {}",
+            path.display()
+        )
+    })?;
+    load_verification_context_asset_from_reader(&mut reader).with_context(|| {
+        format!(
+            "failed to decode verification context asset: {}",
+            path.display()
+        )
+    })
+}
+
 /// Writes the verification-context asset using the committed binary layout.
 pub(crate) fn store_verification_context_asset(
     path: &Path,
     asset: &VerificationContextAsset,
-) -> io::Result<()> {
-    let mut writer = create_asset_file(path)?;
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create verification context asset file: {}",
+            path.display()
+        )
+    })?;
 
     for value in &asset.global_field_elements {
         write_field_element(&mut writer, value)?;
@@ -280,22 +303,23 @@ pub(crate) fn store_verification_context_asset(
     asset
         .verifier_params
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
-    writer.flush()
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush verification context asset: {}",
+            path.display()
+        )
+    })?;
+    Ok(())
 }
 
-/// Loads the stored output of extending the recursive chain by one more step.
-pub(crate) fn load_recursive_step_output_asset(
-    path: &Path,
-) -> io::Result<RecursiveStepOutputAsset> {
-    let mut reader = open_asset_file(path)?;
-
-    let proof = read_length_prefixed_proof(&mut reader)?;
-    let next_accumulator = Accumulator::<crate::circuits::halo2_ivc::S>::read(
-        &mut reader,
-        SerdeFormat::RawBytesUnchecked,
-    )?;
-    let next_state = read_state_public_input(&mut reader)?;
-    let certificate_proof = read_length_prefixed_proof(&mut reader)?;
+/// Loads a recursive step output from the committed binary asset layout.
+fn load_recursive_step_output_asset_from_reader<R: Read>(
+    reader: &mut R,
+) -> StmResult<RecursiveStepOutputAsset> {
+    let proof = read_length_prefixed_proof(reader)?;
+    let next_accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
+    let next_state = read_state_public_input(reader)?;
+    let certificate_proof = read_length_prefixed_proof(reader)?;
 
     Ok(RecursiveStepOutputAsset {
         proof,
@@ -305,12 +329,33 @@ pub(crate) fn load_recursive_step_output_asset(
     })
 }
 
+/// Loads the stored recursive step output from a committed asset file.
+pub(crate) fn load_recursive_step_output_asset(path: &Path) -> StmResult<RecursiveStepOutputAsset> {
+    let mut reader = open_asset_file(path).with_context(|| {
+        format!(
+            "failed to open recursive step output asset: {}",
+            path.display()
+        )
+    })?;
+    load_recursive_step_output_asset_from_reader(&mut reader).with_context(|| {
+        format!(
+            "failed to decode recursive step output asset: {}",
+            path.display()
+        )
+    })
+}
+
 /// Writes the recursive step output asset using the committed binary layout.
 pub(crate) fn store_recursive_step_output_asset(
     path: &Path,
     asset: &RecursiveStepOutputAsset,
-) -> io::Result<()> {
-    let mut writer = create_asset_file(path)?;
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create recursive step output asset file: {}",
+            path.display()
+        )
+    })?;
 
     write_length_prefixed_proof(&mut writer, &asset.proof)?;
     asset
@@ -318,5 +363,11 @@ pub(crate) fn store_recursive_step_output_asset(
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_state_public_input(&mut writer, &asset.next_state)?;
     write_length_prefixed_proof(&mut writer, &asset.certificate_proof)?;
-    writer.flush()
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush recursive step output asset: {}",
+            path.display()
+        )
+    })?;
+    Ok(())
 }

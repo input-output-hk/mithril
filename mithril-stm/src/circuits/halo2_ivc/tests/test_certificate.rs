@@ -1,3 +1,13 @@
+//! Temporary certificate relation used by the recursive Halo2 IVC golden tests.
+//!
+//! This local relation keeps asset generation and positive recursive checks
+//! decoupled from the main STM Halo2 certificate circuit while that circuit
+//! continues to evolve.
+//!
+//! TODO: This is duplicate build-phase code kept only for the recursive golden
+//! test flow. Remove it once the golden workflow can rely on the existing
+//! non-recursive Halo2 certificate circuit implementation.
+
 use ff::{Field, PrimeField};
 use group::Group;
 use midnight_circuits::instructions::{
@@ -29,6 +39,7 @@ type MerkleRoot = F;
 type Msg = F;
 type LotteryIndex = u32;
 
+/// Splits a field element into low/high limbs and checks the recomposition.
 fn decompose_unsafe(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,
@@ -55,6 +66,7 @@ fn decompose_unsafe(
     Ok((x_low_assigned, x_high_assigned))
 }
 
+/// Compares two native field elements with an explicit limb decomposition.
 fn lower_than_native(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,
@@ -72,6 +84,7 @@ fn lower_than_native(
     std_lib.or(layouter, &[is_less_high, low_less])
 }
 
+/// Checks that a signer leaf is included in the committed Merkle root.
 fn verify_merkle_path(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,
@@ -98,6 +111,7 @@ fn verify_merkle_path(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Verifies the unique signature carried by one certificate witness entry.
 fn verify_unique_signature(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,
@@ -151,6 +165,7 @@ fn verify_unique_signature(
     std_lib.assert_equal(layouter, c_native, &c_prime)
 }
 
+/// Checks that one witness entry wins the lottery for its claimed index.
 fn verify_lottery(
     std_lib: &ZkStdLib,
     layouter: &mut impl Layouter<F>,
@@ -169,14 +184,24 @@ fn verify_lottery(
     std_lib.assert_false(layouter, &is_less)
 }
 
+/// Local certificate relation used while the recursive golden tests still
+/// depend on the prototype certificate flow.
+///
+/// This duplicates the temporary build-phase certificate logic used by the
+/// golden recursive tests and is expected to disappear once those tests can
+/// reuse the existing non-recursive Halo2 certificate circuit.
 #[derive(Clone, Default, Debug)]
 pub(crate) struct Certificate {
+    /// Minimum number of witness entries that must be provided.
     quorum: u32,
+    /// Total number of lottery slots considered by the relation.
     num_lotteries: u32,
+    /// Depth of the signer-membership Merkle tree.
     merkle_tree_depth: u32,
 }
 
 impl Certificate {
+    /// Builds the local certificate relation with its sizing parameters.
     pub(crate) fn new(quorum: u32, num_lotteries: u32, merkle_tree_depth: u32) -> Self {
         Self {
             quorum,

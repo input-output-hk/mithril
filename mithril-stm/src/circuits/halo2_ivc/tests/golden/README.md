@@ -6,7 +6,7 @@
 can validate recursive behavior without regenerating the full proving flow.
 
 The expensive proofs are generated manually through ignored tests in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators.rs`.
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators/tests.rs`.
 The positive golden tests then load those stored outputs.
 
 ## Asset Set
@@ -54,7 +54,8 @@ Asset generation uses:
 
 - deterministic shared setup
 - deterministic universal KZG parameters built with `ParamsKZG::unsafe_setup(...)`
-- OS randomness for signatures and proof generation, aligned with `ivc_e2e`
+- OS randomness for signatures and proof generation, aligned with the current
+  generator flow
 
 The public-state evolution is reproducible at the semantic level. Proof-bearing
 assets are not expected to be byte-identical across regenerations.
@@ -68,19 +69,19 @@ In practice:
 
 ## How To Regenerate Everything
 
-Run these commands from the `mithril-stm` crate directory:
+Run these commands from the repository root:
 
 ```bash
-cargo test --release --features future_snark generate_verification_context_only -- --ignored --nocapture
-cargo test --release --features future_snark generate_recursive_chain_state_only -- --ignored --nocapture
-cargo test --release --features future_snark generate_recursive_step_output_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_verification_context_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_recursive_chain_state_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
 ```
 
 These commands intentionally use `--release` because asset generation is a
 manual workflow dominated by real proof generation.
 
 These commands correspond to the ignored generator entrypoints in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators.rs`:
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators/tests.rs`:
 
 - `generate_verification_context_only`
 - `generate_recursive_chain_state_only`
@@ -97,7 +98,7 @@ Recommended order:
 If only the representative recursive step output changed, it is sufficient to rerun:
 
 ```bash
-cargo test --release --features future_snark generate_recursive_step_output_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
 ```
 
 That command regenerates:

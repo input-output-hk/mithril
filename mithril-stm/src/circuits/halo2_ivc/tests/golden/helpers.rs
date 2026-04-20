@@ -1,46 +1,57 @@
 use std::collections::BTreeMap;
 
-use crate::circuits::halo2_ivc::tests::golden::{
-    asset_readers::RecursiveChainStateAsset,
-    generators::{
-        AssetGenerationSetup, build_recursive_fixed_bases, build_shared_recursive_context,
-        certificate_public_inputs_for_step,
-    },
-};
-use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, K, VerifyingKey,
-    circuit::IvcCircuit,
-    state::{Global, trivial_acc},
-};
-use group::Group;
-use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_circuits::types::Instantiable;
 use midnight_curves::Bls12;
 use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     dev::MockProver,
-    plonk::prepare,
     poly::kzg::{
         KZGCommitmentScheme,
-        msm::DualMSM,
         params::{ParamsKZG, ParamsVerifierKZG},
     },
-    transcript::{CircuitTranscript, Transcript},
+};
+use midnight_zk_stdlib::MidnightVK;
+
+use crate::circuits::halo2_ivc::tests::golden::{
+    asset_readers::RecursiveChainStateAsset,
+    generators::{
+        AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
+        build_shared_recursive_context, certificate_public_inputs_for_step,
+    },
+};
+use crate::circuits::halo2_ivc::{
+    Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
+    circuit::IvcCircuit,
+    state::{Global, State, trivial_acc},
+};
+
+pub(crate) use crate::circuits::halo2_ivc::tests::golden::generators::{
+    verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
+    verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
 };
 
 /// Shared recursive context reused by MockProver-based golden cases.
 pub(crate) struct RecursiveMockProverSetup {
+    /// Certificate-sized commitment parameters used by the golden checks.
     pub(crate) certificate_commitment_parameters: ParamsKZG<Bls12>,
-    pub(crate) certificate_verifying_key: midnight_zk_stdlib::MidnightVK,
+    /// Certificate verifying key reused by the golden checks.
+    pub(crate) certificate_verifying_key: MidnightVK,
+    /// Recursive verifying key reused by the golden checks.
     pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    /// Shared recursive global inputs.
     pub(crate) global: Global,
+    /// Fixed bases extracted from the certificate verifying key.
     pub(crate) certificate_fixed_bases: BTreeMap<String, C>,
+    /// Fixed bases extracted from the recursive verifying key.
     pub(crate) recursive_fixed_bases: BTreeMap<String, C>,
+    /// Union of certificate and recursive fixed bases.
     pub(crate) combined_fixed_bases: BTreeMap<String, C>,
+    /// Verifier-side view of the shared universal KZG parameters.
     pub(crate) universal_verifier_params: ParamsVerifierKZG<E>,
+    /// The verifier-side `s_g2` element used for accumulator checks.
     pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
-    pub(crate) trivial_accumulator:
-        crate::circuits::halo2_ivc::Accumulator<crate::circuits::halo2_ivc::S>,
+    /// Trivial accumulator used by the recursive base case.
+    pub(crate) trivial_accumulator: Accumulator<S>,
 }
 
 /// Builds the shared recursive circuit context needed by MockProver-based golden tests.
@@ -60,10 +71,9 @@ pub(crate) fn build_recursive_mock_prover_setup(
         );
     let fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
 
-    let global = Global::new(
-        setup.genesis_message,
-        setup.genesis_verification_key,
-        context.certificate_verifying_key.vk(),
+    let global = build_recursive_global(
+        setup,
+        &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     );
 
@@ -85,10 +95,9 @@ pub(crate) fn build_recursive_mock_prover_setup(
 pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_inputs: Vec<F>) {
     let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
         .expect("recursive MockProver setup should succeed");
-    assert!(
-        prover.verify().is_ok(),
-        "recursive MockProver should accept the provided circuit and public inputs"
-    );
+    prover
+        .verify()
+        .expect("recursive MockProver should accept the provided circuit and public inputs");
 }
 
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.
@@ -100,7 +109,7 @@ pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_i
 pub(crate) fn prepare_previous_recursive_proof_accumulator(
     setup: &RecursiveMockProverSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
-) -> Accumulator<crate::circuits::halo2_ivc::S> {
+) -> Accumulator<S> {
     let previous_public_inputs = [
         setup.global.as_public_input(),
         recursive_chain_state.state.as_public_input(),
@@ -118,8 +127,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
         "stored previous recursive proof should verify before the normal step check"
     );
 
-    let mut previous_proof_accumulator: Accumulator<crate::circuits::halo2_ivc::S> =
-        previous_dual_msm.into();
+    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
     previous_proof_accumulator.extract_fixed_bases(&setup.recursive_fixed_bases);
     previous_proof_accumulator.collapse();
     previous_proof_accumulator
@@ -133,8 +141,8 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
 pub(crate) fn compute_expected_next_accumulator(
     setup: &RecursiveMockProverSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
-    certificate_accumulator: Accumulator<crate::circuits::halo2_ivc::S>,
-) -> Accumulator<crate::circuits::halo2_ivc::S> {
+    certificate_accumulator: Accumulator<S>,
+) -> Accumulator<S> {
     let previous_proof_accumulator =
         prepare_previous_recursive_proof_accumulator(setup, recursive_chain_state);
 
@@ -160,9 +168,9 @@ pub(crate) fn compute_expected_next_accumulator(
 pub(crate) fn prepare_stored_step_certificate_accumulator(
     setup: &RecursiveMockProverSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
-    expected_next_state: &crate::circuits::halo2_ivc::state::State,
+    expected_next_state: &State,
     certificate_proof: &[u8],
-) -> Accumulator<crate::circuits::halo2_ivc::S> {
+) -> Accumulator<S> {
     let certificate_public_inputs =
         certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
 
@@ -178,8 +186,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
         "stored step certificate proof should verify before the chained-flow check"
     );
 
-    let mut certificate_accumulator: Accumulator<crate::circuits::halo2_ivc::S> =
-        certificate_dual_msm.into();
+    let mut certificate_accumulator: Accumulator<S> = certificate_dual_msm.into();
     certificate_accumulator.extract_fixed_bases(&setup.certificate_fixed_bases);
     certificate_accumulator.collapse();
     certificate_accumulator
@@ -189,9 +196,9 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
 pub(crate) fn compute_exact_next_accumulator_from_assets(
     setup: &RecursiveMockProverSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
-    expected_next_state: &crate::circuits::halo2_ivc::state::State,
+    expected_next_state: &State,
     certificate_proof: &[u8],
-) -> Accumulator<crate::circuits::halo2_ivc::S> {
+) -> Accumulator<S> {
     let certificate_accumulator = prepare_stored_step_certificate_accumulator(
         setup,
         recursive_chain_state,
@@ -199,44 +206,4 @@ pub(crate) fn compute_exact_next_accumulator_from_assets(
         certificate_proof,
     );
     compute_expected_next_accumulator(setup, recursive_chain_state, certificate_accumulator)
-}
-
-/// Verifies a stored recursive proof that uses the Poseidon transcript.
-pub(crate) fn verify_and_prepare_poseidon_recursive_proof(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-    proof: &[u8],
-    public_inputs: &[F],
-) -> DualMSM<E> {
-    let mut transcript = CircuitTranscript::<PoseidonState<F>>::init_from_bytes(proof);
-    let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<PoseidonState<F>>>(
-        verifying_key,
-        &[&[C::identity()]],
-        &[&[public_inputs]],
-        &mut transcript,
-    )
-    .expect("recursive proof verification should succeed");
-    transcript
-        .assert_empty()
-        .expect("recursive proof transcript should be empty");
-    dual_msm
-}
-
-/// Verifies a stored recursive proof that uses the Blake2b transcript.
-pub(crate) fn verify_and_prepare_blake2b_recursive_proof(
-    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-    proof: &[u8],
-    public_inputs: &[F],
-) -> DualMSM<E> {
-    let mut transcript = CircuitTranscript::<blake2b_simd::State>::init_from_bytes(proof);
-    let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<blake2b_simd::State>>(
-        verifying_key,
-        &[&[C::identity()]],
-        &[&[public_inputs]],
-        &mut transcript,
-    )
-    .expect("final recursive proof verification should succeed");
-    transcript
-        .assert_empty()
-        .expect("final recursive proof transcript should be empty");
-    dual_msm
 }
