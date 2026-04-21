@@ -61,12 +61,13 @@ impl AssetPaths {
     }
 }
 
-/// Returns the default committed asset paths under `tests/golden/assets`.
-pub(crate) fn default_asset_paths() -> AssetPaths {
-    AssetPaths::new(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("src/circuits/halo2_ivc/tests/golden/assets"),
-    )
+impl Default for AssetPaths {
+    fn default() -> Self {
+        Self::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("src/circuits/halo2_ivc/tests/golden/assets"),
+        )
+    }
 }
 
 /// Deterministic setup data for asset generation.

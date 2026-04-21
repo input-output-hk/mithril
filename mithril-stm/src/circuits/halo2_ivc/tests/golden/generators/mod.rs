@@ -13,7 +13,7 @@ pub(crate) use asset_generation::{
 pub(crate) use proofs::{verify_and_prepare_blake2b_ivc, verify_and_prepare_poseidon_ivc};
 pub(crate) use setup::{
     AssetGenerationSetup, build_asset_generation_setup, build_recursive_fixed_bases,
-    build_recursive_global, build_shared_recursive_context, default_asset_paths,
+    build_recursive_global, build_shared_recursive_context,
 };
 pub(crate) use transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,

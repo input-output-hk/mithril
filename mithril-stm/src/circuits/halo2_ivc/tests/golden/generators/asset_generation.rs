@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use midnight_circuits::types::Instantiable;
+use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
 
 use crate::circuits::halo2_ivc::tests::golden::asset_readers::{
@@ -9,7 +10,9 @@ use crate::circuits::halo2_ivc::tests::golden::asset_readers::{
     store_recursive_step_output_asset, store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, S, circuit::IvcCircuit, state::State,
+    Accumulator, AssignedAccumulator, C, E, F, S,
+    circuit::IvcCircuit,
+    state::{Global, State},
 };
 
 use super::proofs::{
@@ -26,40 +29,36 @@ use super::transitions::{
 };
 use crate::circuits::halo2_ivc::state::trivial_acc;
 
-/// Generates and writes the stored recursive chain snapshot asset.
-pub(crate) fn generate_recursive_chain_state_asset(
+struct CertificateChainArtifacts {
+    certificate_proofs: Vec<Vec<u8>>,
+    certificate_accumulators: Vec<Accumulator<S>>,
+    recursive_next_states: Vec<State>,
+    recursive_witnesses: Vec<crate::circuits::halo2_ivc::state::Witness>,
+}
+
+struct RecursiveChainSnapshot {
+    state: State,
+    proof: Vec<u8>,
+    accumulator: Accumulator<S>,
+}
+
+struct NextRecursiveStepInputs {
+    certificate_proof: Vec<u8>,
+    next_state: State,
+    recursive_witness: crate::circuits::halo2_ivc::state::Witness,
+    next_accumulator: Accumulator<S>,
+}
+
+fn build_certificate_chain_artifacts(
     setup: &AssetGenerationSetup,
-    paths: &AssetPaths,
-) {
-    println!(
-        "generate_recursive_chain_state: start -> {}",
-        paths.recursive_chain_state.display()
-    );
-    let total_start = Instant::now();
-
-    let context = build_shared_recursive_context(setup);
-    let (_, recursive_fixed_bases, combined_fixed_bases) = build_recursive_fixed_bases(
-        &context.certificate_verifying_key,
-        &context.recursive_verifying_key,
-    );
-    let recursive_fixed_base_names = recursive_fixed_bases.keys().cloned().collect::<Vec<_>>();
+    context: &super::setup::SharedRecursiveContext,
+    recursive_fixed_base_names: &[String],
+) -> CertificateChainArtifacts {
     let mut certificate_proofs = vec![vec![]];
-    let mut certificate_accumulators = vec![trivial_acc(&recursive_fixed_base_names)];
-
-    let recursive_proving_key = build_recursive_proving_key(&context);
-    println!("generate_recursive_chain_state: shared recursive context ready");
-
-    let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
-
-    let global = build_recursive_global(
-        setup,
-        &context.certificate_verifying_key,
-        &context.recursive_verifying_key,
-    );
-
-    let mut certificate_random_generator = OsRng;
+    let mut certificate_accumulators = vec![trivial_acc(recursive_fixed_base_names)];
     let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, 5u64)];
     let mut recursive_witnesses = vec![build_genesis_base_case_witness(setup)];
+    let mut certificate_random_generator = OsRng;
 
     for step in 1..=INITIAL_CHAIN_LENGTH {
         println!(
@@ -92,6 +91,24 @@ pub(crate) fn generate_recursive_chain_state_asset(
         certificate_accumulators.push(certificate_accumulator);
     }
 
+    CertificateChainArtifacts {
+        certificate_proofs,
+        certificate_accumulators,
+        recursive_next_states,
+        recursive_witnesses,
+    }
+}
+
+fn build_recursive_chain_snapshot(
+    setup: &AssetGenerationSetup,
+    context: &super::setup::SharedRecursiveContext,
+    global: &Global,
+    recursive_proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    recursive_fixed_bases: &std::collections::BTreeMap<String, C>,
+    combined_fixed_bases: &std::collections::BTreeMap<String, C>,
+    artifacts: CertificateChainArtifacts,
+) -> RecursiveChainSnapshot {
+    let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
     let mut current_state = State::genesis();
     let mut recursive_proof = vec![];
     let mut current_accumulator = trivial_acc(&combined_fixed_base_names);
@@ -108,8 +125,8 @@ pub(crate) fn generate_recursive_chain_state_asset(
         let circuit = IvcCircuit::new(
             global.clone(),
             current_state.clone(),
-            recursive_witnesses[i].clone(),
-            certificate_proofs[i].clone(),
+            artifacts.recursive_witnesses[i].clone(),
+            artifacts.certificate_proofs[i].clone(),
             recursive_proof.clone(),
             current_accumulator.clone(),
             context.certificate_verifying_key.vk(),
@@ -118,14 +135,14 @@ pub(crate) fn generate_recursive_chain_state_asset(
 
         let public_inputs = [
             global.as_public_input(),
-            recursive_next_states[i].as_public_input(),
+            artifacts.recursive_next_states[i].as_public_input(),
             AssignedAccumulator::as_public_input(&next_accumulator),
         ]
         .concat();
 
         let proof = prove_poseidon_ivc(
             &context.recursive_commitment_parameters,
-            &recursive_proving_key,
+            recursive_proving_key,
             &circuit,
             &public_inputs,
             &mut recursive_random_generator,
@@ -138,7 +155,7 @@ pub(crate) fn generate_recursive_chain_state_asset(
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
         let mut proof_accumulator: Accumulator<S> = dual_msm.into();
-        proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
+        proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
         proof_accumulator.collapse();
 
         println!(
@@ -148,21 +165,21 @@ pub(crate) fn generate_recursive_chain_state_asset(
             recursive_step_start.elapsed()
         );
 
-        current_state = recursive_next_states[i].clone();
+        current_state = artifacts.recursive_next_states[i].clone();
         current_accumulator = next_accumulator.clone();
         recursive_proof = proof;
 
         if i < INITIAL_CHAIN_LENGTH {
             let mut accumulated_accumulator = Accumulator::accumulate(&[
                 next_accumulator.clone(),
-                certificate_accumulators[i + 1].clone(),
+                artifacts.certificate_accumulators[i + 1].clone(),
                 proof_accumulator,
             ]);
             accumulated_accumulator.collapse();
             assert!(
                 accumulated_accumulator.check(
                     &context.universal_kzg_parameters.s_g2().into(),
-                    &combined_fixed_bases,
+                    combined_fixed_bases,
                 ),
                 "recursive accumulator verification failed at step {i}"
             );
@@ -174,15 +191,29 @@ pub(crate) fn generate_recursive_chain_state_asset(
         current_state.next_merkle_root, setup.genesis_next_merkle_root,
         "recursive_chain_state writer is about to persist a next_merkle_root that does not match setup"
     );
+
+    RecursiveChainSnapshot {
+        state: current_state,
+        proof: recursive_proof,
+        accumulator: current_accumulator,
+    }
+}
+
+fn store_recursive_chain_snapshot(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
+    global: &Global,
+    snapshot: &RecursiveChainSnapshot,
+) {
     println!(
         "generate_recursive_chain_state: writing asset -> {}",
         paths.recursive_chain_state.display()
     );
     let asset = RecursiveChainStateAsset {
         global_field_elements: global.as_public_input(),
-        state: current_state.clone(),
-        proof: recursive_proof.clone(),
-        accumulator: current_accumulator.clone(),
+        state: snapshot.state.clone(),
+        proof: snapshot.proof.clone(),
+        accumulator: snapshot.accumulator.clone(),
     };
     store_recursive_chain_state_asset(&paths.recursive_chain_state, &asset)
         .expect("failed to write recursive_chain_state asset");
@@ -193,6 +224,173 @@ pub(crate) fn generate_recursive_chain_state_asset(
         reloaded.state.next_merkle_root, setup.genesis_next_merkle_root,
         "reloaded recursive_chain_state next_merkle_root does not match setup"
     );
+}
+
+fn build_next_recursive_step_inputs(
+    setup: &AssetGenerationSetup,
+    context: &super::setup::SharedRecursiveContext,
+    global: &Global,
+    recursive_chain_state: &RecursiveChainStateAsset,
+    recursive_fixed_bases: &std::collections::BTreeMap<String, C>,
+    combined_fixed_bases: &std::collections::BTreeMap<String, C>,
+) -> NextRecursiveStepInputs {
+    let mut recursive_step_output_random_generator = OsRng;
+    println!("generate_recursive_step_output: building next certificate");
+    let certificate_start = Instant::now();
+    let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
+        build_next_certificate_asset_data(
+            setup,
+            &context.certificate_commitment_parameters,
+            &setup.certificate_relation,
+            &context.certificate_verifying_key,
+            &recursive_chain_state.state,
+            &mut recursive_step_output_random_generator,
+        );
+    println!(
+        "generate_recursive_step_output: next certificate done in {:?}",
+        certificate_start.elapsed()
+    );
+
+    let previous_public_inputs = [
+        global.as_public_input(),
+        recursive_chain_state.state.as_public_input(),
+        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
+    ]
+    .concat();
+    let previous_dual_msm = verify_and_prepare_poseidon_ivc(
+        &context.recursive_verifying_key,
+        &recursive_chain_state.proof,
+        &previous_public_inputs,
+    );
+    assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
+    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
+    previous_proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
+    previous_proof_accumulator.collapse();
+
+    let mut next_accumulator = Accumulator::accumulate(&[
+        recursive_chain_state.accumulator.clone(),
+        certificate_accumulator,
+        previous_proof_accumulator,
+    ]);
+    next_accumulator.collapse();
+    assert!(
+        next_accumulator.check(
+            &context.universal_kzg_parameters.s_g2().into(),
+            combined_fixed_bases,
+        ),
+        "next accumulator check failed"
+    );
+    println!("generate_recursive_step_output: next accumulator computed");
+
+    NextRecursiveStepInputs {
+        certificate_proof,
+        next_state,
+        recursive_witness,
+        next_accumulator,
+    }
+}
+
+fn build_recursive_step_output_proof(
+    context: &super::setup::SharedRecursiveContext,
+    global: &Global,
+    recursive_proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
+    recursive_chain_state: &RecursiveChainStateAsset,
+    next_step_inputs: &NextRecursiveStepInputs,
+) -> Vec<u8> {
+    let mut recursive_step_output_random_generator = OsRng;
+    let circuit = IvcCircuit::new(
+        global.clone(),
+        recursive_chain_state.state.clone(),
+        next_step_inputs.recursive_witness.clone(),
+        next_step_inputs.certificate_proof.clone(),
+        recursive_chain_state.proof.clone(),
+        recursive_chain_state.accumulator.clone(),
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
+    );
+    let public_inputs = [
+        global.as_public_input(),
+        next_step_inputs.next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&next_step_inputs.next_accumulator),
+    ]
+    .concat();
+
+    println!("generate_recursive_step_output: final blake2b recursive proof starting");
+    let final_proof_start = Instant::now();
+    let final_proof = prove_blake2b_ivc(
+        &context.recursive_commitment_parameters,
+        recursive_proving_key,
+        &circuit,
+        &public_inputs,
+        &mut recursive_step_output_random_generator,
+    );
+    let final_dual_msm = verify_and_prepare_blake2b_ivc(
+        &context.recursive_verifying_key,
+        &final_proof,
+        &public_inputs,
+    );
+    assert!(final_dual_msm.check(&context.universal_verifier_params));
+    println!(
+        "generate_recursive_step_output: final blake2b recursive proof done in {:?}",
+        final_proof_start.elapsed()
+    );
+    final_proof
+}
+
+fn store_recursive_step_output(
+    paths: &AssetPaths,
+    next_step_inputs: NextRecursiveStepInputs,
+    proof: Vec<u8>,
+) {
+    println!(
+        "generate_recursive_step_output: writing asset -> {}",
+        paths.recursive_step_output.display()
+    );
+    let asset = RecursiveStepOutputAsset {
+        proof,
+        next_accumulator: next_step_inputs.next_accumulator,
+        next_state: next_step_inputs.next_state,
+        certificate_proof: next_step_inputs.certificate_proof,
+    };
+    store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
+        .expect("failed to write recursive_step_output asset");
+}
+
+/// Generates and writes the stored recursive chain snapshot asset.
+pub(crate) fn generate_recursive_chain_state_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
+) {
+    println!(
+        "generate_recursive_chain_state: start -> {}",
+        paths.recursive_chain_state.display()
+    );
+    let total_start = Instant::now();
+
+    let context = build_shared_recursive_context(setup);
+    let (_, recursive_fixed_bases, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    let recursive_fixed_base_names = recursive_fixed_bases.keys().cloned().collect::<Vec<_>>();
+    let recursive_proving_key = build_recursive_proving_key(&context);
+    println!("generate_recursive_chain_state: shared recursive context ready");
+    let global = build_recursive_global(
+        setup,
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    let artifacts = build_certificate_chain_artifacts(setup, &context, &recursive_fixed_base_names);
+    let snapshot = build_recursive_chain_snapshot(
+        setup,
+        &context,
+        &global,
+        &recursive_proving_key,
+        &recursive_fixed_bases,
+        &combined_fixed_bases,
+        artifacts,
+    );
+    store_recursive_chain_snapshot(setup, paths, &global, &snapshot);
     println!(
         "generate_recursive_chain_state: done in {:?}",
         total_start.elapsed()
@@ -269,104 +467,22 @@ pub(crate) fn generate_recursive_step_output_asset(
         &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     );
-
-    let mut recursive_step_output_random_generator = OsRng;
-    println!("generate_recursive_step_output: building next certificate");
-    let certificate_start = Instant::now();
-    let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
-        build_next_certificate_asset_data(
-            setup,
-            &context.certificate_commitment_parameters,
-            &setup.certificate_relation,
-            &context.certificate_verifying_key,
-            &recursive_chain_state.state,
-            &mut recursive_step_output_random_generator,
-        );
-    println!(
-        "generate_recursive_step_output: next certificate done in {:?}",
-        certificate_start.elapsed()
+    let next_step_inputs = build_next_recursive_step_inputs(
+        setup,
+        &context,
+        &global,
+        &recursive_chain_state,
+        &recursive_fixed_bases,
+        &combined_fixed_bases,
     );
-
-    let previous_public_inputs = [
-        global.as_public_input(),
-        recursive_chain_state.state.as_public_input(),
-        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
-    ]
-    .concat();
-    let previous_dual_msm = verify_and_prepare_poseidon_ivc(
-        &context.recursive_verifying_key,
-        &recursive_chain_state.proof,
-        &previous_public_inputs,
-    );
-    assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
-    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
-    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    previous_proof_accumulator.collapse();
-
-    let mut next_accumulator = Accumulator::accumulate(&[
-        recursive_chain_state.accumulator.clone(),
-        certificate_accumulator,
-        previous_proof_accumulator,
-    ]);
-    next_accumulator.collapse();
-    assert!(
-        next_accumulator.check(
-            &context.universal_kzg_parameters.s_g2().into(),
-            &combined_fixed_bases,
-        ),
-        "next accumulator check failed"
-    );
-    println!("generate_recursive_step_output: next accumulator computed");
-
-    let circuit = IvcCircuit::new(
-        global.clone(),
-        recursive_chain_state.state.clone(),
-        recursive_witness,
-        certificate_proof.clone(),
-        recursive_chain_state.proof.clone(),
-        recursive_chain_state.accumulator.clone(),
-        context.certificate_verifying_key.vk(),
-        &context.recursive_verifying_key,
-    );
-    let public_inputs = [
-        global.as_public_input(),
-        next_state.as_public_input(),
-        AssignedAccumulator::as_public_input(&next_accumulator),
-    ]
-    .concat();
-
-    println!("generate_recursive_step_output: final blake2b recursive proof starting");
-    let final_proof_start = Instant::now();
-    let final_proof = prove_blake2b_ivc(
-        &context.recursive_commitment_parameters,
+    let final_proof = build_recursive_step_output_proof(
+        &context,
+        &global,
         &recursive_proving_key,
-        &circuit,
-        &public_inputs,
-        &mut recursive_step_output_random_generator,
+        &recursive_chain_state,
+        &next_step_inputs,
     );
-    let final_dual_msm = verify_and_prepare_blake2b_ivc(
-        &context.recursive_verifying_key,
-        &final_proof,
-        &public_inputs,
-    );
-    assert!(final_dual_msm.check(&context.universal_verifier_params));
-    println!(
-        "generate_recursive_step_output: final blake2b recursive proof done in {:?}",
-        final_proof_start.elapsed()
-    );
-
-    println!(
-        "generate_recursive_step_output: writing asset -> {}",
-        paths.recursive_step_output.display()
-    );
-    let asset = RecursiveStepOutputAsset {
-        proof: final_proof,
-        next_accumulator,
-        next_state,
-        certificate_proof,
-    };
-    store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
-        .expect("failed to write recursive_step_output asset");
+    store_recursive_step_output(paths, next_step_inputs, final_proof);
     println!(
         "generate_recursive_step_output: done in {:?}",
         total_start.elapsed()

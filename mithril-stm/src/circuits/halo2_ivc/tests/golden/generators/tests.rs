@@ -1,5 +1,6 @@
+use super::setup::AssetPaths;
 use super::{
-    build_asset_generation_setup, default_asset_paths, generate_recursive_chain_state_asset,
+    build_asset_generation_setup, generate_recursive_chain_state_asset,
     generate_recursive_step_output_asset, generate_verification_context_asset,
 };
 
@@ -10,7 +11,7 @@ use super::{
 #[ignore]
 fn generate_verification_context_only() {
     let setup = build_asset_generation_setup();
-    let paths = default_asset_paths();
+    let paths = AssetPaths::default();
 
     generate_verification_context_asset(&setup, &paths);
 }
@@ -19,7 +20,7 @@ fn generate_verification_context_only() {
 #[ignore]
 fn generate_recursive_chain_state_only() {
     let setup = build_asset_generation_setup();
-    let paths = default_asset_paths();
+    let paths = AssetPaths::default();
 
     generate_recursive_chain_state_asset(&setup, &paths);
 }
@@ -28,7 +29,7 @@ fn generate_recursive_chain_state_only() {
 #[ignore]
 fn generate_recursive_step_output_only() {
     let setup = build_asset_generation_setup();
-    let paths = default_asset_paths();
+    let paths = AssetPaths::default();
 
     generate_recursive_step_output_asset(&setup, &paths);
 }
