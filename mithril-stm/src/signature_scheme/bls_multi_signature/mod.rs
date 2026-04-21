@@ -258,50 +258,59 @@ mod tests {
             let sk2 = BlsSigningKey::from_bytes(&sk_bytes).unwrap();
             assert_eq!(sk, sk2);
         }
+    }
 
-        #[test]
-        fn batch_verify(num_batches in 2..10usize,
-                              seed in any::<[u8;32]>(),
-        ) {
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let num_sigs = 10;
-            let mut batch_msgs = Vec::new();
-            let mut batch_vk = Vec::new();
-            let mut batch_sig = Vec::new();
-            for _ in 0..num_batches {
+    mod test {
+        use super::*;
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(300))]
+
+            #[test]
+            fn batch_verify(num_batches in 2..10usize,
+                            seed in any::<[u8;32]>(),
+            ) {
+                let mut rng = ChaCha20Rng::from_seed(seed);
+                let num_sigs = 10;
+                let mut batch_msgs = Vec::new();
+                let mut batch_vk = Vec::new();
+                let mut batch_sig = Vec::new();
+                for _ in 0..num_batches {
+                    let mut msg = [0u8; 32];
+                    rng.fill_bytes(&mut msg);
+                    let mut mvks = Vec::new();
+                    let mut sigs = Vec::new();
+                    for _ in 0..num_sigs {
+                        let sk = BlsSigningKey::generate(&mut rng);
+                        let vk = BlsVerificationKey::from(&sk);
+                        let sig = sk.sign(&msg);
+                        sigs.push(sig);
+                        mvks.push(vk);
+                    }
+                    assert!(BlsSignature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
+                    let (agg_vk, agg_sig) = BlsSignature::aggregate(&mvks, &sigs).unwrap();
+                    batch_msgs.push(msg.to_vec());
+                    batch_vk.push(agg_vk);
+                    batch_sig.push(agg_sig);
+                }
+                assert!(BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+
+                // If we have an invalid signature, the batch verification will fail
                 let mut msg = [0u8; 32];
                 rng.fill_bytes(&mut msg);
-                let mut mvks = Vec::new();
-                let mut sigs = Vec::new();
-                for _ in 0..num_sigs {
-                    let sk = BlsSigningKey::generate(&mut rng);
-                    let vk = BlsVerificationKey::from(&sk);
-                    let sig = sk.sign(&msg);
-                    sigs.push(sig);
-                    mvks.push(vk);
-                }
-                assert!(BlsSignature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
-                let (agg_vk, agg_sig) = BlsSignature::aggregate(&mvks, &sigs).unwrap();
-                batch_msgs.push(msg.to_vec());
-                batch_vk.push(agg_vk);
-                batch_sig.push(agg_sig);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let fake_sig = sk.sign(&msg);
+                batch_sig[0] = fake_sig;
+
+                let error = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).expect_err("Batch verify should fail");
+                assert!(
+                    matches!(
+                        error.downcast_ref::<BlsSignatureError>(),
+                        Some(BlsSignatureError::BatchInvalid)
+                    ),
+                    "Unexpected error: {error:?}"
+                );
             }
-            assert!(BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
-
-            // If we have an invalid signature, the batch verification will fail
-            let mut msg = [0u8; 32];
-            rng.fill_bytes(&mut msg);
-            let sk = BlsSigningKey::generate(&mut rng);
-            let fake_sig = sk.sign(&msg);
-            batch_sig[0] = fake_sig;
-
-            let error = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).expect_err("Batch verify should fail");
-            assert!(
-                matches!(
-                    error.downcast_ref::<BlsSignatureError>(),
-                    Some(BlsSignatureError::BatchInvalid)
-                ),
-                "Unexpected error: {error:?}");
         }
     }
 }

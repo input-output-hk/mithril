@@ -244,7 +244,6 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
 #[cfg(feature = "future_snark")]
 #[cfg(test)]
 mod tests {
-
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
@@ -307,74 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn produces_valid_snark_proof() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let mut prover = create_prover(params, [0u8; 32]);
-
-        let result: Result<SnarkProof<MithrilMembershipDigest>, anyhow::Error> =
-            prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
-        assert!(
-            result.is_ok(),
-            "Expected proof creation to succeed, got: {result:?}"
-        );
-
-        let proof = result.unwrap();
-        assert!(
-            !proof.circuit_proof.is_empty(),
-            "Proof bytes should not be empty"
-        );
-    }
-
-    #[test]
-    fn valid_snark_proof_with_different_path_length() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 3,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-
-        let current_merkle_tree_depth = clerk
-            .closed_key_registration
-            .number_of_registered_parties()
-            .next_power_of_two()
-            .trailing_zeros();
-        let mut prover = create_prover(params, [0u8; 32]);
-
-        let prover_prep =
-            SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
-
-        let path_length = prover_prep.into_witness().first().unwrap().merkle_path.siblings.len();
-
-        assert!(path_length >= current_merkle_tree_depth as usize);
-
-        let snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        let result = snark_proof.verify(message.as_slice(), &avk);
-
-        assert!(result.is_ok());
-        snark_proof
-            .verify(message.as_slice(), &avk)
-            .expect("SNARK proof verification should succeed");
-    }
-
-    #[test]
     fn fails_with_insufficient_signatures() {
         let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
         let params = Parameters {
@@ -413,244 +344,318 @@ mod tests {
         assert!(result.is_err(), "Expected failure with empty signatures");
     }
 
-    #[test]
-    fn valid_proof_verifies() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 3,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(params, [0u8; 32]);
-
-        let snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        let result = snark_proof.verify(message.as_slice(), &avk);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn different_parameters_prove_and_verify_fails() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 100,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let forged_params = Parameters { m: 3000, ..params };
-        assert_ne!(params, forged_params);
-        let nparties = 10;
-        let merkle_tree_depth = (nparties as u32).next_power_of_two().trailing_zeros();
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
-            clerk.compute_aggregate_verification_key_for_snark();
-
-        let mut prover = create_prover(forged_params, [0u8; 32]);
-
-        let forged_snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-
-        let snark_proof =
-            SnarkProof::try_new(forged_snark_proof.circuit_proof, params, merkle_tree_depth)
-                .unwrap();
-        let result = snark_proof.verify(message.as_slice(), &avk);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn verify_fails_with_random_bytes_or_wrong_number_bytes() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 3,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk: crate::AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
-            clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(params, [0u8; 32]);
-        let snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-
-        let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
-        rng.fill_bytes(&mut random_bytes);
-        let random_proof =
-            SnarkProof::try_new(random_bytes, params, compute_circuit_degree(params.k)).unwrap();
-        let result = random_proof.verify(message.as_slice(), &avk);
-
-        assert!(result.is_err(), "Verification of random proof should fail");
-
-        let not_enough_bytes = &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
-        let small_proof = SnarkProof::try_new(
-            not_enough_bytes.to_vec(),
-            params,
-            compute_circuit_degree(params.k),
-        )
-        .unwrap();
-        assert!(
-            small_proof.verify(message.as_slice(), &avk).is_err(),
-            "Verification of small proof should fail"
-        );
-
-        let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
-        too_many_bytes.push(0u8);
-        let large_proof =
-            SnarkProof::try_new(too_many_bytes, params, compute_circuit_degree(params.k)).unwrap();
-        assert!(
-            large_proof.verify(message.as_slice(), &avk).is_err(),
-            "Verification of large proof should fail"
-        );
-    }
-
-    #[test]
-    fn verify_fails_with_wrong_message() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 100,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let wrong_message = [2u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(params, [0u8; 32]);
-
-        let snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        let result = snark_proof.verify(wrong_message.as_slice(), &avk);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn non_deterministic_proofs_verify() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 100,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-
-        let mut prover_1 = create_prover(params, [0u8; 32]);
-
-        let snark_proof_1 = prover_1
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        let snark_proof_2 = prover_1
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-
-        assert!(snark_proof_1.verify(&message, &avk).is_ok());
-        assert!(snark_proof_2.verify(&message, &avk).is_ok());
-        assert_ne!(
-            snark_proof_1.circuit_proof, snark_proof_2.circuit_proof,
-            "The two proofs are different but both verify."
-        );
-    }
-
-    #[test]
-    fn snark_proof_to_from_bytes() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 100,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let mut prover = create_prover(params, [0u8; 32]);
-        let snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        assert!(snark_proof.verify(&message, &avk).is_ok());
-
-        let proof_bytes = snark_proof.to_bytes().unwrap();
-        let reconstructed_proof: SnarkProof<MithrilMembershipDigest> =
-            SnarkProof::from_bytes(&proof_bytes).unwrap();
-
-        assert_eq!(
-            proof_bytes,
-            reconstructed_proof.to_bytes().unwrap(),
-            "The original bytes should match the ones of the reconstructed proof."
-        );
-
-        assert!(reconstructed_proof.verify(&message, &avk).is_ok());
-    }
-
-    #[test]
-    fn midnight_vk_wrapper_to_from_bytes() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let params = Parameters {
-            m: 100,
-            k: 5,
-            phi_f: 0.8,
-        };
-        let nparties = 10;
-        let message = [1u8; 32];
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let avk = clerk.compute_aggregate_verification_key_for_snark();
-        let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
-        let mut prover = SnarkProver {
-            setup: snark_setup,
-            rng: ChaCha20Rng::from_seed([0u8; 32]),
-        };
-        let mut snark_proof = prover
-            .aggregate_signatures::<D>(&clerk, &signatures, &message)
-            .unwrap();
-        snark_proof.verify(&message, &avk).unwrap();
-
-        let cvk_bytes = snark_proof.circuit_verification_key.to_bytes().unwrap();
-        let cvk_recovered = CircuitVerificationKey::from_bytes(&cvk_bytes).unwrap();
-
-        assert_eq!(
-            cvk_bytes,
-            cvk_recovered.to_bytes().unwrap(),
-            "The original bytes should match the ones of the reconstructed value."
-        );
-
-        snark_proof.circuit_verification_key = cvk_recovered;
-
-        assert!(
-            snark_proof.verify(&message, &avk).is_ok(),
-            "The verification should work when using the reconstructed circuit verification key"
-        );
-    }
-
-    mod golden {
-
+    mod slow {
         use crate::AggregateVerificationKeyForSnark;
 
         use super::*;
 
-        const GOLDEN_JSON: &str = r#"
+        #[test]
+        fn produces_valid_snark_proof() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let result: Result<SnarkProof<MithrilMembershipDigest>, anyhow::Error> =
+                prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
+            assert!(
+                result.is_ok(),
+                "Expected proof creation to succeed, got: {result:?}"
+            );
+
+            let proof = result.unwrap();
+            assert!(
+                !proof.circuit_proof.is_empty(),
+                "Proof bytes should not be empty"
+            );
+        }
+
+        #[test]
+        fn valid_snark_proof_with_different_path_length() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+
+            let current_merkle_tree_depth = clerk
+                .closed_key_registration
+                .number_of_registered_parties()
+                .next_power_of_two()
+                .trailing_zeros();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let prover_prep =
+                SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
+
+            let path_length =
+                prover_prep.into_witness().first().unwrap().merkle_path.siblings.len();
+
+            assert!(path_length >= current_merkle_tree_depth as usize);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            let result = snark_proof.verify(message.as_slice(), &avk);
+
+            assert!(result.is_ok());
+            snark_proof
+                .verify(message.as_slice(), &avk)
+                .expect("SNARK proof verification should succeed");
+        }
+
+        #[test]
+        fn valid_proof_verifies() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            let result = snark_proof.verify(message.as_slice(), &avk);
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn different_parameters_prove_and_verify_fails() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let forged_params = Parameters { m: 3000, ..params };
+            assert_ne!(params, forged_params);
+            let nparties = 10;
+            let merkle_tree_depth = (nparties as u32).next_power_of_two().trailing_zeros();
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
+                clerk.compute_aggregate_verification_key_for_snark();
+
+            let mut prover = create_prover(forged_params, [0u8; 32]);
+
+            let forged_snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+
+            let snark_proof =
+                SnarkProof::try_new(forged_snark_proof.circuit_proof, params, merkle_tree_depth)
+                    .unwrap();
+            let result = snark_proof.verify(message.as_slice(), &avk);
+
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn verify_fails_with_random_bytes_or_wrong_number_bytes() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
+                clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+
+            let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
+            rng.fill_bytes(&mut random_bytes);
+            let random_proof =
+                SnarkProof::try_new(random_bytes, params, compute_circuit_degree(params.k))
+                    .unwrap();
+            let result = random_proof.verify(message.as_slice(), &avk);
+
+            assert!(result.is_err(), "Verification of random proof should fail");
+
+            let not_enough_bytes =
+                &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
+            let small_proof = SnarkProof::try_new(
+                not_enough_bytes.to_vec(),
+                params,
+                compute_circuit_degree(params.k),
+            )
+            .unwrap();
+            assert!(
+                small_proof.verify(message.as_slice(), &avk).is_err(),
+                "Verification of small proof should fail"
+            );
+
+            let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
+            too_many_bytes.push(0u8);
+            let large_proof =
+                SnarkProof::try_new(too_many_bytes, params, compute_circuit_degree(params.k))
+                    .unwrap();
+            assert!(
+                large_proof.verify(message.as_slice(), &avk).is_err(),
+                "Verification of large proof should fail"
+            );
+        }
+
+        #[test]
+        fn verify_fails_with_wrong_message() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let wrong_message = [2u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            let result = snark_proof.verify(wrong_message.as_slice(), &avk);
+
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn non_deterministic_proofs_verify() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+
+            let mut prover_1 = create_prover(params, [0u8; 32]);
+
+            let snark_proof_1 = prover_1
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            let snark_proof_2 = prover_1
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+
+            assert!(snark_proof_1.verify(&message, &avk).is_ok());
+            assert!(snark_proof_2.verify(&message, &avk).is_ok());
+            assert_ne!(
+                snark_proof_1.circuit_proof, snark_proof_2.circuit_proof,
+                "The two proofs are different but both verify."
+            );
+        }
+
+        #[test]
+        fn snark_proof_to_from_bytes() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            assert!(snark_proof.verify(&message, &avk).is_ok());
+
+            let proof_bytes = snark_proof.to_bytes().unwrap();
+            let reconstructed_proof: SnarkProof<MithrilMembershipDigest> =
+                SnarkProof::from_bytes(&proof_bytes).unwrap();
+
+            assert_eq!(
+                proof_bytes,
+                reconstructed_proof.to_bytes().unwrap(),
+                "The original bytes should match the ones of the reconstructed proof."
+            );
+
+            assert!(reconstructed_proof.verify(&message, &avk).is_ok());
+        }
+
+        #[test]
+        fn midnight_vk_wrapper_to_from_bytes() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let mut prover = SnarkProver {
+                setup: snark_setup,
+                rng: ChaCha20Rng::from_seed([0u8; 32]),
+            };
+            let mut snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            snark_proof.verify(&message, &avk).unwrap();
+
+            let cvk_bytes = snark_proof.circuit_verification_key.to_bytes().unwrap();
+            let cvk_recovered = CircuitVerificationKey::from_bytes(&cvk_bytes).unwrap();
+
+            assert_eq!(
+                cvk_bytes,
+                cvk_recovered.to_bytes().unwrap(),
+                "The original bytes should match the ones of the reconstructed value."
+            );
+
+            snark_proof.circuit_verification_key = cvk_recovered;
+
+            assert!(
+                snark_proof.verify(&message, &avk).is_ok(),
+                "The verification should work when using the reconstructed circuit verification key"
+            );
+        }
+
+        mod golden {
+            use super::*;
+
+            const GOLDEN_JSON: &str = r#"
         {
             "circuit_proof": [
                 179,176,81,240,155,194,225,72,19,100,136,87,186,87,160,172,222,222,118,153,238,236,19,53,19,170,136,7,145,18,240,112,103,207,150,240,161,139,199,179,16,200,226,18,251,212,83,137,169,141,94,231,228,137,127,221,126,19,41,32,12,5,49,115,81,82,127,5,101,136,144,20,71,61,73,96,47,70,84,122,59,112,226,62,116,96,95,249,196,107,136,92,91,33,74,217,180,148,22,138,212,112,89,235,218,31,145,66,33,8,27,211,170,151,91,179,160,195,180,209,59,4,98,155,6,174,184,69,188,15,174,56,164,244,177,106,8,172,205,56,205,217,243,183,165,152,61,62,214,56,149,239,228,119,49,184,108,254,147,14,37,4,239,112,198,192,164,132,165,242,113,98,234,9,235,34,212,177,139,161,181,91,117,245,125,95,8,42,222,175,46,180,183,105,113,209,22,252,171,57,112,215,136,40,98,121,110,45,190,11,80,101,91,163,128,67,117,182,54,66,5,142,103,249,70,66,187,120,115,227,33,197,227,221,56,214,252,191,224,41,181,40,5,144,24,49,46,233,131,144,1,34,85,133,50,5,126,202,78,93,26,240,102,50,228,247,221,121,107,98,187,168,174,23,195,56,74,246,216,95,139,115,17,221,57,54,150,32,132,127,177,65,252,82,162,137,149,245,211,140,120,54,234,255,76,36,168,247,148,195,35,116,135,61,12,82,152,237,190,195,251,233,116,118,36,94,91,133,35,170,178,102,75,187,132,8,136,171,94,128,156,153,102,156,76,68,112,57,67,32,3,99,64,253,159,132,249,135,166,92,73,181,29,61,200,7,140,147,61,0,46,96,25,77,169,50,50,126,88,105,94,221,120,93,184,241,62,2,218,126,32,119,253,14,15,132,33,4,132,126,111,130,55,213,218,175,57,144,189,145,165,134,84,253,164,18,154,19,113,144,186,137,74,88,107,79,203,150,99,249,232,84,138,164,172,119,155,170,233,235,170,116,23,3,230,43,54,52,80,252,44,121,35,139,44,13,235,16,142,145,83,170,228,56,210,237,12,221,169,200,225,20,93,130,214,26,39,51,239,202,142,214,32,45,159,74,88,74,143,232,125,214,130,41,105,225,138,218,58,99,18,240,59,104,34,40,19,113,38,154,52,85,13,82,237,54,227,97,147,22,217,156,140,66,251,153,208,136,134,202,78,216,213,2,34,39,230,145,29,170,9,175,107,71,48,27,188,219,201,225,136,168,113,71,53,57,27,242,43,178,196,189,174,93,221,138,175,186,170,9,5,126,179,19,210,241,179,74,162,98,107,47,6,6,76,138,253,30,225,154,2,69,142,232,174,139,122,212,234,172,176,2,28,32,138,70,137,61,56,89,178,64,106,198,71,59,194,97,160,24,81,131,31,19,147,83,229,9,203,210,30,210,117,77,50,193,77,115,155,148,216,105,160,157,51,42,158,253,225,136,161,194,44,222,247,235,125,215,180,247,189,44,73,130,84,236,209,10,65,211,183,95,164,26,130,38,147,250,157,115,40,123,51,85,148,193,146,61,21,241,9,128,7,255,160,56,125,105,35,15,185,24,143,243,27,129,86,6,174,196,171,77,11,27,141,88,249,127,206,19,160,220,7,253,30,9,57,151,8,35,10,11,37,143,172,228,57,146,29,227,107,42,68,201,75,177,19,129,100,194,145,114,149,212,158,210,126,155,23,217,81,101,51,234,218,68,240,157,142,233,33,84,20,139,165,144,44,169,64,96,11,156,194,35,114,48,92,54,33,40,51,224,237,19,20,126,144,24,242,173,183,240,246,66,17,173,106,155,245,36,104,89,248,152,115,155,132,90,234,186,223,134,231,251,96,31,75,184,89,158,82,206,170,115,150,162,72,34,65,16,188,105,134,95,7,26,23,211,105,58,113,216,3,209,80,255,109,232,153,182,76,159,155,145,166,5,53,160,108,87,58,250,73,163,70,166,76,179,231,34,28,152,225,35,27,55,135,254,4,60,108,77,155,14,24,205,74,190,162,172,23,245,197,0,183,240,226,140,48,247,250,246,148,243,198,172,169,155,244,205,49,13,20,38,24,123,17,246,187,70,239,190,103,230,138,33,48,81,195,134,247,4,78,119,17,185,156,151,146,192,60,136,14,30,179,65,54,235,179,138,134,219,109,199,24,89,46,167,185,183,238,185,240,102,41,215,223,247,180,44,17,84,207,240,89,229,194,105,196,202,231,34,159,80,240,113,210,174,41,217,111,69,21,245,15,71,199,181,143,154,83,63,196,152,195,233,162,185,130,2,14,33,86,217,122,187,86,52,52,127,136,10,56,139,164,79,125,74,144,74,183,79,59,56,96,136,134,173,235,186,102,90,70,228,45,128,141,255,170,137,190,255,172,167,222,126,218,93,96,104,12,113,98,132,176,177,151,26,177,1,150,149,247,112,188,121,99,16,100,173,82,133,200,12,113,193,168,251,145,121,100,126,46,140,175,59,189,41,242,83,202,62,3,104,84,59,197,154,150,2,115,152,110,191,141,243,153,221,37,229,184,163,237,111,9,133,55,124,156,228,58,232,178,203,237,31,222,212,217,144,205,29,130,98,117,9,186,199,15,132,73,148,73,226,253,199,64,163,0,161,86,192,70,126,197,234,205,66,63,151,228,204,241,66,42,49,77,27,130,166,164,181,81,36,53,168,199,122,213,110,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,115,180,185,233,219,54,134,1,249,204,228,105,25,52,21,197,192,179,131,47,167,49,39,123,78,169,158,231,4,215,105,38,173,215,53,153,82,126,227,85,73,11,17,231,119,214,25,74,210,46,45,175,249,228,92,205,221,151,138,52,173,5,118,2,188,153,237,228,184,139,77,219,117,134,72,197,92,249,135,87,115,110,90,142,198,212,198,67,10,136,182,52,201,232,8,55,175,186,247,226,1,99,235,121,169,88,97,98,224,115,73,107,243,76,63,141,197,70,237,68,109,254,2,186,178,228,212,39,26,176,160,197,144,73,51,119,243,114,196,134,167,150,10,140,136,172,11,61,78,70,233,16,228,253,111,194,63,240,86,100,1,94,129,101,156,161,105,247,12,195,114,36,77,147,98,242,37,53,36,224,89,128,36,152,200,75,197,136,15,127,44,90,1,79,28,50,222,189,30,59,230,75,68,48,170,165,82,136,26,40,176,75,161,6,154,135,218,97,46,10,46,148,5,106,254,124,53,144,86,147,83,248,113,153,0,215,173,142,118,109,54,79,4,232,211,187,104,123,93,62,209,239,112,107,243,111,154,166,113,150,191,76,27,99,69,88,165,160,125,199,242,162,250,56,140,254,2,223,62,69,201,200,53,43,157,209,10,31,159,51,108,226,85,248,56,197,1,126,116,254,61,8,25,176,109,241,97,70,249,186,249,98,22,32,144,4,171,99,159,36,38,247,186,22,100,126,33,104,160,161,180,14,215,119,139,14,150,4,82,181,198,75,245,112,207,156,239,56,86,254,250,59,22,183,204,177,144,129,75,168,1,45,109,50,75,51,74,4,11,3,148,80,196,84,67,22,217,196,162,109,64,217,34,72,209,141,96,181,141,23,233,215,5,159,218,165,147,209,162,146,45,52,86,186,23,190,49,161,43,238,185,120,121,201,245,111,51,234,248,242,3,113,134,74,164,165,238,36,108,189,185,21,79,43,248,248,133,134,25,138,251,216,107,214,110,253,157,22,37,189,250,60,122,191,37,148,67,143,150,180,204,181,45,76,191,10,100,37,83,82,226,99,240,242,173,2,110,167,204,4,145,177,209,105,25,150,55,207,202,61,221,181,142,51,51,104,186,35,182,146,103,122,153,20,182,0,89,36,255,151,193,114,83,109,105,119,196,41,144,179,24,161,162,194,129,254,152,255,62,137,36,207,78,83,30,13,170,39,37,235,105,138,147,110,109,221,71,169,12,15,144,59,122,191,140,114,201,123,80,63,24,47,162,134,79,99,247,207,191,129,91,174,176,86,249,68,224,30,70,29,130,101,203,247,94,111,3,87,93,179,225,165,74,151,103,203,80,60,32,152,180,119,217,245,163,24,2,109,252,244,222,240,14,155,12,115,125,59,160,142,24,249,184,228,151,54,38,104,103,252,37,120,234,169,218,182,23,87,80,30,25,147,186,106,246,120,89,37,214,82,228,97,133,104,220,32,170,15,161,227,213,115,168,77,151,100,234,96,64,1,161,6,165,230,23,24,54,67,28,58,248,13,119,164,247,0,35,50,135,229,133,167,16,160,51,252,147,247,235,125,69,225,224,54,180,7,64,85,121,147,141,212,37,91,53,70,251,176,198,209,11,147,136,179,42,16,219,176,240,92,164,106,18,220,97,10,64,151,247,3,71,43,25,3,97,58,197,53,68,127,109,0,239,189,243,190,212,225,195,195,240,164,232,150,72,15,40,96,51,192,181,172,192,15,28,190,98,14,151,98,66,197,228,76,59,160,205,133,77,24,165,158,240,21,235,220,79,104,245,98,237,150,21,191,127,56,87,209,91,21,10,32,210,192,217,57,189,44,226,145,231,182,31,73,183,96,73,110,45,196,19,34,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,103,45,74,83,75,149,79,63,245,30,216,109,18,189,13,150,161,242,79,215,65,197,23,103,41,7,142,72,221,254,113,95,145,217,231,253,106,155,216,145,86,124,244,208,103,216,31,150,237,40,254,68,199,169,97,166,108,87,40,135,163,196,171,12,230,240,1,102,28,131,17,243,203,22,168,40,100,254,204,111,167,170,130,16,59,208,213,63,89,80,204,225,17,239,121,11,220,113,189,183,188,205,211,181,11,30,210,89,144,112,94,168,9,53,84,179,188,166,245,171,188,182,95,180,55,171,184,20,115,117,131,134,238,35,235,38,85,210,208,44,136,151,152,116,186,170,49,82,48,188,0,85,228,237,200,89,46,144,139,77,209,13,7,183,60,196,131,78,166,20,226,93,200,34,214,72,2,129,130,21,183,226,216,51,64,224,219,74,104,94,96,43,133,74,49,33,145,7,21,203,95,118,221,52,207,249,133,122,162,51,109,73,178,184,32,210,231,241,179,123,118,200,223,88,6,60,203,152,181,175,231,168,215,180,120,120,167,12,180,77,27,143,132,71,73,26,133,84,180,55,191,209,108,146,24,22,150,156,134,186,255,169,170,234,89,154,172,157,64,104,128,242,198,244,192,6,156,207,146,179,104,223,181,253,249,248,244,92,110,194,156,117,43,97,54,253,225,196,27,31,123,194,130,3,141,104,13,48,252,175,19,160,71,33,133,27,35,83,143,55,121,6,12,246,47,118,197,14,193,96,85,253,4,141,99,82,167,43,4,153,240,151,220,25,108,24,161,2,252,38,115,80,2,147,215,144,233,9,0,53,229,180,228,237,10,68,70,195,166,217,102,146,70,69,115,166,161,20,72,246,110,47,50,101,170,203,117,94,145,50,115,178,183,241,158,145,113,243,35,1,194,80,167,217,31,28,224,68,25,106,240,13,5,52,138,68,7,21,48,15,248,215,45,219,6,114,195,114,94,77,153,169,139,79,22,255,114,8,138,127,20,24,214,96,222,145,156,10,239,91,207,184,130,59,142,33,43,233,2,136,33,54,123,190,6,246,127,100,130,186,159,234,219,67,95,131,69,182,225,51,148,210,56,123,179,75,200,67,230,130,186,94,98,103,190,92,119,175,20,243,219,137,218,24,238,105,23,188,188,70,90,20,88,33,22,67,161,140,193,59,219,121,171,138,101,34,206,146,114,129,81,162,198,159,177,42,0,61,244,79,55,50,215,80,249,68,83,169,241,171,161,65,238,150,55,222,158,23,226,26,46,237,13,192,98,18,215,73,150,83,160,69,194,24,194,29,83,69,200,150,72,196,222,58,216,6,128,31,121,251,54,178,162,187,254,136,73,90,108,190,177,196,21,52,64,27,40,3,196,27,236,218,5,137,226,7,253,156,191,60,22,28,169,4,183,237,1,17,140,33,16,19,102,188,225,126,104,168,254,92,36,70,117,82,144,32,212,53,134,199,199,242,182,5,62,235,250,28,216,250,145,126,252,34,131,110,251,13,91,124,130,111,57,93,11,179,191,119,229,138,178,38,228,113,210,6,27,4,73,197,178,85,248,230,239,95,119,150,24,72,234,34,100,108,57,37,99,250,72,1,47,39,153,211,93,211,124,32,201,18,65,0,48,98,240,247,16,20,184,174,243,48,65,153,28,10,165,255,219,250,140,160,157,73,186,70,65,139,45,228,222,171,2,219,211,233,70,237,52,212,150,115,169,179,243,14,86,98,1,91,133,98,49,79,92,144,203,65,132,241,119,93,22,68,201,100,120,228,233,183,166,149,125,83,116,157,214,217,249,78,176,85,234,110,231,14,110,95,157,214,253,164,242,90,126,37,213,251,159,135,136,37,222,228,177,91,54,116,168,207,69,41,184,136,78,216,74,232,125,113,238,113,16,9,114,131,102,90,39,131,50,126,72,139,45,132,79,97,187,69,181,142,12,4,5,163,54,146,67,82,211,68,233,37,213,178,100,30,142,111,58,181,54,184,41,1,242,47,35,149,94,144,234,249,167,34,50,51,102,145,212,17,209,185,17,186,12,78,96,52,219,232,113,79,211,0,225,202,136,148,8,232,47,248,192,229,149,26,73,192,58,234,98,206,166,123,136,58,4,21,250,121,50,177,139,2,201,58,196,40,14,6,0,63,41,54,244,82,100,94,51,187,31,244,251,71,97,215,210,109,182,43,132,188,212,139,172,105,46,39,245,47,196,10,201,63,247,179,72,242,134,79,182,24,184,211,138,80,215,149,250,89,39,206,220,100,86,200,24,79,67,194,60,141,63,96,81,115,180,247,251,188,167,59,190,196,22,140,16,106,189,251,228,101,99,4,165,232,135,148,29,96,139,174,238,184,216,58,103,80,88,184,96,160,228,61,222,180,106,74,125,240,7,150,130,203,44,112,254,83,107,227,41,172,165,133,174,242,100,159,234,111,247,122,173,172,200,6,162,250,87,195,64,154,56,167,150,210,175,220,122,96,248,56,169,35,101,121,27,235,53,34,30,70,214,175,47,143,73,16,177,37,116,224,82,102,117,226,27,161,30,96,213,49,217,183,104,64,103,87,18,40,156,95,76,53,129,51,42,248,56,94,110,90,118,29,175,160,93,59,91,3,169,112,117,140,145,76,156,7,57,98,107,219,164,72,106,207,228,123,134,4,160,13,77,111,237,133,139,139,8,21,62,114,131,35,67,246,248,22,176,153,156,238,102,89,238,211,245,131,134,54,151,211,225,72,180,226,203,106,60,101,117,145,231,41,255,60,187,148,87,46,67,40,104,113,254,27,177,126,231,28,197,94,134,184,137,103,240,209,228,201,20,227,14,141,255,29,232,233,127,59,27,222,77,57,95,205,60,93,35,56,158,10,78,78,245,187,233,28,163,235,254,66,133,77,15,77,65,59,66,18,224,9,148,137,210,47,33,132,165,237,200,98,131,75,58,22,232,137,252,68,70,72,84,180,64,120,71,17,56,190,203,148,19,49,98,39,43,200,14,132,183,31,252,14,165,146,26,174,144,74,197,158,52,244,12,98,198,10,37,181,66,7,146,128,77,18,238,78,40,160,71,157,11,240,94,171,0,249,226,45,138,80,143,79,168,40,92,152,80,218,215,64,166,51,35,72,70,211,252,59,74,208,106,125,66,191,157,40,160,230,178,3,21,177,158,80,173,179,126,156,158,22,67,52,82,127,143,13,185,145,6,78,25,206,110,59,55,164,189,48,197,234,62,194,242,236,123,144,36,251,110,28,116,34,249,42,146,178,248,163,112,172,194,112,168,161,219,229,30,236,44,3,130,155,169,192,79,117,127,70,158,190,156,96,74,23,165,70,188,153,16,100,91,173,145,67,103,49,87,95,46,190,71,150,160,232,40,17,106,112,0,164
@@ -667,42 +672,43 @@ mod tests {
         }
         "#;
 
-        // The proof generated is random for now so the golden value function is only
-        // used to generate a proof that is stored and needs to be verifiable
-        // TODO: Once the deterministic proof generation is available in the released
-        // midnight-proof crate, we can update is function to output a fixed value
-        // that can be compared to the JSON constant
-        fn golden_value_setup() -> (
-            SnarkProof<MithrilMembershipDigest>,
-            AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-            [u8; 32],
-        ) {
-            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let params = Parameters {
-                m: 200,
-                k: 5,
-                phi_f: 0.8,
-            };
-            let nparties = 10;
-            let message = [1u8; 32];
+            // The proof generated is random for now so the golden value function is only
+            // used to generate a proof that is stored and needs to be verifiable
+            // TODO: Once the deterministic proof generation is available in the released
+            // midnight-proof crate, we can update is function to output a fixed value
+            // that can be compared to the JSON constant
+            fn golden_value_setup() -> (
+                SnarkProof<MithrilMembershipDigest>,
+                AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
+                [u8; 32],
+            ) {
+                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+                let params = Parameters {
+                    m: 200,
+                    k: 5,
+                    phi_f: 0.8,
+                };
+                let nparties = 10;
+                let message = [1u8; 32];
 
-            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-            let signatures = collect_signatures(&signers, &message);
-            let mut prover = create_prover(params, [0u8; 32]);
-            let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
+                let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+                let signatures = collect_signatures(&signers, &message);
+                let mut prover = create_prover(params, [0u8; 32]);
+                let avk = clerk.compute_aggregate_verification_key_for_snark();
+                let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
 
-            (snark_proof.unwrap(), avk, message)
-        }
+                (snark_proof.unwrap(), avk, message)
+            }
 
-        #[test]
-        fn golden_conversion() {
-            let snark_proof: SnarkProof<MithrilMembershipDigest> =
-                serde_json::from_str(GOLDEN_JSON)
-                    .expect("This JSON deserialization should not fail");
+            #[test]
+            fn golden_conversion() {
+                let snark_proof: SnarkProof<MithrilMembershipDigest> =
+                    serde_json::from_str(GOLDEN_JSON)
+                        .expect("This JSON deserialization should not fail");
 
-            let (_, aggregate_verification_key, message) = golden_value_setup();
-            assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
+                let (_, aggregate_verification_key, message) = golden_value_setup();
+                assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
+            }
         }
     }
 }

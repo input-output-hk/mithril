@@ -232,90 +232,6 @@ mod tests {
                 },
             }
         }
-
-        #[test]
-        /// Test that batch verification of certificates works
-        fn batch_verify(nparties in 2_usize..15,
-                              m in 10_u64..20,
-                              k in 1_u64..4,
-                              seed in any::<[u8;32]>(),
-                              batch_size in 2..10,
-        ) {
-            let aggr_sig_type = AggregateSignatureType::Concatenation;
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut aggr_avks: Vec<AggregateVerificationKey<D>> = Vec::new();
-            let mut aggr_stms = Vec::new();
-            let mut batch_msgs = Vec::new();
-            let mut batch_params = Vec::new();
-            for _ in 0..batch_size {
-                let mut msg = [0u8; 32];
-                rng.fill_bytes(&mut msg);
-                let params = Parameters { m, k, phi_f: 0.95 };
-                let ps = setup_equal_parties(params, nparties);
-                let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-
-                let all_ps: Vec<usize> = (0..nparties).collect();
-                let sigs = find_signatures(&msg, &ps, &all_ps);
-                let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
-
-                match msig {
-                    Ok(aggr) => {
-                        aggr_avks.push(clerk.compute_aggregate_verification_key());
-                        aggr_stms.push(aggr);
-                        batch_msgs.push(msg.to_vec());
-                        batch_params.push(params);
-                    }
-                    Err(error) => { assert!(
-                        matches!(
-                            error.downcast_ref::<AggregationError>(),
-                            Some(AggregationError::NotEnoughSignatures{..})
-                        ),
-                        "Unexpected error: {error:?}");
-                    }
-                }
-            }
-
-            assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
-
-            if aggr_stms.len() >= 2 {
-                let mut swapped_msgs = batch_msgs.clone();
-                swapped_msgs.swap(0, 1);
-                assert!(
-                    AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params).is_err(),
-                    "Batch verify should reject swapped messages"
-                );
-
-                let wrong_avk = {
-                    let wrong_params = Parameters { m, k, phi_f: 0.95 };
-                    let mut rng_wrong = ChaCha20Rng::from_seed([0xdeu8; 32]);
-                    let mut kr = KeyRegistration::initialize();
-                    let p = Initializer::new(wrong_params, 1 as Stake, &mut rng_wrong);
-                    let entry: RegistrationEntry = p.clone().try_into().unwrap();
-                    kr.register_by_entry(&entry).unwrap();
-                    let closed_reg = kr.close_registration(&wrong_params).unwrap();
-                    AggregateVerificationKey::from(&closed_reg)
-                };
-                let mut wrong_avks = aggr_avks.clone();
-                wrong_avks[0] = wrong_avk;
-                assert!(
-                    AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params).is_err(),
-                    "Batch verify should reject a wrong avk"
-                );
-            }
-
-            let mut msg = [0u8; 32];
-            rng.fill_bytes(&mut msg);
-            let params = Parameters { m, k, phi_f: 0.8 };
-            let ps = setup_equal_parties(params, nparties);
-            let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-
-            let all_ps: Vec<usize> = (0..nparties).collect();
-            let sigs = find_signatures(&msg, &ps, &all_ps);
-            let fake_msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
-
-            aggr_stms[0] = fake_msig.unwrap();
-            assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
-        }
     }
 
     proptest! {
@@ -391,46 +307,6 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(5))]
-
-        #[test]
-        /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
-        fn test_adversary_quorum(
-            (adversaries, parties) in arb_parties_adversary_stake(4, 15, 16, 4),
-            msg in any::<[u8;16]>(),
-        ) {
-            // Test sanity check:
-            // Check that the adversarial party has less than 40% of the total stake.
-            let (good, bad) = parties.iter().enumerate().fold((0,0), |(acc1, acc2), (i, st)| {
-                if adversaries.contains(&i) {
-                    (acc1, acc2 + *st)
-                } else {
-                    (acc1 + *st, acc2)
-                }
-            });
-            assert!(bad as f64 / ((good + bad) as f64) < 0.4);
-
-            let params = Parameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
-            let ps = setup_parties(params, parties);
-
-            let sigs =  find_signatures(&msg, &ps, &adversaries.into_iter().collect::<Vec<_>>());
-
-            assert!(sigs.len() < params.k as usize);
-
-            let clerk = Clerk::new_clerk_from_signer(&ps[0]);
-            let aggr_sig_type = AggregateSignatureType::Concatenation;
-
-            let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
-            assert!(
-                matches!(
-                    error.downcast_ref::<AggregationError>(),
-                    Some(AggregationError::NotEnoughSignatures{..})
-                ),
-                "Unexpected error: {error:?}");
-            }
-    }
-
-    proptest! {
         #![proptest_config(ProptestConfig::with_cases(20))]
 
         // Each of the tests below corresponds to falsifying a conjunct in the
@@ -482,6 +358,139 @@ mod tests {
                 concatenation_proof.batch_proof = batch_proof;
                 *aggr = AggregateSignature::Concatenation(Box::new(concatenation_proof));
             })
+        }
+    }
+
+    mod slow {
+        use super::*;
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(5))]
+
+            #[test]
+            /// Test that batch verification of certificates works
+            fn batch_verify(nparties in 2_usize..15,
+                                  m in 10_u64..20,
+                                  k in 1_u64..4,
+                                  seed in any::<[u8;32]>(),
+                                  batch_size in 2..10,
+            ) {
+                let aggr_sig_type = AggregateSignatureType::Concatenation;
+                let mut rng = ChaCha20Rng::from_seed(seed);
+                let mut aggr_avks: Vec<AggregateVerificationKey<D>> = Vec::new();
+                let mut aggr_stms = Vec::new();
+                let mut batch_msgs = Vec::new();
+                let mut batch_params = Vec::new();
+                for _ in 0..batch_size {
+                    let mut msg = [0u8; 32];
+                    rng.fill_bytes(&mut msg);
+                    let params = Parameters { m, k, phi_f: 0.95 };
+                    let ps = setup_equal_parties(params, nparties);
+                    let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+
+                    let all_ps: Vec<usize> = (0..nparties).collect();
+                    let sigs = find_signatures(&msg, &ps, &all_ps);
+                    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+
+                    match msig {
+                        Ok(aggr) => {
+                            aggr_avks.push(clerk.compute_aggregate_verification_key());
+                            aggr_stms.push(aggr);
+                            batch_msgs.push(msg.to_vec());
+                            batch_params.push(params);
+                        }
+                        Err(error) => { assert!(
+                            matches!(
+                                error.downcast_ref::<AggregationError>(),
+                                Some(AggregationError::NotEnoughSignatures{..})
+                            ),
+                            "Unexpected error: {error:?}");
+                        }
+                    }
+                }
+
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+
+                if aggr_stms.len() >= 2 {
+                    let mut swapped_msgs = batch_msgs.clone();
+                    swapped_msgs.swap(0, 1);
+                    assert!(
+                        AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params).is_err(),
+                        "Batch verify should reject swapped messages"
+                    );
+
+                    let wrong_avk = {
+                        let wrong_params = Parameters { m, k, phi_f: 0.95 };
+                        let mut rng_wrong = ChaCha20Rng::from_seed([0xdeu8; 32]);
+                        let mut kr = KeyRegistration::initialize();
+                        let p = Initializer::new(wrong_params, 1 as Stake, &mut rng_wrong);
+                        let entry: RegistrationEntry = p.clone().try_into().unwrap();
+                        kr.register_by_entry(&entry).unwrap();
+                        let closed_reg = kr.close_registration(&wrong_params).unwrap();
+                        AggregateVerificationKey::from(&closed_reg)
+                    };
+                    let mut wrong_avks = aggr_avks.clone();
+                    wrong_avks[0] = wrong_avk;
+                    assert!(
+                        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params).is_err(),
+                        "Batch verify should reject a wrong avk"
+                    );
+                }
+
+                let mut msg = [0u8; 32];
+                rng.fill_bytes(&mut msg);
+                let params = Parameters { m, k, phi_f: 0.8 };
+                let ps = setup_equal_parties(params, nparties);
+                let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+
+                let all_ps: Vec<usize> = (0..nparties).collect();
+                let sigs = find_signatures(&msg, &ps, &all_ps);
+                let fake_msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+
+                aggr_stms[0] = fake_msig.unwrap();
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
+            }
+        }
+
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(5))]
+
+            #[test]
+            /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
+            fn test_adversary_quorum(
+                (adversaries, parties) in arb_parties_adversary_stake(4, 15, 16, 4),
+                msg in any::<[u8;16]>(),
+            ) {
+                // Test sanity check:
+                // Check that the adversarial party has less than 40% of the total stake.
+                let (good, bad) = parties.iter().enumerate().fold((0,0), |(acc1, acc2), (i, st)| {
+                    if adversaries.contains(&i) {
+                        (acc1, acc2 + *st)
+                    } else {
+                        (acc1 + *st, acc2)
+                    }
+                });
+                assert!(bad as f64 / ((good + bad) as f64) < 0.4);
+
+                let params = Parameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
+                let ps = setup_parties(params, parties);
+
+                let sigs =  find_signatures(&msg, &ps, &adversaries.into_iter().collect::<Vec<_>>());
+
+                assert!(sigs.len() < params.k as usize);
+
+                let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+                let aggr_sig_type = AggregateSignatureType::Concatenation;
+
+                let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
+                assert!(
+                    matches!(
+                        error.downcast_ref::<AggregationError>(),
+                        Some(AggregationError::NotEnoughSignatures{..})
+                    ),
+                    "Unexpected error: {error:?}"
+                );
+            }
         }
     }
 }
