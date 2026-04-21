@@ -672,6 +672,7 @@ mod tests {
         }
         "#;
 
+<<<<<<< HEAD
             // The proof generated is random for now so the golden value function is only
             // used to generate a proof that is stored and needs to be verifiable
             // TODO: Once the deterministic proof generation is available in the released
@@ -699,6 +700,40 @@ mod tests {
 
                 (snark_proof.unwrap(), avk, message)
             }
+=======
+        // The proof generated is random for now so the golden value function is only
+        // used to generate a proof that is stored and needs to be verifiable
+        // TODO: Once the deterministic proof generation is available in the released
+        // midnight-proof crate, we can update is function to output a fixed value
+        // that can be compared to the JSON constant
+        fn golden_value_setup() -> (
+            // SnarkProof<MithrilMembershipDigest>,
+            AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
+            [u8; 32],
+        ) {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+
+            let (_signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            // Those computations are not needed to check the stored proof
+            // let signatures = collect_signatures(&signers, &message);
+            // let mut prover = create_prover(
+            //     params,
+            //     clerk.closed_key_registration.number_of_registered_parties(),
+            //     [0u8; 32],
+            // );
+            // let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
+
+            (avk, message)
+        }
+>>>>>>> 8d9a521789 (refactor(stm): removed used computations in proof golden test)
 
             #[test]
             fn golden_conversion() {
@@ -706,9 +741,14 @@ mod tests {
                     serde_json::from_str(GOLDEN_JSON)
                         .expect("This JSON deserialization should not fail");
 
+<<<<<<< HEAD
                 let (_, aggregate_verification_key, message) = golden_value_setup();
                 assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
             }
+=======
+            let (aggregate_verification_key, message) = golden_value_setup();
+            assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
+>>>>>>> 8d9a521789 (refactor(stm): removed used computations in proof golden test)
         }
     }
 }
