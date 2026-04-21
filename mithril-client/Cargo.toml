@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.14.4"
+version = "0.14.5"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -75,30 +75,30 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true }
 strum = { workspace = true }
-tar = { version = "0.4.44", optional = true }
+tar = { version = "0.4.45", optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-uuid = { version = "1.21.0", features = ["v4"] }
+uuid = { version = "1.23.1", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 mithril-aggregator-discovery = { path = "../internal/mithril-aggregator-discovery", version = "0.1" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "0.1" }
-rand = { version = "0.10.0" }
+rand = { version = "0.10.1" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.4.0", features = ["wasm_js"] }
-uuid = { version = "1.21.0", features = ["v4", "js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
+uuid = { version = "1.23.1", features = ["v4", "js"] }
 
 [dev-dependencies]
-axum = { version = "0.8.8", features = ["json"] }
-axum-test = "18.7.0"
-bon = "3.9.0"
+axum = { version = "0.8.9", features = ["json"] }
+axum-test = "20.0.0"
+bon = "3.9.1"
 hex = { workspace = true }
 http = "1.4.0"
 httpmock = "0.8.3"
 mockall = { workspace = true }
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }

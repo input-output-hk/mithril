@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.13.7"
+version = "0.13.8"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -49,16 +49,16 @@ slog = { workspace = true, features = ["max_level_trace", "release_max_level_deb
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 slog-term = { workspace = true }
-tar = "0.4.44"
+tar = "0.4.45"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-zip = "8.1.0"
+zip = "8.5.1"
 
 [target.'cfg(all(not(target_os = "windows"), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
 tikv-jemallocator = { version = "0.6.1" }
 
 [target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
-mimalloc = { version = "0.1.43" }
+mimalloc = { version = "0.1.48" }
 
 [dev-dependencies]
 httpmock = "0.8.3"

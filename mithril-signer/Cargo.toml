@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.3.32"
+version = "0.3.33"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -54,7 +54,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tikv-jemallocator = { version = "0.6.1" }
 
 [target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
-mimalloc = { version = "0.1.43" }
+mimalloc = { version = "0.1.48" }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }

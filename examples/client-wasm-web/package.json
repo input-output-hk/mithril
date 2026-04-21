@@ -1,6 +1,6 @@
 {
   "name": "client-wasm-web",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
@@ -12,10 +12,10 @@
     "@mithril-dev/mithril-client-wasm": "file:../../mithril-client-wasm"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "^13.0.1",
-    "prettier": "^3.8.1",
-    "webpack": "^5.105.2",
-    "webpack-cli": "^6.0.1",
+    "copy-webpack-plugin": "^14.0.0",
+    "prettier": "^3.8.3",
+    "webpack": "^5.106.2",
+    "webpack-cli": "^7.0.2",
     "webpack-dev-server": "^5.2.3"
   }
 }

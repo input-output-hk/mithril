@@ -74,5 +74,4 @@ upgrade: clean install
 		jest@latest \
 		jest-environment-jsdom@latest \
 		next-router-mock@latest \
-		prettier@latest \
-		prettier-eslint@latest
+		prettier@latest
