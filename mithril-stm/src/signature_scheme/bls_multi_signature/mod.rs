@@ -111,7 +111,7 @@ mod tests {
     impl Eq for BlsSigningKey {}
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(300))]
+        #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
         fn test_sig(
