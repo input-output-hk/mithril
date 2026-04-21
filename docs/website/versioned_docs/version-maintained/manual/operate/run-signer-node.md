@@ -65,30 +65,30 @@ Thus, there are no additional requirements for the recommended hardware to run a
 Here are some figures about the Mithril signer node running on Cardano `mainnet`:
 
 - It is **idle** most of the time with a very low **CPU** usage of less than `5%`
-- It uses less than `200 MB` of **resident memory**
+- It uses less than `175 MB` of **resident memory**
 - It sends a **new signature** to the aggregator roughly every `10 minutes` and a **new registration** every `5 days` (`<1 MB` per day)
-  When launched for the **first time**, a **pre-loading** phase occurs, during which the Cardano transactions are imported with a spike of `50-70%` CPU on one core for `~5 hours`
+- When launched for the **first time**, a **pre-loading** phase occurs, during which the Cardano blocks and transactions are imported with a spike of `50-70%` CPU on one core for `~11 hours`
 - When signing for the **first time**, the Cardano database digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`
 - Also, the full Cardano database files will be **read from disk once** during this cache building process
-- Only **stake distributions**, **Mithril keys**, and some **cache** (for the **Cardano database** and **Cardano transactions**) are stored on the disk (`<200 MB`).
+- Only **stake distributions**, **Mithril keys**, and some **cache** (for the **Cardano database** and **Cardano blocks and transactions**) are stored on the disk (`<300 MB`).
 
 :::
 
-### Cardano transactions certification footprint
+### Cardano blocks and transactions certification footprint
 
-Here is a detailed view of the Cardano transaction signature's impact (the most resource-intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
+Here is a detailed view of the Cardano blocks and transactions signature's impact (the most resource-intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
 
 #### CPU
 
-[![Cardano transaction signer CPU](images/cardano-transaction-signer-cpu.png)](images/cardano-transaction-signer-cpu.png)
+[![Cardano blocks and transactions signer CPU](images/cardano-block-transaction-signer-cpu.png)](images/cardano-block-transaction-signer-cpu.png)
 
 #### Memory
 
-[![Cardano transaction signer CPU](images/cardano-transaction-signer-res-memory.png)](images/cardano-transaction-signer-res-memory.png)
+[![Cardano blocks and transactions signer memory](images/cardano-block-transaction-signer-res-memory.png)](images/cardano-block-transaction-signer-res-memory.png)
 
 #### Disk
 
-[![Cardano transaction signer CPU](images/cardano-transaction-signer-disk-usage.png)](images/cardano-transaction-signer-disk-usage.png)
+[![Cardano blocks and transactions signer disk](images/cardano-block-transaction-signer-disk-usage.png)](images/cardano-block-transaction-signer-disk-usage.png)
 
 ## Prerequisites
 
