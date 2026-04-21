@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- **STABLE**: the Mithril signer has reached its first stable version `1.0.0` and is now officially production-ready on the `release-mainnet` network.
+
 - Support for `Cardano node` `10.6.2` in the signer and the aggregator.
 
 - Support for `Cardano node` `10.7.1` in the signer, aggregator and client.
