@@ -324,6 +324,10 @@ jobs:
         with:
           base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
           head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # GHSA-cq8v-f236-94qc: 'rand' unsoundness in the `rand::rng()` API path;
+          # we receive `rand@0.8.6` transitively through `libp2p-core`.
+          # Remove this exemption once `libp2p` upgrades to `rand >= 0.9.3`.
+          allow-ghsas: GHSA-cq8v-f236-94qc
 
       - name: Check networks.json validity
         if: success() || failure()
