@@ -208,14 +208,6 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       metadata: [{ name: "og:image", content: "https://mithril.network/doc/img/logo.png" }],
-      announcementBar: {
-        id: "announcement",
-        content:
-          'SPOs: the Mithril signer node is stable and production-ready. <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">Install it today!</a>',
-        backgroundColor: "#2A598E",
-        textColor: "#f1f1f1",
-        isCloseable: true,
-      },
       colorMode: {
         defaultMode: "light",
         disableSwitch: true,
