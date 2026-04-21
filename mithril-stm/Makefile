@@ -16,6 +16,9 @@ debug:
 	@${CARGO} run -- -vvv $(call args,defaultstring)
 
 test:
+	${CARGO} test -- --skip slow::
+
+test-with-slow:
 	${CARGO} test
 
 check:
