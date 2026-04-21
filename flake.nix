@@ -196,6 +196,7 @@
             // lib.optionalAttrs (cargoToml != null) rec {
               inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
               cargoExtraArgs = "-p ${pname}";
+              cargoTestExtraArgs = "-- --skip slow::";
             }
             // {
               cargoArtifacts = buildDeps craneLib commonsArgs cargoToml baseCargoArtifacts;
@@ -210,6 +211,7 @@
             // lib.optionalAttrs (cargoToml != null) rec {
               inherit (craneLibMusl.crateNameFromCargoToml {inherit cargoToml;}) pname version;
               cargoExtraArgs = "-p ${pname}";
+              cargoTestExtraArgs = "-- --skip slow::";
             }
             // {
               cargoArtifacts = buildDeps craneLibMusl commonsArgsMusl cargoToml baseCargoArtifacts;
@@ -222,6 +224,7 @@
             // lib.optionalAttrs (cargoToml != null) rec {
               inherit (craneLibWindows.crateNameFromCargoToml {inherit cargoToml;}) pname version;
               cargoExtraArgs = "-p ${pname}";
+              cargoTestExtraArgs = "-- --skip slow::";
             }
             // {
               cargoArtifacts = buildDeps craneLibWindows commonsArgsWindows cargoToml baseCargoArtifacts;
