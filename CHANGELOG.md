@@ -9,7 +9,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2617.0] - UNRELEASED
+
 - **STABLE**: the Mithril signer has reached its first stable version `1.0.0` and is now officially production-ready on the `release-mainnet` network.
+
+- **REMOVED**: in Mithril client CLI and WASM:
+  - The `cardano_db` function in the `Client` struct of the library and its WASM counterpart
+  - The `--backend v1` flag of the `cardano-db` command in the CLI; use `--backend v2` instead.
 
 - Support for `Cardano node` `10.6.2` in the signer and the aggregator.
 
