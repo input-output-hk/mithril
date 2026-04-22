@@ -178,14 +178,6 @@ fn build_command_from_10_7(
     if cfg.utxo_hd_flavor == UTxOHDFlavor::Lsm {
         let output_database_path =
             output_path.parent().unwrap_or(output_path).join(LSM_DATABASE_DIR);
-        if !output_database_path.exists() {
-            create_dir(&output_database_path).with_context(|| {
-                format!(
-                    "Failed to create output LSM database directory: {}",
-                    output_database_path.display()
-                )
-            })?;
-        }
         command
             .arg("--output-lsm-snapshot")
             .arg(output_path)
