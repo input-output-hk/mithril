@@ -60,6 +60,7 @@ impl SnarkProverInput {
         let unique_index_signature_map = SnarkClerk::select_valid_signatures_for_k_indices(
             &clerk.parameters,
             &valid_signatures_with_indices,
+            &message_to_sign,
         )?;
 
         let witness = Self::create_witness::<D>(unique_index_signature_map, clerk)?;
