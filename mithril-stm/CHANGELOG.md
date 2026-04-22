@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.5 (04-23-2026)
+
+### Added
+
+- Added Layer D golden tests for the `halo2_ivc` prototype, covering committed asset readers, deterministic asset generators, and a positive golden suite validating stored recursive proofs, the genesis base case, same-epoch and next-epoch recursive steps, and a chained-flow replay check.
+
 ## 0.10.4 (04-22-2026)
 
 ### Changed

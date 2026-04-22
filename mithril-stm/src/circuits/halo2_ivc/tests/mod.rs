@@ -1,4 +1,7 @@
-//! Recursive IVC end-to-end tests moved with the IVC module.
-// The original IVC end-to-end test harness has been moved into this module
-// tree and will be re-enabled when the recursive test harness is adapted to
-// the STM crate layout.
+//! Test-only modules for the recursive Halo2 IVC integration.
+//!
+//! `golden` groups the committed assets, asset readers, generators, and test
+//! cases used to lock in recursive verification behavior.
+
+mod golden;
+mod test_certificate;
