@@ -100,6 +100,16 @@ pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_i
         .expect("recursive MockProver should accept the provided circuit and public inputs");
 }
 
+/// Runs `MockProver` on the recursive circuit and asserts that at least one constraint fails.
+pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_inputs: Vec<F>) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    assert!(
+        prover.verify().is_err(),
+        "recursive MockProver should reject the provided circuit and public inputs"
+    );
+}
+
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.
 ///
 /// This mirrors the first half of the normal recursive-step asset generation:

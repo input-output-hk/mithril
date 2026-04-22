@@ -5,8 +5,9 @@ use super::{
     ComposableChip, ConstraintSystem, ControlFlowInstructions, ConversionInstructions,
     DST_SCHNORR_SIGNATURE, EccChip, EccInstructions, EqualityInstructions, Error, EvaluationDomain,
     F, ForeignEccChip, HashInstructions, IVC_ONE_NAME, Jubjub, K, Layouter, NG, NativeChip,
-    NativeGadget, P2RDecompositionChip, PoseidonChip, PublicInputInstructions, S, Value,
-    VerifierGadget, ZeroInstructions,
+    NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
+    PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PoseidonChip,
+    PublicInputInstructions, S, Value, VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     state::{
         AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness, fixed_base_names,
@@ -359,9 +360,10 @@ impl IvcGadget {
         // Read the value of next merkle root, next protocol parameters and current epoch from protocol message preimage
         // digest(6) | bytes(32) | next_aggregate_verification_key(31) | bytes(44) | next_protocol_parameters(24) | bytes(32) | current_epoch(13) | bytes(8)
         // todo: check field keywords(?)
-        let next_merkle_root_bytes = witness.msg_preimage[69..101].to_vec();
-        let next_protocol_params_bytes = witness.msg_preimage[137..169].to_vec();
-        let current_epoch_bytes = witness.msg_preimage[182..190].to_vec();
+        let next_merkle_root_bytes = witness.msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].to_vec();
+        let next_protocol_params_bytes =
+            witness.msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].to_vec();
+        let current_epoch_bytes = witness.msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].to_vec();
 
         // Get the field elements by linearly combining the bytes
         let (next_merkle_root, next_protocol_params, current_epoch) = {

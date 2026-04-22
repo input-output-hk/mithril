@@ -72,6 +72,12 @@ type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
 const K: u32 = 19;
 
 pub const PREIMAGE_SIZE: usize = 190;
+/// Byte range of the next Merkle root within the protocol message preimage.
+pub const PREIMAGE_NEXT_MERKLE_ROOT_BYTES: std::ops::Range<usize> = 69..101;
+/// Byte range of the next protocol parameters within the protocol message preimage.
+pub const PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES: std::ops::Range<usize> = 137..169;
+/// Byte range of the current epoch within the protocol message preimage.
+pub const PREIMAGE_CURRENT_EPOCH_BYTES: std::ops::Range<usize> = 182..190;
 
 pub(crate) const CERT_VK_NAME: &str = "cert_vk";
 pub(crate) const IVC_ONE_NAME: &str = "ivc_one_vk";

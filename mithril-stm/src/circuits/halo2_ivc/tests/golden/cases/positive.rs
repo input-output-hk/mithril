@@ -30,7 +30,6 @@ use crate::circuits::halo2_ivc::{AssignedAccumulator, circuit::IvcCircuit, state
 // TODO: Move this slow golden test into a dedicated slow/extended CI mode once
 // the recursive test suite is split into fast and slow lanes.
 #[test]
-#[ignore]
 fn slow_genesis_base_case_accepts_valid_public_inputs() {
     // MockProver check for the explicit genesis/base-case branch where no
     // previous recursive proof exists yet and the circuit must accept the
@@ -62,7 +61,6 @@ fn slow_genesis_base_case_accepts_valid_public_inputs() {
 // TODO: Move this slow golden test into a dedicated slow/extended CI mode once
 // the recursive test suite is split into fast and slow lanes.
 #[test]
-#[ignore]
 fn slow_recursive_step_next_epoch_accepts_valid_public_inputs() {
     // MockProver check for one non-genesis next-epoch recursive step using
     // stored previous recursive artifacts plus fresh certificate-side data
@@ -113,7 +111,6 @@ fn slow_recursive_step_next_epoch_accepts_valid_public_inputs() {
 // TODO: Move this slow golden test into a dedicated slow/extended CI mode once
 // the recursive test suite is split into fast and slow lanes.
 #[test]
-#[ignore]
 fn slow_recursive_step_same_epoch_accepts_valid_public_inputs() {
     // MockProver check for one non-genesis same-epoch recursive step using
     // stored previous recursive artifacts plus fresh certificate-side data
@@ -231,7 +228,6 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
 // TODO: Move this slow golden test into a dedicated slow/extended CI mode once
 // the recursive test suite is split into fast and slow lanes.
 #[test]
-#[ignore]
 fn slow_recursive_step_output_asset_matches_replayed_chain_flow() {
     // Asset-based replay check that recomputes the expected next step from the
     // stored previous checkpoint and verifies that the stored next-step
