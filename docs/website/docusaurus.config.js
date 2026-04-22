@@ -211,7 +211,7 @@ const config = {
       announcementBar: {
         id: "announcement",
         content:
-          'Participate in Mithril Protocol’s Mainnet Beta! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">here</a>!',
+          'SPOs: the Mithril signer node is stable and production-ready. <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">Install it today!</a>',
         backgroundColor: "#2A598E",
         textColor: "#f1f1f1",
         isCloseable: true,
