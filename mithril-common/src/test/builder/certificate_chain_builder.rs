@@ -260,7 +260,7 @@ impl<'a> CertificateChainBuilder<'a> {
     pub fn new() -> Self {
         let protocol_parameters = ProtocolParameters {
             m: 100,
-            k: 5,
+            k: 3,
             phi_f: 0.65,
         };
         Self {
