@@ -227,6 +227,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 2 # Needed to get the diff of the last commit, which is used to filter out slow tests
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -235,11 +237,20 @@ jobs:
           cargo-tools: cargo-nextest
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - id: prepare
+        name: Prepare
+        shell: bash
+        run: |
+          FILTERSET="$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh --commit-ref "HEAD^1")"
+
+          echo "Tests filterset: $FILTERSET"
+          echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
+
       - name: Build tests
         run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
 
       - name: Run tests
-        run: cargo nextest run --profile ci --cargo-profile ci-tests ${{ matrix.test-args }}
+        run: cargo nextest run --profile ci --cargo-profile ci-tests --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
 
       - name: Run doc tests
         run: cargo test --profile ci-tests --doc ${{ matrix.test-args }}
