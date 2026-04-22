@@ -4551,7 +4551,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.3.33"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
