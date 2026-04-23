@@ -1,9 +1,14 @@
 use ff::Field;
+use midnight_proofs::utils::SerdeFormat;
 
 use crate::circuits::halo2_ivc::{
-    F, PREIMAGE_SIZE,
+    F, PREIMAGE_SIZE, S,
+    io::{Read as IvcRead, Write as IvcWrite},
     state::State,
-    tests::golden::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
+    tests::golden::{
+        build_asset_generation_setup, build_genesis_protocol_message_preimage,
+        load_embedded_recursive_chain_state_asset,
+    },
 };
 
 
@@ -62,5 +67,37 @@ fn genesis_state_all_fields_are_zero() {
     assert!(
         public_input.iter().all(|f| f.is_zero().into()),
         "all fields of the genesis state should be zero"
+    );
+}
+
+#[test]
+fn accumulator_serialization_round_trip() {
+    // Off-circuit check that the stored accumulator survives a write/read
+    // round-trip with identical bytes, confirming the serialization format is
+    // stable and lossless.
+    let chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+
+    let mut first_bytes = Vec::new();
+    chain_state
+        .accumulator
+        .write(&mut first_bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator serialization should succeed");
+
+    let deserialized =
+        crate::circuits::halo2_ivc::Accumulator::<S>::read(
+            &mut first_bytes.as_slice(),
+            SerdeFormat::RawBytesUnchecked,
+        )
+        .expect("accumulator deserialization should succeed");
+
+    let mut second_bytes = Vec::new();
+    deserialized
+        .write(&mut second_bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator re-serialization should succeed");
+
+    assert_eq!(
+        first_bytes, second_bytes,
+        "accumulator bytes should be identical after a round-trip"
     );
 }

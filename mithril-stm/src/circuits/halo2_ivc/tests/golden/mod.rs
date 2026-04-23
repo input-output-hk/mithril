@@ -12,7 +12,8 @@ mod generators;
 mod helpers;
 
 pub(crate) use asset_readers::{
-    load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+    load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+    load_embedded_verification_context_asset,
 };
 pub(crate) use generators::{
     build_asset_generation_setup, build_genesis_base_case_next_state,
