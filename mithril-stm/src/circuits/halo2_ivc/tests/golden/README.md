@@ -6,7 +6,7 @@
 can validate recursive behavior without regenerating the full proving flow.
 
 The expensive proofs are generated manually through ignored tests in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`.
+`mithril-stm/src/circuits/halo2_ivc/tests/common/generators/asset_generation.rs`.
 The positive golden tests load those stored outputs at compile time via
 `include_bytes!`, while regeneration keeps using the file-based readers/writers.
 
@@ -90,7 +90,7 @@ These commands intentionally use `--release` because asset generation is a
 manual workflow dominated by real proof generation.
 
 These commands correspond to the ignored generator entrypoints in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`:
+`mithril-stm/src/circuits/halo2_ivc/tests/common/generators/asset_generation.rs`:
 
 - `generate_verification_context_only`
 - `generate_recursive_chain_state_only`

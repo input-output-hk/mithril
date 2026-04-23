@@ -48,28 +48,22 @@ pub(super) fn build_genesis_protocol_message(
     protocol_message
 }
 
-/// Builds the genesis protocol-message preimage consumed by the recursive base case.
-pub(crate) fn build_genesis_protocol_message_preimage(
-    setup: &AssetGenerationSetup,
-) -> [u8; PREIMAGE_SIZE] {
+/// Returns the raw genesis protocol-message preimage bytes produced by the serializer.
+pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSetup) -> Vec<u8> {
     build_genesis_protocol_message(
         &setup.aggregate_verification_key,
         setup.genesis_next_protocol_params,
         5u64,
     )
     .get_preimage()
-    .try_into()
-    .expect("genesis protocol message preimage should match PREIMAGE_SIZE")
 }
 
 /// Builds the witness used by the recursive genesis/base-case branch.
 pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> Witness {
-    Witness::new(
-        setup.genesis_signature.clone(),
-        F::ZERO,
-        F::ZERO,
-        build_genesis_protocol_message_preimage(setup),
-    )
+    let preimage: [u8; PREIMAGE_SIZE] = build_genesis_protocol_message_preimage(setup)
+        .try_into()
+        .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
+    Witness::new(setup.genesis_signature.clone(), F::ZERO, F::ZERO, preimage)
 }
 
 /// Builds the first next-state public output produced by the recursive base case.
