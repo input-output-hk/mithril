@@ -10,9 +10,9 @@ sidebar_label: Light wallets
 
 Cardano users expect fast, reliable confirmation that their transactions have landed. Traditionally, delivering that required either running a full node or trusting a third-party service. Mithril offers a third option: cryptographic proof of transaction inclusion, backed by Cardano's stake pool operators, that any wallet can verify independently.
 
-:::caution
+:::info
 
-**The Mithril client library is production-ready code, but we recommend caution before deploying certificate verification in a production wallet.** Protocol security guarantees are proportional to stake participation — until the Mithril signer achieves sufficient coverage across the SPO ecosystem, there is a risk that certificates could be compromised. The greater the stake participation, the stronger the guarantees.
+Before integrating, review the [Protocol security](/mithril/advanced/mithril-protocol/security) page to understand the protocol's guarantees.
 
 :::
 
@@ -39,8 +39,6 @@ npm install @mithril-dev/mithril-client-wasm
 ```
 
 It works in the browser and in Node.js. All major browsers are supported — see the [Browser Compatibility](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm#browser-compatibility) section of the npm package for details. A [browser integration example](https://github.com/input-output-hk/mithril/tree/main/examples/client-wasm-web) is available if you want to see it in action. A [Rust crate](https://crates.io/crates/mithril-client) is also available for native desktop applications.
-
-Native mobile bindings for Swift and Kotlin are not yet available, but are on the roadmap. If you're building a native iOS or Android wallet and want to get ahead of this, reach out — the underlying C libraries are already being compiled as part of the build.
 
 The core flow is straightforward:
 
