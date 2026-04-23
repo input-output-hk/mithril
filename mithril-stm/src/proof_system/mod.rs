@@ -33,6 +33,6 @@ pub use halo2_snark::SnarkProof;
 
 #[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
-    SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, SnarkProver,
-    compute_target_value_for_snark_lottery,
+    MERKLE_TREE_DEPTH_FOR_SNARK, SingleSignatureForSnark, SnarkClerk, SnarkProofSigner,
+    SnarkProver, compute_target_value_for_snark_lottery,
 };
