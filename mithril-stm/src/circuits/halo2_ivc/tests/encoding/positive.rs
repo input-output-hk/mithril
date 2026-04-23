@@ -2,12 +2,13 @@ use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
 
 use crate::circuits::halo2_ivc::{
-    F, PREIMAGE_SIZE, S,
+    E, F, PREIMAGE_SIZE, S, KZGCommitmentScheme, VerifyingKey,
+    circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
     tests::golden::{
         build_asset_generation_setup, build_genesis_protocol_message_preimage,
-        load_embedded_recursive_chain_state_asset,
+        load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
     },
 };
 
@@ -99,5 +100,35 @@ fn accumulator_serialization_round_trip() {
     assert_eq!(
         first_bytes, second_bytes,
         "accumulator bytes should be identical after a round-trip"
+    );
+}
+
+#[test]
+fn vk_serialization_round_trip() {
+    // Off-circuit check that the recursive verifying key survives a write/read
+    // round-trip with an identical transcript_repr, confirming the VK
+    // serialization format is stable and lossless.
+    let verification_context = load_embedded_verification_context_asset()
+        .expect("verification context asset should load");
+
+    let original_repr = verification_context.recursive_verifying_key.transcript_repr();
+
+    let mut bytes = Vec::new();
+    verification_context
+        .recursive_verifying_key
+        .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("verifying key serialization should succeed");
+
+    let deserialized = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuit>(
+        &mut bytes.as_slice(),
+        SerdeFormat::RawBytesUnchecked,
+        (),
+    )
+    .expect("verifying key deserialization should succeed");
+
+    assert_eq!(
+        original_repr,
+        deserialized.transcript_repr(),
+        "verifying key transcript_repr should be identical after a round-trip"
     );
 }
