@@ -2,7 +2,7 @@ use mithril_client::MithrilCertificate;
 use mithril_client::common::ProtocolMessagePartKey;
 use mithril_common::crypto_helper::{MKMap, MKTreeStoreInMemory};
 use mithril_common::entities::CardanoBlockWithTransactions;
-use mithril_common::test::crypto_helper::MKMapTestExtension;
+use mithril_common::test::crypto_helper::MKMapCardanoTestExtension;
 use mithril_common::test::double::Dummy;
 
 use crate::extensions::routes;

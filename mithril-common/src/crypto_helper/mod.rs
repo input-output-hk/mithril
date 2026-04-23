@@ -5,8 +5,6 @@ mod codec;
 mod conversions;
 pub mod ed25519;
 mod ed25519_alias;
-mod merkle_map;
-mod merkle_tree;
 mod types;
 
 pub use cardano::ColdKeyGenerator;
@@ -19,10 +17,9 @@ pub use cardano::{
 };
 pub use codec::*;
 pub use ed25519_alias::{era::*, genesis::*, manifest::*};
-pub use merkle_map::{MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue};
-pub use merkle_tree::{
-    Bytes, MKProof, MKTree, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStoreInMemory,
-    MKTreeStorer,
+pub use mithril_merkle_tree::{
+    Bytes, MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue, MKProof, MKTree, MKTreeLeafIndexer,
+    MKTreeLeafPosition, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
 };
 pub use types::*;
 

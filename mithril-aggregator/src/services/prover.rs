@@ -279,7 +279,7 @@ mod tests {
         crypto_helper::MKTreeStoreInMemory,
         entities::{CardanoBlockWithTransactions, SlotNumber},
         test::{
-            builder::CardanoTransactionsBuilder, crypto_helper::MKMapTestExtension,
+            builder::CardanoTransactionsBuilder, crypto_helper::MKMapCardanoTestExtension,
             mock_extensions::MockBuilder,
         },
     };
