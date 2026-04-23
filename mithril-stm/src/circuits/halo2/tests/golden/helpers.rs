@@ -31,7 +31,9 @@ use crate::membership_commitment::{
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
-use crate::{LotteryIndex, LotteryTargetValue, Parameters, StmError, StmResult};
+use crate::{
+    LotteryIndex, LotteryTargetValue, MERKLE_TREE_DEPTH_FOR_SNARK, Parameters, StmError, StmResult,
+};
 
 /// Default number of signers used in golden test environments.
 const DEFAULT_NUM_SIGNERS: usize = 3000;
@@ -737,4 +739,39 @@ fn get_or_build_circuit_keys(
         .map_err(|_| anyhow!(StmCircuitError::CircuitKeysCacheLockPoisoned { operation: "write" }))?
         .insert(config, key_pair.clone());
     Ok(key_pair)
+}
+
+// Function used to compute the verification key for tests
+// It uses an unsafe setup function to create the SRS
+pub(crate) fn compute_unsafe_circuit_verification_key(
+    params: &Parameters,
+    merkle_tree_depth: u32,
+) -> Vec<u8> {
+    let circuit = StmCircuit::try_new(&params, merkle_tree_depth as u32).unwrap();
+    let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+    let srs: ParamsKZG<Bls12> =
+        ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
+
+    let circuit_verification_key = midnight_zk_stdlib::setup_vk(&srs, &circuit);
+    let mut buf_cvk = vec![];
+    let _ = circuit_verification_key
+        .write(&mut buf_cvk, SerdeFormat::RawBytes)
+        .unwrap();
+    buf_cvk
+}
+
+// Function used to compute the non-recursive circuit verification key for test
+#[test]
+#[ignore]
+fn print_non_recursive_circuit_verification_key_for_test() {
+    let params = Parameters {
+        m: 20,
+        k: 5,
+        phi_f: 0.2,
+    };
+    let merkle_tree_depth = MERKLE_TREE_DEPTH_FOR_SNARK;
+    println!(
+        "{:?}",
+        compute_unsafe_circuit_verification_key(&params, merkle_tree_depth)
+    );
 }
