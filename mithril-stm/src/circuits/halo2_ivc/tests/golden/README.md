@@ -6,7 +6,7 @@
 can validate recursive behavior without regenerating the full proving flow.
 
 The expensive proofs are generated manually through ignored tests in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators/tests.rs`.
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`.
 The positive golden tests load those stored outputs at compile time via
 `include_bytes!`, while regeneration keeps using the file-based readers/writers.
 
@@ -14,18 +14,18 @@ The positive golden tests load those stored outputs at compile time via
 
 The committed asset files live under:
 
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/assets`
+`mithril-stm/src/circuits/halo2_ivc/tests/assets`
 
 Reader helpers live in:
 
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/asset_readers.rs`
+`mithril-stm/src/circuits/halo2_ivc/tests/common/asset_readers.rs`
 
 The positive golden tests assume these committed asset files are present in the
 worktree at compile time. If they were removed locally, restore them from git
 before rebuilding or regenerating:
 
 ```bash
-git restore mithril-stm/src/circuits/halo2_ivc/tests/golden/assets
+git restore mithril-stm/src/circuits/halo2_ivc/tests/assets
 ```
 
 The current asset set is:
@@ -90,7 +90,7 @@ These commands intentionally use `--release` because asset generation is a
 manual workflow dominated by real proof generation.
 
 These commands correspond to the ignored generator entrypoints in
-`mithril-stm/src/circuits/halo2_ivc/tests/golden/generators/tests.rs`:
+`mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`:
 
 - `generate_verification_context_only`
 - `generate_recursive_chain_state_only`

@@ -12,7 +12,7 @@ use midnight_proofs::{
 };
 use midnight_zk_stdlib::MidnightVK;
 
-use crate::circuits::halo2_ivc::tests::golden::{
+use super::{
     asset_readers::RecursiveChainStateAsset,
     generators::{
         AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::{
     state::{Global, State, trivial_acc},
 };
 
-pub(crate) use crate::circuits::halo2_ivc::tests::golden::generators::{
+pub(crate) use super::generators::{
     verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
     verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
 };

@@ -8,7 +8,7 @@
 
 use midnight_circuits::types::Instantiable;
 
-use crate::circuits::halo2_ivc::tests::golden::{
+use crate::circuits::halo2_ivc::tests::common::{
     asset_readers::{
         load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
         load_embedded_verification_context_asset,

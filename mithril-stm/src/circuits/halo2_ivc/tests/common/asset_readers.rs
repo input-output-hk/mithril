@@ -62,9 +62,12 @@ pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) certificate_proof: Vec<u8>,
 }
 
-const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] = include_bytes!("assets/recursive_chain_state.bin");
-const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] = include_bytes!("assets/verification_context.bin");
-const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("assets/recursive_step_output.bin");
+const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] =
+    include_bytes!("../assets/recursive_chain_state.bin");
+const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] =
+    include_bytes!("../assets/verification_context.bin");
+const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] =
+    include_bytes!("../assets/recursive_step_output.bin");
 
 /// Opens a committed golden asset for buffered reading.
 fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {

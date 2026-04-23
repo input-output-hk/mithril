@@ -2,16 +2,17 @@ use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
 
 use crate::circuits::halo2_ivc::{
-    E, F, PREIMAGE_SIZE, S, KZGCommitmentScheme, VerifyingKey,
+    E, F, KZGCommitmentScheme, PREIMAGE_SIZE, S, VerifyingKey,
     circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
-    tests::golden::{
-        build_asset_generation_setup, build_genesis_protocol_message_preimage,
-        load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
+    tests::common::{
+        asset_readers::{
+            load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
+        },
+        generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
     },
 };
-
 
 #[test]
 fn preimage_length_is_190_bytes() {
@@ -85,12 +86,11 @@ fn accumulator_serialization_round_trip() {
         .write(&mut first_bytes, SerdeFormat::RawBytesUnchecked)
         .expect("accumulator serialization should succeed");
 
-    let deserialized =
-        crate::circuits::halo2_ivc::Accumulator::<S>::read(
-            &mut first_bytes.as_slice(),
-            SerdeFormat::RawBytesUnchecked,
-        )
-        .expect("accumulator deserialization should succeed");
+    let deserialized = crate::circuits::halo2_ivc::Accumulator::<S>::read(
+        &mut first_bytes.as_slice(),
+        SerdeFormat::RawBytesUnchecked,
+    )
+    .expect("accumulator deserialization should succeed");
 
     let mut second_bytes = Vec::new();
     deserialized
@@ -108,8 +108,8 @@ fn vk_serialization_round_trip() {
     // Off-circuit check that the recursive verifying key survives a write/read
     // round-trip with an identical transcript_repr, confirming the VK
     // serialization format is stable and lossless.
-    let verification_context = load_embedded_verification_context_asset()
-        .expect("verification context asset should load");
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
 
     let original_repr = verification_context.recursive_verifying_key.transcript_repr();
 

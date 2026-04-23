@@ -35,7 +35,7 @@ use crate::circuits::halo2_ivc::{
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
 
-pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
+pub(crate) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(super) const SIGNER_COUNT: usize = 3000;
 pub(super) const QUORUM_SIZE: u32 = 2;
 
@@ -64,8 +64,7 @@ impl AssetPaths {
 impl Default for AssetPaths {
     fn default() -> Self {
         Self::new(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("src/circuits/halo2_ivc/tests/golden/assets"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/circuits/halo2_ivc/tests/assets"),
         )
     }
 }

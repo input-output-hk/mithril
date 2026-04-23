@@ -5,16 +5,22 @@ use ff::Field;
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F,
-    PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
+    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
     circuit::IvcCircuit,
     state::State,
-    tests::golden::{
-        assert_recursive_mock_prover_rejects, build_asset_generation_setup,
-        build_genesis_base_case_next_state, build_genesis_base_case_witness,
-        build_recursive_mock_prover_setup, load_embedded_recursive_step_output_asset,
-        load_embedded_verification_context_asset, verify_and_prepare_blake2b_recursive_proof,
+    tests::common::{
+        asset_readers::{
+            load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+        },
+        generators::{
+            build_asset_generation_setup, build_genesis_base_case_next_state,
+            build_genesis_base_case_witness,
+        },
+        helpers::{
+            assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
+            verify_and_prepare_blake2b_recursive_proof,
+        },
     },
 };
 
@@ -23,8 +29,8 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // next_merkle_root is replaced in the public inputs, confirming the field
     // extracted from preimage bytes [69..101] is enforced as a public output.
-    let verification_context = load_embedded_verification_context_asset()
-        .expect("verification context asset should load");
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
@@ -55,8 +61,8 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // next_protocol_params is replaced in the public inputs, confirming the
     // field extracted from preimage bytes [137..169] is enforced as a public output.
-    let verification_context = load_embedded_verification_context_asset()
-        .expect("verification context asset should load");
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
@@ -87,8 +93,8 @@ fn current_epoch_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // current_epoch is replaced in the public inputs, confirming the field
     // extracted from preimage bytes [182..190] is enforced as a public output.
-    let verification_context = load_embedded_verification_context_asset()
-        .expect("verification context asset should load");
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 

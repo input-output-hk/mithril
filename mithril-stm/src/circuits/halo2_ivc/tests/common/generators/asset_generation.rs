@@ -4,17 +4,6 @@ use midnight_circuits::types::Instantiable;
 use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
 
-use crate::circuits::halo2_ivc::tests::golden::asset_readers::{
-    RecursiveChainStateAsset, RecursiveStepOutputAsset, VerificationContextAsset,
-    load_recursive_chain_state_asset, store_recursive_chain_state_asset,
-    store_recursive_step_output_asset, store_verification_context_asset,
-};
-use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, S,
-    circuit::IvcCircuit,
-    state::{Global, State},
-};
-
 use super::proofs::{
     prove_blake2b_ivc, prove_poseidon_ivc, verify_and_prepare_blake2b_ivc,
     verify_and_prepare_poseidon_ivc,
@@ -27,7 +16,16 @@ use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
     build_next_certificate_asset_data,
 };
-use crate::circuits::halo2_ivc::state::trivial_acc;
+use crate::circuits::halo2_ivc::tests::common::asset_readers::{
+    RecursiveChainStateAsset, RecursiveStepOutputAsset, VerificationContextAsset,
+    load_recursive_chain_state_asset, store_recursive_chain_state_asset,
+    store_recursive_step_output_asset, store_verification_context_asset,
+};
+use crate::circuits::halo2_ivc::{
+    Accumulator, AssignedAccumulator, C, E, F, S,
+    circuit::IvcCircuit,
+    state::{Global, State, trivial_acc},
+};
 
 struct CertificateChainArtifacts {
     certificate_proofs: Vec<Vec<u8>>,
@@ -487,4 +485,28 @@ pub(crate) fn generate_recursive_step_output_asset(
         "generate_recursive_step_output: done in {:?}",
         total_start.elapsed()
     );
+}
+
+// These ignored tests are manual asset-generation entrypoints for the committed
+// golden assets. They are intentionally excluded from normal test runs because
+// they rewrite binary files rather than asserting behavior.
+#[test]
+#[ignore]
+fn generate_verification_context_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_verification_context_asset(&build_asset_generation_setup(), &AssetPaths::default());
+}
+
+#[test]
+#[ignore]
+fn generate_recursive_chain_state_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_recursive_chain_state_asset(&build_asset_generation_setup(), &AssetPaths::default());
+}
+
+#[test]
+#[ignore]
+fn generate_recursive_step_output_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_recursive_step_output_asset(&build_asset_generation_setup(), &AssetPaths::default());
 }
