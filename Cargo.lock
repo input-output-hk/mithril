@@ -4322,7 +4322,6 @@ dependencies = [
  "blake2 0.10.6",
  "chrono",
  "ciborium",
- "ckb-merkle-mountain-range",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
@@ -4330,6 +4329,7 @@ dependencies = [
  "hex",
  "kes-summed-ed25519",
  "mithril-build-script",
+ "mithril-merkle-tree",
  "mithril-stm",
  "mockall",
  "nom 8.0.0",
@@ -4435,6 +4435,19 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "mithril-merkle-tree"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blake2 0.10.6",
+ "ckb-merkle-mountain-range",
+ "criterion",
+ "hex",
+ "serde",
 ]
 
 [[package]]

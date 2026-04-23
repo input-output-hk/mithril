@@ -445,7 +445,7 @@ impl<S: MKTreeStorer> Clone for MKTree<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::crypto_helper::MKProofTestExtension;
+    use crate::test::MKProofTestExtension;
 
     use super::*;
 
@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn test_golden_merkle_root() {
+    fn golden_merkle_root() {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
         let mktree =
             MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_accept_valid_proof_generated_by_merkle_tree() {
+    fn should_accept_valid_proof_generated_by_merkle_tree() {
         let leaves = generate_leaves(10);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let proof =
@@ -476,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_serialize_deserialize_proof() {
+    fn should_serialize_deserialize_proof() {
         let leaves = generate_leaves(10);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let proof =
@@ -492,7 +492,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_reject_invalid_proof_generated_by_merkle_tree() {
+    fn should_reject_invalid_proof_generated_by_merkle_tree() {
         let leaves = generate_leaves(10);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let mut proof =
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_list_leaves() {
+    fn should_list_leaves() {
         let leaves: Vec<MKTreeNode> = vec!["test-0".into(), "test-1".into(), "test-2".into()];
         let mktree =
             MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
@@ -515,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_clone_and_compute_same_root() {
+    fn should_clone_and_compute_same_root() {
         let leaves = generate_leaves(10);
         let mktree =
             MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
@@ -528,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_support_append_leaves() {
+    fn should_support_append_leaves() {
         let leaves = generate_leaves(10);
         let leaves_creation = &leaves[..9];
         let leaves_to_append = &leaves[9..];

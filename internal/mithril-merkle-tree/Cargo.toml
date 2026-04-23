@@ -1,0 +1,33 @@
+[package]
+name = "mithril-merkle-tree"
+version = "0.1.0"
+description = "Merkle tree and merkelized map primitives used by Mithril nodes."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+anyhow = { workspace = true }
+bincode = { version = "=2.0.1", features = ["serde"] }
+blake2 = "0.10.6"
+ckb-merkle-mountain-range = "0.6.1"
+hex = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[[bench]]
+name = "merkle_map"
+harness = false
+
+[[bench]]
+name = "merkle_tree"
+harness = false
