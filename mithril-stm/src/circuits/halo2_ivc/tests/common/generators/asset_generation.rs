@@ -14,7 +14,7 @@ use super::setup::{
 };
 use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
-    build_next_certificate_asset_data,
+    build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     RecursiveChainStateAsset, RecursiveStepOutputAsset, VerificationContextAsset,
@@ -487,6 +487,236 @@ pub(crate) fn generate_recursive_step_output_asset(
     );
 }
 
+/// Generates and writes the genesis step output asset (one Blake2b IVC proof
+/// from the genesis base case, with no prior certificate or IVC proof).
+pub(crate) fn generate_genesis_step_output_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
+) {
+    println!(
+        "generate_genesis_step_output: start -> {}",
+        paths.genesis_step_output.display()
+    );
+    let total_start = Instant::now();
+
+    let context = build_shared_recursive_context(setup);
+    let (_, _, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
+    let recursive_proving_key = build_recursive_proving_key(&context);
+    let global = build_recursive_global(
+        setup,
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+
+    let genesis_witness = build_genesis_base_case_witness(setup);
+    let genesis_next_state = build_genesis_base_case_next_state(setup, 5u64);
+    let current_accumulator = trivial_acc(&combined_fixed_base_names);
+    let next_accumulator = current_accumulator.clone();
+
+    let circuit = IvcCircuit::new(
+        global.clone(),
+        State::genesis(),
+        genesis_witness,
+        vec![],
+        vec![],
+        current_accumulator,
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        global.as_public_input(),
+        genesis_next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&next_accumulator),
+    ]
+    .concat();
+
+    let mut rng = OsRng;
+    println!("generate_genesis_step_output: proving Blake2b");
+    let proof_start = Instant::now();
+    let proof = prove_blake2b_ivc(
+        &context.recursive_commitment_parameters,
+        &recursive_proving_key,
+        &circuit,
+        &public_inputs,
+        &mut rng,
+    );
+    let dual_msm = verify_and_prepare_blake2b_ivc(
+        &context.recursive_verifying_key,
+        &proof,
+        &public_inputs,
+    );
+    assert!(
+        dual_msm.check(&context.universal_verifier_params),
+        "genesis step proof verification failed"
+    );
+    println!(
+        "generate_genesis_step_output: proven in {:?}",
+        proof_start.elapsed()
+    );
+
+    println!(
+        "generate_genesis_step_output: writing asset -> {}",
+        paths.genesis_step_output.display()
+    );
+    let asset = RecursiveStepOutputAsset {
+        proof,
+        next_accumulator,
+        next_state: genesis_next_state,
+        certificate_proof: vec![],
+    };
+    store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
+        .expect("failed to write genesis_step_output asset");
+    println!(
+        "generate_genesis_step_output: done in {:?}",
+        total_start.elapsed()
+    );
+}
+
+/// Generates and writes the same-epoch step output asset (one Blake2b IVC
+/// proof extending the stored chain state with a same-epoch certificate).
+pub(crate) fn generate_same_epoch_step_output_asset(
+    setup: &AssetGenerationSetup,
+    paths: &AssetPaths,
+) {
+    println!(
+        "generate_same_epoch_step_output: start -> {}",
+        paths.same_epoch_step_output.display()
+    );
+    let total_start = Instant::now();
+
+    let context = build_shared_recursive_context(setup);
+    let (_, recursive_fixed_bases, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    let recursive_proving_key = build_recursive_proving_key(&context);
+    let global = build_recursive_global(
+        setup,
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+
+    println!(
+        "generate_same_epoch_step_output: loading chain state <- {}",
+        paths.recursive_chain_state.display()
+    );
+    let chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
+        .expect("failed to load recursive_chain_state asset");
+
+    let mut rng = OsRng;
+    println!("generate_same_epoch_step_output: building same-epoch certificate");
+    let cert_start = Instant::now();
+    let (certificate_proof, certificate_accumulator, next_state, ivc_witness) =
+        build_same_epoch_certificate_asset_data(
+            setup,
+            &context.certificate_commitment_parameters,
+            &setup.certificate_relation,
+            &context.certificate_verifying_key,
+            &chain_state.state,
+            &mut rng,
+        );
+    println!(
+        "generate_same_epoch_step_output: certificate done in {:?}",
+        cert_start.elapsed()
+    );
+
+    let previous_public_inputs = [
+        global.as_public_input(),
+        chain_state.state.as_public_input(),
+        AssignedAccumulator::as_public_input(&chain_state.accumulator),
+    ]
+    .concat();
+    let previous_dual_msm = verify_and_prepare_poseidon_ivc(
+        &context.recursive_verifying_key,
+        &chain_state.proof,
+        &previous_public_inputs,
+    );
+    assert!(
+        previous_dual_msm.clone().check(&context.universal_verifier_params),
+        "previous chain state proof verification failed"
+    );
+    let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
+    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
+    previous_proof_accumulator.collapse();
+
+    let mut next_accumulator = Accumulator::accumulate(&[
+        chain_state.accumulator.clone(),
+        certificate_accumulator,
+        previous_proof_accumulator,
+    ]);
+    next_accumulator.collapse();
+    assert!(
+        next_accumulator.check(
+            &context.universal_kzg_parameters.s_g2().into(),
+            &combined_fixed_bases,
+        ),
+        "same-epoch next accumulator check failed"
+    );
+
+    let circuit = IvcCircuit::new(
+        global.clone(),
+        chain_state.state.clone(),
+        ivc_witness,
+        certificate_proof.clone(),
+        chain_state.proof.clone(),
+        chain_state.accumulator.clone(),
+        context.certificate_verifying_key.vk(),
+        &context.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        global.as_public_input(),
+        next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&next_accumulator),
+    ]
+    .concat();
+
+    println!("generate_same_epoch_step_output: proving Blake2b");
+    let proof_start = Instant::now();
+    let proof = prove_blake2b_ivc(
+        &context.recursive_commitment_parameters,
+        &recursive_proving_key,
+        &circuit,
+        &public_inputs,
+        &mut rng,
+    );
+    let dual_msm = verify_and_prepare_blake2b_ivc(
+        &context.recursive_verifying_key,
+        &proof,
+        &public_inputs,
+    );
+    assert!(
+        dual_msm.check(&context.universal_verifier_params),
+        "same-epoch step proof verification failed"
+    );
+    println!(
+        "generate_same_epoch_step_output: proven in {:?}",
+        proof_start.elapsed()
+    );
+
+    println!(
+        "generate_same_epoch_step_output: writing asset -> {}",
+        paths.same_epoch_step_output.display()
+    );
+    let asset = RecursiveStepOutputAsset {
+        proof,
+        next_accumulator,
+        next_state,
+        certificate_proof,
+    };
+    store_recursive_step_output_asset(&paths.same_epoch_step_output, &asset)
+        .expect("failed to write same_epoch_step_output asset");
+    println!(
+        "generate_same_epoch_step_output: done in {:?}",
+        total_start.elapsed()
+    );
+}
+
 // These ignored tests are manual asset-generation entrypoints for the committed
 // golden assets. They are intentionally excluded from normal test runs because
 // they rewrite binary files rather than asserting behavior.
@@ -509,4 +739,18 @@ fn generate_recursive_chain_state_only() {
 fn generate_recursive_step_output_only() {
     use super::setup::{AssetPaths, build_asset_generation_setup};
     generate_recursive_step_output_asset(&build_asset_generation_setup(), &AssetPaths::default());
+}
+
+#[test]
+#[ignore]
+fn generate_genesis_step_output_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_genesis_step_output_asset(&build_asset_generation_setup(), &AssetPaths::default());
+}
+
+#[test]
+#[ignore]
+fn generate_same_epoch_step_output_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_same_epoch_step_output_asset(&build_asset_generation_setup(), &AssetPaths::default());
 }

@@ -30,32 +30,21 @@ git restore mithril-stm/src/circuits/halo2_ivc/tests/assets
 
 The current asset set is:
 
-- `verification_context.bin`
-  - static verifier-side context
-  - contains the global public inputs, recursive verifying key, combined fixed
-    bases, and shared verifier-side SRS data
-
-- `recursive_chain_state.bin`
-  - stored recursive chain checkpoint
-  - contains the global public inputs, current recursive state, previous
-    recursive proof, and current accumulator
-
-- `recursive_step_output.bin`
-  - output of extending the stored chain checkpoint by one more recursive step
-  - contains the final recursive proof, next accumulator, next state, and the
-    exact certificate proof artifact folded into that stored step
+- `verification_context.bin` — static verifier-side context (verifying key, global inputs, fixed bases, SRS)
+- `recursive_chain_state.bin` — chain checkpoint after several recursive steps
+- `genesis_step_output.bin` — output of the genesis base-case step
+- `same_epoch_step_output.bin` — output of a same-epoch recursive step
+- `recursive_step_output.bin` — output of a next-epoch recursive step
 
 ## Dependency Order
 
-The assets have a simple dependency chain:
+Assets 1–3 are independent. Assets 4 and 5 both require asset 3 first:
 
 1. `verification_context.bin`
-2. `recursive_chain_state.bin`
-3. `recursive_step_output.bin`
-
-The chained-flow golden test replays the stored recursive step exactly, and the
-stored `next_accumulator` depends on the exact certificate proof bytes embedded
-inside `recursive_step_output.bin`.
+2. `genesis_step_output.bin`
+3. `recursive_chain_state.bin`
+4. `same_epoch_step_output.bin` — depends on `recursive_chain_state.bin`
+5. `recursive_step_output.bin` — depends on `recursive_chain_state.bin`
 
 ## Generation Model
 
@@ -69,53 +58,20 @@ Asset generation uses:
 The public-state evolution is reproducible at the semantic level. Proof-bearing
 assets are not expected to be byte-identical across regenerations.
 
-In practice:
-
-- `verification_context.bin` should stay stable unless verifier-side setup changes
-- `recursive_chain_state.bin` may change bytewise because it contains a proof
-- `recursive_step_output.bin` may change bytewise because it contains both the
-  final recursive proof and the exact certificate proof used for that step
-
 ## How To Regenerate Everything
 
-Run these commands from the repository root:
+Run these commands from the repository root in order:
 
 ```bash
 cargo test -p mithril-stm --features future_snark --release generate_verification_context_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_genesis_step_output_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_recursive_chain_state_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_same_epoch_step_output_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
 ```
 
 These commands intentionally use `--release` because asset generation is a
 manual workflow dominated by real proof generation.
-
-These commands correspond to the ignored generator entrypoints in
-`mithril-stm/src/circuits/halo2_ivc/tests/common/generators/asset_generation.rs`:
-
-- `generate_verification_context_only`
-- `generate_recursive_chain_state_only`
-- `generate_recursive_step_output_only`
-
-Recommended order:
-
-1. regenerate `verification_context.bin`
-2. regenerate `recursive_chain_state.bin`
-3. regenerate `recursive_step_output.bin`
-
-## Partial Regeneration
-
-If only the representative recursive step output changed, it is sufficient to rerun:
-
-```bash
-cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
-```
-
-That command regenerates:
-
-- `recursive_step_output.bin`
-
-It does not require regenerating `verification_context.bin` or
-`recursive_chain_state.bin` unless their inputs changed.
 
 ## When Regeneration Is Needed
 

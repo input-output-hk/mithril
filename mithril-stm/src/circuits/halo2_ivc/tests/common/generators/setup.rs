@@ -49,15 +49,21 @@ pub(super) struct AssetPaths {
     pub(super) verification_context: PathBuf,
     /// Path to the stored one-step recursive output asset.
     pub(super) recursive_step_output: PathBuf,
+    /// Path to the stored genesis step output asset.
+    pub(super) genesis_step_output: PathBuf,
+    /// Path to the stored same-epoch step output asset.
+    pub(super) same_epoch_step_output: PathBuf,
 }
 
 impl AssetPaths {
-    /// Builds the three committed asset paths rooted at `base_dir`.
+    /// Builds the five committed asset paths rooted at `base_dir`.
     pub(super) fn new(base_dir: PathBuf) -> Self {
         Self {
             recursive_chain_state: base_dir.join("recursive_chain_state.bin"),
             verification_context: base_dir.join("verification_context.bin"),
             recursive_step_output: base_dir.join("recursive_step_output.bin"),
+            genesis_step_output: base_dir.join("genesis_step_output.bin"),
+            same_epoch_step_output: base_dir.join("same_epoch_step_output.bin"),
         }
     }
 }
