@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.6 (04-23-2026)
+
+### Added
+
+- Updated the creation of merkle path during witness generation to use a constant length for the path by completing it with `0` padding.
+- Updated the non-recursive circuit to ignore `0` values during the check of the merkle path to exclude the padding from the computation of the root.
+
 ## 0.10.5 (04-23-2026)
 
 ### Added
