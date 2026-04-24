@@ -272,6 +272,13 @@
               pname = "mithril-client";
             };
 
+        } // lib.optionalAttrs (pkgsMusl == null) {
+
+          mithril-client-cli =
+            buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
+              pname = "mithril-client";
+            };
+
         };
 
         devShells.default = pkgsRustOverlay.mkShell {
