@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# ---------------------------------------------------------------------------
+# ---------- Filter Slow tests - Cargo nextest filterset generator ----------
+#
+# See associated documentation in the `filter-slow-tests` DevBook
+#
+# ---------------------------------------------------------------------------
 set +a -eu -o pipefail
 
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi

@@ -3,10 +3,16 @@
 > [!IMPORTANT]
 > This script must be compatible with bash `3.2` as it will run on GitHub Actions macOS runners.
 
+> [!NOTE]
+> All paths are relative to the root of the repository.
+
 ## Introduction
 
-This devbook provides a script that generates a `cargo nextest` filterset that excludes all slow tests unless
-a related source path has been changed compared to a base branch or commit (`origin/main` by default).
+This is a devbook about the [`.github/workflows/scripts/filter-slow-tests.sh`](../../../.github/workflows/scripts/filter-slow-tests.sh)
+script.
+
+This script allows generating a `cargo nextest` filterset that excludes all known slow tests unless a related source
+path has been changed compared to a base branch or commit (`origin/main` by default).
 
 ## Usage
 
@@ -15,21 +21,21 @@ Just run the script without argument.
 For example, if there's no change in the source code compared to the base branch or commit:
 
 ```shell
-$ ./docs/devbook/filter-slow-tests/filter-slow-tests.sh
+$ .github/workflows/scripts/filter-slow-tests.sh
 not test(#*slow::*)
 ```
 
 For example, if there are some changes in the source code compared to the base branch or commit:
 
 ```shell
-$ ./docs/devbook/filter-slow-tests/filter-slow-tests.sh
+$ .github/workflows/scripts/filter-slow-tests.sh
 not test(#*slow::*) or (package(mithril-stm) and (test(#protocol::aggregate_signature::*slow::*) or test(#circuits::halo2::*slow::*)))
 ```
 
 If you want to change the base branch or commit, use the `-c` or `--commit-ref` option:
 
 ```shell
-$ ./docs/devbook/filter-slow-tests/filter-slow-tests.sh -c HEAD~2
+$ .github/workflows/scripts/filter-slow-tests.sh -c HEAD~2
 not test(#*slow::*) or (package(mithril-stm) and (test(#protocol::aggregate_signature::*slow::*)))
 ```
 
@@ -39,19 +45,19 @@ If you want to include all tests, regardless of the source code changes, use the
 > This is useful if there's an external flag available that forces to run all tests (e.g., a PR label)
 
 ```shell
-$ ./docs/devbook/filter-slow-tests/filter-slow-tests.sh --all
+$ .github/workflows/scripts/filter-slow-tests.sh --all
 all()
 ```
 
 Full usage, together with cargo nextest:
 
 ```shell
-$ cargo nextest list --workspace --profile ci -E "$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh)"
+$ cargo nextest list --workspace --profile ci -E "$(.github/workflows/scripts/filter-slow-tests.sh)"
 ```
 
 ## Updating the filterset
 
-First, find the `SLOW_{RUST_PACKAGE}_TESTS` variable in the `filter-slow-tests.sh` script.
+First, find the `SLOW_{RUST_PACKAGE}_TESTS` variable in the [`filter-slow-tests.sh`](../../../.github/workflows/scripts/filter-slow-tests.sh) script.
 
 If it exists for your Rust package, update the list of slow tests with the new ones, following the format:
 
@@ -76,7 +82,8 @@ OUTPUT="$(append_output "$OUTPUT" "my-package" "$FILTERSET_MY_PACKAGE")"
 ```
 
 > [!IMPORTANT]
-> Make sure to test the filterset with `cargo nextest list -E "$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh)"` before committing the changes.
+> Make sure to test the filterset with `cargo nextest list -E "$(.github/workflows/scripts/filter-slow-tests.sh)"`
+> before committing the changes.
 
 > [!TIP]
 > For your filterset to be triggered, you may have to introduce a change in the source code, such as a temporary line break.

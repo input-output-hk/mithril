@@ -72,7 +72,7 @@ mod tests {
 }
 ```
 
-2. If the slow test belongs to a package not yet listed in [`filter-slow-tests.sh`](./docs/devbook/filter-slow-tests/filter-slow-tests.sh),
+2. If the slow test belongs to a package not yet listed in [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh),
    or if its source path is not already covered by an existing entry, update the script's slow test entries accordingly.
    See the script's [README.md](./docs/devbook/filter-slow-tests/README.md) for more details.
 
@@ -83,7 +83,7 @@ mod tests {
 
 Both developers and CI should run slow tests only when a related source path has changed or when explicitly requested.
 
-Use the [`filter-slow-tests.sh`](./docs/devbook/filter-slow-tests/filter-slow-tests.sh) script to generate a
+Use the [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh) script to generate a
 `cargo nextest` filter expression that selectively includes slow tests based on which source paths have changed.
 
 The CI must run this script automatically to keep total test run times low.
@@ -101,10 +101,10 @@ via the `run-slow-tests` Pull Request label.
 - Developers can run only slow tests when needed
 
 ```shell
-cargo nextest run --workspace --profile ci -E "$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh)"
+cargo nextest run --workspace --profile ci -E "$(.github/workflows/scripts/filter-slow-tests.sh)"
 ```
 
-- [`filter-slow-tests.sh`](./docs/devbook/filter-slow-tests/filter-slow-tests.sh) becomes a maintenance dependency.
+- [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh) becomes a maintenance dependency.
   Stale or missing entries will silently cause slow tests to be excluded from CI runs. Entries should be reviewed
   whenever a slow test is added, renamed, or moved.
 - Marking a test as "slow" and keeping the script in sync introduces a small but ongoing maintenance overhead.

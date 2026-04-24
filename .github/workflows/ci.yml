@@ -243,9 +243,9 @@ jobs:
         run: |
           # Run all tests, including slow tests, if "run-slow-tests" label is in the PR labels
           if [[ "${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}" == "true" ]]; then
-            FILTERSET="$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh --all)"
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
           else
-            FILTERSET="$(./docs/devbook/filter-slow-tests/filter-slow-tests.sh --commit-ref "HEAD^1")"
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
           fi
 
           echo "Tests filterset: $FILTERSET"
