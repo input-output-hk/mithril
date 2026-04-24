@@ -17,6 +17,11 @@ jobs:
   aggregator-stress-test:
     uses: ./.github/workflows/aggregator-stress-test.yml
 
+  rust-tests:
+    uses: ./.github/workflows/rust-tests.yml
+    with:
+      include-slow-tests: true
+
   test-client:
     uses: ./.github/workflows/test-client.yml
 
@@ -28,6 +33,7 @@ jobs:
         docker-builds,
         aggregator-stress-test,
         test-client,
+        rust-tests,
       ]
     if: failure()
     secrets: inherit
