@@ -21,6 +21,7 @@ jobs:
     uses: ./.github/workflows/rust-tests.yml
     with:
       include-slow-tests: true
+      never-save-cache: true
 
   test-client:
     uses: ./.github/workflows/test-client.yml

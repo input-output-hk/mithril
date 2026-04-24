@@ -5,6 +5,9 @@ on:
     inputs:
       include-slow-tests:
         type: boolean
+      never-save-cache:
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -54,6 +57,7 @@ jobs:
           cache-version: ${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-nextest
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          never-save-cache: ${{ inputs.disable-cache-save }}
 
       - id: prepare
         name: Prepare
