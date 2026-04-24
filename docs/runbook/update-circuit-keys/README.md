@@ -3,44 +3,54 @@
 ## When to use this guide
 
 > [!IMPORTANT]
-> This guide is intended to be used when one of the golden tests for the circuit verification key fails, either for the non-recursive or recursive certificate, and there is a modification done to one of the circuit that is intended. If one of the tests fail without any modification done to one of the circuits or the modification was not intended, do not use this guide and investigate further the reasons why this is happening.
+> Modifying any of the circuits keys is a breaking change that requires a re-genesis. The process of changing the keys is complex and cumbersome and requires thorough reviews to make sure it is done properly. It happens when a change is made to a circuit (recursive, non-recursive or both) or when the underlying libraries are updated and create modifications to the circuits. This guide is intended to be used in such cases so when one of the golden tests for the circuit verification key fails, either for the non-recursive or recursive certificate.
 
 ## Role and responsabilities
 
-Updating any circuit verification key is a costly process so we need to make sure it is done correctly and that it is justified. In order to do so, several persons need to be involve in the process.
+Updating any circuit verification key is a complex process so we need to make sure it is done correctly and that it is justified. In order to do so, several people need to be involved in the process.
 
 The author of the change:
 
 - Prepares the PR that includes the change
 - Needs to justify the change in the circuit
-- Takes care of Step 1 to 3
+- Updates the key values (golden and production)
+- Ensures the approval of the tech lead and all cryptographers before the merge
 
 Reviewers:
 
 - Perform a thorough review of the change
 - Analyse the justification of the change to make sure it is valid and cannot be avoided
-- Reviews Step 1 to 3
+- Reviews the update of the key values (golden and production)
 
 Release manager:
 
-- Prepare the release of this update
-- Updating any verification key is a breaking change that requires a re-genesis
-- Takes care of Step 4 and 5
+- Prepares the release of this update
+- Schedule the re-genesis of the certificate chain
 
-## Step 1: Update of the golden value
+## Update of the golden value
 
-The author needs to update the golden value of the verification keys in the golden test in `mithril-stm/src/circuits/mod.rs`.
-To do so, run:
+The author needs to update the golden value of the verification keys in the golden test in `mithril-stm/src/circuits/halo2/golden/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`. The failing tests (in red) need to be updated by changing the golden value used (in the golden files) to turn them green again.
 
-- `golden_value_non_recursive_circuit()` or `golden_value_recursive_circuit()`
-- Save the output of the function to the corresponding constant, `NON_RECURSIVE_GOLDEN_CIRCUIT_VERIFICATION_KEY` or `RECURSIVE_GOLDEN_CIRCUIT_VERIFICATION_KEY`
+## Update of the production circuit verification key
 
-## Step 2: Update of the testing circuit verification key
+To update the production circuit verification keys, one needs to run the following commands:
 
-## Step 3: Update of the production circuit verification key
+```bash
+cargo run -p mithril-stm --features future_snark --release --bin generate_non_recursive_circuit_verification_key -- <path-of-the-SRS>
+```
 
-## Step 4: Scheduling of the re-genesis
+and
 
-## Step 5: Checklist verification
+```bash
+cargo test -p mithril-stm --features future_snark --release print_recursive_circuit_verification_key_for_production -- --nocapture
+```
 
-## Rollback procedure in case of regression
+and save the output of those commands to the constants `NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` and `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` in `mithril-stm/src/circuits/halo2/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/mod.rs`
+
+## Scheduling of the re-genesis
+
+Once the review is done and all the circuit verification keys are updated, the release manager can schedule the re-genesis. Re-genesis is scheduled with the release of the next distribution where the new circuit is deployed. It goes through the sequence:
+
+- `testing-preview`: re-genesis once the PR is merged
+- `pre-release-preview`: re-genesis once the new distribution pre-release is deployed
+- `release-mainnet` and `release-preprod`: re-genesis once the new distribution is deployed

@@ -666,13 +666,6 @@ mod golden_verification_key_test {
         use super::*;
 
         #[test]
-        #[ignore]
-        pub fn print_golden_recursive_circuit_verification_key() {
-            let golden_value = golden_value_recursive_circuit_verification_key();
-            println!("{:?}", golden_value);
-        }
-
-        #[test]
         pub fn golden_recursive_modification_test() {
             let golden_value = golden_value_recursive_circuit_verification_key();
 
