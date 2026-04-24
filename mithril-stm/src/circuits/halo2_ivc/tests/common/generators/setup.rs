@@ -36,8 +36,9 @@ use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEG
 use super::transitions::build_genesis_protocol_message;
 
 pub(crate) const INITIAL_CHAIN_LENGTH: usize = 3;
-pub(super) const SIGNER_COUNT: usize = 3000;
+pub(crate) const GENESIS_EPOCH: u64 = 5;
 pub(super) const QUORUM_SIZE: u32 = 2;
+const SIGNER_COUNT: usize = 3000;
 
 /// Paths for the minimal stored asset set used by asset-based golden tests.
 #[derive(Debug, Clone)]
@@ -253,7 +254,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
 
     let genesis_signing_key = SchnorrSigningKey::generate(&mut rng);
     let genesis_verification_key = SchnorrVerificationKey::from(&genesis_signing_key);
-    let genesis_epoch = 5u64;
+    let genesis_epoch = GENESIS_EPOCH;
     let genesis_next_merkle_root = merkle_tree.root();
     let genesis_next_protocol_params = F::from(7u64);
 

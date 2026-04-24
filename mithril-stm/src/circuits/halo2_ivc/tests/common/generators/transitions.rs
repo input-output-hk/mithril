@@ -17,7 +17,7 @@ use crate::circuits::halo2_ivc::tests::test_certificate::Certificate;
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 
 use super::proofs::verify_and_prepare_poseidon_ivc;
-use super::setup::{AssetGenerationSetup, QUORUM_SIZE};
+use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 
 type CertificateWitnessEntry = (MerkleTreeLeaf, MerklePath, Signature, u32);
 
@@ -53,7 +53,7 @@ pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSet
     build_genesis_protocol_message(
         &setup.aggregate_verification_key,
         setup.genesis_next_protocol_params,
-        5u64,
+        GENESIS_EPOCH,
     )
     .get_preimage()
 }

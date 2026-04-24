@@ -14,7 +14,7 @@ use crate::circuits::halo2_ivc::{
             load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
         },
         generators::{
-            build_asset_generation_setup, build_genesis_base_case_next_state,
+            GENESIS_EPOCH, build_asset_generation_setup, build_genesis_base_case_next_state,
             build_genesis_base_case_witness,
         },
         helpers::{
@@ -28,7 +28,7 @@ use crate::circuits::halo2_ivc::{
 fn next_merkle_root_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // next_merkle_root is replaced in the public inputs, confirming the field
-    // extracted from preimage bytes [69..101] is enforced as a public output.
+    // extracted from PREIMAGE_NEXT_MERKLE_ROOT_BYTES is enforced as a public output.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
@@ -60,7 +60,7 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
 fn next_protocol_params_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // next_protocol_params is replaced in the public inputs, confirming the
-    // field extracted from preimage bytes [137..169] is enforced as a public output.
+    // field extracted from PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES is enforced as a public output.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
@@ -92,7 +92,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
 fn current_epoch_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
     // current_epoch is replaced in the public inputs, confirming the field
-    // extracted from preimage bytes [182..190] is enforced as a public output.
+    // extracted from PREIMAGE_CURRENT_EPOCH_BYTES is enforced as a public output.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
@@ -126,7 +126,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
 fn slow_circuit_rejects_wrong_bytes_at_next_merkle_root_range() {
     // MockProver check that the circuit rejects a genesis witness where
     // msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES] contains wrong bytes,
-    // confirming the byte extraction constraint at [69..101] is enforced.
+    // confirming the byte extraction constraint for PREIMAGE_NEXT_MERKLE_ROOT_BYTES is enforced.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
@@ -146,7 +146,7 @@ fn slow_circuit_rejects_wrong_bytes_at_next_merkle_root_range() {
 
     let public_inputs = [
         mock_prover_setup.global.as_public_input(),
-        build_genesis_base_case_next_state(&setup, 5u64).as_public_input(),
+        build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
         AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
     ]
     .concat();
@@ -160,7 +160,7 @@ fn slow_circuit_rejects_wrong_bytes_at_next_merkle_root_range() {
 fn slow_circuit_rejects_wrong_bytes_at_next_protocol_params_range() {
     // MockProver check that the circuit rejects a genesis witness where
     // msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES] contains wrong bytes,
-    // confirming the byte extraction constraint at [137..169] is enforced.
+    // confirming the byte extraction constraint for PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES is enforced.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
@@ -180,7 +180,7 @@ fn slow_circuit_rejects_wrong_bytes_at_next_protocol_params_range() {
 
     let public_inputs = [
         mock_prover_setup.global.as_public_input(),
-        build_genesis_base_case_next_state(&setup, 5u64).as_public_input(),
+        build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
         AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
     ]
     .concat();
@@ -194,7 +194,7 @@ fn slow_circuit_rejects_wrong_bytes_at_next_protocol_params_range() {
 fn slow_circuit_rejects_wrong_bytes_at_current_epoch_range() {
     // MockProver check that the circuit rejects a genesis witness where
     // msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] contains wrong bytes,
-    // confirming the byte extraction constraint at [182..190] is enforced.
+    // confirming the byte extraction constraint for PREIMAGE_CURRENT_EPOCH_BYTES is enforced.
     let setup = build_asset_generation_setup();
     let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
@@ -214,7 +214,7 @@ fn slow_circuit_rejects_wrong_bytes_at_current_epoch_range() {
 
     let public_inputs = [
         mock_prover_setup.global.as_public_input(),
-        build_genesis_base_case_next_state(&setup, 5u64).as_public_input(),
+        build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
         AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
     ]
     .concat();
