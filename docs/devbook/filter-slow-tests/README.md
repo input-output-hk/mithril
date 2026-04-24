@@ -1,8 +1,5 @@
 # Generate a `cargo nextest` filterset that excludes slow tests with unchanged dependencies
 
-> [!IMPORTANT]
-> This script must be compatible with bash `3.2` as it will run on GitHub Actions macOS runners.
-
 > [!NOTE]
 > All paths are relative to the root of the repository.
 

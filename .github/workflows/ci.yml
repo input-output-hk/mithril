@@ -245,6 +245,9 @@ jobs:
           if [[ "${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}" == "true" ]]; then
             FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
           else
+            # For pull-request HEAD^1 targets the "simulated merge commit" created by GitHub Actions.
+            # For push (i.e. merging on main branch), HEAD^1 refers be an actual, not simulated, merge commit.
+            # Note: this approach does not correctly detect changes when multiple commits are pushed directly to the main branch at once.
             FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
           fi
 

@@ -4,6 +4,7 @@
 #
 # See associated documentation in the `filter-slow-tests` DevBook
 #
+# **IMPORTANT** To run against GitHub Actions macOS runners, this script *must* be compatible with bash `3.2`
 # ---------------------------------------------------------------------------
 set +a -eu -o pipefail
 

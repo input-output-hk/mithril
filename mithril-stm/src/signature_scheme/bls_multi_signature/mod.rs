@@ -260,7 +260,7 @@ mod tests {
         }
     }
 
-    mod test {
+    mod slow {
         use super::*;
 
         proptest! {
