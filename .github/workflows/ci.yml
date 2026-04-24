@@ -227,6 +227,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 2 # Needed to get the diff of the last commit, which is used to filter out slow tests
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -235,11 +237,28 @@ jobs:
           cargo-tools: cargo-nextest
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - id: prepare
+        name: Prepare
+        shell: bash
+        run: |
+          # Run all tests, including slow tests, if "run-slow-tests" label is in the PR labels
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}" == "true" ]]; then
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
+          else
+            # For pull-request HEAD^1 targets the "simulated merge commit" created by GitHub Actions.
+            # For push (i.e. merging on main branch), HEAD^1 refers be an actual, not simulated, merge commit.
+            # Note: this approach does not correctly detect changes when multiple commits are pushed directly to the main branch at once.
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
+          fi
+
+          echo "Tests filterset: $FILTERSET"
+          echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
+
       - name: Build tests
         run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
 
       - name: Run tests
-        run: cargo nextest run --profile ci --cargo-profile ci-tests ${{ matrix.test-args }}
+        run: cargo nextest run --profile ci --cargo-profile ci-tests --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
 
       - name: Run doc tests
         run: cargo test --profile ci-tests --doc ${{ matrix.test-args }}

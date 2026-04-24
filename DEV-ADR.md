@@ -23,6 +23,94 @@ To complete
 To complete
 -->
 
+### 8. Running slow tests on CI conditionally
+
+**Date:** 2025-04-23
+**Status:** Accepted
+
+#### Context
+
+Some tests are inherently too slow to run on every CI execution — typically because they rely on complex logic or
+cryptography that cannot be optimized further.
+This was significantly slowing down the CI pipeline, in some cases doubling the total test run time and hurting
+developer productivity.
+
+#### Decision
+
+##### 1. Identify slow tests
+
+A test **must** be categorized as "slow" if it **consistently** takes more than **30 seconds** to run on CI.
+
+Because run times can vary significantly based on environmental conditions (e.g. machine performance or load),
+developers **may** also categorize a test as "slow" at their discretion if it takes more than **15 seconds** on their local
+machine.
+
+The CI should automatically flag tests exceeding the 30-second threshold using tools such as cargo
+nextest [slow test output](https://nexte.st/docs/features/slow-tests/#slow-tests), so that slow tests can be identified
+and categorized.
+
+##### 2. Marking tests as "slow"
+
+To mark a test as "slow":
+
+1. Move it into a dedicated `slow` submodule, placed at the end of the `tests` module:
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn normal_test() { }
+
+    mod slow {
+        use super::*;
+
+        #[test]
+        fn heavy_test() {
+            // heavy test logic
+        }
+    }
+}
+```
+
+2. If the slow test belongs to a package not yet listed in [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh),
+   or if its source path is not already covered by an existing entry, update the script's slow test entries accordingly.
+   See the script's [README.md](./docs/devbook/filter-slow-tests/README.md) for more details.
+
+> [!CAUTION]
+> If a test is moved to a `slow` submodule but the script is not updated, **it will never run on CI**.
+
+##### 3. Running slow tests selectively
+
+Both developers and CI should run slow tests only when a related source path has changed or when explicitly requested.
+
+Use the [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh) script to generate a
+`cargo nextest` filter expression that selectively includes slow tests based on which source paths have changed.
+
+The CI must run this script automatically to keep total test run times low.
+
+The CI must also allow developers to explicitly request a full test run, regardless of which source paths have changed,
+via the `run-slow-tests` Pull Request label.
+
+#### Consequences
+
+- Faster testing feedback loop for developers
+- Faster CI runs in the common case
+- Developers can easily skip slow tests in local runs:
+  - For `cargo test`: `cargo test -- --skip slow::`
+  - For `cargo nextest`: `cargo nextest run -E "not test(#*slow::*)"`
+- Developers can run only slow tests when needed
+
+```shell
+cargo nextest run --workspace --profile ci -E "$(.github/workflows/scripts/filter-slow-tests.sh)"
+```
+
+- [`filter-slow-tests.sh`](.github/workflows/scripts/filter-slow-tests.sh) becomes a maintenance dependency.
+  Stale or missing entries will silently cause slow tests to be excluded from CI runs. Entries should be reviewed
+  whenever a slow test is added, renamed, or moved.
+- Marking a test as "slow" and keeping the script in sync introduces a small but ongoing maintenance overhead.
+
+---
+
 ### 7. Do not expose arithmetic wrapper types to WebAssembly
 
 **Date:** 2025-04-15

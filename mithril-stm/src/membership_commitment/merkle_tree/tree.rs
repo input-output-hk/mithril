@@ -706,18 +706,22 @@ mod tests {
             }
         }
 
-        proptest! {
-            #[cfg(feature = "future_snark")]
-            #[test]
-            fn test_create_invalid_proof(
-                i in any::<usize>(),
-                (values, proof) in values_with_invalid_proof(10)
-            ) {
-                let t = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values[1..]);
-                let index = i % (values.len() - 1);
-                let path_values = proof.iter().map(|x| SnarkHash::digest(x).to_vec()).collect();
-                let path = MerklePath::new(path_values, index);
-                assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
+        mod slow {
+            use super::*;
+
+            proptest! {
+                #[cfg(feature = "future_snark")]
+                #[test]
+                fn test_create_invalid_proof(
+                    i in any::<usize>(),
+                    (values, proof) in values_with_invalid_proof(10)
+                ) {
+                    let t = MerkleTree::<SnarkHash, MerkleTreeSnarkLeaf>::new(&values[1..]);
+                    let index = i % (values.len() - 1);
+                    let path_values = proof.iter().map(|x| SnarkHash::digest(x).to_vec()).collect();
+                    let path = MerklePath::new(path_values, index);
+                    assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[0], &path).is_err());
+                }
             }
         }
 
