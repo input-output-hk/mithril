@@ -5,36 +5,34 @@ use midnight_curves::Bls12;
 use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     dev::MockProver,
-    plonk::keygen_vk_with_k,
     poly::kzg::{
         KZGCommitmentScheme,
         params::{ParamsKZG, ParamsVerifierKZG},
     },
-    utils::SerdeFormat,
 };
 use midnight_zk_stdlib::MidnightVK;
 
-use super::{
-    asset_readers::RecursiveChainStateAsset,
-    generators::{
-        AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
-        build_shared_recursive_context, certificate_public_inputs_for_step,
-    },
-};
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
     state::{Global, State, Witness, trivial_acc},
     tests::common::generators::setup::build_deterministic_params,
 };
-use crate::circuits::{
-    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_TEST,
-    halo2_ivc::tests::golden::RECURSIVE_CIRCUIT_DEGREE,
+use crate::{
+    Parameters,
+    circuits::{halo2::circuit::StmCircuit, halo2_ivc::tests::golden::RECURSIVE_CIRCUIT_DEGREE},
 };
 
 pub(crate) use super::generators::{
     verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
     verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
+};
+use super::{
+    asset_readers::RecursiveChainStateAsset,
+    generators::{
+        AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
+        build_shared_recursive_context, certificate_public_inputs_for_step,
+    },
 };
 
 /// Shared recursive context reused by MockProver-based golden cases.
@@ -257,33 +255,4 @@ pub(crate) fn compute_exact_next_accumulator_from_assets(
         certificate_proof,
     );
     compute_expected_next_accumulator(setup, recursive_chain_state, certificate_accumulator)
-}
-
-// Function used to compute the recursive circuit verification key for golden test
-// It uses an unsafe setup function to create the SRS
-#[test]
-#[ignore]
-fn print_recursive_circuit_verification_key_for_test() {
-    let universal_kzg_parameters = build_deterministic_params(RECURSIVE_CIRCUIT_DEGREE);
-
-    // Loads the non recursive CVK
-    let certificate_verifying_key = MidnightVK::read(
-        &mut NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_TEST.as_slice(),
-        SerdeFormat::RawBytes,
-    )
-    .unwrap();
-
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
-    let recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>> = keygen_vk_with_k(
-        &universal_kzg_parameters,
-        &default_ivc_circuit,
-        RECURSIVE_CIRCUIT_DEGREE,
-    )
-    .expect("recursive verifying key generation should not fail");
-
-    let mut buf_cvk = vec![];
-    let _ = recursive_verifying_key
-        .write(&mut buf_cvk, SerdeFormat::RawBytes)
-        .unwrap();
-    println!("{:?}", buf_cvk);
 }

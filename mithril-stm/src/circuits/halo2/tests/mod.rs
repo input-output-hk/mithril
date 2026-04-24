@@ -5,3 +5,4 @@
 
 pub(crate) mod golden;
 pub(crate) mod test_helpers;
+pub(crate) mod verification_key_computation;

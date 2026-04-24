@@ -13,3 +13,4 @@ mod encoding;
 mod golden;
 mod test_certificate;
 mod transitions;
+mod verification_key_computation;

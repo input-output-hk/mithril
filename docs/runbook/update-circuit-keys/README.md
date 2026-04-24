@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > Modifying any of the circuits keys is a breaking change that requires a re-genesis. The process of changing the keys is complex and cumbersome and requires thorough reviews to make sure it is done properly. It happens when a change is made to a circuit (recursive, non-recursive or both) or when the underlying libraries are updated and create modifications to the circuits. This guide is intended to be used in such cases so when one of the golden tests for the circuit verification key fails, either for the non-recursive or recursive certificate.
 
-## Role and responsabilities
+## Role and responsibilities
 
 Updating any circuit verification key is a complex process so we need to make sure it is done correctly and that it is justified. In order to do so, several people need to be involved in the process.
 
@@ -36,13 +36,17 @@ The author needs to update the golden value of the verification keys in the gold
 To update the production circuit verification keys, one needs to run the following commands:
 
 ```bash
-cargo run -p mithril-stm --features future_snark --release --bin generate_non_recursive_circuit_verification_key -- <path-of-the-SRS>
+cargo test -p mithril-stm --features future_snark --release print_non_recursive_circuit_verification_key_for_production -- --nocapture
 ```
 
 and
 
 ```bash
+<<<<<<< HEAD
 cargo test -p mithril-stm --features future_snark --release print_recursive_circuit_verification_key_for_production -- --nocapture
+=======
+cargo test -p mithril-stm --features future_snark --release  print_recursive_circuit_verification_key_for_production -- --nocapture
+>>>>>>> 7db5fb97fc (refactor(stm): Updated function names, comments, replace bin scripts and applied PR comments)
 ```
 
 and save the output of those commands to the constants `NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` and `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` in `mithril-stm/src/circuits/halo2/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/mod.rs`
