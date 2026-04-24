@@ -29,7 +29,7 @@ impl CardanoNetwork {
     /// Preview magic ID
     pub const PREVIEW_MAGIC_ID: MagicId = 2;
     /// Devnet magic ID
-    pub(crate) const DEVNET_MAGIC_ID: MagicId = 42;
+    pub const DEVNET_MAGIC_ID: MagicId = 42;
 
     /// Instantiates a CardanoNetwork from its code and magic id
     pub fn from_code(

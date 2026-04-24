@@ -81,6 +81,7 @@ enum CardanoNetworkCliArg {
     Preview,
     Preprod,
     Mainnet,
+    Devnet,
 }
 
 impl fmt::Display for CardanoNetworkCliArg {
@@ -89,6 +90,7 @@ impl fmt::Display for CardanoNetworkCliArg {
             Self::Preview => write!(f, "preview"),
             Self::Preprod => write!(f, "preprod"),
             Self::Mainnet => write!(f, "mainnet"),
+            Self::Devnet => write!(f, "devnet"),
         }
     }
 }
@@ -102,6 +104,7 @@ impl TryFrom<CardanoNetwork> for CardanoNetworkCliArg {
             CardanoNetwork::TestNet(magic_id) => match magic_id {
                 CardanoNetwork::PREVIEW_MAGIC_ID => Ok(Self::Preview),
                 CardanoNetwork::PREPROD_MAGIC_ID => Ok(Self::Preprod),
+                CardanoNetwork::DEVNET_MAGIC_ID => Ok(Self::Devnet),
                 _ => Err(anyhow!(
                     "Cardano network not supported for ledger state snapshot conversion: {network:?}",
                 )),
@@ -265,6 +268,16 @@ pub struct SnapshotConverterCommand {
     #[clap(long)]
     cardano_node_version: String,
 
+    /// (Optional) Path to the snapshot converter binary. If not provided, the binary will be downloaded from the GitHub releases of the Cardano node repository based on the provided `cardano_node_version`.
+    ///
+    /// requires `config_path` to be provided as well.
+    #[clap(long, requires("config_path"))]
+    binary_path: Option<PathBuf>,
+
+    // (Optional) Path to the snapshot converter config file. Mandatory if `binary_path` is provided
+    #[clap(long, requires("binary_path"))]
+    config_path: Option<PathBuf>,
+
     /// Cardano network.
     #[clap(long)]
     #[deprecated(
@@ -273,7 +286,7 @@ pub struct SnapshotConverterCommand {
     )]
     cardano_network: Option<CardanoNetworkCliArg>,
 
-    /// UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`).
+    /// UTxO-HD flavor to convert the ledger snapshot to (`Legacy`, `LMDB` or `LSM`).
     #[clap(long)]
     utxo_hd_flavor: UTxOHDFlavor,
 
@@ -303,7 +316,12 @@ impl SnapshotConverterCommand {
             ));
         }
 
-        let number_of_steps = if self.commit { 4 } else { 3 };
+        let is_local_bin_mode = self.binary_path.is_some() && self.config_path.is_some();
+
+        let number_of_steps = Self::calculate_number_of_steps(is_local_bin_mode, self.commit);
+
+        let mut current_step = 0;
+
         let progress_printer = ProgressPrinter::new(progress_output_type, number_of_steps);
 
         let work_dir = self.db_directory.join(WORK_DIR);
@@ -313,46 +331,10 @@ impl SnapshotConverterCommand {
                 work_dir.display()
             )
         })?;
+
         let distribution_dir = work_dir.join(CARDANO_DISTRIBUTION_DIR);
 
         let result = {
-            create_dir(&distribution_dir).with_context(|| {
-                format!(
-                    "Failed to create distribution directory: {}",
-                    distribution_dir.display()
-                )
-            })?;
-            let archive_path = Self::download_cardano_node_distribution(
-                1,
-                &progress_printer,
-                ReqwestGitHubApiClient::new(self.github_token.clone())?,
-                ReqwestHttpDownloader::new()?,
-                &self.cardano_node_version,
-                &distribution_dir,
-            )
-            .await
-            .with_context(|| "Failed to download Cardano node distribution")?;
-
-            progress_printer.report_step(
-                2,
-                &format!(
-                    "Unpacking distribution from archive: {}",
-                    archive_path.display()
-                ),
-            )?;
-            ArchiveUnpacker::default()
-                .unpack(&archive_path, &distribution_dir)
-                .with_context(|| {
-                    format!(
-                        "Failed to unpack distribution to directory: {}",
-                        distribution_dir.display()
-                    )
-                })?;
-            progress_printer.print_message(&format!(
-                "Distribution unpacked successfully to: {}",
-                distribution_dir.display()
-            ))?;
-
             #[allow(deprecated)]
             let cardano_network = if let Some(network) = &self.cardano_network {
                 network.clone()
@@ -364,12 +346,71 @@ impl SnapshotConverterCommand {
                     )
                 })?
             };
+
+            let (converter_bin, config_path) = if is_local_bin_mode {
+                match (&self.binary_path, &self.config_path) {
+                    (Some(bin), Some(cfg)) => (bin.clone(), cfg.clone()),
+                    _ => {
+                        return Err(anyhow!(
+                            "Local binary mode requires both --binary-path and --config-path to be provided"
+                        ));
+                    }
+                }
+            } else {
+                create_dir(&distribution_dir).with_context(|| {
+                    format!(
+                        "Failed to create distribution directory: {}",
+                        distribution_dir.display()
+                    )
+                })?;
+                current_step += 1;
+                let archive_path = Self::download_cardano_node_distribution(
+                    current_step,
+                    &progress_printer,
+                    ReqwestGitHubApiClient::new(self.github_token.clone())?,
+                    ReqwestHttpDownloader::new()?,
+                    &self.cardano_node_version,
+                    &distribution_dir,
+                )
+                .await
+                .with_context(|| "Failed to download Cardano node distribution")?;
+
+                current_step += 1;
+                progress_printer.report_step(
+                    current_step,
+                    &format!(
+                        "Unpacking distribution from archive: {}",
+                        archive_path.display()
+                    ),
+                )?;
+                ArchiveUnpacker::default()
+                    .unpack(&archive_path, &distribution_dir)
+                    .with_context(|| {
+                        format!(
+                            "Failed to unpack distribution to directory: {}",
+                            distribution_dir.display()
+                        )
+                    })?;
+                progress_printer.print_message(&format!(
+                    "Distribution unpacked successfully to: {}",
+                    distribution_dir.display()
+                ))?;
+
+                let converter_bin =
+                    Self::get_snapshot_converter_binary_path(&distribution_dir, env::consts::OS)?;
+                let config_path =
+                    Self::get_snapshot_converter_config_path(&distribution_dir, &cardano_network);
+
+                (converter_bin, config_path)
+            };
+
+            current_step += 1;
             let converted_snapshot_path = Self::convert_ledger_state_snapshot(
-                3,
+                current_step,
                 &progress_printer,
                 &work_dir,
-                &distribution_dir,
-                &cardano_network,
+                converter_bin,
+                config_path,
                 self,
             )
             .with_context(|| {
@@ -380,8 +421,9 @@ impl SnapshotConverterCommand {
             })?;
 
             if self.commit {
+                current_step += 1;
                 Self::commit_converted_snapshot(
-                    4,
+                    current_step,
                     &progress_printer,
                     &self.db_directory,
                     &converted_snapshot_path,
@@ -413,6 +455,18 @@ impl SnapshotConverterCommand {
         }
 
         result
+    }
+
+    fn calculate_number_of_steps(is_local_bin_mode: bool, commit: bool) -> u16 {
+        let minimal_steps = 1;
+        let mut steps = minimal_steps;
+        if !is_local_bin_mode {
+            steps += 2
+        };
+        if commit {
+            steps += 1
+        };
+        steps
     }
 
     async fn download_cardano_node_distribution(
@@ -463,8 +517,8 @@ impl SnapshotConverterCommand {
         step_number: u16,
         progress_printer: &ProgressPrinter,
         work_dir: &Path,
-        distribution_dir: &Path,
-        cardano_network: &CardanoNetworkCliArg,
+        converter_bin: PathBuf,
+        config_path: PathBuf,
         command: &SnapshotConverterCommand,
     ) -> MithrilResult<PathBuf> {
         progress_printer.report_step(
@@ -474,10 +528,6 @@ impl SnapshotConverterCommand {
                 command.utxo_hd_flavor
             ),
         )?;
-        let converter_bin =
-            Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
-        let config_path =
-            Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
         let snapshots =
             Self::find_most_recent_snapshots(&command.db_directory, CONVERSION_FALLBACK_LIMIT)?;
         let converter_bin_config = SnapshotConverterConfig {
@@ -808,16 +858,15 @@ Snapshot location: {}
         commit: bool,
         success: bool,
     ) -> MithrilResult<()> {
+        if distribution_dir.exists() {
+            remove_dir_all(distribution_dir)?;
+        }
         match (success, commit) {
             (true, true) => {
-                remove_dir_all(distribution_dir)?;
                 remove_dir_all(work_dir)?;
             }
-            (true, false) => {
-                remove_dir_all(distribution_dir)?;
-            }
+            (true, false) => {}
             (false, _) => {
-                remove_dir_all(distribution_dir)?;
                 remove_dir_all(work_dir)?;
             }
         }
@@ -893,11 +942,13 @@ mod tests {
             )
         }
 
-        fn dummy_snapshot_conveter_command() -> SnapshotConverterCommand {
+        fn dummy_snapshot_converter_command() -> SnapshotConverterCommand {
             #[allow(deprecated)]
             SnapshotConverterCommand {
                 db_directory: PathBuf::new(),
                 cardano_node_version: "1.0.0".to_string(),
+                binary_path: None,
+                config_path: None,
                 commit: false,
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
                 github_token: None,
@@ -910,7 +961,7 @@ mod tests {
             let command = SnapshotConverterCommand {
                 cardano_node_version: "10.6.2".to_string(),
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
-                ..dummy_snapshot_conveter_command()
+                ..dummy_snapshot_converter_command()
             };
 
             let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
@@ -928,7 +979,7 @@ mod tests {
             let command = SnapshotConverterCommand {
                 cardano_node_version: "10.7.7".to_string(),
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
-                ..dummy_snapshot_conveter_command()
+                ..dummy_snapshot_converter_command()
             };
 
             let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
@@ -945,7 +996,7 @@ mod tests {
             let command = SnapshotConverterCommand {
                 cardano_node_version: "latest".to_string(),
                 utxo_hd_flavor: UTxOHDFlavor::Legacy,
-                ..dummy_snapshot_conveter_command()
+                ..dummy_snapshot_converter_command()
             };
 
             let result = SnapshotConverterCommand::execute(&command, fake_command_context()).await;
@@ -1823,6 +1874,116 @@ mod tests {
                 matches!(converter_bin, SnapshotConverterBin::UpTo10_5(_)),
                 "returned type is not SnapshotConverterBin::UpTo10_5"
             );
+        }
+    }
+
+    mod calculate_number_of_steps {
+        use super::*;
+
+        #[test]
+        fn returns_1_when_local_bin_mode_is_true_and_commit_is_false() {
+            let steps = SnapshotConverterCommand::calculate_number_of_steps(true, false);
+            assert_eq!(steps, 1);
+        }
+
+        #[test]
+        fn returns_2_when_local_bin_mode_is_true_and_commit_is_true() {
+            let steps = SnapshotConverterCommand::calculate_number_of_steps(true, true);
+            assert_eq!(steps, 2);
+        }
+
+        #[test]
+        fn returns_4_when_local_bin_mode_is_false_and_commit_is_true() {
+            let steps = SnapshotConverterCommand::calculate_number_of_steps(false, true);
+            assert_eq!(steps, 4);
+        }
+
+        #[test]
+        fn returns_3_when_local_bin_mode_is_false_and_commit_is_false() {
+            let steps = SnapshotConverterCommand::calculate_number_of_steps(false, false);
+            assert_eq!(steps, 3);
+        }
+    }
+
+    mod command_arguments_validation {
+        use clap::Parser;
+
+        use crate::commands::tools::SnapshotConverterCommand;
+
+        #[test]
+        fn should_fail_if_binary_path_is_provided_without_config_path() {
+            let result = SnapshotConverterCommand::try_parse_from([
+                "snapshot-converter",
+                "--db-directory",
+                "/path/to/db",
+                "--cardano-node-version",
+                "10.7.0",
+                "--utxo-hd-flavor",
+                "LMDB",
+                "--binary-path",
+                "/path/to/binary",
+            ]);
+
+            assert!(result.is_err());
+            let error_message = result.unwrap_err().to_string();
+            assert!(error_message.contains(
+                "the following required arguments were not provided:\n  --config-path <CONFIG_PATH>"
+            ));
+        }
+
+        #[test]
+        fn should_fail_if_config_path_is_provided_without_binary_path() {
+            let result = SnapshotConverterCommand::try_parse_from([
+                "snapshot-converter",
+                "--db-directory",
+                "/path/to/db",
+                "--cardano-node-version",
+                "10.7.0",
+                "--utxo-hd-flavor",
+                "LMDB",
+                "--config-path",
+                "/path/to/config",
+            ]);
+
+            assert!(result.is_err());
+            let error_message = result.unwrap_err().to_string();
+            assert!(error_message.contains(
+                "the following required arguments were not provided:\n  --binary-path <BINARY_PATH>"
+            ));
+        }
+
+        #[test]
+        fn should_succeed_if_both_config_and_binary_paths_are_provided() {
+            let result = SnapshotConverterCommand::try_parse_from([
+                "snapshot-converter",
+                "--db-directory",
+                "/path/to/db",
+                "--cardano-node-version",
+                "10.7.0",
+                "--utxo-hd-flavor",
+                "LMDB",
+                "--binary-path",
+                "/path/to/binary",
+                "--config-path",
+                "/path/to/config",
+            ]);
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn should_succeed_if_none_of_config_and_binary_paths_are_provided() {
+            let result = SnapshotConverterCommand::try_parse_from([
+                "snapshot-converter",
+                "--db-directory",
+                "/path/to/db",
+                "--cardano-node-version",
+                "10.7.0",
+                "--utxo-hd-flavor",
+                "LMDB",
+            ]);
+
+            assert!(result.is_ok());
         }
     }
 }
