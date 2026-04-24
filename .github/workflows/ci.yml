@@ -189,95 +189,12 @@ jobs:
           path: |
             mithril-client-wasm/*-mithril-client-wasm-*.tgz
           if-no-files-found: error
+
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            test-args: --features full,unstable --workspace
-          - os: ubuntu-24.04
-            test-args: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
-            artifact-suffix: -future-snark
-          - os: ubuntu-24.04-arm
-            test-args: --features full,unstable --workspace
-          # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
-          - os: macos-14
-            test-args: >
-              --features full,unstable --workspace
-              --exclude mithril-aggregator
-              --exclude mithril-signer
-              --exclude mithril-relay
-              --exclude mithril-client-wasm
-              --exclude mithril-aggregator-fake
-          # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-end-to-end)
-          - os: windows-latest
-            test-args: >
-              --features full,unstable --workspace
-              --exclude mithril-aggregator
-              --exclude mithril-signer
-              --exclude mithril-relay
-              --exclude mithril-client-wasm
-              --exclude mithril-aggregator-fake
-              --exclude mithril-stm
-              --exclude mithril-end-to-end
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 2 # Needed to get the diff of the last commit, which is used to filter out slow tests
-
-      - name: Install stable toolchain, tools, and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ vars.CACHE_VERSION }}
-          cargo-tools: cargo-nextest
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - id: prepare
-        name: Prepare
-        shell: bash
-        run: |
-          # Run all tests, including slow tests, if "run-slow-tests" label is in the PR labels
-          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}" == "true" ]]; then
-            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
-          else
-            # For pull-request HEAD^1 targets the "simulated merge commit" created by GitHub Actions.
-            # For push (i.e. merging on main branch), HEAD^1 refers be an actual, not simulated, merge commit.
-            # Note: this approach does not correctly detect changes when multiple commits are pushed directly to the main branch at once.
-            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
-          fi
-
-          echo "Tests filterset: $FILTERSET"
-          echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
-
-      - name: Build tests
-        run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
-
-      - name: Run tests
-        run: cargo nextest run --profile ci --cargo-profile ci-tests --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
-
-      - name: Run doc tests
-        run: cargo test --profile ci-tests --doc ${{ matrix.test-args }}
-
-      - name: Ensure examples build
-        run: cargo build --profile ci-tests --examples ${{ matrix.test-args }}
-
-      - name: Rename junit file to include runner info
-        shell: bash
-        if: success() || failure()
-        run: |
-          mv target/nextest/ci/tests-result.junit.xml test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}.xml
-
-      - name: Upload Tests Results
-        uses: actions/upload-artifact@v5
-        if: success() || failure()
-        with:
-          name: test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}
-          path: ./test-results-*.xml
+    uses: ./.github/workflows/rust-tests.yml
+    with:
+      # Run all tests, including slow tests, if "run-slow-tests" label is in the PR labels
+      include-slow-tests: ${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}
 
   check:
     runs-on: ubuntu-24.04
@@ -547,25 +464,6 @@ jobs:
             # exclude cardano tools, saving ~500mb of data:
             !./artifacts/devnet/bin/
           if-no-files-found: error
-
-  send-tests-results:
-    if: success() || failure()
-    runs-on: ubuntu-24.04
-    needs:
-      - test
-    steps:
-      - name: Download Tests Results
-        if: success() || failure()
-        uses: actions/download-artifact@v6
-        with:
-          pattern: test-results-*
-          merge-multiple: true
-
-      - name: Publish Unit Test Results
-        if: success() || failure()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: ./**/test-results-*.xml
 
   docker-mithril:
     runs-on: ubuntu-24.04
