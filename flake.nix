@@ -43,26 +43,24 @@
         then pkgsRustOverlay.pkgsCross.mingwW64
         else null;
 
-      craneLib = inputs.crane.mkLib pkgsRustOverlay;
+      rustToolchain = pkgsRustOverlay.rust-bin.stable.latest.default;
+
+      craneLib = (inputs.crane.mkLib pkgsRustOverlay).overrideToolchain (_: rustToolchain);
 
       workspaceVersion = (craneLib.crateNameFromCargoToml { cargoToml = ./mithril-common/Cargo.toml; }).version;
 
       craneLibMusl =
         if pkgsMusl != null then
-          (inputs.crane.mkLib pkgsMusl).overrideToolchain (p:
-            p.rust-bin.stable.latest.default.override {
-              targets = [ "x86_64-unknown-linux-musl" ];
-            }
+          (inputs.crane.mkLib pkgsMusl).overrideToolchain (_:
+            rustToolchain.override { targets = [ "x86_64-unknown-linux-musl" ]; }
           )
         else
           null;
 
       craneLibWindows =
         if pkgsWindows != null then
-          (inputs.crane.mkLib pkgsWindows).overrideToolchain (p:
-            p.rust-bin.stable.latest.default.override {
-              targets = [ "x86_64-pc-windows-gnu" ];
-            }
+          (inputs.crane.mkLib pkgsWindows).overrideToolchain (_:
+            rustToolchain.override { targets = [ "x86_64-pc-windows-gnu" ]; }
           )
         else
           null;
