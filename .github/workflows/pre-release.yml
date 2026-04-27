@@ -324,21 +324,6 @@ jobs:
 
   publish-crate-test:
     if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package:
-          [
-            mithril-stm,
-            mithril-build-script,
-            mithril-common,
-            mithril-aggregator-client,
-            mithril-aggregator-discovery,
-            mithril-cardano-node-internal-database,
-            mithril-client,
-          ]
-
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
@@ -350,10 +335,10 @@ jobs:
           toolchain: stable
 
       - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
+        uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "true"
-          package: ${{ matrix.package }}
+          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client
 
   publish-next-wasm-package:
     if: github.event_name == 'push'

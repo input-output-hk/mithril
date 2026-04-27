@@ -552,28 +552,7 @@ jobs:
           provenance: false
 
   publish-crate-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package:
-          [
-            mithril-stm,
-            mithril-build-script,
-            mithril-common,
-            mithril-aggregator-client,
-            mithril-aggregator-discovery,
-            mithril-cardano-node-internal-database,
-            mithril-client,
-          ]
-
     runs-on: ubuntu-24.04
-    needs:
-      - build
-      - test-rust
-      - e2e
-      - check
-      - licenses
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
@@ -584,17 +563,16 @@ jobs:
           toolchain: stable
 
       - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
+        uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "true"
-          package: ${{ matrix.package }}
+          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client
 
-  publish-wasm-test:
+  publish-npm-test:
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             tag: latest
@@ -602,8 +580,6 @@ jobs:
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
 
     runs-on: ubuntu-24.04
-    needs:
-      - build-test-wasm
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
@@ -634,6 +610,8 @@ jobs:
       - e2e
       - check
       - licenses
+      - publish-crate-test
+      - publish-npm-test
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5

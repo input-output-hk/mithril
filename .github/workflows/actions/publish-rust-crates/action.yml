@@ -1,0 +1,96 @@
+name: publish-rust-crates
+description: |
+  Deploy a list of rust crates to crates.io
+inputs:
+  dry_run:
+    description: Dry run will not publish to crates.io, just test it.
+    required: true
+  packages:
+    description: comma separated list of rust crates to publish.
+    required: true
+  api_token:
+    description: crates.io API token.
+    required: false
+  publish_args:
+    description: Additional arguments that will be passed to 'cargo publish'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check crates latest version
+      id: check_versions
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Check crates latest version"
+
+        PACKAGES_TO_DEPLOY=""
+        CARGO_PACKAGE_ARGS=""
+        IFS=',' read -r -a PACKAGES <<< "${{ inputs.packages }}"
+
+        for PACKAGE in "${PACKAGES[@]}"; do
+          PACKAGE="$(echo "$PACKAGE" | xargs)" # trim
+
+          echo "Check crate latest published version for '$PACKAGE' package"
+          LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/$PACKAGE  --user-agent "iog/mithril (https://github.com/input-output-hk/mithril)" | jq -r '.crate.newest_version')
+          LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r --arg package "$PACKAGE" '.packages[] | select(.name== $package) | .version')
+          echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
+          echo "Local version: $LOCAL_VERSION"
+
+          if [ -z "$LOCAL_VERSION" ]; then
+            echo "Could not find local package '$PACKAGE' in cargo metadata. Does it exist?"
+            exit 1
+          fi
+
+          PACKAGES_TO_DEPLOY="$PACKAGES_TO_DEPLOY $PACKAGE" 
+          if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
+            echo "$PACKAGE local version is newer than remote version: we will publish it to crates.io"
+            CARGO_PACKAGE_ARGS="$CARGO_PACKAGE_ARGS --package $PACKAGE"
+          else
+            echo "$PACKAGE local version and remote version are the same: no need to publish it to crates.io"
+          fi
+        done
+
+        echo "packages_to_deploy=$PACKAGES_TO_DEPLOY" >> $GITHUB_OUTPUT
+        if [ -n "$CARGO_PACKAGE_ARGS" ]; then
+          echo "cargo_package_args=$CARGO_PACKAGE_ARGS" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        else 
+          echo "should_deploy=false" >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+
+    - name: Copy OpenAPI specs files
+      if: contains(inputs.packages, 'mithril-common')
+      shell: bash
+      run: |
+        echo "Copy OpenAPI specs files"
+        cp openapi*.yaml ./mithril-common/
+
+    - name: Cargo publish dry run
+      if: steps.check_versions.outputs.should_deploy == 'true'
+      shell: bash
+      run: |
+        echo "::group::Cargo publish packages (dry run)"
+        echo "Packages to publish (dry-run): '${{ steps.check_versions.outputs.packages_to_deploy }}'"
+        cargo publish ${{ steps.check_versions.outputs.cargo_package_args }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "::endgroup::"
+
+    - name: Cargo package list
+      if: steps.check_versions.outputs.should_deploy == 'true'
+      shell: bash
+      run: |
+        echo "::group::Cargo packages list"
+        echo "Packages to list: '${{ steps.check_versions.outputs.packages_to_deploy }}'"
+        cargo package ${{ steps.check_versions.outputs.cargo_package_args }} --list --allow-dirty
+        echo "::endgroup::"
+
+    - name: Cargo publish
+      if: inputs.dry_run == 'false' && steps.check_versions.outputs.should_deploy == 'true'
+      shell: bash
+      run: |
+        echo "::group::Cargo publish packages"
+        echo "Packages to publish: '${{ steps.check_versions.outputs.packages_to_deploy }}'"
+        cargo publish ${{ steps.check_versions.outputs.cargo_package_args }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "::endgroup::"
