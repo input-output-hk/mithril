@@ -169,6 +169,13 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
 
         Ok(current_epoch)
     }
+
+    #[cfg(feature = "future_snark")]
+    async fn compute_current_era(&self) -> StdResult<SupportedEra> {
+        let epoch_service = self.epoch_service.read().await;
+
+        epoch_service.mithril_era()
+    }
 }
 
 #[cfg(test)]
