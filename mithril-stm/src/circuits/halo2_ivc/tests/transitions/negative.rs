@@ -901,3 +901,103 @@ fn slow_circuit_rejects_next_epoch_with_wrong_merkle_root_linkage() {
 
     assert_recursive_mock_prover_rejects(circuit, public_inputs);
 }
+
+// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
+// the recursive test suite is split into fast and slow lanes.
+#[test]
+fn slow_circuit_rejects_same_epoch_with_wrong_current_epoch_linkage() {
+    // MockProver check that the circuit rejects a same-epoch witness where the
+    // public inputs claim current_epoch ≠ prev_state.current_epoch, confirming
+    // the in-circuit constraint that keeps the epoch unchanged across a
+    // same-epoch transition is wired correctly.
+    let setup = build_asset_generation_setup();
+    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+
+    let prev_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load")
+        .state;
+
+    let (message, preimage_bytes) = same_epoch_message_and_preimage_for_step(&setup, &prev_state);
+    let witness = Witness::new(
+        setup.genesis_signature.clone(),
+        prev_state.merkle_root,
+        message,
+        preimage_bytes
+            .try_into()
+            .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+    );
+
+    let correct_next_state = same_epoch_next_state_for_step(&prev_state, message);
+    let mut tampered_state = correct_next_state.clone();
+    tampered_state.current_epoch = prev_state.current_epoch + F::ONE;
+
+    let circuit = IvcCircuit::new(
+        mock_prover_setup.global.clone(),
+        prev_state,
+        witness,
+        vec![],
+        vec![],
+        mock_prover_setup.trivial_accumulator.clone(),
+        mock_prover_setup.certificate_verifying_key.vk(),
+        &mock_prover_setup.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        mock_prover_setup.global.as_public_input(),
+        tampered_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
+    ]
+    .concat();
+
+    assert_recursive_mock_prover_rejects(circuit, public_inputs);
+}
+
+// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
+// the recursive test suite is split into fast and slow lanes.
+#[test]
+fn slow_circuit_rejects_next_epoch_with_wrong_current_epoch_increment() {
+    // MockProver check that the circuit rejects a next-epoch witness where the
+    // public inputs claim current_epoch = prev_state.current_epoch (no
+    // increment), confirming the in-circuit constraint that advances the epoch
+    // by exactly one across a next-epoch transition is wired correctly.
+    let setup = build_asset_generation_setup();
+    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+
+    let prev_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load")
+        .state;
+
+    let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
+    let witness = Witness::new(
+        setup.genesis_signature.clone(),
+        prev_state.next_merkle_root,
+        message,
+        preimage_bytes
+            .try_into()
+            .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+    );
+
+    let correct_next_state = next_state_for_step(&prev_state, message);
+    let mut tampered_state = correct_next_state.clone();
+    tampered_state.current_epoch = prev_state.current_epoch;
+
+    let circuit = IvcCircuit::new(
+        mock_prover_setup.global.clone(),
+        prev_state,
+        witness,
+        vec![],
+        vec![],
+        mock_prover_setup.trivial_accumulator.clone(),
+        mock_prover_setup.certificate_verifying_key.vk(),
+        &mock_prover_setup.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        mock_prover_setup.global.as_public_input(),
+        tampered_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
+    ]
+    .concat();
+
+    assert_recursive_mock_prover_rejects(circuit, public_inputs);
+}
