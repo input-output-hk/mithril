@@ -652,6 +652,8 @@ via off
 follow_x_forwarded_for deny all
 
 # Anonymize request headers
+request_header_access signer-node-version allow all
+request_header_access mithril-api-version allow all
 request_header_access Authorization allow all
 request_header_access Proxy-Authorization allow all
 request_header_access Cache-Control allow all
@@ -708,6 +710,8 @@ via off
 follow_x_forwarded_for deny all
 
 # Anonymize request headers
+request_header_access signer-node-version allow all
+request_header_access mithril-api-version allow all
 request_header_access Authorization allow all
 request_header_access Proxy-Authorization allow all
 request_header_access Cache-Control allow all
