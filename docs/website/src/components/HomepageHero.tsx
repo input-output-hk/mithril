@@ -35,7 +35,7 @@ const HomepageHero: FC = () => {
         <div className="component-lg">
           <div className="tablet:pb-6 pb-10 tablet:max-w-[544px] text-primary">
             <motion.h1
-              className="tablet:text-[4rem] tablet:leading-[73px] text-4xl leading-[48px] tablet:pb-6 pb-10"
+              className="tablet:text-[3.5rem] tablet:leading-[73px] text-4xl leading-[48px] tablet:pb-6 pb-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ ease: "easeInOut", duration: 0.75, delay: 0.4 }}
@@ -58,10 +58,10 @@ const HomepageHero: FC = () => {
             transition={{ ease: "easeInOut", duration: 0.75, delay: 1.2 }}
           >
             <Link
-              className="inline-block px-4 py-3 font-bold text-sm text-white rounded-lg border-[0.5px] border-gray-border no-underline bg-secondary hover:no-underline hover:scale-105 transition-all hover:text-white"
-              to="/manual/welcome"
+              className="inline-block px-6 py-4 font-bold text-base text-white rounded-lg border-[0.5px] border-gray-border no-underline bg-secondary hover:no-underline hover:scale-105 transition-all hover:text-white"
+              to="/manual/operate/run-signer-node"
             >
-              Learn more
+              Run a signer node
             </Link>
           </motion.div>
         </div>
