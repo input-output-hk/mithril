@@ -23,6 +23,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Check crates latest version"
 
         PACKAGES_TO_DEPLOY=""
         CARGO_PACKAGE_ARGS=""
@@ -58,6 +59,7 @@ runs:
         else 
           echo "should_deploy=false" >> $GITHUB_OUTPUT
         fi
+        echo "::endgroup::"
 
     - name: Copy OpenAPI specs files
       if: contains(inputs.packages, 'mithril-common')
@@ -70,19 +72,25 @@ runs:
       if: steps.check_versions.outputs.should_deploy == 'true'
       shell: bash
       run: |
-        echo "Cargo publish '${{ steps.check_versions.outputs.packages_to_deploy }}' packages (dry run)"
+        echo "::group::Cargo publish packages (dry run)"
+        echo "Packages to publish (dry-run): '${{ steps.check_versions.outputs.packages_to_deploy }}'"
         cargo publish ${{ steps.check_versions.outputs.cargo_package_args }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "::endgroup::"
 
     - name: Cargo package list
       if: steps.check_versions.outputs.should_deploy == 'true'
       shell: bash
       run: |
-        echo "Cargo package list '${{ steps.check_versions.outputs.packages_to_deploy }}' packages"
+        echo "::group::Cargo packages list"
+        echo "Packages to list: '${{ steps.check_versions.outputs.packages_to_deploy }}'"
         cargo package ${{ steps.check_versions.outputs.cargo_package_args }} --list --allow-dirty
+        echo "::endgroup::"
 
     - name: Cargo publish
       if: inputs.dry_run == 'false' && steps.check_versions.outputs.should_deploy == 'true'
       shell: bash
       run: |
-        echo "Cargo publish '${{ steps.check_versions.outputs.packages_to_deploy }}' packages"
+        echo "::group::Cargo publish packages"
+        echo "Packages to publish: '${{ steps.check_versions.outputs.packages_to_deploy }}'"
         cargo publish ${{ steps.check_versions.outputs.cargo_package_args }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "::endgroup::"
