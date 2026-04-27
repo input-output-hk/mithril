@@ -15,6 +15,10 @@ inputs:
   github-token:
     description: GitHub token to use for installing cargo tools
     required: true
+  never-save-cache:
+    description: If enabled the cache may be re-used but won't be saved
+    required: false
+    default: false
 runs:
   using: "composite"
   steps:
@@ -28,8 +32,8 @@ runs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
       with:
-        # only save the cache on the main branch to limit github actions total cache size
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        # Default to only save the cache on the main branch to limit GitHub Actions total cache size
+        save-if: ${{ github.ref == 'refs/heads/main' && inputs.disable-cache-save != 'true' }}
         prefix-key: v${{ inputs.cache-version }}-rust-${{ runner.os }}
 
     - name: Install cargo tools installer
