@@ -190,8 +190,8 @@ jobs:
             mithril-client-wasm/*-mithril-client-wasm-*.tgz
           if-no-files-found: error
 
-  test:
-    uses: ./.github/workflows/rust-tests.yml
+  test-rust:
+    uses: ./.github/workflows/test-rust.yml
     with:
       # Run all tests, including slow tests, if "run-slow-tests" label is in the PR labels
       include-slow-tests: ${{ contains(github.event.pull_request.labels.*.name, 'run-slow-tests') }}
@@ -471,7 +471,7 @@ jobs:
       - build
       - check
       - licenses
-      - test
+      - test-rust
       - e2e
     strategy:
       fail-fast: false
@@ -570,7 +570,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build
-      - test
+      - test-rust
       - e2e
       - check
       - licenses
@@ -630,7 +630,7 @@ jobs:
       - build
       - build-test-wasm
       - build-test-explorer
-      - test
+      - test-rust
       - e2e
       - check
       - licenses
