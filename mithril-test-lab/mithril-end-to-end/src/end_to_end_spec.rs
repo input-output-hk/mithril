@@ -9,7 +9,7 @@ use mithril_common::{
 };
 
 use crate::{
-    Aggregator, MithrilInfrastructure, assertions,
+    Aggregator, MithrilInfrastructure, NodeVersion, assertions,
     utils::{
         randomly_take_blocks_hashes, randomly_take_transactions_hashes,
         retrieve_blocks_transactions_from_immutable_files,
@@ -202,6 +202,18 @@ impl Spec {
             // Verify that artifacts are produced and signed correctly
             self.verify_artifacts_production(target_epoch, aggregator, infrastructure)
                 .await?;
+        }
+
+        // Check the ledger snapshot conversion step using utxo-hd snapshot-converter
+        if infrastructure.check_client_cli_snapshot_converter() {
+            let mut client = infrastructure.build_client(aggregator).await?;
+            assertions::assert_client_can_convert_the_ledger_snapshot(
+                &mut client,
+                aggregator.full_node(),
+                infrastructure.devnet().artifacts_dir(),
+                NodeVersion::new(infrastructure.cardano_node_version().clone()),
+            )
+            .await?;
         }
 
         Ok(())

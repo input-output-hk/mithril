@@ -54,6 +54,7 @@ pub struct Aggregator {
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
+    full_node: FullNode,
 }
 
 impl Aggregator {
@@ -206,6 +207,7 @@ impl Aggregator {
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
             chain_observer,
+            full_node: aggregator_config.full_node.clone(),
         })
     }
 
@@ -224,6 +226,7 @@ impl Aggregator {
             command: other.command.clone(),
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
+            full_node: other.full_node.clone(),
         }
     }
 
@@ -253,6 +256,10 @@ impl Aggregator {
 
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.chain_observer.clone()
+    }
+
+    pub fn full_node(&self) -> &FullNode {
+        &self.full_node
     }
 
     /// Get the version of the mithril-aggregator binary.

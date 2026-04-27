@@ -82,6 +82,18 @@ fi
 cp $SCRIPT_DIRECTORY/configuration/$GENESIS_ALONZO_FILE "${ARTIFACTS_DIR_TEMP}/genesis.alonzo.spec.json"
 cp $SCRIPT_DIRECTORY/configuration/$GENESIS_CONWAY_FILE "${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json"
 
+# create configuration file for the snapshot converter
+cat > "${ARTIFACTS_DIR_TEMP}/snapshot-converter-config.json" <<EOF
+{
+    "AlonzoGenesisFile": "shelley/genesis.alonzo.json",
+    "ByronGenesisFile": "byron/genesis.json",
+    "ConwayGenesisFile": "shelley/genesis.conway.json",
+    "ShelleyGenesisFile": "shelley/genesis.json",
+    "RequiresNetworkMagic": "RequiresMagic"
+}
+EOF
+
+
 cp $SCRIPT_DIRECTORY/configuration/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
 $SED -i "${ARTIFACTS_DIR_TEMP}/configuration.yaml" \
      -e 's/Protocol: RealPBFT/Protocol: Cardano/' \
@@ -128,6 +140,7 @@ rm ${ARTIFACTS_DIR_TEMP}/genesis.json.tmp
 ## Copy the configuration files
 for NODE in ${ALL_NODES}; do
   cp ${ARTIFACTS_DIR_TEMP}/configuration.yaml ${NODE}/
+  cp ${ARTIFACTS_DIR_TEMP}/snapshot-converter-config.json ${NODE}/
 done
 
 ## Copy the Byron genesis files

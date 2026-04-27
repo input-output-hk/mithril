@@ -32,6 +32,7 @@ pub struct MithrilInfrastructureConfig {
     pub signed_entity_types: Vec<String>,
     pub aggregate_signature_type: String,
     pub run_only_mode: bool,
+    pub check_client_cli_snapshot_converter: bool,
     pub use_relays: bool,
     pub relay_signer_registration_mode: String,
     pub relay_signature_registration_mode: String,
@@ -69,6 +70,7 @@ impl MithrilInfrastructureConfig {
             signed_entity_types: vec!["type1".to_string()],
             aggregate_signature_type: "Concatenation".to_string(),
             run_only_mode: false,
+            check_client_cli_snapshot_converter: false,
             use_relays: false,
             relay_signer_registration_mode: "passthrough".to_string(),
             relay_signature_registration_mode: "passthrough".to_string(),
@@ -90,8 +92,10 @@ pub struct MithrilInfrastructure {
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
     relay_passives: Vec<RelayPassive>,
+    cardano_node_version: semver::Version,
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
+    check_client_cli_snapshot_converter: bool,
     current_era: RwLock<String>,
     era_reader_adapter: String,
     use_era_specific_work_dir: bool,
@@ -161,7 +165,9 @@ impl MithrilInfrastructure {
             relay_signers,
             relay_passives,
             cardano_chain_observer,
+            cardano_node_version: config.cardano_node_version.clone(),
             run_only_mode: config.run_only_mode,
+            check_client_cli_snapshot_converter: config.check_client_cli_snapshot_converter,
             current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
             use_era_specific_work_dir: config.use_era_specific_work_dir,
@@ -486,6 +492,10 @@ impl MithrilInfrastructure {
         self.cardano_chain_observer.clone()
     }
 
+    pub fn cardano_node_version(&self) -> &semver::Version {
+        &self.cardano_node_version
+    }
+
     pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {
         let work_dir = {
             let mut artifacts_dir = self
@@ -507,6 +517,10 @@ impl MithrilInfrastructure {
 
     pub fn run_only_mode(&self) -> bool {
         self.run_only_mode
+    }
+
+    pub fn check_client_cli_snapshot_converter(&self) -> bool {
+        self.check_client_cli_snapshot_converter
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {

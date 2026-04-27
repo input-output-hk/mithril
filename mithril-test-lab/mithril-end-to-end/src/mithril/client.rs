@@ -281,6 +281,76 @@ impl CardanoStakeDistributionCommand {
         }
     }
 }
+#[derive(Debug)]
+pub enum ToolsCommand {
+    UtxoHd(UtxoHdCommand),
+}
+
+impl ToolsCommand {
+    fn name(&self) -> String {
+        match self {
+            ToolsCommand::UtxoHd(cmd) => format!("utxo-hd-{}", cmd.name()),
+        }
+    }
+
+    fn cli_arg(&self, client_version: &NodeVersion) -> Vec<String> {
+        match self {
+            ToolsCommand::UtxoHd(cmd) => cmd.cli_arg(client_version),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum UtxoHdCommand {
+    SnapshotConverter {
+        db_directory: String,
+        cardano_node_version: String,
+        binary_path: String,
+        config_path: String,
+        utxo_hd_flavor: String,
+        commit: bool,
+    },
+}
+
+impl UtxoHdCommand {
+    fn name(&self) -> String {
+        match self {
+            UtxoHdCommand::SnapshotConverter { .. } => "snapshot-converter".to_string(),
+        }
+    }
+
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
+        match self {
+            UtxoHdCommand::SnapshotConverter {
+                db_directory,
+                cardano_node_version,
+                binary_path,
+                config_path,
+                utxo_hd_flavor,
+                commit,
+            } => {
+                let mut arguments = vec![
+                    "utxo-hd".to_string(),
+                    "snapshot-converter".to_string(),
+                    "--db-directory".to_string(),
+                    db_directory.clone(),
+                    "--cardano-node-version".to_string(),
+                    cardano_node_version.clone(),
+                    "--binary-path".to_string(),
+                    binary_path.clone(),
+                    "--config-path".to_string(),
+                    config_path.clone(),
+                    "--utxo-hd-flavor".to_string(),
+                    utxo_hd_flavor.clone(),
+                ];
+                if *commit {
+                    arguments.push("--commit".to_string());
+                }
+                arguments
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum ClientCommand {
@@ -291,6 +361,7 @@ pub enum ClientCommand {
     CardanoStakeDistribution(CardanoStakeDistributionCommand),
     CardanoDbV2(CardanoDbV2Command),
     CardanoBlock(CardanoBlockCommand),
+    Tools(ToolsCommand),
 }
 
 impl ClientCommand {
@@ -314,6 +385,9 @@ impl ClientCommand {
             }
             ClientCommand::CardanoDbV2(cmd) => {
                 format!("cdbv2-{}", cmd.name())
+            }
+            ClientCommand::Tools(cmd) => {
+                format!("tools-{}", cmd.name())
             }
         }
     }
@@ -387,6 +461,9 @@ impl ClientCommand {
                     ]
                     .concat()
                 }
+            }
+            ClientCommand::Tools(cmd) => {
+                [vec!["tools".to_string()], cmd.cli_arg(client_version)].concat()
             }
         };
         args.push("--json".to_string());

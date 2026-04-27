@@ -55,6 +55,7 @@ pub struct FullNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
     pub dmq_socket_path: PathBuf,
+    pub snapshot_converter_config_path: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -237,6 +238,9 @@ impl Devnet {
                 db_path: self.artifacts_dir.join(format!("node-full{n}/db")),
                 socket_path: self.artifacts_dir.join(format!("node-full{n}/ipc/node.sock")),
                 dmq_socket_path: self.artifacts_dir.join(format!("node-full{n}/ipc/dmq.node.sock")),
+                snapshot_converter_config_path: self
+                    .artifacts_dir
+                    .join(format!("node-full{n}/snapshot-converter-config.json")),
             })
             .collect::<Vec<_>>();
 
@@ -436,7 +440,10 @@ mod tests {
                 full_nodes: vec![FullNode {
                     db_path: PathBuf::from(r"test/path/node-full1/db"),
                     socket_path: PathBuf::from(r"test/path/node-full1/ipc/node.sock"),
-                    dmq_socket_path: PathBuf::from(r"test/path/node-full1/ipc/dmq.node.sock")
+                    dmq_socket_path: PathBuf::from(r"test/path/node-full1/ipc/dmq.node.sock"),
+                    snapshot_converter_config_path: PathBuf::from(
+                        r"test/path/node-full1/snapshot-converter-config.json"
+                    ),
                 }]
             },
             devnet.topology()

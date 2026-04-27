@@ -10,7 +10,7 @@ pub use aggregator::{Aggregator, AggregatorConfig};
 pub use client::{
     CardanoBlockCommand, CardanoDbCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
     CardanoTransactionCommand, CardanoTransactionV2Command, Client, ClientCommand,
-    MithrilStakeDistributionCommand,
+    MithrilStakeDistributionCommand, ToolsCommand, UtxoHdCommand,
 };
 pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;

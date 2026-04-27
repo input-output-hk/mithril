@@ -1,5 +1,9 @@
 use anyhow::Context;
-use std::{path::Path, process::Stdio};
+use std::{
+    fs::{self, create_dir_all},
+    path::Path,
+    process::Stdio,
+};
 use tokio::process::Command;
 
 use mithril_common::StdResult;
@@ -84,6 +88,20 @@ pub fn get_process_path(bin_name: &str, bin_dir: &Path) -> StdResult<std::path::
         );
     }
     Ok(process_path)
+}
+
+pub fn copy_dir_all(from: impl AsRef<Path>, to: impl AsRef<Path>) -> StdResult<()> {
+    create_dir_all(&to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), to.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), to.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -191,5 +209,45 @@ line 2"}
             .to_string(),
             error_result
         );
+    }
+
+    mod copy_dir_all {
+        use std::fs::create_dir_all;
+
+        use mithril_common::assert_dir_eq;
+
+        use super::*;
+
+        #[test]
+        fn should_copy_directory() {
+            let source_dir = get_temp_dir("copy_dir_all_source");
+            create_dir_all(source_dir.join("subfolder1")).unwrap();
+            create_dir_all(source_dir.join("subfolder2")).unwrap();
+            let target_dir = get_temp_dir("copy_dir_all_target");
+            write_file(
+                &source_dir.join("subfolder1").join("file1.txt"),
+                "file 1 content",
+            );
+            write_file(
+                &source_dir.join("subfolder2").join("file2.txt"),
+                "file 2 content",
+            );
+            write_file(&source_dir.join("file3.txt"), "file 3 content");
+
+            file_utils::copy_dir_all(&source_dir, &target_dir).unwrap();
+
+            assert!(target_dir.exists());
+            assert_dir_eq!(
+                &target_dir,
+                "
+                * subfolder1/
+                ** file1.txt
+                * subfolder2/
+                ** file2.txt
+                * file3.txt
+                "
+                .trim()
+            );
+        }
     }
 }
