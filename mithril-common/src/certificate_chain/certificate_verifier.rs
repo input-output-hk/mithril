@@ -1444,4 +1444,109 @@ mod tests {
                 .expect("SNARK AVK chaining from genesis to SNARK certificate should succeed");
         }
     }
+
+    mod rigid_protocol_message_dispatch {
+        use super::*;
+
+        use crate::entities::{Epoch, ProtocolMessage, ProtocolMessagePartKey};
+        use crate::test::double::fake_data;
+
+        fn build_certificate(epoch: Epoch, rigid: ProtocolMessage) -> Certificate {
+            let mut certificate = fake_data::certificate("cert-rigid");
+            certificate.epoch = epoch;
+            certificate.protocol_message = rigid;
+            certificate.signed_message = certificate.protocol_message.compute_hash();
+            certificate.hash = certificate.compute_hash();
+            certificate
+        }
+
+        fn rigid_protocol_message_for_epoch(
+            epoch: Epoch,
+            protocol_parameters: &ProtocolParameters,
+        ) -> ProtocolMessage {
+            let mut rigid = ProtocolMessage::new_rigid();
+            rigid.set_message_part(
+                ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                "cardano-stake-distribution-merkle-root".to_string(),
+            );
+            rigid.set_message_part(
+                ProtocolMessagePartKey::NextProtocolParameters,
+                protocol_parameters.compute_hash(),
+            );
+            rigid.set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
+            rigid
+        }
+
+        #[test]
+        fn verify_epoch_matches_protocol_message_accepts_rigid_variant_when_epoch_matches() {
+            let epoch = Epoch(42);
+            let protocol_parameters = ProtocolParameters::new(5, 10, 0.7);
+            let certificate = build_certificate(
+                epoch,
+                rigid_protocol_message_for_epoch(epoch, &protocol_parameters),
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_epoch_matches_protocol_message(&certificate)
+                .expect("rigid protocol message with matching epoch should pass");
+        }
+
+        #[test]
+        fn verify_epoch_matches_protocol_message_rejects_rigid_variant_when_epoch_mismatches() {
+            let protocol_parameters = ProtocolParameters::new(5, 10, 0.7);
+            let certificate = build_certificate(
+                Epoch(43),
+                rigid_protocol_message_for_epoch(Epoch(42), &protocol_parameters),
+            );
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            let error = verifier
+                .verify_epoch_matches_protocol_message(&certificate)
+                .expect_err("rigid protocol message with mismatching epoch should fail");
+
+            assert_error_matches!(CertificateVerifierError::CertificateEpochUnmatch, error);
+        }
+
+        #[test]
+        fn verify_protocol_parameters_chaining_accepts_rigid_previous_when_hash_matches() {
+            let current_certificate = fake_data::certificate("cert-current");
+            let previous_epoch = current_certificate.epoch - 1;
+            let rigid = rigid_protocol_message_for_epoch(
+                previous_epoch,
+                &current_certificate.metadata.protocol_parameters,
+            );
+            let previous_certificate = build_certificate(previous_epoch, rigid);
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_protocol_parameters_chaining(&current_certificate, &previous_certificate)
+                .expect(
+                    "rigid previous protocol message carrying the right parameters hash must pass",
+                );
+        }
+
+        #[test]
+        fn verify_protocol_parameters_chaining_rejects_rigid_previous_when_hash_mismatches() {
+            let current_certificate = fake_data::certificate("cert-current");
+            let previous_epoch = current_certificate.epoch - 1;
+            let protocol_parameters = ProtocolParameters::new(5, 10, 0.7);
+            let mut rigid = rigid_protocol_message_for_epoch(previous_epoch, &protocol_parameters);
+            rigid.set_message_part(
+                ProtocolMessagePartKey::NextProtocolParameters,
+                hex::encode([0u8; 32]),
+            );
+            let previous_certificate = build_certificate(previous_epoch, rigid);
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            let error = verifier
+                .verify_protocol_parameters_chaining(&current_certificate, &previous_certificate)
+                .expect_err("rigid previous protocol message with wrong parameters hash must fail");
+
+            assert_error_matches!(
+                CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
+                error
+            );
+        }
+    }
 }
