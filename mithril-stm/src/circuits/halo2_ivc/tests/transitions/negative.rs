@@ -4,7 +4,7 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F,
     circuit::IvcCircuit,
-    state::Witness,
+    state::{State, Witness},
     tests::common::{
         asset_readers::{
             load_embedded_genesis_step_output_asset,
@@ -14,7 +14,8 @@ use crate::circuits::halo2_ivc::{
             load_embedded_verification_context_asset,
         },
         generators::{
-            build_asset_generation_setup, next_message_and_preimage_for_step,
+            GENESIS_EPOCH, build_asset_generation_setup, build_genesis_base_case_next_state,
+            build_genesis_base_case_witness, next_message_and_preimage_for_step,
             next_state_for_step, same_epoch_message_and_preimage_for_step,
             same_epoch_next_state_for_step,
         },
@@ -984,6 +985,44 @@ fn slow_circuit_rejects_next_epoch_with_wrong_current_epoch_increment() {
     let circuit = IvcCircuit::new(
         mock_prover_setup.global.clone(),
         prev_state,
+        witness,
+        vec![],
+        vec![],
+        mock_prover_setup.trivial_accumulator.clone(),
+        mock_prover_setup.certificate_verifying_key.vk(),
+        &mock_prover_setup.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        mock_prover_setup.global.as_public_input(),
+        tampered_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
+    ]
+    .concat();
+
+    assert_recursive_mock_prover_rejects(circuit, public_inputs);
+}
+
+// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
+// the recursive test suite is split into fast and slow lanes.
+#[test]
+fn slow_circuit_rejects_msg_inconsistent_with_preimage() {
+    // MockProver check that the circuit rejects a genesis witness where msg in
+    // the public inputs does not match Blake2b(msg_preimage), confirming the
+    // in-circuit hash constraint between the preimage bytes and the resulting
+    // msg field is wired correctly.
+    let setup = build_asset_generation_setup();
+    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+
+    let witness = build_genesis_base_case_witness(&setup);
+
+    let correct_next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+    let mut tampered_state = correct_next_state.clone();
+    tampered_state.msg = F::ONE;
+
+    let circuit = IvcCircuit::new(
+        mock_prover_setup.global.clone(),
+        State::genesis(),
         witness,
         vec![],
         vec![],
