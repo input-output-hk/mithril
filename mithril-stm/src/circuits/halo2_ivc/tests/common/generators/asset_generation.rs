@@ -489,10 +489,7 @@ pub(crate) fn generate_recursive_step_output_asset(
 
 /// Generates and writes the genesis step output asset (one Blake2b IVC proof
 /// from the genesis base case, with no prior certificate or IVC proof).
-pub(crate) fn generate_genesis_step_output_asset(
-    setup: &AssetGenerationSetup,
-    paths: &AssetPaths,
-) {
+pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, paths: &AssetPaths) {
     println!(
         "generate_genesis_step_output: start -> {}",
         paths.genesis_step_output.display()
@@ -545,11 +542,8 @@ pub(crate) fn generate_genesis_step_output_asset(
         &public_inputs,
         &mut rng,
     );
-    let dual_msm = verify_and_prepare_blake2b_ivc(
-        &context.recursive_verifying_key,
-        &proof,
-        &public_inputs,
-    );
+    let dual_msm =
+        verify_and_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "genesis step proof verification failed"
@@ -685,11 +679,8 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         &public_inputs,
         &mut rng,
     );
-    let dual_msm = verify_and_prepare_blake2b_ivc(
-        &context.recursive_verifying_key,
-        &proof,
-        &public_inputs,
-    );
+    let dual_msm =
+        verify_and_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "same-epoch step proof verification failed"

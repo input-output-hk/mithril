@@ -68,8 +68,7 @@ const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/verification_context.bin");
 const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/recursive_step_output.bin");
-const GENESIS_STEP_OUTPUT_ASSET_BYTES: &[u8] =
-    include_bytes!("../assets/genesis_step_output.bin");
+const GENESIS_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("../assets/genesis_step_output.bin");
 const SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/same_epoch_step_output.bin");
 

@@ -1,3 +1,6 @@
+//! Positive encoding tests: preimage layout, state public input format, and
+//! serialization round-trips.
+
 use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
 
