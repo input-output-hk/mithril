@@ -35,25 +35,25 @@ use crate::circuits::halo2_ivc::{
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
 
-pub(crate) const INITIAL_CHAIN_LENGTH: usize = 3;
+pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(crate) const GENESIS_EPOCH: u64 = 5;
 pub(super) const QUORUM_SIZE: u32 = 2;
 const SIGNER_COUNT: usize = 3000;
 
 /// Paths for the minimal stored asset set used by asset-based golden tests.
 #[derive(Debug, Clone)]
-pub(crate) struct AssetPaths {
+pub(super) struct AssetPaths {
     /// Path to the stored recursive chain checkpoint asset.
-    pub(crate) recursive_chain_state: PathBuf,
+    pub(super) recursive_chain_state: PathBuf,
     /// Path to the stored verification-context asset.
-    pub(crate) verification_context: PathBuf,
+    pub(super) verification_context: PathBuf,
     /// Path to the stored one-step recursive output asset.
-    pub(crate) recursive_step_output: PathBuf,
+    pub(super) recursive_step_output: PathBuf,
 }
 
 impl AssetPaths {
     /// Builds the three committed asset paths rooted at `base_dir`.
-    pub(crate) fn new(base_dir: PathBuf) -> Self {
+    pub(super) fn new(base_dir: PathBuf) -> Self {
         Self {
             recursive_chain_state: base_dir.join("recursive_chain_state.bin"),
             verification_context: base_dir.join("verification_context.bin"),
@@ -133,12 +133,12 @@ fn build_merkle_tree(
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
-pub(crate) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
+pub(super) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
     ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
 }
 
 /// Derives circuit-specific commitment parameters from a shared universal SRS.
-pub(crate) fn derive_commitment_params(
+pub(super) fn derive_commitment_params(
     universal_kzg_parameters: &ParamsKZG<Bls12>,
     shared_srs_degree: u32,
     circuit_degree: u32,
@@ -192,7 +192,7 @@ pub(crate) fn build_shared_recursive_context(
 }
 
 /// Builds the recursive proving key for the default IVC circuit shape.
-pub(crate) fn build_recursive_proving_key(
+pub(super) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
     let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk());

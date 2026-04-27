@@ -104,10 +104,9 @@ pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_i
 pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_inputs: Vec<F>) {
     let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
         .expect("recursive MockProver setup should succeed");
-    assert!(
-        prover.verify().is_err(),
-        "recursive MockProver should reject the provided circuit and public inputs"
-    );
+    prover
+        .verify()
+        .expect_err("recursive MockProver should reject the provided circuit and public inputs");
 }
 
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.

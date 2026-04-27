@@ -245,7 +245,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
 }
 
 /// Returns the certificate public inputs for one recursive-step transition.
-pub(crate) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
+pub(super) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
     Certificate::format_instance(&(merkle_root, message)).unwrap()
 }
 
@@ -288,7 +288,7 @@ pub(crate) fn next_message_and_preimage_for_step(
 
 /// Returns the deterministic certificate message and preimage for one
 /// same-epoch recursive step.
-pub(crate) fn same_epoch_message_and_preimage_for_step(
+pub(super) fn same_epoch_message_and_preimage_for_step(
     setup: &AssetGenerationSetup,
     previous_state: &State,
 ) -> (F, Vec<u8>) {
@@ -333,7 +333,7 @@ pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
 }
 
 /// Returns the recursive next state for a same-epoch step.
-pub(crate) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
+pub(super) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 
