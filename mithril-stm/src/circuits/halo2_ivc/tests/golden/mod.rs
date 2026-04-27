@@ -1,7 +1,5 @@
 //! Golden tests lock in recursive Halo2 IVC verification behavior.
 
-pub(crate) const ASSET_SEED: u64 = 42;
-pub(crate) const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
 pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 
 mod positive;
@@ -20,7 +18,7 @@ mod golden_verification_key_test {
     use crate::{
         Parameters,
         circuits::{
-            halo2::{NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCircuit},
+            halo2::circuit::StmCircuit,
             halo2_ivc::{
                 circuit::IvcCircuit,
                 tests::{
@@ -35,7 +33,7 @@ mod golden_verification_key_test {
     // This key is generated with an unsafe SRS generated on the fly
     // used to also generate a non-recursive verification key
     const GOLDEN_RECURSIVE_CIRCUIT_VERIFICATION_KEY: &[u8] =
-        include_bytes!("assets/golden_recursive_circuit_verification_key.bin");
+        include_bytes!("../assets/golden_recursive_circuit_verification_key.bin");
 
     // Function used to compute the recursive circuit verification key for golden test
     // It uses an unsafe setup function to create the SRS

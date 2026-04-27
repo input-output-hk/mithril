@@ -32,7 +32,7 @@ mod golden_verification_key_test {
     }
 
     #[test]
-    pub fn golden_non_recursive_modification_test() {
+    fn golden_non_recursive_modification_test() {
         let golden_value = golden_value_non_recursive_circuit();
         assert_eq!(
             GOLDEN_NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY,

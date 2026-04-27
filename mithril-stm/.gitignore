@@ -2,6 +2,4 @@
 .tags
 
 # Halo2 prototype assets (generated SRS / params)
-/src/circuits/halo2/assets/*
-
-!/src/circuits/halo2/assets/non_recursive_circuit_verification_key_for_production.bin
+/src/circuits/halo2/assets/

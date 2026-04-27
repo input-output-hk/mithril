@@ -37,4 +37,4 @@ pub(crate) mod tests;
 /// - merkle_tree_depth: 13
 ///
 pub const NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION: &[u8] =
-    include_bytes!("assets/non_recursive_circuit_verification_key_for_production.bin");
+    include_bytes!("non_recursive_circuit_verification_key_for_production.bin");

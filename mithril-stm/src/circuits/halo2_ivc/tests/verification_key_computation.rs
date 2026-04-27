@@ -24,6 +24,8 @@ use crate::{
 /// It can generate the verification key for the recursive circuit if given
 /// Midnight SRS.
 ///
+/// TODO: remove #[allow(dead_code)] when used
+#[allow(dead_code)]
 fn compute_recursive_circuit_verification_key(srs_path: &PathBuf) -> StmResult<Vec<u8>> {
     let shared_srs_degree = K;
 
@@ -66,18 +68,4 @@ fn compute_recursive_circuit_verification_key(srs_path: &PathBuf) -> StmResult<V
         )
         .with_context(|| "Failed to write the recursive circuit verification key to a buffer.")?;
     Ok(buffer_for_recursive_circuit_verification_key)
-}
-
-#[test]
-#[ignore]
-pub fn write_recursive_circuit_verification_key_for_production_to_file() {
-    let srs_path = PathBuf::from("../../midnight-srs-2p22");
-
-    let verification_key = compute_recursive_circuit_verification_key(&srs_path).unwrap();
-
-    std::fs::write(
-        "src/circuits/halo2_ivc/assets/recursive_circuit_verification_key_for_production.bin",
-        verification_key,
-    )
-    .unwrap();
 }

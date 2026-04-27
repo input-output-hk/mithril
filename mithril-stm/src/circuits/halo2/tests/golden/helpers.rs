@@ -739,8 +739,8 @@ fn get_or_build_circuit_keys(
     Ok(key_pair)
 }
 
-// Function used to compute the verification key for tests
-// It uses an unsafe setup function to create the SRS
+/// Function used to compute the verification key for tests
+/// It uses an unsafe setup function to create the SRS
 pub(crate) fn compute_unsafe_circuit_verification_key(
     params: &Parameters,
     merkle_tree_depth: u32,

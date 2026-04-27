@@ -102,4 +102,4 @@ pub(crate) type Target = JubjubBase;
 /// It is created using the circuit verification key of the non-recursive
 /// circuit and the SRS from Midnight's power of tau ceremony
 pub const RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION: &[u8] =
-    include_bytes!("assets/recursive_circuit_verification_key_for_production.bin");
+    include_bytes!("recursive_circuit_verification_key_for_production.bin");
