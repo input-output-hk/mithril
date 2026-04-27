@@ -350,10 +350,10 @@ jobs:
           toolchain: stable
 
       - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
+        uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "true"
-          package: ${{ matrix.package }}
+          packages: ${{ matrix.package }}
 
   publish-next-wasm-package:
     if: github.event_name == 'push'

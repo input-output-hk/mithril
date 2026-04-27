@@ -64,8 +64,8 @@ jobs:
 
       - name: ${{ inputs.dry_run && 'Test publish' || 'Publish' }} package to crates.io
         if: inputs.package == matrix.package || inputs.package == 'all'
-        uses: ./.github/workflows/actions/publish-crate-package
+        uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: ${{ inputs.dry_run }}
-          package: ${{ matrix.package }}
+          packages: ${{ matrix.package }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}

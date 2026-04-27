@@ -265,10 +265,10 @@ jobs:
           toolchain: stable
 
       - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
+        uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "false"
-          package: ${{ matrix.package }}
+          packages: ${{ matrix.package }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
 
   promote-wasm-package-to-latest:

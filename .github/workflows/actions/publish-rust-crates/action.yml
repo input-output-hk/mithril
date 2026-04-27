@@ -1,12 +1,12 @@
-name: publish-crate-package
+name: publish-rust-crates
 description: |
-  Deploy the crate package to crates.io
+  Deploy a list of rust crates to crates.io
 inputs:
   dry_run:
     description: Dry run will not publish to crates.io, just test it.
     required: true
-  package:
-    description: crate package name.
+  packages:
+    description: comma separated list of rust crates to publish.
     required: true
   api_token:
     description: crates.io API token.
@@ -22,9 +22,9 @@ runs:
       id: check_version
       shell: bash
       run: |
-        echo "Check crate latest published version for '${{ inputs.package }}' package"
-        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package }}  --user-agent "iog/mithril (https://github.com/input-output-hk/mithril)" | jq -r '.crate.newest_version')
-        LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package }}") | .version')
+        echo "Check crate latest published version for '${{ inputs.packages }}' package"
+        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.packages }}  --user-agent "iog/mithril (https://github.com/input-output-hk/mithril)" | jq -r '.crate.newest_version')
+        LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.packages }}") | .version')
         echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
         echo "Local version: $LOCAL_VERSION"
 
@@ -37,27 +37,27 @@ runs:
         fi
 
     - name: Copy OpenAPI specs files
-      if: inputs.package == 'mithril-common'
+      if: inputs.packages == 'mithril-common'
       shell: bash
       run: |
         echo "Copy OpenAPI specs files"
-        cp openapi*.yaml ./${{ inputs.package }}
+        cp openapi*.yaml ./${{ inputs.packages }}
 
     - name: Cargo publish dry run
       shell: bash
       run: |
-        echo "Cargo publish '${{ inputs.package }}' package (dry run)"
-        cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "Cargo publish '${{ inputs.packages }}' package (dry run)"
+        cargo publish -p ${{ inputs.packages }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }}
 
     - name: Cargo package list
       shell: bash
       run: |
-        echo "Cargo package list '${{ inputs.package }}' package"
-        cargo package -p ${{ inputs.package }} --list --allow-dirty
+        echo "Cargo package list '${{ inputs.packages }}' package"
+        cargo package -p ${{ inputs.packages }} --list --allow-dirty
 
     - name: Cargo publish
       if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
       shell: bash
       run: |
-        echo "Cargo publish '${{ inputs.package }}' package"
-        cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
+        echo "Cargo publish '${{ inputs.packages }}' package"
+        cargo publish -p ${{ inputs.packages }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
