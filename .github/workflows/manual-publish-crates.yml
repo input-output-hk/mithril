@@ -18,6 +18,8 @@ on:
           - mithril-stm
           - mithril-common
           - mithril-client
+          - mithril-aggregator-client
+          - mithril-aggregator-discovery
           - mithril-build-script
           - mithril-cardano-node-internal-database
       dry_run:
@@ -30,22 +32,28 @@ jobs:
   publish-crate:
     runs-on: ubuntu-24.04
     steps:
+      - name: Prepare
+        id: prepare
+        run: |
+          if [[ ${{ inputs.package }} == 'all' ]]; then
+            echo "packages=mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client" >> $GITHUB_OUTPUT
+          else
+            echo "packages=${{ inputs.package }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout sources
-        if: inputs.package == matrix.package || inputs.package == 'all'
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.commit_sha }}
 
       - name: Install stable toolchain
-        if: inputs.package == matrix.package || inputs.package == 'all'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
 
       - name: ${{ inputs.dry_run && 'Test publish' || 'Publish' }} package to crates.io
-        if: inputs.package == matrix.package || inputs.package == 'all'
         uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: ${{ inputs.dry_run }}
-          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client
+          packages: ${{ steps.prepare.outputs.packages }}
           api_token: ${{ secrets.CRATES_IO_API_TOKEN }}
