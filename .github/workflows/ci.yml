@@ -552,21 +552,6 @@ jobs:
           provenance: false
 
   publish-crate-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package:
-          [
-            mithril-stm,
-            mithril-build-script,
-            mithril-common,
-            mithril-aggregator-client,
-            mithril-aggregator-discovery,
-            mithril-cardano-node-internal-database,
-            mithril-client,
-          ]
-
     runs-on: ubuntu-24.04
     needs:
       - build
@@ -587,7 +572,7 @@ jobs:
         uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "true"
-          packages: ${{ matrix.package }}
+          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client
 
   publish-wasm-test:
     strategy:
