@@ -17,8 +17,8 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_mock_prover_circuit,
-            build_mock_prover_public_inputs, build_recursive_mock_prover_setup,
+            assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
+            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
             verify_and_prepare_blake2b_recursive_proof,
         },
     },
@@ -134,7 +134,8 @@ mod slow {
         let mut witness = build_genesis_base_case_witness(&setup);
         tamper(&mut witness);
 
-        let circuit = build_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 

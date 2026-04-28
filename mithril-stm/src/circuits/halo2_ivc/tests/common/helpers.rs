@@ -201,11 +201,12 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
     certificate_accumulator
 }
 
-/// Builds an `IvcCircuit` wired for MockProver-based negative tests.
+/// Builds an `IvcCircuit` with empty proof slots and a trivial accumulator for
+/// MockProver-based constraint checks.
 ///
-/// All negative tests pass empty certificate-proof / accumulator vecs because
-/// MockProver checks algebraic constraints without running the IPA/KZG prover.
-pub(crate) fn build_mock_prover_circuit(
+/// MockProver evaluates algebraic constraints directly without running the
+/// KZG prover, so embedded proof bytes are irrelevant and can be left empty.
+pub(crate) fn build_trivial_mock_prover_circuit(
     setup: &RecursiveMockProverSetup,
     prev_state: State,
     witness: Witness,

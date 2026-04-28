@@ -32,6 +32,75 @@ use crate::circuits::halo2_ivc::{
     state::{State, Witness},
 };
 
+#[test]
+fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
+    // Asset-based check that the stored previous recursive checkpoint remains a
+    // coherent proof/state/accumulator bundle on its own.
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+
+    assert_eq!(
+        verification_context.global_field_elements, recursive_chain_state.global_field_elements,
+        "verification context and recursive chain state should use the same global public inputs"
+    );
+
+    let public_inputs = [
+        verification_context.global_field_elements.clone(),
+        recursive_chain_state.state.as_public_input(),
+        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
+    ]
+    .concat();
+
+    let dual_msm = verify_and_prepare_poseidon_recursive_proof(
+        &verification_context.recursive_verifying_key,
+        &recursive_chain_state.proof,
+        &public_inputs,
+    );
+
+    assert!(
+        dual_msm.clone().check(&verification_context.verifier_params),
+        "stored recursive chain state proof should verify"
+    );
+}
+
+#[test]
+fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
+    // Asset-based check that the stored next recursive checkpoint remains
+    // valid in isolation, including both the final proof and the folded
+    // accumulator.
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_step_output = load_embedded_recursive_step_output_asset()
+        .expect("recursive step output asset should load");
+
+    let public_inputs = [
+        verification_context.global_field_elements.clone(),
+        recursive_step_output.next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&recursive_step_output.next_accumulator),
+    ]
+    .concat();
+
+    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+        &verification_context.recursive_verifying_key,
+        &recursive_step_output.proof,
+        &public_inputs,
+    );
+
+    assert!(
+        dual_msm.clone().check(&verification_context.verifier_params),
+        "stored recursive step output proof should verify"
+    );
+    assert!(
+        recursive_step_output.next_accumulator.check(
+            &verification_context.verifier_tau_in_g2,
+            &verification_context.combined_fixed_bases,
+        ),
+        "stored recursive step output accumulator should verify"
+    );
+}
+
 mod slow {
     use super::*;
 
@@ -180,73 +249,4 @@ mod slow {
             "replayed next accumulator should match the stored recursive step output"
         );
     }
-}
-
-#[test]
-fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
-    // Asset-based check that the stored previous recursive checkpoint remains a
-    // coherent proof/state/accumulator bundle on its own.
-    let verification_context =
-        load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
-        .expect("recursive chain state asset should load");
-
-    assert_eq!(
-        verification_context.global_field_elements, recursive_chain_state.global_field_elements,
-        "verification context and recursive chain state should use the same global public inputs"
-    );
-
-    let public_inputs = [
-        verification_context.global_field_elements.clone(),
-        recursive_chain_state.state.as_public_input(),
-        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
-    ]
-    .concat();
-
-    let dual_msm = verify_and_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
-        &recursive_chain_state.proof,
-        &public_inputs,
-    );
-
-    assert!(
-        dual_msm.clone().check(&verification_context.verifier_params),
-        "stored recursive chain state proof should verify"
-    );
-}
-
-#[test]
-fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
-    // Asset-based check that the stored next recursive checkpoint remains
-    // valid in isolation, including both the final proof and the folded
-    // accumulator.
-    let verification_context =
-        load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
-        .expect("recursive step output asset should load");
-
-    let public_inputs = [
-        verification_context.global_field_elements.clone(),
-        recursive_step_output.next_state.as_public_input(),
-        AssignedAccumulator::as_public_input(&recursive_step_output.next_accumulator),
-    ]
-    .concat();
-
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
-        &recursive_step_output.proof,
-        &public_inputs,
-    );
-
-    assert!(
-        dual_msm.clone().check(&verification_context.verifier_params),
-        "stored recursive step output proof should verify"
-    );
-    assert!(
-        recursive_step_output.next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
-            &verification_context.combined_fixed_bases,
-        ),
-        "stored recursive step output accumulator should verify"
-    );
 }

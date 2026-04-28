@@ -1,5 +1,5 @@
 //! Negative transition tests: tampered public inputs (fast CI) and MockProver
-//! constraint checks (slow).
+//! constraint checks (in `mod slow`).
 
 use ff::Field;
 use midnight_circuits::types::Instantiable;
@@ -21,8 +21,8 @@ use crate::circuits::halo2_ivc::{
             same_epoch_next_state_for_step,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_mock_prover_circuit,
-            build_mock_prover_public_inputs, build_recursive_mock_prover_setup,
+            assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
+            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
             verify_and_prepare_blake2b_recursive_proof,
         },
     },
@@ -61,87 +61,6 @@ fn assert_step_output_rejects_tampered_state(
         !dual_msm.check(&verification_context.verifier_params),
         "{rejection_message}"
     );
-}
-
-/// Builds a genesis circuit with a tampered next state and asserts the MockProver rejects it.
-///
-/// `tamper` receives the correct genesis next state before it is passed to the
-/// public inputs, allowing each test to corrupt exactly the field it wants to verify.
-fn assert_genesis_circuit_rejects_tampered_next_state(tamper: impl FnOnce(&mut State)) {
-    let setup = build_asset_generation_setup();
-    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
-    let witness = build_genesis_base_case_witness(&setup);
-
-    let mut tampered_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
-    tamper(&mut tampered_state);
-
-    let circuit = build_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
-    let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
-
-    assert_recursive_mock_prover_rejects(circuit, public_inputs);
-}
-
-/// Builds a same-epoch circuit with a tampered next state and asserts the MockProver rejects it.
-///
-/// `tamper` receives the correct same-epoch next state before it is passed to the
-/// public inputs, allowing each test to corrupt exactly the field it wants to verify.
-fn assert_same_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
-    let setup = build_asset_generation_setup();
-    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
-    let prev_state = load_embedded_recursive_chain_state_asset()
-        .expect("recursive chain state asset should load")
-        .state;
-
-    let (message, preimage_bytes) = same_epoch_message_and_preimage_for_step(&setup, &prev_state);
-    let witness = Witness::new(
-        setup.genesis_signature.clone(),
-        prev_state.merkle_root,
-        message,
-        preimage_bytes
-            .try_into()
-            .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
-    );
-
-    let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-    tamper(&mut tampered_state);
-
-    let circuit = build_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
-    let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
-
-    assert_recursive_mock_prover_rejects(circuit, public_inputs);
-}
-
-/// Builds a next-epoch circuit with a tampered next state and asserts the MockProver rejects it.
-///
-/// `tamper` receives the correct next-epoch next state before it is passed to the
-/// public inputs, allowing each test to corrupt exactly the field it wants to verify.
-fn assert_next_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
-    let setup = build_asset_generation_setup();
-    let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
-    let prev_state = load_embedded_recursive_chain_state_asset()
-        .expect("recursive chain state asset should load")
-        .state;
-
-    let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
-    let witness = Witness::new(
-        setup.genesis_signature.clone(),
-        prev_state.next_merkle_root,
-        message,
-        preimage_bytes
-            .try_into()
-            .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
-    );
-
-    let mut tampered_state = next_state_for_step(&prev_state, message);
-    tamper(&mut tampered_state);
-
-    let circuit = build_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
-    let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
-
-    assert_recursive_mock_prover_rejects(circuit, public_inputs);
 }
 
 // ---------------------------------------------------------------------------
@@ -387,69 +306,138 @@ fn next_epoch_msg_tampered_is_rejected() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Slow tests
-// ---------------------------------------------------------------------------
+mod slow {
+    use super::*;
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_same_epoch_with_wrong_merkle_root_linkage() {
-    // MockProver check that the in-circuit constraint carrying merkle_root unchanged
-    // across a same-epoch transition is wired correctly.
-    assert_same_epoch_circuit_rejects_tampered_state(|s| s.merkle_root = F::ONE);
-}
+    /// Builds a genesis circuit with a tampered next state and asserts the MockProver rejects it.
+    ///
+    /// `tamper` receives the correct genesis next state before it is passed to the
+    /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
+    fn assert_genesis_circuit_rejects_tampered_next_state(tamper: impl FnOnce(&mut State)) {
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_same_epoch_with_wrong_protocol_params_linkage() {
-    // MockProver check that the in-circuit constraint carrying protocol_params unchanged
-    // across a same-epoch transition is wired correctly.
-    assert_same_epoch_circuit_rejects_tampered_state(|s| s.protocol_params = F::ONE);
-}
+        let witness = build_genesis_base_case_witness(&setup);
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_same_epoch_with_wrong_current_epoch_linkage() {
-    // MockProver check that the in-circuit constraint keeping current_epoch unchanged
-    // across a same-epoch transition is wired correctly.
-    assert_same_epoch_circuit_rejects_tampered_state(|s| s.current_epoch += F::ONE);
-}
+        let mut tampered_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        tamper(&mut tampered_state);
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_next_epoch_with_wrong_protocol_params_linkage() {
-    // MockProver check that the in-circuit constraint advancing protocol_params to
-    // prev.next_protocol_params across a next-epoch transition is wired correctly.
-    assert_next_epoch_circuit_rejects_tampered_state(|s| s.protocol_params = F::ONE);
-}
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_next_epoch_with_wrong_merkle_root_linkage() {
-    // MockProver check that the in-circuit constraint advancing merkle_root to
-    // prev.next_merkle_root across a next-epoch transition is wired correctly.
-    assert_next_epoch_circuit_rejects_tampered_state(|s| s.merkle_root = F::ONE);
-}
+        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+    }
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_next_epoch_with_wrong_current_epoch_increment() {
-    // MockProver check that the in-circuit constraint advancing current_epoch by exactly
-    // one across a next-epoch transition is wired correctly.
-    assert_next_epoch_circuit_rejects_tampered_state(|s| s.current_epoch -= F::ONE);
-}
+    /// Builds a same-epoch circuit with a tampered next state and asserts the MockProver rejects it.
+    ///
+    /// `tamper` receives the correct same-epoch next state before it is passed to the
+    /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
+    fn assert_same_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
 
-// TODO: Move this slow transition test into a dedicated slow/extended CI mode once
-// the recursive test suite is split into fast and slow lanes.
-#[test]
-fn slow_circuit_rejects_msg_inconsistent_with_preimage() {
-    // MockProver check that the in-circuit Blake2b hash constraint between
-    // msg_preimage bytes and the resulting msg field is wired correctly.
-    assert_genesis_circuit_rejects_tampered_next_state(|s| s.msg = F::ONE);
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+
+        let (message, preimage_bytes) =
+            same_epoch_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
+        tamper(&mut tampered_state);
+
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+
+        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+    }
+
+    /// Builds a next-epoch circuit with a tampered next state and asserts the MockProver rejects it.
+    ///
+    /// `tamper` receives the correct next-epoch next state before it is passed to the
+    /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
+    fn assert_next_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+
+        let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.next_merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+
+        let mut tampered_state = next_state_for_step(&prev_state, message);
+        tamper(&mut tampered_state);
+
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+
+        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+    }
+
+    #[test]
+    fn circuit_rejects_same_epoch_with_wrong_merkle_root_linkage() {
+        // MockProver check that the in-circuit constraint carrying merkle_root unchanged
+        // across a same-epoch transition is wired correctly.
+        assert_same_epoch_circuit_rejects_tampered_state(|s| s.merkle_root = F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_same_epoch_with_wrong_protocol_params_linkage() {
+        // MockProver check that the in-circuit constraint carrying protocol_params unchanged
+        // across a same-epoch transition is wired correctly.
+        assert_same_epoch_circuit_rejects_tampered_state(|s| s.protocol_params = F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_same_epoch_with_wrong_current_epoch_linkage() {
+        // MockProver check that the in-circuit constraint keeping current_epoch unchanged
+        // across a same-epoch transition is wired correctly.
+        assert_same_epoch_circuit_rejects_tampered_state(|s| s.current_epoch += F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_next_epoch_with_wrong_protocol_params_linkage() {
+        // MockProver check that the in-circuit constraint advancing protocol_params to
+        // prev.next_protocol_params across a next-epoch transition is wired correctly.
+        assert_next_epoch_circuit_rejects_tampered_state(|s| s.protocol_params = F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_next_epoch_with_wrong_merkle_root_linkage() {
+        // MockProver check that the in-circuit constraint advancing merkle_root to
+        // prev.next_merkle_root across a next-epoch transition is wired correctly.
+        assert_next_epoch_circuit_rejects_tampered_state(|s| s.merkle_root = F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_next_epoch_with_wrong_current_epoch_increment() {
+        // MockProver check that the in-circuit constraint advancing current_epoch by exactly
+        // one across a next-epoch transition is wired correctly.
+        assert_next_epoch_circuit_rejects_tampered_state(|s| s.current_epoch -= F::ONE);
+    }
+
+    #[test]
+    fn circuit_rejects_msg_inconsistent_with_preimage() {
+        // MockProver check that the in-circuit Blake2b hash constraint between
+        // msg_preimage bytes and the resulting msg field is wired correctly.
+        assert_genesis_circuit_rejects_tampered_next_state(|s| s.msg = F::ONE);
+    }
 }
