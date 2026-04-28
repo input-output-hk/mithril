@@ -1549,4 +1549,157 @@ mod tests {
             );
         }
     }
+
+    mod era_transition_chain_linkage {
+        use super::*;
+
+        use crate::entities::{ProtocolMessageHashScheme, SupportedEra};
+
+        fn pythagoras_to_lagrange_era_transition_pair() -> (Certificate, Certificate) {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(5)
+                .with_certificates_per_epoch(1)
+                .with_protocol_parameters(setup_protocol_parameters())
+                .with_mithril_era(SupportedEra::Pythagoras)
+                .build();
+
+            let predecessor = chain[1].clone();
+            let mut successor = chain[0].clone();
+
+            successor.epoch = predecessor.epoch + 1;
+            successor.protocol_message.hash_scheme = ProtocolMessageHashScheme::Rigid;
+            successor.signed_message = successor.protocol_message.compute_hash();
+            successor.previous_hash.clone_from(&predecessor.hash);
+            successor.hash = successor.compute_hash();
+
+            (predecessor, successor)
+        }
+
+        #[test]
+        fn predecessor_uses_legacy_hash_scheme_and_successor_uses_rigid_hash_scheme() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+
+            assert_eq!(
+                predecessor.protocol_message.hash_scheme,
+                ProtocolMessageHashScheme::Legacy,
+                "the Pythagoras predecessor must keep the Legacy hash scheme",
+            );
+            assert_eq!(
+                successor.protocol_message.hash_scheme,
+                ProtocolMessageHashScheme::Rigid,
+                "the Lagrange successor must carry the Rigid hash scheme",
+            );
+            assert_eq!(
+                successor.epoch,
+                predecessor.epoch + 1,
+                "the successor must sit exactly one epoch after the predecessor to exercise cross-epoch chaining",
+            );
+        }
+
+        #[test]
+        fn concatenation_aggregate_verification_key_chains_at_era_transition() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_concatenation_aggregate_verification_key_chaining(
+                    &successor,
+                    &predecessor,
+                )
+                .expect(
+                    "concatenation AVK chaining must hold across the Pythagoras to Lagrange era transition",
+                );
+        }
+
+        #[test]
+        fn protocol_parameters_chain_at_era_transition() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_protocol_parameters_chaining(&successor, &predecessor)
+                .expect(
+                    "protocol parameters chaining must hold across the Pythagoras to Lagrange era transition",
+                );
+        }
+
+        #[test]
+        fn epoch_chain_at_era_transition() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier.verify_epoch_chaining(&successor, &predecessor).expect(
+                "epoch chaining must hold across the Pythagoras to Lagrange era transition",
+            );
+        }
+
+        #[test]
+        fn previous_hash_chain_at_era_transition() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_previous_hash_matches_previous_certificate_hash(&successor, &predecessor)
+                .expect(
+                    "previous-hash chaining must hold across the Pythagoras to Lagrange era transition",
+                );
+        }
+
+        #[test]
+        fn aggregate_verification_key_chain_dispatches_to_concatenation_at_era_transition() {
+            let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+            verifier
+                .verify_aggregate_verification_key_chaining(&successor, &predecessor)
+                .expect(
+                    "AVK chaining dispatch (Concatenation) must succeed across the Pythagoras to Lagrange era transition",
+                );
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod snark_signature_dispatch {
+            use super::*;
+
+            use crate::test::double::fake_data::snark_aggregate_signature;
+
+            fn promote_to_snark_aggregate_signature(mut certificate: Certificate) -> Certificate {
+                let CertificateSignature::MultiSignature(entity_type, _) =
+                    certificate.signature.clone()
+                else {
+                    panic!("certificate signature must be a multi signature");
+                };
+                certificate.signature =
+                    CertificateSignature::MultiSignature(entity_type, snark_aggregate_signature());
+                certificate.hash = certificate.compute_hash();
+                certificate
+            }
+
+            #[test]
+            fn snark_aggregate_verification_key_chains_at_era_transition() {
+                let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+                let successor = promote_to_snark_aggregate_signature(successor);
+                let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+                verifier
+                    .verify_snark_aggregate_verification_key_chaining(&successor, &predecessor)
+                    .expect(
+                        "SNARK AVK chaining must hold across the Pythagoras to Lagrange era transition",
+                    );
+            }
+
+            #[test]
+            fn aggregate_verification_key_chain_dispatches_to_snark_at_era_transition() {
+                let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
+                let successor = promote_to_snark_aggregate_signature(successor);
+                let verifier = MockDependencyInjector::new().build_certificate_verifier();
+
+                verifier
+                    .verify_aggregate_verification_key_chaining(&successor, &predecessor)
+                    .expect(
+                        "AVK chaining dispatch (SNARK) must succeed across the Pythagoras to Lagrange era transition",
+                    );
+            }
+        }
+    }
 }
