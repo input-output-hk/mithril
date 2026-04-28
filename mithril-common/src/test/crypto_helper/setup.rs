@@ -50,7 +50,7 @@ pub fn setup_message() -> ProtocolMessage {
 pub fn setup_protocol_parameters() -> ProtocolParameters {
     ProtocolParameters {
         m: 100,
-        k: 3,
+        k: 5,
         phi_f: 0.65,
     }
 }
