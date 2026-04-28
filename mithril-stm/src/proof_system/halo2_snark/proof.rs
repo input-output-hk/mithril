@@ -678,7 +678,6 @@ mod tests {
             // midnight-proof crate, we can update is function to output a fixed value
             // that can be compared to the JSON constant
             fn golden_value_setup() -> (
-                // SnarkProof<MithrilMembershipDigest>,
                 AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
                 [u8; 32],
             ) {
@@ -693,14 +692,6 @@ mod tests {
 
                 let (_signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
                 let avk = clerk.compute_aggregate_verification_key_for_snark();
-                // Those computations are not needed to check the stored proof
-                // let signatures = collect_signatures(&signers, &message);
-                // let mut prover = create_prover(
-                //     params,
-                //     clerk.closed_key_registration.number_of_registered_parties(),
-                //     [0u8; 32],
-                // );
-                // let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
 
                 (avk, message)
             }
