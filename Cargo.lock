@@ -4010,7 +4010,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.8.47"
+version = "0.8.49"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4074,7 +4074,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4095,7 +4095,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-discovery"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4186,7 +4186,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4217,7 +4217,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.5"
+version = "0.14.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4313,7 +4313,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.68"
+version = "0.6.70"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4322,7 +4322,6 @@ dependencies = [
  "blake2 0.10.6",
  "chrono",
  "ciborium",
- "ckb-merkle-mountain-range",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
@@ -4330,6 +4329,7 @@ dependencies = [
  "hex",
  "kes-summed-ed25519",
  "mithril-build-script",
+ "mithril-merkle-tree",
  "mithril-stm",
  "mockall",
  "nom 8.0.0",
@@ -4435,6 +4435,19 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "mithril-merkle-tree"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blake2 0.10.6",
+ "ckb-merkle-mountain-range",
+ "criterion",
+ "hex",
+ "serde",
 ]
 
 [[package]]

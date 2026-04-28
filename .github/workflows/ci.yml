@@ -566,7 +566,7 @@ jobs:
         uses: ./.github/workflows/actions/publish-rust-crates
         with:
           dry_run: "true"
-          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client
+          packages: mithril-stm, mithril-build-script, mithril-common, mithril-aggregator-client, mithril-aggregator-discovery, mithril-cardano-node-internal-database, mithril-client, mithril-merkle-tree
 
   publish-npm-test:
     strategy:
@@ -838,7 +838,7 @@ jobs:
                     -p mithril-cardano-node-chain -p mithril-cardano-node-internal-database \
                     -p mithril-aggregator-client -p mithril-aggregator-discovery -p mithril-build-script -p mithril-cli-helper \
                     -p mithril-dmq -p mithril-doc -p mithril-doc-derive \
-                    -p mithril-era -p mithril-metric -p mithril-persistence -p mithril-resource-pool \
+                    -p mithril-era -p mithril-merkle-tree -p mithril-metric -p mithril-persistence -p mithril-resource-pool \
                     -p mithril-ticker -p mithril-signed-entity-lock -p mithril-signed-entity-preloader \
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
                     -p mithril-api-spec -p mithril-test-http-server \

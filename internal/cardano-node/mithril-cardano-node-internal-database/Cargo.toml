@@ -1,6 +1,6 @@
 [package]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.11"
+version = "0.1.12"
 description = "Mechanisms that allow Mithril nodes to read the files of a Cardano node internal database and compute digests from them"
 authors.workspace = true
 documentation.workspace = true
@@ -15,7 +15,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 digest = { workspace = true }
 hex = { workspace = true }
-mithril-common = { path = "../../../mithril-common", version = "0.6.68" }
+mithril-common = { path = "../../../mithril-common", version = "0.6.70" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.10.9"
