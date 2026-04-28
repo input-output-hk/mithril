@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.13 (04-30-2026)
+
+### Added
+
+- Added golden test to detect when a change in any of the circuits happens.
+- Added functions to compute the verification keys for recursive and non-recursive circuits.
+- Added a runbook explaining the steps to follow to update the verification keys when a change happens.
+
 ## 0.10.12 (04-30-2026)
 
 ### Added
