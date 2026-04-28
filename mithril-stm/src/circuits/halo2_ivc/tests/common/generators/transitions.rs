@@ -17,7 +17,7 @@ use crate::circuits::halo2_ivc::tests::test_certificate::Certificate;
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 
 use super::proofs::verify_and_prepare_poseidon_ivc;
-use super::setup::{AssetGenerationSetup, QUORUM_SIZE};
+use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 
 type CertificateWitnessEntry = (MerkleTreeLeaf, MerklePath, Signature, u32);
 
@@ -48,28 +48,22 @@ pub(super) fn build_genesis_protocol_message(
     protocol_message
 }
 
-/// Builds the genesis protocol-message preimage consumed by the recursive base case.
-pub(crate) fn build_genesis_protocol_message_preimage(
-    setup: &AssetGenerationSetup,
-) -> [u8; PREIMAGE_SIZE] {
+/// Returns the raw genesis protocol-message preimage bytes produced by the serializer.
+pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSetup) -> Vec<u8> {
     build_genesis_protocol_message(
         &setup.aggregate_verification_key,
         setup.genesis_next_protocol_params,
-        5u64,
+        GENESIS_EPOCH,
     )
     .get_preimage()
-    .try_into()
-    .expect("genesis protocol message preimage should match PREIMAGE_SIZE")
 }
 
 /// Builds the witness used by the recursive genesis/base-case branch.
 pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> Witness {
-    Witness::new(
-        setup.genesis_signature.clone(),
-        F::ZERO,
-        F::ZERO,
-        build_genesis_protocol_message_preimage(setup),
-    )
+    let preimage: [u8; PREIMAGE_SIZE] = build_genesis_protocol_message_preimage(setup)
+        .try_into()
+        .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
+    Witness::new(setup.genesis_signature.clone(), F::ZERO, F::ZERO, preimage)
 }
 
 /// Builds the first next-state public output produced by the recursive base case.
@@ -251,7 +245,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
 }
 
 /// Returns the certificate public inputs for one recursive-step transition.
-pub(crate) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
+pub(super) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
     Certificate::format_instance(&(merkle_root, message)).unwrap()
 }
 
@@ -294,7 +288,7 @@ pub(crate) fn next_message_and_preimage_for_step(
 
 /// Returns the deterministic certificate message and preimage for one
 /// same-epoch recursive step.
-pub(crate) fn same_epoch_message_and_preimage_for_step(
+pub(super) fn same_epoch_message_and_preimage_for_step(
     setup: &AssetGenerationSetup,
     previous_state: &State,
 ) -> (F, Vec<u8>) {
@@ -339,7 +333,7 @@ pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
 }
 
 /// Returns the recursive next state for a same-epoch step.
-pub(crate) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
+pub(super) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 

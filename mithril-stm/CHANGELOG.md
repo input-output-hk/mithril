@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.8 (04-28-2026)
+
+### Added
+
+- Added Layer A encoding and transition tests for the `halo2_ivc` prototype, covering preimage byte-range extraction, state public input ordering, genesis state initialisation, accumulator and verifying key serialisation round-trips, tampered-public-input rejection, and MockProver constraint checks for wrong preimage bytes.
+
 ## 0.10.6 (04-23-2026)
 
 ### Added

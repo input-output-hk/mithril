@@ -12,7 +12,7 @@ use midnight_proofs::{
 };
 use midnight_zk_stdlib::MidnightVK;
 
-use crate::circuits::halo2_ivc::tests::golden::{
+use super::{
     asset_readers::RecursiveChainStateAsset,
     generators::{
         AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::{
     state::{Global, State, trivial_acc},
 };
 
-pub(crate) use crate::circuits::halo2_ivc::tests::golden::generators::{
+pub(crate) use super::generators::{
     verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
     verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
 };
@@ -98,6 +98,15 @@ pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_i
     prover
         .verify()
         .expect("recursive MockProver should accept the provided circuit and public inputs");
+}
+
+/// Runs `MockProver` on the recursive circuit and asserts that at least one constraint fails.
+pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_inputs: Vec<F>) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    prover
+        .verify()
+        .expect_err("recursive MockProver should reject the provided circuit and public inputs");
 }
 
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.
