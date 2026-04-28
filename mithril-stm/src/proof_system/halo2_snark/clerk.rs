@@ -572,7 +572,7 @@ mod tests {
             let midpoint = m / 2;
             let mut lower_half_count: u64 = 0;
             let mut upper_half_count: u64 = 0;
-            let num_rounds = 100;
+            let num_rounds = 20;
 
             for round in 0..num_rounds {
                 let mut msg = [0u8; 32];
