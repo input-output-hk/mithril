@@ -10,6 +10,7 @@ use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::plonk::Error as PlonkError;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
+use midnight_proofs::utils::SerdeFormat;
 use midnight_zk_stdlib as zk;
 use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
@@ -675,7 +676,10 @@ fn load_or_generate_params(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     let path = assets_dir.join(format!("params_kzg_unsafe_{}", circuit_degree));
 
     if path.exists() {
-        return Ok(load_params(path.to_string_lossy().as_ref()));
+        return Ok(load_params(
+            path.to_string_lossy().as_ref(),
+            SerdeFormat::RawBytesUnchecked,
+        ));
     }
 
     create_dir_all(&assets_dir)
@@ -689,6 +693,7 @@ fn load_or_generate_params(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     Ok(generate_params(
         circuit_degree,
         path.to_string_lossy().as_ref(),
+        SerdeFormat::RawBytesUnchecked,
     ))
 }
 
