@@ -15,7 +15,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2617.0] - UNRELEASED
+## Mithril Distribution [2617.0] - 2026-04-29
 
 - **STABLE**: the Mithril signer has reached its first stable version `1.0.0` and is now officially production-ready on the `release-mainnet` network.
 
@@ -58,9 +58,15 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Support for SNARK-friendly signer registration.
   - Support for SNARK-friendly certificate chain.
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version  |
+| ------------------- | -------- |
+| mithril-aggregator  | `0.8.47` |
+| mithril-client      | `0.14.5` |
+| mithril-client-cli  | `0.13.9` |
+| mithril-client-wasm | `0.10.4` |
+| mithril-common      | `0.6.67` |
+| mithril-signer      | `1.0.0`  |
+| mithril-stm         | `0.10.5` |
 
 ## Mithril Distribution [2603.1] - 2026-01-29
 
