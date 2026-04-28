@@ -7,6 +7,12 @@ tags: [DMQ, decentralization, testing program, aggregator, follower]
 
 ### Multiple aggregators testing program
 
+:::info Update 2026/04/28
+
+With the release of the [`2617.0`](https://github.com/input-output-hk/mithril/releases/tag/2617.0) distribution, the testing program for running multiple aggregators is extended on the `pre-release-preview` network to keep gathering feedback before the stable release on `release-preprod` and `release-mainnet` networks.
+
+:::
+
 The Mithril team is launching a testing program for running **multiple aggregators** on the `pre-release-preview` network: running multiple aggregators will help increase decentralization and resilience of the Mithril network. This initiative will help collect valuable feedback, identify potential issues, and validate Mithril architecture before broader deployment.
 
 #### Leader/follower architecture
@@ -56,12 +62,14 @@ The Mithril team will provide dedicated support and guidance to help participant
 
 The rollout plan of the DMQ network is the following:
 
-- [ ] **Distribution [2603](https://github.com/input-output-hk/mithril/releases/tag/2603.1)**: `unstable` on the `pre-release-preview` network
+- [x] **Distribution [2603](https://github.com/input-output-hk/mithril/releases/tag/2603.1)**: `unstable` on the `pre-release-preview` network
   - [x] Activation of the feature on the `pre-release-preview` network
   - [x] Released a [guide](https://mithril.network/doc/manual/operate/run-aggregator-node) for setting up a follower aggregator
-  - [ ] Wait for the DMQ adoption to reach the required threshold until aggregators can produce valid certificates
-  - [ ] 4-6 weeks testing program with selected participants
-- [ ] **Distribution +2**: `stable` on the `release-preprod` and `release-mainnet` networks
+  - [x] Wait for the DMQ adoption to reach the required threshold until aggregators can produce valid certificates
+  - [x] 4-6 weeks testing program with selected participants
+- [ ] **Distribution [2617](https://github.com/input-output-hk/mithril/releases/tag/2617.0)**: `unstable` on the `pre-release-preview` network (extended testing)
+  - [ ] 4-6 weeks extended testing program with selected SPOs
+- [ ] **Distribution +3**: `stable` on the `release-preprod` and `release-mainnet` networks
   - [ ] Activation of the feature on the `release-preprod` and `release-mainnet` networks
   - [ ] Release of an updated guide for setting up a follower aggregator
   - [ ] Monitoring and support for operators running follower aggregators.
