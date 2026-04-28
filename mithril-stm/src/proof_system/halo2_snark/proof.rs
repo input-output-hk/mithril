@@ -310,7 +310,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
         let params = Parameters {
             m: 20,
-            k: 5,
+            k: 3,
             phi_f: 0.1,
         };
         let nparties = 4;
@@ -332,7 +332,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
         let params = Parameters {
             m: 200,
-            k: 5,
+            k: 3,
             phi_f: 0.8,
         };
         let nparties = 5;
