@@ -564,9 +564,10 @@ paths:
 
   /artifact/cardano-blocks-transactions:
     get:
-      summary: Get most recent Cardano blocks and transactions set snapshots
+      summary: (Unstable) Get most recent Cardano blocks and transactions set snapshots
       description: |
-        Returns the list of the most recent Cardano blocks and transactions set snapshots
+        Returns the list of the most recent Cardano blocks and transactions set snapshots.
+        Using this endpoint require Aggregator(s) capabilities to include `CardanoBlocksTransactions` in the `signed_entity_types`
       responses:
         "200":
           description: Cardano blocks and transactions set snapshots found
@@ -583,9 +584,10 @@ paths:
 
   /artifact/cardano-blocks-transactions/{hash}:
     get:
-      summary: Get Cardano block and transactions set snapshot information
+      summary: (Unstable)Get Cardano block and transactions set snapshot information
       description: |
-        Returns the information of a Cardano block and transactions set snapshot
+        Returns the information of a Cardano block and transactions set snapshot.
+        Using this endpoint require Aggregator(s) capabilities to include `CardanoBlocksTransactions` in the `signed_entity_types`
       parameters:
         - name: hash
           in: path
@@ -648,10 +650,11 @@ paths:
 
   /proof/v2/cardano-transaction:
     get:
-      summary: Get the proofs of a Cardano transaction list from Cardano Blocks and Transactions snapshots
+      summary: (Unstable) Get the proofs of a Cardano transaction list from Cardano Blocks and Transactions snapshots
       description: |
         Returns the transaction hashes and the corresponding proofs from the latest
         Cardano Blocks and Transactions signed entity.
+        Using this endpoint require Aggregator(s) capabilities to include `CardanoBlocksTransactions` in the `signed_entity_types`
       parameters:
         - name: transaction_hashes
           in: query
@@ -683,10 +686,11 @@ paths:
 
   /proof/v2/cardano-block:
     get:
-      summary: Get the proofs of a Cardano block list
+      summary: (Unstable) Get the proofs of a Cardano block list
       description: |
         Returns block hashes and associated transaction proofs from the latest
         Cardano Blocks and Transactions signed entity.
+        Using this endpoint require Aggregator(s) capabilities to include `CardanoBlocksTransactions` in the `signed_entity_types`
       parameters:
         - name: block_hashes
           in: query
