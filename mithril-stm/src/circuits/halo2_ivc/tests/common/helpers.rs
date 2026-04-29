@@ -16,11 +16,6 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
     state::{Global, State, Witness, trivial_acc},
-    tests::common::generators::setup::build_deterministic_params,
-};
-use crate::{
-    Parameters,
-    circuits::{halo2::circuit::StmCircuit, halo2_ivc::tests::golden::RECURSIVE_CIRCUIT_DEGREE},
 };
 
 pub(crate) use super::generators::{

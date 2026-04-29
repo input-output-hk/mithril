@@ -21,6 +21,14 @@ Reviewers:
 - Perform a thorough review of the change
 - Analyse the justification of the change to make sure it is valid and cannot be avoided
 - Reviews the update of the key values (golden and production)
+- Run the tests for the integrity of the production keys
+
+Commands to run the integrity tests:
+
+```bash
+cargo test -p mithril-stm --lib --features future_snark --release integrity_test_for_non_recursive_production_key -- --ignored
+cargo test -p mithril-stm --lib --features future_snark --release integrity_test_for_recursive_production_key -- --ignored
+```
 
 Release manager:
 
@@ -29,24 +37,20 @@ Release manager:
 
 ## Update of the golden value
 
-The author needs to update the golden value of the verification keys in the golden test in `mithril-stm/src/circuits/halo2/golden/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`. The failing tests (in red) need to be updated by changing the golden value used (in the golden files) to turn them green again.
+The author needs to update the golden value of the verification keys in the golden test in `mithril-stm/src/circuits/halo2/tests/golden/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/tests/golden/mod.rs`. The failing tests (in red) need to be updated by changing the golden value used (in the golden files) to turn them green again.
 
 ## Update of the production circuit verification key
 
 To update the production circuit verification keys, one needs to run the following commands:
 
 ```bash
-cargo test -p mithril-stm --features future_snark --release print_non_recursive_circuit_verification_key_for_production -- --nocapture
+cargo test -p mithril-stm --features future_snark --release write_non_recursive_circuit_verification_key_for_production_to_file -- --ignored
 ```
 
 and
 
 ```bash
-<<<<<<< HEAD
-cargo test -p mithril-stm --features future_snark --release print_recursive_circuit_verification_key_for_production -- --nocapture
-=======
-cargo test -p mithril-stm --features future_snark --release  print_recursive_circuit_verification_key_for_production -- --nocapture
->>>>>>> 7db5fb97fc (refactor(stm): Updated function names, comments, replace bin scripts and applied PR comments)
+cargo test -p mithril-stm --features future_snark --release write_recursive_circuit_verification_key_for_production_to_file -- --ignored
 ```
 
 and save the output of those commands to the constants `NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` and `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` in `mithril-stm/src/circuits/halo2/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/mod.rs`
