@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["halo2","halo2_ivc"]};

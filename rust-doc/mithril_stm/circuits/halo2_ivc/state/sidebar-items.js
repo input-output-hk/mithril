@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fixed_base_names","fixed_bases_and_names","trivial_acc"],"struct":["AssignedGlobal","AssignedState","AssignedWitness","Global","State","Witness"]};

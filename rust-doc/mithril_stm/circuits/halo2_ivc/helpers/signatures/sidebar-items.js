@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SignatureError"],"mod":["schnorr_signature","unique_signature"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PREIMAGE_CURRENT_EPOCH_BYTES","PREIMAGE_NEXT_MERKLE_ROOT_BYTES","PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES","PREIMAGE_SIZE"],"mod":["circuit","config","gadget","helpers","io","state"]};

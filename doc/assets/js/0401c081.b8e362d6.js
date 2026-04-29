@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkmithril_doc=globalThis.webpackChunkmithril_doc||[]).push([[1790],{41384(a){a.exports=JSON.parse('{"metadata":{"permalink":"/doc/adr/page/2","page":2,"postsPerPage":10,"totalPages":2,"totalCount":12,"previousPage":"/doc/adr/","blogDescription":"Blog","blogTitle":"ADR"}}')}}]);

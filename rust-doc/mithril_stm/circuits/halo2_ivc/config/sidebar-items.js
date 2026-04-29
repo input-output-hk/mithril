@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["configure_ivc_circuit"],"struct":["IvcConfig"]};

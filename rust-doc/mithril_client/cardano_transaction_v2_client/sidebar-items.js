@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CardanoTransactionV2Client"],"trait":["CardanoTransactionV2AggregatorRequest"]};

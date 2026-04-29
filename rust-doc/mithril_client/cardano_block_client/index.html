@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano blocks."><title>mithril_client::cardano_block_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mithril_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module cardano_block_client</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../mithril_client/index.html">mithril_<wbr>client</a><span class="version">0.14.7</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module cardano_<wbr>block_<wbr>client</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#get-and-verify-cardano-block-proof" title="Get and verify Cardano block proof">Get and verify Cardano block proof</a></li><li><a href="#get-a-cardano-block-snapshot" title="Get a Cardano block snapshot">Get a Cardano block snapshot</a></li><li><a href="#list-available-cardano-block-snapshots" title="List available Cardano block snapshots">List available Cardano block snapshots</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate mithril_<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">mithril_client</a></div><h1>Module <span>cardano_<wbr>block_<wbr>client</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/mithril_client/cardano_block_client.rs.html#1-260">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano blocks.</p>
+<p>In order to do so it defines a <a href="struct.CardanoBlockClient.html" title="struct mithril_client::cardano_block_client::CardanoBlockClient">CardanoBlockClient</a> which exposes the following features:</p>
+<ul>
+<li><a href="struct.CardanoBlockClient.html#method.get_proof" title="method mithril_client::cardano_block_client::CardanoBlockClient::get_proof">get_proof</a>: get a <a href="../struct.CardanoBlocksProofs.html" title="struct mithril_client::CardanoBlocksProofs">cryptographic proof</a>
+that the blocks with given hash are included in the global Cardano blocks set.</li>
+<li><a href="struct.CardanoBlockClient.html#method.get_snapshot" title="method mithril_client::cardano_block_client::CardanoBlockClient::get_snapshot">get</a>: get a <a href="../struct.CardanoBlocksTransactionsSnapshot.html" title="struct mithril_client::CardanoBlocksTransactionsSnapshot">Cardano block snapshot</a>
+data from its hash.</li>
+<li><a href="struct.CardanoBlockClient.html#method.list_snapshots" title="method mithril_client::cardano_block_client::CardanoBlockClient::list_snapshots">list</a>: get the list of the latest available Cardano block
+snapshot.</li>
+</ul>
+<p><strong>Important:</strong> Verifying a proof <strong>only</strong> means that its cryptography is valid, in order to certify that a Cardano
+blocks subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).</p>
+<h2 id="get-and-verify-cardano-block-proof"><a class="doc-anchor" href="#get-and-verify-cardano-block-proof">§</a>Get and verify Cardano block proof</h2>
+<p>To get and verify a Cardano block proof using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg(feature = <span class="string">"unstable"</span>)]
+</span><span class="kw">use </span>mithril_client::{ClientBuilder, MessageBuilder};
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+
+<span class="comment">// 1 - Get a proof from the aggregator and verify it
+</span><span class="kw">let </span>cardano_block_proof = client.cardano_block().get_proof(<span class="kw-2">&amp;</span>[<span class="string">"block-1"</span>, <span class="string">"block-2"</span>]).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="macro">println!</span>(<span class="string">"Mithril could not certify the following blocks : {:?}"</span>, <span class="kw-2">&amp;</span>cardano_block_proof.non_certified_blocks);
+
+<span class="kw">let </span>verified_blocks = cardano_block_proof.verify()<span class="question-mark">?</span>;
+
+<span class="comment">// 2 - Verify its associated certificate chain
+</span><span class="kw">let </span>certificate = client.certificate().verify_chain(<span class="kw-2">&amp;</span>cardano_block_proof.certificate_hash).<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="comment">// 3 - Ensure that the proof is indeed signed in the associated certificate
+</span><span class="kw">let </span>message = MessageBuilder::new().compute_cardano_blocks_proofs_message(<span class="kw-2">&amp;</span>certificate, <span class="kw-2">&amp;</span>verified_blocks);
+<span class="kw">if </span>certificate.match_message(<span class="kw-2">&amp;</span>message) {
+    <span class="comment">// All green, Mithril certifies that those blocks are part of the Cardano blocks set.
+    </span><span class="macro">println!</span>(<span class="string">"Certified blocks : {:?}"</span>, verified_blocks.certified_blocks());
+}</code></pre></div><h2 id="get-a-cardano-block-snapshot"><a class="doc-anchor" href="#get-a-cardano-block-snapshot">§</a>Get a Cardano block snapshot</h2>
+<p>To get a Cardano block snapshot using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[cfg(feature = <span class="string">"unstable"</span>)]
+</span><span class="kw">use </span>mithril_client::ClientBuilder;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>cardano_block_snapshot = client.cardano_block().get_snapshot(<span class="string">"CARDANO_BLOCK_SNAPSHOT_HASH"</span>).<span class="kw">await</span><span class="question-mark">?</span>.unwrap();
+
+<span class="macro">println!</span>(<span class="string">"Cardano block snapshot hash={}, epoch={}, block_number_signed={}"</span>, cardano_block_snapshot.hash, cardano_block_snapshot.epoch, cardano_block_snapshot.block_number_signed);</code></pre></div><h2 id="list-available-cardano-block-snapshots"><a class="doc-anchor" href="#list-available-cardano-block-snapshots">§</a>List available Cardano block snapshots</h2>
+<p>To list latest available Cardano block snapshots using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[cfg(feature = <span class="string">"unstable"</span>)]
+</span><span class="kw">use </span>mithril_client::ClientBuilder;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>cardano_block_snapshots = client.cardano_block().list_snapshots().<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">for </span>cardano_block_snapshot <span class="kw">in </span>cardano_block_snapshots {
+    <span class="macro">println!</span>(<span class="string">"Cardano block snapshot hash={}, epoch={}, block_number_signed={}"</span>, cardano_block_snapshot.hash, cardano_block_snapshot.epoch, cardano_block_snapshot.block_number_signed);
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CardanoBlockClient.html" title="struct mithril_client::cardano_block_client::CardanoBlockClient">Cardano<wbr>Block<wbr>Client</a></dt><dd>HTTP client for CardanoBlocksAPI from the aggregator</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.CardanoBlockAggregatorRequest.html" title="trait mithril_client::cardano_block_client::CardanoBlockAggregatorRequest">Cardano<wbr>Block<wbr>Aggregator<wbr>Request</a></dt><dd>Define the requests against an aggregator related to Cardano blocks.</dd></dl></section></div></main></body></html>

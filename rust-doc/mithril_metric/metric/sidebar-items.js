@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MetricCounter","MetricCounterWithLabels","MetricGauge"],"trait":["MetricCollector"],"type":["CounterValue","MetricName"]};

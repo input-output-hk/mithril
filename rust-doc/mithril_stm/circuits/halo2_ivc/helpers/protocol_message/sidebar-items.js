@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ProtocolMessagePartKey"],"struct":["AggregateVerificationKey","Epoch","ProtocolMessage"],"type":["ProtocolMessagePartValue"]};
