@@ -338,7 +338,7 @@ jobs:
         next_era: [""]
         cardano_node_version: ["10.5.2", "10.6.2", "10.7.1"]
         hard_fork_latest_era_at_epoch: [0]
-        run_id: ["#1"]
+        run_id: ["#1", "#2", "#3", "#4", "#5"]
         extra_args: ["--aggregate-signature-type=Concatenation"]
 
         include:
@@ -423,6 +423,7 @@ jobs:
           mkdir artifacts
 
       - name: Test
+        id: retry
         uses: nick-fields/retry@v3
         with:
           shell: bash
@@ -450,7 +451,13 @@ jobs:
             ./mithril-end-to-end.sh
             EXIT_CODE=$?
             rm ./mithril-end-to-end.sh
+            echo "::group::Artificial group after e2e"
+            echo "This is a test"
+            echo "::endgroup::"
             exit $EXIT_CODE
+
+      - name: Total attempts = ${{ steps.retry.outputs.total_attempts }}
+        run: echo "Exit error = ${{ steps.retry.outputs.exit_error }}"
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}

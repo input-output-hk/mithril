@@ -84,17 +84,43 @@ impl BlocksTransactionsImporter {
         while let Some(blocks) = streamer.poll_next().await? {
             match blocks {
                 ChainScannedBlocks::RollForwards(forward_blocks) => {
+                    let parse_start = tokio::time::Instant::now();
                     let parsed_blocks_with_transactions: Vec<CardanoBlockWithTransactions> =
                         forward_blocks.into_iter().map(Into::into).collect();
+                    let parsed_elapsed_time = parse_start.elapsed();
+                    let blocks_count = parsed_blocks_with_transactions.len();
+                    let txs_count: usize = parsed_blocks_with_transactions
+                        .iter()
+                        .map(|block| block.transactions_hashes.len())
+                        .sum();
+                    debug!(
+                        self.logger,
+                        "Parsed blocks and transactions in '{:02}s:{:04}m'", parsed_elapsed_time.as_secs(), parsed_elapsed_time.subsec_millis();
+                        "blocks_count" => blocks_count, "txs_count" => txs_count,
+                    );
 
+                    let store_start = tokio::time::Instant::now();
                     self.transaction_store
                         .store_blocks_and_transactions(parsed_blocks_with_transactions)
                         .await?;
+                    let store_elapsed_time = store_start.elapsed();
+                    debug!(
+                        self.logger,
+                        "Stored blocks and transactions in '{:02}s:{:04}m'", store_elapsed_time.as_secs(), store_elapsed_time.subsec_millis();
+                        "blocks_count" => blocks_count, "txs_count" => txs_count,
+                    );
                 }
                 ChainScannedBlocks::RollBackward(slot_number) => {
+                    let rollback_start = tokio::time::Instant::now();
                     self.transaction_store
                         .remove_rolled_chain_data_and_block_range(slot_number)
                         .await?;
+                    let rollback_elapsed_time = rollback_start.elapsed();
+                    debug!(
+                        self.logger,
+                        "Rolled back blocks and transactions in '{:02}s:{:04}m'", rollback_elapsed_time.as_secs(), rollback_elapsed_time.subsec_millis();
+                        "rollback_slot_number" => %slot_number,
+                    );
                 }
             }
         }
