@@ -7,20 +7,28 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-pub(crate) fn generate_params(k: u32, path: &str, format: SerdeFormat) -> ParamsKZG<Bls12> {
+pub(crate) fn generate_params(
+    k: u32,
+    path: &str,
+    format: SerdeFormat,
+    case_name: &str,
+) -> ParamsKZG<Bls12> {
     let parent = std::path::Path::new(path).parent().expect("No parent directory.");
     let params: ParamsKZG<Bls12> = ParamsKZG::unsafe_setup(k, ChaCha20Rng::seed_from_u64(42));
     fs::create_dir_all(parent).expect("Failed to create the directories.");
-    // Use a PID-unique temp file so concurrent processes don't corrupt each other's writes.
-    // The rename at the end is atomic on Linux: readers see either the complete file or nothing.
-    let tmp_path = format!("{}.tmp.{}", path, std::process::id());
+    // Uses the name of the higher level test calling the function to create a temporary file
+    // storing the srs and renames the file once it is done being written
+    // The rename at the end is atomic on most config so it should be possible to access the file
+    // during the renaming when several tests create the same file
+    let tmp_path = format!("{}.tmp.{}", path, case_name);
     {
         let file = File::create(&tmp_path).expect("Failed to create the temp SRS file.");
         let mut writer = BufWriter::new(file);
         params
             .write_custom(&mut writer, format)
             .expect("Failed to write the SRS in the temp file.");
-    } // BufWriter flushed and File closed here before the rename
+    }
+    // Rename the temporary file holding the srs to the actual file
     fs::rename(&tmp_path, path).expect("Failed to atomically rename SRS temp file.");
 
     params
