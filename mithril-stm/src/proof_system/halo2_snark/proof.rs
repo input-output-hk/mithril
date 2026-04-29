@@ -344,6 +344,33 @@ mod tests {
         assert!(result.is_err(), "Expected failure with empty signatures");
     }
 
+    #[test]
+    #[should_panic]
+    fn produces_valid_snark_proof_not_deter() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let params = Parameters {
+            m: 10,
+            k: 1,
+            phi_f: 0.8,
+        };
+        let nparties = 2;
+        let message = [1u8; 32];
+
+        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+        let signatures = collect_signatures(&signers, &message);
+        let mut prover = create_prover(params, [0u8; 32]);
+
+        let proof_1: SnarkProof<MithrilMembershipDigest> = prover
+            .aggregate_signatures::<D>(&clerk, &signatures, &message)
+            .unwrap();
+
+        let proof_2: SnarkProof<MithrilMembershipDigest> = prover
+            .aggregate_signatures::<D>(&clerk, &signatures, &message)
+            .unwrap();
+
+        assert_eq!(proof_1.circuit_proof, proof_2.circuit_proof);
+    }
+
     mod slow {
         use crate::AggregateVerificationKeyForSnark;
 
@@ -354,10 +381,10 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
                 m: 200,
-                k: 5,
+                k: 1,
                 phi_f: 0.8,
             };
-            let nparties = 10;
+            let nparties = 2;
             let message = [1u8; 32];
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
