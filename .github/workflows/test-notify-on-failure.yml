@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Write HTML body to file
         run: |
@@ -24,7 +24,7 @@ jobs:
           EOF
 
       - name: Send failure notification via Mailgun
-        uses: dawidd6/action-send-mail@v6
+        uses: dawidd6/action-send-mail@v17
         with:
           server_address: ${{ vars.CI_NOTIFICATION_SMTP_SERVER }}
           server_port: ${{ vars.CI_NOTIFICATION_SMTP_PORT }}

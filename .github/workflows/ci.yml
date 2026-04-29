@@ -31,7 +31,7 @@ jobs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -69,7 +69,7 @@ jobs:
           cargo deb --no-build --package mithril-relay --target=${{ matrix.musl_target }}
 
       - name: Publish Debian packages
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mithril-deb-packages-${{ runner.os }}-${{ runner.arch }}
           path: target/debian/*.deb
@@ -77,7 +77,7 @@ jobs:
 
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
           path: |
@@ -111,7 +111,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -183,7 +183,7 @@ jobs:
           wasm-pack test --node mithril-client-wasm --release --features test-node
 
       - name: Publish Mithril Distribution (WASM)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mithril-distribution-wasm
           path: |
@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -318,7 +318,7 @@ jobs:
           - deny-args: ""
             manifest-path: mithril-client-wasm/Cargo.toml
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
@@ -400,16 +400,16 @@ jobs:
             extra_args: "--mithril-era-regenesis-on-switch --aggregate-signature-type=Concatenation"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download binaries
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
 
       - name: Download rust test runner
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
           path: ./
@@ -423,7 +423,7 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           shell: bash
           max_attempts: 3
@@ -454,7 +454,7 @@ jobs:
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-mode_${{ matrix.mode }}-era_${{ matrix.era }}-cardano-${{ matrix.cardano_node_version }}-fork-${{  matrix.hard_fork_latest_era_at_epoch }}-run_id_${{ matrix.run_id }}
           path: |
@@ -501,20 +501,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get short SHA
         id: slug
         run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -522,7 +522,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
@@ -530,19 +530,19 @@ jobs:
             type=raw,value=${{ github.base_ref || github.ref_name }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Download built artifacts (Linux-X64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}/bin-linux-amd64
 
       - name: Download built artifacts (Linux-ARM64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-Linux-ARM64
           path: ${{ matrix.project }}/bin-linux-arm64
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
@@ -555,7 +555,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
@@ -582,7 +582,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -614,7 +614,7 @@ jobs:
       - publish-npm-test
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Prepare packaging
         run: mkdir package
@@ -624,43 +624,43 @@ jobs:
         run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Download built artifacts (Linux-X64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-Linux-X64
           path: ./package-Linux-X64
 
       - name: Download Debian packages (Linux-X64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-deb-packages-Linux-X64
           path: ./package
 
       - name: Download built artifacts (Linux-ARM64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-Linux-ARM64
           path: ./package-Linux-ARM64
 
       - name: Download Debian packages (Linux-ARM64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-deb-packages-Linux-ARM64
           path: ./package
 
       - name: Download built artifacts (macOS-ARM64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-macOS-ARM64
           path: ./package-macOS-ARM64
 
       - name: Download built artifacts (Windows-X64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
 
       - name: Download built artifacts (Explorer)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: explorer-build
           path: ./package-explorer
@@ -684,7 +684,7 @@ jobs:
           fi
 
       - name: Update unstable release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: unstable
@@ -745,7 +745,7 @@ jobs:
         working-directory: mithril-infra
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Docker image id
         run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
@@ -821,7 +821,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -865,7 +865,7 @@ jobs:
           wait-for-processing: true
 
       - name: Publish Mithril-rust-doc
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mithril-rust-doc
           if-no-files-found: error
@@ -876,7 +876,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -895,7 +895,7 @@ jobs:
           npm run build
 
       - name: Publish Docusaurus build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: docusaurus-build
           if-no-files-found: error
@@ -907,10 +907,10 @@ jobs:
     needs: build-test-wasm
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download built artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-distribution-wasm
           path: mithril-client-wasm
@@ -939,7 +939,7 @@ jobs:
         run: make build
 
       - name: Publish Explorer build (stable)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: explorer-build
           if-no-files-found: error
@@ -954,7 +954,7 @@ jobs:
         run: make build
 
       - name: Publish Explorer build (unstable)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: explorer-build-unstable
           if-no-files-found: error
@@ -965,7 +965,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Build OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
@@ -976,7 +976,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish OpenAPI UI build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: openapi-ui-build
           if-no-files-found: error
@@ -992,15 +992,22 @@ jobs:
       - build-test-explorer
       - build-open-api-ui
       - check
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - name: Download mithril-rust-doc artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: mithril-rust-doc
           path: ./github-pages/rust-doc
 
       - name: Download Docusaurus build
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: docusaurus-build
           path: ./github-pages/doc
@@ -1018,27 +1025,33 @@ jobs:
           tar xvf mithril-explorer-${LAST_DISTRIBUTION}.tar.gz --directory=./github-pages/explorer/
 
       - name: Download Explorer build (unstable)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: explorer-build-unstable
           path: ./github-pages/explorer/unstable
 
       - name: Download OpenAPI UI build
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: openapi-ui-build
           path: ./github-pages/openapi-ui
 
-      - name: Add CNAME & Redirect
+      - name: Add CNAME, .nojekyll & Redirect
         run: |
           echo "mithril.network" > ./github-pages/CNAME
+          touch ./github-pages/.nojekyll
           echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
           # Remove the index.html from the url to avoid a display issue that duplicates the content of the page
           sed -i '1s/^/<script type="text\/javascript"> if (window.location.href.endsWith("\/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("\/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } <\/script>\n/' ./github-pages/doc/index.html
 
-      - name: Mithril / Publish GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
-          force_orphan: true
+          path: ./github-pages
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
