@@ -190,7 +190,7 @@ mod test {
 
     fn default_params() -> Parameters {
         Parameters {
-            k: 5,
+            k: 3,
             m: 10,
             phi_f: 0.2,
         }

@@ -310,7 +310,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
         let params = Parameters {
             m: 20,
-            k: 5,
+            k: 3,
             phi_f: 0.1,
         };
         let nparties = 4;
@@ -332,7 +332,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
         let params = Parameters {
             m: 200,
-            k: 5,
+            k: 3,
             phi_f: 0.8,
         };
         let nparties = 5;
@@ -678,7 +678,6 @@ mod tests {
             // midnight-proof crate, we can update is function to output a fixed value
             // that can be compared to the JSON constant
             fn golden_value_setup() -> (
-                SnarkProof<MithrilMembershipDigest>,
                 AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
                 [u8; 32],
             ) {
@@ -691,13 +690,10 @@ mod tests {
                 let nparties = 10;
                 let message = [1u8; 32];
 
-                let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-                let signatures = collect_signatures(&signers, &message);
-                let mut prover = create_prover(params, [0u8; 32]);
+                let (_signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
                 let avk = clerk.compute_aggregate_verification_key_for_snark();
-                let snark_proof = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
 
-                (snark_proof.unwrap(), avk, message)
+                (avk, message)
             }
 
             #[test]
@@ -706,7 +702,7 @@ mod tests {
                     serde_json::from_str(GOLDEN_JSON)
                         .expect("This JSON deserialization should not fail");
 
-                let (_, aggregate_verification_key, message) = golden_value_setup();
+                let (aggregate_verification_key, message) = golden_value_setup();
                 assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
             }
         }

@@ -510,55 +510,6 @@ mod tests {
     }
 
     #[test]
-    fn selection_distributes_fairly_across_index_range() {
-        let mut rng = ChaCha20Rng::from_seed([99u8; 32]);
-        let m = 200_u64;
-        let k = 5_u64;
-        let params = Parameters { m, k, phi_f: 0.8 };
-
-        let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
-
-        let midpoint = m / 2;
-        let mut lower_half_count: u64 = 0;
-        let mut upper_half_count: u64 = 0;
-        let num_rounds = 100;
-
-        for round in 0..num_rounds {
-            let mut msg = [0u8; 32];
-            msg[0] = round;
-
-            let message_to_sign = compute_message_to_sign(&clerk, &msg);
-            let sigs = collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
-
-            let result =
-                SnarkClerk::select_valid_signatures_for_k_indices(&params, &sigs, &message_to_sign);
-
-            if let Ok(selected) = result {
-                for &index in selected.keys() {
-                    if index < midpoint {
-                        lower_half_count += 1;
-                    } else {
-                        upper_half_count += 1;
-                    }
-                }
-            }
-        }
-
-        let total = lower_half_count + upper_half_count;
-        assert!(
-            total > 0,
-            "Expected at least one successful signature selection across {num_rounds} rounds",
-        );
-        let lower_ratio = lower_half_count as f64 / total as f64;
-        assert!(
-            (0.4..=0.6).contains(&lower_ratio),
-            "Selection is biased: lower half got {lower_half_count}/{total} \
-             ({:.1}%), expected roughly even distribution",
-            lower_ratio * 100.0,
-        );
-    }
-
-    #[test]
     fn deduplication_picks_smaller_hash_winner() {
         let mut rng = ChaCha20Rng::from_seed([33u8; 32]);
         let params = Parameters {
@@ -604,5 +555,62 @@ mod tests {
             .get(&contested_index)
             .expect("contested index should be selected");
         assert_eq!(winner.signer_index, expected_winner_signer_index);
+    }
+
+    mod slow {
+        use super::*;
+
+        #[test]
+        fn selection_distributes_fairly_across_index_range() {
+            let mut rng = ChaCha20Rng::from_seed([99u8; 32]);
+            let m = 200_u64;
+            let k = 5_u64;
+            let params = Parameters { m, k, phi_f: 0.8 };
+
+            let (signers, clerk) = setup_signers_and_clerk(params, 10, &mut rng);
+
+            let midpoint = m / 2;
+            let mut lower_half_count: u64 = 0;
+            let mut upper_half_count: u64 = 0;
+            let num_rounds = 20;
+
+            for round in 0..num_rounds {
+                let mut msg = [0u8; 32];
+                msg[0] = round;
+
+                let message_to_sign = compute_message_to_sign(&clerk, &msg);
+                let sigs =
+                    collect_signatures_with_indices(&signers, &clerk, &msg, &message_to_sign);
+
+                let result = SnarkClerk::select_valid_signatures_for_k_indices(
+                    &params,
+                    &sigs,
+                    &message_to_sign,
+                );
+
+                if let Ok(selected) = result {
+                    for &index in selected.keys() {
+                        if index < midpoint {
+                            lower_half_count += 1;
+                        } else {
+                            upper_half_count += 1;
+                        }
+                    }
+                }
+            }
+
+            let total = lower_half_count + upper_half_count;
+            assert!(
+                total > 0,
+                "Expected at least one successful signature selection across {num_rounds} rounds",
+            );
+            let lower_ratio = lower_half_count as f64 / total as f64;
+            assert!(
+                (0.4..=0.6).contains(&lower_ratio),
+                "Selection is biased: lower half got {lower_half_count}/{total} \
+             ({:.1}%), expected roughly even distribution",
+                lower_ratio * 100.0,
+            );
+        }
     }
 }

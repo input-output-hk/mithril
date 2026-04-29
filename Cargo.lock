@@ -4608,7 +4608,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.10.9"
+version = "0.10.10"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
