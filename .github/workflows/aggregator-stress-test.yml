@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Prepare environment variables
         id: prepare
@@ -62,7 +62,7 @@ jobs:
           toolchain: stable
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v21
         with:
           name: mithril-distribution-Linux-X64
           path: ./bin
@@ -72,7 +72,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download test runners
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v21
         with:
           name: mithril-tooling-Linux-X64
           path: ./bin
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload stress test artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: aggregator-stress-test-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}
           path: |

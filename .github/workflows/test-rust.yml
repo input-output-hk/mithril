@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2 # Needed to get the diff of the last commit, which is used to filter out slow tests
 
@@ -94,7 +94,7 @@ jobs:
           mv target/nextest/ci/tests-result.junit.xml test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}.xml
 
       - name: Upload Tests Results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: success() || failure()
         with:
           name: test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}
@@ -108,7 +108,7 @@ jobs:
     steps:
       - name: Download Tests Results
         if: success() || failure()
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: test-results-*
           merge-multiple: true

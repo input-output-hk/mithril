@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get short SHA
         id: slug
@@ -74,13 +74,13 @@ jobs:
           git checkout ${{ inputs.commit_sha }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v21
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}/bin-linux-amd64
@@ -89,7 +89,7 @@ jobs:
           workflow_conclusion: completed
 
       - name: Download built artifacts (Linux-arm64)
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v21
         with:
           name: mithril-distribution-Linux-ARM64
           path: ${{ matrix.project }}/bin-linux-arm64
@@ -98,7 +98,7 @@ jobs:
           workflow_conclusion: completed
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -106,7 +106,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
@@ -114,7 +114,7 @@ jobs:
             type=raw,value=test-${{ inputs.distribution_code }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
