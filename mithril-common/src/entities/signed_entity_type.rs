@@ -210,7 +210,7 @@ impl TryToBytes for SignedEntityType {
 }
 
 impl SignedEntityTypeDiscriminants {
-    /// Get all the discriminants
+    /// Get all the discriminants without unstable values
     pub fn all() -> BTreeSet<Self> {
         Self::iter_all().collect()
     }
