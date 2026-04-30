@@ -1,8 +1,8 @@
-//! Tests that the circuit correctly enforces certificate proof validity in non-genesis steps.
+//! Tests that the circuit correctly enforces previous IVC proof validity in non-genesis steps.
 //!
 //! Fast tests confirm that the verifier accepts stored proofs with a valid
-//! certificate proof for both same-epoch and next-epoch transitions. Slow tests
-//! use the real prover to confirm that a tampered certificate proof is rejected
+//! previous IVC proof for both same-epoch and next-epoch transitions. Slow tests
+//! use the real prover to confirm that a tampered previous IVC proof is rejected
 //! at the KZG opening check.
 
 use midnight_circuits::types::Instantiable;
@@ -31,8 +31,8 @@ use crate::circuits::halo2_ivc::{
 };
 
 /// Loads a step output via `load_step_output` and asserts the verifier accepts
-/// the proof, confirming the certificate proof is correctly folded into the step.
-fn assert_valid_certificate_proof_is_accepted(
+/// the proof, confirming the previous IVC proof is correctly folded into the step.
+fn assert_valid_previous_ivc_proof_is_accepted(
     load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
     load_label: &str,
     acceptance_message: &str,
@@ -62,24 +62,24 @@ fn assert_valid_certificate_proof_is_accepted(
 }
 
 #[test]
-fn same_epoch_step_with_valid_certificate_proof_is_accepted() {
+fn same_epoch_step_with_valid_previous_ivc_proof_is_accepted() {
     // Asset-based check that the verifier accepts the stored same-epoch proof,
-    // confirming a valid certificate proof is correctly folded in a same-epoch step.
-    assert_valid_certificate_proof_is_accepted(
+    // confirming a valid previous IVC proof is correctly folded in a same-epoch step.
+    assert_valid_previous_ivc_proof_is_accepted(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        "same-epoch step with a valid certificate proof should be accepted by the verifier",
+        "same-epoch step with a valid previous IVC proof should be accepted by the verifier",
     );
 }
 
 #[test]
-fn next_epoch_step_with_valid_certificate_proof_is_accepted() {
+fn next_epoch_step_with_valid_previous_ivc_proof_is_accepted() {
     // Asset-based check that the verifier accepts the stored next-epoch proof,
-    // confirming a valid certificate proof is correctly folded in a next-epoch step.
-    assert_valid_certificate_proof_is_accepted(
+    // confirming a valid previous IVC proof is correctly folded in a next-epoch step.
+    assert_valid_previous_ivc_proof_is_accepted(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        "next-epoch step with a valid certificate proof should be accepted by the verifier",
+        "next-epoch step with a valid previous IVC proof should be accepted by the verifier",
     );
 }
 
@@ -87,20 +87,20 @@ mod slow {
     use super::*;
 
     /// Builds a fresh non-genesis circuit with `build_cert_data`, flips one byte
-    /// in the returned `certificate_proof`, then asserts the verifier rejects the
-    /// resulting proof.
+    /// in the stored previous IVC proof (`recursive_chain_state.proof`), then
+    /// asserts the verifier rejects the resulting proof.
     ///
     /// `build_cert_data` receives the deterministic setup, the shared recursive
     /// setup, and the stored chain-state asset, and returns the certificate proof,
     /// accumulator, next state, and IVC witness for that step, allowing each test
     /// to choose the transition variant it covers.
     ///
-    /// Public inputs are built from the **correct** certificate accumulator so the
-    /// circuit's in-circuit accumulator (derived from the tampered bytes) diverges
-    /// from the committed value. The halo2 prover does not check constraint
-    /// satisfaction, so it succeeds; the KZG opening check in the verifier then
-    /// returns false.
-    fn assert_tampered_certificate_proof_is_rejected(
+    /// Public inputs are built from the **correct** accumulators (certificate and
+    /// previous IVC) so the circuit's in-circuit accumulator (derived from the
+    /// tampered previous IVC proof bytes) diverges from the committed value. The
+    /// halo2 prover does not check constraint satisfaction, so it succeeds; the
+    /// KZG opening check in the verifier then returns false.
+    fn assert_tampered_previous_ivc_proof_is_rejected(
         build_cert_data: impl FnOnce(
             &AssetGenerationSetup,
             &RecursiveMockProverSetup,
@@ -116,10 +116,11 @@ mod slow {
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let (mut cert_proof, cert_accumulator, next_state, ivc_witness) =
+        let (cert_proof, cert_accumulator, next_state, ivc_witness) =
             build_cert_data(&setup, &mock_prover_setup, &recursive_chain_state);
 
-        cert_proof[0] ^= 0xFF;
+        let mut self_proof = recursive_chain_state.proof.clone();
+        self_proof[0] ^= 0xFF;
 
         let next_accumulator = compute_expected_next_accumulator(
             &mock_prover_setup,
@@ -132,7 +133,7 @@ mod slow {
             recursive_chain_state.state.clone(),
             ivc_witness,
             cert_proof,
-            recursive_chain_state.proof.clone(),
+            self_proof,
             recursive_chain_state.accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
@@ -166,11 +167,11 @@ mod slow {
     }
 
     #[test]
-    fn same_epoch_step_rejects_tampered_certificate_proof() {
-        // Real prover: confirms that the circuit enforces certificate proof validity
-        // in a same-epoch step; a single flipped byte in the certificate proof
+    fn same_epoch_step_rejects_tampered_previous_ivc_proof() {
+        // Real prover: confirms that the circuit enforces previous IVC proof validity
+        // in a same-epoch step; a single flipped byte in the previous IVC proof
         // bytes causes the KZG opening check in the verifier to fail.
-        assert_tampered_certificate_proof_is_rejected(
+        assert_tampered_previous_ivc_proof_is_rejected(
             |setup, mock, chain_state| {
                 build_same_epoch_certificate_asset_data(
                     setup,
@@ -181,16 +182,16 @@ mod slow {
                     &mut rand_core::OsRng,
                 )
             },
-            "same-epoch step with a tampered certificate proof should be rejected by the verifier",
+            "same-epoch step with a tampered previous IVC proof should be rejected by the verifier",
         );
     }
 
     #[test]
-    fn next_epoch_step_rejects_tampered_certificate_proof() {
-        // Real prover: confirms that the circuit enforces certificate proof validity
-        // in a next-epoch step; a single flipped byte in the certificate proof
+    fn next_epoch_step_rejects_tampered_previous_ivc_proof() {
+        // Real prover: confirms that the circuit enforces previous IVC proof validity
+        // in a next-epoch step; a single flipped byte in the previous IVC proof
         // bytes causes the KZG opening check in the verifier to fail.
-        assert_tampered_certificate_proof_is_rejected(
+        assert_tampered_previous_ivc_proof_is_rejected(
             |setup, mock, chain_state| {
                 build_next_certificate_asset_data(
                     setup,
@@ -201,7 +202,7 @@ mod slow {
                     &mut rand_core::OsRng,
                 )
             },
-            "next-epoch step with a tampered certificate proof should be rejected by the verifier",
+            "next-epoch step with a tampered previous IVC proof should be rejected by the verifier",
         );
     }
 }
