@@ -6,6 +6,7 @@ use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
+use tempfile::NamedTempFile;
 
 pub(crate) fn generate_params(
     k: u32,
@@ -20,22 +21,24 @@ pub(crate) fn generate_params(
     // storing the srs and renames the file once it is done being written
     // The rename at the end is atomic on most config so it should be possible to access the file
     // during the renaming when several tests create the same file
-    let tmp_path = format!("{}.tmp.{}", path, case_name);
+    let mut tmp_path = NamedTempFile::new_in(format!("{}.tmp.{}", path, case_name))
+        .expect("Failed to generate temporary file to store the SRS");
     {
-        let file = File::create(&tmp_path).expect("Failed to create the temp SRS file.");
-        let mut writer = BufWriter::new(file);
+        let mut writer = BufWriter::new(tmp_path.as_file_mut());
         params
             .write_custom(&mut writer, format)
-            .expect("Failed to write the SRS in the temp file.");
+            .expect("Failed to write the SRS in the temporary file.");
     }
     // Rename the temporary file holding the srs to the actual file
-    fs::rename(&tmp_path, path).expect("Failed to atomically rename SRS temp file.");
+    tmp_path
+        .persist(path)
+        .expect("Failed to atomically rename SRS temp file.");
 
     params
 }
 
 pub(crate) fn load_params(path: &str, format: SerdeFormat) -> ParamsKZG<Bls12> {
-    let file = File::open(path).unwrap();
+    let file = File::open(path).expect("Failed to open the SRS file.");
     let mut reader = BufReader::new(file);
     ParamsKZG::read_custom(&mut reader, format)
         .expect("Failure while reading the SRS file during tests!")
