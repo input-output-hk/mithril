@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::fmt::Display;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -72,6 +73,12 @@ impl NodeVersion {
         let version_req =
             semver::VersionReq::parse(&format!(">={min_version}, <{max_version}")).unwrap();
         version_req.matches(&self.semver_version)
+    }
+}
+
+impl Display for NodeVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.semver_version)
     }
 }
 
@@ -160,5 +167,11 @@ mod tests {
         let version = parse_semver_version_from_process_output("test-program", output).unwrap();
 
         assert_eq!(semver::Version::parse("1.24.109+2f7e87").unwrap(), version);
+    }
+
+    #[test]
+    fn test_fmt_should_display_semver_version() {
+        let version = NodeVersion::new(semver::Version::parse("1.2.3-alpha.1+build.123").unwrap());
+        assert_eq!(version.to_string(), "1.2.3-alpha.1+build.123");
     }
 }

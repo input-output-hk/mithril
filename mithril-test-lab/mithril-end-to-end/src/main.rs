@@ -113,6 +113,10 @@ pub struct Args {
     #[clap(long)]
     run_only: bool,
 
+    /// Will check the ledger snapshot conversion step using utxo-hd snapshot-converter
+    #[clap(long)]
+    check_client_cli_snapshot_converter: bool,
+
     /// Use Mithril relays
     #[clap(long)]
     use_relays: bool,
@@ -364,6 +368,7 @@ impl App {
         let server_port = 8080;
         args.validate()?;
         let run_only_mode = args.run_only;
+        let check_client_cli_snapshot_converter = args.check_client_cli_snapshot_converter;
         let use_relays = args.use_relays;
         let relay_signer_registration_mode = args.relay_signer_registration_mode;
         let relay_signature_registration_mode = args.relay_signature_registration_mode;
@@ -424,6 +429,7 @@ impl App {
                 signed_entity_types: args.signed_entity_types.clone(),
                 aggregate_signature_type: args.aggregate_signature_type,
                 run_only_mode,
+                check_client_cli_snapshot_converter,
                 use_dmq,
                 dmq_node_flavor: args.dmq_node_flavor,
                 use_relays,

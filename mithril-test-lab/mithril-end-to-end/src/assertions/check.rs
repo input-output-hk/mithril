@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::{Context, anyhow};
 use reqwest::StatusCode;
@@ -21,7 +21,9 @@ use mithril_common::{
 use crate::{
     Aggregator, CardanoBlockCommand, CardanoDbCommand, CardanoDbV2Command,
     CardanoStakeDistributionCommand, CardanoTransactionCommand, CardanoTransactionV2Command,
-    Client, ClientCommand, MithrilStakeDistributionCommand, attempt, utils::AttemptResult,
+    Client, ClientCommand, FullNode, MithrilStakeDistributionCommand, NodeVersion, ToolsCommand,
+    UtxoHdCommand, attempt,
+    utils::{AttemptResult, file_utils::copy_dir_all},
 };
 
 async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
@@ -886,6 +888,52 @@ pub async fn assert_client_can_verify_cardano_stake_distribution(
         ))
         .await?;
     info!("Client downloaded the Cardano stake distribution by hash"; "hash" => hash.to_string());
+
+    Ok(())
+}
+
+pub async fn assert_client_can_convert_the_ledger_snapshot(
+    client: &mut Client,
+    full_node: &FullNode,
+    artifacts_dir: PathBuf,
+    cardano_node_version: NodeVersion,
+) -> StdResult<()> {
+    if client.version().is_below("0.13.10") {
+        warn!("Client version is below 0.13.10, skipping snapshot conversion check");
+        return Ok(());
+    }
+
+    let utxo_hd_flavor = if cardano_node_version.is_below("10.7.0") {
+        "LMDB"
+    } else {
+        "LSM"
+    };
+
+    let binary_path = artifacts_dir.join("bin").join("snapshot-converter");
+
+    //copy the db to another temporary location to avoid any risk of modifying the original one during the conversion process
+    let db_to_convert = artifacts_dir.join("db_to_convert");
+    copy_dir_all(&full_node.db_path, &db_to_convert).with_context(|| {
+        format!(
+            "Failed to copy the ledger state database from `{}` to `{}` for the snapshot conversion process",
+            full_node.db_path.display(),
+            db_to_convert.display()
+        )
+    })?;
+
+    client
+        .run(ClientCommand::Tools(ToolsCommand::UtxoHd(
+            UtxoHdCommand::SnapshotConverter {
+                db_directory: db_to_convert.to_string_lossy().to_string(),
+                cardano_node_version: cardano_node_version.to_string(),
+                binary_path: binary_path.to_string_lossy().to_string(),
+                config_path: full_node.snapshot_converter_config_path.to_string_lossy().to_string(),
+                utxo_hd_flavor: utxo_hd_flavor.to_string(),
+                commit: true,
+            },
+        )))
+        .await?;
+    info!("Client converted the ledger state into {utxo_hd_flavor} format");
 
     Ok(())
 }
