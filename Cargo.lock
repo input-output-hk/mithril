@@ -4608,7 +4608,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.10.11"
+version = "0.10.12"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
@@ -4638,6 +4638,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "subtle",
+ "tempfile",
  "thiserror 2.0.18",
 ]
 
