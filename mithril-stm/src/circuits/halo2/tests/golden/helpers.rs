@@ -551,7 +551,7 @@ pub(crate) fn setup_stm_circuit_env(
     k: u32,
     m: u32,
 ) -> StmResult<StmCircuitEnv> {
-    let srs = load_or_generate_params(circuit_degree, case_name)?;
+    let srs = load_or_generate_params(circuit_degree)?;
 
     let num_signers: usize = DEFAULT_NUM_SIGNERS;
     let depth = num_signers.next_power_of_two().trailing_zeros();
@@ -670,7 +670,7 @@ pub(crate) fn run_stm_circuit_case(
 }
 
 // Load cached KZG params if present; otherwise generate and persist them for reuse.
-fn load_or_generate_params(circuit_degree: u32, case_name: &str) -> StmResult<ParamsKZG<Bls12>> {
+fn load_or_generate_params(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
     let path = assets_dir.join(format!("params_kzg_unsafe_{}", circuit_degree));
@@ -694,7 +694,6 @@ fn load_or_generate_params(circuit_degree: u32, case_name: &str) -> StmResult<Pa
         circuit_degree,
         path.to_string_lossy().as_ref(),
         SerdeFormat::RawBytesUnchecked,
-        case_name,
     ))
 }
 
