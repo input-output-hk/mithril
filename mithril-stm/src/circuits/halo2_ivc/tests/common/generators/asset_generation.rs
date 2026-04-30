@@ -9,8 +9,9 @@ use super::proofs::{
     verify_and_prepare_poseidon_ivc,
 };
 use super::setup::{
-    AssetGenerationSetup, AssetPaths, INITIAL_CHAIN_LENGTH, build_recursive_fixed_bases,
-    build_recursive_global, build_recursive_proving_key, build_shared_recursive_context,
+    AssetGenerationSetup, AssetPaths, GENESIS_EPOCH, INITIAL_CHAIN_LENGTH,
+    build_recursive_fixed_bases, build_recursive_global, build_recursive_proving_key,
+    build_shared_recursive_context,
 };
 use super::transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
@@ -54,7 +55,7 @@ fn build_certificate_chain_artifacts(
 ) -> CertificateChainArtifacts {
     let mut certificate_proofs = vec![vec![]];
     let mut certificate_accumulators = vec![trivial_acc(recursive_fixed_base_names)];
-    let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, 5u64)];
+    let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, GENESIS_EPOCH)];
     let mut recursive_witnesses = vec![build_genesis_base_case_witness(setup)];
     let mut certificate_random_generator = OsRng;
 
@@ -510,7 +511,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
     );
 
     let genesis_witness = build_genesis_base_case_witness(setup);
-    let genesis_next_state = build_genesis_base_case_next_state(setup, 5u64);
+    let genesis_next_state = build_genesis_base_case_next_state(setup, GENESIS_EPOCH);
     let current_accumulator = trivial_acc(&combined_fixed_base_names);
     let next_accumulator = current_accumulator.clone();
 

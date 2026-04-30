@@ -14,10 +14,10 @@ use crate::circuits::halo2_ivc::tests::common::{
         load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
     },
     generators::{
-        AssetGenerationSetup, build_asset_generation_setup, build_genesis_base_case_next_state,
-        build_genesis_base_case_witness, build_next_certificate_asset_data,
-        build_same_epoch_certificate_asset_data, next_message_and_preimage_for_step,
-        next_state_for_step,
+        AssetGenerationSetup, GENESIS_EPOCH, build_asset_generation_setup,
+        build_genesis_base_case_next_state, build_genesis_base_case_witness,
+        build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
+        next_message_and_preimage_for_step, next_state_for_step,
     },
     helpers::{
         RecursiveMockProverSetup, assert_recursive_mock_prover_accepts,
@@ -173,7 +173,7 @@ mod slow {
 
         let public_inputs = [
             mock_prover_setup.global.as_public_input(),
-            build_genesis_base_case_next_state(&setup, 5u64).as_public_input(),
+            build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();

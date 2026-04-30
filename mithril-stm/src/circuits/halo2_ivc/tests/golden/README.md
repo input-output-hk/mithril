@@ -38,11 +38,9 @@ The current asset set is:
 
 ## Dependency Order
 
-Assets 1–3 are independent. Assets 4 and 5 both require asset 3 first:
-
-1. `verification_context.bin`
-2. `genesis_step_output.bin`
-3. `recursive_chain_state.bin`
+1. `verification_context.bin` — no dependencies
+2. `genesis_step_output.bin` — no dependencies
+3. `recursive_chain_state.bin` — no dependencies
 4. `same_epoch_step_output.bin` — depends on `recursive_chain_state.bin`
 5. `recursive_step_output.bin` — depends on `recursive_chain_state.bin`
 
