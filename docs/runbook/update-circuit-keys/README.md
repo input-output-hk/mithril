@@ -26,8 +26,8 @@ Reviewers:
 Commands to run the integrity tests:
 
 ```bash
-cargo test -p mithril-stm --lib --features future_snark --release integrity_test_for_non_recursive_production_key -- --ignored
-cargo test -p mithril-stm --lib --features future_snark --release integrity_test_for_recursive_production_key -- --ignored
+cargo test -p mithril-stm --features future_snark --release integrity_test_for_non_recursive_production_key -- --ignored
+cargo test -p mithril-stm --features future_snark --release integrity_test_for_recursive_production_key -- --ignored
 ```
 
 Release manager:
