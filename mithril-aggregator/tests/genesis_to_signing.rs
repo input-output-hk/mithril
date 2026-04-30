@@ -2,14 +2,20 @@ mod test_extensions;
 
 use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
-    entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
+    entities::{
+        BlockNumber, ChainPoint, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+        SlotNumber, TimePoint,
+    },
     temp_dir,
-    test::builder::MithrilFixtureBuilder,
+    test::{
+        builder::MithrilFixtureBuilder,
+        entities_extensions::SignedEntityTypeDiscriminantsTestExtension,
+    },
 };
 use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};
 
 #[tokio::test]
-async fn genesis_to_signing() {
+async fn genesis_to_signing_with_all_signed_entities() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
@@ -17,7 +23,8 @@ async fn genesis_to_signing() {
     };
     let configuration = ServeCommandConfiguration {
         protocol_parameters: Some(protocol_parameters.clone()),
-        data_stores_directory: get_test_dir("genesis_to_signing"),
+        data_stores_directory: get_test_dir("genesis_to_signing_with_all_signed_entities"),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::all_with_unstable_string(",")),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
