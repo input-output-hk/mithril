@@ -271,13 +271,20 @@ impl MithrilInfrastructure {
             dmq_node_flavor: &config.dmq_node_flavor,
         })?;
 
-        aggregator
-            .set_protocol_parameters(&ProtocolParameters {
+        let protocol_parameters_new = if aggregator.aggregate_signature_type == "Concatenation" {
+            ProtocolParameters {
                 k: 70,
                 m: 105,
                 phi_f: 0.95,
-            })
-            .await;
+            }
+        } else {
+            ProtocolParameters {
+                k: 5,
+                m: 9,
+                phi_f: 0.95,
+            }
+        };
+        aggregator.set_protocol_parameters(&protocol_parameters_new).await;
 
         Ok(aggregator)
     }
