@@ -69,6 +69,7 @@ type CBase = <C as CircuitCurve>::Base;
 
 type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
 
+// Degree of the recursive circuit
 const K: u32 = 19;
 
 pub const PREIMAGE_SIZE: usize = 190;
@@ -96,3 +97,9 @@ type JubjubHashToCurve = HashToCurveGadget<
 type PoseidonHash = PoseidonChip<JubjubBase>;
 
 pub(crate) type Target = JubjubBase;
+
+/// Circuit verification key of the recursive circuit used for production.
+/// It is created using the circuit verification key of the non-recursive
+/// circuit and the SRS from Midnight's power of tau ceremony
+pub const RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION: &[u8] =
+    include_bytes!("recursive_circuit_verification_key_for_production.bin");

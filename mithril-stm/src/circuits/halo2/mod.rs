@@ -27,3 +27,14 @@ pub(crate) mod witness;
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+/// Circuit verification key of the non-recursive circuit used for production.
+/// This key is generated using the Midnight's secure SRS and the following
+/// production parameters:
+/// - m: 16948
+/// - k: 1944
+/// - phi_f: 0.2
+/// - merkle_tree_depth: 13
+///
+pub const NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION: &[u8] =
+    include_bytes!("non_recursive_circuit_verification_key_for_production.bin");

@@ -12,13 +12,6 @@ use midnight_proofs::{
 };
 use midnight_zk_stdlib::MidnightVK;
 
-use super::{
-    asset_readers::RecursiveChainStateAsset,
-    generators::{
-        AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
-        build_shared_recursive_context, certificate_public_inputs_for_step,
-    },
-};
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
@@ -28,6 +21,13 @@ use crate::circuits::halo2_ivc::{
 pub(crate) use super::generators::{
     verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
     verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
+};
+use super::{
+    asset_readers::RecursiveChainStateAsset,
+    generators::{
+        AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
+        build_shared_recursive_context, certificate_public_inputs_for_step,
+    },
 };
 
 /// Shared recursive context reused by MockProver-based golden cases.

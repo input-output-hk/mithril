@@ -139,7 +139,7 @@ fn build_merkle_tree(
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
-pub(super) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
+pub(crate) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
     ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
 }
 

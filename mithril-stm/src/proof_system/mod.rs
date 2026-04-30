@@ -29,10 +29,10 @@ pub(crate) use concatenation::{ConcatenationProofSigner, SingleSignatureForConca
 pub use halo2_snark::AggregateVerificationKeyForSnark;
 
 #[cfg(feature = "future_snark")]
-pub use halo2_snark::SnarkProof;
+pub use halo2_snark::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProof};
 
 #[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
-    MERKLE_TREE_DEPTH_FOR_SNARK, SingleSignatureForSnark, SnarkClerk, SnarkProofSigner,
-    SnarkProver, compute_target_value_for_snark_lottery,
+    SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, SnarkProver,
+    compute_target_value_for_snark_lottery,
 };

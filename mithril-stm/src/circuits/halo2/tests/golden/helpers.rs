@@ -738,3 +738,23 @@ fn get_or_build_circuit_keys(
         .insert(config, key_pair.clone());
     Ok(key_pair)
 }
+
+/// Function used to compute the verification key for tests
+/// It uses an unsafe setup function to create the SRS
+pub(crate) fn compute_unsafe_circuit_verification_key(
+    params: &Parameters,
+    merkle_tree_depth: u32,
+) -> Vec<u8> {
+    const RNG_SEED: u64 = 42;
+    let circuit = StmCircuit::try_new(params, merkle_tree_depth).unwrap();
+    let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+    let srs: ParamsKZG<Bls12> =
+        ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(RNG_SEED));
+
+    let circuit_verification_key = midnight_zk_stdlib::setup_vk(&srs, &circuit);
+    let mut buf_cvk = vec![];
+    circuit_verification_key
+        .write(&mut buf_cvk, SerdeFormat::RawBytes)
+        .unwrap();
+    buf_cvk
+}
