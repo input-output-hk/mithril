@@ -78,7 +78,11 @@ const config = {
         specs: [
           {
             spec: "../../openapi.yaml",
-            route: "/aggregator-api/",
+            route: "/aggregator-api/next",
+          },
+          {
+            spec: "openapi.current.yaml",
+            route: "/aggregator-api/current",
           },
         ],
         theme: {
