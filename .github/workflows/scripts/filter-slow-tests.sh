@@ -90,7 +90,7 @@ readonly COMMIT_REF=${COMMIT_REF:-"origin/main"} ALLOW_ALL
 readonly -a SLOW_MITHRIL_STM_TESTS=(
   "mithril-stm/src/#protocol::aggregate_signature::"
   "mithril-stm/src/circuits/halo2/#circuits::halo2::"
-  "mithril-stm/src/circuits/halo2_ivc#circuits::halo2_ivc::"
+  "mithril-stm/src/circuits/halo2_ivc/#circuits::halo2_ivc::"
   "mithril-stm/src/membership_commitment/merkle_tree#membership_commitment::merkle_tree::"
   "mithril-stm/src/proof_system/halo2_snark#proof_system::halo2_snark::"
   "mithril-stm/src/signature_scheme/bls_multi_signature#signature_scheme::bls_multi_signature::"

@@ -7,7 +7,6 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
-    circuit::IvcCircuit,
     state::{State, Witness},
     tests::common::{
         asset_readers::{
@@ -18,7 +17,8 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
+            assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
+            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
             verify_and_prepare_blake2b_recursive_proof,
         },
     },
@@ -134,23 +134,10 @@ mod slow {
         let mut witness = build_genesis_base_case_witness(&setup);
         tamper(&mut witness);
 
-        let circuit = IvcCircuit::new(
-            mock_prover_setup.global.clone(),
-            State::genesis(),
-            witness,
-            vec![],
-            vec![],
-            mock_prover_setup.trivial_accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
-            &mock_prover_setup.recursive_verifying_key,
-        );
-
-        let public_inputs = [
-            mock_prover_setup.global.as_public_input(),
-            build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
-            AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
-        ]
-        .concat();
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         assert_recursive_mock_prover_rejects(circuit, public_inputs);
     }

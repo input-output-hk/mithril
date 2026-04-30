@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.11 (04-30-2026)
+
+### Added
+
+- Added Layer B state transition tests for the `halo2_ivc` prototype, covering positive and negative transition checks for genesis, same-epoch, and next-epoch steps, including fast asset-based verifier rejections and slow MockProver constraint checks for linkage and hash consistency rules.
+
 ## 0.10.10 (04-28-2026)
 
 ### Changed

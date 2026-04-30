@@ -6,8 +6,10 @@
 //! `golden` groups the committed asset generators and golden test cases that
 //! lock in recursive verification behavior.
 //! `encoding` covers Layer A data and encoding invariants.
+//! `transitions` covers Layer B state transition rules.
 
 mod common;
 mod encoding;
 mod golden;
 mod test_certificate;
+mod transitions;

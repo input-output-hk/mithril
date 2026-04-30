@@ -22,7 +22,7 @@ use super::{
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
-    state::{Global, State, trivial_acc},
+    state::{Global, State, Witness, trivial_acc},
 };
 
 pub(crate) use super::generators::{
@@ -199,6 +199,41 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
     certificate_accumulator.extract_fixed_bases(&setup.certificate_fixed_bases);
     certificate_accumulator.collapse();
     certificate_accumulator
+}
+
+/// Builds an `IvcCircuit` with empty proof slots and a trivial accumulator for
+/// MockProver-based constraint checks.
+///
+/// MockProver evaluates algebraic constraints directly without running the
+/// KZG prover, so embedded proof bytes are irrelevant and can be left empty.
+pub(crate) fn build_trivial_mock_prover_circuit(
+    setup: &RecursiveMockProverSetup,
+    prev_state: State,
+    witness: Witness,
+) -> IvcCircuit {
+    IvcCircuit::new(
+        setup.global.clone(),
+        prev_state,
+        witness,
+        vec![],
+        vec![],
+        setup.trivial_accumulator.clone(),
+        setup.certificate_verifying_key.vk(),
+        &setup.recursive_verifying_key,
+    )
+}
+
+/// Builds the public-input vector for a MockProver-based negative test.
+pub(crate) fn build_mock_prover_public_inputs(
+    setup: &RecursiveMockProverSetup,
+    next_state: &State,
+) -> Vec<F> {
+    [
+        setup.global.as_public_input(),
+        next_state.as_public_input(),
+        AssignedAccumulator::as_public_input(&setup.trivial_accumulator),
+    ]
+    .concat()
 }
 
 /// Recomputes the exact next accumulator from stored step artifacts.

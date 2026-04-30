@@ -68,6 +68,9 @@ const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/verification_context.bin");
 const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/recursive_step_output.bin");
+const GENESIS_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("../assets/genesis_step_output.bin");
+const SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES: &[u8] =
+    include_bytes!("../assets/same_epoch_step_output.bin");
 
 /// Opens a committed golden asset for buffered reading.
 fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {
@@ -339,6 +342,20 @@ pub(crate) fn load_embedded_recursive_step_output_asset() -> StmResult<Recursive
     let mut reader = Cursor::new(RECURSIVE_STEP_OUTPUT_ASSET_BYTES);
     load_recursive_step_output_asset_from_reader(&mut reader)
         .context("failed to decode embedded recursive step output asset")
+}
+
+/// Loads the embedded genesis step output compiled into the test binary.
+pub(crate) fn load_embedded_genesis_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
+    let mut reader = Cursor::new(GENESIS_STEP_OUTPUT_ASSET_BYTES);
+    load_recursive_step_output_asset_from_reader(&mut reader)
+        .context("failed to decode embedded genesis step output asset")
+}
+
+/// Loads the embedded same-epoch step output compiled into the test binary.
+pub(crate) fn load_embedded_same_epoch_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
+    let mut reader = Cursor::new(SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES);
+    load_recursive_step_output_asset_from_reader(&mut reader)
+        .context("failed to decode embedded same-epoch step output asset")
 }
 
 /// Writes the recursive step output asset using the committed binary layout.

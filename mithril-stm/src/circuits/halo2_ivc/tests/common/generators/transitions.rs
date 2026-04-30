@@ -91,75 +91,20 @@ pub(crate) fn build_next_certificate_asset_data(
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (Vec<u8>, Accumulator<S>, State, Witness) {
-    let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
     let merkle_root = recursive_chain_state.next_merkle_root;
     let (message, message_preimage) =
         next_message_and_preimage_for_step(setup, recursive_chain_state);
-    let mut certificate_witness_entries: Vec<CertificateWitnessEntry> = vec![];
-    assert_eq!(
-        merkle_root, setup.genesis_next_merkle_root,
-        "recursive_chain_state next_merkle_root does not match deterministic setup root"
-    );
-    for j in 0..QUORUM_SIZE as usize {
-        let signature = setup.signing_keys[j].sign(&[merkle_root, message], random_generator);
-        let merkle_path = setup.merkle_tree.get_path(j);
-        let computed_root = merkle_path.compute_root(setup.merkle_tree_leaves[j]);
-        assert_eq!(
-            merkle_root, computed_root,
-            "merkle path root mismatch for signer index {j}"
-        );
-        signature
-            .verify(&[merkle_root, message], &setup.merkle_tree_leaves[j].0)
-            .expect("fresh certificate signature should verify");
-        certificate_witness_entries.push((
-            setup.merkle_tree_leaves[j],
-            merkle_path,
-            signature,
-            (j + 1) as u32,
-        ));
-    }
-
     let next_state = next_state_for_step(recursive_chain_state, message);
-    let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg);
-
-    let certificate_proof = zk_lib::prove::<Certificate, PoseidonState<F>>(
+    build_certificate_asset_data_inner(
+        setup,
         certificate_commitment_parameters,
-        &certificate_proving_key,
         certificate_relation,
-        &(certificate_instance[0], certificate_instance[1]),
-        certificate_witness_entries,
-        random_generator,
-    )
-    .expect("Certificate proof generation should not fail");
-
-    let certificate_dual_msm = verify_and_prepare_poseidon_ivc(
-        certificate_verifying_key.vk(),
-        &certificate_proof,
-        &certificate_instance,
-    );
-    assert!(
-        certificate_dual_msm
-            .clone()
-            .check(&certificate_commitment_parameters.verifier_params())
-    );
-    let mut certificate_accumulator: Accumulator<S> = certificate_dual_msm.into();
-    certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
-    certificate_accumulator.collapse();
-
-    let ivc_witness = Witness::new(
-        setup.genesis_signature.clone(),
+        certificate_verifying_key,
         merkle_root,
         message,
-        message_preimage.try_into().unwrap(),
-    );
-
-    (
-        certificate_proof,
-        certificate_accumulator,
+        message_preimage,
         next_state,
-        ivc_witness,
+        random_generator,
     )
 }
 
@@ -173,17 +118,49 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (Vec<u8>, Accumulator<S>, State, Witness) {
     let merkle_root = recursive_chain_state.merkle_root;
-    let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
     let (message, message_preimage) =
         same_epoch_message_and_preimage_for_step(setup, recursive_chain_state);
     let next_state = same_epoch_next_state_for_step(recursive_chain_state, message);
-    let mut certificate_witness_entries: Vec<CertificateWitnessEntry> = vec![];
+    build_certificate_asset_data_inner(
+        setup,
+        certificate_commitment_parameters,
+        certificate_relation,
+        certificate_verifying_key,
+        merkle_root,
+        message,
+        message_preimage,
+        next_state,
+        random_generator,
+    )
+}
+
+/// Shared inner implementation for building certificate asset data.
+///
+/// `merkle_root`, `message`, `message_preimage`, and `next_state` are
+/// pre-computed by the caller according to the transition type. The signing
+/// loop and proof generation are identical for next-epoch and same-epoch steps.
+#[allow(clippy::too_many_arguments)]
+fn build_certificate_asset_data_inner(
+    setup: &AssetGenerationSetup,
+    certificate_commitment_parameters: &ParamsKZG<Bls12>,
+    certificate_relation: &Certificate,
+    certificate_verifying_key: &MidnightVK,
+    merkle_root: F,
+    message: F,
+    message_preimage: Vec<u8>,
+    next_state: State,
+    random_generator: &mut (impl RngCore + CryptoRng),
+) -> (Vec<u8>, Accumulator<S>, State, Witness) {
+    let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
+    let (certificate_fixed_bases, _) =
+        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
+
     assert_eq!(
         merkle_root, setup.genesis_next_merkle_root,
-        "recursive_chain_state next_merkle_root does not match deterministic setup root"
+        "merkle_root does not match deterministic setup root"
     );
+
+    let mut certificate_witness_entries: Vec<CertificateWitnessEntry> = vec![];
     for j in 0..QUORUM_SIZE as usize {
         let signature = setup.signing_keys[j].sign(&[merkle_root, message], random_generator);
         let merkle_path = setup.merkle_tree.get_path(j);
@@ -244,7 +221,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     )
 }
 
-/// Returns the certificate public inputs for one recursive-step transition.
+/// Formats a `(merkle_root, message)` pair as certificate public inputs.
 pub(super) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
     Certificate::format_instance(&(merkle_root, message)).unwrap()
 }
@@ -288,7 +265,7 @@ pub(crate) fn next_message_and_preimage_for_step(
 
 /// Returns the deterministic certificate message and preimage for one
 /// same-epoch recursive step.
-pub(super) fn same_epoch_message_and_preimage_for_step(
+pub(crate) fn same_epoch_message_and_preimage_for_step(
     setup: &AssetGenerationSetup,
     previous_state: &State,
 ) -> (F, Vec<u8>) {
@@ -333,7 +310,7 @@ pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
 }
 
 /// Returns the recursive next state for a same-epoch step.
-pub(super) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
+pub(crate) fn same_epoch_next_state_for_step(previous_state: &State, message: F) -> State {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
 
