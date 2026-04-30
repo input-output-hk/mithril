@@ -58,7 +58,7 @@ and
 cargo test -p mithril-stm --features future_snark --release write_recursive_circuit_verification_key_for_production_to_file -- --ignored
 ```
 
-and save the output of those commands to the constants `NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` and `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION` in `mithril-stm/src/circuits/halo2/mod.rs` and `mithril-stm/src/circuits/halo2_ivc/mod.rs`
+that will update the files holding the values of the production keys, `mithril-stm/src/circuits/halo2/non_recursive_circuit_verification_key_for_production.bin` and `mithril-stm/src/circuits/halo2_ivc/recursive_circuit_verification_key_for_production.bin`.
 
 ## Scheduling of the re-genesis
 
