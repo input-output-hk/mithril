@@ -66,7 +66,7 @@ where
 }
 
 /// Generates a recursive proof using the Poseidon transcript.
-pub(super) fn prove_poseidon_ivc(
+pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,

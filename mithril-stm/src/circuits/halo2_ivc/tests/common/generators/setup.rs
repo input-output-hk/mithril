@@ -198,7 +198,7 @@ pub(crate) fn build_shared_recursive_context(
 }
 
 /// Builds the recursive proving key for the default IVC circuit shape.
-pub(super) fn build_recursive_proving_key(
+pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
     let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk());
