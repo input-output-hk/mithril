@@ -8,16 +8,16 @@
 
 mod error;
 mod jubjub;
-mod signature;
 mod signing_key;
+mod unique_signature;
 mod verification_key;
 
 pub use error::*;
 pub use jubjub::BaseFieldElement;
 pub(crate) use jubjub::DOMAIN_SEPARATION_TAG_SIGNATURE;
 pub(crate) use jubjub::*;
-pub use signature::*;
 pub use signing_key::*;
+pub use unique_signature::*;
 pub use verification_key::*;
 
 #[cfg(test)]
