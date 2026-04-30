@@ -1,12 +1,14 @@
 //! A set of extension traits to add test utilities to this crate `entities`
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+
+use strum::IntoEnumIterator;
 
 use crate::StdResult;
 use crate::crypto_helper::MKTreeStorer;
 use crate::entities::{
     BlockNumber, BlockRange, CardanoBlock, CardanoTransaction, CardanoTransactionsSetProof,
-    IntoMKTreeNode, MkSetProof, ProtocolParameters, SingleSignature,
+    IntoMKTreeNode, MkSetProof, ProtocolParameters, SignedEntityTypeDiscriminants, SingleSignature,
     SingleSignatureAuthenticationStatus, TransactionHash,
 };
 use crate::test::builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
@@ -104,6 +106,32 @@ impl MkSetProofTestExtension<CardanoTransaction> for MkSetProof<CardanoTransacti
         let proof = mk_map.compute_proof(&all_nodes)?;
 
         Ok(MkSetProof::new(leaves.to_vec(), proof))
+    }
+}
+
+/// Extension trait adding test utilities to [SignedEntityTypeDiscriminants]
+pub trait SignedEntityTypeDiscriminantsTestExtension {
+    /// `TEST ONLY` - Get all the discriminants with unstable values
+    fn all_with_unstable() -> BTreeSet<SignedEntityTypeDiscriminants>;
+
+    /// `TEST ONLY` - Get all the discriminants with unstable values as a Vec
+    fn all_with_unstable_vec() -> Vec<SignedEntityTypeDiscriminants> {
+        Self::all_with_unstable().into_iter().collect()
+    }
+
+    /// `TEST ONLY` - Get all the discriminants with unstable values as a String, separated by the given separator
+    fn all_with_unstable_string(separator: &str) -> String {
+        Self::all_with_unstable()
+            .into_iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(separator)
+    }
+}
+
+impl SignedEntityTypeDiscriminantsTestExtension for SignedEntityTypeDiscriminants {
+    fn all_with_unstable() -> BTreeSet<SignedEntityTypeDiscriminants> {
+        SignedEntityTypeDiscriminants::iter().collect()
     }
 }
 
