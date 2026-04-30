@@ -6,7 +6,8 @@ pub(crate) mod setup;
 pub(crate) mod transitions;
 
 pub(crate) use proofs::{
-    prove_poseidon_ivc, verify_and_prepare_blake2b_ivc, verify_and_prepare_poseidon_ivc,
+    prove_blake2b_ivc, prove_poseidon_ivc, verify_and_prepare_blake2b_ivc,
+    verify_and_prepare_poseidon_ivc,
 };
 pub(crate) use setup::{
     AssetGenerationSetup, GENESIS_EPOCH, build_asset_generation_setup, build_recursive_fixed_bases,
