@@ -11,6 +11,7 @@ mod jubjub;
 mod signing_key;
 mod unique_signature;
 mod verification_key;
+mod standard_signature;
 
 pub use error::*;
 pub use jubjub::BaseFieldElement;
