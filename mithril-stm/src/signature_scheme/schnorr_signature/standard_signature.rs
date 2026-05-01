@@ -4,7 +4,7 @@ use crate::StmResult;
 
 use super::{
     BaseFieldElement, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE, PrimeOrderProjectivePoint,
-    ProjectivePoint, ScalarFieldElement, SchnorrVerificationKey, UniqueSchnorrSignatureError,
+    ProjectivePoint, ScalarFieldElement, SchnorrSignatureError, SchnorrVerificationKey,
     compute_poseidon_digest,
 };
 
@@ -57,9 +57,9 @@ impl StandardSchnorrSignature {
         let challenge_recomputed = compute_poseidon_digest(&points_coordinates);
 
         if challenge_recomputed != self.challenge {
-            return Err(anyhow!(
-                UniqueSchnorrSignatureError::StandardSignatureInvalid(Box::new(*self))
-            ));
+            return Err(anyhow!(SchnorrSignatureError::StandardSignatureInvalid(
+                Box::new(*self)
+            )));
         }
 
         Ok(())

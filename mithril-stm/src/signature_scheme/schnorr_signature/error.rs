@@ -4,10 +4,10 @@ use super::{PrimeOrderProjectivePoint, StandardSchnorrSignature, UniqueSchnorrSi
 /// Error types for the Unique Schnorr signatures.
 #[cfg(feature = "future_snark")]
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
-pub enum UniqueSchnorrSignatureError {
+pub enum SchnorrSignatureError {
     /// Invalid Single signature
     #[error("Invalid Unique Schnorr single signature")]
-    SignatureInvalid(Box<UniqueSchnorrSignature>),
+    UniqueSignatureInvalid(Box<UniqueSchnorrSignature>),
 
     /// Invalid Standard signature
     #[error("Invalid Standard Schnorr single signature")]

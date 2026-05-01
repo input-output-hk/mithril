@@ -6,8 +6,8 @@ use crate::StmResult;
 
 use super::{
     BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
-    PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement, SchnorrVerificationKey,
-    StandardSchnorrSignature, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+    PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement, SchnorrSignatureError,
+    SchnorrVerificationKey, StandardSchnorrSignature, UniqueSchnorrSignature,
     compute_poseidon_digest,
 };
 
@@ -159,7 +159,7 @@ impl SchnorrSigningKey {
     /// The bytes must represent a Jubjub scalar or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 32 {
-            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
+            return Err(anyhow!(SchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to re-construct a Schnorr signing key.",
             );
         }
