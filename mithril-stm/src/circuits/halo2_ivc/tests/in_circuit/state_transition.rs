@@ -1,14 +1,12 @@
 //! Tests that the circuit correctly enforces constraints linking the witness,
 //! current state, and next state for same-epoch and next-epoch transitions.
 //!
-//! These MockProver checks confirm that in-circuit arithmetic constraints not
-//! yet covered by Layer B slow tests are wired correctly. Layer B already
-//! covers `merkle_root`, `protocol_params`, and `current_epoch` linkage via
-//! MockProver; the tests here fill the remaining gaps:
+//! All tests are slow MockProver checks confirming the arithmetic constraint
+//! wiring for the following in-circuit invariants:
 //!
-//! `next_merkle_root` consistency  — same-epoch only; must equal `prev_state.next_merkle_root`.
-//! `next_protocol_params` consistency — same-epoch only; must equal `prev_state.next_protocol_params`.
-//! `msg = SHA256(preimage)` — same-epoch and next-epoch (genesis is covered by Layer B).
+//! `next_merkle_root` consistency    — same-epoch; must equal `prev_state.next_merkle_root`.
+//! `next_protocol_params` consistency — same-epoch; must equal `prev_state.next_protocol_params`.
+//! `msg = Blake2b(preimage)`          — same-epoch and next-epoch.
 
 mod slow {
     use ff::Field;

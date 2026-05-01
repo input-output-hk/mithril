@@ -30,7 +30,11 @@ mod slow {
     /// At genesis (`state.counter = 0`) the circuit gates both proof contributions via
     /// `scale_by_bit(is_not_genesis = 0, acc)`, forcing each accumulator to the group
     /// identity regardless of the supplied bytes.
-    fn assert_genesis_step_accepts_garbage_proof_bytes(cert_proof: Vec<u8>, self_proof: Vec<u8>) {
+    fn assert_genesis_step_accepts_garbage_proof_bytes(
+        cert_proof: Vec<u8>,
+        self_proof: Vec<u8>,
+        acceptance_message: &str,
+    ) {
         let setup = build_asset_generation_setup();
         let context = build_shared_recursive_context(&setup);
         let proving_key = build_recursive_proving_key(&context);
@@ -81,7 +85,7 @@ mod slow {
 
         assert!(
             dual_msm.check(&context.universal_verifier_params),
-            "genesis step with garbage proof bytes should be accepted by the real prover and verifier",
+            "{acceptance_message}",
         );
     }
 
@@ -90,7 +94,11 @@ mod slow {
         // Real prover: confirms that the genesis gating zeroes the certificate proof
         // accumulator contribution when the step counter is zero, so all-zero
         // certificate proof bytes do not prevent proof generation or verification.
-        assert_genesis_step_accepts_garbage_proof_bytes(vec![0u8; 64], vec![]);
+        assert_genesis_step_accepts_garbage_proof_bytes(
+            vec![0u8; 64],
+            vec![],
+            "genesis step with garbage certificate proof bytes should be accepted by the verifier",
+        );
     }
 
     #[test]
@@ -98,6 +106,10 @@ mod slow {
         // Real prover: confirms that the genesis gating zeroes the IVC proof
         // accumulator contribution when the step counter is zero, so all-zero
         // IVC proof bytes do not prevent proof generation or verification.
-        assert_genesis_step_accepts_garbage_proof_bytes(vec![], vec![0u8; 64]);
+        assert_genesis_step_accepts_garbage_proof_bytes(
+            vec![],
+            vec![0u8; 64],
+            "genesis step with garbage IVC proof bytes should be accepted by the verifier",
+        );
     }
 }

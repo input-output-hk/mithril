@@ -94,9 +94,7 @@ mod slow {
         circuit::IvcCircuit,
         tests::common::{
             asset_readers::load_embedded_recursive_chain_state_asset,
-            generators::{
-                build_asset_generation_setup, build_same_epoch_certificate_asset_data,
-            },
+            generators::{build_asset_generation_setup, build_same_epoch_certificate_asset_data},
             helpers::{
                 assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
                 compute_expected_next_accumulator,
