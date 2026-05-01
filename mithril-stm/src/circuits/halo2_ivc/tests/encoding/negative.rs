@@ -19,7 +19,7 @@ use crate::circuits::halo2_ivc::{
         helpers::{
             assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
             build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
-            verify_and_prepare_blake2b_recursive_proof,
+            verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -44,7 +44,7 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -76,7 +76,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -108,7 +108,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,

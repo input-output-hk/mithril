@@ -16,7 +16,7 @@ use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::tests::test_certificate::Certificate;
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 
-use super::proofs::verify_and_prepare_poseidon_ivc;
+use super::proofs::verify_prepare_poseidon_ivc;
 use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 
 type CertificateWitnessEntry = (MerkleTreeLeaf, MerklePath, Signature, u32);
@@ -192,7 +192,7 @@ fn build_certificate_asset_data_inner(
     )
     .expect("Certificate proof generation should not fail");
 
-    let certificate_dual_msm = verify_and_prepare_poseidon_ivc(
+    let certificate_dual_msm = verify_prepare_poseidon_ivc(
         certificate_verifying_key.vk(),
         &certificate_proof,
         &certificate_instance,

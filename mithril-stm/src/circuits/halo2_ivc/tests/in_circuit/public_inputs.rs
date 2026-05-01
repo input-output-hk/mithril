@@ -17,7 +17,7 @@ use crate::circuits::halo2_ivc::{
         },
         helpers::{
             assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
-            build_trivial_mock_prover_circuit, verify_and_prepare_blake2b_recursive_proof,
+            build_trivial_mock_prover_circuit, verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -44,7 +44,7 @@ fn assert_genesis_step_output_rejects_tampered_public_inputs(
 
     let public_inputs = [global, state, acc].concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &genesis_step_output.proof,
         &public_inputs,

@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::{
         },
         helpers::{
             RecursiveMockProverSetup, build_recursive_mock_prover_setup,
-            compute_expected_next_accumulator, verify_and_prepare_blake2b_recursive_proof,
+            compute_expected_next_accumulator, verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -49,7 +49,7 @@ fn assert_valid_previous_ivc_proof_is_accepted(
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &step_output.proof,
         &public_inputs,
@@ -154,7 +154,7 @@ mod slow {
             &mut rand_core::OsRng,
         );
 
-        let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+        let dual_msm = verify_prepare_blake2b_recursive_proof(
             &mock_prover_setup.recursive_verifying_key,
             &proof,
             &public_inputs,
