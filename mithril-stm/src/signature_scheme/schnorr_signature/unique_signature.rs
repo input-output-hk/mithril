@@ -5,8 +5,7 @@ use crate::StmResult;
 
 use super::{
     BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
-    ScalarFieldElement, SchnorrVerificationKey, UniqueSchnorrSignatureError,
-    compute_poseidon_digest,
+    ScalarFieldElement, SchnorrSignatureError, SchnorrVerificationKey, compute_poseidon_digest,
 };
 
 /// Structure of the Unique Schnorr signature to use with the SNARK
@@ -89,7 +88,7 @@ impl UniqueSchnorrSignature {
         let challenge_recomputed = compute_poseidon_digest(&points_coordinates);
 
         if challenge_recomputed != self.challenge {
-            return Err(anyhow!(UniqueSchnorrSignatureError::SignatureInvalid(
+            return Err(anyhow!(SchnorrSignatureError::UniqueSignatureInvalid(
                 Box::new(*self)
             )));
         }
@@ -110,14 +109,14 @@ impl UniqueSchnorrSignature {
     /// Convert bytes into a `UniqueSchnorrSignature`.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 96 {
-            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization))
+            return Err(anyhow!(SchnorrSignatureError::Serialization))
                 .with_context(|| "Not enough bytes provided to create a signature.");
         }
 
         let commitment_point = ProjectivePoint::from_bytes(
             bytes
                 .get(0..32)
-                .ok_or(UniqueSchnorrSignatureError::Serialization)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `commitment_point`")?,
         )
         .with_context(|| "Could not convert bytes to `commitment_point`")?;
@@ -125,7 +124,7 @@ impl UniqueSchnorrSignature {
         let response = ScalarFieldElement::from_bytes(
             bytes
                 .get(32..64)
-                .ok_or(UniqueSchnorrSignatureError::Serialization)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `response`")?,
         )
         .with_context(|| "Could not convert the bytes to `response`")?;
@@ -133,7 +132,7 @@ impl UniqueSchnorrSignature {
         let challenge = BaseFieldElement::from_bytes(
             bytes
                 .get(64..96)
-                .ok_or(UniqueSchnorrSignatureError::Serialization)
+                .ok_or(SchnorrSignatureError::Serialization)
                 .with_context(|| "Could not get the bytes of `challenge`")?,
         )
         .with_context(|| "Could not convert bytes to `challenge`")?;

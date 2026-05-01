@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use crate::StmError;
-use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
+use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
 /// Represents an element in the base field of the Jubjub curve
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, PartialOrd, Ord)]
@@ -39,13 +39,13 @@ impl BaseFieldElement {
         base_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(UniqueSchnorrSignatureError::BaseFieldElementSerialization)?,
+                .ok_or(SchnorrSignatureError::BaseFieldElementSerialization)?,
         );
 
         match JubjubBase::from_bytes_le(&base_bytes).into_option() {
             Some(base_field_element) => Ok(Self(base_field_element)),
             None => Err(anyhow!(
-                UniqueSchnorrSignatureError::BaseFieldElementSerialization
+                SchnorrSignatureError::BaseFieldElementSerialization
             )),
         }
     }
@@ -161,7 +161,7 @@ impl ScalarFieldElement {
                 return Ok(random_scalar);
             }
         }
-        Err(anyhow!(UniqueSchnorrSignatureError::RandomScalarGeneration))
+        Err(anyhow!(SchnorrSignatureError::RandomScalarGeneration))
     }
 
     /// Converts the scalar field element to its byte representation
@@ -175,13 +175,13 @@ impl ScalarFieldElement {
         scalar_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)?,
+                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
         );
 
         match JubjubScalar::from_bytes(&scalar_bytes).into_option() {
             Some(scalar_field_element) => Ok(Self(scalar_field_element)),
             None => Err(anyhow!(
-                UniqueSchnorrSignatureError::ScalarFieldElementSerialization
+                SchnorrSignatureError::ScalarFieldElementSerialization
             )),
         }
     }
@@ -193,14 +193,14 @@ impl ScalarFieldElement {
         scalar_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)?,
+                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
         );
 
         let mut bytes64 = [0u64; 4];
         for i in 0..4 {
             bytes64[i] =
                 u64::from_le_bytes(bytes[8 * i..8 * (i + 1)].try_into().with_context(|| {
-                    anyhow!(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)
+                    anyhow!(SchnorrSignatureError::ScalarFieldElementSerialization)
                 })?)
         }
 

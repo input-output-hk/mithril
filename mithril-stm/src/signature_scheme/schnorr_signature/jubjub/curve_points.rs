@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 
-use crate::{StmResult, signature_scheme::UniqueSchnorrSignatureError};
+use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
 use super::{BaseFieldElement, ScalarFieldElement};
 
@@ -87,13 +87,11 @@ impl ProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut projective_point_bytes = [0u8; 32];
         projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(UniqueSchnorrSignatureError::Serialization)?);
+            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
 
         match JubjubExtended::from_bytes(&projective_point_bytes).into_option() {
             Some(projective_point) => Ok(Self(projective_point)),
-            None => Err(anyhow!(
-                UniqueSchnorrSignatureError::ProjectivePointSerialization
-            )),
+            None => Err(anyhow!(SchnorrSignatureError::ProjectivePointSerialization)),
         }
     }
 
@@ -167,9 +165,9 @@ impl PrimeOrderProjectivePoint {
         let rhs = (x_square * y_square) * BaseFieldElement(EDWARDS_D) + BaseFieldElement::get_one();
 
         if lhs != rhs {
-            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotOnCurve(
-                Box::new(*self)
-            )));
+            return Err(anyhow!(SchnorrSignatureError::PointIsNotOnCurve(Box::new(
+                *self
+            ))));
         }
         Ok(*self)
     }
@@ -190,7 +188,7 @@ impl PrimeOrderProjectivePoint {
 
         let projective_point = ProjectivePoint::from(prime_order_point);
         if !projective_point.is_prime_order() {
-            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotPrimeOrder(
+            return Err(anyhow!(SchnorrSignatureError::PointIsNotPrimeOrder(
                 Box::new(prime_order_point)
             )));
         }
@@ -207,12 +205,12 @@ impl PrimeOrderProjectivePoint {
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut prime_order_projective_point_bytes = [0u8; 32];
         prime_order_projective_point_bytes
-            .copy_from_slice(bytes.get(..32).ok_or(UniqueSchnorrSignatureError::Serialization)?);
+            .copy_from_slice(bytes.get(..32).ok_or(SchnorrSignatureError::Serialization)?);
 
         match JubjubSubgroup::from_bytes(&prime_order_projective_point_bytes).into_option() {
             Some(prime_order_projective_point) => Ok(Self(prime_order_projective_point)),
             None => Err(anyhow!(
-                UniqueSchnorrSignatureError::PrimeOrderProjectivePointSerialization
+                SchnorrSignatureError::PrimeOrderProjectivePointSerialization
             )),
         }
     }
