@@ -5,8 +5,7 @@ use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
 
 use super::proofs::{
-    prove_blake2b_ivc, prove_poseidon_ivc, verify_prepare_blake2b_ivc,
-    verify_prepare_poseidon_ivc,
+    prove_blake2b_ivc, prove_poseidon_ivc, verify_prepare_blake2b_ivc, verify_prepare_poseidon_ivc,
 };
 use super::setup::{
     AssetGenerationSetup, AssetPaths, GENESIS_EPOCH, INITIAL_CHAIN_LENGTH,
@@ -146,11 +145,8 @@ fn build_recursive_chain_snapshot(
             &public_inputs,
             &mut recursive_random_generator,
         );
-        let dual_msm = verify_prepare_poseidon_ivc(
-            &context.recursive_verifying_key,
-            &proof,
-            &public_inputs,
-        );
+        let dual_msm =
+            verify_prepare_poseidon_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
         let mut proof_accumulator: Accumulator<S> = dual_msm.into();
