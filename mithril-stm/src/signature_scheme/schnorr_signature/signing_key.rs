@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
-    ScalarFieldElement, SchnorrVerificationKey, UniqueSchnorrSignature,
-    UniqueSchnorrSignatureError, compute_poseidon_digest,
+    BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
+    PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement, SchnorrVerificationKey,
+    StandardSchnorrSignature, UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+    compute_poseidon_digest,
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
@@ -87,6 +88,62 @@ impl SchnorrSigningKey {
 
         Ok(UniqueSchnorrSignature {
             commitment_point,
+            response,
+            challenge,
+        })
+    }
+
+    /// This function implements the standard (non-unique) Schnorr signature scheme.
+    /// It works with the Jubjub elliptic curve and the Poseidon hash function.
+    ///
+    /// Input:
+    ///     - a message: some BaseFieldElements
+    ///     - a signing key: an element of the scalar field of the Jubjub curve
+    /// Output:
+    ///     - a standard signature of the form (response, challenge):
+    ///         - the response and challenge depend on a random value generated during the signature
+    ///
+    /// The protocol computes:
+    ///     - random_scalar, a random value
+    ///     - random_point = random_scalar * prime_order_generator_point
+    ///     - challenge = Poseidon(DST || verification_key || random_point || msg)
+    ///     - response = random_scalar - challenge * signing_key
+    ///
+    /// Output the signature (`response`, `challenge`)
+    ///
+    pub fn sign_standard<R: RngCore + CryptoRng>(
+        &self,
+        msg: &[BaseFieldElement],
+        rng: &mut R,
+    ) -> StmResult<StandardSchnorrSignature> {
+        // Use the subgroup generator to compute the curve points
+        let prime_order_generator_point = PrimeOrderProjectivePoint::create_generator();
+        let verification_key = SchnorrVerificationKey::new_from_signing_key(self.clone());
+
+        let random_scalar = ScalarFieldElement::new_random_nonzero_scalar(rng)
+            .with_context(|| "Random scalar generation failed during signing.")?;
+        let random_point = random_scalar * prime_order_generator_point;
+
+        let mut points_coordinates: Vec<BaseFieldElement> =
+            vec![DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE];
+        points_coordinates.extend(
+            [
+                ProjectivePoint::from(verification_key.0),
+                ProjectivePoint::from(random_point),
+            ]
+            .iter()
+            .flat_map(|point| {
+                let (u, v) = point.get_coordinates();
+                [u, v]
+            }),
+        );
+        points_coordinates.extend_from_slice(msg);
+
+        let challenge = compute_poseidon_digest(&points_coordinates);
+        let challenge_times_sk = ScalarFieldElement::from_base_field(&challenge)? * self.0;
+        let response = random_scalar - challenge_times_sk;
+
+        Ok(StandardSchnorrSignature {
             response,
             challenge,
         })

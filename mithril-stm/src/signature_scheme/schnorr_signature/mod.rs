@@ -9,18 +9,18 @@
 mod error;
 mod jubjub;
 mod signing_key;
+mod standard_signature;
 mod unique_signature;
 mod verification_key;
-mod standard_signature;
 
 pub use error::*;
 pub use jubjub::BaseFieldElement;
 pub(crate) use jubjub::DOMAIN_SEPARATION_TAG_SIGNATURE;
 pub(crate) use jubjub::*;
 pub use signing_key::*;
+pub use standard_signature::*;
 pub use unique_signature::*;
 pub use verification_key::*;
-
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

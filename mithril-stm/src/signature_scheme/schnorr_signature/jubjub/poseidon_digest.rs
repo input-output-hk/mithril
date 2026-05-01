@@ -12,6 +12,15 @@ pub(crate) const DOMAIN_SEPARATION_TAG_SIGNATURE: BaseFieldElement =
         0,
     ]));
 
+/// Domain Separation Tag (DST) for the Poseidon hash used in standard signature contexts.
+pub(crate) const DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE: BaseFieldElement =
+    BaseFieldElement(JubjubBase::from_raw([
+        0x5353_4947_4E5F_4453, // "SSIGN_DST" (ASCII), little-endian u64
+        0,
+        0,
+        0,
+    ]));
+
 /// Domain Separation Tag (DST) for the lottery check. It is used as a prefix when computing
 /// the eligibility value of a signature.
 // TODO: remove this allow dead_code directive when function is called or future_snark is activated
