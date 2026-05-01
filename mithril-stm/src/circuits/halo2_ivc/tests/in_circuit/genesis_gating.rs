@@ -17,7 +17,7 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness, build_recursive_fixed_bases, build_recursive_global,
             build_recursive_proving_key, build_shared_recursive_context, prove_poseidon_ivc,
         },
-        helpers::verify_and_prepare_poseidon_recursive_proof,
+        helpers::verify_prepare_poseidon_recursive_proof,
     },
 };
 
@@ -73,7 +73,7 @@ mod slow {
             &mut rand_core::OsRng,
         );
 
-        let dual_msm = verify_and_prepare_poseidon_recursive_proof(
+        let dual_msm = verify_prepare_poseidon_recursive_proof(
             &context.recursive_verifying_key,
             &proof,
             &public_inputs,

@@ -19,8 +19,8 @@ use crate::circuits::halo2_ivc::{
 };
 
 pub(crate) use super::generators::{
-    verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
-    verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
+    verify_prepare_blake2b_ivc as verify_prepare_blake2b_recursive_proof,
+    verify_prepare_poseidon_ivc as verify_prepare_poseidon_recursive_proof,
 };
 use super::{
     asset_readers::RecursiveChainStateAsset,
@@ -126,7 +126,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
     ]
     .concat();
 
-    let previous_dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let previous_dual_msm = verify_prepare_poseidon_recursive_proof(
         &setup.recursive_verifying_key,
         &recursive_chain_state.proof,
         &previous_public_inputs,
@@ -183,7 +183,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
     let certificate_public_inputs =
         certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
 
-    let certificate_dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let certificate_dual_msm = verify_prepare_poseidon_recursive_proof(
         setup.certificate_verifying_key.vk(),
         certificate_proof,
         &certificate_public_inputs,

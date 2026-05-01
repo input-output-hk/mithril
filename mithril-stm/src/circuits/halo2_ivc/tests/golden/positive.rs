@@ -22,8 +22,8 @@ use crate::circuits::halo2_ivc::tests::common::{
     helpers::{
         RecursiveMockProverSetup, assert_recursive_mock_prover_accepts,
         build_recursive_mock_prover_setup, compute_exact_next_accumulator_from_assets,
-        compute_expected_next_accumulator, verify_and_prepare_blake2b_recursive_proof,
-        verify_and_prepare_poseidon_recursive_proof,
+        compute_expected_next_accumulator, verify_prepare_blake2b_recursive_proof,
+        verify_prepare_poseidon_recursive_proof,
     },
 };
 use crate::circuits::halo2_ivc::{
@@ -53,7 +53,7 @@ fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let dual_msm = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_chain_state.proof,
         &public_inputs,
@@ -82,7 +82,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
