@@ -1,4 +1,5 @@
 use anyhow::{Context, anyhow};
+use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 
@@ -13,7 +14,7 @@ use super::{
 /// This signature consists of only a `response` and a `challenge`. It is used
 /// by the SNARK genesis certificate, which does not require the
 /// per-signer uniqueness tag carried by `UniqueSchnorrSignature`.
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub struct StandardSchnorrSignature {
     /// Part of the standard Schnorr signature depending on the signing key
     pub(crate) response: ScalarFieldElement,
@@ -64,6 +65,44 @@ impl StandardSchnorrSignature {
 
         Ok(())
     }
+
+    /// Convert a `StandardSchnorrSignature` into bytes.
+    pub fn to_bytes(self) -> [u8; 64] {
+        let mut out = [0; 64];
+        out[0..32].copy_from_slice(&self.response.to_bytes());
+        out[32..64].copy_from_slice(&self.challenge.to_bytes());
+
+        out
+    }
+
+    /// Convert bytes into a `StandardSchnorrSignature`.
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if bytes.len() < 64 {
+            return Err(anyhow!(SchnorrSignatureError::Serialization))
+                .with_context(|| "Not enough bytes provided to create a standard signature.");
+        }
+
+        let response = ScalarFieldElement::from_bytes(
+            bytes
+                .get(0..32)
+                .ok_or(SchnorrSignatureError::Serialization)
+                .with_context(|| "Could not get the bytes of `response`")?,
+        )
+        .with_context(|| "Could not convert the bytes to `response`")?;
+
+        let challenge = BaseFieldElement::from_bytes(
+            bytes
+                .get(32..64)
+                .ok_or(SchnorrSignatureError::Serialization)
+                .with_context(|| "Could not get the bytes of `challenge`")?,
+        )
+        .with_context(|| "Could not convert bytes to `challenge`")?;
+
+        Ok(Self {
+            response,
+            challenge,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -71,7 +110,9 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey};
+    use crate::signature_scheme::{
+        BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, StandardSchnorrSignature,
+    };
 
     #[test]
     fn valid_signature_verification() {
@@ -86,5 +127,168 @@ mod tests {
 
         sig.verify(&[base_input], &vk)
             .expect("Valid signature should verify successfully");
+    }
+
+    #[test]
+    fn invalid_signature() {
+        let msg = vec![0, 0, 0, 1];
+        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let msg2 = vec![0, 0, 0, 2];
+        let base_input2 = BaseFieldElement::try_from(msg2.as_slice()).unwrap();
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
+        let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2);
+
+        let sig = sk.sign_standard(&[base_input], &mut rng).unwrap();
+        let sig2 = sk.sign_standard(&[base_input2], &mut rng).unwrap();
+
+        // Wrong verification key is used
+        let result1 = sig.verify(&[base_input], &vk2);
+        let result2 = sig2.verify(&[base_input], &vk);
+
+        result1.expect_err("Wrong verification key used, test should fail.");
+        // Wrong message is verified
+        result2.expect_err("Wrong message used, test should fail.");
+    }
+
+    #[test]
+    fn from_bytes_signature_not_enough_bytes() {
+        let msg = vec![0u8; 62];
+        let result = StandardSchnorrSignature::from_bytes(&msg);
+        result.expect_err("Not enough bytes.");
+    }
+
+    #[test]
+    fn from_bytes_signature_exact_size() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
+        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sig = sk.sign_standard(&[base_input], &mut rng).unwrap();
+        let sig_bytes: [u8; 64] = sig.to_bytes();
+
+        let sig_restored = StandardSchnorrSignature::from_bytes(&sig_bytes).unwrap();
+        assert_eq!(sig, sig_restored);
+    }
+
+    #[test]
+    fn from_bytes_signature_extra_bytes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
+        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sig = sk.sign_standard(&[base_input], &mut rng).unwrap();
+        let sig_bytes: [u8; 64] = sig.to_bytes();
+
+        let mut extended_bytes = sig_bytes.to_vec();
+        extended_bytes.extend_from_slice(&[0xFF; 10]);
+
+        let sig_restored = StandardSchnorrSignature::from_bytes(&extended_bytes).unwrap();
+        assert_eq!(sig, sig_restored);
+    }
+
+    #[test]
+    fn to_bytes_is_deterministic() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let msg = vec![1, 2, 3];
+        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sig = sk.sign_standard(&[base_input], &mut rng).unwrap();
+
+        // Converting to bytes multiple times should give same result
+        let bytes1 = sig.to_bytes();
+        let bytes2 = sig.to_bytes();
+
+        assert_eq!(bytes1, bytes2);
+    }
+
+    #[test]
+    fn signature_roundtrip_preserves_verification() {
+        let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
+        let msg = vec![5, 6, 7, 8, 9];
+        let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
+
+        // Create and verify original signature
+        let sig = sk.sign_standard(&[base_input], &mut rng).unwrap();
+        sig.verify(&[base_input], &vk)
+            .expect("Original signature should verify");
+
+        // Roundtrip through bytes
+        let sig_bytes = sig.to_bytes();
+        let sig_restored = StandardSchnorrSignature::from_bytes(&sig_bytes).unwrap();
+
+        // Restored signature should still verify
+        sig_restored
+            .verify(&[base_input], &vk)
+            .expect("Restored signature should verify");
+    }
+
+    mod golden {
+        use super::*;
+
+        const GOLDEN_BYTES: &[u8; 64] = &[
+            202, 42, 240, 31, 227, 137, 91, 98, 55, 216, 147, 219, 244, 79, 129, 74, 130, 71, 12,
+            163, 134, 62, 73, 178, 228, 44, 32, 197, 236, 207, 107, 1, 49, 32, 148, 223, 196, 159,
+            51, 119, 74, 31, 140, 216, 58, 189, 223, 25, 171, 66, 243, 241, 66, 242, 188, 82, 12,
+            21, 152, 43, 85, 236, 95, 76,
+        ];
+
+        fn golden_value() -> StandardSchnorrSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = SchnorrSigningKey::generate(&mut rng);
+            let msg = [0u8; 32];
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            sk.sign_standard(&[base_input], &mut rng).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = StandardSchnorrSignature::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = StandardSchnorrSignature::to_bytes(value);
+            let golden_serialized = StandardSchnorrSignature::to_bytes(golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+
+    mod golden_json {
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "response": [202,42,240,31,227,137,91,98,55,216,147,219,244,79,129,74,130,71,12,163,134,62,73,178,228,44,32,197,236,207,107,1],
+            "challenge": [49,32,148,223,196,159,51,119,74,31,140,216,58,189,223,25,171,66,243,241,66,242,188,82,12,21,152,43,85,236,95,76]
+        }"#;
+
+        fn golden_value() -> StandardSchnorrSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = SchnorrSigningKey::generate(&mut rng);
+            let msg = [0u8; 32];
+            let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
+            sk.sign_standard(&[base_input], &mut rng).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
     }
 }
