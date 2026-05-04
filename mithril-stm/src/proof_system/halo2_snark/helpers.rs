@@ -5,10 +5,21 @@ use sha2::{Digest, Sha256};
 
 use crate::StmResult;
 
+/// TODO: remove allow(dead_code) when the constants are used or remove them
+#[allow(dead_code)]
+/// Constant storing the hash of the SRS of degree 22 used to create proof in production
 const SRS_HASH_K22: &str = "e8ad5eed936d657a0fb59d2a55ba19f81a3083bb3554ef88f464f5377e9b2c2f";
+#[allow(dead_code)]
+/// Constant storing temporary path of the SRS of degree 22 used to create proof in production
 const SRS_PATH_K22: &str = "/tmp/trusted_setup/midnight-srs-2p22";
+#[allow(dead_code)]
+/// Constant storing URL to download the SRS of degree 22 used to create proof in production
 const SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
 
+/// Verifies that a file locally stored in the given path has a Sha256 hash
+/// that corresponds to the given hex encoded hash value.
+/// Having matching hashes means the file contain the same value as the original file
+/// since the chance of finding a collision are negligible.
 fn verify_srs_file_hash(srs_path: &Path, srs_hash: &str) -> StmResult<bool> {
     println!(
         "Verifying integrity of the download file by checking its Sha256 hash value. Expected hash: {:?}",
@@ -29,35 +40,47 @@ fn verify_srs_file_hash(srs_path: &Path, srs_hash: &str) -> StmResult<bool> {
     Ok(srs_hash == recomputed_srs_hash)
 }
 
+/// Downloads the SRS file at the given URL and stores the response in the given path.
+/// The function uses a "User-Agent" to avoid being associated with a bot behavior.
+/// Checks that the parent directory exists and creates it if it doesn't
 fn download_srs_file(srs_path: &Path, srs_url: &str) -> StmResult<()> {
-    // let response = reqwest::blocking::get(SRS_URL)?;
-    let response = reqwest::blocking::Client::new()
+    let response = reqwest::blocking::Client::builder()
+        // TODO: For now a timeout but this should be updated depending on the behavior we want
+        .timeout(std::time::Duration::from_secs(600))
+        .build()?
         .get(srs_url)
         // TODO: Decide what to put in the value parameter of the reqwest
         .header("User-Agent", "mithril-stm")
         .send()?
         .error_for_status()?;
     let bytes = response.bytes()?;
+
+    let parent = srs_path
+        .parent()
+        .ok_or(anyhow!("The given path contains no parent directory!"))?;
+    println!(
+        "Creating temporary directories to store SRS file: {:?}",
+        parent
+    );
+    std::fs::create_dir_all(parent)
+        .with_context(|| "Subdirectory creation should have succeeded!")?;
+
     std::fs::write(srs_path, &bytes)?;
 
     Ok(())
 }
 
-/// A function that check
+/// A function that checks for the existence of a SRS file at a given path and
+/// if it doesn't, the function downloads the SRS at a given URL and checks that
+/// the hash of the file corresponds to a hard-coded value
+///
+/// TODO: remove allow(dead_code) when the function is used
+#[allow(dead_code)]
 fn check_and_verify_stored_srs(srs_path: &str, srs_hash: &str, srs_url: &str) -> StmResult<()> {
     let srs_file_path = Path::new(srs_path);
 
     if !srs_file_path.exists() {
         println!("File missing for local storage. Downloading and storing in temporary directory.");
-        let parent = srs_file_path.parent().ok_or(anyhow!(
-            "Parent directory for the given file does not exists!"
-        ))?;
-        println!(
-            "Creating temporary directories to store SRS file: {:?}",
-            parent
-        );
-        std::fs::create_dir_all(parent)
-            .with_context(|| "Subdirectory creation should have succeeded!")?;
         println!(
             "Download SRS at URL: {:?} and storing it in file: {:?}",
             srs_url, srs_file_path
@@ -67,13 +90,11 @@ fn check_and_verify_stored_srs(srs_path: &str, srs_hash: &str, srs_url: &str) ->
         let result_srs_check = verify_srs_file_hash(srs_file_path, srs_hash).with_context(
             || "Verification of the hash of the downloaded file should have passed!",
         )?;
-        match result_srs_check {
-            true => {}
-            false => {
-                return Err(anyhow!(
-                    "Error, the hash of the SRS file does not match the hard-coded value!"
-                ));
-            }
+
+        if !result_srs_check {
+            return Err(anyhow!(
+                "Error, the hash of the SRS file does not match the hard-coded value!"
+            ));
         }
         println!(
             "Integrity check passed, the SRS file was correctly downloaded and can be used securely."
@@ -138,11 +159,11 @@ mod tests {
     #[test]
     fn valid_file_hash_succeeds() {
         let dummy_srs_path = NamedTempFile::new_in("/tmp").unwrap();
-        std::fs::write(&dummy_srs_path, &SRS_K1).unwrap();
+        std::fs::write(&dummy_srs_path, SRS_K1).unwrap();
 
         let result = verify_srs_file_hash(dummy_srs_path.path(), SRS_HASH_K1).unwrap();
 
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -156,11 +177,11 @@ mod tests {
 
         let result = verify_srs_file_hash(dummy_srs_path.path(), SRS_HASH_K1).unwrap();
 
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
-    fn any_file_on_disk_succeeds() {
+    fn existing_file_on_disk_skips_download() {
         let dummy_srs_path = NamedTempFile::new_in("/tmp").unwrap();
         // Writes some bytes in the dummy file
         let bytes = vec![0, 1, 2, 3, 4];
@@ -193,6 +214,7 @@ mod tests {
             .unwrap();
 
             mock.assert();
+            assert!(dummy_path.exists())
         }
 
         #[test]
