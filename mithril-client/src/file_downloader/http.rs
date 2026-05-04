@@ -127,6 +127,10 @@ impl HttpFileDownloader {
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
+
+            if sender.is_disconnected() {
+                break;
+            }
             sender.send_async(chunk.to_vec()).await.with_context(|| {
                 format!("Download: could not write {} bytes to stream.", chunk.len())
             })?;
@@ -370,5 +374,68 @@ mod tests {
             }),
         ];
         assert_eq!(expected_events, feedback_receiver.stacked_events());
+    }
+
+    #[tokio::test]
+    async fn downloading_http_file_handle_early_unpack_receiver_closure() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/snapshot.tar");
+            then.status(200).body("a");
+        });
+        let http_file_downloader =
+            HttpFileDownloader::new(FeedbackSender::new(&[]), TestLogger::stdout()).unwrap();
+        let download_id = "id".to_string();
+        let (tx, rx) = flume::bounded(1);
+
+        // Simulate an unpack task end by dropping the receiver immediately, the download task should stop without error
+        drop(rx);
+
+        let download_result = http_file_downloader
+            .download_remote_file(
+                &server.url("/snapshot.tar"),
+                &tx,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+                0,
+            )
+            .await;
+
+        assert!(
+            download_result.is_ok(),
+            "Remote download failed: {download_result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn downloading_local_file_handle_early_unpack_receiver_closure() {
+        let target_dir = temp_dir_create!();
+        let source_file_path = target_dir.join("snapshot.txt");
+        let _file = std::fs::File::create(&source_file_path).unwrap();
+
+        let http_file_downloader =
+            HttpFileDownloader::new(FeedbackSender::new(&[]), TestLogger::stdout()).unwrap();
+        let download_id = "id".to_string();
+        let (tx, rx) = flume::bounded(1);
+
+        // Simulate an unpack task end by dropping the receiver immediately, the download task should stop without error
+        drop(rx);
+
+        let download_result = http_file_downloader
+            .download_local_file(
+                &source_file_path.to_string_lossy(),
+                &tx,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+                0,
+            )
+            .await;
+
+        assert!(
+            download_result.is_ok(),
+            "Remote download failed: {download_result:?}"
+        );
     }
 }
