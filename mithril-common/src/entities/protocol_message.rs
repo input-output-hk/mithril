@@ -1,16 +1,88 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt::Display};
+use thiserror::Error;
 
+#[cfg(test)]
 use crate::entities::Epoch;
 
-/// Decode a protocol message part value into raw bytes.
+/// Error returned by [ProtocolMessage::check_rigid_integrity] when a rigid-segment value
+/// in a [ProtocolMessage] does not match the fixed-size SNARK-friendly slot it must fill.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RigidProtocolMessageIntegrityError {
+    /// The decoded value of a fixed-size rigid field does not match the expected byte length.
+    #[error("rigid `{field}` value must decode to exactly {expected} bytes (got {actual})")]
+    UnexpectedFieldLength {
+        /// Name of the rigid field whose decoded bytes do not match the expected length.
+        field: &'static str,
+        /// Expected byte length for the rigid slot.
+        expected: usize,
+        /// Actual byte length of the decoded value.
+        actual: usize,
+    },
+
+    /// The required `current_epoch` entry is missing from the protocol message.
+    #[error(
+        "rigid `current_epoch` value is required but no entry was found in the protocol message"
+    )]
+    MissingCurrentEpoch,
+
+    /// The `current_epoch` value cannot be parsed as a base-10 unsigned 64-bit integer.
+    #[error("rigid `current_epoch` value must be a base-10 unsigned 64-bit integer: {0}")]
+    InvalidCurrentEpoch(String),
+
+    /// The required `next_aggregate_verification_key` entry is missing from the protocol message.
+    #[error(
+        "rigid `next_aggregate_verification_key` value is required but no entry was found in the protocol message"
+    )]
+    MissingNextSnarkAggregateVerificationKey,
+
+    /// The required `next_protocol_parameters` entry is missing from the protocol message.
+    #[error(
+        "rigid `next_protocol_parameters` value is required but no entry was found in the protocol message"
+    )]
+    MissingNextProtocolParameters,
+}
+
+/// Decode the wire SNARK aggregate verification key value (CBOR-prefixed AVK encoding produced
+/// by `ProtocolKey::new(snark_avk).to_bytes_hex()`) and project it into the canonical
+/// [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]-byte rigid-slot layout.
 ///
-/// The value is first attempted to be hex-decoded; otherwise its raw UTF-8 bytes are returned.
-/// This lossy-but-deterministic projection is shared by every rigid field assembler so both the
-/// aggregator and the client converge on the same preimage for arbitrary values.
-fn legacy_value_to_bytes(value: &str) -> Vec<u8> {
-    hex::decode(value).unwrap_or_else(|_| value.as_bytes().to_vec())
+/// Producers keep emitting the full AVK CBOR encoding so the certificate verifier can still
+/// deserialize the previous-cert announcement back to a `ProtocolAggregateVerificationKeyForSnark`
+/// for full-equality comparison. The rigid hash assembler (and the integrity check) decode that
+/// wire value and project the AVK into the fixed-size rigid slot via
+/// `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`.
+#[cfg(feature = "future_snark")]
+fn decode_snark_avk_to_rigid_slot_bytes(
+    value: &str,
+) -> Result<[u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES], RigidProtocolMessageIntegrityError> {
+    let snark_avk = crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark::try_from(value)
+        .map_err(|err| {
+            RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(
+                err.to_string(),
+            )
+        })?;
+    snark_avk.to_rigid_slot_bytes().map_err(|err| {
+        RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(err.to_string())
+    })
+}
+
+/// Decode the wire protocol parameters value (hex-encoded fixed-size buffer, falling back to
+/// raw UTF-8 bytes when hex decoding fails) and project it into the
+/// [RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]-byte rigid slot.
+#[cfg(feature = "future_snark")]
+fn decode_protocol_parameters_to_rigid_slot_bytes(
+    value: &str,
+) -> Result<[u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES], RigidProtocolMessageIntegrityError> {
+    let bytes = hex::decode(value).unwrap_or_else(|_| value.as_bytes().to_vec());
+    bytes.as_slice().try_into().map_err(|_| {
+        RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+            field: "next_protocol_parameters",
+            expected: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
+            actual: bytes.len(),
+        }
+    })
 }
 
 /// [ProtocolMessagePartKey] entries projected into a fixed-size segment of the rigid preimage,
@@ -256,10 +328,7 @@ impl ProtocolMessage {
         hex::encode(Sha256::digest(self.rigid_preimage()))
     }
 
-    /// Assemble the SNARK-friendly rigid preimage from the [ProtocolMessage::message_parts].
-    ///
-    /// The preimage concatenates four named segments in a fixed order. Each segment is prefixed
-    /// by its ASCII label so the IVC SNARK gadget can read the value bytes under a stable name:
+    /// Assemble the SNARK-friendly rigid preimage from the [ProtocolMessage::message_parts] as
     /// `"digest" || digest_value || "next_aggregate_verification_key" || avk_value
     /// || "next_protocol_parameters" || protocol_parameters_value
     /// || "current_epoch" || current_epoch_value`.
@@ -276,14 +345,11 @@ impl ProtocolMessage {
         preimage
     }
 
-    /// Build the dynamic-parts projection used to compute the rigid preimage `digest` segment.
-    ///
-    /// Consumes `self`, keeps every dynamic message part (snapshot digest, Merkle roots, block
-    /// numbers, stake distribution epoch) and strips the keys that are projected into their own
-    /// fixed-size segments of the rigid preimage (next aggregate verification keys, next protocol
-    /// parameters, current epoch). The hash scheme is forced back to
-    /// [ProtocolMessageHashScheme::Legacy] so the projection hashes its parts through the
-    /// legacy preimage routine without re-entering the rigid dispatch.
+    /// Build the dynamic-parts projection used to compute the rigid preimage `digest` segment:
+    /// strips the rigid-segment keys (next AVK, next protocol parameters, current epoch) and
+    /// forces [ProtocolMessageHashScheme::Legacy] so the digest segment is hashed via the
+    /// legacy preimage routine.
+    #[cfg(feature = "future_snark")]
     fn stripped_for_rigid_digest(mut self) -> ProtocolMessage {
         self.hash_scheme = ProtocolMessageHashScheme::Legacy;
         for key in RIGID_SEGMENT_KEYS {
@@ -292,10 +358,69 @@ impl ProtocolMessage {
         self
     }
 
+    /// Validate that every rigid-segment value fits its fixed-size slot.
+    ///
+    /// No-op for [ProtocolMessageHashScheme::Legacy]. For [ProtocolMessageHashScheme::Rigid],
+    /// surfaces the first [RigidProtocolMessageIntegrityError] among missing entry,
+    /// byte-length mismatch, or non-decimal epoch. An empty dynamic-parts projection is
+    /// allowed and collapses the rigid `digest` segment to a SHA-256 hash of no input.
+    ///
+    /// Intended for producers to call at construction time so layout violations surface before
+    /// hashing or signing.
+    #[cfg(feature = "future_snark")]
+    pub fn check_rigid_integrity(&self) -> Result<(), RigidProtocolMessageIntegrityError> {
+        if !self.is_rigid() {
+            return Ok(());
+        }
+
+        let snark_avk = self
+            .message_parts
+            .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
+            .ok_or(RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey)?;
+        let snark_avk_bytes = legacy_value_to_bytes(snark_avk);
+        if snark_avk_bytes.len() != RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES {
+            return Err(RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+                field: "next_aggregate_verification_key",
+                expected: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES,
+                actual: snark_avk_bytes.len(),
+            });
+        }
+
+        let protocol_parameters = self
+            .message_parts
+            .get(&ProtocolMessagePartKey::NextProtocolParameters)
+            .ok_or(RigidProtocolMessageIntegrityError::MissingNextProtocolParameters)?;
+        decode_protocol_parameters_to_rigid_slot_bytes(protocol_parameters)?;
+
+        let current_epoch = self
+            .message_parts
+            .get(&ProtocolMessagePartKey::CurrentEpoch)
+            .ok_or(RigidProtocolMessageIntegrityError::MissingCurrentEpoch)?;
+        current_epoch.parse::<u64>().map_err(|err| {
+            RigidProtocolMessageIntegrityError::InvalidCurrentEpoch(err.to_string())
+        })?;
+
+        Ok(())
+    }
+
+    /// SHA-256 fingerprint of the dynamic message parts in the rigid `digest` segment. An
+    /// empty projection is allowed and collapses to the SHA-256 hash of no input.
+    #[cfg(feature = "future_snark")]
     fn rigid_digest_field(&self) -> [u8; RIGID_DIGEST_BYTES] {
         self.clone().stripped_for_rigid_digest().compute_legacy_digest_bytes()
     }
 
+    /// Project the [ProtocolMessagePartKey::NextSnarkAggregateVerificationKey] entry into the
+    /// fixed-size [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] rigid slot.
+    ///
+    /// Missing entries collapse to a zero-padded buffer and oversized decoded values are
+    /// truncated to the slot width; both cases are accepted silently here. Producers running
+    /// [ProtocolMessage::check_rigid_integrity] reject these as
+    /// [RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey] and
+    /// [RigidProtocolMessageIntegrityError::UnexpectedFieldLength] at construction time. If the
+    /// strict check is bypassed, the verifier recomputes a preimage that does not match the
+    /// signed bytes and the signature-vs-message check fails as a `match_message` mismatch
+    /// instead of a typed error.
     fn rigid_next_aggregate_verification_key_field(
         &self,
     ) -> [u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] {
@@ -311,19 +436,21 @@ impl ProtocolMessage {
         buffer
     }
 
+    /// Project the [ProtocolMessagePartKey::NextProtocolParameters] entry into the rigid slot.
+    /// Missing or out-of-width entries silently collapse to zeros;
+    /// [ProtocolMessage::check_rigid_integrity] surfaces the typed error.
+    #[cfg(feature = "future_snark")]
     fn rigid_next_protocol_parameters_field(&self) -> [u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES] {
-        let mut buffer = [0u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
-        if let Some(value) = self
-            .message_parts
+        self.message_parts
             .get(&ProtocolMessagePartKey::NextProtocolParameters)
-        {
-            let bytes = legacy_value_to_bytes(value);
-            let length = bytes.len().min(RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES);
-            buffer[..length].copy_from_slice(&bytes[..length]);
-        }
-        buffer
+            .and_then(|value| decode_protocol_parameters_to_rigid_slot_bytes(value).ok())
+            .unwrap_or([0u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES])
     }
 
+    /// Encode the [ProtocolMessagePartKey::CurrentEpoch] entry as a little-endian `u64` in the
+    /// rigid slot. Missing or non-decimal entries silently collapse to zeros;
+    /// [ProtocolMessage::check_rigid_integrity] surfaces the typed error.
+    #[cfg(feature = "future_snark")]
     fn rigid_current_epoch_field(&self) -> [u8; RIGID_CURRENT_EPOCH_BYTES] {
         self.message_parts
             .get(&ProtocolMessagePartKey::CurrentEpoch)
@@ -587,11 +714,11 @@ mod tests {
         );
         message.set_message_part(
             ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            hex::encode([0xCCu8; 16]),
+            hex::encode([0xCCu8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]),
         );
         message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
-            hex::encode([0xDDu8; 32]),
+            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
         );
         message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
         message
@@ -1020,6 +1147,153 @@ mod tests {
             expected,
             rigid.rigid_preimage(),
             "the rigid preimage must be the byte-identical concatenation of each ASCII label followed by its raw value bytes"
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_is_a_no_op_for_legacy_protocol_messages() {
+        let legacy = build_protocol_message_reference();
+
+        legacy
+            .check_rigid_integrity()
+            .expect("legacy protocol message must skip the rigid layout check");
+    }
+
+    #[test]
+    fn check_rigid_integrity_succeeds_on_a_well_formed_rigid_protocol_message() {
+        let rigid = build_rigid_protocol_message_reference();
+
+        rigid
+            .check_rigid_integrity()
+            .expect("a well-formed rigid protocol message must pass the integrity check");
+    }
+
+    #[test]
+    fn check_rigid_integrity_allows_an_empty_dynamic_digest_projection() {
+        let mut rigid = ProtocolMessage::new_rigid();
+        rigid.set_message_part(
+            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+            build_snark_avk_wire_value_for_test([0xCCu8; 32], 0),
+        );
+        rigid.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
+        );
+        rigid.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
+
+        rigid
+            .check_rigid_integrity()
+            .expect("an empty dynamic-parts projection must be accepted");
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_next_snark_avk_entry_is_missing() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid
+            .message_parts
+            .remove(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey);
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("missing rigid SNARK AVK entry must surface an error");
+
+        assert_eq!(
+            error,
+            RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_next_snark_avk_decodes_to_unexpected_length() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid.set_message_part(
+            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+            hex::encode([0xCCu8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES - 1]),
+        );
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("ill-formed rigid SNARK AVK entry must surface an error");
+
+        assert_eq!(
+            error,
+            RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+                field: "next_aggregate_verification_key",
+                expected: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES,
+                actual: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES - 1,
+            }
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_next_protocol_parameters_entry_is_missing() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid
+            .message_parts
+            .remove(&ProtocolMessagePartKey::NextProtocolParameters);
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("missing rigid protocol parameters entry must surface an error");
+
+        assert_eq!(
+            error,
+            RigidProtocolMessageIntegrityError::MissingNextProtocolParameters
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_next_protocol_parameters_decodes_to_unexpected_length() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1]),
+        );
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("ill-formed rigid protocol parameters entry must surface an error");
+
+        assert_eq!(
+            error,
+            RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+                field: "next_protocol_parameters",
+                expected: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
+                actual: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1,
+            }
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_current_epoch_entry_is_missing() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid.message_parts.remove(&ProtocolMessagePartKey::CurrentEpoch);
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("missing rigid current epoch entry must surface an error");
+
+        assert_eq!(
+            error,
+            RigidProtocolMessageIntegrityError::MissingCurrentEpoch
+        );
+    }
+
+    #[test]
+    fn check_rigid_integrity_fails_when_current_epoch_is_not_a_decimal_unsigned_integer() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        rigid.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "oops".to_string());
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("non-decimal rigid current epoch entry must surface an error");
+
+        assert!(
+            matches!(
+                error,
+                RigidProtocolMessageIntegrityError::InvalidCurrentEpoch(_)
+            ),
+            "unexpected error variant: {error:?}"
         );
     }
 }

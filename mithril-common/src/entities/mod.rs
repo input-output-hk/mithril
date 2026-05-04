@@ -69,6 +69,7 @@ pub use mithril_stake_distribution::MithrilStakeDistribution;
 pub use mk_set_proof::*;
 pub use protocol_message::{
     ProtocolMessage, ProtocolMessageHashScheme, ProtocolMessagePartKey, ProtocolMessagePartValue,
+    RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES, RigidProtocolMessageIntegrityError,
 };
 pub use protocol_parameters::ProtocolParameters;
 pub use signable_manifest::*;
