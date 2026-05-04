@@ -1445,6 +1445,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     mod rigid_protocol_message_dispatch {
         use super::*;
 
@@ -1550,6 +1551,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     mod era_transition_chain_linkage {
         use super::*;
 

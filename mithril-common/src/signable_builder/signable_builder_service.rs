@@ -210,6 +210,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
             .compute_signed_entity_protocol_message(signed_entity_type)
             .await?;
         let protocol_message = self.compute_seeded_protocol_message(protocol_message).await?;
+        #[cfg(feature = "future_snark")]
         protocol_message.check_rigid_integrity().with_context(
             || "Signable builder service produced a protocol message that violates the rigid layout",
         )?;

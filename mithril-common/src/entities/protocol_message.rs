@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt::Display};
+
+#[cfg(feature = "future_snark")]
 use thiserror::Error;
 
 #[cfg(test)]
@@ -8,6 +10,7 @@ use crate::entities::Epoch;
 
 /// Error returned by [ProtocolMessage::check_rigid_integrity] when a rigid-segment value
 /// in a [ProtocolMessage] does not match the fixed-size SNARK-friendly slot it must fill.
+#[cfg(feature = "future_snark")]
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum RigidProtocolMessageIntegrityError {
     /// The decoded value of a fixed-size rigid field does not match the expected byte length.
@@ -87,42 +90,52 @@ fn decode_protocol_parameters_to_rigid_slot_bytes(
 
 /// [ProtocolMessagePartKey] entries projected into a fixed-size segment of the rigid preimage,
 /// and therefore stripped from the dynamic-parts digest segment.
+#[cfg(feature = "future_snark")]
 const RIGID_SEGMENT_KEYS: &[ProtocolMessagePartKey] = &[
     ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
     ProtocolMessagePartKey::NextProtocolParameters,
     ProtocolMessagePartKey::CurrentEpoch,
 ];
 
-/// Byte length of the `digest` value segment in the rigid preimage.
+/// Byte length of the `digest` value segment in the rigid preimage. Kept ungated because the
+/// legacy hash path also uses it as the SHA-256 output buffer width.
 pub const RIGID_DIGEST_BYTES: usize = 32;
 
 /// Byte length of the `next_aggregate_verification_key` value segment in the rigid preimage.
 ///
 /// The slot holds the SNARK-friendly aggregate verification key bytes (the value sourced from
 /// [ProtocolMessagePartKey::NextSnarkAggregateVerificationKey]).
+#[cfg(feature = "future_snark")]
 pub const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES: usize = 44;
 
 /// Byte length of the `next_protocol_parameters` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 pub const RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES: usize = 32;
 
 /// Byte length of the `current_epoch` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 pub const RIGID_CURRENT_EPOCH_BYTES: usize = 8;
 
 /// ASCII label written immediately before the `digest` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 const RIGID_DIGEST_LABEL: &[u8] = b"digest";
 
 /// ASCII label written immediately before the `next_aggregate_verification_key` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL: &[u8] = b"next_aggregate_verification_key";
 
 /// ASCII label written immediately before the `next_protocol_parameters` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 const RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL: &[u8] = b"next_protocol_parameters";
 
 /// ASCII label written immediately before the `current_epoch` value segment in the rigid preimage.
+#[cfg(feature = "future_snark")]
 const RIGID_CURRENT_EPOCH_LABEL: &[u8] = b"current_epoch";
 
 /// Byte length of the full rigid preimage that [ProtocolMessage::rigid_preimage] assembles when
 /// the hash scheme is [ProtocolMessageHashScheme::Rigid]. Each named segment is prefixed by its ASCII
 /// label, mirroring the layout consumed by the IVC SNARK gadget.
+#[cfg(feature = "future_snark")]
 const RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES: usize = RIGID_DIGEST_LABEL.len()
     + RIGID_DIGEST_BYTES
     + RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL.len()
@@ -143,6 +156,7 @@ pub enum ProtocolMessageHashScheme {
     Legacy,
 
     /// Lagrange SNARK-friendly hash scheme.
+    #[cfg(feature = "future_snark")]
     #[serde(rename = "rigid")]
     Rigid,
 }
@@ -267,6 +281,7 @@ impl ProtocolMessage {
 
     /// [ProtocolMessage] factory returning the rigid (Lagrange) [ProtocolMessageHashScheme::Rigid]
     /// variant.
+    #[cfg(feature = "future_snark")]
     pub fn new_rigid() -> ProtocolMessage {
         ProtocolMessage {
             message_parts: BTreeMap::new(),
@@ -293,20 +308,17 @@ impl ProtocolMessage {
         self.message_parts.get(key)
     }
 
-    /// Return `true` if the protocol message uses the [ProtocolMessageHashScheme::Rigid] hash
-    /// scheme.
+    /// Return `true` if the protocol message uses the rigid hash scheme.
     pub fn is_rigid(&self) -> bool {
-        matches!(self.hash_scheme, ProtocolMessageHashScheme::Rigid)
+        !matches!(self.hash_scheme, ProtocolMessageHashScheme::Legacy)
     }
 
-    /// Compute the hex-encoded SHA-256 hash of the protocol message.
-    ///
-    /// Dispatches over [ProtocolMessage::hash_scheme]: the legacy scheme keeps the pre-Lagrange
-    /// byte-identical output, the rigid scheme hashes the SNARK-friendly
-    /// [rigid_preimage](ProtocolMessage::rigid_preimage).
+    /// Compute the hex-encoded SHA-256 hash of the protocol message, dispatching over
+    /// [ProtocolMessage::hash_scheme].
     pub fn compute_hash(&self) -> String {
         match self.hash_scheme {
             ProtocolMessageHashScheme::Legacy => self.compute_legacy_hash(),
+            #[cfg(feature = "future_snark")]
             ProtocolMessageHashScheme::Rigid => self.compute_rigid_hash(),
         }
     }
@@ -324,6 +336,7 @@ impl ProtocolMessage {
         hex::encode(self.compute_legacy_digest_bytes())
     }
 
+    #[cfg(feature = "future_snark")]
     fn compute_rigid_hash(&self) -> String {
         hex::encode(Sha256::digest(self.rigid_preimage()))
     }
@@ -332,6 +345,7 @@ impl ProtocolMessage {
     /// `"digest" || digest_value || "next_aggregate_verification_key" || avk_value
     /// || "next_protocol_parameters" || protocol_parameters_value
     /// || "current_epoch" || current_epoch_value`.
+    #[cfg(feature = "future_snark")]
     pub fn rigid_preimage(&self) -> Vec<u8> {
         let mut preimage = Vec::with_capacity(RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES);
         preimage.extend_from_slice(RIGID_DIGEST_LABEL);
@@ -421,6 +435,7 @@ impl ProtocolMessage {
     /// strict check is bypassed, the verifier recomputes a preimage that does not match the
     /// signed bytes and the signature-vs-message check fails as a `match_message` mismatch
     /// instead of a typed error.
+    #[cfg(feature = "future_snark")]
     fn rigid_next_aggregate_verification_key_field(
         &self,
     ) -> [u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] {
@@ -702,6 +717,7 @@ mod tests {
         protocol_message
     }
 
+    #[cfg(feature = "future_snark")]
     fn build_rigid_protocol_message_reference() -> ProtocolMessage {
         let mut message = ProtocolMessage::new_rigid();
         message.set_message_part(
@@ -735,6 +751,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn new_rigid_returns_a_message_with_rigid_hash_scheme() {
         let protocol_message = ProtocolMessage::new_rigid();
@@ -746,6 +763,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn set_message_part_works_same_on_every_hash_scheme() {
         let mut legacy = ProtocolMessage::new();
@@ -764,6 +782,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn legacy_and_rigid_compute_hash_outputs_do_not_collide_on_same_map() {
         let mut legacy = build_protocol_message_reference();
@@ -775,6 +794,7 @@ mod tests {
         assert_eq!(legacy.compute_hash(), rigid.compute_hash());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_compute_hash_produces_a_hex_encoded_32_bytes_digest() {
         let rigid = build_rigid_protocol_message_reference();
@@ -786,6 +806,7 @@ mod tests {
         assert_eq!(decoded.len(), 32);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_has_expected_fixed_byte_length() {
         let rigid = ProtocolMessage::new_rigid();
@@ -795,6 +816,7 @@ mod tests {
         assert_eq!(preimage.len(), RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_concatenates_labeled_segments_in_a_fixed_order() {
         let rigid = build_rigid_protocol_message_reference();
@@ -812,6 +834,7 @@ mod tests {
         assert_eq!(rigid.rigid_preimage(), expected);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_layout_pins_label_offsets_and_segment_lengths() {
         let rigid = build_rigid_protocol_message_reference();
@@ -884,6 +907,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_total_byte_length_is_pinned_to_one_hundred_ninety() {
         let rigid = build_rigid_protocol_message_reference();
@@ -895,6 +919,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_sources_aggregate_verification_key_segment_from_snark_avk_value() {
         let mut message = ProtocolMessage::new_rigid();
@@ -922,6 +947,7 @@ mod tests {
         assert_eq!(restored.hash_scheme, ProtocolMessageHashScheme::Legacy);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn serde_round_trips_rigid_shape() {
         let protocol_message = build_rigid_protocol_message_reference();
@@ -952,6 +978,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_wire_shape_exposes_hash_scheme_discriminator() {
         let protocol_message = build_rigid_protocol_message_reference();
@@ -1012,6 +1039,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_next_protocol_parameters_field_holds_raw_hex_decoded_bytes() {
         let mut message = ProtocolMessage::new_rigid();
@@ -1024,6 +1052,7 @@ mod tests {
         assert_eq!(message.rigid_next_protocol_parameters_field(), raw);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_current_epoch_field_is_little_endian_encoded_parsed_integer() {
         let mut message = ProtocolMessage::new_rigid();
@@ -1032,6 +1061,7 @@ mod tests {
         assert_eq!(message.rigid_current_epoch_field(), 7u64.to_le_bytes());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn stripped_for_rigid_digest_drops_only_rigid_segment_keys_and_forces_legacy_hash_scheme() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1056,6 +1086,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_digest_field_is_invariant_under_changes_of_rigid_segment_keys() {
         let mut base = build_rigid_protocol_message_reference();
@@ -1072,6 +1103,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_compute_hash_changes_when_digest_related_parts_change() {
         let mut base = build_rigid_protocol_message_reference();
@@ -1109,6 +1141,7 @@ mod tests {
         assert_eq!(message.get_current_epoch(), None);
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_is_byte_identical_to_a_hand_built_labeled_concatenation() {
         let snark_avk_bytes = [5u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
@@ -1150,6 +1183,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_is_a_no_op_for_legacy_protocol_messages() {
         let legacy = build_protocol_message_reference();
@@ -1159,6 +1193,7 @@ mod tests {
             .expect("legacy protocol message must skip the rigid layout check");
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_succeeds_on_a_well_formed_rigid_protocol_message() {
         let rigid = build_rigid_protocol_message_reference();
@@ -1168,6 +1203,7 @@ mod tests {
             .expect("a well-formed rigid protocol message must pass the integrity check");
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_allows_an_empty_dynamic_digest_projection() {
         let mut rigid = ProtocolMessage::new_rigid();
@@ -1186,6 +1222,7 @@ mod tests {
             .expect("an empty dynamic-parts projection must be accepted");
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_next_snark_avk_entry_is_missing() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1203,6 +1240,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_next_snark_avk_decodes_to_unexpected_length() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1225,6 +1263,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_next_protocol_parameters_entry_is_missing() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1242,6 +1281,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_next_protocol_parameters_decodes_to_unexpected_length() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1264,6 +1304,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_current_epoch_entry_is_missing() {
         let mut rigid = build_rigid_protocol_message_reference();
@@ -1279,6 +1320,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn check_rigid_integrity_fails_when_current_epoch_is_not_a_decimal_unsigned_integer() {
         let mut rigid = build_rigid_protocol_message_reference();
