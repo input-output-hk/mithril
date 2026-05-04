@@ -78,6 +78,7 @@ rug = { version = "1.29.0", optional = true }
 [dev-dependencies]
 blake2b_simd = "1.0.3"
 criterion = { version = "0.8.2", features = ["html_reports"] }
+httpmock = "0.8.3"
 num-bigint = "0.4.6"
 num-rational = "0.4.2"
 proptest = "1.11.0"
