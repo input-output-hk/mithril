@@ -597,10 +597,7 @@ mod tests {
             assert!(
                 matches!(
                     integrity_error,
-                    crate::entities::RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
-                        field: "next_aggregate_verification_key",
-                        ..
-                    }
+                    crate::entities::RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(_)
                 ),
                 "unexpected error variant: {integrity_error:?}"
             );

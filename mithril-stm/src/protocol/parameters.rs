@@ -5,6 +5,11 @@ use crate::{PhiFValue, StmResult};
 
 use super::RegisterError;
 
+/// Byte width of the rigid-slot encoding produced by [Parameters::to_rigid_bytes]. Matches the
+/// rigid protocol message slot for the next protocol parameters.
+#[cfg(feature = "future_snark")]
+pub const RIGID_PROTOCOL_PARAMETERS_BYTES: usize = 32;
+
 /// Used to set protocol parameters.
 // todo: this is the criteria to consider parameters valid:
 // Let A = max assumed adversarial stake
@@ -29,6 +34,22 @@ impl Parameters {
     /// gracefully, while new readers will decode the CBOR payload.
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         codec::to_cbor_bytes(self)
+    }
+
+    /// Encode to the `RIGID_PROTOCOL_PARAMETERS_BYTES`-byte rigid-slot layout consumed by the
+    /// protocol message `next_protocol_parameters` rigid slot:
+    ///
+    /// `m_LE_u64 (8) || k_LE_u64 (8) || phi_f_LE_f64 (8) || zero_padding (8)`.
+    ///
+    /// Trailing zero padding rounds the slot out to 32 bytes so the IVC SNARK gadget can consume
+    /// the parameters as a fixed-size word.
+    #[cfg(feature = "future_snark")]
+    pub fn to_rigid_bytes(&self) -> [u8; RIGID_PROTOCOL_PARAMETERS_BYTES] {
+        let mut buffer = [0u8; RIGID_PROTOCOL_PARAMETERS_BYTES];
+        buffer[0..8].copy_from_slice(&self.m.to_le_bytes());
+        buffer[8..16].copy_from_slice(&self.k.to_le_bytes());
+        buffer[16..24].copy_from_slice(&self.phi_f.to_le_bytes());
+        buffer
     }
 
     /// Extract the `Parameters` from a byte slice.
@@ -140,6 +161,46 @@ mod tests {
         fn cbor_encoding_is_stable() {
             let bytes = test_value().to_bytes().expect("CBOR serialization should not fail");
             assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod rigid_slot {
+        use super::*;
+
+        const GOLDEN_RIGID_BYTES: &[u8; RIGID_PROTOCOL_PARAMETERS_BYTES] = &[
+            237, 81, 0, 0, 0, 0, 0, 0, 118, 9, 0, 0, 0, 0, 0, 0, 154, 153, 153, 153, 153, 153, 201,
+            63, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        fn test_value() -> Parameters {
+            Parameters {
+                m: 20973,
+                k: 2422,
+                phi_f: 0.2,
+            }
+        }
+
+        #[test]
+        fn rigid_slot_encoding_is_stable() {
+            assert_eq!(GOLDEN_RIGID_BYTES, &test_value().to_rigid_bytes());
+        }
+
+        #[test]
+        fn rigid_slot_encoding_distinguishes_each_field() {
+            let baseline = test_value().to_rigid_bytes();
+
+            let mut perturbed = test_value();
+            perturbed.m += 1;
+            assert_ne!(baseline, perturbed.to_rigid_bytes());
+
+            let mut perturbed = test_value();
+            perturbed.k += 1;
+            assert_ne!(baseline, perturbed.to_rigid_bytes());
+
+            let mut perturbed = test_value();
+            perturbed.phi_f += f64::EPSILON;
+            assert_ne!(baseline, perturbed.to_rigid_bytes());
         }
     }
 }
