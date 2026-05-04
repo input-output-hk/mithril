@@ -8,13 +8,16 @@ use thiserror::Error;
 #[cfg(test)]
 use crate::entities::Epoch;
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
+
 /// Error returned by [ProtocolMessage::check_rigid_integrity] when a rigid-segment value
 /// in a [ProtocolMessage] does not match the fixed-size SNARK-friendly slot it must fill.
 #[cfg(feature = "future_snark")]
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum RigidProtocolMessageIntegrityError {
     /// The decoded value of a fixed-size rigid field does not match the expected byte length.
-    #[error("rigid `{field}` value must decode to exactly {expected} bytes (got {actual})")]
+    #[error("Rigid `{field}` value must decode to exactly {expected} bytes (got {actual})")]
     UnexpectedFieldLength {
         /// Name of the rigid field whose decoded bytes do not match the expected length.
         field: &'static str,
@@ -26,59 +29,70 @@ pub enum RigidProtocolMessageIntegrityError {
 
     /// The required `current_epoch` entry is missing from the protocol message.
     #[error(
-        "rigid `current_epoch` value is required but no entry was found in the protocol message"
+        "Rigid `current_epoch` value is required but no entry was found in the protocol message"
     )]
     MissingCurrentEpoch,
 
     /// The `current_epoch` value cannot be parsed as a base-10 unsigned 64-bit integer.
-    #[error("rigid `current_epoch` value must be a base-10 unsigned 64-bit integer: {0}")]
+    #[error("Rigid `current_epoch` value must be a base-10 unsigned 64-bit integer: {0}")]
     InvalidCurrentEpoch(String),
 
     /// The required `next_aggregate_verification_key` entry is missing from the protocol message.
     #[error(
-        "rigid `next_aggregate_verification_key` value is required but no entry was found in the protocol message"
+        "Rigid `next_aggregate_verification_key` value is required but no entry was found in the protocol message"
     )]
     MissingNextSnarkAggregateVerificationKey,
 
     /// The required `next_protocol_parameters` entry is missing from the protocol message.
     #[error(
-        "rigid `next_protocol_parameters` value is required but no entry was found in the protocol message"
+        "Rigid `next_protocol_parameters` value is required but no entry was found in the protocol message"
     )]
     MissingNextProtocolParameters,
+
+    /// The protocol parameters value cannot be decoded.
+    #[error("Rigid `next_protocol_parameters` value cannot be decoded: {0}")]
+    InvalidProtocolParameters(String),
+
+    /// The SNARK aggregate verification key cannot be decoded.
+    #[error("Rigid `next_aggregate_verification_key` value cannot be decoded: {0}")]
+    InvalidSnarkAggregateVerificationKey(String),
+
+    /// The decoded SNARK aggregate verification key cannot be projected into the rigid slot
+    /// (e.g. the embedded Merkle root does not have the expected 32-byte width).
+    #[error(
+        "Rigid `next_aggregate_verification_key` value cannot be projected into the rigid slot: {0}"
+    )]
+    UnprojectableSnarkAggregateVerificationKey(String),
 }
 
-/// Decode the wire SNARK aggregate verification key value (CBOR-prefixed AVK encoding produced
-/// by `ProtocolKey::new(snark_avk).to_bytes_hex()`) and project it into the canonical
-/// [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]-byte rigid-slot layout.
-///
-/// Producers keep emitting the full AVK CBOR encoding so the certificate verifier can still
-/// deserialize the previous-cert announcement back to a `ProtocolAggregateVerificationKeyForSnark`
-/// for full-equality comparison. The rigid hash assembler (and the integrity check) decode that
-/// wire value and project the AVK into the fixed-size rigid slot via
+/// Decode the SNARK AVK (hex of CBOR-prefixed bytes from `ProtocolKey::to_bytes_hex`) and
+/// project it into the [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]-byte rigid slot via
 /// `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`.
 #[cfg(feature = "future_snark")]
 fn decode_snark_avk_to_rigid_slot_bytes(
     value: &str,
 ) -> Result<[u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES], RigidProtocolMessageIntegrityError> {
-    let snark_avk = crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark::try_from(value)
-        .map_err(|err| {
-            RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(
-                err.to_string(),
-            )
-        })?;
-    snark_avk.to_rigid_slot_bytes().map_err(|err| {
+    let snark_avk = ProtocolAggregateVerificationKeyForSnark::try_from(value).map_err(|err| {
         RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(err.to_string())
+    })?;
+    snark_avk.to_rigid_slot_bytes().map_err(|err| {
+        RigidProtocolMessageIntegrityError::UnprojectableSnarkAggregateVerificationKey(
+            err.to_string(),
+        )
     })
 }
 
-/// Decode the wire protocol parameters value (hex-encoded fixed-size buffer, falling back to
-/// raw UTF-8 bytes when hex decoding fails) and project it into the
+/// Decode the protocol parameters value (hex-encoded
+/// [ProtocolParameters::compute_hash](crate::entities::ProtocolParameters::compute_hash) output,
+/// a SHA-256 digest of the protocol parameters) and project it into the
 /// [RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]-byte rigid slot.
 #[cfg(feature = "future_snark")]
 fn decode_protocol_parameters_to_rigid_slot_bytes(
     value: &str,
 ) -> Result<[u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES], RigidProtocolMessageIntegrityError> {
-    let bytes = hex::decode(value).unwrap_or_else(|_| value.as_bytes().to_vec());
+    let bytes = hex::decode(value).map_err(|err| {
+        RigidProtocolMessageIntegrityError::InvalidProtocolParameters(err.to_string())
+    })?;
     bytes.as_slice().try_into().map_err(|_| {
         RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
             field: "next_protocol_parameters",
@@ -156,7 +170,6 @@ pub enum ProtocolMessageHashScheme {
     Legacy,
 
     /// Lagrange SNARK-friendly hash scheme.
-    #[cfg(feature = "future_snark")]
     #[serde(rename = "rigid")]
     Rigid,
 }
@@ -308,18 +321,27 @@ impl ProtocolMessage {
         self.message_parts.get(key)
     }
 
-    /// Return `true` if the protocol message uses the rigid hash scheme.
+    /// Return `true` if the protocol message uses the [ProtocolMessageHashScheme::Rigid] hash
+    /// scheme.
     pub fn is_rigid(&self) -> bool {
-        !matches!(self.hash_scheme, ProtocolMessageHashScheme::Legacy)
+        if cfg!(feature = "future_snark") {
+            self.hash_scheme == ProtocolMessageHashScheme::Rigid
+        } else {
+            false
+        }
     }
 
     /// Compute the hex-encoded SHA-256 hash of the protocol message, dispatching over
-    /// [ProtocolMessage::hash_scheme].
+    /// [ProtocolMessage::hash_scheme]. The rigid scheme requires `future_snark`; without it,
+    /// rigid messages fall back to the legacy hash (signals misconfiguration via signature
+    /// mismatch downstream).
     pub fn compute_hash(&self) -> String {
         match self.hash_scheme {
             ProtocolMessageHashScheme::Legacy => self.compute_legacy_hash(),
             #[cfg(feature = "future_snark")]
             ProtocolMessageHashScheme::Rigid => self.compute_rigid_hash(),
+            #[cfg(not(feature = "future_snark"))]
+            ProtocolMessageHashScheme::Rigid => self.compute_legacy_hash(),
         }
     }
 
@@ -375,7 +397,7 @@ impl ProtocolMessage {
     /// Validate that every rigid-segment value fits its fixed-size slot.
     ///
     /// No-op for [ProtocolMessageHashScheme::Legacy]. For [ProtocolMessageHashScheme::Rigid],
-    /// surfaces the first [RigidProtocolMessageIntegrityError] among missing entry,
+    /// surfaces the first `RigidProtocolMessageIntegrityError` among missing entry,
     /// byte-length mismatch, or non-decimal epoch. An empty dynamic-parts projection is
     /// allowed and collapses the rigid `digest` segment to a SHA-256 hash of no input.
     ///
@@ -391,14 +413,7 @@ impl ProtocolMessage {
             .message_parts
             .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
             .ok_or(RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey)?;
-        let snark_avk_bytes = legacy_value_to_bytes(snark_avk);
-        if snark_avk_bytes.len() != RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES {
-            return Err(RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
-                field: "next_aggregate_verification_key",
-                expected: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES,
-                actual: snark_avk_bytes.len(),
-            });
-        }
+        decode_snark_avk_to_rigid_slot_bytes(snark_avk)?;
 
         let protocol_parameters = self
             .message_parts
@@ -424,31 +439,19 @@ impl ProtocolMessage {
         self.clone().stripped_for_rigid_digest().compute_legacy_digest_bytes()
     }
 
-    /// Project the [ProtocolMessagePartKey::NextSnarkAggregateVerificationKey] entry into the
-    /// fixed-size [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] rigid slot.
-    ///
-    /// Missing entries collapse to a zero-padded buffer and oversized decoded values are
-    /// truncated to the slot width; both cases are accepted silently here. Producers running
-    /// [ProtocolMessage::check_rigid_integrity] reject these as
-    /// [RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey] and
-    /// [RigidProtocolMessageIntegrityError::UnexpectedFieldLength] at construction time. If the
-    /// strict check is bypassed, the verifier recomputes a preimage that does not match the
-    /// signed bytes and the signature-vs-message check fails as a `match_message` mismatch
-    /// instead of a typed error.
+    /// Decode the host SNARK AVK value (hex of CBOR-prefixed bytes from
+    /// `ProtocolKey::to_bytes_hex`) and project it into the rigid slot via
+    /// `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`. Missing or undecodable entries
+    /// silently collapse to zeros; [ProtocolMessage::check_rigid_integrity] surfaces the typed
+    /// error.
     #[cfg(feature = "future_snark")]
     fn rigid_next_aggregate_verification_key_field(
         &self,
     ) -> [u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] {
-        let mut buffer = [0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
-        if let Some(value) = self
-            .message_parts
+        self.message_parts
             .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
-        {
-            let bytes = legacy_value_to_bytes(value);
-            let length = bytes.len().min(RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES);
-            buffer[..length].copy_from_slice(&bytes[..length]);
-        }
-        buffer
+            .and_then(|value| decode_snark_avk_to_rigid_slot_bytes(value).ok())
+            .unwrap_or([0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES])
     }
 
     /// Project the [ProtocolMessagePartKey::NextProtocolParameters] entry into the rigid slot.
@@ -717,6 +720,20 @@ mod tests {
         protocol_message
     }
 
+    /// Build a syntactically valid SNARK aggregate verification key wire value embedding the
+    /// given 32-byte Merkle root and total stake.
+    ///
+    /// Uses the legacy AVK byte layout (`merkle_root || total_stake_be_u64`) which the
+    /// `AggregateVerificationKeyForSnark::from_bytes` decoder accepts as a fallback when the
+    /// CBOR version prefix is absent.
+    #[cfg(feature = "future_snark")]
+    fn build_snark_avk_wire_value_for_test(merkle_root: [u8; 32], total_stake: u64) -> String {
+        let mut bytes = Vec::with_capacity(40);
+        bytes.extend_from_slice(&merkle_root);
+        bytes.extend_from_slice(&total_stake.to_be_bytes());
+        hex::encode(bytes)
+    }
+
     #[cfg(feature = "future_snark")]
     fn build_rigid_protocol_message_reference() -> ProtocolMessage {
         let mut message = ProtocolMessage::new_rigid();
@@ -730,7 +747,7 @@ mod tests {
         );
         message.set_message_part(
             ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            hex::encode([0xCCu8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]),
+            build_snark_avk_wire_value_for_test([0xCCu8; 32], 0),
         );
         message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
@@ -923,16 +940,21 @@ mod tests {
     #[test]
     fn rigid_preimage_sources_aggregate_verification_key_segment_from_snark_avk_value() {
         let mut message = ProtocolMessage::new_rigid();
-        let snark_avk = [0xCDu8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        let merkle_root = [0xCDu8; 32];
+        let total_stake = 17u64;
         message.set_message_part(
             ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            hex::encode(snark_avk),
+            build_snark_avk_wire_value_for_test(merkle_root, total_stake),
         );
+
+        let mut expected = [0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        expected[0..32].copy_from_slice(&merkle_root);
+        expected[36..44].copy_from_slice(&total_stake.to_le_bytes());
 
         assert_eq!(
             message.rigid_next_aggregate_verification_key_field(),
-            snark_avk,
-            "the rigid AVK segment must be the raw bytes of the SNARK aggregate verification key"
+            expected,
+            "the rigid AVK segment must be the canonical 44-byte projection of the SNARK AVK"
         );
     }
 
@@ -1144,7 +1166,8 @@ mod tests {
     #[cfg(feature = "future_snark")]
     #[test]
     fn rigid_preimage_is_byte_identical_to_a_hand_built_labeled_concatenation() {
-        let snark_avk_bytes = [5u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        let snark_avk_root = [0x05u8; 32];
+        let snark_avk_total_stake = 17u64;
         let protocol_params_bytes = [3u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
         let epoch_value = 12345u64;
 
@@ -1155,7 +1178,7 @@ mod tests {
         );
         rigid.set_message_part(
             ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            hex::encode(snark_avk_bytes),
+            build_snark_avk_wire_value_for_test(snark_avk_root, snark_avk_total_stake),
         );
         rigid.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
@@ -1166,11 +1189,15 @@ mod tests {
             epoch_value.to_string(),
         );
 
+        let mut snark_avk_slot = [0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        snark_avk_slot[0..32].copy_from_slice(&snark_avk_root);
+        snark_avk_slot[36..44].copy_from_slice(&snark_avk_total_stake.to_le_bytes());
+
         let mut expected = Vec::new();
         expected.extend_from_slice(b"digest");
         expected.extend_from_slice(&rigid.rigid_digest_field());
         expected.extend_from_slice(b"next_aggregate_verification_key");
-        expected.extend_from_slice(&snark_avk_bytes);
+        expected.extend_from_slice(&snark_avk_slot);
         expected.extend_from_slice(b"next_protocol_parameters");
         expected.extend_from_slice(&protocol_params_bytes);
         expected.extend_from_slice(b"current_epoch");
@@ -1179,7 +1206,7 @@ mod tests {
         assert_eq!(
             expected,
             rigid.rigid_preimage(),
-            "the rigid preimage must be the byte-identical concatenation of each ASCII label followed by its raw value bytes"
+            "the rigid preimage must be the byte-identical concatenation of each ASCII label followed by the rigid-slot value bytes"
         );
     }
 
@@ -1242,24 +1269,48 @@ mod tests {
 
     #[cfg(feature = "future_snark")]
     #[test]
-    fn check_rigid_integrity_fails_when_next_snark_avk_decodes_to_unexpected_length() {
+    fn check_rigid_integrity_fails_when_next_snark_avk_cannot_be_deserialized() {
         let mut rigid = build_rigid_protocol_message_reference();
         rigid.set_message_part(
             ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            hex::encode([0xCCu8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES - 1]),
+            "not-a-valid-snark-avk-encoding".to_string(),
         );
 
         let error = rigid
             .check_rigid_integrity()
-            .expect_err("ill-formed rigid SNARK AVK entry must surface an error");
+            .expect_err("undecodable rigid SNARK AVK entry must surface an error");
 
-        assert_eq!(
-            error,
-            RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
-                field: "next_aggregate_verification_key",
-                expected: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES,
-                actual: RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES - 1,
-            }
+        assert!(
+            matches!(
+                error,
+                RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(_)
+            ),
+            "unexpected error variant: {error:?}"
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn check_rigid_integrity_fails_when_decoded_next_snark_avk_does_not_fit_the_rigid_slot() {
+        let mut rigid = build_rigid_protocol_message_reference();
+        let mut undersized = Vec::with_capacity(24);
+        undersized.extend_from_slice(&[0xAAu8; 16]);
+        undersized.extend_from_slice(&0u64.to_be_bytes());
+        rigid.set_message_part(
+            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+            hex::encode(undersized),
+        );
+
+        let error = rigid
+            .check_rigid_integrity()
+            .expect_err("unprojectable rigid SNARK AVK entry must surface an error");
+
+        assert!(
+            matches!(
+                error,
+                RigidProtocolMessageIntegrityError::UnprojectableSnarkAggregateVerificationKey(_)
+            ),
+            "unexpected error variant: {error:?}"
         );
     }
 
