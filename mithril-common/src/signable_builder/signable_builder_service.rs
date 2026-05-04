@@ -210,6 +210,9 @@ impl SignableBuilderService for MithrilSignableBuilderService {
             .compute_signed_entity_protocol_message(signed_entity_type)
             .await?;
         let protocol_message = self.compute_seeded_protocol_message(protocol_message).await?;
+        protocol_message.check_rigid_integrity().with_context(
+            || "Signable builder service produced a protocol message that violates the rigid layout",
+        )?;
 
         Ok(protocol_message)
     }
@@ -558,6 +561,48 @@ mod tests {
                 .expect_err(
                     "Lagrange era without a SNARK aggregate verification key must be rejected",
                 );
+        }
+
+        #[tokio::test]
+        async fn lagrange_era_with_an_ill_formed_rigid_field_is_rejected_by_the_integrity_check() {
+            let mut mock_container = build_mock_container_for_era(
+                SupportedEra::Lagrange,
+                Some("not-a-valid-snark-avk-encoding".to_string()),
+            );
+            mock_container
+                .mock_mithril_stake_distribution_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(
+                        ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                        hex::encode(b"merkle-root"),
+                    );
+                    Ok(message)
+                });
+            let signable_builder_service = mock_container.build_signable_builder_service();
+
+            let error = signable_builder_service
+                .compute_protocol_message(SignedEntityType::MithrilStakeDistribution(Epoch(7)))
+                .await
+                .expect_err(
+                    "rigid layout violation must be surfaced by the signable builder integrity check",
+                );
+
+            let integrity_error = error
+                .downcast_ref::<crate::entities::RigidProtocolMessageIntegrityError>()
+                .expect("the signable builder must surface a `RigidProtocolMessageIntegrityError`");
+            assert!(
+                matches!(
+                    integrity_error,
+                    crate::entities::RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+                        field: "next_aggregate_verification_key",
+                        ..
+                    }
+                ),
+                "unexpected error variant: {integrity_error:?}"
+            );
         }
     }
 }
