@@ -240,7 +240,7 @@ mod tests {
 
     use httpmock::MockServer;
 
-    use mithril_common::{entities::FileUri, test::TempDir};
+    use mithril_common::{entities::FileUri, temp_dir_create};
 
     use crate::{
         feedback::{
@@ -273,11 +273,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_http_file_send_feedback() {
-        let target_dir = TempDir::create(
-            "client-http-downloader",
-            "test_download_http_file_send_feedback",
-        );
+    async fn downloading_http_file_send_feedback() {
+        let target_dir = temp_dir_create!();
         let content = "Hello, world!";
         let size = content.len() as u64;
         let server = MockServer::start();
@@ -327,11 +324,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_local_file_send_feedback() {
-        let target_dir = TempDir::create(
-            "client-http-downloader",
-            "test_download_local_file_send_feedback",
-        );
+    async fn downloading_local_file_send_feedback() {
+        let target_dir = temp_dir_create!();
         let content = "Hello, world!";
         let size = content.len() as u64;
 
