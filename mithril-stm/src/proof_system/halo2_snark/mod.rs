@@ -2,7 +2,6 @@ mod aggregate_key;
 mod circuit_verification_key;
 mod clerk;
 mod eligibility;
-mod helpers;
 mod message;
 mod proof;
 mod prover_input;
