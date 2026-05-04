@@ -128,9 +128,17 @@ impl HttpFileDownloader {
         while let Some(item) = remote_stream.next().await {
             let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
 
-            if sender.is_disconnected() {
+            if chunk.is_empty() {
                 break;
             }
+
+            if sender.is_disconnected() {
+                anyhow::bail!(
+                    "Download: unpack finished but `{}` bytes were remaining",
+                    chunk.len()
+                );
+            }
+
             sender.send_async(chunk.to_vec()).await.with_context(|| {
                 format!("Download: could not write {} bytes to stream.", chunk.len())
             })?;
@@ -391,7 +399,7 @@ mod tests {
         // Simulate an unpack task end by dropping the receiver immediately, the download task should stop without error
         drop(rx);
 
-        let download_result = http_file_downloader
+        let error = http_file_downloader
             .download_remote_file(
                 &server.url("/snapshot.tar"),
                 &tx,
@@ -400,11 +408,13 @@ mod tests {
                 },
                 0,
             )
-            .await;
+            .await
+            .unwrap_err();
 
+        let expected_error = "Download: unpack finished but `1` bytes were remaining";
         assert!(
-            download_result.is_ok(),
-            "Remote download failed: {download_result:?}"
+            error.to_string().contains(expected_error),
+            "Expected error to contains `{expected_error}` but got: `{error:?}`"
         );
     }
 
