@@ -55,10 +55,11 @@ rand = { version = "0.10.1", optional = true }
 rand_chacha = { workspace = true, optional = true }
 rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
-reqwest = { workspace = true, features = ["blocking", "default"] }
+reqwest = { workspace = true, default-features = true, features = ["blocking"] }
 serde = { workspace = true }
 sha2 = { version = "0.10.9", optional = true }
 subtle = "2.6.1"
+tempfile = "3.27.0"
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
