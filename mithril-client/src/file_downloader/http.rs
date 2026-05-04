@@ -127,6 +127,18 @@ impl HttpFileDownloader {
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
+
+            if chunk.is_empty() {
+                break;
+            }
+
+            if sender.is_disconnected() {
+                anyhow::bail!(
+                    "Download: unpack finished but `{}` bytes were remaining",
+                    chunk.len()
+                );
+            }
+
             sender.send_async(chunk.to_vec()).await.with_context(|| {
                 format!("Download: could not write {} bytes to stream.", chunk.len())
             })?;
@@ -240,7 +252,7 @@ mod tests {
 
     use httpmock::MockServer;
 
-    use mithril_common::{entities::FileUri, test::TempDir};
+    use mithril_common::{entities::FileUri, temp_dir_create};
 
     use crate::{
         feedback::{
@@ -273,11 +285,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_http_file_send_feedback() {
-        let target_dir = TempDir::create(
-            "client-http-downloader",
-            "test_download_http_file_send_feedback",
-        );
+    async fn downloading_http_file_send_feedback() {
+        let target_dir = temp_dir_create!();
         let content = "Hello, world!";
         let size = content.len() as u64;
         let server = MockServer::start();
@@ -327,11 +336,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_local_file_send_feedback() {
-        let target_dir = TempDir::create(
-            "client-http-downloader",
-            "test_download_local_file_send_feedback",
-        );
+    async fn downloading_local_file_send_feedback() {
+        let target_dir = temp_dir_create!();
         let content = "Hello, world!";
         let size = content.len() as u64;
 
@@ -376,5 +382,70 @@ mod tests {
             }),
         ];
         assert_eq!(expected_events, feedback_receiver.stacked_events());
+    }
+
+    #[tokio::test]
+    async fn downloading_http_file_handle_early_unpack_receiver_closure() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/snapshot.tar");
+            then.status(200).body("a");
+        });
+        let http_file_downloader =
+            HttpFileDownloader::new(FeedbackSender::new(&[]), TestLogger::stdout()).unwrap();
+        let download_id = "id".to_string();
+        let (tx, rx) = flume::bounded(1);
+
+        // Simulate an unpack task end by dropping the receiver immediately, the download task should stop without error
+        drop(rx);
+
+        let error = http_file_downloader
+            .download_remote_file(
+                &server.url("/snapshot.tar"),
+                &tx,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+                0,
+            )
+            .await
+            .unwrap_err();
+
+        let expected_error = "Download: unpack finished but `1` bytes were remaining";
+        assert!(
+            error.to_string().contains(expected_error),
+            "Expected error to contains `{expected_error}` but got: `{error:?}`"
+        );
+    }
+
+    #[tokio::test]
+    async fn downloading_local_file_handle_early_unpack_receiver_closure() {
+        let target_dir = temp_dir_create!();
+        let source_file_path = target_dir.join("snapshot.txt");
+        let _file = std::fs::File::create(&source_file_path).unwrap();
+
+        let http_file_downloader =
+            HttpFileDownloader::new(FeedbackSender::new(&[]), TestLogger::stdout()).unwrap();
+        let download_id = "id".to_string();
+        let (tx, rx) = flume::bounded(1);
+
+        // Simulate an unpack task end by dropping the receiver immediately, the download task should stop without error
+        drop(rx);
+
+        let download_result = http_file_downloader
+            .download_local_file(
+                &source_file_path.to_string_lossy(),
+                &tx,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+                0,
+            )
+            .await;
+
+        assert!(
+            download_result.is_ok(),
+            "Remote download failed: {download_result:?}"
+        );
     }
 }
