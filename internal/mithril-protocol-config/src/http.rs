@@ -115,6 +115,7 @@ mod tests {
     };
     use mithril_common::messages::ProtocolConfigurationMessage;
     use mithril_common::test::double::Dummy;
+    use mithril_common::test::entities_extensions::SignedEntityTypeDiscriminantsTestExtension;
 
     use crate::test::test_tools::TestLogger;
 
@@ -258,5 +259,36 @@ mod tests {
                 .collect::<BTreeSet<_>>(),
             configuration.enabled_signed_entity_types
         )
+    }
+
+    #[tokio::test]
+    async fn all_known_discriminants_including_unstable_can_be_read() {
+        let configuration_epoch_56 = ProtocolConfigurationMessage {
+            available_signed_entity_types: SignedEntityTypeDiscriminants::all_with_unstable(),
+            ..Dummy::dummy()
+        };
+
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.path("/protocol-configuration/56");
+            then.status(200)
+                .body(serde_json::to_string(&configuration_epoch_56).unwrap());
+        });
+
+        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
+            Arc::new(
+                AggregatorHttpClient::builder(server.base_url())
+                    .with_logger(TestLogger::stdout())
+                    .build()
+                    .unwrap(),
+            ),
+            TestLogger::stdout(),
+        );
+
+        mithril_configuration_provider
+            .get_valid_configuration_for_epoch(Epoch(56))
+            .await
+            .expect("Including unstable discriminants should not fail")
+            .unwrap();
     }
 }
