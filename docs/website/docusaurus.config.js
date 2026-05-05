@@ -203,6 +203,10 @@ const config = {
             to: "/mithril/advanced/threat-model",
             from: ["/mithril/threat-model"],
           },
+          {
+            to: "/aggregator-api/current",
+            from: ["/aggregator-api"],
+          },
         ],
       },
     ],
