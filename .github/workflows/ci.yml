@@ -964,28 +964,6 @@ jobs:
           path: |
             mithril-explorer/out/*
 
-  build-open-api-ui:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v6
-
-      - name: Build OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: out/
-          spec-file: ./openapi.yaml
-          version: ^5.0.0
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish OpenAPI UI build
-        uses: actions/upload-artifact@v7
-        with:
-          name: openapi-ui-build
-          if-no-files-found: error
-          path: |
-            out/*
-
   publish-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -993,7 +971,6 @@ jobs:
       - cargo-doc
       - build-docusaurus
       - build-test-explorer
-      - build-open-api-ui
       - check
     environment:
       name: github-pages
@@ -1032,12 +1009,6 @@ jobs:
         with:
           name: explorer-build-unstable
           path: ./github-pages/explorer/unstable
-
-      - name: Download OpenAPI UI build
-        uses: actions/download-artifact@v8
-        with:
-          name: openapi-ui-build
-          path: ./github-pages/openapi-ui
 
       - name: Add CNAME, .nojekyll & Redirect
         run: |

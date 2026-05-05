@@ -78,7 +78,11 @@ const config = {
         specs: [
           {
             spec: "../../openapi.yaml",
-            route: "/aggregator-api/",
+            route: "/aggregator-api/next",
+          },
+          {
+            spec: "openapi.current.yaml",
+            route: "/aggregator-api/current",
           },
         ],
         theme: {
@@ -198,6 +202,10 @@ const config = {
           {
             to: "/mithril/advanced/threat-model",
             from: ["/mithril/threat-model"],
+          },
+          {
+            to: "/aggregator-api/current",
+            from: ["/aggregator-api"],
           },
         ],
       },

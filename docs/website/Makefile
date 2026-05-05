@@ -57,6 +57,10 @@ update-current:
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
 
+	#promote 'next' openapi spec to 'current'
+	rm openapi.current.yaml
+	cp ../../openapi.yaml openapi.current.yaml
+
 swizzled-components-upgrade: swizzled-components-clean reswizzle-components swizzled-components-apply-patches
 
 swizzled-components-clean:
