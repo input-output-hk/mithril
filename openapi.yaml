@@ -4,12 +4,10 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.62
+  version: 0.1.63
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
-
-    You can play with it [here](https://mithril.network/doc/aggregator-api/current).
   termsOfService: http://swagger.io/terms/
   contact:
     name: Mithril Team

@@ -8,8 +8,6 @@ info:
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
-
-    You can play with it [here](https://mithril.network/doc/aggregator-api/current).
   termsOfService: http://swagger.io/terms/
   contact:
     name: Mithril Team
