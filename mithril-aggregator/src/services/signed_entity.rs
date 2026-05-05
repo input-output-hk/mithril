@@ -412,7 +412,10 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Option<SignedEntity<Snapshot>>> {
         let entity: Option<SignedEntity<Snapshot>> = match self
             .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            )
             .await
             .with_context(|| {
                 format!(
@@ -446,7 +449,10 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Option<SignedEntity<CardanoDatabaseSnapshot>>> {
         let entity: Option<SignedEntity<CardanoDatabaseSnapshot>> = match self
             .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
+            )
             .await
             .with_context(|| {
                 format!(
@@ -483,7 +489,10 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>> {
         let entity: Option<SignedEntity<MithrilStakeDistribution>> = match self
             .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            )
             .await
             .with_context(|| {
                 format!(

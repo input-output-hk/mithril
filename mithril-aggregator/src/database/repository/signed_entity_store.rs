@@ -19,10 +19,11 @@ pub trait SignedEntityStorer: Sync + Send {
     /// Store a signed entity
     async fn store_signed_entity(&self, signed_entity: &SignedEntityRecord) -> StdResult<()>;
 
-    /// Get signed entity type
+    /// Get signed entity type by id and entity type
     async fn get_signed_entity(
         &self,
         signed_entity_id: &str,
+        signed_entity_type: &SignedEntityTypeDiscriminants,
     ) -> StdResult<Option<SignedEntityRecord>>;
 
     /// Get signed entity type by certificate id
@@ -90,11 +91,15 @@ impl SignedEntityStorer for SignedEntityStore {
     async fn get_signed_entity(
         &self,
         signed_entity_id: &str,
+        signed_entity_type: &SignedEntityTypeDiscriminants,
     ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_id(
-                signed_entity_id,
-            ))
+            .fetch_first(
+                GetSignedEntityRecordQuery::by_signed_entity_id_and_signed_entity_type(
+                    signed_entity_id,
+                    signed_entity_type,
+                ),
+            )
             .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
     }
 

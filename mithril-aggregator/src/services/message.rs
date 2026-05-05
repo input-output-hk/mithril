@@ -279,7 +279,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            )
+            .await?;
 
         signed_entity.map(|s| s.try_into()).transpose()
     }
@@ -298,7 +304,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
+            )
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -351,7 +363,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            )
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -373,7 +391,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoTransactionSnapshotMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoTransactions,
+            )
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -395,7 +419,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoBlocksTransactionsSnapshotMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+            )
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -417,7 +447,13 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
-        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(
+                signed_entity_id,
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            )
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }

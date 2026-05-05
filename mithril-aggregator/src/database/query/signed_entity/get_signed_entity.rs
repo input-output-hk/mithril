@@ -19,11 +19,18 @@ impl GetSignedEntityRecordQuery {
         }
     }
 
-    pub fn by_signed_entity_id(signed_entity_id: &str) -> Self {
+    pub fn by_signed_entity_id_and_signed_entity_type(
+        signed_entity_id: &str,
+        signed_entity_type: &SignedEntityTypeDiscriminants,
+    ) -> Self {
+        let signed_entity_type_id = signed_entity_type.index() as i64;
         Self {
             condition: WhereCondition::new(
-                "signed_entity_id = ?*",
-                vec![Value::String(signed_entity_id.to_owned())],
+                "signed_entity_id = ?* and signed_entity_type_id = ?*",
+                vec![
+                    Value::String(signed_entity_id.to_owned()),
+                    Value::Integer(signed_entity_type_id),
+                ],
             ),
         }
     }
@@ -170,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_record_by_id() {
+    fn test_get_record_by_id_and_signed_entity_type() {
         let signed_entity_records = vec![
             SignedEntityRecord::fake_with_signed_entity(
                 SignedEntityType::CardanoStakeDistribution(Epoch(3)),
@@ -186,11 +193,42 @@ mod tests {
 
         let first_signed_entity_type = signed_entity_records[0].clone();
         let fetched_record = connection
-            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_id(
-                &first_signed_entity_type.signed_entity_id,
-            ))
+            .fetch_first(
+                GetSignedEntityRecordQuery::by_signed_entity_id_and_signed_entity_type(
+                    &first_signed_entity_type.signed_entity_id,
+                    &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ),
+            )
             .unwrap();
         assert_eq!(Some(first_signed_entity_type), fetched_record);
+    }
+
+    #[test]
+    fn test_get_record_by_id_and_signed_entity_type_must_return_none_if_signed_entity_type_does_not_match()
+     {
+        let signed_entity_records = vec![
+            SignedEntityRecord::fake_with_signed_entity(
+                SignedEntityType::CardanoStakeDistribution(Epoch(3)),
+            ),
+            SignedEntityRecord::fake_with_signed_entity(SignedEntityType::CardanoTransactions(
+                Epoch(4),
+                BlockNumber(5),
+            )),
+        ];
+
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, signed_entity_records.clone()).unwrap();
+
+        let first_signed_entity_type = signed_entity_records[0].clone();
+        let fetched_record = connection
+            .fetch_first(
+                GetSignedEntityRecordQuery::by_signed_entity_id_and_signed_entity_type(
+                    &first_signed_entity_type.signed_entity_id,
+                    &SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                ),
+            )
+            .unwrap();
+        assert_eq!(None, fetched_record);
     }
 
     #[test]
