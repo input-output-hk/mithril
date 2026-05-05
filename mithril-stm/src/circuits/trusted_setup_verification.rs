@@ -219,17 +219,16 @@ mod tests {
     ];
 
     #[test]
-    fn test_byte_encoding_srs_files() {
-        let mut srs_bytes = SRS_K1.as_slice();
+    fn both_bytes_encoding_work_for_srs_files() {
         let mut tmp_file = NamedTempFile::new().unwrap();
-        std::fs::write(&mut tmp_file, srs_bytes).unwrap();
+        std::fs::write(&mut tmp_file, SRS_K1.as_slice()).unwrap();
         let srs_manager = SrsManager::new(tmp_file.path(), "", "");
         let loaded_srs = srs_manager.load().unwrap();
         let srs_rawbytes: ParamsKZG<Bls12> =
-            ParamsKZG::read_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
+            ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytes).unwrap();
 
         let srs_rawbytes_unchecked: ParamsKZG<Bls12> =
-            ParamsKZG::read_custom(&mut srs_bytes, SerdeFormat::RawBytesUnchecked).unwrap();
+            ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytesUnchecked).unwrap();
 
         let mut loaded_buffer = vec![];
         loaded_srs
