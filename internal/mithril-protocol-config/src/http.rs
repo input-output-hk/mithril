@@ -121,6 +121,21 @@ mod tests {
 
     use super::*;
 
+    fn build_http_network_provider(
+        server_url: &str,
+        logger: Logger,
+    ) -> HttpMithrilNetworkConfigurationProvider {
+        HttpMithrilNetworkConfigurationProvider::new(
+            Arc::new(
+                AggregatorHttpClient::builder(server_url)
+                    .with_logger(logger.clone())
+                    .build()
+                    .unwrap(),
+            ),
+            logger,
+        )
+    }
+
     #[tokio::test]
     async fn test_get_network_configuration_retrieve_configurations_for_aggregation_next_aggregation_and_registration()
      {
@@ -164,15 +179,8 @@ mod tests {
                 .body(serde_json::to_string(&configuration_epoch_43).unwrap());
         });
 
-        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
-            Arc::new(
-                AggregatorHttpClient::builder(server.base_url())
-                    .with_logger(TestLogger::stdout())
-                    .build()
-                    .unwrap(),
-            ),
-            TestLogger::stdout(),
-        );
+        let mithril_configuration_provider =
+            build_http_network_provider(&server.base_url(), TestLogger::stdout());
 
         let configuration = mithril_configuration_provider
             .get_network_configuration(Epoch(42))
@@ -232,15 +240,8 @@ mod tests {
                 .body(serde_json::to_string(&configuration_epoch_56).unwrap());
         });
 
-        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
-            Arc::new(
-                AggregatorHttpClient::builder(server.base_url())
-                    .with_logger(TestLogger::stdout())
-                    .build()
-                    .unwrap(),
-            ),
-            TestLogger::stdout(),
-        );
+        let mithril_configuration_provider =
+            build_http_network_provider(&server.base_url(), TestLogger::stdout());
 
         let configuration = mithril_configuration_provider
             .get_valid_configuration_for_epoch(Epoch(56))
@@ -275,20 +276,49 @@ mod tests {
                 .body(serde_json::to_string(&configuration_epoch_56).unwrap());
         });
 
-        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
-            Arc::new(
-                AggregatorHttpClient::builder(server.base_url())
-                    .with_logger(TestLogger::stdout())
-                    .build()
-                    .unwrap(),
-            ),
-            TestLogger::stdout(),
-        );
+        let mithril_configuration_provider =
+            build_http_network_provider(&server.base_url(), TestLogger::stdout());
 
         mithril_configuration_provider
             .get_valid_configuration_for_epoch(Epoch(56))
             .await
             .expect("Including unstable discriminants should not fail")
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn unknown_discriminants_are_removed_from_enabled_list() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            let mut message_with_unknown_type =
+                serde_json::to_value(&ProtocolConfigurationMessage {
+                    available_signed_entity_types: BTreeSet::new(),
+                    ..Dummy::dummy()
+                })
+                .unwrap();
+            message_with_unknown_type["available_signed_entity_types"] =
+                serde_json::to_value(vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution.as_ref(),
+                    "signed_entity_type_which_does_not_exist",
+                ])
+                .unwrap();
+
+            when.path("/protocol-configuration/56");
+            then.status(200).body(message_with_unknown_type.to_string());
+        });
+
+        let mithril_configuration_provider =
+            build_http_network_provider(&server.base_url(), TestLogger::stdout());
+
+        let configuration = mithril_configuration_provider
+            .get_valid_configuration_for_epoch(Epoch(56))
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            BTreeSet::from([SignedEntityTypeDiscriminants::MithrilStakeDistribution]),
+            configuration.enabled_signed_entity_types
+        )
     }
 }
