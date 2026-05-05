@@ -8,6 +8,7 @@ use anyhow::{Context, anyhow};
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
+use tempfile::NamedTempFile;
 
 use crate::StmResult;
 
@@ -110,7 +111,12 @@ impl SrsManager {
         std::fs::create_dir_all(parent)
             .with_context(|| "Subdirectory creation should have succeeded!")?;
 
-        std::fs::write(&self.path, srs_bytes)?;
+        let mut temporary_file = NamedTempFile::new_in(parent)
+            .with_context(|| "Failed to generate temporary file to store the SRS")?;
+        std::fs::write(&mut temporary_file, srs_bytes)?;
+        temporary_file
+            .persist(&self.path)
+            .with_context(|| "Failed to atomically rename SRS temp file.")?;
         Ok(())
     }
 
@@ -211,6 +217,39 @@ mod tests {
         231, 212, 66, 129, 222, 134, 161, 134, 204, 16, 108, 51, 54, 245, 143, 236, 224, 30, 118,
         109, 196, 20, 125, 56, 227, 25, 54, 16, 90, 73, 68, 203, 89,
     ];
+
+    #[test]
+    fn test_byte_encoding_srs_files() {
+        let mut srs_bytes = SRS_K1.as_slice();
+        let mut tmp_file = NamedTempFile::new().unwrap();
+        std::fs::write(&mut tmp_file, srs_bytes).unwrap();
+        let srs_manager = SrsManager::new(tmp_file.path(), "", "");
+        let loaded_srs = srs_manager.load().unwrap();
+        let srs_rawbytes: ParamsKZG<Bls12> =
+            ParamsKZG::read_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
+
+        let srs_rawbytes_unchecked: ParamsKZG<Bls12> =
+            ParamsKZG::read_custom(&mut srs_bytes, SerdeFormat::RawBytesUnchecked).unwrap();
+
+        let mut loaded_buffer = vec![];
+        loaded_srs
+            .write_custom(&mut loaded_buffer, SerdeFormat::RawBytes)
+            .unwrap();
+        let mut raw_bytes_buffer = vec![];
+        srs_rawbytes
+            .write_custom(&mut raw_bytes_buffer, SerdeFormat::RawBytes)
+            .unwrap();
+        let mut raw_bytes_unchecked_buffer = vec![];
+        srs_rawbytes_unchecked
+            .write_custom(
+                &mut raw_bytes_unchecked_buffer,
+                SerdeFormat::RawBytesUnchecked,
+            )
+            .unwrap();
+
+        assert_eq!(loaded_buffer, raw_bytes_buffer);
+        assert_eq!(raw_bytes_unchecked_buffer, raw_bytes_buffer);
+    }
 
     #[test]
     fn valid_file_hash_succeeds() {
