@@ -14,8 +14,9 @@ use crate::StmResult;
 /// TODO: remove allow(dead_code) when the constants are used or remove the constatnts
 #[allow(dead_code)]
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production
+///
 /// If the degree of the SRS used were to change, this hash would need to be updated using
-/// the value available here: https://github.com/midnightntwrk/midnight-trusted-setup/blob/main/MIDNIGHT_SRS_CATALOG.md
+/// the proper value available here: https://github.com/midnightntwrk/midnight-trusted-setup/blob/main/MIDNIGHT_SRS_CATALOG.md
 const SRS_HASH_K22: &str = "e8ad5eed936d657a0fb59d2a55ba19f81a3083bb3554ef88f464f5377e9b2c2f";
 #[allow(dead_code)]
 /// Constant storing temporary path of the SRS of degree 22 used to create proof in production
@@ -69,19 +70,11 @@ impl SrsManager {
         file.read_to_end(&mut srs_buffer)
             .with_context(|| "Reading the SRS file should have succeeded!")?;
 
-        let recomputed_hash = Self::compute_hash(&srs_buffer);
-        println!("Hash of the local SRS file: {:?}", recomputed_hash);
-
-        Ok(self.expected_hash == recomputed_hash)
+        Ok(self.verify_bytes(&srs_buffer))
     }
 
     /// Checks SHA256 hash of the given bytes against the stored expected value.
     fn verify_bytes(&self, srs_bytes: &[u8]) -> bool {
-        println!(
-            "Verifying integrity of the given bytes by checking its Sha256 hash value. Expected hash: {:?}",
-            self.expected_hash
-        );
-
         let recomputed_hash = Self::compute_hash(srs_bytes);
         println!("Hash of the given bytes: {:?}", recomputed_hash);
 
@@ -133,7 +126,10 @@ impl SrsManager {
             let srs_bytes = self
                 .download()
                 .with_context(|| "Download of the SRS file should have succeeded!")?;
-
+            println!(
+                "Verifying integrity of the given bytes by checking its Sha256 hash value. Expected hash: {:?}",
+                self.expected_hash
+            );
             if !self.verify_bytes(&srs_bytes) {
                 return Err(anyhow!(
                     "Error, the hash of the SRS file does not match the hard-coded value!"
