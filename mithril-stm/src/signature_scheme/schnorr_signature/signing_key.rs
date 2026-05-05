@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
-    PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement, SchnorrSignatureError,
-    SchnorrVerificationKey, StandardSchnorrSignature, UniqueSchnorrSignature,
-    compute_poseidon_digest,
+    BaseFieldElement, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
+    DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
+    ScalarFieldElement, SchnorrSignatureError, SchnorrVerificationKey, StandardSchnorrSignature,
+    UniqueSchnorrSignature, compute_poseidon_digest,
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
@@ -43,7 +43,7 @@ impl SchnorrSigningKey {
     ///
     /// Output the signature (`commitment_point`, `response`, `challenge`)
     ///
-    pub fn sign<R: RngCore + CryptoRng>(
+    pub fn sign_unique<R: RngCore + CryptoRng>(
         &self,
         msg: &[BaseFieldElement],
         rng: &mut R,
@@ -66,7 +66,8 @@ impl SchnorrSigningKey {
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // The order must be preserved
-        let mut points_coordinates: Vec<BaseFieldElement> = vec![DOMAIN_SEPARATION_TAG_SIGNATURE];
+        let mut points_coordinates: Vec<BaseFieldElement> =
+            vec![DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE];
         points_coordinates.extend(
             [
                 msg_hash_point,

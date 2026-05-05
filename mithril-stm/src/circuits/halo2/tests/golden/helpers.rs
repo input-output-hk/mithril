@@ -365,7 +365,7 @@ fn sign_and_verify_lottery_message(
     let transcript = transcript_message(merkle_tree_commitment, message);
     let stm_sig = signer_fixture
         .sk
-        .sign(&transcript, rng)
+        .sign_unique(&transcript, rng)
         .map_err(|_| anyhow!(StmCircuitError::SignatureGenerationFailed))?;
     assert_challenge_endianness(&stm_sig)?;
     stm_sig

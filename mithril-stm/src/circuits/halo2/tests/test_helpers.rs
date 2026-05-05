@@ -93,7 +93,7 @@ pub(crate) fn sample_valid_circuit_witness_entry(
         BaseFieldElement::from_bytes(stm_tree.to_merkle_tree_commitment().root.as_slice())?.into();
     let message = SignedMessageWithoutPrefix::from(42u64);
     let transcript = [merkle_tree_commitment.into(), message.into()];
-    let unique_schnorr_signature = signing_key.sign(&transcript, &mut rng)?;
+    let unique_schnorr_signature = signing_key.sign_unique(&transcript, &mut rng)?;
     let merkle_path: MerklePath =
         (&stm_tree.compute_merkle_tree_path_fixed_length(0, merkle_path_length)).try_into()?;
     let entry = CircuitWitnessEntry {

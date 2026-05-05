@@ -54,7 +54,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     for _ in 0..nr_sigs {
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
-        let sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng_sig).unwrap();
         sigs.push(sig);
         mvks.push(vk);
         msks.push(sk);
@@ -63,7 +63,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     group.bench_function(BenchmarkId::new("Signature", nr_sigs), |b| {
         b.iter(|| {
             for sk in msks.iter() {
-                let _sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
+                let _sig = sk.sign_unique(&[base_input], &mut rng_sig).unwrap();
             }
         })
     });

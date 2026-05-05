@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 
 use super::{
-    BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
-    ScalarFieldElement, SchnorrSignatureError, SchnorrVerificationKey, compute_poseidon_digest,
+    BaseFieldElement, DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE, PrimeOrderProjectivePoint,
+    ProjectivePoint, ScalarFieldElement, SchnorrSignatureError, SchnorrVerificationKey,
+    compute_poseidon_digest,
 };
 
 /// Structure of the Unique Schnorr signature to use with the SNARK
@@ -69,7 +70,8 @@ impl UniqueSchnorrSignature {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let mut points_coordinates: Vec<BaseFieldElement> = vec![DOMAIN_SEPARATION_TAG_SIGNATURE];
+        let mut points_coordinates: Vec<BaseFieldElement> =
+            vec![DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE];
         points_coordinates.extend(
             [
                 msg_hash_point,
@@ -163,7 +165,7 @@ mod tests {
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
 
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
 
         sig.verify(&[base_input], &vk)
             .expect("Valid signature should verify successfully");
@@ -182,8 +184,8 @@ mod tests {
         let sk2 = SchnorrSigningKey::generate(&mut rng);
         let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2);
 
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
-        let sig2 = sk.sign(&[base_input2], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
+        let sig2 = sk.sign_unique(&[base_input2], &mut rng).unwrap();
 
         // Wrong verification key is used
         let result1 = sig.verify(&[base_input], &vk2);
@@ -208,7 +210,7 @@ mod tests {
         let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
         let sk = SchnorrSigningKey::generate(&mut rng);
 
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
 
         let sig_restored = UniqueSchnorrSignature::from_bytes(&sig_bytes).unwrap();
@@ -222,7 +224,7 @@ mod tests {
         let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
         let sk = SchnorrSigningKey::generate(&mut rng);
 
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
 
         let mut extended_bytes = sig_bytes.to_vec();
@@ -239,7 +241,7 @@ mod tests {
         let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
         let sk = SchnorrSigningKey::generate(&mut rng);
 
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
 
         // Converting to bytes multiple times should give same result
         let bytes1 = sig.to_bytes();
@@ -257,7 +259,7 @@ mod tests {
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
 
         // Create and verify original signature
-        let sig = sk.sign(&[base_input], &mut rng).unwrap();
+        let sig = sk.sign_unique(&[base_input], &mut rng).unwrap();
         sig.verify(&[base_input], &vk)
             .expect("Original signature should verify");
 
@@ -288,7 +290,7 @@ mod tests {
             let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
-            sk.sign(&[base_input], &mut rng).unwrap()
+            sk.sign_unique(&[base_input], &mut rng).unwrap()
         }
 
         #[test]
@@ -318,7 +320,7 @@ mod tests {
             let sk = SchnorrSigningKey::generate(&mut rng);
             let msg = [0u8; 32];
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
-            sk.sign(&[base_input], &mut rng).unwrap()
+            sk.sign_unique(&[base_input], &mut rng).unwrap()
         }
 
         #[test]

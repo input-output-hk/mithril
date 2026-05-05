@@ -19,7 +19,9 @@ use crate::circuits::halo2::witness::{CircuitInstance, CircuitWitness};
 use crate::circuits::halo2::witness_assignments::{
     assign_signature_components, assign_witness_entry,
 };
-use crate::signature_scheme::{DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE};
+use crate::signature_scheme::{
+    DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
+};
 use crate::{LotteryIndex, Parameters, StmResult};
 
 /// Halo2 relation implementing the non-recursive STM verification circuit.
@@ -198,8 +200,10 @@ impl Relation for StmCircuit {
             <CircuitCurve as CircuitCurveTrait>::CryptographicGroup::generator(),
         )?;
 
-        let domain_separation_tag_signature: AssignedNative<_> =
-            std_lib.assign_fixed(layouter, CircuitBase::from(DOMAIN_SEPARATION_TAG_SIGNATURE))?;
+        let domain_separation_tag_signature: AssignedNative<_> = std_lib.assign_fixed(
+            layouter,
+            CircuitBase::from(DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE),
+        )?;
         let domain_separation_tag_lottery: AssignedNative<_> =
             std_lib.assign_fixed(layouter, CircuitBase::from(DOMAIN_SEPARATION_TAG_LOTTERY))?;
         let lottery_prefix = std_lib.poseidon(
@@ -327,7 +331,7 @@ impl Relation for StmCircuit {
 mod dst_alignment_tests {
     use crate::circuits::halo2::types::CircuitBase;
     use crate::signature_scheme::{
-        BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
+        BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
         compute_poseidon_digest,
     };
 
@@ -341,7 +345,7 @@ mod dst_alignment_tests {
     #[test]
     fn signature_and_lottery_domain_tags_do_not_collide() {
         assert_ne!(
-            DOMAIN_SEPARATION_TAG_SIGNATURE, DOMAIN_SEPARATION_TAG_LOTTERY,
+            DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE, DOMAIN_SEPARATION_TAG_LOTTERY,
             "signature and lottery domain separation tags must be distinct"
         );
     }
@@ -355,7 +359,7 @@ mod dst_alignment_tests {
             BaseFieldElement::from(44),
         ];
 
-        let mut stm_inputs = vec![DOMAIN_SEPARATION_TAG_SIGNATURE];
+        let mut stm_inputs = vec![DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE];
         stm_inputs.extend_from_slice(&signature_transcript_inputs);
         let signature_digest_via_stm = compute_poseidon_digest(&stm_inputs);
 

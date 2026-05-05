@@ -5,7 +5,7 @@ use super::{PrimeOrderProjectivePoint, StandardSchnorrSignature, UniqueSchnorrSi
 #[cfg(feature = "future_snark")]
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum SchnorrSignatureError {
-    /// Invalid Single signature
+    /// Invalid Unique signature
     #[error("Invalid Unique Schnorr single signature")]
     UniqueSignatureInvalid(Box<UniqueSchnorrSignature>),
 

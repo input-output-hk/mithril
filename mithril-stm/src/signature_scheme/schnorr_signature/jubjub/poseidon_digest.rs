@@ -3,8 +3,8 @@ use midnight_curves::Fq as JubjubBase;
 
 use super::BaseFieldElement;
 
-/// Domain Separation Tag (DST) for the Poseidon hash used in signature contexts.
-pub(crate) const DOMAIN_SEPARATION_TAG_SIGNATURE: BaseFieldElement =
+/// Domain Separation Tag (DST) for the Poseidon hash used in unique signature contexts.
+pub(crate) const DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE: BaseFieldElement =
     BaseFieldElement(JubjubBase::from_raw([
         0x5349_474E_5F44_5354, // "SIGN_DST" (ASCII), little-endian u64
         0,
@@ -15,7 +15,7 @@ pub(crate) const DOMAIN_SEPARATION_TAG_SIGNATURE: BaseFieldElement =
 /// Domain Separation Tag (DST) for the Poseidon hash used in standard signature contexts.
 pub(crate) const DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE: BaseFieldElement =
     BaseFieldElement(JubjubBase::from_raw([
-        0x5353_4947_4E5F_4453, // "SSIGN_DST" (ASCII), little-endian u64
+        0x5354_4453_5F44_5354, // "STDS_DST" (ASCII), little-endian u64
         0,
         0,
         0,
@@ -43,6 +43,26 @@ pub(crate) fn compute_poseidon_digest(input: &[BaseFieldElement]) -> BaseFieldEl
 
 #[cfg(test)]
 mod test {
+    use super::{
+        DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
+        DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
+    };
+
+    #[test]
+    fn domain_separation_tags_are_pairwise_distinct() {
+        assert_ne!(
+            DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
+            DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE
+        );
+        assert_ne!(
+            DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
+            DOMAIN_SEPARATION_TAG_LOTTERY
+        );
+        assert_ne!(
+            DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE,
+            DOMAIN_SEPARATION_TAG_LOTTERY
+        );
+    }
 
     mod golden {
         use ff::Field;

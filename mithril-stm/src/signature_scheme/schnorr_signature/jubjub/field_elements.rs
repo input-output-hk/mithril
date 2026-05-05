@@ -149,6 +149,12 @@ impl ScalarFieldElement {
         false
     }
 
+    #[cfg(all(test, feature = "future_snark"))]
+    /// Retrieves the additive identity element of the scalar field
+    pub(crate) fn get_zero() -> Self {
+        ScalarFieldElement(JubjubScalar::ZERO)
+    }
+
     /// Tries to generate a new random non-zero scalar field element in 100 attempts
     ///
     /// Returns an error if unable to generate a non-zero scalar after 100 attempts
