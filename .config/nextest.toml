@@ -12,3 +12,10 @@ slow-timeout = "30s"
 [profile.ci.junit]
 path = "tests-result.junit.xml"
 report-name = "mithril-tests"
+
+# In-circuit Halo2 IVC slow tests can each peak around 9 GB of RSS; running
+# them in parallel exceeds the 16 GB GitHub-hosted runner budget and causes
+# OOM-induced runner shutdowns. Serialize them by claiming all test threads.
+[[profile.ci.overrides]]
+filter = 'test(#circuits::halo2_ivc::tests::in_circuit::*slow::*)'
+threads-required = "num-test-threads"
