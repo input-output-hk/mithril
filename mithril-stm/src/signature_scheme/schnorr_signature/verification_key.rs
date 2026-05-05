@@ -89,7 +89,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
+    use crate::signature_scheme::{ScalarFieldElement, SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
     fn different_signing_keys_produce_different_verification_keys() {
@@ -131,6 +131,19 @@ mod tests {
         assert!(
             result.is_ok(),
             "Valid verification key should pass validation"
+        );
+    }
+
+    #[test]
+    fn zero_verification_key_fails_validation() {
+        let sk = SchnorrSigningKey(ScalarFieldElement::get_zero());
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk);
+
+        let result = vk.is_valid();
+
+        assert!(
+            result.is_err(),
+            "Zero verification key should fail validation"
         );
     }
 

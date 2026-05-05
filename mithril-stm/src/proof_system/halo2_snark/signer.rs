@@ -49,7 +49,7 @@ impl<D: MembershipDigest> SnarkProofSigner<D> {
         rng: &mut R,
     ) -> StmResult<SingleSignatureForSnark> {
         let message_to_sign = build_snark_message(&self.key_registration_commitment.root, message)?;
-        let signature = self.signing_key.sign(&message_to_sign, rng)?;
+        let signature = self.signing_key.sign_unique(&message_to_sign, rng)?;
 
         compute_winning_lottery_indices(
             self.parameters.m,
@@ -154,7 +154,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let msg = [BaseFieldElement::from(1u64)];
-        let signature = sk.sign(&msg, &mut rng).unwrap();
+        let signature = sk.sign_unique(&msg, &mut rng).unwrap();
 
         let prefix = BaseFieldElement::from(0u64);
         let target = BaseFieldElement::from(u64::MAX);
@@ -177,7 +177,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let msg = [BaseFieldElement::from(42u64)];
-        let signature = sk.sign(&msg, &mut rng).unwrap();
+        let signature = sk.sign_unique(&msg, &mut rng).unwrap();
 
         let prefix = compute_lottery_prefix(&msg);
         let lottery_index = 5u64;

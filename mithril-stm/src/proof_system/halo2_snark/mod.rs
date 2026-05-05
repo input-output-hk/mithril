@@ -139,9 +139,9 @@ mod tests {
     mod circuit_compatibility {
         use super::*;
         use crate::signature_scheme::{
-            BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY, DOMAIN_SEPARATION_TAG_SIGNATURE,
-            PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
-            compute_poseidon_digest,
+            BaseFieldElement, DOMAIN_SEPARATION_TAG_LOTTERY,
+            DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE, PrimeOrderProjectivePoint, ProjectivePoint,
+            ScalarFieldElement, compute_poseidon_digest,
         };
         use sha2::{Digest, Sha256};
 
@@ -240,7 +240,7 @@ mod tests {
 
             // Recompute challenge with the circuit's exact input order
             let challenge_recomputed = compute_poseidon_digest(&[
-                DOMAIN_SEPARATION_TAG_SIGNATURE,
+                DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE,
                 h_x,
                 h_y,
                 vk_x,

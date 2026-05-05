@@ -91,7 +91,7 @@ mod tests {
         CircuitWitnessEntry, MerkleRoot, SignedMessageWithoutPrefix,
     };
     use crate::signature_scheme::{
-        BaseFieldElement, DOMAIN_SEPARATION_TAG_SIGNATURE, PrimeOrderProjectivePoint,
+        BaseFieldElement, DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE, PrimeOrderProjectivePoint,
     };
 
     use super::{UniqueSchnorrSignatureInputs, verify_unique_signature};
@@ -115,8 +115,10 @@ mod tests {
                 layouter,
                 <CircuitCurve as CircuitCurveTrait>::CryptographicGroup::generator(),
             )?;
-            let dst_signature = std_lib
-                .assign_fixed(layouter, CircuitBase::from(DOMAIN_SEPARATION_TAG_SIGNATURE))?;
+            let dst_signature = std_lib.assign_fixed(
+                layouter,
+                CircuitBase::from(DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE),
+            )?;
             let verification_key = std_lib.jubjub().assign(
                 layouter,
                 witness
