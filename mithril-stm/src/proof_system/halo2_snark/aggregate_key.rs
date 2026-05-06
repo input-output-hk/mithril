@@ -5,6 +5,12 @@ use crate::{
     membership_commitment::{MerkleTreeCommitment, MerkleTreeError, MerkleTreeSnarkLeaf},
 };
 
+/// Byte width of the rigid-slot encoding produced by
+/// [AggregateVerificationKeyForSnark::to_rigid_slot_bytes]. Matches the layout consumed by the
+/// IVC test fixture's `From<AggregateVerificationKey> for Vec<u8>` and the rigid protocol
+/// message slot for the next SNARK aggregate verification key.
+pub const RIGID_SLOT_BYTES: usize = 44;
+
 /// Aggregate verification key for the SNARK proof system.
 ///
 /// This key embeds the Merkle tree commitment over the SNARK registration entries
@@ -27,6 +33,32 @@ impl<D: MembershipDigest> AggregateVerificationKeyForSnark<D> {
     /// Get the total stake.
     pub fn get_total_stake(&self) -> Stake {
         self.total_stake
+    }
+
+    /// Encode to the `RIGID_SLOT_BYTES`-byte rigid-slot layout consumed by the protocol message
+    /// `next_aggregate_verification_key` rigid slot:
+    ///
+    /// `root_LE (32) || nr_leaves_LE_u32 (4) || total_stake_LE_u64 (8)`.
+    ///
+    /// The IVC circuit fixture's `From<AggregateVerificationKey> for Vec<u8>` writes a 4-byte
+    /// `nr_leaves` field between the root and the total stake. This is a misconception of the
+    /// IVC fixture: production [AggregateVerificationKeyForSnark] does not carry the leaf
+    /// count, and the IVC circuit only consumes the first 32 bytes of the slot (the Merkle
+    /// root) anyway. Until the IVC fixture is fixed to drop those 4 bytes (and the slot is
+    /// shrunk to 40 bytes), the projection here writes zero in `bytes[32..36]` so the host
+    /// preimage matches the IVC fixture layout byte-for-byte.
+    ///
+    /// Returns an error when the Merkle root does not have the expected 32-byte width.
+    // TODO: Refactor the IVC fixture to drop the 4-byte leaf count and remove the zero-padding here.
+    pub fn to_rigid_slot_bytes(&self) -> StmResult<[u8; RIGID_SLOT_BYTES]> {
+        let root = &self.merkle_tree_commitment.root;
+        if root.len() != 32 {
+            return Err(MerkleTreeError::SerializationError.into());
+        }
+        let mut buffer = [0u8; RIGID_SLOT_BYTES];
+        buffer[0..32].copy_from_slice(root);
+        buffer[36..44].copy_from_slice(&self.total_stake.to_le_bytes());
+        Ok(buffer)
     }
 
     /// Serialize the aggregate verification key for SNARK to CBOR bytes with a version prefix.
@@ -104,6 +136,7 @@ mod tests {
     use crate::{
         Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry,
         proof_system::AggregateVerificationKeyForSnark,
+        proof_system::halo2_snark::aggregate_key::RIGID_SLOT_BYTES,
         proof_system::halo2_snark::clerk::SnarkClerk,
     };
 
@@ -190,6 +223,20 @@ mod tests {
             let bytes = AggregateVerificationKeyForSnark::<D>::to_bytes(&golden_value())
                 .expect("AggregateVerificationKeyForSnark serialization should not fail");
             assert_eq!(GOLDEN_CBOR_BYTES.as_slice(), bytes.as_slice());
+        }
+
+        const GOLDEN_RIGID_SLOT_BYTES: &[u8; RIGID_SLOT_BYTES] = &[
+            44, 84, 216, 246, 141, 120, 242, 182, 103, 85, 253, 105, 87, 28, 199, 233, 121, 66, 21,
+            104, 195, 7, 166, 38, 168, 15, 50, 78, 108, 149, 244, 92, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0,
+            0, 0,
+        ];
+
+        #[test]
+        fn rigid_slot_encoding_is_stable() {
+            let bytes = golden_value()
+                .to_rigid_slot_bytes()
+                .expect("AggregateVerificationKeyForSnark rigid-slot encoding should not fail");
+            assert_eq!(GOLDEN_RIGID_SLOT_BYTES, &bytes);
         }
     }
 

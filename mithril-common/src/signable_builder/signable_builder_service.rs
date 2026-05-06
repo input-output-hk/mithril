@@ -13,6 +13,9 @@ use crate::{
     signable_builder::{SignableBuilder, SignableSeedBuilder},
 };
 
+#[cfg(feature = "future_snark")]
+use crate::entities::SupportedEra;
+
 /// ArtifactBuilder Service trait
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -155,14 +158,15 @@ impl MithrilSignableBuilderService {
         );
 
         #[cfg(feature = "future_snark")]
-        if let Some(next_snark_aggregate_verification_key) = self
+        let next_snark_aggregate_verification_key = self
             .seed_signable_builder
             .compute_next_aggregate_verification_key_for_snark()
-            .await?
-        {
+            .await?;
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_avk) = next_snark_aggregate_verification_key.clone() {
             protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-                next_snark_aggregate_verification_key,
+                snark_avk,
             );
         }
 
@@ -174,6 +178,23 @@ impl MithrilSignableBuilderService {
         );
         let current_epoch = self.seed_signable_builder.compute_current_epoch().await?;
         protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, current_epoch);
+
+        #[cfg(feature = "future_snark")]
+        {
+            let era = self.seed_signable_builder.compute_current_era().await?;
+            match era {
+                SupportedEra::Lagrange => {
+                    if next_snark_aggregate_verification_key.is_none() {
+                        anyhow::bail!(
+                            "Signable builder service: Lagrange era requires a SNARK aggregate verification key but none was computed"
+                        );
+                    }
+                    protocol_message.hash_scheme =
+                        crate::entities::ProtocolMessageHashScheme::Rigid;
+                }
+                SupportedEra::Pythagoras => {}
+            }
+        }
 
         Ok(protocol_message)
     }
@@ -189,6 +210,10 @@ impl SignableBuilderService for MithrilSignableBuilderService {
             .compute_signed_entity_protocol_message(signed_entity_type)
             .await?;
         let protocol_message = self.compute_seeded_protocol_message(protocol_message).await?;
+        #[cfg(feature = "future_snark")]
+        protocol_message.check_rigid_integrity().with_context(
+            || "Signable builder service produced a protocol message that violates the rigid layout",
+        )?;
 
         Ok(protocol_message)
     }
@@ -284,6 +309,12 @@ mod tests {
             .expect_compute_current_epoch()
             .once()
             .return_once(move || Ok("epoch-123".to_string()));
+        #[cfg(feature = "future_snark")]
+        mock_container
+            .mock_signable_seed_builder
+            .expect_compute_current_era()
+            .once()
+            .return_once(move || Ok(crate::entities::SupportedEra::Pythagoras));
 
         mock_container
     }
@@ -396,5 +427,180 @@ mod tests {
             .compute_protocol_message(signed_entity_type)
             .await
             .unwrap();
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod era_dispatch {
+        use super::*;
+
+        use crate::entities::{ProtocolMessagePartKey, SupportedEra};
+
+        fn valid_snark_aggregate_verification_key_wire_value() -> String {
+            let mut bytes = Vec::with_capacity(40);
+            bytes.extend_from_slice(&[0xCDu8; 32]);
+            bytes.extend_from_slice(&0u64.to_be_bytes());
+            hex::encode(bytes)
+        }
+
+        fn build_mock_container_for_era(
+            era: SupportedEra,
+            snark_aggregate_verification_key: Option<String>,
+        ) -> MockDependencyInjector {
+            let mut mock_container = MockDependencyInjector::new();
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_next_aggregate_verification_key_for_concatenation()
+                .once()
+                .return_once(move || Ok(hex::encode(vec![0xABu8; 44])));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_next_aggregate_verification_key_for_snark()
+                .once()
+                .return_once(move || Ok(snark_aggregate_verification_key));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_next_protocol_parameters()
+                .once()
+                .return_once(move || Ok(hex::encode(vec![0xEFu8; 32])));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_epoch()
+                .once()
+                .return_once(move || Ok("7".to_string()));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_era()
+                .once()
+                .return_once(move || Ok(era));
+            mock_container
+        }
+
+        #[tokio::test]
+        async fn pythagoras_era_keeps_the_legacy_protocol_message_hash_scheme() {
+            let mut mock_container = build_mock_container_for_era(
+                SupportedEra::Pythagoras,
+                Some(valid_snark_aggregate_verification_key_wire_value()),
+            );
+            mock_container
+                .mock_mithril_stake_distribution_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(
+                        ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                        hex::encode(b"merkle-root"),
+                    );
+                    Ok(message)
+                });
+            let signable_builder_service = mock_container.build_signable_builder_service();
+
+            let protocol_message = signable_builder_service
+                .compute_protocol_message(SignedEntityType::MithrilStakeDistribution(Epoch(7)))
+                .await
+                .unwrap();
+
+            assert!(
+                !protocol_message.is_rigid(),
+                "Pythagoras era must keep the legacy protocol message version"
+            );
+        }
+
+        #[tokio::test]
+        async fn lagrange_era_switches_the_protocol_message_to_the_rigid_hash_scheme() {
+            let mut mock_container = build_mock_container_for_era(
+                SupportedEra::Lagrange,
+                Some(valid_snark_aggregate_verification_key_wire_value()),
+            );
+            mock_container
+                .mock_mithril_stake_distribution_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(
+                        ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                        hex::encode(b"merkle-root"),
+                    );
+                    Ok(message)
+                });
+            let signable_builder_service = mock_container.build_signable_builder_service();
+
+            let protocol_message = signable_builder_service
+                .compute_protocol_message(SignedEntityType::MithrilStakeDistribution(Epoch(7)))
+                .await
+                .unwrap();
+
+            assert!(
+                protocol_message.is_rigid(),
+                "Lagrange era must flip the protocol message to the rigid version"
+            );
+            assert_eq!(
+                protocol_message.get_current_epoch(),
+                Some(Epoch(7)),
+                "the rigid message must still expose the typed current epoch accessor"
+            );
+            assert!(
+                protocol_message.has_next_snark_aggregate_verification_key(),
+                "the seed builder must have injected the SNARK AVK into the rigid message"
+            );
+        }
+
+        #[tokio::test]
+        async fn lagrange_era_without_a_snark_aggregate_verification_key_yields_an_error() {
+            let mut mock_container = build_mock_container_for_era(SupportedEra::Lagrange, None);
+            mock_container
+                .mock_mithril_stake_distribution_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| Ok(ProtocolMessage::new()));
+            let signable_builder_service = mock_container.build_signable_builder_service();
+
+            signable_builder_service
+                .compute_protocol_message(SignedEntityType::MithrilStakeDistribution(Epoch(7)))
+                .await
+                .expect_err(
+                    "Lagrange era without a SNARK aggregate verification key must be rejected",
+                );
+        }
+
+        #[tokio::test]
+        async fn lagrange_era_with_an_ill_formed_rigid_field_is_rejected_by_the_integrity_check() {
+            let mut mock_container = build_mock_container_for_era(
+                SupportedEra::Lagrange,
+                Some("not-a-valid-snark-avk-encoding".to_string()),
+            );
+            mock_container
+                .mock_mithril_stake_distribution_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(
+                        ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                        hex::encode(b"merkle-root"),
+                    );
+                    Ok(message)
+                });
+            let signable_builder_service = mock_container.build_signable_builder_service();
+
+            let error = signable_builder_service
+                .compute_protocol_message(SignedEntityType::MithrilStakeDistribution(Epoch(7)))
+                .await
+                .expect_err(
+                    "rigid layout violation must be surfaced by the signable builder integrity check",
+                );
+
+            let integrity_error = error
+                .downcast_ref::<crate::entities::RigidProtocolMessageIntegrityError>()
+                .expect("the signable builder must surface a `RigidProtocolMessageIntegrityError`");
+            assert!(
+                matches!(
+                    integrity_error,
+                    crate::entities::RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(_)
+                ),
+                "unexpected error variant: {integrity_error:?}"
+            );
+        }
     }
 }

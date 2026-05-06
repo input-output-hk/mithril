@@ -67,7 +67,11 @@ pub use http_server_error::{ClientError, ServerError};
 pub use mithril_network::MithrilNetwork;
 pub use mithril_stake_distribution::MithrilStakeDistribution;
 pub use mk_set_proof::*;
-pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
+#[cfg(all(test, feature = "future_snark"))]
+pub(crate) use protocol_message::RigidProtocolMessageIntegrityError;
+pub use protocol_message::{
+    ProtocolMessage, ProtocolMessageHashScheme, ProtocolMessagePartKey, ProtocolMessagePartValue,
+};
 pub use protocol_parameters::ProtocolParameters;
 pub use signable_manifest::*;
 pub use signed_entity_config::*;
