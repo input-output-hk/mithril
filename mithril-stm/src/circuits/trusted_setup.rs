@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, BufWriter, Read, Write},
     path::PathBuf,
 };
 
@@ -22,8 +22,8 @@ use crate::StmResult;
 /// the proper value available here: https://github.com/midnightntwrk/midnight-trusted-setup/blob/main/MIDNIGHT_SRS_CATALOG.md
 const SRS_HASH_K22: &str = "e8ad5eed936d657a0fb59d2a55ba19f81a3083bb3554ef88f464f5377e9b2c2f";
 #[allow(dead_code)]
-/// Constant storing temporary path of the SRS of degree 22 used to create proof in production
-const SRS_PATH_K22: &str = "/tmp/trusted_setup/midnight-srs-2p22";
+/// Constant storing local path of the SRS of degree 22 used to create proof in production
+const SRS_PATH_K22: &str = ".local/local_trusted_setup/";
 #[allow(dead_code)]
 /// Constant storing URL to download the SRS of degree 22 used to create proof in production
 const SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
@@ -42,11 +42,11 @@ pub struct TrustedSetupHandle {
 /// TODO: remove allow(dead_code) when used
 #[allow(dead_code)]
 impl TrustedSetupHandle {
-    fn new(
-        local_srs_path: impl Into<PathBuf>,
-        srs_expected_hash: impl Into<String>,
-        url_to_download_srs: impl Into<String>,
-    ) -> Self {
+    fn new<P, S>(local_srs_path: P, srs_expected_hash: S, url_to_download_srs: S) -> Self
+    where
+        P: Into<PathBuf>,
+        S: Into<String>,
+    {
         Self {
             local_srs_path: local_srs_path.into(),
             srs_expected_hash: srs_expected_hash.into(),
@@ -64,30 +64,25 @@ impl TrustedSetupHandle {
 
     /// Reads the local SRS file at the stored path and checks its SHA256 hash against the expected value.
     // This function can be removed if it is not used.
-    fn verify_hash(&self) -> StmResult<bool> {
-        println!(
-            "Verifying integrity of the download file by checking its Sha256 hash value. Expected hash: {:?}",
-            self.srs_expected_hash
-        );
+    fn verify_file_sha256_hash(&self) -> StmResult<bool> {
         let mut file = File::open(&self.local_srs_path)
             .with_context(|| "Loading of the SRS file should have succeeded!")?;
         let mut srs_buffer = vec![];
         file.read_to_end(&mut srs_buffer)
             .with_context(|| "Reading the SRS file should have succeeded!")?;
 
-        Ok(self.verify_bytes(&srs_buffer))
+        Ok(self.verify_bytes_sha256_hash(&srs_buffer))
     }
 
     /// Checks SHA256 hash of the given bytes against the stored expected value.
-    fn verify_bytes(&self, srs_bytes: &[u8]) -> bool {
+    fn verify_bytes_sha256_hash(&self, srs_bytes: &[u8]) -> bool {
         let recomputed_hash = Self::compute_hash(srs_bytes);
-        println!("Hash of the given bytes: {:?}", recomputed_hash);
 
         self.srs_expected_hash == recomputed_hash
     }
 
     /// Fetches the SRS from `self.url_to_download_srs` and returns its bytes.
-    fn download(&self) -> StmResult<Vec<u8>> {
+    fn download_srs_file(&self) -> StmResult<Vec<u8>> {
         let response = reqwest::blocking::Client::builder()
             // TODO: For now a timeout but this should be updated depending on the behavior we want
             .timeout(std::time::Duration::from_secs(600))
@@ -103,21 +98,17 @@ impl TrustedSetupHandle {
 
     /// Saves the given bytes in a file at the stored path while creating
     /// the directories of the path if needed.
-    fn store(&self, srs_bytes: &[u8]) -> StmResult<()> {
+    fn store_srs_bytes_to_file(&self, srs_bytes: &[u8]) -> StmResult<()> {
         let parent = self
             .local_srs_path
             .parent()
             .ok_or(anyhow!("The given path contains no parent directory!"))?;
-        println!(
-            "Creating temporary directories to store SRS file: {:?}",
-            parent
-        );
         std::fs::create_dir_all(parent)
             .with_context(|| "Subdirectory creation should have succeeded!")?;
 
         let mut temporary_file = NamedTempFile::new_in(parent)
             .with_context(|| "Failed to generate temporary file to store the SRS")?;
-        std::fs::write(&mut temporary_file, srs_bytes)?;
+        BufWriter::new(&mut temporary_file).write_all(srs_bytes)?;
         temporary_file
             .persist(&self.local_srs_path)
             .with_context(|| "Failed to atomically rename SRS temp file.")?;
@@ -126,31 +117,18 @@ impl TrustedSetupHandle {
 
     /// Ensures the SRS file is present. If the file is missing,
     /// downloads it, verifies its hash and stores it if the hash is valid.
-    fn ensure_available(&self) -> StmResult<()> {
+    fn ensure_srs_file_is_available(&self) -> StmResult<()> {
         if !self.local_srs_path.exists() {
-            println!("File missing for local storage. Downloading and storing it locally.");
-            println!(
-                "Download SRS at URL: {:?} and storing it in file: {:?}",
-                self.url_to_download_srs, self.local_srs_path
-            );
             let srs_bytes = self
-                .download()
+                .download_srs_file()
                 .with_context(|| "Download of the SRS file should have succeeded!")?;
-            println!(
-                "Verifying integrity of the given bytes by checking its Sha256 hash value. Expected hash: {:?}",
-                self.srs_expected_hash
-            );
-            if !self.verify_bytes(&srs_bytes) {
+            if !self.verify_bytes_sha256_hash(&srs_bytes) {
                 return Err(anyhow!(
                     "Error, the hash of the SRS file does not match the hard-coded value!"
                 ));
             }
-            println!(
-                "Integrity check passed, the SRS file was correctly downloaded. Saving it to disk..."
-            );
-            self.store(&srs_bytes)
+            self.store_srs_bytes_to_file(&srs_bytes)
                 .with_context(|| "Saving the SRS to disk should have succeeded!")?;
-            println!("The SRS file was correctly saved to disk and can be used securely.");
         }
 
         Ok(())
@@ -158,8 +136,8 @@ impl TrustedSetupHandle {
 
     /// Ensures the SRS file is available, downloading it if necessary
     /// and deserializes it into memory.
-    fn load(&self) -> StmResult<ParamsKZG<Bls12>> {
-        self.ensure_available()?;
+    fn check_available_file_then_load_srs(&self) -> StmResult<ParamsKZG<Bls12>> {
+        self.ensure_srs_file_is_available()?;
 
         let file = File::open(&self.local_srs_path)
             .with_context(|| format!("Failed to open SRS file at {:?}", self.local_srs_path))?;
@@ -167,6 +145,18 @@ impl TrustedSetupHandle {
 
         ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytes)
             .with_context(|| "Failed to deserialize SRS from file")
+    }
+}
+
+impl Default for TrustedSetupHandle {
+    fn default() -> Self {
+        Self::new(
+            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
+                .join(SRS_PATH_K22)
+                .join("midnight-srs-2p22"),
+            SRS_HASH_K22,
+            SRS_URL_K22,
+        )
     }
 }
 
@@ -179,7 +169,6 @@ mod tests {
 
     const SRS_HASH_K1: &str = "bbe04fe3c70d0c138447cb086b4baddc30cb8bb2a004114bc02e6f739516280e";
 
-    // Can be moved to a file in an asset directory
     const SRS_K1: &[u8; 772] = &[
         1, 0, 0, 0, 23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195,
         104, 140, 79, 151, 116, 185, 5, 161, 78, 58, 63, 23, 27, 172, 88, 108, 85, 232, 63, 249,
@@ -223,11 +212,11 @@ mod tests {
     ];
 
     #[test]
-    fn both_bytes_encoding_work_for_srs_files() {
+    fn both_bytes_encoding_work_to_load_srs_from_file() {
         let mut tmp_file = NamedTempFile::new().unwrap();
         std::fs::write(&mut tmp_file, SRS_K1.as_slice()).unwrap();
         let srs_manager = TrustedSetupHandle::new(tmp_file.path(), "", "");
-        let loaded_srs = srs_manager.load().unwrap();
+        let loaded_srs = srs_manager.check_available_file_then_load_srs().unwrap();
         let srs_rawbytes: ParamsKZG<Bls12> =
             ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytes).unwrap();
 
@@ -255,54 +244,56 @@ mod tests {
     }
 
     #[test]
-    fn valid_file_hash_succeeds() {
+    fn hash_of_correct_srs_file_verifies() {
         let srs_file = NamedTempFile::new_in("/tmp").unwrap();
         std::fs::write(&srs_file, SRS_K1).unwrap();
 
         let result = TrustedSetupHandle::new(srs_file.path(), SRS_HASH_K1, "")
-            .verify_hash()
+            .verify_file_sha256_hash()
             .unwrap();
 
         assert!(result);
     }
 
     #[test]
-    fn invalid_file_hash_fails() {
+    fn verification_of_hash_of_invalid_srs_file_fails() {
         let mut tampered_bytes = SRS_K1.to_vec();
         tampered_bytes[0] = tampered_bytes[0].wrapping_add(1);
 
-        let result = TrustedSetupHandle::new("", SRS_HASH_K1, "").verify_bytes(&tampered_bytes);
+        let result =
+            TrustedSetupHandle::new("", SRS_HASH_K1, "").verify_bytes_sha256_hash(&tampered_bytes);
 
         assert!(!result);
     }
 
     #[test]
-    fn valid_hash_bytes_succeeds() {
-        let result = TrustedSetupHandle::new("", SRS_HASH_K1, "").verify_bytes(SRS_K1);
+    fn hash_of_correct_bytes_verifies() {
+        let result = TrustedSetupHandle::new("", SRS_HASH_K1, "").verify_bytes_sha256_hash(SRS_K1);
 
         assert!(result);
     }
 
     #[test]
-    fn invalid_hash_bytes_fails() {
+    fn verification_of_hash_of_invalid_bytes_fails() {
         let srs_file = NamedTempFile::new_in("/tmp").unwrap();
         let mut tampered = SRS_K1.to_vec();
         tampered[0] = tampered[0].wrapping_add(1);
         std::fs::write(&srs_file, &tampered).unwrap();
 
         let result = TrustedSetupHandle::new(srs_file.path(), SRS_HASH_K1, "")
-            .verify_hash()
+            .verify_file_sha256_hash()
             .unwrap();
 
         assert!(!result);
     }
 
     #[test]
-    fn existing_file_on_disk_skips_download() {
+    fn existing_file_on_disk_skips_download_and_verification() {
         let srs_file = NamedTempFile::new_in("/tmp").unwrap();
         std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
 
-        let result = TrustedSetupHandle::new(srs_file.path(), "", "").ensure_available();
+        let result =
+            TrustedSetupHandle::new(srs_file.path(), "", "").ensure_srs_file_is_available();
 
         assert!(result.is_ok());
     }
@@ -311,7 +302,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn missing_srs_file_triggers_download() {
+        fn missing_srs_file_triggers_download_verifiation_and_storage() {
             let server = MockServer::start();
             let mock = server.mock(|when, then| {
                 when.method(httpmock::Method::GET).path("/srs");
@@ -321,8 +312,8 @@ mod tests {
             let temp_dir = tempfile::tempdir().unwrap();
             let srs_path = temp_dir.path().join("missing_file_trigger_dl");
 
-            TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, server.url("/srs"))
-                .ensure_available()
+            TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, &server.url("/srs"))
+                .ensure_srs_file_is_available()
                 .unwrap();
 
             mock.assert();
@@ -340,15 +331,15 @@ mod tests {
             let temp_dir = tempfile::tempdir().unwrap();
             let srs_path = temp_dir.path().join("dl_wrong_hash");
 
-            let result = TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, server.url("/srs"))
-                .ensure_available();
+            let result = TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, &server.url("/srs"))
+                .ensure_srs_file_is_available();
 
             assert!(result.is_err());
             assert!(!srs_path.exists());
         }
 
         #[test]
-        fn server_error_fails() {
+        fn server_error_during_download_returns_error() {
             let server = MockServer::start();
             server.mock(|when, then| {
                 when.method(httpmock::Method::GET).path("/srs");
@@ -358,8 +349,8 @@ mod tests {
             let temp_dir = tempfile::tempdir().unwrap();
             let srs_path = temp_dir.path().join("server_error_fails");
 
-            let result = TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, server.url("/srs"))
-                .ensure_available();
+            let result = TrustedSetupHandle::new(&srs_path, SRS_HASH_K1, &server.url("/srs"))
+                .ensure_srs_file_is_available();
 
             assert!(result.is_err());
         }
