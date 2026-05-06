@@ -240,13 +240,25 @@ const config = {
             type: "doc",
             docId: "manual/welcome",
             position: "left",
-            label: "User manual",
+            label: "Manual",
           },
           {
             type: "doc",
             docId: "mithril/intro",
-            label: "About Mithril",
+            label: "Protocol",
             position: "left",
+          },
+          {
+            type: "dropdown",
+            label: "Use Cases",
+            position: "left",
+            items: [
+              {
+                type: "doc",
+                docId: "use-cases/wallets",
+                label: "Light wallets",
+              },
+            ],
           },
           {
             type: "docsVersionDropdown",

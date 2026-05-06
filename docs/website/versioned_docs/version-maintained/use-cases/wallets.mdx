@@ -1,0 +1,96 @@
+---
+id: wallets
+title: Light Wallets
+sidebar_label: Light wallets
+---
+
+# Using Mithril for light wallets
+
+## For wallet developers
+
+Cardano users expect fast, reliable confirmation that their transactions have landed. Traditionally, delivering that required either running a full node or trusting a third-party service. Mithril offers a third option: cryptographic proof of transaction inclusion, backed by Cardano's stake pool operators, that any wallet can verify independently.
+
+:::info
+
+Before integrating, review the [Protocol security](/mithril/advanced/mithril-protocol/security) page to understand the protocol's guarantees.
+
+:::
+
+### What Mithril provides for wallets
+
+When a user submits a transaction, Mithril verifies that it was included on the Cardano blockchain without running a full node or relying on a centralized API. Instead of depending on a server response, the wallet receives a Merkle proof linked to a certificate signed by a stake-weighted quorum of SPOs. The wallet verifies this proof locally.
+
+For users, this provides faster perceived finality. A wallet can present a meaningful ‘confirmed’ state earlier, with stronger guarantees than relying on block confirmations alone.
+
+### How it fits into existing stacks
+
+Most light wallets already rely on a hosted API or indexer for balance lookups and UTXO queries, such as Blockfrost or Koios. Mithril does not replace these services. Instead, it adds a trustless verification layer: rather than relying on a data provider to confirm that a transaction was included, the wallet can verify this cryptographically against a certificate chain secured by Cardano’s stake distribution.
+
+This improves security. If a data provider is compromised or returns incorrect data, a Mithril proof will fail to verify, allowing the wallet to detect the discrepancy instead of presenting an incorrect state. A compromised API cannot produce a valid Mithril proof.
+
+The result is an architecture that preserves existing components while reducing the level of trust required in third-party infrastructure.
+
+### Integration
+
+The easiest path for most wallet teams to integrate is using the official WASM package:
+
+```bash
+npm install @mithril-dev/mithril-client-wasm
+```
+
+It works in the browser and in Node.js. All major browsers are supported — see the [Browser Compatibility](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm#browser-compatibility) section of the npm package for details. A [browser integration example](https://github.com/input-output-hk/mithril/tree/main/examples/client-wasm-web) is available if you want to see it in action. A [Rust crate](https://crates.io/crates/mithril-client) is also available for native desktop applications.
+
+The core flow is straightforward:
+
+1. Submit the transaction as you normally would
+2. Query the Mithril aggregator for a transaction proof once the tx hash is known
+3. Verify the proof against the current Mithril certificate chain
+4. Surface the confirmation to the user.
+
+Proofs are generated approximately every 30 blocks, with certification operating around 100 blocks behind the chain tip to ensure finality. This should be considered when presenting confirmation status to users.
+
+### Questions?
+
+Have a question during integration? Reach out in the [#ask-mithril](https://discord.gg/5kaErDKDRq) channel on the IOG Discord — the team is active there and happy to help.
+
+<a
+  href="https://discord.gg/5kaErDKDRq"
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: "#5865F2",
+    color: "white",
+    height: "40px",
+    padding: "0 20px",
+    borderRadius: "8px",
+    textDecoration: "none",
+    fontWeight: "bold",
+    marginTop: "4px",
+    marginBottom: "1rem",
+    lineHeight: "40px", // fixes vertical alignment
+  }}
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 127.14 96.36"
+    width="20"
+    height="20"
+    fill="white"
+    style={{ display: "block", flexShrink: 0 }}
+  >
+    <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+  </svg>
+  <span>#ask-mithril</span>
+</a>
+
+## For wallet users
+
+If a wallet supports Mithril, transaction confirmations are faster and more reliable. Instead of relying on the wallet’s servers to confirm that a transaction was included, Mithril provides a cryptographic proof, verified against Cardano’s network of stake pool operators.
+
+In practice, this reduces uncertainty around transaction status and provides greater confidence when a transaction is confirmed.
+
+**Does my wallet support Mithril?**
+Mithril integration is still being adopted across the ecosystem. Check the wallet’s release notes or documentation, or contact the support team. Developers building a wallet can refer to the section above.
