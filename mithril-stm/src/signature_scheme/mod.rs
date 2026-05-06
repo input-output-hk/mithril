@@ -1,12 +1,12 @@
 mod bls_multi_signature;
 #[cfg(feature = "future_snark")]
-mod unique_schnorr_signature;
+mod schnorr_signature;
 
 pub use bls_multi_signature::*;
 
 #[cfg(feature = "future_snark")]
-pub(crate) use unique_schnorr_signature::DOMAIN_SEPARATION_TAG_LOTTERY;
+pub(crate) use schnorr_signature::DOMAIN_SEPARATION_TAG_LOTTERY;
 #[cfg(feature = "future_snark")]
-pub(crate) use unique_schnorr_signature::DOMAIN_SEPARATION_TAG_SIGNATURE;
+pub(crate) use schnorr_signature::DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE;
 #[cfg(feature = "future_snark")]
-pub use unique_schnorr_signature::*;
+pub use schnorr_signature::*;
