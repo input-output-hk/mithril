@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Support for `Cardano node` `11.0.1` in the signer and the aggregator.
+
 - Added a new internal crate `mithril-merkle-tree` for the implementation of Merkle tree and merkelized map primitives used by Mithril nodes.
 
 | Crate | Version |
