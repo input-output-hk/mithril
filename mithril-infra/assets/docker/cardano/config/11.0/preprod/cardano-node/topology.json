@@ -1,7 +1,7 @@
 {
   "bootstrapPeers": [
     {
-      "address": "preview-node.play.dev.cardano.org",
+      "address": "preprod-node.play.dev.cardano.org",
       "port": 3001
     }
   ],
@@ -20,5 +20,5 @@
       "advertise": false
     }
   ],
-  "useLedgerAfterSlot": 102729600
+  "useLedgerAfterSlot": 121478354
 }

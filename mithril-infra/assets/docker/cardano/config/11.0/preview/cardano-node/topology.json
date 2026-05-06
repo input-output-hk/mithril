@@ -1,15 +1,7 @@
 {
   "bootstrapPeers": [
     {
-      "address": "backbone.cardano.iog.io",
-      "port": 3001
-    },
-    {
-      "address": "backbone.mainnet.cardanofoundation.org",
-      "port": 3001
-    },
-    {
-      "address": "backbone.mainnet.emurgornd.com",
+      "address": "preview-node.play.dev.cardano.org",
       "port": 3001
     }
   ],
@@ -28,5 +20,5 @@
       "advertise": false
     }
   ],
-  "useLedgerAfterSlot": 177724800
+  "useLedgerAfterSlot": 110678393
 }
