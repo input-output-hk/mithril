@@ -2,9 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
-use crate::entities::{
-    Epoch, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignedEntityType,
-};
+use crate::entities::{Epoch, ProtocolMessage, ProtocolParameters, ProtocolVersion};
+use crate::messages::SignedEntityTypeMessage;
 
 /// Message structure of a certificate list
 pub type CertificateListMessage = Vec<CertificateListItemMessage>;
@@ -61,7 +60,7 @@ pub struct CertificateListItemMessage {
 
     /// The signed entity type of the message.
     /// aka BEACON(p,n)
-    pub signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityTypeMessage,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -166,9 +165,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                *epoch, 1728,
-            )),
+            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
+                CardanoDbBeacon::new(*epoch, 1728),
+            ),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter};
 use thiserror::Error;
 
@@ -40,6 +41,17 @@ pub enum SignedEntityTypeMessage {
     #[serde(other)]
     #[strum_discriminants(serde(other))]
     Unknown,
+}
+
+impl SignedEntityTypeDiscriminantsMessage {
+    /// Get all the discriminants without unstable values
+    pub fn all() -> BTreeSet<Self> {
+        // Leverage the list from `SignedEntityTypeDiscriminants` to avoid Unknown and duplicating the filter
+        SignedEntityTypeDiscriminants::all()
+            .into_iter()
+            .map(Self::from)
+            .collect()
+    }
 }
 
 mod infallible_conversions {
@@ -392,6 +404,21 @@ mod tests {
         assert_equivalent!(
             SignedEntityTypeDiscriminants::all_with_unstable_vec(),
             discriminants
+        );
+    }
+
+    #[test]
+    fn all_returns_known_discriminant_messages() {
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all()
+                .into_iter()
+                .map(From::from)
+                .collect::<BTreeSet<_>>(),
+            SignedEntityTypeDiscriminantsMessage::all()
+        );
+        assert!(
+            !SignedEntityTypeDiscriminantsMessage::all()
+                .contains(&SignedEntityTypeDiscriminantsMessage::Unknown)
         );
     }
 
