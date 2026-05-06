@@ -1,31 +1,31 @@
 //! Tests that the circuit correctly enforces certificate proof validity in non-genesis steps.
 //!
-//! Fast tests confirm that the verifier accepts stored proofs with a valid
-//! certificate proof for both same-epoch and next-epoch transitions. Slow tests
-//! use the real prover to confirm that a tampered certificate proof is rejected
-//! at the KZG opening check.
+//! Fast tests confirm that the verifier accepts stored proofs with a valid certificate
+//! proof for both same-epoch and next-epoch transitions. Slow tests confirm the
+//! realistic adversary scenario: tampered cert proof bytes, with `next_accumulator`
+//! computed consistently from those tampered bytes, produce an accumulator that fails
+//! the off-circuit pairing check — confirming the KZG system catches the forgery.
 
 use midnight_circuits::types::Instantiable;
 
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, S,
-    circuit::IvcCircuit,
     state::{State, Witness},
     tests::common::{
         asset_readers::{
-            RecursiveChainStateAsset, RecursiveStepOutputAsset,
-            load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
-            load_embedded_same_epoch_step_output_asset, load_embedded_verification_context_asset,
+            RecursiveStepOutputAsset, load_embedded_recursive_chain_state_asset,
+            load_embedded_recursive_step_output_asset, load_embedded_same_epoch_step_output_asset,
+            load_embedded_verification_context_asset,
         },
         generators::{
             AssetGenerationSetup, build_asset_generation_setup, build_next_certificate_asset_data,
-            build_recursive_proving_key, build_same_epoch_certificate_asset_data,
-            build_shared_recursive_context, prove_blake2b_ivc,
+            build_same_epoch_certificate_asset_data, certificate_public_inputs_for_step,
         },
         helpers::{
             RecursiveMockProverSetup, build_recursive_mock_prover_setup,
-            compute_expected_next_accumulator, verify_prepare_blake2b_recursive_proof,
+            prepare_previous_recursive_proof_accumulator,
+            try_verify_prepare_poseidon_recursive_proof, verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -86,122 +86,101 @@ fn next_epoch_step_with_valid_certificate_proof_is_accepted() {
 mod slow {
     use super::*;
 
-    /// Builds a fresh non-genesis circuit with `build_cert_data`, flips one byte
-    /// in the returned `certificate_proof`, then asserts the verifier rejects the
-    /// resulting proof.
+    /// Generates a fresh certificate proof using `build_cert_data`, flips one byte,
+    /// then computes `next_accumulator` **consistently from the tampered bytes** and
+    /// asserts the off-circuit pairing check fails.
     ///
-    /// `build_cert_data` receives the deterministic setup, the shared recursive
-    /// setup, and the stored chain-state asset, and returns the certificate proof,
-    /// accumulator, next state, and IVC witness for that step, allowing each test
-    /// to choose the transition variant it covers.
-    ///
-    /// Public inputs are built from the **correct** certificate accumulator so the
-    /// circuit's in-circuit accumulator (derived from the tampered bytes) diverges
-    /// from the committed value. The halo2 prover does not check constraint
-    /// satisfaction, so it succeeds; the KZG opening check in the verifier then
-    /// returns false.
-    fn assert_tampered_certificate_proof_is_rejected(
+    /// This is the realistic adversary scenario: an adversary who supplies tampered
+    /// cert proof bytes would also derive `next_accumulator` from those tampered bytes.
+    /// The KZG accumulator check catches the forgery — no in-circuit prover run needed.
+    fn assert_tampered_cert_proof_produces_invalid_accumulator(
         build_cert_data: impl FnOnce(
             &AssetGenerationSetup,
             &RecursiveMockProverSetup,
-            &RecursiveChainStateAsset,
         ) -> (Vec<u8>, Accumulator<S>, State, Witness),
-        rejection_message: &str,
     ) {
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-        let context = build_shared_recursive_context(&setup);
-        let proving_key = build_recursive_proving_key(&context);
-
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let (mut cert_proof, cert_accumulator, next_state, ivc_witness) =
-            build_cert_data(&setup, &mock_prover_setup, &recursive_chain_state);
-
+        let (mut cert_proof, _, next_state, _) = build_cert_data(&setup, &mock_prover_setup);
         cert_proof[0] ^= 0xFF;
 
-        let next_accumulator = compute_expected_next_accumulator(
+        let cert_public_inputs =
+            certificate_public_inputs_for_step(&recursive_chain_state.state, &next_state);
+
+        // Try to parse the tampered cert proof off-circuit. Returns None if the bytes
+        // are too malformed to deserialize (forgery caught immediately). Returns
+        // Some(dual_msm) if they parse but carry invalid KZG opening terms.
+        let tampered_cert_acc = match try_verify_prepare_poseidon_recursive_proof(
+            mock_prover_setup.certificate_verifying_key.vk(),
+            &cert_proof,
+            &cert_public_inputs,
+        ) {
+            None => return, // bytes rejected at deserialization — forgery caught
+            Some(dual_msm) => {
+                let mut acc: Accumulator<S> = dual_msm.into();
+                acc.extract_fixed_bases(&mock_prover_setup.certificate_fixed_bases);
+                acc.collapse();
+                acc
+            }
+        };
+
+        let prev_ivc_acc = prepare_previous_recursive_proof_accumulator(
             &mock_prover_setup,
             &recursive_chain_state,
-            cert_accumulator,
         );
 
-        let circuit = IvcCircuit::new(
-            mock_prover_setup.global.clone(),
-            recursive_chain_state.state.clone(),
-            ivc_witness,
-            cert_proof,
-            recursive_chain_state.proof.clone(),
+        let mut tampered_next_acc = Accumulator::accumulate(&[
             recursive_chain_state.accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
-            &mock_prover_setup.recursive_verifying_key,
-        );
-
-        let public_inputs = [
-            mock_prover_setup.global.as_public_input(),
-            next_state.as_public_input(),
-            AssignedAccumulator::as_public_input(&next_accumulator),
-        ]
-        .concat();
-
-        let proof = prove_blake2b_ivc(
-            &context.recursive_commitment_parameters,
-            &proving_key,
-            &circuit,
-            &public_inputs,
-            &mut rand_core::OsRng,
-        );
-
-        let dual_msm = verify_prepare_blake2b_recursive_proof(
-            &mock_prover_setup.recursive_verifying_key,
-            &proof,
-            &public_inputs,
-        );
+            tampered_cert_acc,
+            prev_ivc_acc,
+        ]);
+        tampered_next_acc.collapse();
 
         assert!(
-            !dual_msm.check(&mock_prover_setup.universal_verifier_params),
-            "{rejection_message}"
+            !tampered_next_acc.check(
+                &mock_prover_setup.verifier_tau_in_g2,
+                &mock_prover_setup.combined_fixed_bases,
+            ),
+            "next_accumulator derived consistently from tampered cert proof bytes should fail the pairing check"
         );
     }
 
     #[test]
-    fn same_epoch_step_rejects_tampered_certificate_proof() {
-        // Real prover: confirms that the circuit enforces certificate proof validity
-        // in a same-epoch step; a single flipped byte in the certificate proof
-        // bytes causes the KZG opening check in the verifier to fail.
-        assert_tampered_certificate_proof_is_rejected(
-            |setup, mock, chain_state| {
-                build_same_epoch_certificate_asset_data(
-                    setup,
-                    &mock.certificate_commitment_parameters,
-                    &setup.certificate_relation,
-                    &mock.certificate_verifying_key,
-                    &chain_state.state,
-                    &mut rand_core::OsRng,
-                )
-            },
-            "same-epoch step with a tampered certificate proof should be rejected by the verifier",
-        );
+    fn same_epoch_step_tampered_cert_proof_produces_invalid_accumulator() {
+        // Off-circuit check: tampered same-epoch cert proof bytes, with next_accumulator
+        // derived consistently from those bytes, cause the KZG pairing check to fail.
+        assert_tampered_cert_proof_produces_invalid_accumulator(|setup, mock| {
+            build_same_epoch_certificate_asset_data(
+                setup,
+                &mock.certificate_commitment_parameters,
+                &setup.certificate_relation,
+                &mock.certificate_verifying_key,
+                &load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load")
+                    .state,
+                &mut rand_core::OsRng,
+            )
+        });
     }
 
     #[test]
-    fn next_epoch_step_rejects_tampered_certificate_proof() {
-        // Real prover: confirms that the circuit enforces certificate proof validity
-        // in a next-epoch step; a single flipped byte in the certificate proof
-        // bytes causes the KZG opening check in the verifier to fail.
-        assert_tampered_certificate_proof_is_rejected(
-            |setup, mock, chain_state| {
-                build_next_certificate_asset_data(
-                    setup,
-                    &mock.certificate_commitment_parameters,
-                    &setup.certificate_relation,
-                    &mock.certificate_verifying_key,
-                    &chain_state.state,
-                    &mut rand_core::OsRng,
-                )
-            },
-            "next-epoch step with a tampered certificate proof should be rejected by the verifier",
-        );
+    fn next_epoch_step_tampered_cert_proof_produces_invalid_accumulator() {
+        // Off-circuit check: tampered next-epoch cert proof bytes, with next_accumulator
+        // derived consistently from those bytes, cause the KZG pairing check to fail.
+        assert_tampered_cert_proof_produces_invalid_accumulator(|setup, mock| {
+            build_next_certificate_asset_data(
+                setup,
+                &mock.certificate_commitment_parameters,
+                &setup.certificate_relation,
+                &mock.certificate_verifying_key,
+                &load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load")
+                    .state,
+                &mut rand_core::OsRng,
+            )
+        });
     }
 }

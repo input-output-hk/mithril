@@ -19,6 +19,7 @@ use crate::circuits::halo2_ivc::{
 };
 
 pub(crate) use super::generators::{
+    try_verify_prepare_poseidon_ivc as try_verify_prepare_poseidon_recursive_proof,
     verify_prepare_blake2b_ivc as verify_prepare_blake2b_recursive_proof,
     verify_prepare_poseidon_ivc as verify_prepare_poseidon_recursive_proof,
 };
