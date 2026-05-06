@@ -37,7 +37,7 @@ FROM debian:13-slim
 
 # Args
 ARG CARDANO_NODE_VERSION=11.0.1
-ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
+ARG CARDANO_BIN_URL=https://github.com/IntersectMBO/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
 ARG EMBED-CARDANO-CLI=0
 
 # Upgrade

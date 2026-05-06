@@ -37,9 +37,9 @@ if [ -z "${CARDANO_NODE_VERSION_RELEASE}" ]; then
 fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
   if [ "$(version_lt ${CARDANO_NODE_VERSION_RELEASE} 10.6.0)" = "true" ]; then
-    CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
+    CARDANO_BINARY_URL="https://github.com/IntersectMBO/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
   else
-    CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}-${ARCHITECTURE}.tar.gz"
+    CARDANO_BINARY_URL="https://github.com/IntersectMBO/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}-${ARCHITECTURE}.tar.gz"
   fi
 fi
 if [ -z "${CARDANO_CLI_ERA}" ]; then

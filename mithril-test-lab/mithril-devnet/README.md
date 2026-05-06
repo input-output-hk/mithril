@@ -11,7 +11,7 @@ It scaffolds a private compound devnet with Cardano and Mithril nodes:
 
 ## Credits
 
-This cli is inspired by this [script](https://github.com/input-output-hk/cardano-node/blob/master/scripts/byron-to-alonzo/mkfiles.sh) from the Cardano node team.
+This cli is inspired by this [script](https://github.com/IntersectMBO/cardano-node/blob/master/scripts/byron-to-alonzo/mkfiles.sh) from the Cardano node team.
 
 ## Pre-requisites
 
