@@ -20,10 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             gnu_target: x86_64-unknown-linux-gnu
             musl_target: x86_64-unknown-linux-musl
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-24.04-arm
             gnu_target: aarch64-unknown-linux-gnu
             musl_target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.os }}
@@ -37,7 +37,7 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           targets: ${{ matrix.gnu_target }},${{ matrix.musl_target }}
-          cache-version: 22.04-${{ vars.CACHE_VERSION }}
+          cache-version: 24.04-${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -48,7 +48,7 @@ jobs:
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04'
         shell: bash
         run: cargo build --release --bins --package mithril-end-to-end
 
@@ -76,7 +76,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04'
         uses: actions/upload-artifact@v7
         with:
           name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
@@ -86,7 +86,7 @@ jobs:
           if-no-files-found: error
 
       - name: Prepare test lab eras
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04'
         id: eras-test-lab
         run: |
           ERAS=$(./target/${{ matrix.musl_target }}/release/mithril-aggregator era list --json)
@@ -288,7 +288,7 @@ jobs:
         run: make check-format
 
   licenses:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
