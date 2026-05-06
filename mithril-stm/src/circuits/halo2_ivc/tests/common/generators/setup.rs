@@ -201,12 +201,22 @@ pub(crate) fn build_shared_recursive_context(
 pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
-    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk());
-    keygen_pk(
+    build_recursive_proving_key_from_vks(
+        &context.certificate_verifying_key,
         context.recursive_verifying_key.clone(),
-        &default_ivc_circuit,
     )
-    .expect("recursive proving key generation should not fail")
+}
+
+/// Builds the recursive proving key directly from verifying keys, without requiring
+/// a full `SharedRecursiveContext`. Used by slow tests that already hold a
+/// `RecursiveTestSetup` and want to avoid rebuilding the shared context.
+pub(crate) fn build_recursive_proving_key_from_vks(
+    certificate_verifying_key: &MidnightVK,
+    recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+) -> ProvingKey<F, KZGCommitmentScheme<E>> {
+    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
+    keygen_pk(recursive_verifying_key, &default_ivc_circuit)
+        .expect("recursive proving key generation should not fail")
 }
 
 /// Returns the certificate, recursive, and combined fixed-base maps.

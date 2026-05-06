@@ -13,9 +13,11 @@ slow-timeout = "30s"
 path = "tests-result.junit.xml"
 report-name = "mithril-tests"
 
-# In-circuit Halo2 IVC slow tests can each peak around 9 GB of RSS; running
-# them in parallel exceeds the 16 GB GitHub-hosted runner budget and causes
-# OOM-induced runner shutdowns. Serialize them by claiming all test threads.
+# In-circuit Halo2 IVC real-prover slow tests can each peak around 9 GB of
+# RSS; running them in parallel exceeds the 16 GB GitHub-hosted runner budget
+# and causes OOM-induced runner shutdowns. Serialize them by claiming all test
+# threads. MockProver-based slow tests (mod slow) are excluded — they are
+# memory-safe and can run in parallel.
 [[profile.ci.overrides]]
-filter = 'test(#circuits::halo2_ivc::tests::in_circuit::*slow::*)'
+filter = 'test(#circuits::halo2_ivc::tests::in_circuit::*slow_real_prover::*)'
 threads-required = "num-test-threads"

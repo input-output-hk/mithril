@@ -11,7 +11,7 @@ use crate::circuits::halo2_ivc::{
         },
         helpers::{
             assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
-            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
+            build_recursive_test_setup, build_trivial_mock_prover_circuit,
         },
     },
 };
@@ -102,7 +102,7 @@ mod slow {
     /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
     fn assert_next_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
 
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")

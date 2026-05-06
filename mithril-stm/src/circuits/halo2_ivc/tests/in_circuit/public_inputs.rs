@@ -16,7 +16,7 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
+            assert_recursive_mock_prover_rejects, build_recursive_test_setup,
             build_trivial_mock_prover_circuit, verify_prepare_blake2b_recursive_proof,
         },
     },
@@ -120,7 +120,7 @@ mod slow {
         tamper: impl FnOnce(&mut Vec<F>, &mut Vec<F>, &mut Vec<F>),
     ) {
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
 
         let witness = build_genesis_base_case_witness(&setup);
         let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);

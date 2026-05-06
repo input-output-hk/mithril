@@ -10,7 +10,7 @@ pub(crate) use proofs::{
 };
 pub(crate) use setup::{
     AssetGenerationSetup, GENESIS_EPOCH, build_asset_generation_setup, build_recursive_fixed_bases,
-    build_recursive_global, build_recursive_proving_key, build_shared_recursive_context,
+    build_recursive_global, build_recursive_proving_key_from_vks, build_shared_recursive_context,
 };
 pub(crate) use transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,

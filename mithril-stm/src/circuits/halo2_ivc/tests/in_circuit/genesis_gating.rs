@@ -10,18 +10,18 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     circuit::IvcCircuit,
-    state::{State, trivial_acc},
+    state::State,
     tests::common::{
         generators::{
             GENESIS_EPOCH, build_asset_generation_setup, build_genesis_base_case_next_state,
-            build_genesis_base_case_witness, build_recursive_fixed_bases, build_recursive_global,
-            build_recursive_proving_key, build_shared_recursive_context, prove_poseidon_ivc,
+            build_genesis_base_case_witness, build_recursive_proving_key_from_vks,
+            prove_poseidon_ivc,
         },
-        helpers::verify_prepare_poseidon_recursive_proof,
+        helpers::{build_recursive_test_setup, verify_prepare_poseidon_recursive_proof},
     },
 };
 
-mod slow {
+mod slow_real_prover {
     use super::*;
 
     /// Builds a fresh genesis circuit with the given `cert_proof` and `self_proof` bytes,
@@ -36,41 +36,32 @@ mod slow {
         acceptance_message: &str,
     ) {
         let setup = build_asset_generation_setup();
-        let context = build_shared_recursive_context(&setup);
-        let proving_key = build_recursive_proving_key(&context);
-
-        let (_, _, combined_fixed_bases) = build_recursive_fixed_bases(
-            &context.certificate_verifying_key,
-            &context.recursive_verifying_key,
-        );
-        let fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
-        let trivial_accumulator = trivial_acc(&fixed_base_names);
-        let global = build_recursive_global(
-            &setup,
-            &context.certificate_verifying_key,
-            &context.recursive_verifying_key,
+        let mock_prover_setup = build_recursive_test_setup(&setup);
+        let proving_key = build_recursive_proving_key_from_vks(
+            &mock_prover_setup.certificate_verifying_key,
+            mock_prover_setup.recursive_verifying_key.clone(),
         );
 
         let circuit = IvcCircuit::new(
-            global.clone(),
+            mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
             cert_proof,
             self_proof,
-            trivial_accumulator.clone(),
-            context.certificate_verifying_key.vk(),
-            &context.recursive_verifying_key,
+            mock_prover_setup.trivial_accumulator.clone(),
+            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.recursive_verifying_key,
         );
 
         let public_inputs = [
-            global.as_public_input(),
+            mock_prover_setup.global.as_public_input(),
             build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
-            AssignedAccumulator::as_public_input(&trivial_accumulator),
+            AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
 
         let proof = prove_poseidon_ivc(
-            &context.recursive_commitment_parameters,
+            &mock_prover_setup.recursive_commitment_parameters,
             &proving_key,
             &circuit,
             &public_inputs,
@@ -78,13 +69,13 @@ mod slow {
         );
 
         let dual_msm = verify_prepare_poseidon_recursive_proof(
-            &context.recursive_verifying_key,
+            &mock_prover_setup.recursive_verifying_key,
             &proof,
             &public_inputs,
         );
 
         assert!(
-            dual_msm.check(&context.universal_verifier_params),
+            dual_msm.check(&mock_prover_setup.universal_verifier_params),
             "{acceptance_message}",
         );
     }

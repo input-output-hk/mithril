@@ -30,10 +30,15 @@ use super::{
     },
 };
 
-/// Shared recursive context reused by MockProver-based golden cases.
-pub(crate) struct RecursiveMockProverSetup {
+/// Shared recursive circuit context reused across the test suite.
+///
+/// Used directly by MockProver-based tests and indirectly by real-prover slow
+/// tests via [`SlowTestCache`].
+pub(crate) struct RecursiveTestSetup {
     /// Certificate-sized commitment parameters used by the golden checks.
     pub(crate) certificate_commitment_parameters: ParamsKZG<Bls12>,
+    /// Recursive-circuit-sized commitment parameters used by the real-prover slow tests.
+    pub(crate) recursive_commitment_parameters: ParamsKZG<Bls12>,
     /// Certificate verifying key reused by the golden checks.
     pub(crate) certificate_verifying_key: MidnightVK,
     /// Recursive verifying key reused by the golden checks.
@@ -54,14 +59,12 @@ pub(crate) struct RecursiveMockProverSetup {
     pub(crate) trivial_accumulator: Accumulator<S>,
 }
 
-/// Builds the shared recursive circuit context needed by MockProver-based golden tests.
+/// Builds the [`RecursiveTestSetup`] from the given deterministic asset setup.
 ///
-/// This mirrors the verifier-side setup used by the asset generators, but keeps
-/// the logic local to the golden helper layer so the base-case test can be
-/// reviewed independently from the generator code.
-pub(crate) fn build_recursive_mock_prover_setup(
-    setup: &AssetGenerationSetup,
-) -> RecursiveMockProverSetup {
+/// This mirrors the verifier-side setup used by the asset generators, keeping
+/// the logic local to the test helper layer so tests can be reviewed
+/// independently from the generator code.
+pub(crate) fn build_recursive_test_setup(setup: &AssetGenerationSetup) -> RecursiveTestSetup {
     let context = build_shared_recursive_context(setup);
     let verifier_tau_in_g2 = context.universal_kzg_parameters.s_g2().into();
     let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
@@ -77,8 +80,9 @@ pub(crate) fn build_recursive_mock_prover_setup(
         &context.recursive_verifying_key,
     );
 
-    RecursiveMockProverSetup {
+    RecursiveTestSetup {
         certificate_commitment_parameters: context.certificate_commitment_parameters,
+        recursive_commitment_parameters: context.recursive_commitment_parameters,
         certificate_verifying_key: context.certificate_verifying_key,
         recursive_verifying_key: context.recursive_verifying_key,
         global,
@@ -116,7 +120,7 @@ pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_i
 /// state/accumulator public inputs, then reduced to the accumulator term that
 /// the next step folds in-circuit.
 pub(crate) fn prepare_previous_recursive_proof_accumulator(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
 ) -> Accumulator<S> {
     let previous_public_inputs = [
@@ -148,7 +152,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
 /// contribution, and the prepared previous recursive-proof contribution exactly
 /// as the generator does for `recursive_step_output`.
 pub(crate) fn compute_expected_next_accumulator(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
     certificate_accumulator: Accumulator<S>,
 ) -> Accumulator<S> {
@@ -175,7 +179,7 @@ pub(crate) fn compute_expected_next_accumulator(
 /// - `merkle_root` comes from the previous state's `next_merkle_root`
 /// - `message` is the committed `next_state.msg`
 pub(crate) fn prepare_stored_step_certificate_accumulator(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
     expected_next_state: &State,
     certificate_proof: &[u8],
@@ -207,7 +211,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
 /// MockProver evaluates algebraic constraints directly without running the
 /// KZG prover, so embedded proof bytes are irrelevant and can be left empty.
 pub(crate) fn build_trivial_mock_prover_circuit(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     prev_state: State,
     witness: Witness,
 ) -> IvcCircuit {
@@ -225,7 +229,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
 
 /// Builds the public-input vector for a MockProver-based negative test.
 pub(crate) fn build_mock_prover_public_inputs(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     next_state: &State,
 ) -> Vec<F> {
     [
@@ -238,7 +242,7 @@ pub(crate) fn build_mock_prover_public_inputs(
 
 /// Recomputes the exact next accumulator from stored step artifacts.
 pub(crate) fn compute_exact_next_accumulator_from_assets(
-    setup: &RecursiveMockProverSetup,
+    setup: &RecursiveTestSetup,
     recursive_chain_state: &RecursiveChainStateAsset,
     expected_next_state: &State,
     certificate_proof: &[u8],

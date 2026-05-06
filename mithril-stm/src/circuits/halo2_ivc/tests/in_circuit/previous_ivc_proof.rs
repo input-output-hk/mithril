@@ -20,12 +20,12 @@ use crate::circuits::halo2_ivc::{
         },
         generators::{
             AssetGenerationSetup, build_asset_generation_setup, build_next_certificate_asset_data,
-            build_recursive_proving_key, build_same_epoch_certificate_asset_data,
-            build_shared_recursive_context, prove_blake2b_ivc,
+            build_recursive_proving_key_from_vks, build_same_epoch_certificate_asset_data,
+            prove_blake2b_ivc,
         },
         helpers::{
-            RecursiveMockProverSetup, build_recursive_mock_prover_setup,
-            compute_expected_next_accumulator, verify_prepare_blake2b_recursive_proof,
+            RecursiveTestSetup, build_recursive_test_setup, compute_expected_next_accumulator,
+            verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -83,7 +83,7 @@ fn next_epoch_step_with_valid_previous_ivc_proof_is_accepted() {
     );
 }
 
-mod slow {
+mod slow_real_prover {
     use super::*;
 
     /// Builds a fresh non-genesis circuit with `build_cert_data`, flips one byte
@@ -103,15 +103,17 @@ mod slow {
     fn assert_tampered_previous_ivc_proof_is_rejected(
         build_cert_data: impl FnOnce(
             &AssetGenerationSetup,
-            &RecursiveMockProverSetup,
+            &RecursiveTestSetup,
             &RecursiveChainStateAsset,
         ) -> (Vec<u8>, Accumulator<S>, State, Witness),
         rejection_message: &str,
     ) {
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-        let context = build_shared_recursive_context(&setup);
-        let proving_key = build_recursive_proving_key(&context);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
+        let proving_key = build_recursive_proving_key_from_vks(
+            &mock_prover_setup.certificate_verifying_key,
+            mock_prover_setup.recursive_verifying_key.clone(),
+        );
 
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
@@ -147,7 +149,7 @@ mod slow {
         .concat();
 
         let proof = prove_blake2b_ivc(
-            &context.recursive_commitment_parameters,
+            &mock_prover_setup.recursive_commitment_parameters,
             &proving_key,
             &circuit,
             &public_inputs,

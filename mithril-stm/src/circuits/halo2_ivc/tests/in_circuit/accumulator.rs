@@ -96,7 +96,7 @@ mod slow {
             asset_readers::load_embedded_recursive_chain_state_asset,
             generators::{build_asset_generation_setup, build_same_epoch_certificate_asset_data},
             helpers::{
-                assert_recursive_mock_prover_rejects, build_recursive_mock_prover_setup,
+                assert_recursive_mock_prover_rejects, build_recursive_test_setup,
                 compute_expected_next_accumulator,
             },
         },
@@ -108,7 +108,7 @@ mod slow {
         // a same-epoch step; substituting a wrong next_accumulator in the public inputs
         // causes MockProver to detect the arithmetic constraint violation.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
 
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
