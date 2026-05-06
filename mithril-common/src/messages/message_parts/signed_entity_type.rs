@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter};
+use thiserror::Error;
 
 use crate::entities::{
     BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch, SignedEntityType,
@@ -144,6 +145,103 @@ mod infallible_conversions {
     }
 }
 
+/// Raised when trying to convert a [SignedEntityTypeMessage] to a [SignedEntityType] or a
+/// [SignedEntityTypeDiscriminantsMessage] to a [SignedEntityTypeDiscriminants] and the
+/// parsed value is unknown.
+///
+/// Note: this is the only error that can be raised by these conversions.
+#[derive(Debug, PartialEq, Eq, Error)]
+#[error("Unknown signed entity type")]
+pub struct UnknownSignedEntityTypeError;
+
+mod fallible_conversions {
+    use super::*;
+
+    impl TryFrom<SignedEntityTypeMessage> for SignedEntityType {
+        type Error = UnknownSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeMessage) -> Result<Self, Self::Error> {
+            match value {
+                SignedEntityTypeMessage::MithrilStakeDistribution(epoch) => {
+                    Ok(SignedEntityType::MithrilStakeDistribution(epoch))
+                }
+                SignedEntityTypeMessage::CardanoStakeDistribution(epoch) => {
+                    Ok(SignedEntityType::CardanoStakeDistribution(epoch))
+                }
+                SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {
+                    Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))
+                }
+                SignedEntityTypeMessage::CardanoDatabase(beacon) => {
+                    Ok(SignedEntityType::CardanoDatabase(beacon))
+                }
+                SignedEntityTypeMessage::CardanoTransactions(epoch, block) => {
+                    Ok(SignedEntityType::CardanoTransactions(epoch, block))
+                }
+                SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset) => Ok(
+                    SignedEntityType::CardanoBlocksTransactions(epoch, block, offset),
+                ),
+                SignedEntityTypeMessage::Unknown => Err(UnknownSignedEntityTypeError),
+            }
+        }
+    }
+
+    impl TryFrom<SignedEntityTypeMessage> for SignedEntityTypeDiscriminants {
+        type Error = UnknownSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeMessage) -> Result<Self, Self::Error> {
+            match value {
+                SignedEntityTypeMessage::MithrilStakeDistribution(..) => {
+                    Ok(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+                }
+                SignedEntityTypeMessage::CardanoStakeDistribution(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
+                }
+                SignedEntityTypeMessage::CardanoImmutableFilesFull(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+                }
+                SignedEntityTypeMessage::CardanoDatabase(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoDatabase)
+                }
+                SignedEntityTypeMessage::CardanoTransactions(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoTransactions)
+                }
+                SignedEntityTypeMessage::CardanoBlocksTransactions(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+                }
+                SignedEntityTypeMessage::Unknown => Err(UnknownSignedEntityTypeError),
+            }
+        }
+    }
+
+    impl TryFrom<SignedEntityTypeDiscriminantsMessage> for SignedEntityTypeDiscriminants {
+        type Error = UnknownSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeDiscriminantsMessage) -> Result<Self, Self::Error> {
+            match value {
+                SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution => {
+                    Ok(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+                }
+                SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
+                }
+                SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+                }
+                SignedEntityTypeDiscriminantsMessage::CardanoDatabase => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoDatabase)
+                }
+                SignedEntityTypeDiscriminantsMessage::CardanoTransactions => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoTransactions)
+                }
+                SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+                }
+                SignedEntityTypeDiscriminantsMessage::Unknown => Err(UnknownSignedEntityTypeError),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::assert_equivalent;
@@ -256,6 +354,65 @@ mod tests {
                     discriminant_message,
                 )
             }
+        }
+    }
+
+    mod fallible_conversions {
+        use super::*;
+
+        #[test]
+        fn try_from_message_to_entity_succeeds_for_known_values() {
+            for (signed_entity, _, message, _) in infallible_conversion_cases() {
+                assert_eq!(SignedEntityType::try_from(message).unwrap(), signed_entity);
+            }
+        }
+
+        #[test]
+        fn try_from_message_to_discriminant_succeeds_for_known_values() {
+            for (_, discriminant, message, _) in infallible_conversion_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(message).unwrap(),
+                    discriminant,
+                )
+            }
+        }
+
+        #[test]
+        fn try_from_discriminant_message_succeeds_for_known_values() {
+            for (_, discriminant, _, discriminant_message) in infallible_conversion_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(discriminant_message).unwrap(),
+                    discriminant,
+                )
+            }
+        }
+
+        #[test]
+        fn try_from_message_to_entity_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityType::try_from(SignedEntityTypeMessage::Unknown).unwrap_err(),
+                UnknownSignedEntityTypeError
+            );
+        }
+
+        #[test]
+        fn try_from_entity_message_to_discriminant_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Unknown)
+                    .unwrap_err(),
+                UnknownSignedEntityTypeError
+            );
+        }
+
+        #[test]
+        fn try_from_discriminant_message_to_discriminant_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityTypeDiscriminants::try_from(
+                    SignedEntityTypeDiscriminantsMessage::Unknown
+                )
+                .unwrap_err(),
+                UnknownSignedEntityTypeError
+            );
         }
     }
 
