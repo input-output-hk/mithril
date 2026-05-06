@@ -364,7 +364,7 @@ mod tests {
 
             let sk = SchnorrSigningKey::generate(&mut OsRng);
             let msg = BaseFieldElement::random(&mut OsRng);
-            let sig = sk.sign(&[msg], &mut OsRng).unwrap();
+            let sig = sk.sign_unique(&[msg], &mut OsRng).unwrap();
 
             let m = 100;
             let mut counter = 0;
@@ -386,7 +386,7 @@ mod tests {
             let lottery_target_value = LotteryTargetValue::from(0);
             let sk = SchnorrSigningKey::generate(&mut OsRng);
             let msg = BaseFieldElement::random(&mut OsRng);
-            let sig = sk.sign(&[msg], &mut OsRng).unwrap();
+            let sig = sk.sign_unique(&[msg], &mut OsRng).unwrap();
             let m = 100;
             let prefix = compute_lottery_prefix(&[msg]);
 
@@ -404,7 +404,7 @@ mod tests {
             let lottery_target_value = LotteryTargetValue::from(0);
             let sk = SchnorrSigningKey::generate(&mut OsRng);
             let msg = BaseFieldElement::random(&mut OsRng);
-            let sig = sk.sign(&[msg], &mut OsRng).unwrap();
+            let sig = sk.sign_unique(&[msg], &mut OsRng).unwrap();
             let m = 100;
             let prefix = compute_lottery_prefix(&[msg]);
 

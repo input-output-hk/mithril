@@ -50,27 +50,46 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
     let mut mvks = Vec::new();
     let mut msks = Vec::new();
-    let mut sigs = Vec::new();
+    let mut unique_sigs = Vec::new();
+    let mut standard_sigs = Vec::new();
     for _ in 0..nr_sigs {
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
-        let sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
-        sigs.push(sig);
+        let unique_sig = sk.sign_unique(&[base_input], &mut rng_sig).unwrap();
+        let standard_sig = sk.sign_standard(&[base_input], &mut rng_sig).unwrap();
+        unique_sigs.push(unique_sig);
+        standard_sigs.push(standard_sig);
         mvks.push(vk);
         msks.push(sk);
     }
 
-    group.bench_function(BenchmarkId::new("Signature", nr_sigs), |b| {
+    group.bench_function(BenchmarkId::new("Unique Signature", nr_sigs), |b| {
         b.iter(|| {
             for sk in msks.iter() {
-                let _sig = sk.sign(&[base_input], &mut rng_sig).unwrap();
+                let _sig = sk.sign_unique(&[base_input], &mut rng_sig).unwrap();
             }
         })
     });
 
-    group.bench_function(BenchmarkId::new("Verification", nr_sigs), |b| {
+    group.bench_function(BenchmarkId::new("Unique Verification", nr_sigs), |b| {
         b.iter(|| {
-            for (vk, sig) in mvks.iter().zip(sigs.iter()) {
+            for (vk, sig) in mvks.iter().zip(unique_sigs.iter()) {
+                assert!(sig.verify(&[base_input], vk).is_ok());
+            }
+        })
+    });
+
+    group.bench_function(BenchmarkId::new("Standard Signature", nr_sigs), |b| {
+        b.iter(|| {
+            for sk in msks.iter() {
+                let _sig = sk.sign_standard(&[base_input], &mut rng_sig).unwrap();
+            }
+        })
+    });
+
+    group.bench_function(BenchmarkId::new("Standard Verification", nr_sigs), |b| {
+        b.iter(|| {
+            for (vk, sig) in mvks.iter().zip(standard_sigs.iter()) {
                 assert!(sig.verify(&[base_input], vk).is_ok());
             }
         })

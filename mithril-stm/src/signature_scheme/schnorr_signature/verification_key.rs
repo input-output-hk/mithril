@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StmResult, signature_scheme::BaseFieldElement};
 
-use super::{
-    PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSigningKey, UniqueSchnorrSignatureError,
-};
+use super::{PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSignatureError, SchnorrSigningKey};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
@@ -31,7 +29,7 @@ impl SchnorrVerificationKey {
     pub fn is_valid(&self) -> StmResult<()> {
         let projective_point = ProjectivePoint::from(self.0);
         if !projective_point.is_prime_order() {
-            return Err(anyhow!(UniqueSchnorrSignatureError::PointIsNotPrimeOrder(
+            return Err(anyhow!(SchnorrSignatureError::PointIsNotPrimeOrder(
                 Box::new(self.0)
             )));
         }
@@ -55,7 +53,7 @@ impl SchnorrVerificationKey {
     /// The bytes must represent two Jubjub Base field elements or the conversion will fail
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 64 {
-            return Err(anyhow!(UniqueSchnorrSignatureError::Serialization)).with_context(
+            return Err(anyhow!(SchnorrSignatureError::Serialization)).with_context(
                 || "Not enough bytes provided to construct a Schnorr verification key.",
             );
         }
@@ -91,7 +89,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
+    use crate::signature_scheme::{ScalarFieldElement, SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
     fn different_signing_keys_produce_different_verification_keys() {
@@ -133,6 +131,19 @@ mod tests {
         assert!(
             result.is_ok(),
             "Valid verification key should pass validation"
+        );
+    }
+
+    #[test]
+    fn zero_verification_key_fails_validation() {
+        let sk = SchnorrSigningKey(ScalarFieldElement::get_zero());
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk);
+
+        let result = vk.is_valid();
+
+        assert!(
+            result.is_err(),
+            "Zero verification key should fail validation"
         );
     }
 

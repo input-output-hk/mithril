@@ -8,18 +8,19 @@
 
 mod error;
 mod jubjub;
-mod signature;
 mod signing_key;
+mod standard_signature;
+mod unique_signature;
 mod verification_key;
 
 pub use error::*;
 pub use jubjub::BaseFieldElement;
-pub(crate) use jubjub::DOMAIN_SEPARATION_TAG_SIGNATURE;
+pub(crate) use jubjub::DOMAIN_SEPARATION_TAG_UNIQUE_SIGNATURE;
 pub(crate) use jubjub::*;
-pub use signature::*;
 pub use signing_key::*;
+pub use standard_signature::*;
+pub use unique_signature::*;
 pub use verification_key::*;
-
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -27,8 +28,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::signature_scheme::{
-        BaseFieldElement, PrimeOrderProjectivePoint, SchnorrSigningKey, SchnorrVerificationKey,
-        UniqueSchnorrSignature, UniqueSchnorrSignatureError,
+        BaseFieldElement, PrimeOrderProjectivePoint, SchnorrSignatureError, SchnorrSigningKey,
+        SchnorrVerificationKey, UniqueSchnorrSignature,
     };
 
     proptest! {
@@ -53,7 +54,7 @@ mod tests {
             let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
 
-            let sig_result = sk.sign(&[base_input], &mut ChaCha20Rng::from_seed(seed));
+            let sig_result = sk.sign_unique(&[base_input], &mut ChaCha20Rng::from_seed(seed));
             assert!(sig_result.is_ok(), "Signature generation failed");
 
             let sig = sig_result.unwrap();
@@ -68,14 +69,14 @@ mod tests {
             let vk1 = SchnorrVerificationKey::new_from_signing_key(sk1);
             let sk2 = SchnorrSigningKey::generate(&mut rng);
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
-            let fake_sig = sk2.sign(&[base_input], &mut rng).unwrap();
+            let fake_sig = sk2.sign_unique(&[base_input], &mut rng).unwrap();
 
             let error = fake_sig.verify(&[base_input], &vk1).expect_err("Fake signature should not be verified");
 
             assert!(
                 matches!(
-                    error.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::SignatureInvalid(_))
+                    error.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::UniqueSignatureInvalid(_))
                 ),
                 "Unexpected error: {error:?}"
             );
@@ -97,8 +98,8 @@ mod tests {
             let result = SchnorrSigningKey::from_bytes(&short_bytes).expect_err("From bytes conversion of signing key should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::Serialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -108,8 +109,8 @@ mod tests {
             let result = SchnorrSigningKey::from_bytes(&sk_bytes).expect_err("From bytes conversion of signing key should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::ScalarFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -132,8 +133,8 @@ mod tests {
             let result = SchnorrVerificationKey::from_bytes(&short_bytes).expect_err("From bytes conversion of verification key should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::Serialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -143,8 +144,8 @@ mod tests {
             let result = SchnorrVerificationKey::from_bytes(&vk_bytes).expect_err("From bytes conversion of verification key should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::BaseFieldElementSerialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::BaseFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -155,7 +156,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk = SchnorrSigningKey::generate(&mut rng);
             let base_input = BaseFieldElement::try_from(msg.as_slice()).unwrap();
-            let signature = sk.sign(&[base_input], &mut ChaCha20Rng::from_seed(seed)).unwrap();
+            let signature = sk.sign_unique(&[base_input], &mut ChaCha20Rng::from_seed(seed)).unwrap();
             let signature_bytes = signature.to_bytes();
 
             // Valid conversion
@@ -168,8 +169,8 @@ mod tests {
             let result = UniqueSchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion of signature should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::ProjectivePointSerialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::ProjectivePointSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -180,8 +181,8 @@ mod tests {
             let result = UniqueSchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::ScalarFieldElementSerialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::ScalarFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -192,8 +193,8 @@ mod tests {
             let result = UniqueSchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::BaseFieldElementSerialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::BaseFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -204,8 +205,8 @@ mod tests {
             let result = UniqueSchnorrSignature::from_bytes(&short_bytes).expect_err("From bytes conversion of signature should fail");
             assert!(
                 matches!(
-                    result.downcast_ref::<UniqueSchnorrSignatureError>(),
-                    Some(UniqueSchnorrSignatureError::Serialization)
+                    result.downcast_ref::<SchnorrSignatureError>(),
+                    Some(SchnorrSignatureError::Serialization)
                 ),
                 "Unexpected error: {result:?}"
             );
