@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use blake2::{Blake2b, Digest, digest::consts::U64};
+use blake2::{Blake2b, Digest, digest::consts::U32};
 use pallas_network::miniprotocols::localmsgsubmission::{
     DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload,
 };
@@ -52,11 +52,14 @@ impl DmqMessageBuilder {
         self
     }
 
-    /// Computes a message id for a DMQ message payload.
+    /// Computes the deterministic message id of a DMQ message payload.
+    ///
+    /// The message id is the `Blake2b_256` hash of the concatenation of the message body and the
+    /// expiration timestamp encoded as big endian bytes:
+    /// `Blake2b_256(msg_body || expires_at.to_be_bytes())`.
     fn compute_msg_id(dmq_message_payload: &DmqMsgPayload) -> Vec<u8> {
-        let mut hasher = Blake2b::<U64>::new();
+        let mut hasher = Blake2b::<U32>::new();
         hasher.update(&dmq_message_payload.msg_body);
-        hasher.update(dmq_message_payload.kes_period.to_be_bytes());
         hasher.update(dmq_message_payload.expires_at.to_be_bytes());
 
         hasher.finalize().to_vec()
@@ -223,5 +226,30 @@ mod tests {
             vec![expected_msg_payload.bytes_to_sign().unwrap()],
             signed_messages
         );
+    }
+
+    mod golden {
+        use super::*;
+
+        const GOLDEN_MSG_ID: &[u8] = &[
+            96, 246, 205, 112, 157, 44, 181, 45, 248, 222, 204, 111, 170, 75, 91, 159, 253, 249,
+            223, 107, 102, 132, 86, 251, 66, 110, 191, 31, 187, 122, 236, 28,
+        ];
+
+        fn golden_payload() -> DmqMsgPayload {
+            DmqMsgPayload {
+                msg_id: vec![],
+                msg_body: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                kes_period: 123,
+                expires_at: 123456,
+            }
+        }
+
+        #[test]
+        fn golden_msg_id() {
+            let computed_msg_id = DmqMessageBuilder::compute_msg_id(&golden_payload());
+
+            assert_eq!(GOLDEN_MSG_ID, computed_msg_id);
+        }
     }
 }
