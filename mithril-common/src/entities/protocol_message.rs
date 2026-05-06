@@ -34,12 +34,19 @@ pub enum RigidProtocolMessageIntegrityError {
     MissingCurrentEpoch,
 
     /// The `current_epoch` value cannot be parsed as a base-10 unsigned 64-bit integer.
-    #[error("Rigid `current_epoch` value must be a base-10 unsigned 64-bit integer: {0}")]
-    InvalidCurrentEpoch(String),
-
-    /// The required `next_aggregate_verification_key` entry is missing from the protocol message.
     #[error(
-        "Rigid `next_aggregate_verification_key` value is required but no entry was found in the protocol message"
+        "Rigid `current_epoch` value `{value}` must be a base-10 unsigned 64-bit integer: {error}"
+    )]
+    InvalidCurrentEpoch {
+        /// Raw `current_epoch` value that failed to parse.
+        value: String,
+        /// Reason the parse failed.
+        error: String,
+    },
+
+    /// The required `next_aggregate_verification_key_snark` entry is missing from the protocol message.
+    #[error(
+        "Rigid `next_aggregate_verification_key_snark` value is required but no entry was found in the protocol message"
     )]
     MissingNextSnarkAggregateVerificationKey,
 
@@ -54,13 +61,13 @@ pub enum RigidProtocolMessageIntegrityError {
     InvalidProtocolParameters(String),
 
     /// The SNARK aggregate verification key cannot be decoded.
-    #[error("Rigid `next_aggregate_verification_key` value cannot be decoded: {0}")]
+    #[error("Rigid `next_aggregate_verification_key_snark` value cannot be decoded: {0}")]
     InvalidSnarkAggregateVerificationKey(String),
 
     /// The decoded SNARK aggregate verification key cannot be projected into the rigid slot
     /// (e.g. the embedded Merkle root does not have the expected 32-byte width).
     #[error(
-        "Rigid `next_aggregate_verification_key` value cannot be projected into the rigid slot: {0}"
+        "Rigid `next_aggregate_verification_key_snark` value cannot be projected into the rigid slot: {0}"
     )]
     UnprojectableSnarkAggregateVerificationKey(String),
 }
@@ -397,7 +404,7 @@ impl ProtocolMessage {
     /// Validate that every rigid-segment value fits its fixed-size slot.
     ///
     /// No-op for [ProtocolMessageHashScheme::Legacy]. For [ProtocolMessageHashScheme::Rigid],
-    /// surfaces the first `RigidProtocolMessageIntegrityError` among missing entry,
+    /// surfaces the first [RigidProtocolMessageIntegrityError] among missing entry,
     /// byte-length mismatch, or non-decimal epoch. An empty dynamic-parts projection is
     /// allowed and collapses the rigid `digest` segment to a SHA-256 hash of no input.
     ///
@@ -426,7 +433,10 @@ impl ProtocolMessage {
             .get(&ProtocolMessagePartKey::CurrentEpoch)
             .ok_or(RigidProtocolMessageIntegrityError::MissingCurrentEpoch)?;
         current_epoch.parse::<u64>().map_err(|err| {
-            RigidProtocolMessageIntegrityError::InvalidCurrentEpoch(err.to_string())
+            RigidProtocolMessageIntegrityError::InvalidCurrentEpoch {
+                value: current_epoch.clone(),
+                error: err.to_string(),
+            }
         })?;
 
         Ok(())
@@ -1381,12 +1391,11 @@ mod tests {
             .check_rigid_integrity()
             .expect_err("non-decimal rigid current epoch entry must surface an error");
 
-        assert!(
-            matches!(
-                error,
-                RigidProtocolMessageIntegrityError::InvalidCurrentEpoch(_)
-            ),
-            "unexpected error variant: {error:?}"
-        );
+        match error {
+            RigidProtocolMessageIntegrityError::InvalidCurrentEpoch { value, .. } => {
+                assert_eq!(value, "oops");
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 }

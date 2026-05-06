@@ -163,7 +163,10 @@ impl MithrilSignableBuilderService {
             .compute_next_aggregate_verification_key_for_snark()
             .await?;
         #[cfg(feature = "future_snark")]
-        if let Some(snark_avk) = next_snark_aggregate_verification_key.clone() {
+        let has_next_snark_aggregate_verification_key =
+            next_snark_aggregate_verification_key.is_some();
+        #[cfg(feature = "future_snark")]
+        if let Some(snark_avk) = next_snark_aggregate_verification_key {
             protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
                 snark_avk,
@@ -184,7 +187,7 @@ impl MithrilSignableBuilderService {
             let era = self.seed_signable_builder.compute_current_era().await?;
             match era {
                 SupportedEra::Lagrange => {
-                    if next_snark_aggregate_verification_key.is_none() {
+                    if !has_next_snark_aggregate_verification_key {
                         anyhow::bail!(
                             "Signable builder service: Lagrange era requires a SNARK aggregate verification key but none was computed"
                         );
