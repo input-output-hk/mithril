@@ -59,10 +59,10 @@ export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com
 export CARDANO_NODE_VERSION=**CARDANO_NODE_VERSION**
 ```
 
-Here is an example for version `10.7.1`:
+Here is an example for version `11.0.1`:
 
 ```bash
-export CARDANO_NODE_VERSION=10.7.1
+export CARDANO_NODE_VERSION=11.0.1
 ```
 
 ## Phase 0: Verify sufficient disk space
