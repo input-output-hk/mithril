@@ -15,3 +15,6 @@ pub(crate) mod test_utils;
 pub(crate) use halo2::witness::{
     CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
 };
+
+/// Constant holding the current path of the cached values related to the circuits
+const MITHRIL_CIRCUIT_CACHE_FOLDER: &str = "mithril-circuit";
