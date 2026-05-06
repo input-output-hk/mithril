@@ -20,10 +20,9 @@ use crate::circuits::halo2_ivc::tests::common::{
         next_message_and_preimage_for_step, next_state_for_step,
     },
     helpers::{
-        RecursiveMockProverSetup, assert_recursive_mock_prover_accepts,
-        build_recursive_mock_prover_setup, compute_exact_next_accumulator_from_assets,
-        compute_expected_next_accumulator, verify_and_prepare_blake2b_recursive_proof,
-        verify_and_prepare_poseidon_recursive_proof,
+        RecursiveTestSetup, assert_recursive_mock_prover_accepts, build_recursive_test_setup,
+        compute_exact_next_accumulator_from_assets, compute_expected_next_accumulator,
+        verify_prepare_blake2b_recursive_proof, verify_prepare_poseidon_recursive_proof,
     },
 };
 use crate::circuits::halo2_ivc::{
@@ -53,7 +52,7 @@ fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let dual_msm = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_chain_state.proof,
         &public_inputs,
@@ -82,7 +81,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -113,12 +112,12 @@ mod slow {
     fn assert_recursive_step_circuit_accepts(
         build_cert_data: impl FnOnce(
             &AssetGenerationSetup,
-            &RecursiveMockProverSetup,
+            &RecursiveTestSetup,
             &RecursiveChainStateAsset,
         ) -> (Vec<u8>, Accumulator<S>, State, Witness),
     ) {
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
@@ -158,7 +157,7 @@ mod slow {
         // previous recursive proof exists yet and the circuit must accept the
         // first valid transition.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
 
         let circuit = IvcCircuit::new(
             mock_prover_setup.global.clone(),
@@ -221,7 +220,7 @@ mod slow {
         // stored previous checkpoint and verifies that the stored next-step
         // artifact is truly its continuation.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
         let recursive_step_output = load_embedded_recursive_step_output_asset()

@@ -66,7 +66,7 @@ where
 }
 
 /// Generates a recursive proof using the Poseidon transcript.
-pub(super) fn prove_poseidon_ivc(
+pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
@@ -84,7 +84,7 @@ pub(super) fn prove_poseidon_ivc(
 }
 
 /// Verifies a recursive proof using the Poseidon transcript and returns the prepared MSM.
-pub(crate) fn verify_and_prepare_poseidon_ivc(
+pub(crate) fn verify_prepare_poseidon_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
@@ -99,7 +99,7 @@ pub(crate) fn verify_and_prepare_poseidon_ivc(
 }
 
 /// Generates the final recursive proof using the Blake2b transcript.
-pub(super) fn prove_blake2b_ivc(
+pub(crate) fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
@@ -117,7 +117,7 @@ pub(super) fn prove_blake2b_ivc(
 }
 
 /// Verifies the final recursive proof using the Blake2b transcript.
-pub(crate) fn verify_and_prepare_blake2b_ivc(
+pub(crate) fn verify_prepare_blake2b_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],

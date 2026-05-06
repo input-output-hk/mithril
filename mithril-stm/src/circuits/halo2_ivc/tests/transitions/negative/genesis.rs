@@ -10,7 +10,7 @@ use crate::circuits::halo2_ivc::{
         },
         helpers::{
             assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
-            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
+            build_recursive_test_setup, build_trivial_mock_prover_circuit,
         },
     },
 };
@@ -101,7 +101,7 @@ mod slow {
     /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
     fn assert_genesis_circuit_rejects_tampered_next_state(tamper: impl FnOnce(&mut State)) {
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_recursive_test_setup(&setup);
 
         let witness = build_genesis_base_case_witness(&setup);
 

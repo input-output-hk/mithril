@@ -7,10 +7,12 @@
 //! lock in recursive verification behavior.
 //! `encoding` covers Layer A data and encoding invariants.
 //! `transitions` covers Layer B state transition rules.
+//! `in_circuit` covers Layer C1 in-circuit verification mechanics.
 
 mod common;
 mod encoding;
 mod golden;
+mod in_circuit;
 mod test_certificate;
 mod transitions;
 mod verification_key_computation;

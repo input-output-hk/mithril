@@ -41,8 +41,10 @@ generate_nextest_allowed_slow_filterset() {
       local module_prefix="${entry##*#}"
 
       if echo "$changed_files" | grep -q "${watch_path}"; then
-          # Uses glob notation from the nextest filterset DSL
-          local fragment="test(#${module_prefix}*slow::*)"
+          # Uses glob notation from the nextest filterset DSL.
+          # *slow*::* matches both mod slow and mod slow_real_prover (and any
+          # future slow_* variant).
+          local fragment="test(#${module_prefix}*slow*::*)"
 
           if [[ -z "$filterset" ]]; then
             filterset="$fragment"
@@ -103,7 +105,7 @@ readonly -a SLOW_MITHRIL_STM_TESTS=(
 if $ALLOW_ALL; then
   echo "all()"
 else
-  OUTPUT="not test(#*slow::*)"
+  OUTPUT="not test(#*slow*::*)"
 
   # Newline-separated list of files changed since the base commit
   readonly CHANGED_FILES="$(git diff --name-only "$COMMIT_REF")"
