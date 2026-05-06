@@ -7,6 +7,7 @@
 
 pub mod halo2;
 pub mod halo2_ivc;
+pub mod trusted_setup_verification;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
