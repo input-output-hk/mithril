@@ -30,6 +30,7 @@ future_snark = [
     "dep:rand",
     "dep:sha2",
     "dep:rand_chacha",
+    "dep:reqwest",
 ]
 num-integer-backend = ["dep:num-bigint", "dep:num-integer", "dep:num-rational", "dep:num-traits"]
 rug-backend = ["rug/default"]
@@ -55,11 +56,10 @@ rand = { version = "0.10.1", optional = true }
 rand_chacha = { workspace = true, optional = true }
 rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
-reqwest = { workspace = true, default-features = true, features = ["blocking"] }
+reqwest = { workspace = true, default-features = true, features = ["blocking"], optional = true }
 serde = { workspace = true }
 sha2 = { version = "0.10.9", optional = true }
 subtle = "2.6.1"
-tempfile = "3.27.0"
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
