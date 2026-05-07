@@ -83,6 +83,7 @@ pub enum ProtocolMessageHashScheme {
     Legacy,
 
     /// Lagrange SNARK-friendly hash scheme.
+    #[cfg(feature = "future_snark")]
     #[serde(rename = "rigid")]
     Rigid,
 }
@@ -224,27 +225,27 @@ impl ProtocolMessage {
         self.message_parts.get(key)
     }
 
-    /// Return `true` if the protocol message uses the [ProtocolMessageHashScheme::Rigid] hash
-    /// scheme.
+    /// Return `true` if the protocol message uses the rigid hash scheme. Always `false` when
+    /// the `future_snark` feature is disabled (the variant does not exist there).
     pub fn is_rigid(&self) -> bool {
-        if cfg!(feature = "future_snark") {
+        #[cfg(feature = "future_snark")]
+        {
             self.hash_scheme == ProtocolMessageHashScheme::Rigid
-        } else {
+        }
+        #[cfg(not(feature = "future_snark"))]
+        {
+            let _ = self;
             false
         }
     }
 
     /// Compute the hex-encoded SHA-256 hash of the protocol message, dispatching over
-    /// [ProtocolMessage::hash_scheme]. The rigid scheme requires `future_snark`; without it,
-    /// rigid messages fall back to the legacy hash (signals misconfiguration via signature
-    /// mismatch downstream).
+    /// [ProtocolMessage::hash_scheme].
     pub fn compute_hash(&self) -> String {
         match self.hash_scheme {
             ProtocolMessageHashScheme::Legacy => self.compute_legacy_hash(),
             #[cfg(feature = "future_snark")]
             ProtocolMessageHashScheme::Rigid => self.compute_rigid_hash(),
-            #[cfg(not(feature = "future_snark"))]
-            ProtocolMessageHashScheme::Rigid => self.compute_legacy_hash(),
         }
     }
 
