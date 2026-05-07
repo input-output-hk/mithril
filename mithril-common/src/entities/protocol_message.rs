@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, fmt::Display};
 #[cfg(feature = "future_snark")]
 use thiserror::Error;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "future_snark"))]
 use crate::entities::Epoch;
 
 #[cfg(feature = "future_snark")]
@@ -71,100 +71,6 @@ pub enum RigidProtocolMessageIntegrityError {
     )]
     UnprojectableSnarkAggregateVerificationKey(String),
 }
-
-/// Decode the SNARK AVK (hex of CBOR-prefixed bytes from `ProtocolKey::to_bytes_hex`) and
-/// project it into the [RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]-byte rigid slot via
-/// `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`.
-#[cfg(feature = "future_snark")]
-fn decode_snark_avk_to_rigid_slot_bytes(
-    value: &str,
-) -> Result<[u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES], RigidProtocolMessageIntegrityError> {
-    let snark_avk = ProtocolAggregateVerificationKeyForSnark::try_from(value).map_err(|err| {
-        RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(err.to_string())
-    })?;
-    snark_avk.to_rigid_slot_bytes().map_err(|err| {
-        RigidProtocolMessageIntegrityError::UnprojectableSnarkAggregateVerificationKey(
-            err.to_string(),
-        )
-    })
-}
-
-/// Decode the protocol parameters value (hex-encoded
-/// [ProtocolParameters::compute_hash](crate::entities::ProtocolParameters::compute_hash) output,
-/// a SHA-256 digest of the protocol parameters) and project it into the
-/// [RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]-byte rigid slot.
-#[cfg(feature = "future_snark")]
-fn decode_protocol_parameters_to_rigid_slot_bytes(
-    value: &str,
-) -> Result<[u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES], RigidProtocolMessageIntegrityError> {
-    let bytes = hex::decode(value).map_err(|err| {
-        RigidProtocolMessageIntegrityError::InvalidProtocolParameters(err.to_string())
-    })?;
-    bytes.as_slice().try_into().map_err(|_| {
-        RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
-            field: "next_protocol_parameters",
-            expected: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
-            actual: bytes.len(),
-        }
-    })
-}
-
-/// [ProtocolMessagePartKey] entries projected into a fixed-size segment of the rigid preimage,
-/// and therefore stripped from the dynamic-parts digest segment.
-#[cfg(feature = "future_snark")]
-const RIGID_SEGMENT_KEYS: &[ProtocolMessagePartKey] = &[
-    ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-    ProtocolMessagePartKey::NextProtocolParameters,
-    ProtocolMessagePartKey::CurrentEpoch,
-];
-
-/// Byte length of the `digest` value segment in the rigid preimage. Kept ungated because the
-/// legacy hash path also uses it as the SHA-256 output buffer width.
-pub const RIGID_DIGEST_BYTES: usize = 32;
-
-/// Byte length of the `next_aggregate_verification_key` value segment in the rigid preimage.
-///
-/// The slot holds the SNARK-friendly aggregate verification key bytes (the value sourced from
-/// [ProtocolMessagePartKey::NextSnarkAggregateVerificationKey]).
-#[cfg(feature = "future_snark")]
-pub const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES: usize = 44;
-
-/// Byte length of the `next_protocol_parameters` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-pub const RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES: usize = 32;
-
-/// Byte length of the `current_epoch` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-pub const RIGID_CURRENT_EPOCH_BYTES: usize = 8;
-
-/// ASCII label written immediately before the `digest` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-const RIGID_DIGEST_LABEL: &[u8] = b"digest";
-
-/// ASCII label written immediately before the `next_aggregate_verification_key` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL: &[u8] = b"next_aggregate_verification_key";
-
-/// ASCII label written immediately before the `next_protocol_parameters` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-const RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL: &[u8] = b"next_protocol_parameters";
-
-/// ASCII label written immediately before the `current_epoch` value segment in the rigid preimage.
-#[cfg(feature = "future_snark")]
-const RIGID_CURRENT_EPOCH_LABEL: &[u8] = b"current_epoch";
-
-/// Byte length of the full rigid preimage that [ProtocolMessage::rigid_preimage] assembles when
-/// the hash scheme is [ProtocolMessageHashScheme::Rigid]. Each named segment is prefixed by its ASCII
-/// label, mirroring the layout consumed by the IVC SNARK gadget.
-#[cfg(feature = "future_snark")]
-const RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES: usize = RIGID_DIGEST_LABEL.len()
-    + RIGID_DIGEST_BYTES
-    + RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL.len()
-    + RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES
-    + RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL.len()
-    + RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES
-    + RIGID_CURRENT_EPOCH_LABEL.len()
-    + RIGID_CURRENT_EPOCH_BYTES;
 
 /// Hash scheme of a [ProtocolMessage], driving which hash scheme is applied by
 /// [ProtocolMessage::compute_hash].
@@ -299,16 +205,6 @@ impl ProtocolMessage {
         ProtocolMessage::default()
     }
 
-    /// [ProtocolMessage] factory returning the rigid (Lagrange) [ProtocolMessageHashScheme::Rigid]
-    /// variant.
-    #[cfg(feature = "future_snark")]
-    pub fn new_rigid() -> ProtocolMessage {
-        ProtocolMessage {
-            message_parts: BTreeMap::new(),
-            hash_scheme: ProtocolMessageHashScheme::Rigid,
-        }
-    }
-
     /// Set the message part associated with a key
     ///
     /// Returns the previously associated value if it existed.
@@ -352,7 +248,7 @@ impl ProtocolMessage {
         }
     }
 
-    fn compute_legacy_digest_bytes(&self) -> [u8; RIGID_DIGEST_BYTES] {
+    fn compute_legacy_digest_bytes(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         for (key, value) in self.message_parts.iter() {
             hasher.update(key.to_string().as_bytes());
@@ -364,8 +260,66 @@ impl ProtocolMessage {
     fn compute_legacy_hash(&self) -> String {
         hex::encode(self.compute_legacy_digest_bytes())
     }
+}
 
-    #[cfg(feature = "future_snark")]
+#[cfg(feature = "future_snark")]
+impl ProtocolMessage {
+    /// [ProtocolMessagePartKey] entries projected into a fixed-size segment of the rigid
+    /// preimage, and therefore stripped from the dynamic-parts digest segment.
+    const RIGID_SEGMENT_KEYS: &[ProtocolMessagePartKey] = &[
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        ProtocolMessagePartKey::NextProtocolParameters,
+        ProtocolMessagePartKey::CurrentEpoch,
+    ];
+
+    /// Byte length of the `digest` value segment in the rigid preimage.
+    const RIGID_DIGEST_BYTES: usize = 32;
+
+    /// Byte length of the `next_aggregate_verification_key` value segment in the rigid preimage.
+    ///
+    /// The slot holds the SNARK-friendly aggregate verification key bytes (the value sourced from
+    /// [ProtocolMessagePartKey::NextSnarkAggregateVerificationKey]).
+    const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES: usize = 44;
+
+    /// Byte length of the `next_protocol_parameters` value segment in the rigid preimage.
+    const RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES: usize = 32;
+
+    /// Byte length of the `current_epoch` value segment in the rigid preimage.
+    const RIGID_CURRENT_EPOCH_BYTES: usize = 8;
+
+    /// ASCII label written immediately before the `digest` value segment in the rigid preimage.
+    const RIGID_DIGEST_LABEL: &[u8] = b"digest";
+
+    /// ASCII label written immediately before the `next_aggregate_verification_key` value segment in the rigid preimage.
+    const RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL: &[u8] = b"next_aggregate_verification_key";
+
+    /// ASCII label written immediately before the `next_protocol_parameters` value segment in the rigid preimage.
+    const RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL: &[u8] = b"next_protocol_parameters";
+
+    /// ASCII label written immediately before the `current_epoch` value segment in the rigid preimage.
+    const RIGID_CURRENT_EPOCH_LABEL: &[u8] = b"current_epoch";
+
+    /// Byte length of the full rigid preimage that [ProtocolMessage::rigid_preimage] assembles
+    /// when the hash scheme is [ProtocolMessageHashScheme::Rigid]. Each named segment is prefixed
+    /// by its ASCII label, mirroring the layout consumed by the IVC SNARK gadget.
+    const RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES: usize = Self::RIGID_DIGEST_LABEL.len()
+        + Self::RIGID_DIGEST_BYTES
+        + Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL.len()
+        + Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES
+        + Self::RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL.len()
+        + Self::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES
+        + Self::RIGID_CURRENT_EPOCH_LABEL.len()
+        + Self::RIGID_CURRENT_EPOCH_BYTES;
+
+    /// [ProtocolMessage] factory returning the rigid (Lagrange) [ProtocolMessageHashScheme::Rigid]
+    /// variant.
+    pub fn new_rigid() -> ProtocolMessage {
+        ProtocolMessage {
+            message_parts: BTreeMap::new(),
+            hash_scheme: ProtocolMessageHashScheme::Rigid,
+        }
+    }
+
     fn compute_rigid_hash(&self) -> String {
         hex::encode(Sha256::digest(self.rigid_preimage()))
     }
@@ -374,16 +328,15 @@ impl ProtocolMessage {
     /// `"digest" || digest_value || "next_aggregate_verification_key" || avk_value
     /// || "next_protocol_parameters" || protocol_parameters_value
     /// || "current_epoch" || current_epoch_value`.
-    #[cfg(feature = "future_snark")]
     pub fn rigid_preimage(&self) -> Vec<u8> {
-        let mut preimage = Vec::with_capacity(RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES);
-        preimage.extend_from_slice(RIGID_DIGEST_LABEL);
+        let mut preimage = Vec::with_capacity(Self::RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES);
+        preimage.extend_from_slice(Self::RIGID_DIGEST_LABEL);
         preimage.extend_from_slice(&self.rigid_digest_field());
-        preimage.extend_from_slice(RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL);
+        preimage.extend_from_slice(Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL);
         preimage.extend_from_slice(&self.rigid_next_aggregate_verification_key_field());
-        preimage.extend_from_slice(RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL);
+        preimage.extend_from_slice(Self::RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL);
         preimage.extend_from_slice(&self.rigid_next_protocol_parameters_field());
-        preimage.extend_from_slice(RIGID_CURRENT_EPOCH_LABEL);
+        preimage.extend_from_slice(Self::RIGID_CURRENT_EPOCH_LABEL);
         preimage.extend_from_slice(&self.rigid_current_epoch_field());
         preimage
     }
@@ -392,10 +345,9 @@ impl ProtocolMessage {
     /// strips the rigid-segment keys (next AVK, next protocol parameters, current epoch) and
     /// forces [ProtocolMessageHashScheme::Legacy] so the digest segment is hashed via the
     /// legacy preimage routine.
-    #[cfg(feature = "future_snark")]
     fn stripped_for_rigid_digest(mut self) -> ProtocolMessage {
         self.hash_scheme = ProtocolMessageHashScheme::Legacy;
-        for key in RIGID_SEGMENT_KEYS {
+        for key in Self::RIGID_SEGMENT_KEYS {
             self.message_parts.remove(key);
         }
         self
@@ -410,7 +362,6 @@ impl ProtocolMessage {
     ///
     /// Intended for producers to call at construction time so layout violations surface before
     /// hashing or signing.
-    #[cfg(feature = "future_snark")]
     pub fn check_rigid_integrity(&self) -> Result<(), RigidProtocolMessageIntegrityError> {
         if !self.is_rigid() {
             return Ok(());
@@ -420,13 +371,13 @@ impl ProtocolMessage {
             .message_parts
             .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
             .ok_or(RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey)?;
-        decode_snark_avk_to_rigid_slot_bytes(snark_avk)?;
+        Self::decode_snark_avk_to_rigid_slot_bytes(snark_avk)?;
 
         let protocol_parameters = self
             .message_parts
             .get(&ProtocolMessagePartKey::NextProtocolParameters)
             .ok_or(RigidProtocolMessageIntegrityError::MissingNextProtocolParameters)?;
-        decode_protocol_parameters_to_rigid_slot_bytes(protocol_parameters)?;
+        Self::decode_protocol_parameters_to_rigid_slot_bytes(protocol_parameters)?;
 
         let current_epoch = self
             .message_parts
@@ -444,8 +395,7 @@ impl ProtocolMessage {
 
     /// SHA-256 fingerprint of the dynamic message parts in the rigid `digest` segment. An
     /// empty projection is allowed and collapses to the SHA-256 hash of no input.
-    #[cfg(feature = "future_snark")]
-    fn rigid_digest_field(&self) -> [u8; RIGID_DIGEST_BYTES] {
+    fn rigid_digest_field(&self) -> [u8; Self::RIGID_DIGEST_BYTES] {
         self.clone().stripped_for_rigid_digest().compute_legacy_digest_bytes()
     }
 
@@ -454,37 +404,36 @@ impl ProtocolMessage {
     /// `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`. Missing or undecodable entries
     /// silently collapse to zeros; [ProtocolMessage::check_rigid_integrity] surfaces the typed
     /// error.
-    #[cfg(feature = "future_snark")]
     fn rigid_next_aggregate_verification_key_field(
         &self,
-    ) -> [u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] {
+    ) -> [u8; Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES] {
         self.message_parts
             .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
-            .and_then(|value| decode_snark_avk_to_rigid_slot_bytes(value).ok())
-            .unwrap_or([0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES])
+            .and_then(|value| Self::decode_snark_avk_to_rigid_slot_bytes(value).ok())
+            .unwrap_or([0u8; Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES])
     }
 
     /// Project the [ProtocolMessagePartKey::NextProtocolParameters] entry into the rigid slot.
     /// Missing or out-of-width entries silently collapse to zeros;
     /// [ProtocolMessage::check_rigid_integrity] surfaces the typed error.
-    #[cfg(feature = "future_snark")]
-    fn rigid_next_protocol_parameters_field(&self) -> [u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES] {
+    fn rigid_next_protocol_parameters_field(
+        &self,
+    ) -> [u8; Self::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES] {
         self.message_parts
             .get(&ProtocolMessagePartKey::NextProtocolParameters)
-            .and_then(|value| decode_protocol_parameters_to_rigid_slot_bytes(value).ok())
-            .unwrap_or([0u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES])
+            .and_then(|value| Self::decode_protocol_parameters_to_rigid_slot_bytes(value).ok())
+            .unwrap_or([0u8; Self::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES])
     }
 
     /// Encode the [ProtocolMessagePartKey::CurrentEpoch] entry as a little-endian `u64` in the
     /// rigid slot. Missing or non-decimal entries silently collapse to zeros;
     /// [ProtocolMessage::check_rigid_integrity] surfaces the typed error.
-    #[cfg(feature = "future_snark")]
-    fn rigid_current_epoch_field(&self) -> [u8; RIGID_CURRENT_EPOCH_BYTES] {
+    fn rigid_current_epoch_field(&self) -> [u8; Self::RIGID_CURRENT_EPOCH_BYTES] {
         self.message_parts
             .get(&ProtocolMessagePartKey::CurrentEpoch)
             .and_then(|raw| raw.parse::<u64>().ok())
             .map(|epoch| epoch.to_le_bytes())
-            .unwrap_or([0u8; RIGID_CURRENT_EPOCH_BYTES])
+            .unwrap_or([0u8; Self::RIGID_CURRENT_EPOCH_BYTES])
     }
 
     /// Get the current epoch signed into the protocol message.
@@ -505,6 +454,48 @@ impl ProtocolMessage {
     pub fn has_next_snark_aggregate_verification_key(&self) -> bool {
         self.message_parts
             .contains_key(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
+    }
+
+    /// Decode the SNARK AVK (hex of CBOR-prefixed bytes from `ProtocolKey::to_bytes_hex`) and
+    /// project it into the [ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES]-byte
+    /// rigid slot via `AggregateVerificationKeyForSnark::to_rigid_slot_bytes`.
+    fn decode_snark_avk_to_rigid_slot_bytes(
+        value: &str,
+    ) -> Result<
+        [u8; Self::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES],
+        RigidProtocolMessageIntegrityError,
+    > {
+        let snark_avk =
+            ProtocolAggregateVerificationKeyForSnark::try_from(value).map_err(|err| {
+                RigidProtocolMessageIntegrityError::InvalidSnarkAggregateVerificationKey(
+                    err.to_string(),
+                )
+            })?;
+        snark_avk.to_rigid_slot_bytes().map_err(|err| {
+            RigidProtocolMessageIntegrityError::UnprojectableSnarkAggregateVerificationKey(
+                err.to_string(),
+            )
+        })
+    }
+
+    /// Decode the protocol parameters value (hex-encoded
+    /// [ProtocolParameters::compute_hash](crate::entities::ProtocolParameters::compute_hash)
+    /// output, a SHA-256 digest of the protocol parameters) and project it into the
+    /// [ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]-byte rigid slot.
+    fn decode_protocol_parameters_to_rigid_slot_bytes(
+        value: &str,
+    ) -> Result<[u8; Self::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES], RigidProtocolMessageIntegrityError>
+    {
+        let bytes = hex::decode(value).map_err(|err| {
+            RigidProtocolMessageIntegrityError::InvalidProtocolParameters(err.to_string())
+        })?;
+        bytes.as_slice().try_into().map_err(|_| {
+            RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
+                field: "next_protocol_parameters",
+                expected: Self::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
+                actual: bytes.len(),
+            }
+        })
     }
 }
 
@@ -761,7 +752,7 @@ mod tests {
         );
         message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
-            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
+            hex::encode([0xDDu8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
         );
         message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
         message
@@ -840,7 +831,10 @@ mod tests {
 
         let preimage = rigid.rigid_preimage();
 
-        assert_eq!(preimage.len(), RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES);
+        assert_eq!(
+            preimage.len(),
+            ProtocolMessage::RIGID_PROTOCOL_MESSAGE_PREIMAGE_BYTES
+        );
     }
 
     #[cfg(feature = "future_snark")]
@@ -882,11 +876,11 @@ mod tests {
         );
         offset += digest_label.len();
         assert_eq!(
-            &preimage[offset..offset + RIGID_DIGEST_BYTES],
+            &preimage[offset..offset + ProtocolMessage::RIGID_DIGEST_BYTES],
             &rigid.rigid_digest_field()[..],
             "the digest segment must follow its ASCII label"
         );
-        offset += RIGID_DIGEST_BYTES;
+        offset += ProtocolMessage::RIGID_DIGEST_BYTES;
 
         assert_eq!(
             &preimage[offset..offset + avk_label.len()],
@@ -895,11 +889,12 @@ mod tests {
         );
         offset += avk_label.len();
         assert_eq!(
-            &preimage[offset..offset + RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES],
+            &preimage
+                [offset..offset + ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES],
             &rigid.rigid_next_aggregate_verification_key_field()[..],
             "the next aggregate verification key segment must follow its ASCII label"
         );
-        offset += RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES;
+        offset += ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES;
 
         assert_eq!(
             &preimage[offset..offset + protocol_parameters_label.len()],
@@ -908,11 +903,11 @@ mod tests {
         );
         offset += protocol_parameters_label.len();
         assert_eq!(
-            &preimage[offset..offset + RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES],
+            &preimage[offset..offset + ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES],
             &rigid.rigid_next_protocol_parameters_field()[..],
             "the next protocol parameters segment must follow its ASCII label"
         );
-        offset += RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES;
+        offset += ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES;
 
         assert_eq!(
             &preimage[offset..offset + current_epoch_label.len()],
@@ -921,11 +916,11 @@ mod tests {
         );
         offset += current_epoch_label.len();
         assert_eq!(
-            &preimage[offset..offset + RIGID_CURRENT_EPOCH_BYTES],
+            &preimage[offset..offset + ProtocolMessage::RIGID_CURRENT_EPOCH_BYTES],
             &rigid.rigid_current_epoch_field()[..],
             "the current epoch segment must follow its ASCII label"
         );
-        offset += RIGID_CURRENT_EPOCH_BYTES;
+        offset += ProtocolMessage::RIGID_CURRENT_EPOCH_BYTES;
 
         assert_eq!(
             offset,
@@ -957,7 +952,7 @@ mod tests {
             build_snark_avk_wire_value_for_test(merkle_root, total_stake),
         );
 
-        let mut expected = [0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        let mut expected = [0u8; ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
         expected[0..32].copy_from_slice(&merkle_root);
         expected[36..44].copy_from_slice(&total_stake.to_le_bytes());
 
@@ -1075,7 +1070,7 @@ mod tests {
     #[test]
     fn rigid_next_protocol_parameters_field_holds_raw_hex_decoded_bytes() {
         let mut message = ProtocolMessage::new_rigid();
-        let raw = [0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
+        let raw = [0xDDu8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
         message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             hex::encode(raw),
@@ -1105,7 +1100,7 @@ mod tests {
         let stripped = rigid.stripped_for_rigid_digest();
 
         assert_eq!(stripped.hash_scheme, ProtocolMessageHashScheme::Legacy);
-        for key in RIGID_SEGMENT_KEYS {
+        for key in ProtocolMessage::RIGID_SEGMENT_KEYS {
             assert!(
                 stripped.get_message_part(key).is_none(),
                 "rigid segment key {key} must be stripped from the digest projection"
@@ -1124,7 +1119,7 @@ mod tests {
         let mut base = build_rigid_protocol_message_reference();
         let baseline = base.rigid_digest_field();
 
-        for key in RIGID_SEGMENT_KEYS {
+        for key in ProtocolMessage::RIGID_SEGMENT_KEYS {
             base.set_message_part(*key, "tampered".to_string());
         }
 
@@ -1149,6 +1144,7 @@ mod tests {
         assert_ne!(base_hash, base.compute_hash());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn has_next_snark_aggregate_verification_key_detects_presence() {
         let mut message = ProtocolMessage::new();
@@ -1161,6 +1157,7 @@ mod tests {
         assert!(message.has_next_snark_aggregate_verification_key());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn get_current_epoch_parses_stored_decimal_value() {
         let mut message = ProtocolMessage::new();
@@ -1178,7 +1175,7 @@ mod tests {
     fn rigid_preimage_is_byte_identical_to_a_hand_built_labeled_concatenation() {
         let snark_avk_root = [0x05u8; 32];
         let snark_avk_total_stake = 17u64;
-        let protocol_params_bytes = [3u8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
+        let protocol_params_bytes = [3u8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES];
         let epoch_value = 12345u64;
 
         let mut rigid = ProtocolMessage::new_rigid();
@@ -1199,7 +1196,8 @@ mod tests {
             epoch_value.to_string(),
         );
 
-        let mut snark_avk_slot = [0u8; RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
+        let mut snark_avk_slot =
+            [0u8; ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES];
         snark_avk_slot[0..32].copy_from_slice(&snark_avk_root);
         snark_avk_slot[36..44].copy_from_slice(&snark_avk_total_stake.to_le_bytes());
 
@@ -1250,7 +1248,7 @@ mod tests {
         );
         rigid.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
-            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
+            hex::encode([0xDDu8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
         );
         rigid.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
 
@@ -1348,7 +1346,7 @@ mod tests {
         let mut rigid = build_rigid_protocol_message_reference();
         rigid.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
-            hex::encode([0xDDu8; RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1]),
+            hex::encode([0xDDu8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1]),
         );
 
         let error = rigid
@@ -1359,8 +1357,8 @@ mod tests {
             error,
             RigidProtocolMessageIntegrityError::UnexpectedFieldLength {
                 field: "next_protocol_parameters",
-                expected: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
-                actual: RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1,
+                expected: ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES,
+                actual: ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES + 1,
             }
         );
     }
