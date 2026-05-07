@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
     time::Duration,
 };
 
@@ -10,12 +10,8 @@ use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    StmResult,
-    circuits::{MITHRIL_CIRCUIT_CACHE_FOLDER, MITHRIL_CIRCUIT_SRS_FOLDER},
-};
+use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
 
-// TODO: remove allow(dead_code) when the constants are used or remove the constatnts
 #[allow(dead_code)]
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production.
 /// This SRS is coming from the trusted setup done by Midnight and available in the following
@@ -25,9 +21,12 @@ use crate::{
 /// the proper value available here: https://github.com/midnightntwrk/midnight-trusted-setup/blob/main/MIDNIGHT_SRS_CATALOG.md
 const MIDNIGHT_SRS_HASH_K22: &str =
     "e8ad5eed936d657a0fb59d2a55ba19f81a3083bb3554ef88f464f5377e9b2c2f";
-#[allow(dead_code)]
 /// Constant storing URL to download the SRS of degree 22 used to create proof in production
 const MIDNIGHT_SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
+/// Constant holding the folder of the SRS file
+const MITHRIL_CIRCUIT_SRS_FOLDER: &str = "srs";
+/// Constant holding the filename of the SRS
+const MITHRIL_CIRCUIT_SRS_FILENAME: &str = "srs-parameters";
 
 /// Errors which can be outputted by the trusted setup verification.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
@@ -42,10 +41,8 @@ pub enum TrustedSetupError {
 /// A structure to manage the trusted setup SRS. It stores the local path of the SRS file
 /// and information to download the file and verify integrity if it is missing.
 pub struct TrustedSetupProvider {
-    /// Path of the local SRS folder    
+    /// Path of the local SRS folder
     local_srs_folder_path: PathBuf,
-    /// Path of the local SRS file
-    local_srs_file_path: PathBuf,
     /// Expected hash of the downloaded SRS file
     srs_expected_hash: String,
     /// URL where to download the SRS file if it is not present locally
@@ -57,17 +54,16 @@ pub struct TrustedSetupProvider {
 /// TODO: remove allow(dead_code) when used
 #[allow(dead_code)]
 impl TrustedSetupProvider {
-    fn new<P: Into<PathBuf>, F: AsRef<Path>, S: Into<String>, U: Into<String>>(
+    /// Create a new TrustedSetupProvider
+    /// Prepares a subfolder in the given `local_srs_folder_path` to put the SRS in
+    fn new<P: Into<PathBuf>, S: Into<String>, U: Into<String>>(
         local_srs_folder_path: P,
-        local_srs_filename: F,
         srs_expected_hash: S,
         url_to_download_srs: U,
         download_timeout_limit: Duration,
     ) -> Self {
-        let local_srs_folder_path = local_srs_folder_path.into().join(MITHRIL_CIRCUIT_SRS_FOLDER);
         Self {
-            local_srs_folder_path: local_srs_folder_path.clone(),
-            local_srs_file_path: local_srs_folder_path.join(local_srs_filename),
+            local_srs_folder_path: local_srs_folder_path.into().join(MITHRIL_CIRCUIT_SRS_FOLDER),
             srs_expected_hash: srs_expected_hash.into(),
             url_to_download_srs: url_to_download_srs.into(),
             download_timeout_limit,
@@ -119,11 +115,17 @@ impl TrustedSetupProvider {
         std::fs::create_dir_all(&self.local_srs_folder_path)
             .with_context(|| "Subdirectory creation should have succeeded.")?;
 
-        let temp_path = self.local_srs_file_path.with_extension("temp");
+        let temp_path = self
+            .local_srs_folder_path
+            .join(MITHRIL_CIRCUIT_SRS_FILENAME)
+            .with_extension("temp");
         let mut temporary_file = File::create(&temp_path)?;
         BufWriter::new(&mut temporary_file).write_all(srs_bytes)?;
 
-        std::fs::rename(temp_path, &self.local_srs_file_path)?;
+        std::fs::rename(
+            temp_path,
+            self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME),
+        )?;
 
         Ok(())
     }
@@ -131,7 +133,7 @@ impl TrustedSetupProvider {
     /// Ensures the SRS file is present. If the file is missing,
     /// downloads it, verifies its hash and stores it if the hash is valid.
     fn download_srs_file_if_not_cached(&self) -> StmResult<()> {
-        if !self.local_srs_file_path.exists() {
+        if !self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME).exists() {
             let srs_bytes = self
                 .download_srs_file()
                 .with_context(|| "Download of the SRS file should have succeeded.")?;
@@ -148,9 +150,13 @@ impl TrustedSetupProvider {
     fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
         self.download_srs_file_if_not_cached()?;
 
-        let file = File::open(&self.local_srs_file_path).with_context(|| {
-            format!("Failed to open SRS file at {:?}.", self.local_srs_file_path)
-        })?;
+        let file = File::open(self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME))
+            .with_context(|| {
+                format!(
+                    "Failed to open SRS file at {:?}.",
+                    self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME)
+                )
+            })?;
         let mut reader = BufReader::new(file);
 
         ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked)
@@ -162,7 +168,6 @@ impl Default for TrustedSetupProvider {
     fn default() -> Self {
         Self::new(
             std::env::temp_dir().join(MITHRIL_CIRCUIT_CACHE_FOLDER),
-            "midnight-srs-2p22",
             MIDNIGHT_SRS_HASH_K22,
             MIDNIGHT_SRS_URL_K22,
             Duration::from_secs(600),
@@ -173,7 +178,6 @@ impl Default for TrustedSetupProvider {
 #[cfg(test)]
 mod tests {
     use httpmock::MockServer;
-    use tempfile::NamedTempFile;
 
     use super::*;
 
@@ -223,15 +227,13 @@ mod tests {
 
     #[test]
     fn both_bytes_encoding_work_to_load_srs_from_file() {
-        let mut tmp_file = NamedTempFile::new().unwrap();
-        std::fs::write(&mut tmp_file, SRS_K1.as_slice()).unwrap();
-        let srs_manager = TrustedSetupProvider::new(
-            "",
-            tmp_file.path(),
-            SRS_HASH_K1,
-            "",
-            Duration::from_secs(600),
-        );
+        let temp_dir = tempfile::tempdir_in("/tmp").unwrap();
+        std::fs::create_dir_all(temp_dir.path().join("srs")).unwrap();
+        let mut srs_file =
+            File::create(temp_dir.path().join("srs").join(MITHRIL_CIRCUIT_SRS_FILENAME)).unwrap();
+        srs_file.write_all(SRS_K1).unwrap();
+        let srs_manager =
+            TrustedSetupProvider::new(temp_dir.path(), SRS_HASH_K1, "", Duration::from_secs(600));
         let loaded_srs = srs_manager.get_trusted_setup_parameters().unwrap();
         let srs_rawbytes: ParamsKZG<Bls12> =
             ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytes).unwrap();
@@ -264,7 +266,7 @@ mod tests {
         let mut tampered_bytes = SRS_K1.to_vec();
         tampered_bytes[0] = tampered_bytes[0].wrapping_add(1);
 
-        let result = TrustedSetupProvider::new("", "", SRS_HASH_K1, "", Duration::from_secs(600))
+        let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(&tampered_bytes);
 
         let err = result.unwrap_err();
@@ -277,13 +279,13 @@ mod tests {
                     computed: _
                 })
             ),
-            "Hash verification should failed due to the tampering of the bytes!"
+            "Hash verification should have failed due to the tampering of the bytes!"
         );
     }
 
     #[test]
     fn hash_of_correct_bytes_verifies() {
-        let result = TrustedSetupProvider::new("", "", SRS_HASH_K1, "", Duration::from_secs(600))
+        let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(SRS_K1);
 
         assert!(result.is_ok());
@@ -296,12 +298,14 @@ mod tests {
             when.method(httpmock::Method::GET).path("/srs");
             then.status(200).body([0, 1, 2, 3, 4]);
         });
-        let srs_file = NamedTempFile::new_in("/tmp").unwrap();
-        std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
+        let temp_dir = tempfile::tempdir_in("/tmp").unwrap();
+        std::fs::create_dir_all(temp_dir.path().join("srs")).unwrap();
+        let mut srs_file =
+            File::create(temp_dir.path().join("srs").join(MITHRIL_CIRCUIT_SRS_FILENAME)).unwrap();
+        srs_file.write_all(&[0, 1, 2, 3, 4]).unwrap();
 
         let result = TrustedSetupProvider::new(
-            "",
-            srs_file.path(),
+            temp_dir.path(),
             SRS_HASH_K1,
             server.url("/srs"),
             Duration::from_secs(600),
@@ -319,22 +323,22 @@ mod tests {
             when.method(httpmock::Method::GET).path("/srs");
             then.status(200).body(SRS_K1);
         });
-        let srs_file = NamedTempFile::new_in("/tmp").unwrap();
-        std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
-        std::fs::rename(srs_file.path(), srs_file.path().with_extension("temp")).unwrap();
+        let temp_dir = tempfile::tempdir_in("/tmp").unwrap();
+        let srs_folder = temp_dir.path().join("srs");
+        std::fs::create_dir_all(&srs_folder).unwrap();
+        std::fs::write(srs_folder.join("srs-parameters.temp"), [0, 1, 2, 3, 4]).unwrap();
 
-        assert!(!srs_file.path().exists());
+        assert!(!srs_folder.join(MITHRIL_CIRCUIT_SRS_FILENAME).exists());
 
         let result = TrustedSetupProvider::new(
-            "",
-            srs_file.path(),
+            temp_dir.path(),
             SRS_HASH_K1,
             server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached();
 
-        assert!(srs_file.path().exists());
+        assert!(srs_folder.join(MITHRIL_CIRCUIT_SRS_FILENAME).exists());
         assert!(result.is_ok());
         mock.assert();
     }
@@ -346,13 +350,11 @@ mod tests {
             when.method(httpmock::Method::GET).path("/srs");
             then.status(200).body(SRS_K1);
         });
-
         let temp_dir = tempfile::tempdir().unwrap();
-        let srs_path = temp_dir.path().join("missing_file_trigger_dl");
+        let srs_path = temp_dir.path().join("srs").join(MITHRIL_CIRCUIT_SRS_FILENAME);
 
         TrustedSetupProvider::new(
-            "",
-            &srs_path,
+            temp_dir.path(),
             SRS_HASH_K1,
             server.url("/srs"),
             Duration::from_secs(600),
@@ -371,12 +373,10 @@ mod tests {
             when.method(httpmock::Method::GET).path("/srs");
             then.status(200).body(b"tampered content");
         });
-
         let temp_dir = tempfile::tempdir().unwrap();
         let srs_path = temp_dir.path().join("dl_wrong_hash");
 
         let result = TrustedSetupProvider::new(
-            "",
             &srs_path,
             SRS_HASH_K1,
             server.url("/srs"),
@@ -394,7 +394,7 @@ mod tests {
                     computed: _
                 })
             ),
-            "Hash verification should failed due to the tampering of the bytes."
+            "Hash verification should have failed due to the tampering of the bytes."
         );
         assert!(!srs_path.exists());
     }
@@ -411,7 +411,6 @@ mod tests {
         let srs_path = temp_dir.path().join("server_error_fails");
 
         let result = TrustedSetupProvider::new(
-            "",
             srs_path,
             SRS_HASH_K1,
             server.url("/srs"),
