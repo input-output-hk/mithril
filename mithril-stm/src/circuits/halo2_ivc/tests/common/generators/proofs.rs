@@ -42,7 +42,7 @@ where
 }
 
 /// Verifies a recursive proof and returns the prepared MSM.
-fn verify_and_prepare_ivc_with_transcript<H: TranscriptHash>(
+fn verify_prepare_ivc_with_transcript<H: TranscriptHash>(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
@@ -89,7 +89,7 @@ pub(crate) fn verify_prepare_poseidon_ivc(
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {
-    verify_and_prepare_ivc_with_transcript::<PoseidonState<F>>(
+    verify_prepare_ivc_with_transcript::<PoseidonState<F>>(
         verifying_key,
         proof,
         public_inputs,
@@ -148,7 +148,7 @@ pub(crate) fn verify_prepare_blake2b_ivc(
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {
-    verify_and_prepare_ivc_with_transcript::<blake2b_simd::State>(
+    verify_prepare_ivc_with_transcript::<blake2b_simd::State>(
         verifying_key,
         proof,
         public_inputs,

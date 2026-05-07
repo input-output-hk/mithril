@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::circuits::halo2_ivc::{
-    state::{State, Witness},
+    state::Witness,
     tests::common::{
         asset_readers::{
             load_embedded_recursive_chain_state_asset, load_embedded_same_epoch_step_output_asset,
@@ -12,7 +12,7 @@ use crate::circuits::halo2_ivc::{
         },
         helpers::{
             assert_recursive_mock_prover_rejects_with_label, build_mock_prover_public_inputs,
-            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
+            build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
         },
     },
 };
@@ -98,48 +98,92 @@ mod slow {
     use super::*;
 
     #[test]
-    fn circuit_rejects_all_wrong_same_epoch_chain_link_fields() {
-        // MockProver constraint check: one setup call, three same-epoch chain-link tampers.
-        // Each asserts that the in-circuit constraint carrying the field unchanged is wired
-        // correctly. The label in the assertion identifies which field caused a spurious pass.
+    fn circuit_rejects_merkle_root_carry_violation_in_same_epoch_step() {
+        // MockProver constraint check: in a same-epoch transition the circuit must carry
+        // merkle_root unchanged from prev_state. Setting it to ONE violates that constraint.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
         let (message, preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
+        tampered_state.merkle_root = F::ONE;
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "merkle_root set to ONE (same-epoch: must carry prev.merkle_root unchanged)",
+        );
+    }
 
-        for (label, tamper) in [
-            (
-                "merkle_root set to ONE (same-epoch: must carry prev.merkle_root unchanged)",
-                (|s: &mut State| s.merkle_root = F::ONE) as fn(&mut State),
-            ),
-            (
-                "protocol_params set to ONE (same-epoch: must carry prev.protocol_params unchanged)",
-                |s: &mut State| s.protocol_params = F::ONE,
-            ),
-            (
-                "current_epoch incremented (same-epoch: must equal prev.current_epoch)",
-                |s: &mut State| s.current_epoch += F::ONE,
-            ),
-        ] {
-            let witness = Witness::new(
-                setup.genesis_signature.clone(),
-                prev_state.merkle_root,
-                message,
-                preimage_bytes
-                    .clone()
-                    .try_into()
-                    .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
-            );
-            let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-            tamper(&mut tampered_state);
-            let circuit =
-                build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state.clone(), witness);
-            let public_inputs =
-                build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
-            assert_recursive_mock_prover_rejects_with_label(circuit, public_inputs, label);
-        }
+    #[test]
+    fn circuit_rejects_protocol_params_carry_violation_in_same_epoch_step() {
+        // MockProver constraint check: in a same-epoch transition the circuit must carry
+        // protocol_params unchanged from prev_state. Setting it to ONE violates that constraint.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+        let (message, preimage_bytes) =
+            same_epoch_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
+        tampered_state.protocol_params = F::ONE;
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "protocol_params set to ONE (same-epoch: must carry prev.protocol_params unchanged)",
+        );
+    }
+
+    #[test]
+    fn circuit_rejects_epoch_advance_in_same_epoch_step() {
+        // MockProver constraint check: in a same-epoch transition the circuit must keep
+        // current_epoch equal to prev_state.current_epoch. Incrementing it violates that constraint.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+        let (message, preimage_bytes) =
+            same_epoch_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
+        tampered_state.current_epoch += F::ONE;
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "current_epoch incremented (same-epoch: must equal prev.current_epoch)",
+        );
     }
 }

@@ -14,8 +14,7 @@ pub(crate) use setup::{
 };
 pub(crate) use transitions::{
     build_genesis_base_case_next_state, build_genesis_base_case_witness,
-    build_genesis_protocol_message_preimage, build_next_certificate_asset_data,
-    build_same_epoch_certificate_asset_data, certificate_public_inputs_for_step,
-    next_message_and_preimage_for_step, next_state_for_step,
+    build_genesis_protocol_message_preimage, build_same_epoch_certificate_asset_data,
+    certificate_public_inputs_for_step, next_message_and_preimage_for_step, next_state_for_step,
     same_epoch_message_and_preimage_for_step, same_epoch_next_state_for_step,
 };

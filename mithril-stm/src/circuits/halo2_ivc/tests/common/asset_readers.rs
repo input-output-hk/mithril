@@ -11,6 +11,7 @@ use midnight_proofs::{
     poly::kzg::params::ParamsVerifierKZG,
     utils::{SerdeFormat, helpers::ProcessedSerdeObject},
 };
+use midnight_zk_stdlib::MidnightVK;
 
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
@@ -47,6 +48,8 @@ pub(crate) struct VerificationContextAsset {
     pub(crate) verifier_params: ParamsVerifierKZG<E>,
     /// The verifier-side `s_g2` element extracted from the stored params.
     pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
+    /// Stored certificate verifying key, enabling MockProver tests to skip SRS generation.
+    pub(crate) certificate_verifying_key: MidnightVK,
 }
 
 /// Stored output of extending the recursive chain by one more step.
@@ -247,6 +250,11 @@ pub(crate) fn store_recursive_chain_state_asset(
 }
 
 /// Loads a verifier-side context from the committed binary asset layout.
+///
+/// Binary layout (v2):
+/// `[global(5×32b) | recursive_vk(var) | combined_fixed_bases(var) |
+///   verifier_params_len(4b LE) | verifier_params(var) |
+///   certificate_vk_len(4b LE) | certificate_vk(var)]`
 fn load_verification_context_asset_from_reader<R: Read>(
     reader: &mut R,
 ) -> StmResult<VerificationContextAsset> {
@@ -259,8 +267,9 @@ fn load_verification_context_asset_from_reader<R: Read>(
         (),
     )?;
     let combined_fixed_bases = read_named_fixed_bases(reader)?;
-    let mut verifier_param_bytes = Vec::new();
-    reader.read_to_end(&mut verifier_param_bytes)?;
+
+    // verifier_params is length-prefixed so certificate_vk can follow it.
+    let verifier_param_bytes = read_length_prefixed_proof(reader)?;
 
     let mut verifier_params_reader = Cursor::new(&verifier_param_bytes);
     let verifier_params =
@@ -273,12 +282,17 @@ fn load_verification_context_asset_from_reader<R: Read>(
     let verifier_tau_in_g2 =
         <E as Engine>::G2::read(&mut verifier_tau_reader, SerdeFormat::RawBytesUnchecked)?.into();
 
+    let cert_vk_bytes = read_length_prefixed_proof(reader)?;
+    let certificate_verifying_key =
+        MidnightVK::read(&mut cert_vk_bytes.as_slice(), SerdeFormat::RawBytes)?;
+
     Ok(VerificationContextAsset {
         global_field_elements,
         recursive_verifying_key,
         combined_fixed_bases,
         verifier_params,
         verifier_tau_in_g2,
+        certificate_verifying_key,
     })
 }
 
@@ -290,6 +304,8 @@ pub(crate) fn load_embedded_verification_context_asset() -> StmResult<Verificati
 }
 
 /// Writes the verification-context asset using the committed binary layout.
+///
+/// Binary layout (v2): see `load_verification_context_asset_from_reader`.
 pub(crate) fn store_verification_context_asset(
     path: &Path,
     asset: &VerificationContextAsset,
@@ -308,9 +324,20 @@ pub(crate) fn store_verification_context_asset(
         .recursive_verifying_key
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_named_fixed_bases(&mut writer, &asset.combined_fixed_bases)?;
+
+    // Buffer verifier_params to write with a length prefix so certificate_vk can follow.
+    let mut verifier_params_buf = Vec::new();
     asset
         .verifier_params
-        .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
+        .write(&mut verifier_params_buf, SerdeFormat::RawBytesUnchecked)?;
+    write_length_prefixed_proof(&mut writer, &verifier_params_buf)?;
+
+    let mut cert_vk_buf = Vec::new();
+    asset
+        .certificate_verifying_key
+        .write(&mut cert_vk_buf, SerdeFormat::RawBytes)?;
+    write_length_prefixed_proof(&mut writer, &cert_vk_buf)?;
+
     writer.flush().with_context(|| {
         format!(
             "failed to flush verification context asset: {}",

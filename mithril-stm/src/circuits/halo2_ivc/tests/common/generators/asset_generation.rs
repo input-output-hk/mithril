@@ -422,6 +422,7 @@ pub(crate) fn generate_verification_context_asset(
         combined_fixed_bases,
         verifier_params: context.universal_verifier_params,
         verifier_tau_in_g2: context.universal_kzg_parameters.s_g2().into(),
+        certificate_verifying_key: context.certificate_verifying_key,
     };
     store_verification_context_asset(&paths.verification_context, &asset)
         .expect("failed to write verification_context asset");

@@ -16,7 +16,7 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects_with_label, build_recursive_mock_prover_setup,
+            assert_recursive_mock_prover_rejects_with_label, build_mock_prover_setup_from_assets,
             build_trivial_mock_prover_circuit, verify_prepare_blake2b_recursive_proof,
         },
     },
@@ -67,12 +67,22 @@ fn genesis_msg_tampered_public_input_is_rejected() {
 }
 
 #[test]
-fn genesis_verification_key_tampered_public_input_is_rejected() {
-    // Asset-based check that the verifier rejects a stored proof when genesis_verification_key
-    // is replaced in the global public inputs, confirming it is committed at indices 1-2.
+fn genesis_verification_key_x_tampered_public_input_is_rejected() {
+    // Asset-based check that the verifier rejects a stored proof when the x coordinate of
+    // genesis_verification_key is replaced in the global public inputs, confirming index 1 is committed.
     assert_genesis_step_output_rejects_tampered_public_inputs(
         |global, _, _| global[1] = F::ONE,
-        "proof with tampered genesis_verification_key should be rejected by the verifier",
+        "proof with tampered genesis_verification_key x coordinate should be rejected by the verifier",
+    );
+}
+
+#[test]
+fn genesis_verification_key_y_tampered_public_input_is_rejected() {
+    // Asset-based check that the verifier rejects a stored proof when the y coordinate of
+    // genesis_verification_key is replaced in the global public inputs, confirming index 2 is committed.
+    assert_genesis_step_output_rejects_tampered_public_inputs(
+        |global, _, _| global[2] = F::ONE,
+        "proof with tampered genesis_verification_key y coordinate should be rejected by the verifier",
     );
 }
 
@@ -112,44 +122,65 @@ mod slow {
     use super::*;
 
     #[test]
-    fn circuit_rejects_all_wrong_global_public_input_fields() {
-        // MockProver constraint check: one setup call, three public-input tampers covering
-        // genesis_msg, certificate_verifying_key_repr, and ivc_verifying_key_repr.
-        // The label in the assertion identifies which field caused a spurious pass.
-        // next_accumulator constraint wiring is covered by in_circuit::accumulator::slow,
-        // which uses a realistic circuit with actual certificate data.
+    fn circuit_rejects_wrong_genesis_msg_global_field() {
+        // MockProver constraint check: global[0] (genesis_msg) set to ONE must violate
+        // the in-circuit constraint that pins the genesis message to the global public input.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let witness = build_genesis_base_case_witness(&setup);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let mut global = mock_prover_setup.global.as_public_input();
+        let state = next_state.as_public_input();
+        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        global[0] = F::ONE;
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            [global, state, acc].concat(),
+            "global[0] (genesis_msg) set to ONE",
+        );
+    }
 
-        for (label, tamper) in [
-            (
-                "global[0] (genesis_msg) set to ONE",
-                (|g: &mut Vec<F>, _s: &mut Vec<F>, _a: &mut Vec<F>| g[0] = F::ONE)
-                    as fn(&mut Vec<F>, &mut Vec<F>, &mut Vec<F>),
-            ),
-            (
-                "global[3] (certificate_verifying_key_repr) set to ONE",
-                |g: &mut Vec<F>, _s: &mut Vec<F>, _a: &mut Vec<F>| g[3] = F::ONE,
-            ),
-            (
-                "global[4] (ivc_verifying_key_repr) set to ONE",
-                |g: &mut Vec<F>, _s: &mut Vec<F>, _a: &mut Vec<F>| g[4] = F::ONE,
-            ),
-        ] {
-            let witness = build_genesis_base_case_witness(&setup);
-            let circuit =
-                build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
-            let mut global = mock_prover_setup.global.as_public_input();
-            let mut state = next_state.as_public_input();
-            let mut acc =
-                AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
-            tamper(&mut global, &mut state, &mut acc);
-            assert_recursive_mock_prover_rejects_with_label(
-                circuit,
-                [global, state, acc].concat(),
-                label,
-            );
-        }
+    #[test]
+    fn circuit_rejects_wrong_certificate_vk_repr_global_field() {
+        // MockProver constraint check: global[3] (certificate_verifying_key_repr) set to ONE
+        // must violate the in-circuit constraint that pins the certificate VK hash.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let witness = build_genesis_base_case_witness(&setup);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let mut global = mock_prover_setup.global.as_public_input();
+        let state = next_state.as_public_input();
+        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        global[3] = F::ONE;
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            [global, state, acc].concat(),
+            "global[3] (certificate_verifying_key_repr) set to ONE",
+        );
+    }
+
+    #[test]
+    fn circuit_rejects_wrong_ivc_vk_repr_global_field() {
+        // MockProver constraint check: global[4] (ivc_verifying_key_repr) set to ONE
+        // must violate the in-circuit constraint that pins the IVC VK hash.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let witness = build_genesis_base_case_witness(&setup);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let mut global = mock_prover_setup.global.as_public_input();
+        let state = next_state.as_public_input();
+        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        global[4] = F::ONE;
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            [global, state, acc].concat(),
+            "global[4] (ivc_verifying_key_repr) set to ONE",
+        );
     }
 }
