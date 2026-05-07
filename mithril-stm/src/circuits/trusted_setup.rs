@@ -249,8 +249,13 @@ mod tests {
         let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(&tampered_bytes);
 
+        let err = result.unwrap_err();
+
         assert!(
-            result.is_err(),
+            matches!(
+                err.downcast_ref::<TrustedSetupError>(),
+                Some(TrustedSetupError::VerifyHashFail(_, _))
+            ),
             "Hash verification should failed due to the tampering of the bytes!"
         );
     }
@@ -332,7 +337,15 @@ mod tests {
             )
             .ensure_srs_file_is_available();
 
-            assert!(result.is_err());
+            let err = result.unwrap_err();
+
+            assert!(
+                matches!(
+                    err.downcast_ref::<TrustedSetupError>(),
+                    Some(TrustedSetupError::VerifyHashFail(_, _))
+                ),
+                "Hash verification should failed due to the tampering of the bytes!"
+            );
             assert!(!srs_path.exists());
         }
 
