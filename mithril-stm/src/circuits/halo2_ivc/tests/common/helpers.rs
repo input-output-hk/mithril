@@ -19,16 +19,55 @@ use crate::circuits::halo2_ivc::{
 };
 
 pub(crate) use super::generators::{
-    verify_and_prepare_blake2b_ivc as verify_and_prepare_blake2b_recursive_proof,
-    verify_and_prepare_poseidon_ivc as verify_and_prepare_poseidon_recursive_proof,
+    try_verify_prepare_poseidon_ivc as try_verify_prepare_poseidon_recursive_proof,
+    verify_prepare_blake2b_ivc as verify_prepare_blake2b_recursive_proof,
+    verify_prepare_poseidon_ivc as verify_prepare_poseidon_recursive_proof,
 };
 use super::{
-    asset_readers::RecursiveChainStateAsset,
+    asset_readers::{RecursiveChainStateAsset, load_embedded_verification_context_asset},
     generators::{
         AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
         build_shared_recursive_context, certificate_public_inputs_for_step,
     },
 };
+
+/// Lightweight setup for MockProver-only tests that load VKs from the committed asset,
+/// skipping the ~465s SRS generation required by `build_recursive_mock_prover_setup`.
+pub(crate) struct MockProverSetup {
+    /// Shared recursive global inputs.
+    pub(crate) global: Global,
+    /// Certificate verifying key loaded from the committed asset.
+    pub(crate) certificate_verifying_key: MidnightVK,
+    /// Recursive verifying key loaded from the committed asset.
+    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    /// Trivial accumulator derived from the loaded VKs.
+    pub(crate) trivial_accumulator: Accumulator<S>,
+}
+
+/// Builds the lightweight MockProver setup by loading VKs from the committed asset.
+///
+/// Unlike `build_recursive_mock_prover_setup`, this skips SRS generation entirely
+/// (~465s saved per process) and should be used by all MockProver-only negative tests.
+pub(crate) fn build_mock_prover_setup_from_assets(setup: &AssetGenerationSetup) -> MockProverSetup {
+    let context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let (_, _, combined_fixed_bases) = build_recursive_fixed_bases(
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    let fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
+    let global = build_recursive_global(
+        setup,
+        &context.certificate_verifying_key,
+        &context.recursive_verifying_key,
+    );
+    MockProverSetup {
+        global,
+        certificate_verifying_key: context.certificate_verifying_key,
+        recursive_verifying_key: context.recursive_verifying_key,
+        trivial_accumulator: trivial_acc(&fixed_base_names),
+    }
+}
 
 /// Shared recursive context reused by MockProver-based golden cases.
 pub(crate) struct RecursiveMockProverSetup {
@@ -50,8 +89,6 @@ pub(crate) struct RecursiveMockProverSetup {
     pub(crate) universal_verifier_params: ParamsVerifierKZG<E>,
     /// The verifier-side `s_g2` element used for accumulator checks.
     pub(crate) verifier_tau_in_g2: <E as Engine>::G2Affine,
-    /// Trivial accumulator used by the recursive base case.
-    pub(crate) trivial_accumulator: Accumulator<S>,
 }
 
 /// Builds the shared recursive circuit context needed by MockProver-based golden tests.
@@ -69,7 +106,6 @@ pub(crate) fn build_recursive_mock_prover_setup(
             &context.certificate_verifying_key,
             &context.recursive_verifying_key,
         );
-    let fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
 
     let global = build_recursive_global(
         setup,
@@ -87,17 +123,7 @@ pub(crate) fn build_recursive_mock_prover_setup(
         combined_fixed_bases,
         universal_verifier_params: context.universal_verifier_params,
         verifier_tau_in_g2,
-        trivial_accumulator: trivial_acc(&fixed_base_names),
     }
-}
-
-/// Runs `MockProver` on the recursive circuit and asserts that all constraints hold.
-pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_inputs: Vec<F>) {
-    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
-        .expect("recursive MockProver setup should succeed");
-    prover
-        .verify()
-        .expect("recursive MockProver should accept the provided circuit and public inputs");
 }
 
 /// Runs `MockProver` on the recursive circuit and asserts that at least one constraint fails.
@@ -107,6 +133,38 @@ pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_i
     prover
         .verify()
         .expect_err("recursive MockProver should reject the provided circuit and public inputs");
+}
+
+/// Runs `MockProver` and asserts all constraints hold, printing `label` on failure so
+/// the failing case is identifiable when multiple scenarios share one `#[test]` function.
+pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
+    circuit: IvcCircuit,
+    public_inputs: Vec<F>,
+    label: &str,
+) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    prover.verify().unwrap_or_else(|errors| {
+        panic!(
+            "MockProver should accept the circuit and public inputs — case: {label}\n\
+             Constraint failures: {errors:?}"
+        )
+    });
+}
+
+/// Runs `MockProver` and asserts at least one constraint fails, printing `label` on failure
+/// so the scenario that unexpectedly passed is identifiable when multiple scenarios share one `#[test]` function.
+pub(crate) fn assert_recursive_mock_prover_rejects_with_label(
+    circuit: IvcCircuit,
+    public_inputs: Vec<F>,
+    label: &str,
+) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    assert!(
+        prover.verify().is_err(),
+        "MockProver should reject the circuit and public inputs — case: {label}"
+    );
 }
 
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.
@@ -126,7 +184,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
     ]
     .concat();
 
-    let previous_dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let previous_dual_msm = verify_prepare_poseidon_recursive_proof(
         &setup.recursive_verifying_key,
         &recursive_chain_state.proof,
         &previous_public_inputs,
@@ -183,7 +241,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
     let certificate_public_inputs =
         certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
 
-    let certificate_dual_msm = verify_and_prepare_poseidon_recursive_proof(
+    let certificate_dual_msm = verify_prepare_poseidon_recursive_proof(
         setup.certificate_verifying_key.vk(),
         certificate_proof,
         &certificate_public_inputs,
@@ -207,7 +265,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
 /// MockProver evaluates algebraic constraints directly without running the
 /// KZG prover, so embedded proof bytes are irrelevant and can be left empty.
 pub(crate) fn build_trivial_mock_prover_circuit(
-    setup: &RecursiveMockProverSetup,
+    setup: &MockProverSetup,
     prev_state: State,
     witness: Witness,
 ) -> IvcCircuit {
@@ -225,7 +283,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
 
 /// Builds the public-input vector for a MockProver-based negative test.
 pub(crate) fn build_mock_prover_public_inputs(
-    setup: &RecursiveMockProverSetup,
+    setup: &MockProverSetup,
     next_state: &State,
 ) -> Vec<F> {
     [

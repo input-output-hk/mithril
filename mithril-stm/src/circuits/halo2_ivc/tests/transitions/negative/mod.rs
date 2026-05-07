@@ -10,7 +10,7 @@ use crate::circuits::halo2_ivc::{
     state::State,
     tests::common::{
         asset_readers::{RecursiveStepOutputAsset, load_embedded_verification_context_asset},
-        helpers::verify_and_prepare_blake2b_recursive_proof,
+        helpers::verify_prepare_blake2b_recursive_proof,
     },
 };
 
@@ -41,7 +41,7 @@ fn assert_step_output_rejects_tampered_state(
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &step_output.proof,
         &public_inputs,

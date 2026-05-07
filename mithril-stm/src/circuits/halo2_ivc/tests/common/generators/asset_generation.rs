@@ -5,8 +5,7 @@ use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
 
 use super::proofs::{
-    prove_blake2b_ivc, prove_poseidon_ivc, verify_and_prepare_blake2b_ivc,
-    verify_and_prepare_poseidon_ivc,
+    prove_blake2b_ivc, prove_poseidon_ivc, verify_prepare_blake2b_ivc, verify_prepare_poseidon_ivc,
 };
 use super::setup::{
     AssetGenerationSetup, AssetPaths, GENESIS_EPOCH, INITIAL_CHAIN_LENGTH,
@@ -146,11 +145,8 @@ fn build_recursive_chain_snapshot(
             &public_inputs,
             &mut recursive_random_generator,
         );
-        let dual_msm = verify_and_prepare_poseidon_ivc(
-            &context.recursive_verifying_key,
-            &proof,
-            &public_inputs,
-        );
+        let dual_msm =
+            verify_prepare_poseidon_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
         assert!(dual_msm.clone().check(&context.universal_verifier_params));
 
         let mut proof_accumulator: Accumulator<S> = dual_msm.into();
@@ -256,7 +252,7 @@ fn build_next_recursive_step_inputs(
         AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
     ]
     .concat();
-    let previous_dual_msm = verify_and_prepare_poseidon_ivc(
+    let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
         &recursive_chain_state.proof,
         &previous_public_inputs,
@@ -323,7 +319,7 @@ fn build_recursive_step_output_proof(
         &public_inputs,
         &mut recursive_step_output_random_generator,
     );
-    let final_dual_msm = verify_and_prepare_blake2b_ivc(
+    let final_dual_msm = verify_prepare_blake2b_ivc(
         &context.recursive_verifying_key,
         &final_proof,
         &public_inputs,
@@ -426,6 +422,7 @@ pub(crate) fn generate_verification_context_asset(
         combined_fixed_bases,
         verifier_params: context.universal_verifier_params,
         verifier_tau_in_g2: context.universal_kzg_parameters.s_g2().into(),
+        certificate_verifying_key: context.certificate_verifying_key,
     };
     store_verification_context_asset(&paths.verification_context, &asset)
         .expect("failed to write verification_context asset");
@@ -544,7 +541,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         &mut rng,
     );
     let dual_msm =
-        verify_and_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
+        verify_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "genesis step proof verification failed"
@@ -626,7 +623,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         AssignedAccumulator::as_public_input(&chain_state.accumulator),
     ]
     .concat();
-    let previous_dual_msm = verify_and_prepare_poseidon_ivc(
+    let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
         &chain_state.proof,
         &previous_public_inputs,
@@ -681,7 +678,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         &mut rng,
     );
     let dual_msm =
-        verify_and_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
+        verify_prepare_blake2b_ivc(&context.recursive_verifying_key, &proof, &public_inputs);
     assert!(
         dual_msm.check(&context.universal_verifier_params),
         "same-epoch step proof verification failed"

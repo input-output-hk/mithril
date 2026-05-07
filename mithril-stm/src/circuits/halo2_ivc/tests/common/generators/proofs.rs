@@ -42,7 +42,7 @@ where
 }
 
 /// Verifies a recursive proof and returns the prepared MSM.
-fn verify_and_prepare_ivc_with_transcript<H: TranscriptHash>(
+fn verify_prepare_ivc_with_transcript<H: TranscriptHash>(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
@@ -66,7 +66,7 @@ where
 }
 
 /// Generates a recursive proof using the Poseidon transcript.
-pub(super) fn prove_poseidon_ivc(
+pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
@@ -84,12 +84,12 @@ pub(super) fn prove_poseidon_ivc(
 }
 
 /// Verifies a recursive proof using the Poseidon transcript and returns the prepared MSM.
-pub(crate) fn verify_and_prepare_poseidon_ivc(
+pub(crate) fn verify_prepare_poseidon_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {
-    verify_and_prepare_ivc_with_transcript::<PoseidonState<F>>(
+    verify_prepare_ivc_with_transcript::<PoseidonState<F>>(
         verifying_key,
         proof,
         public_inputs,
@@ -99,7 +99,7 @@ pub(crate) fn verify_and_prepare_poseidon_ivc(
 }
 
 /// Generates the final recursive proof using the Blake2b transcript.
-pub(super) fn prove_blake2b_ivc(
+pub(crate) fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
     circuit: &IvcCircuit,
@@ -116,13 +116,39 @@ pub(super) fn prove_blake2b_ivc(
     )
 }
 
+/// Attempts to verify a proof using the Poseidon transcript without panicking.
+///
+/// Returns `None` if the bytes are too malformed to parse (deserialization error
+/// or leftover bytes after verification). Returns `Some(dual_msm)` if the bytes
+/// parse successfully — the caller must still call `dual_msm.check()` to determine
+/// whether the KZG opening equations hold.
+///
+/// Use this instead of `verify_prepare_poseidon_ivc` when testing with tampered
+/// bytes where a panic-on-error would be inappropriate.
+pub(crate) fn try_verify_prepare_poseidon_ivc(
+    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    proof: &[u8],
+    public_inputs: &[F],
+) -> Option<DualMSM<E>> {
+    let mut transcript = CircuitTranscript::<PoseidonState<F>>::init_from_bytes(proof);
+    let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<PoseidonState<F>>>(
+        verifying_key,
+        &[&[C::identity()]],
+        &[&[public_inputs]],
+        &mut transcript,
+    )
+    .ok()?;
+    transcript.assert_empty().ok()?;
+    Some(dual_msm)
+}
+
 /// Verifies the final recursive proof using the Blake2b transcript.
-pub(crate) fn verify_and_prepare_blake2b_ivc(
+pub(crate) fn verify_prepare_blake2b_ivc(
     verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {
-    verify_and_prepare_ivc_with_transcript::<blake2b_simd::State>(
+    verify_prepare_ivc_with_transcript::<blake2b_simd::State>(
         verifying_key,
         proof,
         public_inputs,

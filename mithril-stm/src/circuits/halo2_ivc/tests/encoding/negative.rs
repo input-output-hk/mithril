@@ -7,7 +7,7 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
-    state::{State, Witness},
+    state::State,
     tests::common::{
         asset_readers::{
             load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
@@ -17,9 +17,9 @@ use crate::circuits::halo2_ivc::{
             build_genesis_base_case_witness,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
-            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
-            verify_and_prepare_blake2b_recursive_proof,
+            assert_recursive_mock_prover_rejects_with_label, build_mock_prover_public_inputs,
+            build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
+            verify_prepare_blake2b_recursive_proof,
         },
     },
 };
@@ -44,7 +44,7 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -76,7 +76,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -108,7 +108,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
     ]
     .concat();
 
-    let dual_msm = verify_and_prepare_blake2b_recursive_proof(
+    let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         &recursive_step_output.proof,
         &public_inputs,
@@ -123,52 +123,63 @@ fn current_epoch_tampered_public_input_is_rejected() {
 mod slow {
     use super::*;
 
-    /// Builds a genesis circuit with a tampered witness and asserts the MockProver rejects it.
-    ///
-    /// `tamper` receives the genesis witness before it is passed to the circuit,
-    /// allowing each test to corrupt exactly the byte range it wants to verify.
-    fn assert_genesis_circuit_rejects_tampered_witness(tamper: impl FnOnce(&mut Witness)) {
+    #[test]
+    fn circuit_rejects_wrong_next_merkle_root_byte_range() {
+        // MockProver constraint check: filling PREIMAGE_NEXT_MERKLE_ROOT_BYTES with 0xff
+        // must violate the in-circuit byte-extraction constraint for that preimage region.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
-        let mut witness = build_genesis_base_case_witness(&setup);
-        tamper(&mut witness);
-
-        let circuit =
-            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
-        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+        let mut witness = build_genesis_base_case_witness(&setup);
+        witness.msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].fill(0xff);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES] filled with 0xff",
+        );
     }
 
     #[test]
-    fn circuit_rejects_wrong_bytes_at_next_merkle_root_range() {
-        // MockProver check that the circuit rejects a genesis witness where
-        // msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES] contains wrong bytes,
-        // confirming the byte extraction constraint for PREIMAGE_NEXT_MERKLE_ROOT_BYTES is enforced.
-        assert_genesis_circuit_rejects_tampered_witness(|w| {
-            w.msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].fill(0xff)
-        });
+    fn circuit_rejects_wrong_next_protocol_params_byte_range() {
+        // MockProver constraint check: filling PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES with 0xff
+        // must violate the in-circuit byte-extraction constraint for that preimage region.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
+
+        let mut witness = build_genesis_base_case_witness(&setup);
+        witness.msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].fill(0xff);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES] filled with 0xff",
+        );
     }
 
     #[test]
-    fn circuit_rejects_wrong_bytes_at_next_protocol_params_range() {
-        // MockProver check that the circuit rejects a genesis witness where
-        // msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES] contains wrong bytes,
-        // confirming the byte extraction constraint for PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES is enforced.
-        assert_genesis_circuit_rejects_tampered_witness(|w| {
-            w.msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].fill(0xff)
-        });
-    }
+    fn circuit_rejects_wrong_current_epoch_byte_range() {
+        // MockProver constraint check: filling PREIMAGE_CURRENT_EPOCH_BYTES with 0xff
+        // must violate the in-circuit byte-extraction constraint for that preimage region.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
-    #[test]
-    fn circuit_rejects_wrong_bytes_at_current_epoch_range() {
-        // MockProver check that the circuit rejects a genesis witness where
-        // msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] contains wrong bytes,
-        // confirming the byte extraction constraint for PREIMAGE_CURRENT_EPOCH_BYTES is enforced.
-        assert_genesis_circuit_rejects_tampered_witness(|w| {
-            w.msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff)
-        });
+        let mut witness = build_genesis_base_case_witness(&setup);
+        witness.msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
+        let circuit =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] filled with 0xff",
+        );
     }
 }

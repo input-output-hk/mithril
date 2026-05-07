@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::circuits::halo2_ivc::{
-    state::{State, Witness},
+    state::Witness,
     tests::common::{
         asset_readers::{
             load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
@@ -10,8 +10,8 @@ use crate::circuits::halo2_ivc::{
             build_asset_generation_setup, next_message_and_preimage_for_step, next_state_for_step,
         },
         helpers::{
-            assert_recursive_mock_prover_rejects, build_mock_prover_public_inputs,
-            build_recursive_mock_prover_setup, build_trivial_mock_prover_circuit,
+            assert_recursive_mock_prover_rejects_with_label, build_mock_prover_public_inputs,
+            build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
         },
     },
 };
@@ -96,18 +96,15 @@ fn msg_tampered_is_rejected() {
 mod slow {
     use super::*;
 
-    /// Builds a next-epoch circuit with a tampered next state and asserts the MockProver rejects it.
-    ///
-    /// `tamper` receives the correct next-epoch next state before it is passed to the
-    /// public inputs, allowing each test to corrupt exactly the field it wants to verify.
-    fn assert_next_epoch_circuit_rejects_tampered_state(tamper: impl FnOnce(&mut State)) {
+    #[test]
+    fn circuit_rejects_protocol_params_non_advance_in_next_epoch_step() {
+        // MockProver constraint check: in a next-epoch transition the circuit must advance
+        // protocol_params to prev_state.next_protocol_params. Setting it to ONE violates that.
         let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-
         let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
@@ -117,34 +114,72 @@ mod slow {
                 .try_into()
                 .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
-
         let mut tampered_state = next_state_for_step(&prev_state, message);
-        tamper(&mut tampered_state);
-
+        tampered_state.protocol_params = F::ONE;
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
-
-        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "protocol_params set to ONE (next-epoch: must advance to prev.next_protocol_params)",
+        );
     }
 
     #[test]
-    fn circuit_rejects_with_wrong_protocol_params_linkage() {
-        // MockProver check that the in-circuit constraint advancing protocol_params to
-        // prev.next_protocol_params across a next-epoch transition is wired correctly.
-        assert_next_epoch_circuit_rejects_tampered_state(|s| s.protocol_params = F::ONE);
+    fn circuit_rejects_merkle_root_non_advance_in_next_epoch_step() {
+        // MockProver constraint check: in a next-epoch transition the circuit must advance
+        // merkle_root to prev_state.next_merkle_root. Setting it to ONE violates that.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+        let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.next_merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+        let mut tampered_state = next_state_for_step(&prev_state, message);
+        tampered_state.merkle_root = F::ONE;
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "merkle_root set to ONE (next-epoch: must advance to prev.next_merkle_root)",
+        );
     }
 
     #[test]
-    fn circuit_rejects_with_wrong_merkle_root_linkage() {
-        // MockProver check that the in-circuit constraint advancing merkle_root to
-        // prev.next_merkle_root across a next-epoch transition is wired correctly.
-        assert_next_epoch_circuit_rejects_tampered_state(|s| s.merkle_root = F::ONE);
-    }
-
-    #[test]
-    fn circuit_rejects_with_wrong_current_epoch_increment() {
-        // MockProver check that the in-circuit constraint advancing current_epoch by exactly
-        // one across a next-epoch transition is wired correctly.
-        assert_next_epoch_circuit_rejects_tampered_state(|s| s.current_epoch -= F::ONE);
+    fn circuit_rejects_epoch_non_increment_in_next_epoch_step() {
+        // MockProver constraint check: in a next-epoch transition the circuit must increment
+        // current_epoch by exactly one. Decrementing it violates that constraint.
+        let setup = build_asset_generation_setup();
+        let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
+        let prev_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load")
+            .state;
+        let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
+        let witness = Witness::new(
+            setup.genesis_signature.clone(),
+            prev_state.next_merkle_root,
+            message,
+            preimage_bytes
+                .try_into()
+                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+        );
+        let mut tampered_state = next_state_for_step(&prev_state, message);
+        tampered_state.current_epoch -= F::ONE;
+        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
+        assert_recursive_mock_prover_rejects_with_label(
+            circuit,
+            public_inputs,
+            "current_epoch decremented (next-epoch: must increment by exactly one)",
+        );
     }
 }

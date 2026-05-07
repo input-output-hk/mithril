@@ -1,4 +1,7 @@
-//! Positive transition tests: stored proofs verified against correct public inputs.
+//! Tests that the circuit correctly enforces certificate proof validity in non-genesis steps.
+//!
+//! Fast tests confirm that the verifier accepts stored proofs with a valid certificate
+//! proof for both same-epoch and next-epoch transitions.
 
 use midnight_circuits::types::Instantiable;
 
@@ -7,17 +10,16 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     tests::common::{
         asset_readers::{
-            RecursiveStepOutputAsset, load_embedded_genesis_step_output_asset,
-            load_embedded_recursive_step_output_asset, load_embedded_same_epoch_step_output_asset,
-            load_embedded_verification_context_asset,
+            RecursiveStepOutputAsset, load_embedded_recursive_step_output_asset,
+            load_embedded_same_epoch_step_output_asset, load_embedded_verification_context_asset,
         },
         helpers::verify_prepare_blake2b_recursive_proof,
     },
 };
 
 /// Loads a step output via `load_step_output` and asserts the verifier accepts
-/// the proof against the correct public inputs.
-fn assert_step_proof_verifies(
+/// the proof, confirming the certificate proof is correctly folded into the step.
+fn assert_valid_certificate_proof_is_accepted(
     load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
     load_label: &str,
     acceptance_message: &str,
@@ -47,34 +49,23 @@ fn assert_step_proof_verifies(
 }
 
 #[test]
-fn genesis_step_proof_verifies() {
-    // Asset-based check that the stored genesis Blake2b proof verifies against the correct
-    // public inputs, confirming the genesis base-case asset is valid.
-    assert_step_proof_verifies(
-        load_embedded_genesis_step_output_asset,
-        "genesis step output",
-        "genesis step proof should verify against the correct public inputs",
-    );
-}
-
-#[test]
-fn same_epoch_step_proof_verifies() {
-    // Asset-based check that the stored same-epoch Blake2b proof verifies against the correct
-    // public inputs, confirming the same-epoch asset is valid.
-    assert_step_proof_verifies(
+fn same_epoch_step_with_valid_certificate_proof_is_accepted() {
+    // Asset-based check that the verifier accepts the stored same-epoch proof,
+    // confirming a valid certificate proof is correctly folded in a same-epoch step.
+    assert_valid_certificate_proof_is_accepted(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        "same-epoch step proof should verify against the correct public inputs",
+        "same-epoch step with a valid certificate proof should be accepted by the verifier",
     );
 }
 
 #[test]
-fn next_epoch_step_proof_verifies() {
-    // Asset-based check that the stored next-epoch Blake2b proof verifies against the correct
-    // public inputs, confirming the next-epoch asset is valid.
-    assert_step_proof_verifies(
+fn next_epoch_step_with_valid_certificate_proof_is_accepted() {
+    // Asset-based check that the verifier accepts the stored next-epoch proof,
+    // confirming a valid certificate proof is correctly folded in a next-epoch step.
+    assert_valid_certificate_proof_is_accepted(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        "next-epoch step proof should verify against the correct public inputs",
+        "next-epoch step with a valid certificate proof should be accepted by the verifier",
     );
 }
