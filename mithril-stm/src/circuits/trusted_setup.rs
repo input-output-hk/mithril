@@ -10,7 +10,10 @@ use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
 
-use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
+use crate::{
+    StmResult,
+    circuits::{MITHRIL_CIRCUIT_CACHE_FOLDER, TrustedSetupError},
+};
 
 /// TODO: remove allow(dead_code) when the constants are used or remove the constatnts
 #[allow(dead_code)]
@@ -64,10 +67,17 @@ impl TrustedSetupProvider {
     }
 
     /// Checks SHA256 hash of the given bytes against the stored expected value.
-    fn verify_bytes_sha256_hash(&self, srs_bytes: &[u8]) -> bool {
+    fn verify_bytes_sha256_hash(&self, srs_bytes: &[u8]) -> StmResult<()> {
         let recomputed_hash = Self::compute_hash(srs_bytes);
 
-        self.srs_expected_hash == recomputed_hash
+        if self.srs_expected_hash != recomputed_hash {
+            return Err(TrustedSetupError::VerifyHashFail(
+                self.srs_expected_hash.clone(),
+                recomputed_hash,
+            )
+            .into());
+        }
+        Ok(())
     }
 
     /// Fetches the SRS from `self.url_to_download_srs` and returns its bytes.
@@ -114,11 +124,7 @@ impl TrustedSetupProvider {
             let srs_bytes = self
                 .download_srs_file()
                 .with_context(|| "Download of the SRS file should have succeeded!")?;
-            if !self.verify_bytes_sha256_hash(&srs_bytes) {
-                return Err(anyhow!(
-                    "Error, the hash of the SRS file does not match the hard-coded value!"
-                ));
-            }
+            self.verify_bytes_sha256_hash(&srs_bytes)?;
             self.store_srs_bytes_to_file(&srs_bytes)
                 .with_context(|| "Saving the SRS to disk should have succeeded!")?;
         }
@@ -132,11 +138,11 @@ impl TrustedSetupProvider {
         self.ensure_srs_file_is_available()?;
 
         let file = File::open(&self.local_srs_path)
-            .with_context(|| format!("Failed to open SRS file at {:?}", self.local_srs_path))?;
+            .with_context(|| format!("Failed to open SRS file at {:?}!", self.local_srs_path))?;
         let mut reader = BufReader::new(file);
 
         ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked)
-            .with_context(|| "Failed to deserialize SRS from file")
+            .with_context(|| "Failed to deserialize SRS from file!")
     }
 }
 
@@ -243,7 +249,15 @@ mod tests {
         let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(&tampered_bytes);
 
-        assert!(!result);
+        let err = result.unwrap_err();
+
+        assert!(
+            matches!(
+                err.downcast_ref::<TrustedSetupError>(),
+                Some(TrustedSetupError::VerifyHashFail(_, _))
+            ),
+            "Hash verification should failed due to the tampering of the bytes!"
+        );
     }
 
     #[test]
@@ -251,7 +265,7 @@ mod tests {
         let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(SRS_K1);
 
-        assert!(result);
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -323,7 +337,15 @@ mod tests {
             )
             .ensure_srs_file_is_available();
 
-            assert!(result.is_err());
+            let err = result.unwrap_err();
+
+            assert!(
+                matches!(
+                    err.downcast_ref::<TrustedSetupError>(),
+                    Some(TrustedSetupError::VerifyHashFail(_, _))
+                ),
+                "Hash verification should failed due to the tampering of the bytes!"
+            );
             assert!(!srs_path.exists());
         }
 
