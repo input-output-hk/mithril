@@ -1,18 +1,21 @@
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
 
-use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
+use crate::{
+    StmResult,
+    circuits::{MITHRIL_CIRCUIT_CACHE_FOLDER, MITHRIL_CIRCUIT_SRS_FOLDER},
+};
 
-/// TODO: remove allow(dead_code) when the constants are used or remove the constatnts
+// TODO: remove allow(dead_code) when the constants are used or remove the constatnts
 #[allow(dead_code)]
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production.
 /// This SRS is coming from the trusted setup done by Midnight and available in the following
@@ -27,7 +30,6 @@ const MIDNIGHT_SRS_HASH_K22: &str =
 const MIDNIGHT_SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
 
 /// Errors which can be outputted by the trusted setup verification.
-#[cfg(feature = "future_snark")]
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum TrustedSetupError {
     /// The hash verification of the SRS bytes failed
@@ -40,8 +42,10 @@ pub enum TrustedSetupError {
 /// A structure to manage the trusted setup SRS. It stores the local path of the SRS file
 /// and information to download the file and verify integrity if it is missing.
 pub struct TrustedSetupProvider {
-    /// Path of the local SRS folder
-    local_srs_path: PathBuf,
+    /// Path of the local SRS folder    
+    local_srs_folder_path: PathBuf,
+    /// Path of the local SRS file
+    local_srs_file_path: PathBuf,
     /// Expected hash of the downloaded SRS file
     srs_expected_hash: String,
     /// URL where to download the SRS file if it is not present locally
@@ -53,14 +57,17 @@ pub struct TrustedSetupProvider {
 /// TODO: remove allow(dead_code) when used
 #[allow(dead_code)]
 impl TrustedSetupProvider {
-    fn new<P: Into<PathBuf>, S: Into<String>>(
-        local_srs_path: P,
+    fn new<P: Into<PathBuf>, F: AsRef<Path>, S: Into<String>, U: Into<String>>(
+        local_srs_folder_path: P,
+        local_srs_filename: F,
         srs_expected_hash: S,
-        url_to_download_srs: S,
+        url_to_download_srs: U,
         download_timeout_limit: Duration,
     ) -> Self {
+        let local_srs_folder_path = local_srs_folder_path.into().join(MITHRIL_CIRCUIT_SRS_FOLDER);
         Self {
-            local_srs_path: local_srs_path.into(),
+            local_srs_folder_path: local_srs_folder_path.clone(),
+            local_srs_file_path: local_srs_folder_path.join(local_srs_filename),
             srs_expected_hash: srs_expected_hash.into(),
             url_to_download_srs: url_to_download_srs.into(),
             download_timeout_limit,
@@ -109,18 +116,14 @@ impl TrustedSetupProvider {
     /// If the writing is interrupted, the temporary file will be overwritten and renamed during
     /// the next download.
     fn store_srs_bytes_to_file(&self, srs_bytes: &[u8]) -> StmResult<()> {
-        let parent = self
-            .local_srs_path
-            .parent()
-            .ok_or(anyhow!("The given path contains no parent directory."))?;
-        std::fs::create_dir_all(parent)
+        std::fs::create_dir_all(&self.local_srs_folder_path)
             .with_context(|| "Subdirectory creation should have succeeded.")?;
 
-        let temp_path = self.local_srs_path.with_extension("temp");
+        let temp_path = self.local_srs_file_path.with_extension("temp");
         let mut temporary_file = File::create(&temp_path)?;
         BufWriter::new(&mut temporary_file).write_all(srs_bytes)?;
 
-        std::fs::rename(temp_path, &self.local_srs_path)?;
+        std::fs::rename(temp_path, &self.local_srs_file_path)?;
 
         Ok(())
     }
@@ -128,7 +131,7 @@ impl TrustedSetupProvider {
     /// Ensures the SRS file is present. If the file is missing,
     /// downloads it, verifies its hash and stores it if the hash is valid.
     fn download_srs_file_if_not_cached(&self) -> StmResult<()> {
-        if !self.local_srs_path.exists() {
+        if !self.local_srs_file_path.exists() {
             let srs_bytes = self
                 .download_srs_file()
                 .with_context(|| "Download of the SRS file should have succeeded.")?;
@@ -145,8 +148,9 @@ impl TrustedSetupProvider {
     fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
         self.download_srs_file_if_not_cached()?;
 
-        let file = File::open(&self.local_srs_path)
-            .with_context(|| format!("Failed to open SRS file at {:?}.", self.local_srs_path))?;
+        let file = File::open(&self.local_srs_file_path).with_context(|| {
+            format!("Failed to open SRS file at {:?}.", self.local_srs_file_path)
+        })?;
         let mut reader = BufReader::new(file);
 
         ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked)
@@ -157,7 +161,8 @@ impl TrustedSetupProvider {
 impl Default for TrustedSetupProvider {
     fn default() -> Self {
         Self::new(
-            std::env::temp_dir().join(MITHRIL_CIRCUIT_CACHE_FOLDER).join("srs"),
+            std::env::temp_dir().join(MITHRIL_CIRCUIT_CACHE_FOLDER),
+            "midnight-srs-2p22",
             MIDNIGHT_SRS_HASH_K22,
             MIDNIGHT_SRS_URL_K22,
             Duration::from_secs(600),
@@ -220,8 +225,13 @@ mod tests {
     fn both_bytes_encoding_work_to_load_srs_from_file() {
         let mut tmp_file = NamedTempFile::new().unwrap();
         std::fs::write(&mut tmp_file, SRS_K1.as_slice()).unwrap();
-        let srs_manager =
-            TrustedSetupProvider::new(tmp_file.path(), SRS_HASH_K1, "", Duration::from_secs(600));
+        let srs_manager = TrustedSetupProvider::new(
+            "",
+            tmp_file.path(),
+            SRS_HASH_K1,
+            "",
+            Duration::from_secs(600),
+        );
         let loaded_srs = srs_manager.get_trusted_setup_parameters().unwrap();
         let srs_rawbytes: ParamsKZG<Bls12> =
             ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytes).unwrap();
@@ -254,7 +264,7 @@ mod tests {
         let mut tampered_bytes = SRS_K1.to_vec();
         tampered_bytes[0] = tampered_bytes[0].wrapping_add(1);
 
-        let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
+        let result = TrustedSetupProvider::new("", "", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(&tampered_bytes);
 
         let err = result.unwrap_err();
@@ -273,7 +283,7 @@ mod tests {
 
     #[test]
     fn hash_of_correct_bytes_verifies() {
-        let result = TrustedSetupProvider::new("", SRS_HASH_K1, "", Duration::from_secs(600))
+        let result = TrustedSetupProvider::new("", "", SRS_HASH_K1, "", Duration::from_secs(600))
             .verify_bytes_sha256_hash(SRS_K1);
 
         assert!(result.is_ok());
@@ -290,6 +300,7 @@ mod tests {
         std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
 
         let result = TrustedSetupProvider::new(
+            "",
             srs_file.path(),
             SRS_HASH_K1,
             &server.url("/srs"),
@@ -315,6 +326,7 @@ mod tests {
         assert!(!srs_file.path().exists());
 
         let result = TrustedSetupProvider::new(
+            "",
             srs_file.path(),
             SRS_HASH_K1,
             &server.url("/srs"),
@@ -339,6 +351,7 @@ mod tests {
         let srs_path = temp_dir.path().join("missing_file_trigger_dl");
 
         TrustedSetupProvider::new(
+            "",
             &srs_path,
             SRS_HASH_K1,
             &server.url("/srs"),
@@ -363,6 +376,7 @@ mod tests {
         let srs_path = temp_dir.path().join("dl_wrong_hash");
 
         let result = TrustedSetupProvider::new(
+            "",
             &srs_path,
             SRS_HASH_K1,
             &server.url("/srs"),
@@ -397,6 +411,7 @@ mod tests {
         let srs_path = temp_dir.path().join("server_error_fails");
 
         let result = TrustedSetupProvider::new(
+            "",
             &srs_path,
             SRS_HASH_K1,
             &server.url("/srs"),
