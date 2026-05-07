@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Write},
+    io::{BufReader, Write},
     path::PathBuf,
     time::Duration,
 };
@@ -12,7 +12,6 @@ use sha2::{Digest, Sha256};
 
 use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
 
-#[allow(dead_code)]
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production.
 /// This SRS is coming from the trusted setup done by Midnight and available in the following
 /// repository: https://github.com/midnightntwrk/midnight-trusted-setup.
@@ -51,12 +50,9 @@ pub struct TrustedSetupProvider {
     download_timeout_limit: Duration,
 }
 
-/// TODO: remove allow(dead_code) when used
-#[allow(dead_code)]
 impl TrustedSetupProvider {
     /// Create a new TrustedSetupProvider
-    /// Prepares a subfolder in the given `local_srs_folder_path` to put the SRS in
-    fn new<P: Into<PathBuf>, S: Into<String>, U: Into<String>>(
+    pub fn new<P: Into<PathBuf>, S: Into<String>, U: Into<String>>(
         local_srs_folder_path: P,
         srs_expected_hash: S,
         url_to_download_srs: U,
@@ -95,7 +91,6 @@ impl TrustedSetupProvider {
     /// Fetches the SRS from `self.url_to_download_srs` and returns its bytes.
     fn download_srs_file(&self) -> StmResult<Vec<u8>> {
         let response = reqwest::blocking::Client::builder()
-            // TODO: For now a timeout but this should be updated depending on the behavior we want
             .timeout(self.download_timeout_limit)
             .build()?
             .get(&self.url_to_download_srs)
@@ -119,14 +114,21 @@ impl TrustedSetupProvider {
             .local_srs_folder_path
             .join(MITHRIL_CIRCUIT_SRS_FILENAME)
             .with_extension("temp");
-        let mut temporary_file = File::create(&temp_path)?;
-        BufWriter::new(&mut temporary_file).write_all(srs_bytes)?;
+        let final_path = self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME);
 
-        std::fs::rename(
-            temp_path,
-            self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME),
-        )?;
+        let mut temporary_file = File::create(&temp_path)
+            .with_context(|| format!("Failed to create temporary SRS file at {temp_path:?}."))?;
+        temporary_file.write_all(srs_bytes)?;
+        temporary_file
+            .sync_all()
+            .with_context(|| "Failed to fsync temporary SRS file before rename.")?;
+        drop(temporary_file);
 
+        std::fs::rename(temp_path, final_path)?;
+
+        File::open(&self.local_srs_folder_path)
+            .and_then(|dir| dir.sync_all())
+            .with_context(|| "Failed to fsync SRS directory after rename.")?;
         Ok(())
     }
 
@@ -147,7 +149,7 @@ impl TrustedSetupProvider {
 
     /// Ensures the SRS file is available, downloading it if necessary
     /// and deserializes it into memory.
-    fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
+    pub fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
         self.download_srs_file_if_not_cached()?;
 
         let file = File::open(self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME))

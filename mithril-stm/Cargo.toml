@@ -31,7 +31,12 @@ future_snark = [
     "dep:sha2",
     "dep:rand_chacha",
     "dep:reqwest",
+    "rustls", # Temporarily activate rustls before it is activated in the caller
 ]
+# TLS backend for the SRS download client (used by `future_snark`).
+# Exactly one of these must be enabled together with `future_snark`.
+native-tls = ["reqwest?/native-tls"]
+rustls = ["reqwest?/rustls"]
 num-integer-backend = ["dep:num-bigint", "dep:num-integer", "dep:num-rational", "dep:num-traits"]
 rug-backend = ["rug/default"]
 
@@ -56,7 +61,7 @@ rand = { version = "0.10.1", optional = true }
 rand_chacha = { workspace = true, optional = true }
 rand_core = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
-reqwest = { workspace = true, default-features = true, features = ["blocking"], optional = true }
+reqwest = { workspace = true, default-features = false, features = ["blocking"], optional = true }
 serde = { workspace = true }
 sha2 = { version = "0.10.9", optional = true }
 subtle = "2.6.1"
