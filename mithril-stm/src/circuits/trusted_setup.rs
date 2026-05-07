@@ -19,14 +19,14 @@ use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
 ///
 /// If the degree of the SRS used were to change, this hash would need to be updated using
 /// the proper value available here: https://github.com/midnightntwrk/midnight-trusted-setup/blob/main/MIDNIGHT_SRS_CATALOG.md
-const MIDNIGHT_SRS_HASH_K22: &str =
+pub const MIDNIGHT_SRS_HASH_K22: &str =
     "e8ad5eed936d657a0fb59d2a55ba19f81a3083bb3554ef88f464f5377e9b2c2f";
 /// Constant storing URL to download the SRS of degree 22 used to create proof in production
-const MIDNIGHT_SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
+pub const MIDNIGHT_SRS_URL_K22: &str = "https://srs.midnight.network/midnight-srs-2p22";
 /// Constant holding the folder of the SRS file
-const MITHRIL_CIRCUIT_SRS_FOLDER: &str = "srs";
+pub const MITHRIL_CIRCUIT_SRS_FOLDER: &str = "srs";
 /// Constant holding the filename of the SRS
-const MITHRIL_CIRCUIT_SRS_FILENAME: &str = "srs-parameters";
+pub const MITHRIL_CIRCUIT_SRS_FILENAME: &str = "srs-parameters";
 
 /// Errors which can be outputted by the trusted setup verification.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
@@ -56,7 +56,7 @@ pub struct TrustedSetupProvider {
 impl TrustedSetupProvider {
     /// Create a new TrustedSetupProvider
     /// Prepares a subfolder in the given `local_srs_folder_path` to put the SRS in
-    fn new<P: Into<PathBuf>, S: Into<String>, U: Into<String>>(
+    pub fn new<P: Into<PathBuf>, S: Into<String>, U: Into<String>>(
         local_srs_folder_path: P,
         srs_expected_hash: S,
         url_to_download_srs: U,
@@ -147,7 +147,7 @@ impl TrustedSetupProvider {
 
     /// Ensures the SRS file is available, downloading it if necessary
     /// and deserializes it into memory.
-    fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
+    pub fn get_trusted_setup_parameters(&self) -> StmResult<ParamsKZG<Bls12>> {
         self.download_srs_file_if_not_cached()?;
 
         let file = File::open(self.local_srs_folder_path.join(MITHRIL_CIRCUIT_SRS_FILENAME))
