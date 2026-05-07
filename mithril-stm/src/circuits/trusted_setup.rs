@@ -60,7 +60,7 @@ impl TrustedSetupProvider {
         download_timeout_limit: Duration,
     ) -> Self {
         Self {
-            local_srs_path: local_srs_path.into().join("srs"),
+            local_srs_path: local_srs_path.into(),
             srs_expected_hash: srs_expected_hash.into(),
             url_to_download_srs: url_to_download_srs.into(),
             download_timeout_limit,
@@ -116,7 +116,7 @@ impl TrustedSetupProvider {
         std::fs::create_dir_all(parent)
             .with_context(|| "Subdirectory creation should have succeeded.")?;
 
-        let temp_path = self.local_srs_path.with_extension(".temp");
+        let temp_path = self.local_srs_path.with_extension("temp");
         let mut temporary_file = File::create(&temp_path)?;
         BufWriter::new(&mut temporary_file).write_all(srs_bytes)?;
 
@@ -157,7 +157,7 @@ impl TrustedSetupProvider {
 impl Default for TrustedSetupProvider {
     fn default() -> Self {
         Self::new(
-            std::env::temp_dir().join(MITHRIL_CIRCUIT_CACHE_FOLDER),
+            std::env::temp_dir().join(MITHRIL_CIRCUIT_CACHE_FOLDER).join("srs"),
             MIDNIGHT_SRS_HASH_K22,
             MIDNIGHT_SRS_URL_K22,
             Duration::from_secs(600),
@@ -221,7 +221,7 @@ mod tests {
         let mut tmp_file = NamedTempFile::new().unwrap();
         std::fs::write(&mut tmp_file, SRS_K1.as_slice()).unwrap();
         let srs_manager =
-            TrustedSetupProvider::new(tmp_file.path(), "", "", Duration::from_secs(600));
+            TrustedSetupProvider::new(tmp_file.path(), SRS_HASH_K1, "", Duration::from_secs(600));
         let loaded_srs = srs_manager.get_trusted_setup_parameters().unwrap();
         let srs_rawbytes: ParamsKZG<Bls12> =
             ParamsKZG::read_custom(&mut SRS_K1.as_slice(), SerdeFormat::RawBytes).unwrap();
@@ -281,25 +281,50 @@ mod tests {
 
     #[test]
     fn existing_file_on_disk_skips_download_and_verification() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/srs");
+            then.status(200).body([0, 1, 2, 3, 4]);
+        });
         let srs_file = NamedTempFile::new_in("/tmp").unwrap();
         std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
 
-        let result = TrustedSetupProvider::new(srs_file.path(), "", "", Duration::from_secs(600))
-            .download_srs_file_if_not_cached();
+        let result = TrustedSetupProvider::new(
+            srs_file.path(),
+            SRS_HASH_K1,
+            &server.url("/srs"),
+            Duration::from_secs(600),
+        )
+        .download_srs_file_if_not_cached();
 
         assert!(result.is_ok());
+        mock.assert_calls(0);
     }
 
     #[test]
     fn interrupted_writing_of_srs_resumes_properly_at_next_try() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/srs");
+            then.status(200).body(SRS_K1);
+        });
         let srs_file = NamedTempFile::new_in("/tmp").unwrap();
-        let temp_srs_file = srs_file.path().with_extension("temp");
-        std::fs::write(&temp_srs_file, [0, 1, 2, 3, 4]).unwrap();
+        std::fs::write(&srs_file, [0, 1, 2, 3, 4]).unwrap();
+        std::fs::rename(srs_file.path(), srs_file.path().with_extension("temp")).unwrap();
 
-        let result = TrustedSetupProvider::new(srs_file.path(), "", "", Duration::from_secs(600))
-            .download_srs_file_if_not_cached();
+        assert!(!srs_file.path().exists());
 
+        let result = TrustedSetupProvider::new(
+            srs_file.path(),
+            SRS_HASH_K1,
+            &server.url("/srs"),
+            Duration::from_secs(600),
+        )
+        .download_srs_file_if_not_cached();
+
+        assert!(srs_file.path().exists());
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[test]
