@@ -326,7 +326,7 @@ mod tests {
         let temp_dir = tempfile::tempdir_in("/tmp").unwrap();
         let srs_folder = temp_dir.path().join("srs");
         std::fs::create_dir_all(&srs_folder).unwrap();
-        std::fs::write(&srs_folder.join("srs-parameters.temp"), [0, 1, 2, 3, 4]).unwrap();
+        std::fs::write(srs_folder.join("srs-parameters.temp"), [0, 1, 2, 3, 4]).unwrap();
 
         assert!(!srs_folder.join(MITHRIL_CIRCUIT_SRS_FILENAME).exists());
 
