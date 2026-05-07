@@ -10,27 +10,22 @@ use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::tests::common::{
     asset_readers::{
-        RecursiveChainStateAsset, load_embedded_recursive_chain_state_asset,
-        load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+        load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+        load_embedded_verification_context_asset,
     },
     generators::{
-        AssetGenerationSetup, GENESIS_EPOCH, build_asset_generation_setup,
-        build_genesis_base_case_next_state, build_genesis_base_case_witness,
-        build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
-        next_message_and_preimage_for_step, next_state_for_step,
+        GENESIS_EPOCH, build_asset_generation_setup, build_genesis_base_case_next_state,
+        build_genesis_base_case_witness, build_next_certificate_asset_data,
+        build_same_epoch_certificate_asset_data, next_message_and_preimage_for_step,
+        next_state_for_step,
     },
     helpers::{
-        RecursiveMockProverSetup, assert_recursive_mock_prover_accepts,
-        build_recursive_mock_prover_setup, compute_exact_next_accumulator_from_assets,
-        compute_expected_next_accumulator, verify_prepare_blake2b_recursive_proof,
-        verify_prepare_poseidon_recursive_proof,
+        assert_recursive_mock_prover_accepts_with_label, build_recursive_mock_prover_setup,
+        compute_exact_next_accumulator_from_assets, compute_expected_next_accumulator,
+        verify_prepare_blake2b_recursive_proof, verify_prepare_poseidon_recursive_proof,
     },
 };
-use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, S,
-    circuit::IvcCircuit,
-    state::{State, Witness},
-};
+use crate::circuits::halo2_ivc::{AssignedAccumulator, circuit::IvcCircuit, state::State};
 
 #[test]
 fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
@@ -104,63 +99,18 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
 mod slow {
     use super::*;
 
-    /// Builds a non-genesis recursive circuit from fresh certificate data and asserts the MockProver
-    /// accepts it.
-    ///
-    /// `build_cert_data` receives the deterministic setup, the shared mock-prover context, and the
-    /// stored chain-state asset, and returns the certificate proof, accumulator, next state, and IVC
-    /// witness for that step — allowing each test to choose the transition variant it covers.
-    fn assert_recursive_step_circuit_accepts(
-        build_cert_data: impl FnOnce(
-            &AssetGenerationSetup,
-            &RecursiveMockProverSetup,
-            &RecursiveChainStateAsset,
-        ) -> (Vec<u8>, Accumulator<S>, State, Witness),
-    ) {
+    #[test]
+    fn all_positive_circuit_scenarios_are_accepted() {
+        // One setup call shared across genesis, same-epoch, and next-epoch MockProver
+        // checks, plus the stored asset replay assertion. The label in each MockProver
+        // assertion identifies which scenario caused a spurious failure.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
-            build_cert_data(&setup, &mock_prover_setup, &recursive_chain_state);
-
-        let next_accumulator = compute_expected_next_accumulator(
-            &mock_prover_setup,
-            &recursive_chain_state,
-            certificate_accumulator,
-        );
-
-        let circuit = IvcCircuit::new(
-            mock_prover_setup.global.clone(),
-            recursive_chain_state.state.clone(),
-            recursive_witness,
-            certificate_proof,
-            recursive_chain_state.proof.clone(),
-            recursive_chain_state.accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
-            &mock_prover_setup.recursive_verifying_key,
-        );
-
-        let public_inputs = [
-            mock_prover_setup.global.as_public_input(),
-            next_state.as_public_input(),
-            AssignedAccumulator::as_public_input(&next_accumulator),
-        ]
-        .concat();
-
-        assert_recursive_mock_prover_accepts(circuit, public_inputs);
-    }
-
-    #[test]
-    fn genesis_base_case_accepts_valid_public_inputs() {
-        // MockProver check for the explicit genesis/base-case branch where no
-        // previous recursive proof exists yet and the circuit must accept the
-        // first valid transition.
-        let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-
-        let circuit = IvcCircuit::new(
+        // Genesis base case: no previous proof, trivial accumulator, gated contributions.
+        let genesis_circuit = IvcCircuit::new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -170,74 +120,105 @@ mod slow {
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         );
-
-        let public_inputs = [
+        let genesis_public_inputs = [
             mock_prover_setup.global.as_public_input(),
             build_genesis_base_case_next_state(&setup, GENESIS_EPOCH).as_public_input(),
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
+        assert_recursive_mock_prover_accepts_with_label(
+            genesis_circuit,
+            genesis_public_inputs,
+            "genesis base case",
+        );
 
-        assert_recursive_mock_prover_accepts(circuit, public_inputs);
-    }
-
-    #[test]
-    fn recursive_step_next_epoch_accepts_valid_public_inputs() {
-        // MockProver check for one non-genesis next-epoch recursive step using
-        // stored previous recursive artifacts plus fresh certificate-side data
-        // generated in-test.
-        assert_recursive_step_circuit_accepts(|setup, mock, chain_state| {
-            build_next_certificate_asset_data(
-                setup,
-                &mock.certificate_commitment_parameters,
-                &setup.certificate_relation,
-                &mock.certificate_verifying_key,
-                &chain_state.state,
-                &mut rand_core::OsRng,
-            )
-        });
-    }
-
-    #[test]
-    fn recursive_step_same_epoch_accepts_valid_public_inputs() {
-        // MockProver check for one non-genesis same-epoch recursive step using
-        // stored previous recursive artifacts plus fresh certificate-side data
-        // generated in-test.
-        assert_recursive_step_circuit_accepts(|setup, mock, chain_state| {
+        // Same-epoch recursive step: fresh certificate data, same merkle root and epoch.
+        let (se_cert_proof, se_cert_acc, se_next_state, se_witness) =
             build_same_epoch_certificate_asset_data(
-                setup,
-                &mock.certificate_commitment_parameters,
+                &setup,
+                &mock_prover_setup.certificate_commitment_parameters,
                 &setup.certificate_relation,
-                &mock.certificate_verifying_key,
-                &chain_state.state,
+                &mock_prover_setup.certificate_verifying_key,
+                &recursive_chain_state.state,
                 &mut rand_core::OsRng,
-            )
-        });
-    }
+            );
+        let se_next_accumulator = compute_expected_next_accumulator(
+            &mock_prover_setup,
+            &recursive_chain_state,
+            se_cert_acc,
+        );
+        let se_circuit = IvcCircuit::new(
+            mock_prover_setup.global.clone(),
+            recursive_chain_state.state.clone(),
+            se_witness,
+            se_cert_proof,
+            recursive_chain_state.proof.clone(),
+            recursive_chain_state.accumulator.clone(),
+            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.recursive_verifying_key,
+        );
+        let se_public_inputs = [
+            mock_prover_setup.global.as_public_input(),
+            se_next_state.as_public_input(),
+            AssignedAccumulator::as_public_input(&se_next_accumulator),
+        ]
+        .concat();
+        assert_recursive_mock_prover_accepts_with_label(
+            se_circuit,
+            se_public_inputs,
+            "same-epoch recursive step",
+        );
 
-    #[test]
-    fn recursive_step_output_asset_matches_replayed_chain_flow() {
-        // Asset-based replay check that recomputes the expected next step from the
-        // stored previous checkpoint and verifies that the stored next-step
-        // artifact is truly its continuation.
-        let setup = build_asset_generation_setup();
-        let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
-        let recursive_chain_state = load_embedded_recursive_chain_state_asset()
-            .expect("recursive chain state asset should load");
+        // Next-epoch recursive step: fresh certificate data, advancing epoch.
+        let (ne_cert_proof, ne_cert_acc, ne_next_state, ne_witness) =
+            build_next_certificate_asset_data(
+                &setup,
+                &mock_prover_setup.certificate_commitment_parameters,
+                &setup.certificate_relation,
+                &mock_prover_setup.certificate_verifying_key,
+                &recursive_chain_state.state,
+                &mut rand_core::OsRng,
+            );
+        let ne_next_accumulator = compute_expected_next_accumulator(
+            &mock_prover_setup,
+            &recursive_chain_state,
+            ne_cert_acc,
+        );
+        let ne_circuit = IvcCircuit::new(
+            mock_prover_setup.global.clone(),
+            recursive_chain_state.state.clone(),
+            ne_witness,
+            ne_cert_proof,
+            recursive_chain_state.proof.clone(),
+            recursive_chain_state.accumulator.clone(),
+            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.recursive_verifying_key,
+        );
+        let ne_public_inputs = [
+            mock_prover_setup.global.as_public_input(),
+            ne_next_state.as_public_input(),
+            AssignedAccumulator::as_public_input(&ne_next_accumulator),
+        ]
+        .concat();
+        assert_recursive_mock_prover_accepts_with_label(
+            ne_circuit,
+            ne_public_inputs,
+            "next-epoch recursive step",
+        );
+
+        // Replay integrity: stored next-step artifact must match off-circuit replay.
         let recursive_step_output = load_embedded_recursive_step_output_asset()
             .expect("recursive step output asset should load");
         let (expected_message, _) =
             next_message_and_preimage_for_step(&setup, &recursive_chain_state.state);
         let expected_next_state =
             next_state_for_step(&recursive_chain_state.state, expected_message);
-
         let expected_next_accumulator = compute_exact_next_accumulator_from_assets(
             &mock_prover_setup,
             &recursive_chain_state,
             &expected_next_state,
             &recursive_step_output.certificate_proof,
         );
-
         assert_eq!(
             expected_next_state.as_public_input(),
             recursive_step_output.next_state.as_public_input(),

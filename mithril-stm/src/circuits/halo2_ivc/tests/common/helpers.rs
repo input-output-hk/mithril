@@ -92,15 +92,6 @@ pub(crate) fn build_recursive_mock_prover_setup(
     }
 }
 
-/// Runs `MockProver` on the recursive circuit and asserts that all constraints hold.
-pub(crate) fn assert_recursive_mock_prover_accepts(circuit: IvcCircuit, public_inputs: Vec<F>) {
-    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
-        .expect("recursive MockProver setup should succeed");
-    prover
-        .verify()
-        .expect("recursive MockProver should accept the provided circuit and public inputs");
-}
-
 /// Runs `MockProver` on the recursive circuit and asserts that at least one constraint fails.
 pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_inputs: Vec<F>) {
     let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
@@ -108,6 +99,38 @@ pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_i
     prover
         .verify()
         .expect_err("recursive MockProver should reject the provided circuit and public inputs");
+}
+
+/// Runs `MockProver` and asserts all constraints hold, printing `label` on failure so
+/// the failing case is identifiable when multiple scenarios share one `#[test]` function.
+pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
+    circuit: IvcCircuit,
+    public_inputs: Vec<F>,
+    label: &str,
+) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    prover.verify().unwrap_or_else(|errors| {
+        panic!(
+            "MockProver should accept the circuit and public inputs — case: {label}\n\
+             Constraint failures: {errors:?}"
+        )
+    });
+}
+
+/// Runs `MockProver` and asserts at least one constraint fails, printing `label` on failure
+/// so the scenario that unexpectedly passed is identifiable when multiple scenarios share one `#[test]` function.
+pub(crate) fn assert_recursive_mock_prover_rejects_with_label(
+    circuit: IvcCircuit,
+    public_inputs: Vec<F>,
+    label: &str,
+) {
+    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+        .expect("recursive MockProver setup should succeed");
+    assert!(
+        prover.verify().is_err(),
+        "MockProver should reject the circuit and public inputs — case: {label}"
+    );
 }
 
 /// Prepares the stored previous recursive proof and returns its accumulator contribution.
