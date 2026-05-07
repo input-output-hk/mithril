@@ -18,3 +18,6 @@ pub(crate) use halo2::witness::{
 
 /// Constant holding the current path of the cached values related to the circuits
 const MITHRIL_CIRCUIT_CACHE_FOLDER: &str = "mithril-circuit";
+
+/// Constant holding the current path of the SRS file
+const MITHRIL_CIRCUIT_SRS_FOLDER: &str = "srs";
