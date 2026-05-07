@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.15 (05-07-2026)
+
+### Changed
+
+- Replaced Layer C1 real-prover slow tests with off-circuit accumulator checks and MockProver-based constraint tests.
+- Reduced CI test time by splitting combined test loops into individual tests to enable nextest parallelism.
+- Switched MockProver-only tests to load verifying keys from committed binary assets, eliminating redundant SRS generation.
+
 ## 0.10.14 (05-06-2026)
 
 ### Added
