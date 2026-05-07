@@ -1054,16 +1054,70 @@ mod tests {
         );
     }
 
-    #[test]
-    fn legacy_compute_hash_is_pinned_to_its_pre_lagrange_byte_identical_output() {
-        let hash_pinned_before_rework =
-            "9b9c1b930b151abea9e3ddbd101b156d037c6f003dfbf5391d56b5d5a56b6138";
+    mod golden_compute_hash {
+        use super::*;
 
-        assert_eq!(
-            build_protocol_message_reference().compute_hash(),
-            hash_pinned_before_rework,
-            "the legacy protocol message hash must stay byte-identical to the pre-Lagrange output"
-        );
+        mod legacy {
+            use super::*;
+
+            const GOLDEN_LEGACY_HASH: &str =
+                "71dee1e558cd647cdbc219a24b766940f568e7e8287c30a8292209ef11666e03";
+
+            fn golden_message() -> ProtocolMessage {
+                let mut message = ProtocolMessage::new();
+                message.set_message_part(
+                    ProtocolMessagePartKey::SnapshotDigest,
+                    "snapshot-digest-123".to_string(),
+                );
+                message.set_message_part(
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    "next-avk-123".to_string(),
+                );
+                message
+            }
+
+            #[test]
+            fn current_compute_hash_matches_pinned_pre_lagrange_output() {
+                assert_eq!(golden_message().compute_hash(), GOLDEN_LEGACY_HASH);
+            }
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod rigid {
+            use super::*;
+
+            const GOLDEN_RIGID_HASH: &str =
+                "ce70921aa06b63b67e0c4c37c5afa0d0bf72f8944d34c8e6db96e84242a13ef2";
+
+            fn golden_message() -> ProtocolMessage {
+                let mut snark_avk_wire_bytes = Vec::with_capacity(
+                    ProtocolMessage::RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_BYTES,
+                );
+                snark_avk_wire_bytes.extend_from_slice(&[0xCCu8; 32]);
+                snark_avk_wire_bytes.extend_from_slice(&0u64.to_be_bytes());
+
+                let mut message = ProtocolMessage::new_rigid();
+                message.set_message_part(
+                    ProtocolMessagePartKey::SnapshotDigest,
+                    "snapshot-digest-123".to_string(),
+                );
+                message.set_message_part(
+                    ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+                    hex::encode(snark_avk_wire_bytes),
+                );
+                message.set_message_part(
+                    ProtocolMessagePartKey::NextProtocolParameters,
+                    hex::encode([0xDDu8; ProtocolMessage::RIGID_NEXT_PROTOCOL_PARAMETERS_BYTES]),
+                );
+                message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+                message
+            }
+
+            #[test]
+            fn current_compute_hash_matches_pinned_output() {
+                assert_eq!(golden_message().compute_hash(), GOLDEN_RIGID_HASH);
+            }
+        }
     }
 
     #[cfg(feature = "future_snark")]
