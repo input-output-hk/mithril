@@ -303,7 +303,7 @@ mod tests {
             "",
             srs_file.path(),
             SRS_HASH_K1,
-            &server.url("/srs"),
+            server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached();
@@ -329,7 +329,7 @@ mod tests {
             "",
             srs_file.path(),
             SRS_HASH_K1,
-            &server.url("/srs"),
+            server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached();
@@ -354,7 +354,7 @@ mod tests {
             "",
             &srs_path,
             SRS_HASH_K1,
-            &server.url("/srs"),
+            server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached()
@@ -379,7 +379,7 @@ mod tests {
             "",
             &srs_path,
             SRS_HASH_K1,
-            &server.url("/srs"),
+            server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached();
@@ -412,9 +412,9 @@ mod tests {
 
         let result = TrustedSetupProvider::new(
             "",
-            &srs_path,
+            srs_path,
             SRS_HASH_K1,
-            &server.url("/srs"),
+            server.url("/srs"),
             Duration::from_secs(600),
         )
         .download_srs_file_if_not_cached();
