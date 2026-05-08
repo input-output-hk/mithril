@@ -10,8 +10,10 @@
 //! `fixed_base_extraction`     — `extract_fixed_bases` reclassification and encoding effects.
 //! `accumulator_collapse`      — `collapse` preserves the `accumulator.check` invariant.
 //! `accumulator_verification`  — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
+//! `accumulator_update`        — full folding pipeline on stored assets; soundness under wrong previous accumulator.
 
 mod accumulator_collapse;
 mod accumulator_construction;
+mod accumulator_update;
 mod accumulator_verification;
 mod fixed_base_extraction;
