@@ -7,6 +7,7 @@
 
 pub mod halo2;
 pub mod halo2_ivc;
+pub mod trusted_setup;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
@@ -14,3 +15,14 @@ pub(crate) mod test_utils;
 pub(crate) use halo2::witness::{
     CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
 };
+
+/// Constant holding the current path of the cached values related to the circuits
+const MITHRIL_CIRCUIT_CACHE_FOLDER: &str = "mithril-circuit";
+
+#[cfg(all(
+    feature = "future_snark",
+    not(any(feature = "rustls", feature = "native-tls"))
+))]
+compile_error!(
+    "Enabling `future_snark` requires exactly one of the `rustls` or `native-tls` features."
+);
