@@ -11,11 +11,34 @@ use crate::circuits::halo2_ivc::{
     state::State,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
+            load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+            load_embedded_verification_context_asset,
         },
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
     },
 };
+
+#[test]
+fn folded_accumulator_serialized_byte_length_is_stable() {
+    // Regression anchor: the serialized byte length of a folded accumulator must
+    // stay constant. A change here signals an unintended format shift (different
+    // fixed-base count, encoding width, or length-prefix logic) that the
+    // round-trip test alone would not catch.
+    let recursive_step_output = load_embedded_recursive_step_output_asset()
+        .expect("recursive step output asset should load");
+
+    let mut bytes = Vec::new();
+    recursive_step_output
+        .next_accumulator
+        .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("accumulator serialization should succeed");
+
+    assert_eq!(
+        bytes.len(),
+        5932,
+        "serialized accumulator byte length must remain stable",
+    );
+}
 
 #[test]
 fn preimage_length_is_190_bytes() {
