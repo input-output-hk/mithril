@@ -31,7 +31,7 @@ fn same_epoch_accumulator_passes_check() {
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "same-epoch accumulator must satisfy the pairing equation",
+        "same-epoch accumulator should satisfy the pairing equation"
     );
 }
 
@@ -50,7 +50,7 @@ fn next_epoch_accumulator_passes_check() {
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "next-epoch accumulator must satisfy the pairing equation",
+        "next-epoch accumulator should satisfy the pairing equation"
     );
 }
 
@@ -69,7 +69,7 @@ fn chain_state_accumulator_passes_check() {
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "chain-state accumulator must satisfy the pairing equation",
+        "chain-state accumulator should satisfy the pairing equation"
     );
 }
 
@@ -123,6 +123,6 @@ fn tampered_accumulator_fails_check() {
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "tampered accumulator must not satisfy the pairing equation",
+        "tampered accumulator should not satisfy the pairing equation"
     );
 }

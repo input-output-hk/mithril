@@ -29,7 +29,7 @@ fn trivial_acc_public_inputs_match_stored_genesis_accumulator() {
     assert_eq!(
         AssignedAccumulator::as_public_input(&accumulator),
         AssignedAccumulator::as_public_input(&genesis_step_output.next_accumulator),
-        "trivial_acc public inputs must match the stored genesis next_accumulator",
+        "trivial_acc public inputs should match the stored genesis next_accumulator"
     );
 }
 
@@ -49,6 +49,6 @@ fn trivial_acc_public_input_length_scales_with_fixed_base_name_count() {
     assert_eq!(
         encoding_length_with_three_names,
         empty_accumulator_encoding_length + 3,
-        "each fixed-base name must add exactly one field element to the public-input encoding",
+        "each fixed-base name should add exactly one field element to the public-input encoding"
     );
 }

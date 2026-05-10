@@ -2,8 +2,7 @@
 //!
 //! The off-circuit pipeline for each proof contribution is:
 //! `DualMSM::into()` → `extract_fixed_bases` → `accumulator.check` → `collapse` → `accumulator.check`.
-//! These tests lock in that both checkpoints pass for a valid stored certificate proof,
-//! mirroring the pattern exercised in `ivc_e2e.rs`.
+//! These tests lock in that both checkpoints pass for a valid stored certificate proof.
 
 use std::collections::BTreeMap;
 
@@ -56,7 +55,11 @@ fn build_extracted_certificate_accumulator()
     let mut accumulator: Accumulator<S> = dual_msm.into();
     accumulator.extract_fixed_bases(&certificate_fixed_bases);
 
-    (accumulator, certificate_fixed_bases, verification_context.verifier_tau_in_g2)
+    (
+        accumulator,
+        certificate_fixed_bases,
+        verification_context.verifier_tau_in_g2,
+    )
 }
 
 #[test]
@@ -69,7 +72,7 @@ fn certificate_accumulator_passes_check_after_extraction_before_collapse() {
 
     assert!(
         accumulator.check(&tau_in_g2, &certificate_fixed_bases),
-        "certificate accumulator must pass accumulator.check after extraction, before collapse",
+        "certificate accumulator should pass accumulator.check after extraction, before collapse"
     );
 }
 
@@ -84,6 +87,6 @@ fn certificate_accumulator_passes_check_after_collapse() {
 
     assert!(
         accumulator.check(&tau_in_g2, &certificate_fixed_bases),
-        "certificate accumulator must pass accumulator.check after collapse",
+        "certificate accumulator should pass accumulator.check after collapse"
     );
 }

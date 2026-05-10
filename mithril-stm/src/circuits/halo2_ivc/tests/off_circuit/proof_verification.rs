@@ -14,13 +14,11 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_chain_state_asset,
-            load_embedded_same_epoch_step_output_asset,
+            load_embedded_recursive_chain_state_asset, load_embedded_same_epoch_step_output_asset,
             load_embedded_verification_context_asset,
         },
         helpers::{
-            verify_prepare_blake2b_recursive_proof,
-            verify_prepare_poseidon_recursive_proof,
+            verify_prepare_blake2b_recursive_proof, verify_prepare_poseidon_recursive_proof,
         },
     },
 };
@@ -50,14 +48,14 @@ fn same_epoch_proof_passes_dual_msm_check_and_accumulator_check() {
 
     assert!(
         dual_msm.check(&verification_context.verifier_params),
-        "same-epoch Blake2b proof must pass the KZG opening check",
+        "same-epoch Blake2b proof should pass the KZG opening check"
     );
     assert!(
         same_epoch_step_output.next_accumulator.check(
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "same-epoch next accumulator must satisfy the pairing equation",
+        "same-epoch next accumulator should satisfy the pairing equation"
     );
 }
 
@@ -86,13 +84,13 @@ fn chain_state_proof_passes_dual_msm_check_and_accumulator_check() {
 
     assert!(
         dual_msm.check(&verification_context.verifier_params),
-        "chain-state Poseidon proof must pass the KZG opening check",
+        "chain-state Poseidon proof should pass the KZG opening check"
     );
     assert!(
         recursive_chain_state.accumulator.check(
             &verification_context.verifier_tau_in_g2,
             &verification_context.combined_fixed_bases,
         ),
-        "chain-state accumulator must satisfy the pairing equation",
+        "chain-state accumulator should satisfy the pairing equation"
     );
 }

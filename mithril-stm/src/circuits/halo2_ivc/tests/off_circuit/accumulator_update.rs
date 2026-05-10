@@ -30,15 +30,23 @@ use crate::circuits::halo2_ivc::{
     },
 };
 
-/// Runs the full off-circuit accumulation pipeline on stored step assets and returns
-/// the folded and collapsed next accumulator together with the combined fixed bases
-/// and `tau_in_g2` needed to call `accumulator.check`.
+/// Verifies the stored certificate and chain-state IVC proofs, applies
+/// `extract_fixed_bases` and `collapse` to each, and returns
+/// `(certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2)`.
+///
+/// This is the shared setup for both tests: the positive test folds these with
+/// the stored chain-state accumulator; the negative test folds them with a
+/// tampered one.
 ///
 /// Intermediate `dual_msm.check` calls are intentionally omitted: they require
 /// KZG verifier parameters and are covered by
 /// `golden/positive.rs::replay_integrity_matches_stored_next_step_output`.
-fn build_next_accumulator_from_stored_step_assets()
--> (Accumulator<S>, BTreeMap<String, C>, <E as Engine>::G2Affine) {
+fn build_proof_accumulators_from_stored_step_assets() -> (
+    Accumulator<S>,
+    Accumulator<S>,
+    BTreeMap<String, C>,
+    <E as Engine>::G2Affine,
+) {
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
@@ -52,7 +60,6 @@ fn build_next_accumulator_from_stored_step_assets()
             &verification_context.recursive_verifying_key,
         );
 
-    // Build the certificate accumulator for this step.
     let certificate_public_inputs = certificate_public_inputs_for_step(
         &recursive_chain_state.state,
         &recursive_step_output.next_state,
@@ -66,7 +73,6 @@ fn build_next_accumulator_from_stored_step_assets()
     certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
     certificate_accumulator.collapse();
 
-    // Build the previous-recursive-proof accumulator from the chain-state IVC proof.
     let chain_state_proof_public_inputs = [
         verification_context.global_field_elements.clone(),
         recursive_chain_state.state.as_public_input(),
@@ -82,7 +88,23 @@ fn build_next_accumulator_from_stored_step_assets()
     previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 
-    // Fold all three contributions and collapse.
+    (
+        certificate_accumulator,
+        previous_proof_accumulator,
+        combined_fixed_bases,
+        verification_context.verifier_tau_in_g2,
+    )
+}
+
+/// Runs the full off-circuit accumulation pipeline on stored step assets and returns
+/// `(next_accumulator, combined_fixed_bases, tau_in_g2)`.
+fn build_next_accumulator_from_stored_step_assets()
+-> (Accumulator<S>, BTreeMap<String, C>, <E as Engine>::G2Affine) {
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2) =
+        build_proof_accumulators_from_stored_step_assets();
+
     let mut next_accumulator = Accumulator::accumulate(&[
         recursive_chain_state.accumulator.clone(),
         certificate_accumulator,
@@ -90,11 +112,7 @@ fn build_next_accumulator_from_stored_step_assets()
     ]);
     next_accumulator.collapse();
 
-    (
-        next_accumulator,
-        combined_fixed_bases,
-        verification_context.verifier_tau_in_g2,
-    )
+    (next_accumulator, combined_fixed_bases, tau_in_g2)
 }
 
 #[test]
@@ -106,7 +124,7 @@ fn stored_step_pipeline_result_passes_accumulator_check() {
 
     assert!(
         next_accumulator.check(&tau_in_g2, &combined_fixed_bases),
-        "folded next accumulator must satisfy the pairing equation",
+        "folded next accumulator should satisfy the pairing equation"
     );
 }
 
@@ -120,18 +138,10 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     // The target scalar must be non-zero and its corresponding base in
     // combined_fixed_bases must be a non-trivial curve point (same conditions as
     // the tamper test in accumulator_verification.rs).
-    let verification_context =
-        load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
-        .expect("recursive step output asset should load");
-
-    let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
-        build_recursive_fixed_bases(
-            &verification_context.certificate_verifying_key,
-            &verification_context.recursive_verifying_key,
-        );
+    let (certificate_accumulator, previous_proof_accumulator, combined_fixed_bases, tau_in_g2) =
+        build_proof_accumulators_from_stored_step_assets();
 
     // Tamper the chain-state accumulator by negating one fixed-base scalar.
     let right_hand_side = recursive_chain_state.accumulator.rhs();
@@ -146,7 +156,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
                     .unwrap_or(false)
         })
         .map(|(key, _)| key.clone())
-        .expect("chain-state accumulator must have at least one non-zero scalar with a non-trivial base");
+        .expect("chain-state accumulator should have at least one non-zero scalar with a non-trivial base");
     tampered_fixed_base_scalars
         .entry(key_to_negate)
         .and_modify(|scalar| *scalar = scalar.neg());
@@ -155,36 +165,10 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
         &right_hand_side.scalars(),
         &tampered_fixed_base_scalars,
     );
-    let tampered_chain_accumulator =
-        Accumulator::<S>::new(recursive_chain_state.accumulator.lhs(), tampered_right_hand_side);
-
-    let certificate_public_inputs = certificate_public_inputs_for_step(
-        &recursive_chain_state.state,
-        &recursive_step_output.next_state,
+    let tampered_chain_accumulator = Accumulator::<S>::new(
+        recursive_chain_state.accumulator.lhs(),
+        tampered_right_hand_side,
     );
-    let mut certificate_accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        verification_context.certificate_verifying_key.vk(),
-        &recursive_step_output.certificate_proof,
-        &certificate_public_inputs,
-    )
-    .into();
-    certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
-    certificate_accumulator.collapse();
-
-    let chain_state_proof_public_inputs = [
-        verification_context.global_field_elements.clone(),
-        recursive_chain_state.state.as_public_input(),
-        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
-    ]
-    .concat();
-    let mut previous_proof_accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
-        &recursive_chain_state.proof,
-        &chain_state_proof_public_inputs,
-    )
-    .into();
-    previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    previous_proof_accumulator.collapse();
 
     let mut next_accumulator = Accumulator::accumulate(&[
         tampered_chain_accumulator,
@@ -194,10 +178,7 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     next_accumulator.collapse();
 
     assert!(
-        !next_accumulator.check(
-            &verification_context.verifier_tau_in_g2,
-            &combined_fixed_bases,
-        ),
-        "folding an invalid chain-state accumulator must not satisfy the pairing equation",
+        !next_accumulator.check(&tau_in_g2, &combined_fixed_bases),
+        "folding an invalid chain-state accumulator should not satisfy the pairing equation"
     );
 }

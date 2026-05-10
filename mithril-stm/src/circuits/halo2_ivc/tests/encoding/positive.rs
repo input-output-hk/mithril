@@ -36,7 +36,7 @@ fn folded_accumulator_serialized_byte_length_is_stable() {
     assert_eq!(
         bytes.len(),
         5932,
-        "serialized accumulator byte length must remain stable",
+        "serialized accumulator byte length should remain stable"
     );
 }
 

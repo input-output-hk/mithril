@@ -38,11 +38,12 @@ fn assert_genesis_step_output_rejects_tampered_public_inputs(
 
     let mut global = verification_context.global_field_elements.clone();
     let mut state = genesis_step_output.next_state.as_public_input();
-    let mut acc = AssignedAccumulator::as_public_input(&genesis_step_output.next_accumulator);
+    let mut accumulator_encoding =
+        AssignedAccumulator::as_public_input(&genesis_step_output.next_accumulator);
 
-    tamper(&mut global, &mut state, &mut acc);
+    tamper(&mut global, &mut state, &mut accumulator_encoding);
 
-    let public_inputs = [global, state, acc].concat();
+    let public_inputs = [global, state, accumulator_encoding].concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
@@ -113,7 +114,7 @@ fn next_accumulator_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when next_accumulator
     // is replaced in the public inputs, confirming the accumulator output is committed.
     assert_genesis_step_output_rejects_tampered_public_inputs(
-        |_, _, acc| acc[0] = F::ONE,
+        |_, _, accumulator_encoding| accumulator_encoding[0] = F::ONE,
         "proof with tampered next_accumulator should be rejected by the verifier",
     );
 }
@@ -133,11 +134,12 @@ mod slow {
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let mut global = mock_prover_setup.global.as_public_input();
         let state = next_state.as_public_input();
-        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        let accumulator_encoding =
+            AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
         global[0] = F::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
-            [global, state, acc].concat(),
+            [global, state, accumulator_encoding].concat(),
             "global[0] (genesis_msg) set to ONE",
         );
     }
@@ -154,11 +156,12 @@ mod slow {
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let mut global = mock_prover_setup.global.as_public_input();
         let state = next_state.as_public_input();
-        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        let accumulator_encoding =
+            AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
         global[3] = F::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
-            [global, state, acc].concat(),
+            [global, state, accumulator_encoding].concat(),
             "global[3] (certificate_verifying_key_repr) set to ONE",
         );
     }
@@ -175,11 +178,12 @@ mod slow {
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let mut global = mock_prover_setup.global.as_public_input();
         let state = next_state.as_public_input();
-        let acc = AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
+        let accumulator_encoding =
+            AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator);
         global[4] = F::ONE;
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
-            [global, state, acc].concat(),
+            [global, state, accumulator_encoding].concat(),
             "global[4] (ivc_verifying_key_repr) set to ONE",
         );
     }

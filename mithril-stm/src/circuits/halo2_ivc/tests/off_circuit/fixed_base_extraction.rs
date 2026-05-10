@@ -1,5 +1,5 @@
-//! Tests that `extract_fixed_bases` correctly reclassifies variable-basis MSM
-//! terms into fixed-basis scalars, observable via changes in the public-input
+//! Tests that `extract_fixed_bases` correctly reclassifies variable-base MSM
+//! terms into fixed-base scalars, observable via changes in the public-input
 //! encoding length and composition.
 //!
 //! A freshly converted `DualMSM → Accumulator` has all KZG polynomial-commitment
@@ -66,8 +66,7 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
     // as a fixed-base entry. Net reduction = field_elements_per_base_point per base.
     //
     // field_elements_per_base_point is derived from trivial_acc, which has exactly one base
-    // and one scalar per side (lhs and rhs, i.e. left-hand side and right-hand side)
-    // with no fixed-base entries:
+    // and one scalar per side (left-hand side and right-hand side) with no fixed-base entries:
     //   trivial_acc(&[]).len() == 2 * (field_elements_per_base_point + 1)
     let (mut accumulator, recursive_fixed_bases) = build_unextracted_recursive_accumulator();
 
@@ -79,13 +78,12 @@ fn extract_fixed_bases_reduces_public_input_length_by_n_times_field_elements_per
     let encoding_length_before_extraction =
         AssignedAccumulator::as_public_input(&accumulator).len();
     accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    let encoding_length_after_extraction =
-        AssignedAccumulator::as_public_input(&accumulator).len();
+    let encoding_length_after_extraction = AssignedAccumulator::as_public_input(&accumulator).len();
 
     assert_eq!(
         encoding_length_before_extraction - encoding_length_after_extraction,
         fixed_base_count * field_elements_per_base_point,
-        "extract_fixed_bases must reduce as_public_input length by field_elements_per_base_point per extracted base",
+        "extract_fixed_bases should reduce as_public_input length by field_elements_per_base_point per extracted base"
     );
 }
 
@@ -108,7 +106,7 @@ fn extracted_fixed_base_scalars_are_non_trivial() {
             .rev()
             .take(fixed_base_count)
             .any(|f| !f.is_zero_vartime()),
-        "at least one extracted fixed-base scalar must be non-zero",
+        "at least one extracted fixed-base scalar should be non-zero"
     );
 }
 
@@ -118,16 +116,13 @@ fn extract_fixed_bases_does_not_affect_lhs() {
     // MSM encoding must be identical before and after the call.
     let (mut accumulator, recursive_fixed_bases) = build_unextracted_recursive_accumulator();
 
-    let lhs_encoding_before_extraction =
-        AssignedMsm::<S>::as_public_input(&accumulator.lhs());
+    let lhs_encoding_before_extraction = AssignedMsm::<S>::as_public_input(&accumulator.lhs());
     accumulator.extract_fixed_bases(&recursive_fixed_bases);
-    let lhs_encoding_after_extraction =
-        AssignedMsm::<S>::as_public_input(&accumulator.lhs());
+    let lhs_encoding_after_extraction = AssignedMsm::<S>::as_public_input(&accumulator.lhs());
 
     assert_eq!(
-        lhs_encoding_before_extraction,
-        lhs_encoding_after_extraction,
-        "lhs MSM encoding must be unchanged by extract_fixed_bases",
+        lhs_encoding_before_extraction, lhs_encoding_after_extraction,
+        "lhs MSM encoding should be unchanged by extract_fixed_bases"
     );
 }
 
