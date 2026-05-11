@@ -6,8 +6,9 @@
 //! All accumulators tested here were produced by the full off-circuit folding
 //! pipeline and stored in binary assets.
 
-use ff::Field;
 use std::ops::Neg;
+
+use ff::Field;
 
 use crate::circuits::halo2_ivc::{
     Accumulator, C, Msm, S,
