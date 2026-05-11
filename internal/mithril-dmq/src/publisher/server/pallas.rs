@@ -257,8 +257,8 @@ mod tests {
 
     async fn fake_msg() -> DmqMsg {
         DmqMsg {
+            msg_id: vec![0, 1],
             msg_payload: DmqMsgPayload {
-                msg_id: vec![0, 1],
                 msg_body: vec![0, 1, 2],
                 kes_period: 10,
                 expires_at: 100,

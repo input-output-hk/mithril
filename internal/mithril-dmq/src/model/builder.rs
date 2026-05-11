@@ -54,24 +54,17 @@ impl DmqMessageBuilder {
 
     /// Computes the deterministic message id of a DMQ message payload.
     ///
-    /// The message id is the `Blake2b_256` hash of the concatenation of the message body and the
-    /// expiration timestamp encoded as big endian bytes:
-    /// `Blake2b_256(msg_body || expires_at.to_be_bytes())`.
-    fn compute_msg_id(dmq_message_payload: &DmqMsgPayload) -> Vec<u8> {
+    /// The message id is the `Blake2b_256` hash of the payload's canonical
+    /// `bytes_to_sign()` representation:
+    /// `Blake2b_256(dmq_message_payload.bytes_to_sign()?)`.
+    ///
+    /// This keeps the message-id derivation aligned with the DMQ signing payload format,
+    /// using the same bytes as the canonical representation to sign.
+    fn compute_msg_id(dmq_message_payload_bytes_to_sign: &[u8]) -> Vec<u8> {
         let mut hasher = Blake2b::<U32>::new();
-        hasher.update(&dmq_message_payload.msg_body);
-        hasher.update(dmq_message_payload.expires_at.to_be_bytes());
+        hasher.update(dmq_message_payload_bytes_to_sign);
 
         hasher.finalize().to_vec()
-    }
-
-    /// Enriches a DMQ message payload with a computed message ID.
-    fn enrich_msg_payload_with_id(dmq_message_payload: DmqMsgPayload) -> DmqMsgPayload {
-        let msg_id = Self::compute_msg_id(&dmq_message_payload);
-        let mut dmq_message_payload_with_id = dmq_message_payload;
-        dmq_message_payload_with_id.msg_id = msg_id;
-
-        dmq_message_payload_with_id
     }
 
     /// Builds a DMQ message from the provided message bytes.
@@ -86,22 +79,25 @@ impl DmqMessageBuilder {
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();
-        let dmq_message_payload = Self::enrich_msg_payload_with_id(DmqMsgPayload {
-            msg_id: vec![],
+        let dmq_message_payload = DmqMsgPayload {
             msg_body: message_bytes.to_vec(),
             kes_period: kes_period.into(),
             expires_at,
-        });
+        };
+        let dmq_message_payload_bytes_to_sign = dmq_message_payload
+            .bytes_to_sign()
+            .with_context(|| "Failed to get bytes to sign for DMQ message payload")?;
 
         let (kes_signature, operational_certificate) = self
             .kes_signer
-            .sign(&dmq_message_payload.bytes_to_sign()?, kes_period)
+            .sign(&dmq_message_payload_bytes_to_sign, kes_period)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
         let operational_certificate_without_cold_verification_key =
             operational_certificate.get_opcert_without_cold_verification_key();
         let cold_verification_key = operational_certificate.get_cold_verification_key();
 
         let dmq_message = DmqMsg {
+            msg_id: Self::compute_msg_id(&dmq_message_payload_bytes_to_sign),
             msg_payload: dmq_message_payload,
             kes_signature: kes_signature.to_bytes_vec()?,
             operational_certificate: DmqMsgOperationalCertificate {
@@ -184,14 +180,16 @@ mod tests {
 
         let dmq_message = builder.build(&message.to_bytes_vec().unwrap()).await.unwrap();
 
-        let expected_msg_payload = DmqMessageBuilder::enrich_msg_payload_with_id(DmqMsgPayload {
-            msg_id: vec![],
+        let expected_msg_payload = DmqMsgPayload {
             msg_body: b"test".to_vec(),
             kes_period: 0,
             expires_at: 1234,
-        });
+        };
         assert_eq!(
             DmqMsg {
+                msg_id: DmqMessageBuilder::compute_msg_id(
+                    &expected_msg_payload.bytes_to_sign().unwrap()
+                ),
                 msg_payload: expected_msg_payload.clone(),
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
                 operational_certificate: DmqMsgOperationalCertificate {
@@ -232,13 +230,12 @@ mod tests {
         use super::*;
 
         const GOLDEN_MSG_ID: &[u8] = &[
-            96, 246, 205, 112, 157, 44, 181, 45, 248, 222, 204, 111, 170, 75, 91, 159, 253, 249,
-            223, 107, 102, 132, 86, 251, 66, 110, 191, 31, 187, 122, 236, 28,
+            202, 230, 133, 93, 29, 204, 161, 252, 87, 183, 156, 101, 193, 251, 172, 245, 171, 98,
+            179, 213, 232, 216, 239, 9, 94, 155, 194, 226, 246, 17, 50, 185,
         ];
 
         fn golden_payload() -> DmqMsgPayload {
             DmqMsgPayload {
-                msg_id: vec![],
                 msg_body: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 kes_period: 123,
                 expires_at: 123456,
@@ -247,7 +244,8 @@ mod tests {
 
         #[test]
         fn golden_msg_id() {
-            let computed_msg_id = DmqMessageBuilder::compute_msg_id(&golden_payload());
+            let computed_msg_id =
+                DmqMessageBuilder::compute_msg_id(&golden_payload().bytes_to_sign().unwrap());
 
             assert_eq!(GOLDEN_MSG_ID, computed_msg_id);
         }

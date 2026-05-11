@@ -120,7 +120,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
                 debug!(
                     self.logger,
                     "Received DMQ message";
-                    "msg_id" => hex::encode(&dmq_message.msg_payload.msg_id),
+                    "msg_id" => hex::encode(&dmq_message.msg_id),
                     "kes_period" => dmq_message.msg_payload.kes_period,
                     "expires_at" => dmq_message.msg_payload.expires_at,
                 );
@@ -198,8 +198,8 @@ mod tests {
     fn fake_msgs() -> Vec<DmqMsg> {
         vec![
             DmqMsg {
+                msg_id: vec![0, 1],
                 msg_payload: DmqMsgPayload {
-                    msg_id: vec![0, 1],
                     msg_body: DmqMessageTestPayload::new(b"msg_1").to_bytes_vec().unwrap(),
                     kes_period: 10,
                     expires_at: 100,
@@ -225,8 +225,8 @@ mod tests {
                 ],
             },
             DmqMsg {
+                msg_id: vec![1, 2],
                 msg_payload: DmqMsgPayload {
-                    msg_id: vec![1, 2],
                     msg_body: DmqMessageTestPayload::new(b"msg_2").to_bytes_vec().unwrap(),
                     kes_period: 11,
                     expires_at: 101,
