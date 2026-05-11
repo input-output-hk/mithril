@@ -48,6 +48,8 @@ impl DependenciesBuilder {
             &self.configuration.db_directory(),
             self.root_logger(),
         ));
+        #[cfg(feature = "future_snark")]
+        let era_fetcher = self.get_era_checker().await?;
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
@@ -55,6 +57,8 @@ impl DependenciesBuilder {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            #[cfg(feature = "future_snark")]
+            era_fetcher,
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             seed_signable_builder,

@@ -7,14 +7,11 @@ use crate::{
     StdResult,
     entities::{
         BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch, ProtocolMessage,
-        ProtocolMessagePartKey, SignedEntityType,
+        ProtocolMessagePartKey, SignedEntityType, SupportedEra,
     },
     logging::LoggerExtensions,
     signable_builder::{SignableBuilder, SignableSeedBuilder},
 };
-
-#[cfg(feature = "future_snark")]
-use crate::entities::SupportedEra;
 
 /// ArtifactBuilder Service trait
 #[cfg_attr(test, mockall::automock)]
@@ -27,6 +24,14 @@ pub trait SignableBuilderService: Send + Sync {
     ) -> StdResult<ProtocolMessage>;
 }
 
+/// ArtifactBuilder Service trait
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait SignableBuilderServiceEraFetcher: Send + Sync {
+    /// Compute signable from signed entity type
+    async fn compute_current_era(&self) -> StdResult<SupportedEra>;
+}
+
 /// Mithril Signable Builder Service
 pub struct MithrilSignableBuilderService {
     seed_signable_builder: Arc<dyn SignableSeedBuilder>,
@@ -37,6 +42,8 @@ pub struct MithrilSignableBuilderService {
         Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    #[cfg(feature = "future_snark")]
+    era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
     logger: Logger,
 }
 
@@ -49,6 +56,8 @@ pub struct SignableBuilderServiceDependencies {
         Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    #[cfg(feature = "future_snark")]
+    era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
 }
 
 impl SignableBuilderServiceDependencies {
@@ -62,6 +71,7 @@ impl SignableBuilderServiceDependencies {
         >,
         cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
         cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+        #[cfg(feature = "future_snark")] era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
     ) -> Self {
         Self {
             mithril_stake_distribution_builder,
@@ -70,6 +80,8 @@ impl SignableBuilderServiceDependencies {
             cardano_blocks_transactions_signable_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            #[cfg(feature = "future_snark")]
+            era_fetcher,
         }
     }
 }
@@ -91,6 +103,8 @@ impl MithrilSignableBuilderService {
                 .cardano_blocks_transactions_signable_builder,
             cardano_stake_distribution_builder: dependencies.cardano_stake_distribution_builder,
             cardano_database_signable_builder: dependencies.cardano_database_signable_builder,
+            #[cfg(feature = "future_snark")]
+            era_fetcher: dependencies.era_fetcher,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -184,7 +198,7 @@ impl MithrilSignableBuilderService {
 
         #[cfg(feature = "future_snark")]
         {
-            let era = self.seed_signable_builder.compute_current_era().await?;
+            let era = self.era_fetcher.compute_current_era().await?;
             match era {
                 SupportedEra::Lagrange => {
                     if !has_next_snark_aggregate_verification_key {
@@ -256,6 +270,8 @@ mod tests {
             MockSignableBuilderImpl<(BlockNumber, BlockNumberOffset)>,
         mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
         mock_cardano_database_signable_builder: MockSignableBuilderImpl<CardanoDbBeacon>,
+        #[cfg(feature = "future_snark")]
+        mock_era_fetcher: MockSignableBuilderServiceEraFetcher,
     }
 
     impl MockDependencyInjector {
@@ -268,6 +284,8 @@ mod tests {
                 mock_cardano_blocks_transactions_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_database_signable_builder: MockSignableBuilderImpl::new(),
+                #[cfg(feature = "future_snark")]
+                mock_era_fetcher: MockSignableBuilderServiceEraFetcher::new(),
             }
         }
 
@@ -279,6 +297,8 @@ mod tests {
                 Arc::new(self.mock_cardano_blocks_transactions_signable_builder),
                 Arc::new(self.mock_cardano_stake_distribution_signable_builder),
                 Arc::new(self.mock_cardano_database_signable_builder),
+                #[cfg(feature = "future_snark")]
+                Arc::new(self.mock_era_fetcher),
             );
 
             MithrilSignableBuilderService::new(
@@ -314,7 +334,7 @@ mod tests {
             .return_once(move || Ok("epoch-123".to_string()));
         #[cfg(feature = "future_snark")]
         mock_container
-            .mock_signable_seed_builder
+            .mock_era_fetcher
             .expect_compute_current_era()
             .once()
             .return_once(move || Ok(crate::entities::SupportedEra::Pythagoras));
@@ -471,7 +491,7 @@ mod tests {
                 .once()
                 .return_once(move || Ok("7".to_string()));
             mock_container
-                .mock_signable_seed_builder
+                .mock_era_fetcher
                 .expect_compute_current_era()
                 .once()
                 .return_once(move || Ok(era));

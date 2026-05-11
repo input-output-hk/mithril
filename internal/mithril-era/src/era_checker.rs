@@ -1,7 +1,9 @@
 use std::sync::RwLock;
 
+use mithril_common::StdResult;
 use mithril_common::api_version::ApiVersionDiscriminantSource;
 use mithril_common::entities::{Epoch, SupportedEra};
+use mithril_common::signable_builder::SignableBuilderServiceEraFetcher;
 
 struct SupportedEraStamp {
     era: SupportedEra,
@@ -50,6 +52,13 @@ impl EraChecker {
 impl ApiVersionDiscriminantSource for EraChecker {
     fn get_discriminant(&self) -> String {
         self.current_era().to_string()
+    }
+}
+
+#[async_trait::async_trait]
+impl SignableBuilderServiceEraFetcher for EraChecker {
+    async fn compute_current_era(&self) -> StdResult<SupportedEra> {
+        Ok(self.current_era())
     }
 }
 

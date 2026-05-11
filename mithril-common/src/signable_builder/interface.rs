@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use std::fmt::Debug;
 
-#[cfg(feature = "future_snark")]
-use crate::entities::SupportedEra;
 use crate::{
     StdResult,
     entities::{
@@ -55,10 +53,6 @@ pub trait SignableSeedBuilder: Send + Sync {
 
     /// Compute current epoch protocol message part value
     async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue>;
-
-    /// Compute the current Mithril era
-    #[cfg(feature = "future_snark")]
-    async fn compute_current_era(&self) -> StdResult<SupportedEra>;
 }
 
 impl Beacon for BlockNumber {}
