@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.17 (05-11-2026)
+
+### Added
+
+- Rigid slot bytes creation for SNARK aggregate verification key and parameters.
+
 ## 0.10.16 (05-07-2026)
 
 ### Changed

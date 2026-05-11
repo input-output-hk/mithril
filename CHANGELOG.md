@@ -15,6 +15,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implemented new message id format for the DMQ message to follow specification of the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
 
+- **UNSTABLE**:
+  - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
+
 | Crate | Version |
 | ----- | ------- |
 | N/A   | `-`     |
