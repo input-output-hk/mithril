@@ -242,6 +242,85 @@ mod fallible_conversions {
     }
 }
 
+mod comparison {
+    use super::*;
+
+    impl PartialEq<SignedEntityTypeMessage> for SignedEntityType {
+        fn eq(&self, other: &SignedEntityTypeMessage) -> bool {
+            match (self, other) {
+                (
+                    SignedEntityType::MithrilStakeDistribution(other_epoch),
+                    SignedEntityTypeMessage::MithrilStakeDistribution(epoch),
+                ) => epoch.eq(&other_epoch),
+                (
+                    SignedEntityType::CardanoStakeDistribution(other_epoch),
+                    SignedEntityTypeMessage::CardanoStakeDistribution(epoch),
+                ) => epoch.eq(&other_epoch),
+                (
+                    SignedEntityType::CardanoImmutableFilesFull(other_beacon),
+                    SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon),
+                ) => beacon.eq(other_beacon),
+                (
+                    SignedEntityType::CardanoDatabase(other_beacon),
+                    SignedEntityTypeMessage::CardanoDatabase(beacon),
+                ) => beacon.eq(other_beacon),
+                (
+                    SignedEntityType::CardanoTransactions(other_epoch, other_block),
+                    SignedEntityTypeMessage::CardanoTransactions(epoch, block),
+                ) => epoch.eq(&other_epoch) && block.eq(&other_block),
+                (
+                    SignedEntityType::CardanoBlocksTransactions(
+                        other_epoch,
+                        other_block,
+                        other_offset,
+                    ),
+                    SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset),
+                ) => epoch.eq(&other_epoch) && block.eq(&other_block) && offset.eq(&other_offset),
+                _ => false,
+            }
+        }
+    }
+
+    impl PartialEq<SignedEntityType> for SignedEntityTypeMessage {
+        fn eq(&self, other: &SignedEntityType) -> bool {
+            other.eq(self)
+        }
+    }
+
+    impl PartialEq<SignedEntityTypeDiscriminantsMessage> for SignedEntityTypeDiscriminants {
+        fn eq(&self, other: &SignedEntityTypeDiscriminantsMessage) -> bool {
+            matches!(
+                (self, other),
+                (
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                    SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions,
+                )
+            )
+        }
+    }
+
+    impl PartialEq<SignedEntityTypeDiscriminants> for SignedEntityTypeDiscriminantsMessage {
+        fn eq(&self, other: &SignedEntityTypeDiscriminants) -> bool {
+            other.eq(self)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::assert_equivalent;
@@ -473,6 +552,64 @@ mod tests {
         fn unknown_signed_entity_type_discriminant() {
             let discriminant = SignedEntityTypeDiscriminantsMessage::from("not_exist");
             assert_eq!(discriminant, SignedEntityTypeDiscriminantsMessage::Unknown);
+        }
+    }
+
+    mod comparison {
+        use super::*;
+
+        fn alter_entity(entity: &SignedEntityType) -> SignedEntityType {
+            match entity.clone() {
+                SignedEntityType::MithrilStakeDistribution(epoch) => {
+                    SignedEntityType::MithrilStakeDistribution(epoch + 1)
+                }
+                SignedEntityType::CardanoStakeDistribution(epoch) => {
+                    SignedEntityType::CardanoStakeDistribution(epoch + 1)
+                }
+                SignedEntityType::CardanoImmutableFilesFull(beacon) => {
+                    SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                        *beacon.epoch + 1,
+                        beacon.immutable_file_number + 5,
+                    ))
+                }
+                SignedEntityType::CardanoDatabase(beacon) => SignedEntityType::CardanoDatabase(
+                    CardanoDbBeacon::new(*beacon.epoch + 1, beacon.immutable_file_number + 5),
+                ),
+                SignedEntityType::CardanoTransactions(epoch, block) => {
+                    SignedEntityType::CardanoTransactions(epoch + 1, block + 1)
+                }
+                SignedEntityType::CardanoBlocksTransactions(epoch, block, offset) => {
+                    SignedEntityType::CardanoBlocksTransactions(epoch + 1, block + 1, offset + 1)
+                }
+            }
+        }
+
+        #[test]
+        fn discriminant_message_equals_discriminant_and_reverse() {
+            for (_, discriminant, _, discriminant_message) in infallible_conversion_cases() {
+                assert_eq!(discriminant_message, discriminant);
+                assert_eq!(discriminant, discriminant_message);
+            }
+        }
+
+        #[test]
+        fn message_equals_entity_and_reverse() {
+            for (entity, _, message, _) in infallible_conversion_cases() {
+                assert_eq!(message, entity);
+                assert_eq!(entity, message);
+                assert_ne!(message, alter_entity(&entity));
+                assert_ne!(alter_entity(&entity), message);
+            }
+        }
+
+        #[test]
+        fn unknown_messages_do_not_equal_entities() {
+            for (entity, discriminant, _, _) in infallible_conversion_cases() {
+                assert_ne!(entity, SignedEntityTypeMessage::Unknown);
+                assert_ne!(SignedEntityTypeMessage::Unknown, entity);
+                assert_ne!(discriminant, SignedEntityTypeDiscriminantsMessage::Unknown);
+                assert_ne!(SignedEntityTypeDiscriminantsMessage::Unknown, discriminant);
+            }
         }
     }
 }
