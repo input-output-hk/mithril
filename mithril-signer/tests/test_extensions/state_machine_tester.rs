@@ -285,6 +285,8 @@ impl StateMachineTester {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            #[cfg(feature = "future_snark")]
+            era_checker.clone(),
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             signable_seed_builder_service,
