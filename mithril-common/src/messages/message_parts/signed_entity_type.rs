@@ -43,6 +43,40 @@ pub enum SignedEntityTypeMessage {
     Unknown,
 }
 
+impl SignedEntityTypeMessage {
+    /// Checks if the current instance of `SignedEntityTypeMessage` is a known type.
+    pub fn is_known(&self) -> bool {
+        !matches!(self, SignedEntityTypeMessage::Unknown)
+    }
+
+    /// Converts the message into a [SignedEntityType].
+    ///
+    /// Returns `None` for unknown values.
+    pub fn into_entity(self) -> Option<SignedEntityType> {
+        match self {
+            SignedEntityTypeMessage::MithrilStakeDistribution(epoch) => {
+                Some(SignedEntityType::MithrilStakeDistribution(epoch))
+            }
+            SignedEntityTypeMessage::CardanoStakeDistribution(epoch) => {
+                Some(SignedEntityType::CardanoStakeDistribution(epoch))
+            }
+            SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {
+                Some(SignedEntityType::CardanoImmutableFilesFull(beacon))
+            }
+            SignedEntityTypeMessage::CardanoDatabase(beacon) => {
+                Some(SignedEntityType::CardanoDatabase(beacon))
+            }
+            SignedEntityTypeMessage::CardanoTransactions(epoch, block) => {
+                Some(SignedEntityType::CardanoTransactions(epoch, block))
+            }
+            SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset) => Some(
+                SignedEntityType::CardanoBlocksTransactions(epoch, block, offset),
+            ),
+            SignedEntityTypeMessage::Unknown => None,
+        }
+    }
+}
+
 impl SignedEntityTypeDiscriminantsMessage {
     /// Get all the discriminants without unstable values
     pub fn all() -> BTreeSet<Self> {
@@ -50,6 +84,52 @@ impl SignedEntityTypeDiscriminantsMessage {
         SignedEntityTypeDiscriminants::all()
             .into_iter()
             .map(Self::from)
+            .collect()
+    }
+
+    /// Checks if the current instance of `SignedEntityTypeDiscriminantsMessage` is a known type.
+    pub fn is_known(&self) -> bool {
+        !matches!(self, SignedEntityTypeDiscriminantsMessage::Unknown)
+    }
+
+    /// Converts the message into a [SignedEntityTypeDiscriminants].
+    ///
+    /// Returns `None` for unknown values.
+    pub fn into_discriminant(self) -> Option<SignedEntityTypeDiscriminants> {
+        match self {
+            SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution => {
+                Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            }
+            SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution => {
+                Some(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
+            }
+            SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull => {
+                Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+            }
+            SignedEntityTypeDiscriminantsMessage::CardanoDatabase => {
+                Some(SignedEntityTypeDiscriminants::CardanoDatabase)
+            }
+            SignedEntityTypeDiscriminantsMessage::CardanoTransactions => {
+                Some(SignedEntityTypeDiscriminants::CardanoTransactions)
+            }
+            SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions => {
+                Some(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
+            }
+            SignedEntityTypeDiscriminantsMessage::Unknown => None,
+        }
+    }
+
+    /// Convert an iterator of `SignedEntityTypeDiscriminantsMessage` into an iterator of `SignedEntityTypeDiscriminants`
+    ///
+    /// Instead of failing, any [SignedEntityTypeDiscriminantsMessage::Unknown] will be discarded
+    pub fn into_known_discriminants<
+        T: IntoIterator<Item = Self>,
+        B: FromIterator<SignedEntityTypeDiscriminants>,
+    >(
+        iter: T,
+    ) -> B {
+        iter.into_iter()
+            .filter_map(|message| message.into_discriminant())
             .collect()
     }
 }
@@ -173,27 +253,7 @@ mod fallible_conversions {
         type Error = UnknownSignedEntityTypeError;
 
         fn try_from(value: SignedEntityTypeMessage) -> Result<Self, Self::Error> {
-            match value {
-                SignedEntityTypeMessage::MithrilStakeDistribution(epoch) => {
-                    Ok(SignedEntityType::MithrilStakeDistribution(epoch))
-                }
-                SignedEntityTypeMessage::CardanoStakeDistribution(epoch) => {
-                    Ok(SignedEntityType::CardanoStakeDistribution(epoch))
-                }
-                SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {
-                    Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))
-                }
-                SignedEntityTypeMessage::CardanoDatabase(beacon) => {
-                    Ok(SignedEntityType::CardanoDatabase(beacon))
-                }
-                SignedEntityTypeMessage::CardanoTransactions(epoch, block) => {
-                    Ok(SignedEntityType::CardanoTransactions(epoch, block))
-                }
-                SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset) => Ok(
-                    SignedEntityType::CardanoBlocksTransactions(epoch, block, offset),
-                ),
-                SignedEntityTypeMessage::Unknown => Err(UnknownSignedEntityTypeError),
-            }
+            value.into_entity().ok_or(UnknownSignedEntityTypeError)
         }
     }
 
@@ -229,27 +289,7 @@ mod fallible_conversions {
         type Error = UnknownSignedEntityTypeError;
 
         fn try_from(value: SignedEntityTypeDiscriminantsMessage) -> Result<Self, Self::Error> {
-            match value {
-                SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution => {
-                    Ok(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-                }
-                SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
-                }
-                SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-                }
-                SignedEntityTypeDiscriminantsMessage::CardanoDatabase => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoDatabase)
-                }
-                SignedEntityTypeDiscriminantsMessage::CardanoTransactions => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoTransactions)
-                }
-                SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
-                }
-                SignedEntityTypeDiscriminantsMessage::Unknown => Err(UnknownSignedEntityTypeError),
-            }
+            value.into_discriminant().ok_or(UnknownSignedEntityTypeError)
         }
     }
 }
@@ -461,6 +501,27 @@ mod tests {
                 )
             }
         }
+
+        #[test]
+        fn into_entity_returns_some_for_known_messages() {
+            for (entity, _, message, _) in infallible_conversion_cases() {
+                assert_eq!(Some(entity), message.into_entity())
+            }
+
+            assert_eq!(None, SignedEntityTypeMessage::Unknown.into_entity());
+        }
+
+        #[test]
+        fn into_discriminant_returns_some_for_known_messages() {
+            for (_, discriminant, _, discriminant_message) in infallible_conversion_cases() {
+                assert_eq!(Some(discriminant), discriminant_message.into_discriminant())
+            }
+
+            assert_eq!(
+                None,
+                SignedEntityTypeDiscriminantsMessage::Unknown.into_discriminant()
+            );
+        }
     }
 
     mod fallible_conversions {
@@ -579,6 +640,65 @@ mod tests {
         fn unknown_signed_entity_type_discriminant() {
             let discriminant = SignedEntityTypeDiscriminantsMessage::from("not_exist");
             assert_eq!(discriminant, SignedEntityTypeDiscriminantsMessage::Unknown);
+        }
+    }
+
+    mod convert_iterable_into_known_discriminants {
+        use super::*;
+
+        #[test]
+        fn converts_all_known_discriminants_message() {
+            let discriminants_message: Vec<_> = infallible_conversion_cases()
+                .into_iter()
+                .map(|(_, _, _, message)| message)
+                .collect();
+
+            let converted: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(
+                    discriminants_message,
+                );
+            assert_eq!(
+                converted,
+                SignedEntityTypeDiscriminants::all_with_unstable_vec()
+            );
+        }
+
+        #[test]
+        fn discards_unknown_discriminants() {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                    SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                ]);
+
+            assert_eq!(
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ],
+                discriminants
+            );
+        }
+
+        #[test]
+        fn returns_empty_collection_when_input_is_empty() {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![]);
+
+            assert_eq!(Vec::<SignedEntityTypeDiscriminants>::new(), discriminants);
+        }
+
+        #[test]
+        fn returns_empty_collection_when_input_contains_only_unknown_discriminants() {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                ]);
+
+            assert_eq!(Vec::<SignedEntityTypeDiscriminants>::new(), discriminants);
         }
     }
 
