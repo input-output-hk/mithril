@@ -227,7 +227,10 @@ mod tests {
     #[tokio::test]
     async fn eventual_eventual_inconsistent_discriminants_are_removed_from_enabled_list() {
         let configuration_epoch_56 = ProtocolConfigurationMessage {
-            available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            available_signed_entity_types: SignedEntityTypeDiscriminants::all_with_unstable()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             cardano_transactions_signing_config: None,
             cardano_blocks_transactions_signing_config: None,
             ..Dummy::dummy()
@@ -265,7 +268,10 @@ mod tests {
     #[tokio::test]
     async fn all_known_discriminants_including_unstable_can_be_read() {
         let configuration_epoch_56 = ProtocolConfigurationMessage {
-            available_signed_entity_types: SignedEntityTypeDiscriminants::all_with_unstable(),
+            available_signed_entity_types: SignedEntityTypeDiscriminants::all_with_unstable()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             ..Dummy::dummy()
         };
 

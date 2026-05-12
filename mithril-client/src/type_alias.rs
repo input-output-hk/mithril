@@ -100,6 +100,7 @@ pub mod common {
     };
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
+        SignedEntityTypeDiscriminantsMessage, SignedEntityTypeMessage,
     };
 
     /// Test utilities.

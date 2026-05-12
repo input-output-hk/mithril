@@ -7,16 +7,13 @@ use std::{path::Path, sync::Arc};
 use mithril_cardano_node_internal_database::digesters::{
     CardanoImmutableDigester, ImmutableDigester,
 };
-#[cfg(feature = "fs")]
-use mithril_common::entities::SignedEntityType;
 use mithril_common::{
     crypto_helper::ProtocolKey, logging::LoggerExtensions, protocol::SignerBuilder,
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
 
 #[cfg(feature = "fs")]
-use mithril_common::crypto_helper::MKProof;
-
+use crate::common::{MKProof, SignedEntityTypeMessage};
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
     MithrilStakeDistribution, VerifiedCardanoTransactions,
@@ -80,7 +77,7 @@ impl MessageBuilder {
             let digester = self.get_immutable_digester(&snapshot_certificate.metadata.network);
             let beacon =
                 match &snapshot_certificate.signed_entity_type {
-                SignedEntityType::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
+                SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
                 other => {
                     Err(anyhow::anyhow!(
                     "Can't compute message: Given certificate `{}` does not certify a snapshot, certificate signed entity: {:?}",
