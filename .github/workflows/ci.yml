@@ -254,6 +254,10 @@ jobs:
         shell: bash
         run: cargo machete
 
+      - name: Run crates versions consistency check
+        shell: bash
+        run: ./.github/workflows/scripts/crate-version-checker/crate-version-checker.sh
+
       - name: Dependency & Vulnerabilities Review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v4
