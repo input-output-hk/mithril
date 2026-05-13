@@ -68,7 +68,6 @@ pub use verify_cache::MemoryCertificateVerifierCache;
 
 #[cfg(test)]
 pub(crate) mod tests_utils {
-    use mithril_common::crypto_helper::GenesisEd25519VerificationKey;
     use mithril_common::entities::Certificate;
     use mithril_common::messages::CertificateMessage;
     use mockall::predicate::eq;
@@ -97,11 +96,8 @@ pub(crate) mod tests_utils {
             self
         }
 
-        pub fn with_genesis_verification_key(
-            mut self,
-            genesis_verification_key: GenesisEd25519VerificationKey,
-        ) -> Self {
-            self.genesis_verification_key = Some(genesis_verification_key.try_into().unwrap());
+        pub fn with_genesis_verification_key(mut self, genesis_verification_key: String) -> Self {
+            self.genesis_verification_key = Some(genesis_verification_key);
             self
         }
 

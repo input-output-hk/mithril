@@ -2,21 +2,14 @@ use std::cmp::min;
 use std::collections::{BTreeSet, HashMap};
 use std::iter::repeat_n;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 
 use mithril_stm::AggregateSignatureType;
-#[cfg(feature = "future_snark")]
-use rand_chacha::ChaCha20Rng;
-#[cfg(feature = "future_snark")]
-use rand_core::SeedableRng;
 
-#[cfg(feature = "future_snark")]
-use crate::crypto_helper::GenesisSchnorrSigner;
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        GenesisEd25519Signer, GenesisEd25519Verifier, ProtocolAggregateVerificationKey,
-        ProtocolClerk, ProtocolParameters,
+        GenesisSigner, GenesisVerifier, ProtocolAggregateVerificationKey, ProtocolClerk,
+        ProtocolParameters,
     },
     entities::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
@@ -30,7 +23,7 @@ use crate::{
 
 /// Genesis certificate processor function type. For tests only.
 type GenesisCertificateProcessorFunc =
-    dyn Fn(Certificate, &CertificateChainBuilderContext, &GenesisEd25519Signer) -> Certificate;
+    dyn Fn(Certificate, &CertificateChainBuilderContext, &GenesisSigner) -> Certificate;
 
 /// Standard certificate processor function type. For tests only.
 type StandardCertificateProcessorFunc =
@@ -127,7 +120,7 @@ pub struct CertificateChainFixture {
     /// The full certificates list, ordered from latest to genesis
     pub certificates_chained: Vec<Certificate>,
     /// The genesis verifier associated with this chain genesis certificate
-    pub genesis_verifier: GenesisEd25519Verifier,
+    pub genesis_verifier: GenesisVerifier,
 }
 
 impl Deref for CertificateChainFixture {
@@ -411,9 +404,10 @@ impl<'a> CertificateChainBuilder<'a> {
         clerk.compute_aggregate_verification_key()
     }
 
-    fn setup_genesis() -> (GenesisEd25519Signer, GenesisEd25519Verifier) {
-        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
-        let genesis_verifier = genesis_signer.create_verifier();
+    fn setup_genesis() -> (GenesisSigner, GenesisVerifier) {
+        let genesis_signer = GenesisSigner::create_deterministic_signer();
+        let genesis_verifier =
+            GenesisVerifier::from_bundle(genesis_signer.verification_key_bundle());
 
         (genesis_signer, genesis_verifier)
     }
@@ -512,23 +506,14 @@ impl<'a> CertificateChainBuilder<'a> {
     fn build_genesis_certificate(
         &self,
         context: &CertificateChainBuilderContext,
-        genesis_signer: &GenesisEd25519Signer,
+        genesis_signer: &GenesisSigner,
         mithril_era: SupportedEra,
     ) -> Certificate {
         let epoch = context.epoch;
         let certificate = self.build_base_certificate(context);
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
-        let genesis_producer_builder =
-            CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.to_owned())));
-        #[cfg(feature = "future_snark")]
-        let genesis_producer = {
-            let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
-            let schnorr_signer = Arc::new(GenesisSchnorrSigner::generate(&mut rng));
-            genesis_producer_builder.with_snark_genesis_signer(schnorr_signer)
-        };
-        #[cfg(not(feature = "future_snark"))]
-        let genesis_producer = genesis_producer_builder;
+        let genesis_producer = CertificateGenesisProducer::new();
 
         let genesis_protocol_message = genesis_producer
             .create_genesis_protocol_message(
@@ -538,8 +523,8 @@ impl<'a> CertificateChainBuilder<'a> {
                 mithril_era,
             )
             .unwrap();
-        let genesis_signature = genesis_producer
-            .sign_genesis_protocol_message(genesis_protocol_message)
+        let signature = genesis_signer
+            .sign_deterministic(&genesis_protocol_message, mithril_era)
             .unwrap();
 
         genesis_producer
@@ -548,7 +533,7 @@ impl<'a> CertificateChainBuilder<'a> {
                 certificate.metadata.network,
                 certificate.epoch,
                 next_avk,
-                genesis_signature,
+                signature,
                 mithril_era,
             )
             .unwrap()

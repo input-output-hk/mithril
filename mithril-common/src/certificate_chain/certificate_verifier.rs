@@ -468,28 +468,18 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "certificate_signed_entity_type" => ?certificate.signed_entity_type(),
         );
 
-        match &certificate.signature {
-            CertificateSignature::GenesisSignature(_) => {
-                self.verify_genesis_certificate(certificate, genesis_verification_key)
-                    .await?;
+        if certificate.is_genesis() {
+            self.verify_genesis_certificate(certificate, genesis_verification_key)
+                .await?;
 
-                Ok(None)
-            }
-            #[cfg(feature = "future_snark")]
-            CertificateSignature::GenesisDualSignature(_, _) => {
-                self.verify_genesis_certificate(certificate, genesis_verification_key)
-                    .await?;
-
-                Ok(None)
-            }
-            CertificateSignature::MultiSignature(_, _) => {
-                let previous_certificate = self.fetch_previous_certificate(certificate).await?;
-                self.verify_standard_certificate(certificate, &previous_certificate)
-                    .await?;
-
-                Ok(Some(previous_certificate))
-            }
+            return Ok(None);
         }
+
+        let previous_certificate = self.fetch_previous_certificate(certificate).await?;
+        self.verify_standard_certificate(certificate, &previous_certificate)
+            .await?;
+
+        Ok(Some(previous_certificate))
     }
 }
 
@@ -618,7 +608,7 @@ mod tests {
         let verify = verifier
             .verify_genesis_certificate(
                 genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await;
 
@@ -631,7 +621,8 @@ mod tests {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let verifier = MockDependencyInjector::new().build_certificate_verifier();
-        let bundle = fake_certificates.genesis_verifier.verification_key_bundle();
+        let genesis_verification_key =
+            fake_certificates.genesis_verifier.to_ed25519_verification_key();
         let ed_signature = match &fake_certificates.genesis_certificate().signature {
             CertificateSignature::GenesisSignature(signature) => *signature,
             other => panic!("expected a legacy genesis signature, got {other:?}"),
@@ -648,7 +639,7 @@ mod tests {
             genesis_certificate.hash = genesis_certificate.compute_hash();
 
             verifier
-                .verify_genesis_certificate(&genesis_certificate, &bundle)
+                .verify_genesis_certificate(&genesis_certificate, &genesis_verification_key)
                 .await
                 .expect("the Schnorr half is intentionally not verified, so this must succeed");
         }
@@ -667,7 +658,7 @@ mod tests {
         let error = verifier
             .verify_genesis_certificate(
                 &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_genesis_certificate should fail");
@@ -689,7 +680,7 @@ mod tests {
         let error = verifier
             .verify_genesis_certificate(
                 &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_genesis_certificate should fail");
@@ -712,7 +703,7 @@ mod tests {
         let error = verifier
             .verify_genesis_certificate(
                 &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_genesis_certificate should fail");
@@ -735,7 +726,7 @@ mod tests {
         let error = verifier
             .verify_genesis_certificate(
                 &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_genesis_certificate should fail");
@@ -1022,7 +1013,7 @@ mod tests {
         let verify = verifier
             .verify_certificate(
                 genesis_certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await;
 
@@ -1046,7 +1037,7 @@ mod tests {
         let verify = verifier
             .verify_certificate(
                 &certificate,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await;
 
@@ -1114,7 +1105,7 @@ mod tests {
         let verify = verifier
             .verify_certificate_chain(
                 fake_certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await;
 
@@ -1135,7 +1126,7 @@ mod tests {
         let verify = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await;
         verify.expect("verify_certificate_chain should not fail");
@@ -1157,7 +1148,7 @@ mod tests {
         let error = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_certificate_chain should fail");
@@ -1245,7 +1236,7 @@ mod tests {
         let error = verifier
             .verify_certificate(
                 &certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .expect_err("verify_certificate_chain should fail");
