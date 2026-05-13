@@ -72,7 +72,7 @@ for crate_dependency in "${crates_dependencies_to_check[@]}"; do
     if [[ -n "${mismatches}" ]]; then
     echo -e "${RED} -> KO${RESET}"
     while IFS='|' read -r package_name found_version; do
-        echo -e "${RED}ERROR:${RESET} ${package_name} depends to ${crate_dependency} with version ${RED}${found_version}${RESET}"
+        echo -e "${RED}ERROR:${RESET} ${package_name} depends on ${crate_dependency} with version ${RED}${found_version}${RESET}"
 
         has_warning=1
     done <<< "${mismatches}"
