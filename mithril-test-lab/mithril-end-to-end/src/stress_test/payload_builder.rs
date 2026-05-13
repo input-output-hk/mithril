@@ -9,10 +9,9 @@ use mithril_cardano_node_internal_database::{
 use mithril_common::{
     StdResult,
     entities::{
-        CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SignedEntityType, Signer,
+        CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, Signer,
     },
-    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage, SignedEntityTypeMessage},
     protocol::ToMessage,
     test::builder::{MithrilFixture, MithrilFixtureBuilder},
 };
@@ -94,7 +93,9 @@ pub async fn compute_mithril_stake_distribution_signatures(
                     .sign_all(&mithril_stake_distribution_message)
                     .into_iter()
                     .map(|s| RegisterSignatureMessageHttp {
-                        signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+                        signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(
+                            epoch,
+                        ),
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
                         won_indexes: s.won_indexes.clone(),
@@ -165,7 +166,7 @@ pub async fn compute_immutable_files_signatures(
                     .sign_all(&cardano_immutable_files_full_message)
                     .into_iter()
                     .map(|s| RegisterSignatureMessageHttp {
-                        signed_entity_type: SignedEntityType::CardanoDatabase(
+                        signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(
                             CardanoDbBeacon::new(*epoch, immutable_file_number),
                         ),
                         party_id: s.party_id.clone(),
