@@ -5,7 +5,13 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use mithril_stm::AggregateSignatureType;
+#[cfg(feature = "future_snark")]
+use rand_chacha::ChaCha20Rng;
+#[cfg(feature = "future_snark")]
+use rand_core::SeedableRng;
 
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::GenesisSchnorrSigner;
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
@@ -513,8 +519,17 @@ impl<'a> CertificateChainBuilder<'a> {
         let certificate = self.build_base_certificate(context);
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
-        let genesis_producer =
+        let genesis_producer_builder =
             CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.to_owned())));
+        #[cfg(feature = "future_snark")]
+        let genesis_producer = {
+            let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
+            let schnorr_signer = Arc::new(GenesisSchnorrSigner::generate(&mut rng));
+            genesis_producer_builder.with_snark_genesis_signer(schnorr_signer)
+        };
+        #[cfg(not(feature = "future_snark"))]
+        let genesis_producer = genesis_producer_builder;
+
         let genesis_protocol_message = genesis_producer
             .create_genesis_protocol_message(
                 next_protocol_parameters,
@@ -889,8 +904,7 @@ mod test {
             fixture: &fixture,
             next_fixture: &next_fixture,
         };
-        let expected_protocol_message = context.compute_protocol_message_seed();
-        let expected_signed_message = expected_protocol_message.compute_hash();
+        let expected_protocol_message_legacy = context.compute_protocol_message_seed();
         let (protocol_genesis_signer, _) = CertificateChainBuilder::setup_genesis();
 
         let mithril_era = if cfg!(feature = "future_snark") {
@@ -901,6 +915,21 @@ mod test {
         let genesis_certificate = CertificateChainBuilder::default()
             .with_protocol_parameters(expected_protocol_parameters)
             .build_genesis_certificate(&context, &protocol_genesis_signer, mithril_era);
+
+        let expected_protocol_message = match mithril_era {
+            SupportedEra::Pythagoras => expected_protocol_message_legacy,
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                let mut message = ProtocolMessage::new_rigid();
+                for (key, value) in &expected_protocol_message_legacy.message_parts {
+                    message.set_message_part(*key, value.clone());
+                }
+                message
+            }
+            #[cfg(not(feature = "future_snark"))]
+            SupportedEra::Lagrange => expected_protocol_message_legacy,
+        };
+        let expected_signed_message = expected_protocol_message.compute_hash();
 
         assert!(genesis_certificate.is_genesis());
         assert_eq!(
