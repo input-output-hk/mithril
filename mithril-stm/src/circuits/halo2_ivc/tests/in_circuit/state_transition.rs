@@ -39,13 +39,13 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (same_epoch_message, same_epoch_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
             same_epoch_message,
-            same_epoch_preimage_bytes
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
@@ -68,13 +68,13 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (same_epoch_message, same_epoch_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
             same_epoch_message,
-            same_epoch_preimage_bytes
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
@@ -98,13 +98,13 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (same_epoch_message, same_epoch_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
             same_epoch_message,
-            same_epoch_preimage_bytes
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );

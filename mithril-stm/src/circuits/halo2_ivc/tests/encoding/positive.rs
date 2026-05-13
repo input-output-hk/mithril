@@ -19,11 +19,12 @@ use crate::circuits::halo2_ivc::{
 };
 
 #[test]
-fn folded_accumulator_serialized_byte_length_is_stable() {
-    // Regression anchor: the serialized byte length of a folded accumulator must
-    // stay constant. A change here signals an unintended format shift (different
-    // fixed-base count, encoding width, or length-prefix logic) that the
-    // round-trip test alone would not catch.
+fn folded_accumulator_serialized_bytes_are_stable() {
+    // Regression anchor: the serialized bytes of a folded accumulator must be
+    // byte-for-byte identical to the committed golden file. This catches both
+    // length-changing format shifts (different fixed-base count, encoding width,
+    // length-prefix logic) and length-preserving ones (field reordering,
+    // same-width field swap) that a round-trip test cannot detect.
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
@@ -33,10 +34,13 @@ fn folded_accumulator_serialized_byte_length_is_stable() {
         .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
         .expect("accumulator serialization should succeed");
 
+    let expected_bytes =
+        include_bytes!("../assets/recursive_step_output_accumulator_bytes.bin").as_slice();
+
     assert_eq!(
-        bytes.len(),
-        5932,
-        "serialized accumulator byte length should remain stable"
+        bytes.as_slice(),
+        expected_bytes,
+        "serialized accumulator bytes should be identical to the committed golden file"
     );
 }
 

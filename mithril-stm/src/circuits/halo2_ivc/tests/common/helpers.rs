@@ -24,7 +24,10 @@ pub(crate) use super::generators::{
     verify_prepare_poseidon_ivc as verify_prepare_poseidon_recursive_proof,
 };
 use super::{
-    asset_readers::{RecursiveChainStateAsset, load_embedded_verification_context_asset},
+    asset_readers::{
+        RecursiveChainStateAsset, load_embedded_recursive_chain_state_asset,
+        load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+    },
     generators::{
         AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
         build_shared_recursive_context, certificate_public_inputs_for_step,
@@ -292,6 +295,79 @@ pub(crate) fn build_mock_prover_public_inputs(
         AssignedAccumulator::as_public_input(&setup.trivial_accumulator),
     ]
     .concat()
+}
+
+/// Verifies the stored certificate proof and returns the unextracted accumulator
+/// together with the certificate fixed-base map and `tau_in_g2`.
+///
+/// Uses the next-epoch step assets: the certificate proof lives in
+/// `recursive_step_output` and its public inputs are derived from
+/// `(recursive_chain_state.state, recursive_step_output.next_state)`.
+pub(crate) fn build_unextracted_certificate_accumulator_from_assets()
+-> (Accumulator<S>, BTreeMap<String, C>, <E as Engine>::G2Affine) {
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+    let recursive_step_output = load_embedded_recursive_step_output_asset()
+        .expect("recursive step output asset should load");
+
+    let (certificate_fixed_bases, _, _) = build_recursive_fixed_bases(
+        &verification_context.certificate_verifying_key,
+        &verification_context.recursive_verifying_key,
+    );
+
+    let certificate_public_inputs = certificate_public_inputs_for_step(
+        &recursive_chain_state.state,
+        &recursive_step_output.next_state,
+    );
+
+    let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
+        verification_context.certificate_verifying_key.vk(),
+        &recursive_step_output.certificate_proof,
+        &certificate_public_inputs,
+    )
+    .into();
+
+    (
+        accumulator,
+        certificate_fixed_bases,
+        verification_context.verifier_tau_in_g2,
+    )
+}
+
+/// Verifies the stored chain-state IVC proof and returns the unextracted accumulator
+/// together with the recursive fixed-base map, ready for extraction tests.
+///
+/// The chain-state proof is a Poseidon recursive proof; its public inputs are
+/// `[global | state | accumulator]` as stored in the committed assets.
+pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets()
+-> (Accumulator<S>, BTreeMap<String, C>) {
+    let verification_context =
+        load_embedded_verification_context_asset().expect("verification context asset should load");
+    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
+        .expect("recursive chain state asset should load");
+
+    let (_, recursive_fixed_bases, _) = build_recursive_fixed_bases(
+        &verification_context.certificate_verifying_key,
+        &verification_context.recursive_verifying_key,
+    );
+
+    let public_inputs = [
+        verification_context.global_field_elements.clone(),
+        recursive_chain_state.state.as_public_input(),
+        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
+    ]
+    .concat();
+
+    let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
+        &verification_context.recursive_verifying_key,
+        &recursive_chain_state.proof,
+        &public_inputs,
+    )
+    .into();
+
+    (accumulator, recursive_fixed_bases)
 }
 
 /// Recomputes the exact next accumulator from stored step artifacts.

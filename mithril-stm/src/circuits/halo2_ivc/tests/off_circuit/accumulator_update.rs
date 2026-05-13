@@ -15,18 +15,16 @@ use std::collections::BTreeMap;
 use std::ops::Neg;
 
 use ff::Field;
-use midnight_circuits::types::Instantiable;
 use midnight_curves::pairing::Engine;
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, Msm, S,
+    Accumulator, C, E, Msm, S,
     tests::common::{
-        asset_readers::{
-            load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
-            load_embedded_verification_context_asset,
+        asset_readers::load_embedded_recursive_chain_state_asset,
+        helpers::{
+            build_unextracted_certificate_accumulator_from_assets,
+            build_unextracted_recursive_proof_accumulator_from_assets,
         },
-        generators::{build_recursive_fixed_bases, certificate_public_inputs_for_step},
-        helpers::verify_prepare_poseidon_recursive_proof,
     },
 };
 
@@ -47,52 +45,26 @@ fn build_proof_accumulators_from_stored_step_assets() -> (
     BTreeMap<String, C>,
     <E as Engine>::G2Affine,
 ) {
-    let verification_context =
-        load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_chain_state = load_embedded_recursive_chain_state_asset()
-        .expect("recursive chain state asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
-        .expect("recursive step output asset should load");
-
-    let (certificate_fixed_bases, recursive_fixed_bases, combined_fixed_bases) =
-        build_recursive_fixed_bases(
-            &verification_context.certificate_verifying_key,
-            &verification_context.recursive_verifying_key,
-        );
-
-    let certificate_public_inputs = certificate_public_inputs_for_step(
-        &recursive_chain_state.state,
-        &recursive_step_output.next_state,
-    );
-    let mut certificate_accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        verification_context.certificate_verifying_key.vk(),
-        &recursive_step_output.certificate_proof,
-        &certificate_public_inputs,
-    )
-    .into();
+    let (mut certificate_accumulator, certificate_fixed_bases, tau_in_g2) =
+        build_unextracted_certificate_accumulator_from_assets();
     certificate_accumulator.extract_fixed_bases(&certificate_fixed_bases);
     certificate_accumulator.collapse();
 
-    let chain_state_proof_public_inputs = [
-        verification_context.global_field_elements.clone(),
-        recursive_chain_state.state.as_public_input(),
-        AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
-    ]
-    .concat();
-    let mut previous_proof_accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
-        &recursive_chain_state.proof,
-        &chain_state_proof_public_inputs,
-    )
-    .into();
+    let (mut previous_proof_accumulator, recursive_fixed_bases) =
+        build_unextracted_recursive_proof_accumulator_from_assets();
     previous_proof_accumulator.extract_fixed_bases(&recursive_fixed_bases);
     previous_proof_accumulator.collapse();
+
+    let combined_fixed_bases: BTreeMap<String, C> = certificate_fixed_bases
+        .into_iter()
+        .chain(recursive_fixed_bases)
+        .collect();
 
     (
         certificate_accumulator,
         previous_proof_accumulator,
         combined_fixed_bases,
-        verification_context.verifier_tau_in_g2,
+        tau_in_g2,
     )
 }
 
@@ -168,6 +140,10 @@ fn pipeline_with_invalid_previous_accumulator_fails_accumulator_check() {
     let tampered_chain_accumulator = Accumulator::<S>::new(
         recursive_chain_state.accumulator.lhs(),
         tampered_right_hand_side,
+    );
+    assert!(
+        !tampered_chain_accumulator.check(&tau_in_g2, &combined_fixed_bases),
+        "tamper precondition: tampered chain accumulator should fail check on its own"
     );
 
     let mut next_accumulator = Accumulator::accumulate(&[
