@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implemented new message id format for the DMQ message to follow specification of the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
 
+- Gracefully handle unknown signed entity types across Mithril nodes for improved forward compatibility.
+
 - **UNSTABLE**:
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
 
