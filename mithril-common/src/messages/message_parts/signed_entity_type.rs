@@ -462,6 +462,28 @@ mod tests {
         );
     }
 
+    #[test]
+    fn is_known_returns_true_for_known_messages() {
+        let (known_message, known_discriminants_message): (Vec<_>, Vec<_>) =
+            infallible_conversion_cases()
+                .into_iter()
+                .map(|(_, _, msg, discriminant_msg)| (msg, discriminant_msg))
+                .unzip();
+
+        assert!(known_message.iter().all(|message| message.is_known()));
+        assert!(
+            known_discriminants_message
+                .iter()
+                .all(|discriminant| discriminant.is_known())
+        );
+    }
+
+    #[test]
+    fn is_known_returns_false_for_unknown_variants() {
+        assert!(!SignedEntityTypeMessage::Unknown.is_known());
+        assert!(!SignedEntityTypeDiscriminantsMessage::Unknown.is_known());
+    }
+
     mod infallible_conversions {
         use super::*;
 
