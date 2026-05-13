@@ -31,6 +31,7 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
 
     use crate::{
@@ -58,8 +59,22 @@ mod handlers {
             .increment(&[METRICS_HTTP_ORIGIN]);
 
         let payload = message.clone();
-        let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
+
+        let signed_entity_type: SignedEntityType = match message
+            .signed_entity_type
+            .clone()
+            .try_into()
+        {
+            Ok(entity_type) => entity_type,
+            Err(err) => {
+                warn!(logger, "register_signatures::invalid signed entity type"; "payload" => ?message, "error" => ?err);
+                return Ok(reply::bad_request(
+                    "Invalid signed entity type".to_string(),
+                    err.to_string(),
+                ));
+            }
+        };
 
         let mut single_signature = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
             Ok(signature) => signature,
@@ -132,15 +147,17 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::entities::ClientError;
     use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
 
     use mithril_api_spec::APISpec;
-    use mithril_common::test::mock_extensions::MockBuilder;
     use mithril_common::{
-        entities::SignedEntityType, messages::RegisterSignatureMessageHttp, test::double::Dummy,
+        entities::{ClientError, SignedEntityType},
+        messages::{
+            RegisterSignatureMessageHttp, SignedEntityTypeMessage, UnknownSignedEntityTypeError,
+        },
+        test::{double::Dummy, mock_extensions::MockBuilder},
     };
 
     use crate::{
@@ -323,6 +340,43 @@ mod tests {
             &StatusCode::BAD_REQUEST,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_return_400_if_signed_entity_is_unknown() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service.expect_register_single_signature().never();
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
+
+        let message = RegisterSignatureMessageHttp {
+            signed_entity_type: SignedEntityTypeMessage::Unknown,
+            ..RegisterSignatureMessageHttp::dummy()
+        };
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(path)
+            .json(&message)
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        assert_eq!(StatusCode::BAD_REQUEST, response.status());
+        let response_body: ClientError = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(
+            ClientError::new(
+                "Invalid signed entity type",
+                UnknownSignedEntityTypeError.to_string()
+            ),
+            response_body
+        );
     }
 
     #[tokio::test]

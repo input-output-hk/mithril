@@ -45,13 +45,14 @@ mod tests {
     }
 
     mod golden_protocol_key_encodings {
-        use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType};
+        use mithril_common::entities::{CardanoDbBeacon, Epoch};
+        use mithril_common::messages::SignedEntityTypeMessage;
 
         use super::*;
 
         fn golden_message_with_json_hex_encoding() -> RegisterSignatureMessageHttp {
             RegisterSignatureMessageHttp {
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),
                 party_id: "party_id".to_string(),
@@ -63,7 +64,7 @@ mod tests {
 
         fn golden_message_with_bytes_hex_encoding() -> RegisterSignatureMessageHttp {
             RegisterSignatureMessageHttp {
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),
                 party_id: "party_id".to_string(),

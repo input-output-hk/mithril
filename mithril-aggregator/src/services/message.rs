@@ -250,7 +250,10 @@ impl MessageService for MithrilMessageService {
             cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
             cardano_blocks_transactions_signing_config: epoch_settings
                 .cardano_blocks_transactions_signing_config,
-            available_signed_entity_types,
+            available_signed_entity_types: available_signed_entity_types
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         };
         Ok(Some(protocol_configuration_message))
     }
@@ -487,10 +490,11 @@ impl MessageService for MithrilMessageService {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use tokio::sync::RwLock;
 
     use mithril_common::entities::{BlockNumber, CardanoDbBeacon, Certificate, SignedEntityType};
+    use mithril_common::messages::SignedEntityTypeDiscriminantsMessage;
     use mithril_common::test::double::{Dummy, fake_data};
-    use tokio::sync::RwLock;
 
     use crate::database::record::SignedEntityRecord;
     use crate::database::repository::{
@@ -904,7 +908,7 @@ mod tests {
             );
             assert_eq!(
                 message.available_signed_entity_types,
-                SignedEntityTypeDiscriminants::all()
+                SignedEntityTypeDiscriminantsMessage::all()
             );
         }
 
@@ -930,10 +934,10 @@ mod tests {
 
             assert_eq!(
                 message.available_signed_entity_types,
-                SignedEntityTypeDiscriminants::all()
+                SignedEntityTypeDiscriminantsMessage::all()
                     .difference(&BTreeSet::from([
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions
+                        SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                        SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
                     ]))
                     .cloned()
                     .collect::<BTreeSet<_>>(),
