@@ -1753,12 +1753,28 @@ components:
           description: Aggregate verification key used to verify the multi signature
           type: string
           format: bytes
+        aggregate_verification_key_snark:
+          description: |
+            Hex-encoded SNARK-friendly aggregate verification key, emitted alongside
+            `aggregate_verification_key` on Lagrange-era certificates. Omitted on
+            Pythagoras and pre-Lagrange certificates: clients that ignore this field
+            remain compatible with the pre-Lagrange wire format.
+          type: string
+          format: bytes
         multi_signature:
           description: STM multi signature created from a quorum of single signatures from the signers
           type: string
           format: bytes
         genesis_signature:
           description: Genesis signature created to bootstrap the certificate chain with the Cardano Genesis Keys
+          type: string
+          format: bytes
+        genesis_schnorr_signature:
+          description: |
+            Hex-encoded SNARK-friendly Schnorr genesis signature, emitted alongside
+            `genesis_signature` on Lagrange-era genesis certificates. Omitted or empty
+            on Pythagoras and non-genesis certificates: clients that ignore this field
+            remain compatible with the pre-Lagrange wire format.
           type: string
           format: bytes
       examples:
