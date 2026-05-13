@@ -274,6 +274,18 @@ const config = {
             ],
           },
           {
+            type: "dropdown",
+            label: "Case Studies",
+            position: "left",
+            items: [
+              {
+                type: "doc",
+                docId: "case-studies/daedalus",
+                label: "Daedalus",
+              },
+            ],
+          },
+          {
             type: "docsVersionDropdown",
             position: "right",
             dropdownActiveClassDisabled: true,
