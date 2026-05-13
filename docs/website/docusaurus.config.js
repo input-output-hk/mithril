@@ -266,6 +266,11 @@ const config = {
                 docId: "use-cases/wallets",
                 label: "Light wallets",
               },
+              {
+                type: "doc",
+                docId: "use-cases/bridges",
+                label: "Bridges",
+              },
             ],
           },
           {
