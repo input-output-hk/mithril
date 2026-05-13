@@ -34,11 +34,12 @@ fn assert_step_output_rejects_tampered_next_accumulator(
 
     let global = verification_context.global_field_elements.clone();
     let state = step_output.next_state.as_public_input();
-    let mut acc = AssignedAccumulator::as_public_input(&step_output.next_accumulator);
+    let mut accumulator_encoding =
+        AssignedAccumulator::as_public_input(&step_output.next_accumulator);
 
-    acc[0] = F::ONE;
+    accumulator_encoding[0] = F::ONE;
 
-    let public_inputs = [global, state, acc].concat();
+    let public_inputs = [global, state, accumulator_encoding].concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
@@ -140,13 +141,13 @@ mod slow {
             &mock_prover_setup.recursive_verifying_key,
         );
 
-        let mut acc = AssignedAccumulator::as_public_input(&next_accumulator);
-        acc[0] = F::ONE;
+        let mut accumulator_encoding = AssignedAccumulator::as_public_input(&next_accumulator);
+        accumulator_encoding[0] = F::ONE;
 
         let public_inputs = [
             mock_prover_setup.global.as_public_input(),
             next_state.as_public_input(),
-            acc,
+            accumulator_encoding,
         ]
         .concat();
 

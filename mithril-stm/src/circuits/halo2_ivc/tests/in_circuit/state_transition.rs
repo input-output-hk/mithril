@@ -39,17 +39,17 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (se_message, se_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
-            se_message,
-            se_preimage_bytes
+            same_epoch_message,
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
-        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, se_message);
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.next_merkle_root = F::ONE;
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -68,17 +68,17 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (se_message, se_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
-            se_message,
-            se_preimage_bytes
+            same_epoch_message,
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
-        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, se_message);
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.next_protocol_params = F::ONE;
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -98,17 +98,17 @@ mod slow {
         let prev_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load")
             .state;
-        let (se_message, se_preimage_bytes) =
+        let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature.clone(),
             prev_state.merkle_root,
-            se_message,
-            se_preimage_bytes
+            same_epoch_message,
+            same_epoch_message_preimage_bytes
                 .try_into()
                 .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
         );
-        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, se_message);
+        let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.msg = F::ONE;
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(

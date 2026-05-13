@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.18 (05-12-2026)
+
+### Changed
+
+- Added Layer C2 off-circuit accumulator and verification mechanics tests, covering accumulator construction, fixed-base extraction, collapse, folding pipeline, and combined proof verification.
+- Removed `ivc_e2e.rs` test file whose coverage is fully replaced by the golden tests and Layer C2.
+
 ## 0.10.17 (05-11-2026)
 
 ### Added
