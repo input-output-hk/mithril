@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::StdError;
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::{schnorr_signature_from_hex, schnorr_signature_to_hex};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch,
     HexEncodedAggregateVerificationKey, HexEncodedKey, HexEncodedVerificationKeyForSnark,
@@ -19,6 +21,70 @@ use mithril_persistence::{
     database::Hydrator,
     sqlite::{HydrationError, Projection, SqLiteEntity},
 };
+#[cfg(feature = "future_snark")]
+use serde::{Deserialize, Serialize};
+
+/// JSON-serialised wrapper holding both signatures of a Lagrange-era dual genesis signature.
+///
+/// Stored in the `signature` column so the SQLite round-trip preserves the SNARK half. Legacy
+/// Pythagoras records keep the raw Ed25519 hex string in the same column; deserialisation
+/// attempts this JSON wrapper first and falls back to the raw hex when the input is not JSON.
+#[cfg(feature = "future_snark")]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PersistedDualGenesisSignature {
+    /// Hex-encoded Ed25519 (ed25519) genesis signature.
+    ed25519: HexEncodedKey,
+
+    /// Hex-encoded SNARK-friendly Schnorr genesis signature.
+    schnorr: HexEncodedKey,
+}
+
+/// Wire-format signature of a [CertificateMessage] reconstructed from a stored [CertificateRecord].
+///
+/// A stored certificate carries exactly one of these signature shapes, so the variants are
+/// mutually exclusive by construction.
+#[cfg(feature = "future_snark")]
+enum PersistedRecordSignatures {
+    /// Multi-signature carried by a standard (non-genesis) certificate.
+    MultiSignature(HexEncodedKey),
+
+    /// Legacy Pythagoras-era genesis signature (Ed25519 only).
+    Genesis(HexEncodedKey),
+
+    /// Lagrange-era dual genesis signature pairing the Ed25519 and Schnorr halves.
+    GenesisDual(PersistedDualGenesisSignature),
+}
+
+#[cfg(feature = "future_snark")]
+impl PersistedDualGenesisSignature {
+    /// Parse a persisted genesis signature column value.
+    ///
+    /// Attempts to decode the JSON wrapper (Lagrange dual signature) and falls back to the raw
+    /// Ed25519 hex string used by Pythagoras-era records.
+    fn parse_genesis_signature(raw: &str) -> Result<CertificateSignature, StdError> {
+        if let Ok(payload) = serde_json::from_str::<Self>(raw) {
+            let ed25519 = payload.ed25519.as_str().try_into()?;
+            let schnorr = schnorr_signature_from_hex(&payload.schnorr)?;
+            return Ok(CertificateSignature::GenesisDualSignature(ed25519, schnorr));
+        }
+        Ok(CertificateSignature::GenesisSignature(raw.try_into()?))
+    }
+
+    /// Split a stored certificate record into its wire-format signature.
+    ///
+    /// Recovers the SNARK half from the JSON wrapper when present; otherwise treats the value as
+    /// a legacy Ed25519-only genesis signature or a multi-signature, depending on the record.
+    fn split_message_signatures(record: &CertificateRecord) -> PersistedRecordSignatures {
+        if record.parent_certificate_id.is_some() {
+            return PersistedRecordSignatures::MultiSignature(record.signature.clone());
+        }
+        if let Ok(payload) = serde_json::from_str::<Self>(&record.signature) {
+            return PersistedRecordSignatures::GenesisDual(payload);
+        }
+        PersistedRecordSignatures::Genesis(record.signature.clone())
+    }
+}
 
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -138,6 +204,14 @@ impl TryFrom<Certificate> for CertificateRecord {
         let signed_entity_type = other.signed_entity_type();
         let (signature, parent_certificate_id) = match other.signature {
             CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex()?, None),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature) => {
+                let payload = PersistedDualGenesisSignature {
+                    ed25519: ed_signature.to_bytes_hex()?,
+                    schnorr: schnorr_signature_to_hex(&schnorr_signature),
+                };
+                (serde_json::to_string(&payload)?, None)
+            }
             CertificateSignature::MultiSignature(_, signature) => {
                 (signature.to_json_hex()?, Some(other.previous_hash))
             }
@@ -187,10 +261,15 @@ impl TryFrom<CertificateRecord> for Certificate {
             other.signers,
         );
         let (previous_hash, signature) = match other.parent_certificate_id {
-            None => (
-                String::new(),
-                CertificateSignature::GenesisSignature(other.signature.try_into()?),
-            ),
+            None => {
+                #[cfg(feature = "future_snark")]
+                let signature =
+                    PersistedDualGenesisSignature::parse_genesis_signature(&other.signature)?;
+                #[cfg(not(feature = "future_snark"))]
+                let signature =
+                    CertificateSignature::GenesisSignature(other.signature.as_str().try_into()?);
+                (String::new(), signature)
+            }
             Some(parent_certificate_id) => (
                 parent_certificate_id,
                 CertificateSignature::MultiSignature(
@@ -225,6 +304,25 @@ impl TryFrom<CertificateRecord> for Certificate {
 
 impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
+        #[cfg(feature = "future_snark")]
+        let (multi_signature, genesis_signature, genesis_schnorr_signature) =
+            match PersistedDualGenesisSignature::split_message_signatures(&value) {
+                PersistedRecordSignatures::MultiSignature(signature) => {
+                    (signature, String::new(), String::new())
+                }
+                PersistedRecordSignatures::Genesis(signature) => {
+                    (String::new(), signature, String::new())
+                }
+                PersistedRecordSignatures::GenesisDual(payload) => {
+                    (String::new(), payload.ed25519, payload.schnorr)
+                }
+            };
+        #[cfg(not(feature = "future_snark"))]
+        let (multi_signature, genesis_signature) = if value.parent_certificate_id.is_none() {
+            (String::new(), value.signature.clone())
+        } else {
+            (value.signature.clone(), String::new())
+        };
         let metadata = CertificateMetadataMessagePart {
             network: value.network,
             protocol_version: value.protocol_version,
@@ -232,11 +330,6 @@ impl From<CertificateRecord> for CertificateMessage {
             initiated_at: value.initiated_at,
             sealed_at: value.sealed_at,
             signers: value.signers,
-        };
-        let (multi_signature, genesis_signature) = if value.parent_certificate_id.is_none() {
-            (String::new(), value.signature)
-        } else {
-            (value.signature, String::new())
         };
 
         CertificateMessage {
@@ -252,6 +345,8 @@ impl From<CertificateRecord> for CertificateMessage {
             aggregate_verification_key_snark: value.aggregate_verification_key_snark,
             multi_signature,
             genesis_signature,
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_signature,
         }
     }
 }
@@ -524,6 +619,112 @@ mod tests {
             let message: CertificateMessage = record.into();
 
             assert_eq!(expected_snark_avk, message.aggregate_verification_key_snark,);
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod dual_genesis_signature {
+        use mithril_common::crypto_helper::{GenesisEd25519Signer, GenesisSchnorrSigner};
+        use mithril_common::entities::CertificateSignature;
+
+        use super::*;
+
+        fn build_dual_genesis_certificate() -> Certificate {
+            let chain = setup_certificate_chain(5, 2);
+            let mut certificate = chain
+                .certificates_chained
+                .iter()
+                .rev()
+                .find(|c| matches!(c.signature, CertificateSignature::GenesisSignature(_)))
+                .expect("chain should contain a genesis certificate")
+                .clone();
+            let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
+            let schnorr_signer = GenesisSchnorrSigner::create_non_deterministic_signer();
+            let ed_signature = ed25519_signer.sign(certificate.signed_message.as_bytes());
+            let schnorr_signature = schnorr_signer
+                .sign_non_deterministic(&[0x42u8; 32])
+                .expect("Schnorr sign should not fail");
+            certificate.signature =
+                CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature);
+            certificate.hash = certificate.compute_hash();
+            certificate
+        }
+
+        #[test]
+        fn certificate_to_record_to_certificate_preserves_dual_signature() {
+            let certificate = build_dual_genesis_certificate();
+            let (expected_ed25519, expected_schnorr) = match &certificate.signature {
+                CertificateSignature::GenesisDualSignature(ed, schnorr) => (
+                    ed.to_bytes_hex().unwrap(),
+                    schnorr_signature_to_hex(schnorr),
+                ),
+                other => panic!("expected GenesisDualSignature, got {other:?}"),
+            };
+
+            let record: CertificateRecord = certificate.clone().try_into().unwrap();
+            let restored: Certificate = record.try_into().unwrap();
+
+            match &restored.signature {
+                CertificateSignature::GenesisDualSignature(ed, schnorr) => {
+                    assert_eq!(ed.to_bytes_hex().unwrap(), expected_ed25519);
+                    assert_eq!(schnorr_signature_to_hex(schnorr), expected_schnorr);
+                }
+                other => {
+                    panic!(
+                        "expected the restored signature to be a GenesisDualSignature, got {other:?}"
+                    )
+                }
+            }
+            assert_eq!(certificate, restored);
+        }
+
+        #[test]
+        fn certificate_record_serialises_dual_signature_as_json_wrapper() {
+            let certificate = build_dual_genesis_certificate();
+
+            let record: CertificateRecord = certificate.try_into().unwrap();
+
+            assert!(
+                record.signature.starts_with('{'),
+                "dual genesis record signature column must hold the JSON wrapper, got: {}",
+                record.signature
+            );
+        }
+
+        #[test]
+        fn certificate_message_carries_both_genesis_signatures_for_dual_record() {
+            let certificate = build_dual_genesis_certificate();
+            let (expected_ed25519, expected_schnorr) = match &certificate.signature {
+                CertificateSignature::GenesisDualSignature(ed, schnorr) => (
+                    ed.to_bytes_hex().unwrap(),
+                    schnorr_signature_to_hex(schnorr),
+                ),
+                other => panic!("expected GenesisDualSignature, got {other:?}"),
+            };
+
+            let record: CertificateRecord = certificate.try_into().unwrap();
+            let message: CertificateMessage = record.into();
+
+            assert_eq!(message.genesis_signature, expected_ed25519);
+            assert_eq!(message.genesis_schnorr_signature, expected_schnorr);
+            assert!(message.multi_signature.is_empty());
+        }
+
+        #[test]
+        fn legacy_pythagoras_record_still_round_trips_without_wrapper() {
+            let chain = setup_certificate_chain(5, 2);
+            let pythagoras_genesis = chain
+                .certificates_chained
+                .iter()
+                .find(|c| matches!(c.signature, CertificateSignature::GenesisSignature(_)))
+                .expect("chain should contain a genesis certificate")
+                .clone();
+
+            let record: CertificateRecord = pythagoras_genesis.clone().try_into().unwrap();
+            assert!(!record.signature.starts_with('{'));
+            let restored: Certificate = record.try_into().unwrap();
+
+            assert_eq!(pythagoras_genesis, restored);
         }
     }
 }

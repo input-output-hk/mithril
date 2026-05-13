@@ -5,6 +5,8 @@ use sha2::{Digest, Sha256};
 use mithril_stm::AggregateSignatureType;
 
 #[cfg(feature = "future_snark")]
+use crate::crypto_helper::GenesisSchnorrSignature;
+#[cfg(feature = "future_snark")]
 use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
     GenesisEd25519Signature, ProtocolAggregateVerificationKey,
@@ -15,9 +17,19 @@ use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityT
 /// The signature of a [Certificate]
 #[derive(Clone, Debug)]
 pub enum CertificateSignature {
-    /// Genesis signature created from the original stake distribution
+    /// Ed25519 genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
     GenesisSignature(GenesisEd25519Signature),
+
+    /// Dual genesis signature carrying both the legacy Ed25519 signature (covered by the
+    /// certificate hash to preserve chain-walking compatibility) and the SNARK-friendly
+    /// Schnorr signature (used for the in-circuit attestation under the Lagrange era).
+    ///
+    /// The Schnorr part is deliberately excluded from
+    /// [CertificateSignature::to_bytes_hex_for_certificate_hash] so a Lagrange genesis cert
+    /// hashes byte-identically to a legacy `GenesisSignature(ed)` cert with the same `ed`.
+    #[cfg(feature = "future_snark")]
+    GenesisDualSignature(GenesisEd25519Signature, GenesisSchnorrSignature),
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka (BEACON(p,n), MULTI_SIG(H(MSG(p,n) || AVK(n-1))))
@@ -31,9 +43,40 @@ impl CertificateSignature {
     pub fn aggregate_signature_type(&self) -> Option<AggregateSignatureType> {
         match self {
             CertificateSignature::GenesisSignature(_) => None,
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(_, _) => None,
             CertificateSignature::MultiSignature(_, multi_signature) => {
                 Some((&multi_signature.key).into())
             }
+        }
+    }
+
+    /// Return the bytes-hex of the signature payload that is included in
+    /// [Certificate::compute_hash]. For the dual-genesis variant this is the Ed25519 bytes only,
+    /// keeping the certificate hash byte-identical to today's so legacy clients can keep walking
+    /// the chain backwards across the Lagrange boundary.
+    pub fn to_bytes_hex_for_certificate_hash(&self) -> crate::StdResult<String> {
+        match self {
+            CertificateSignature::GenesisSignature(signature) => signature.to_bytes_hex(),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(ed_signature, _schnorr_signature) => {
+                ed_signature.to_bytes_hex()
+            }
+            CertificateSignature::MultiSignature(_, signature) => signature.to_json_hex(),
+        }
+    }
+
+    /// Return the Schnorr genesis signature carried by a [CertificateSignature::GenesisDualSignature]
+    /// variant, or `None` for any other variant.
+    ///
+    /// SNARK clients fetch the Schnorr signature through this accessor when running the in-circuit
+    /// genesis attestation; the bytes are intentionally excluded from
+    /// [CertificateSignature::to_bytes_hex_for_certificate_hash].
+    #[cfg(feature = "future_snark")]
+    pub fn schnorr_signature(&self) -> Option<&GenesisSchnorrSignature> {
+        match self {
+            CertificateSignature::GenesisDualSignature(_, schnorr) => Some(schnorr),
+            _ => None,
         }
     }
 }
@@ -118,7 +161,16 @@ impl Certificate {
         certificate
     }
 
-    /// Computes the hash of a Certificate
+    /// Computes the hash of a Certificate.
+    ///
+    /// The signature is fed into the hash via
+    /// [CertificateSignature::to_bytes_hex_for_certificate_hash], which deliberately excludes
+    /// the Schnorr genesis bytes so the chain hash stays byte-identical for legacy clients.
+    ///
+    /// Design note (hash invariance between `GenesisSignature` and `GenesisDualSignature`): a
+    /// dual-signature Lagrange genesis certificate hashes byte-identically to a legacy
+    /// `GenesisSignature(ed)` certificate carrying the same Ed25519 signature. This is
+    /// intentional, so legacy clients keep walking the chain across the Lagrange boundary.
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.previous_hash.as_bytes());
@@ -127,21 +179,22 @@ impl Certificate {
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
         hasher.update(self.aggregate_verification_key.to_json_hex().unwrap().as_bytes());
-        match &self.signature {
-            CertificateSignature::GenesisSignature(signature) => {
-                hasher.update(signature.to_bytes_hex().unwrap());
-            }
-            CertificateSignature::MultiSignature(signed_entity_type, signature) => {
-                signed_entity_type.feed_hash(&mut hasher);
-                hasher.update(signature.to_json_hex().unwrap());
-            }
-        };
+        if let CertificateSignature::MultiSignature(signed_entity_type, _) = &self.signature {
+            signed_entity_type.feed_hash(&mut hasher);
+        }
+        hasher.update(self.signature.to_bytes_hex_for_certificate_hash().unwrap());
         hex::encode(hasher.finalize())
     }
 
-    /// Tell if the certificate is a genesis certificate
+    /// Tell if the certificate is a genesis certificate (covers both the legacy and the
+    /// dual-signature variants).
     pub fn is_genesis(&self) -> bool {
-        matches!(self.signature, CertificateSignature::GenesisSignature(_))
+        match self.signature {
+            CertificateSignature::GenesisSignature(_) => true,
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(_, _) => true,
+            CertificateSignature::MultiSignature(_, _) => false,
+        }
     }
 
     /// Return true if the certificate is chaining into itself (meaning that its hash and previous
@@ -159,6 +212,10 @@ impl Certificate {
     pub fn signed_entity_type(&self) -> SignedEntityType {
         match &self.signature {
             CertificateSignature::GenesisSignature(_) => SignedEntityType::genesis(self.epoch),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(_, _) => {
+                SignedEntityType::genesis(self.epoch)
+            }
             CertificateSignature::MultiSignature(entity_type, _) => entity_type.clone(),
         }
     }
@@ -228,7 +285,13 @@ impl Debug for Certificate {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Duration, Utc};
+    #[cfg(feature = "future_snark")]
+    use rand_chacha::ChaCha20Rng;
+    #[cfg(feature = "future_snark")]
+    use rand_core::SeedableRng;
 
+    #[cfg(feature = "future_snark")]
+    use crate::crypto_helper::GenesisSchnorrSigner;
     use crate::entities::SignedEntityType::CardanoStakeDistribution;
     use crate::{
         entities::{
@@ -462,6 +525,191 @@ mod tests {
                 ..genesis_certificate.clone()
             }
             .compute_hash(),
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn dual_signature_does_not_change_the_certificate_hash() {
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
+        let ed_signature: GenesisEd25519Signature =
+            fake_keys::genesis_signature()[0].try_into().unwrap();
+
+        let legacy = Certificate::new(
+            "previous_hash",
+            Epoch(10),
+            CertificateMetadata::new(
+                "testnet",
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at,
+                sealed_at,
+                get_parties(),
+            ),
+            get_protocol_message(),
+            ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[1],
+                )
+                .unwrap()
+                .into(),
+                None,
+            ),
+            CertificateSignature::GenesisSignature(ed_signature),
+        );
+
+        let mut rng = ChaCha20Rng::from_seed([9u8; 32]);
+        let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
+        let schnorr_signature = schnorr_signer.sign(&[0u8; 32], &mut rng).unwrap();
+
+        let dual = Certificate::new(
+            "previous_hash",
+            Epoch(10),
+            CertificateMetadata::new(
+                "testnet",
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at,
+                sealed_at,
+                get_parties(),
+            ),
+            get_protocol_message(),
+            ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[1],
+                )
+                .unwrap()
+                .into(),
+                None,
+            ),
+            CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+        );
+
+        assert_eq!(
+            legacy.compute_hash(),
+            dual.compute_hash(),
+            "dual-signature variant must hash identically to the legacy single-Ed25519 variant"
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn certificate_hash_is_independent_of_schnorr_signature_bytes() {
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
+        let ed_signature: GenesisEd25519Signature =
+            fake_keys::genesis_signature()[0].try_into().unwrap();
+
+        let metadata = CertificateMetadata::new(
+            "testnet",
+            "0.1.0".to_string(),
+            ProtocolParameters::new(1000, 100, 0.123),
+            initiated_at,
+            sealed_at,
+            get_parties(),
+        );
+
+        let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+        let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
+        let mut hashes = std::collections::HashSet::new();
+        for seed in 0u8..6 {
+            let digest = [seed; 32];
+            let schnorr_signature = schnorr_signer.sign(&digest, &mut rng).unwrap();
+            let certificate = Certificate::new(
+                "previous_hash",
+                Epoch(10),
+                metadata.clone(),
+                get_protocol_message(),
+                ProtocolAggregateVerificationKey::new(
+                    ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                        fake_keys::aggregate_verification_key_for_concatenation()[1],
+                    )
+                    .unwrap()
+                    .into(),
+                    None,
+                ),
+                CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+            );
+            hashes.insert(certificate.compute_hash());
+        }
+        assert_eq!(
+            hashes.len(),
+            1,
+            "the certificate hash must be invariant when varying only the Schnorr signature",
+        );
+    }
+
+    #[cfg(feature = "future_snark")]
+    fn build_genesis_certificate_for_test(signature: CertificateSignature) -> Certificate {
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
+        Certificate::new(
+            "previous_hash",
+            Epoch(10),
+            CertificateMetadata::new(
+                "testnet",
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at,
+                sealed_at,
+                get_parties(),
+            ),
+            get_protocol_message(),
+            ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[1],
+                )
+                .unwrap()
+                .into(),
+                None,
+            ),
+            signature,
+        )
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn is_genesis_returns_true_for_both_genesis_variants() {
+        let ed_signature: GenesisEd25519Signature =
+            fake_keys::genesis_signature()[0].try_into().unwrap();
+        let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
+        let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
+        let schnorr_signature = schnorr_signer.sign(&[0u8; 32], &mut rng).unwrap();
+
+        let multi = build_genesis_certificate_for_test(CertificateSignature::MultiSignature(
+            CardanoStakeDistribution(Epoch(10)),
+            fake_keys::multi_signature()[0].try_into().unwrap(),
+        ));
+        let legacy = build_genesis_certificate_for_test(CertificateSignature::GenesisSignature(
+            ed_signature,
+        ));
+        let dual = build_genesis_certificate_for_test(CertificateSignature::GenesisDualSignature(
+            ed_signature,
+            schnorr_signature,
+        ));
+
+        assert!(legacy.is_genesis());
+        assert!(dual.is_genesis());
+        assert!(!multi.is_genesis());
+
+        assert_eq!(
+            legacy.signed_entity_type(),
+            SignedEntityType::genesis(legacy.epoch)
+        );
+        assert_eq!(
+            dual.signed_entity_type(),
+            SignedEntityType::genesis(dual.epoch)
+        );
+        assert_ne!(
+            multi.signed_entity_type(),
+            SignedEntityType::genesis(multi.epoch)
         );
     }
 }

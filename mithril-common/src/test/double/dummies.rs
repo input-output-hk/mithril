@@ -541,6 +541,8 @@ mod messages {
                 aggregate_verification_key_snark: None,
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
+                #[cfg(feature = "future_snark")]
+                genesis_schnorr_signature: String::new(),
             }
         }
     }

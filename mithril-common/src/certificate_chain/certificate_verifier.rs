@@ -404,7 +404,12 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     ) -> StdResult<()> {
         let genesis_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
-            _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
+            // The Schnorr half is intentionally not verified here as it is needed for IVC SNARK only
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(signature, _) => Ok(signature),
+            CertificateSignature::MultiSignature(_, _) => {
+                Err(CertificateVerifierError::InvalidGenesisCertificateProvided)
+            }
         }?;
         self.verify_hash_matches_content(genesis_certificate)?;
         self.verify_signed_message_matches_hashed_protocol_message(genesis_certificate)?;
@@ -470,6 +475,13 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
                 Ok(None)
             }
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(_, _) => {
+                self.verify_genesis_certificate(certificate, genesis_verification_key)
+                    .await?;
+
+                Ok(None)
+            }
             CertificateSignature::MultiSignature(_, _) => {
                 let previous_certificate = self.fetch_previous_certificate(certificate).await?;
                 self.verify_standard_certificate(certificate, &previous_certificate)
@@ -502,6 +514,13 @@ mod tests {
     };
 
     use super::*;
+
+    #[cfg(feature = "future_snark")]
+    use crate::crypto_helper::GenesisSchnorrSigner;
+    #[cfg(feature = "future_snark")]
+    use rand_chacha::ChaCha20Rng;
+    #[cfg(feature = "future_snark")]
+    use rand_core::SeedableRng;
 
     macro_rules! assert_error_matches {
         ( $expected_error:path, $error:expr ) => {{
@@ -604,6 +623,35 @@ mod tests {
             .await;
 
         verify.expect("verify_genesis_certificate should not fail");
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn verify_genesis_certificate_ignores_the_schnorr_half_of_a_dual_signature() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let bundle = fake_certificates.genesis_verifier.verification_key_bundle();
+        let ed_signature = match &fake_certificates.genesis_certificate().signature {
+            CertificateSignature::GenesisSignature(signature) => *signature,
+            other => panic!("expected a legacy genesis signature, got {other:?}"),
+        };
+
+        let mut rng = ChaCha20Rng::from_seed([42u8; 32]);
+        let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
+
+        for digest in [[1u8; 32], [2u8; 32]] {
+            let schnorr_signature = schnorr_signer.sign(&digest, &mut rng).unwrap();
+            let mut genesis_certificate = fake_certificates.genesis_certificate().clone();
+            genesis_certificate.signature =
+                CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature);
+            genesis_certificate.hash = genesis_certificate.compute_hash();
+
+            verifier
+                .verify_genesis_certificate(&genesis_certificate, &bundle)
+                .await
+                .expect("the Schnorr half is intentionally not verified, so this must succeed");
+        }
     }
 
     #[tokio::test]
