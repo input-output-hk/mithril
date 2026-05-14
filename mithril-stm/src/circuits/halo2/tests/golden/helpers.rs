@@ -16,7 +16,7 @@ use midnight_zk_stdlib::{MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use crate::circuits::halo2::circuit::StmCircuit;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::types::CircuitBase;
 use crate::circuits::halo2::witness::{
@@ -41,7 +41,7 @@ pub(crate) const LOTTERIES_PER_K: u32 = 10;
 const DEFAULT_TEST_MSG: u64 = 42;
 
 /// Verification/proving key pair cached per STM circuit configuration.
-type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCircuit>);
+type CircuitVerificationAndProvingKeyPair = (MidnightVK, MidnightPK<StmCertificateCircuit>);
 /// Cache map for verification/proving keys keyed by STM circuit configuration.
 type CircuitKeysCache = HashMap<StmCircuitConfig, Arc<CircuitVerificationAndProvingKeyPair>>;
 
@@ -106,7 +106,7 @@ pub(crate) fn assert_proving_backend_message_contains<T>(result: StmResult<T>, e
     }
 }
 
-fn validate_relation_for_setup(relation: &StmCircuit) -> StmResult<()> {
+fn validate_relation_for_setup(relation: &StmCertificateCircuit) -> StmResult<()> {
     relation
         .validate_parameters()
         .context("Circuit parameter validation failed before setup")
@@ -129,13 +129,13 @@ pub(crate) struct StmCircuitEnv {
     srs: ParamsKZG<Bls12>,
 
     /// The STM circuit relation defining all constraints enforced in-circuit.
-    relation: StmCircuit,
+    relation: StmCertificateCircuit,
 
     /// Verification key corresponding to `relation` and `srs`.
     vk: MidnightVK,
 
     /// Proving key corresponding to `relation` and `vk`.
-    pk: MidnightPK<StmCircuit>,
+    pk: MidnightPK<StmCertificateCircuit>,
 
     /// Number of signers used to size the Merkle tree in golden tests.
     num_signers: usize,
@@ -560,7 +560,7 @@ pub(crate) fn setup_stm_circuit_env(
         m: m as u64,
         phi_f: 0.2,
     };
-    let relation = StmCircuit::try_new(&stm_params, depth).unwrap();
+    let relation = StmCertificateCircuit::try_new(&stm_params, depth).unwrap();
     validate_relation_for_setup(&relation)?;
 
     {
@@ -600,7 +600,7 @@ pub(crate) fn prove_and_verify_result(
 
     let start = Instant::now();
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let proof = zk::prove::<StmCircuit, PoseidonState<CircuitBase>>(
+    let proof = zk::prove::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
         &env.srs,
         &env.pk,
         &env.relation,
@@ -614,7 +614,7 @@ pub(crate) fn prove_and_verify_result(
     println!("Proof size: {:?}", proof.len());
 
     let start = Instant::now();
-    let verify_result = zk::verify::<StmCircuit, PoseidonState<CircuitBase>>(
+    let verify_result = zk::verify::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
         &env.srs.verifier_params(),
         &env.vk,
         &instance,
@@ -700,7 +700,7 @@ fn load_or_generate_params(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
 /// Get cached verification/proving keys or build and insert them if missing.
 fn get_or_build_circuit_keys(
     config: StmCircuitConfig,
-    relation: &StmCircuit,
+    relation: &StmCertificateCircuit,
     srs: &ParamsKZG<Bls12>,
 ) -> StmResult<Arc<CircuitVerificationAndProvingKeyPair>> {
     static STM_CIRCUIT_KEYS_CACHE: LazyLock<RwLock<CircuitKeysCache>> =
@@ -746,7 +746,7 @@ pub(crate) fn compute_unsafe_circuit_verification_key(
     merkle_tree_depth: u32,
 ) -> Vec<u8> {
     const RNG_SEED: u64 = 42;
-    let circuit = StmCircuit::try_new(params, merkle_tree_depth).unwrap();
+    let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth).unwrap();
     let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
     let srs: ParamsKZG<Bls12> =
         ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(RNG_SEED));

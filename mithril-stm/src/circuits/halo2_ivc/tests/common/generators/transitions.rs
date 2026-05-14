@@ -11,7 +11,7 @@ use crate::circuits::halo2_ivc::helpers::{
     protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
     utils::jubjub_base_from_le_bytes,
 };
-use crate::circuits::halo2::circuit::StmCircuit as StmCertificateCircuit;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,

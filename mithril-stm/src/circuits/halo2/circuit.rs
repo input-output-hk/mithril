@@ -26,7 +26,7 @@ use crate::{LotteryIndex, Parameters, StmResult};
 
 /// Halo2 relation implementing the non-recursive STM verification circuit.
 #[derive(Clone, Default, Debug)]
-pub struct StmCircuit {
+pub struct StmCertificateCircuit {
     // k in mithril: the required number of distinct lottery index slots needed to create a valid multi-signature
     k: u32,
     // m in mithril: the number of lotteries that a signer can participate in for a message
@@ -34,7 +34,7 @@ pub struct StmCircuit {
     merkle_tree_depth: u32,
 }
 
-impl StmCircuit {
+impl StmCertificateCircuit {
     fn checked_len_u32(actual: usize) -> u32 {
         u32::try_from(actual).unwrap_or(u32::MAX)
     }
@@ -131,7 +131,7 @@ impl StmCircuit {
         Ok(())
     }
 
-    /// Constructs a new `StmCircuit` from Mithril `Parameters`.  
+    /// Constructs a new `StmCertificateCircuit` from Mithril `Parameters`.  
     ///  
     /// This constructor only validates that `k` and `m`
     /// fit into a `u32` by performing fallible `u64 -> u32` conversions. If either value  
@@ -159,7 +159,7 @@ impl StmCircuit {
     }
 }
 
-impl Relation for StmCircuit {
+impl Relation for StmCertificateCircuit {
     type Instance = CircuitInstance;
     type Witness = CircuitWitness;
 
@@ -318,7 +318,7 @@ impl Relation for StmCircuit {
         let m = u32::from_le_bytes(m_bytes);
         let merkle_tree_depth = u32::from_le_bytes(merkle_tree_depth_bytes);
 
-        // Construct and return the `StmCircuit` instance.
+        // Construct and return the `StmCertificateCircuit` instance.
         Ok(Self {
             k,
             m,
@@ -408,7 +408,7 @@ mod dst_alignment_tests {
 
 #[cfg(test)]
 mod circuit_creation_tests {
-    use crate::circuits::halo2::circuit::StmCircuit;
+    use crate::circuits::halo2::circuit::StmCertificateCircuit;
 
     #[test]
     fn correct_circuit_creation() {
@@ -419,7 +419,7 @@ mod circuit_creation_tests {
         };
         let merkle_tree_depth = 13;
 
-        StmCircuit::try_new(&stm_params, merkle_tree_depth).unwrap();
+        StmCertificateCircuit::try_new(&stm_params, merkle_tree_depth).unwrap();
     }
 
     #[test]
@@ -431,7 +431,7 @@ mod circuit_creation_tests {
         };
         let merkle_tree_depth = 13;
 
-        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
+        let circuit = StmCertificateCircuit::try_new(&stm_params, merkle_tree_depth);
 
         circuit.expect_err("Creation should have failed with number of lotteries too large.");
     }
@@ -445,7 +445,7 @@ mod circuit_creation_tests {
         };
         let merkle_tree_depth = 13;
 
-        let circuit = StmCircuit::try_new(&stm_params, merkle_tree_depth);
+        let circuit = StmCertificateCircuit::try_new(&stm_params, merkle_tree_depth);
 
         circuit.expect_err("Creation should have failed with k too large.");
     }

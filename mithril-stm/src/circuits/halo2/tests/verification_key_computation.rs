@@ -5,7 +5,7 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 
 use crate::{
     MERKLE_TREE_DEPTH_FOR_SNARK, Parameters, StmResult,
-    circuits::halo2::{NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCircuit},
+    circuits::halo2::{NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCertificateCircuit},
 };
 
 /// Constant representing the current STM parameters used for production,
@@ -27,7 +27,7 @@ fn compute_non_recursive_circuit_verification_key(
     merkle_tree_depth: u32,
     srs_path: &Path,
 ) -> StmResult<Vec<u8>> {
-    let circuit = StmCircuit::try_new(params, merkle_tree_depth)?;
+    let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
 
     // Change the path to the settled path for the SRS
     let srs_file =

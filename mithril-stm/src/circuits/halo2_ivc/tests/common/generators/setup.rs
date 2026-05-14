@@ -26,7 +26,7 @@ use crate::circuits::halo2_ivc::helpers::{
     },
     utils::jubjub_base_from_le_bytes,
 };
-use crate::circuits::halo2::circuit::StmCircuit as StmCertificateCircuit;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::signature_scheme::{
     SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
