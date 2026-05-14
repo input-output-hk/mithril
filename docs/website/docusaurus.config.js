@@ -255,25 +255,13 @@ const config = {
             items: [
               {
                 type: "doc",
-                docId: "use-cases/wallets",
-                label: "Light wallets",
+                docId: "use-cases/wallets/index",
+                label: "Wallets",
               },
               {
                 type: "doc",
                 docId: "use-cases/bridges",
                 label: "Bridges",
-              },
-            ],
-          },
-          {
-            type: "dropdown",
-            label: "Case Studies",
-            position: "left",
-            items: [
-              {
-                type: "doc",
-                docId: "case-studies/daedalus",
-                label: "Daedalus",
               },
             ],
           },
