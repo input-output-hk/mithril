@@ -141,3 +141,26 @@ impl Circuit<F> for IvcCircuit {
         ivc_gadget.sha2_256_chip.load(&mut layouter)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Prints a structural summary of the IVC circuit constraint system.
+    /// No SRS or proving key is required — only `configure` is called.
+    #[test]
+    #[ignore]
+    fn print_ivc_circuit_constraint_count() {
+        let mut cs = ConstraintSystem::<F>::default();
+        configure_ivc_circuit(&mut cs);
+
+        let poly_constraints: usize = cs.gates().iter().map(|g| g.polynomials().len()).sum();
+        println!("Circuit size (k)            : {K} ({} rows)", 1u64 << K);
+        println!("Polynomial constraints      : {poly_constraints}");
+        println!("Lookup arguments            : {}", cs.lookups().len());
+        println!("Advice columns              : {}", cs.num_advice_columns());
+        println!("Fixed columns               : {}", cs.num_fixed_columns());
+        println!("Selectors                   : {}", cs.num_selectors());
+        println!("Max gate polynomial degree  : {}", cs.degree());
+    }
+}
