@@ -7,19 +7,22 @@ use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::{MTLeaf as MerkleTreeLeaf, MerklePath},
+    merkle_tree::Position as HelpersPosition,
     protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
-    signatures::unique_signature::Signature,
     utils::jubjub_base_from_le_bytes,
 };
+use crate::circuits::halo2::circuit::StmCircuit as StmCertificateCircuit;
+use crate::circuits::halo2::types::CircuitBaseField;
+use crate::circuits::halo2::witness::{
+    CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
+    Position as Halo2Position,
+};
+use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
-use crate::circuits::halo2_ivc::tests::test_certificate::Certificate;
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 
 use super::proofs::verify_prepare_poseidon_ivc;
 use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
-
-type CertificateWitnessEntry = (MerkleTreeLeaf, MerklePath, Signature, u32);
 
 /// Builds the genesis protocol message whose hash becomes `setup.genesis_message`.
 ///
@@ -86,7 +89,7 @@ pub(crate) fn build_genesis_base_case_next_state(
 pub(crate) fn build_next_certificate_asset_data(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
-    certificate_relation: &Certificate,
+    certificate_relation: &StmCertificateCircuit,
     certificate_verifying_key: &MidnightVK,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
@@ -112,7 +115,7 @@ pub(crate) fn build_next_certificate_asset_data(
 pub(crate) fn build_same_epoch_certificate_asset_data(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
-    certificate_relation: &Certificate,
+    certificate_relation: &StmCertificateCircuit,
     certificate_verifying_key: &MidnightVK,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
@@ -143,7 +146,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
 fn build_certificate_asset_data_inner(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
-    certificate_relation: &Certificate,
+    certificate_relation: &StmCertificateCircuit,
     certificate_verifying_key: &MidnightVK,
     merkle_root: F,
     message: F,
@@ -160,33 +163,67 @@ fn build_certificate_asset_data_inner(
         "merkle_root does not match deterministic setup root"
     );
 
-    let mut certificate_witness_entries: Vec<CertificateWitnessEntry> = vec![];
+    let mut certificate_witness_entries: Vec<CircuitWitnessEntry> = vec![];
     for j in 0..QUORUM_SIZE as usize {
-        let signature = setup.signing_keys[j].sign(&[merkle_root, message], random_generator);
-        let merkle_path = setup.merkle_tree.get_path(j);
-        let computed_root = merkle_path.compute_root(setup.merkle_tree_leaves[j]);
+        let unique_schnorr_signature = setup.signing_keys[j]
+            .sign_unique(
+                &[
+                    BaseFieldElement::from(merkle_root),
+                    BaseFieldElement::from(message),
+                ],
+                random_generator,
+            )
+            .expect("certificate witness signature should not fail");
+        let helpers_path = setup.merkle_tree.get_path(j);
+        let computed_root = helpers_path.compute_root(setup.merkle_tree_leaves[j]);
         assert_eq!(
             merkle_root, computed_root,
             "merkle path root mismatch for signer index {j}"
         );
-        signature
-            .verify(&[merkle_root, message], &setup.merkle_tree_leaves[j].0)
+        let schnorr_vk =
+            StmSchnorrVerificationKey::new_from_signing_key(setup.signing_keys[j].clone());
+        unique_schnorr_signature
+            .verify(
+                &[
+                    BaseFieldElement::from(merkle_root),
+                    BaseFieldElement::from(message),
+                ],
+                &schnorr_vk,
+            )
             .expect("fresh certificate signature should verify");
-        certificate_witness_entries.push((
-            setup.merkle_tree_leaves[j],
-            merkle_path,
-            signature,
-            (j + 1) as u32,
-        ));
+        let halo2_merkle_path = Halo2MerklePath::new(
+            helpers_path
+                .siblings
+                .iter()
+                .map(|(pos, f)| {
+                    let halo2_pos = match pos {
+                        HelpersPosition::Left => Halo2Position::Left,
+                        HelpersPosition::Right => Halo2Position::Right,
+                    };
+                    (halo2_pos, CircuitBaseField::from(*f))
+                })
+                .collect(),
+        );
+        let leaf = setup.merkle_tree_leaves[j];
+        let circuit_leaf = CircuitMerkleTreeLeaf(schnorr_vk, CircuitBaseField::from(leaf.1));
+        certificate_witness_entries.push(CircuitWitnessEntry {
+            leaf: circuit_leaf,
+            merkle_path: halo2_merkle_path,
+            unique_schnorr_signature,
+            lottery_index: (j + 1) as u64,
+        });
     }
 
     let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg);
 
-    let certificate_proof = zk_lib::prove::<Certificate, PoseidonState<F>>(
+    let certificate_proof = zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
         certificate_commitment_parameters,
         &certificate_proving_key,
         certificate_relation,
-        &(certificate_instance[0], certificate_instance[1]),
+        &(
+            CircuitBaseField::from(certificate_instance[0]),
+            CircuitBaseField::from(certificate_instance[1]),
+        ),
         certificate_witness_entries,
         random_generator,
     )
@@ -223,7 +260,11 @@ fn build_certificate_asset_data_inner(
 
 /// Formats a `(merkle_root, message)` pair as certificate public inputs.
 pub(super) fn certificate_public_inputs(merkle_root: F, message: F) -> Vec<F> {
-    Certificate::format_instance(&(merkle_root, message)).unwrap()
+    StmCertificateCircuit::format_instance(&(
+        CircuitBaseField::from(merkle_root),
+        CircuitBaseField::from(message),
+    ))
+    .unwrap()
 }
 
 /// Returns the certificate public inputs for one recursive-step transition.

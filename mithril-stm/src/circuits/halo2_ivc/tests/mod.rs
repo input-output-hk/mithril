@@ -15,6 +15,5 @@ mod encoding;
 mod golden;
 mod in_circuit;
 mod off_circuit;
-mod test_certificate;
 mod transitions;
 mod verification_key_computation;
