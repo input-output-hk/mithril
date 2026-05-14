@@ -6,20 +6,22 @@ use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::Position as HelpersPosition,
-    protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
-    utils::jubjub_base_from_le_bytes,
-};
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
     Position as Halo2Position,
 };
-use crate::signature_scheme::{BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey};
+use crate::circuits::halo2_ivc::helpers::{
+    merkle_tree::Position as HelpersPosition,
+    protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
+    utils::jubjub_base_from_le_bytes,
+};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
+use crate::signature_scheme::{
+    BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
+};
 
 use super::proofs::verify_prepare_poseidon_ivc;
 use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
@@ -167,10 +169,7 @@ fn build_certificate_asset_data_inner(
     for j in 0..QUORUM_SIZE as usize {
         let unique_schnorr_signature = setup.signing_keys[j]
             .sign_unique(
-                &[
-                    BaseFieldElement::from(merkle_root),
-                    BaseFieldElement::from(message),
-                ],
+                &[BaseFieldElement::from(merkle_root), BaseFieldElement::from(message)],
                 random_generator,
             )
             .expect("certificate witness signature should not fail");
@@ -184,10 +183,7 @@ fn build_certificate_asset_data_inner(
             StmSchnorrVerificationKey::new_from_signing_key(setup.signing_keys[j].clone());
         unique_schnorr_signature
             .verify(
-                &[
-                    BaseFieldElement::from(merkle_root),
-                    BaseFieldElement::from(message),
-                ],
+                &[BaseFieldElement::from(merkle_root), BaseFieldElement::from(message)],
                 &schnorr_vk,
             )
             .expect("fresh certificate signature should verify");

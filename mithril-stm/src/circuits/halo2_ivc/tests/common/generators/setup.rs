@@ -14,6 +14,8 @@ use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
+use crate::Parameters;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::helpers::{
     merkle_tree::{MTLeaf as MerkleTreeLeaf, MerkleTree},
     protocol_message::AggregateVerificationKey,
@@ -26,15 +28,13 @@ use crate::circuits::halo2_ivc::helpers::{
     },
     utils::jubjub_base_from_le_bytes,
 };
-use crate::circuits::halo2::circuit::StmCertificateCircuit;
-use crate::signature_scheme::{
-    SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
-};
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
 };
-use crate::Parameters;
+use crate::signature_scheme::{
+    SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
+};
 
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;

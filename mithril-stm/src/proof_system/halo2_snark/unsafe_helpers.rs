@@ -179,7 +179,8 @@ mod test {
     use rand_core::SeedableRng;
 
     use crate::{
-        Parameters, circuits::halo2::circuit::StmCertificateCircuit, proof_system::halo2_snark::SnarkSetup,
+        Parameters, circuits::halo2::circuit::StmCertificateCircuit,
+        proof_system::halo2_snark::SnarkSetup,
     };
 
     use super::{SnarkSetupCacheKey, get_or_build_snark_keys, load_or_generate_srs, persist_srs};

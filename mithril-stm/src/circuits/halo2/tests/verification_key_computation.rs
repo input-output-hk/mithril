@@ -5,7 +5,9 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 
 use crate::{
     MERKLE_TREE_DEPTH_FOR_SNARK, Parameters, StmResult,
-    circuits::halo2::{NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCertificateCircuit},
+    circuits::halo2::{
+        NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCertificateCircuit,
+    },
 };
 
 /// Constant representing the current STM parameters used for production,
