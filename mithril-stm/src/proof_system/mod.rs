@@ -20,6 +20,9 @@ mod concatenation;
 #[cfg(feature = "future_snark")]
 mod halo2_snark;
 
+#[cfg(feature = "future_snark")]
+mod ivc_halo2;
+
 pub use concatenation::{
     AggregateVerificationKeyForConcatenation, ConcatenationClerk, ConcatenationProof,
 };
