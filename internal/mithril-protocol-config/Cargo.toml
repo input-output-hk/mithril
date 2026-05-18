@@ -1,6 +1,6 @@
 [package]
 name = "mithril-protocol-config"
-version = "0.1.7"
+version = "0.1.8"
 description = "Configuraton parameters for Mithril network"
 authors = { workspace = true }
 edition = { workspace = true }
