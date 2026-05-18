@@ -121,10 +121,10 @@ cat >> docker-compose.yaml <<EOF
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - PROTOCOL_PARAMETERS__K=5
-      - PROTOCOL_PARAMETERS__M=100
-      - PROTOCOL_PARAMETERS__PHI_F=0.65
-      - RUN_INTERVAL=1000
+      - PROTOCOL_PARAMETERS__K=${MITHRIL_PROTOCOL_PARAMETERS_K}
+      - PROTOCOL_PARAMETERS__M=${MITHRIL_PROTOCOL_PARAMETERS_M}
+      - PROTOCOL_PARAMETERS__PHI_F=${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}
+      - RUN_INTERVAL=${MITHRIL_RUN_INTERVAL}
       - SNAPSHOT_UPLOADER_TYPE=local
       - SNAPSHOT_COMPRESSION_ALGORITHM=zstandard
       - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
@@ -137,6 +137,9 @@ cat >> docker-compose.yaml <<EOF
       - DB_DIRECTORY=/data/db
       - SNAPSHOT_DIRECTORY=/data/mithril/aggregator
       - SERVER_PORT=8080
+      - AGGREGATE_SIGNATURE_TYPE=${MITHRIL_AGGREGATE_SIGNATURE_TYPE}
+      - ERA_READER_ADAPTER_TYPE=dummy
+      - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
     command:
       [
         "-vvv",
@@ -158,10 +161,10 @@ cat >> docker-compose.yaml <<EOF
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - PROTOCOL_PARAMETERS__K=5
-      - PROTOCOL_PARAMETERS__M=100
-      - PROTOCOL_PARAMETERS__PHI_F=0.65
-      - RUN_INTERVAL=1000
+      - PROTOCOL_PARAMETERS__K=${MITHRIL_PROTOCOL_PARAMETERS_K}
+      - PROTOCOL_PARAMETERS__M=${MITHRIL_PROTOCOL_PARAMETERS_M}
+      - PROTOCOL_PARAMETERS__PHI_F=${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}
+      - RUN_INTERVAL=${MITHRIL_RUN_INTERVAL}
       - SNAPSHOT_UPLOADER_TYPE=local
       - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
@@ -171,11 +174,16 @@ cat >> docker-compose.yaml <<EOF
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
       - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
       - DB_DIRECTORY=/data/db
+      - AGGREGATE_SIGNATURE_TYPE=${MITHRIL_AGGREGATE_SIGNATURE_TYPE}
+      - ERA_READER_ADAPTER_TYPE=dummy
+      - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
     command:
       [
         "-vvv",
         "genesis",
-        "bootstrap"
+        "bootstrap",
+        "--mithril-era",
+        "${MITHRIL_ERA}"
       ]
     
 EOF
@@ -213,7 +221,7 @@ EOF
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=700
+      - RUN_INTERVAL=${MITHRIL_RUN_INTERVAL}
       - DB_DIRECTORY=/data/db
       - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
       - DMQ_NODE_SOCKET_PATH=/data/ipc/dmq.node.sock
@@ -221,6 +229,8 @@ EOF
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - KES_SECRET_KEY_PATH=/data/shelley/kes.skey
       - OPERATIONAL_CERTIFICATE_PATH=/data/shelley/opcert.cert
+      - ERA_READER_ADAPTER_TYPE=dummy
+      - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
     command:
       [
         "-vvv"
@@ -254,12 +264,14 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=700
+      - RUN_INTERVAL=${MITHRIL_RUN_INTERVAL}
       - DB_DIRECTORY=/data/db
       - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
       - DMQ_NODE_SOCKET_PATH=/data/ipc/dmq.node.sock
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - ERA_READER_ADAPTER_TYPE=dummy
+      - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
     command:
       [
         "-vvv"
