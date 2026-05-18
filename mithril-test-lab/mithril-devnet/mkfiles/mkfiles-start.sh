@@ -147,9 +147,10 @@ chmod u+x start-dmq.sh
 
 cat >> start-mithril.sh <<EOF
 #!/usr/bin/env bash
+set -e
 
 echo ">> Start Mithril network"
-if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
+if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
   export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
   export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
   export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
@@ -164,13 +165,17 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
   fi
   export DOCKER_IMAGE_FROM=\$MITHRIL_NODE_DOCKER_CI_IMAGE_FROM
   if [ "\${MITHRIL_NODE_DOCKER_BUILD_TYPE}" = "ci" ]; then
-    DOCKER_BUILD_CMD="make docker-build-ci" 
+    DOCKER_BUILD_CMD="make docker-build-ci"
   else
     DOCKER_BUILD_CMD="make docker-build"
   fi
   export CARDANO_NODE_VERSION=${CARDANO_NODE_VERSION}
+  if [ -z "\${CARGO_BUILD_ARGS}" ]; then
+    export CARGO_BUILD_ARGS="${MITHRIL_CARGO_BUILD_ARGS}"
+  fi
   echo ">>>> Docker builder will use Cardano node version: '\$CARDANO_NODE_VERSION'"
   echo ">>>> Docker builder will build images with command: '\$DOCKER_BUILD_CMD'"
+  echo ">>>> Docker builder will pass Cargo build args: '\$CARGO_BUILD_ARGS'"
   echo ">>>> Building Mithril Aggregator node Docker image"
   cd mithril-aggregator && \$DOCKER_BUILD_CMD && cd ..
   echo ">>>> Building Mithril Client node Docker image"
@@ -215,7 +220,8 @@ do
 done
 
 echo ">> Bootstrap the Genesis certificate"
-docker compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis
+docker compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis \\
+    -vvv genesis bootstrap --mithril-era "${MITHRIL_ERA}"
 
 EOF
 chmod u+x start-mithril.sh

@@ -93,6 +93,11 @@ case "${MITHRIL_AGGREGATE_SIGNATURE_TYPE,,}" in
   *)             echo "Error: Unsupported MITHRIL_AGGREGATE_SIGNATURE_TYPE '${MITHRIL_AGGREGATE_SIGNATURE_TYPE}'. Supported values are 'Concatenation' and 'Snark'."
                  exit 1;;
 esac
+if [ "${MITHRIL_AGGREGATE_SIGNATURE_TYPE}" = "Snark" ]; then
+  MITHRIL_CARGO_BUILD_ARGS="--features future_snark"
+else
+  MITHRIL_CARGO_BUILD_ARGS=""
+fi
 if [ -z "${MITHRIL_ERA}" ]; then
   MITHRIL_ERA="pythagoras"
 fi

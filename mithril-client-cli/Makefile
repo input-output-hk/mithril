@@ -6,11 +6,12 @@
 args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
 
 CARGO = cargo
+CARGO_BUILD_ARGS ?=
 
 all: test build
 
 build:
-	${CARGO} build --release
+	${CARGO} build --release ${CARGO_BUILD_ARGS}
 	cp ../target/release/mithril-client .
 
 run: build
