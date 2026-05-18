@@ -21,7 +21,7 @@ mod concatenation;
 mod halo2_snark;
 
 #[cfg(feature = "future_snark")]
-mod ivc_halo2;
+mod ivc_halo2_snark;
 
 pub use concatenation::{
     AggregateVerificationKeyForConcatenation, ConcatenationClerk, ConcatenationProof,

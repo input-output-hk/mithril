@@ -1,11 +1,12 @@
 //! Load-once, deployment-constant artifacts shared by every step of an IVC proving session.
 
+use std::collections::BTreeMap;
+
 use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{
     plonk::{ProvingKey, VerifyingKey},
     poly::kzg::{KZGCommitmentScheme, params::ParamsKZG},
 };
-use std::collections::BTreeMap;
 
 use crate::circuits::halo2::types::CircuitBase;
 

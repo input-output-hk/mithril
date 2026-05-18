@@ -5,7 +5,7 @@ use std::sync::Arc;
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{circuits::halo2_ivc::state::State, proof_system::ivc_halo2::setup::IvcSetup};
+use crate::{circuits::halo2_ivc::state::State, proof_system::ivc_halo2_snark::setup::IvcSetup};
 
 /// Per-session IVC prover handle.
 // TODO: remove this allow dead_code directive when the IVC prover is wired into STM
