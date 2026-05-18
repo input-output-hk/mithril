@@ -91,6 +91,11 @@ case "${MITHRIL_AGGREGATE_SIGNATURE_TYPE,,}" in
   concatenation) MITHRIL_AGGREGATE_SIGNATURE_TYPE="Concatenation";;
   snark)         MITHRIL_AGGREGATE_SIGNATURE_TYPE="Snark";;
 esac
+if [ "${MITHRIL_AGGREGATE_SIGNATURE_TYPE}" = "Snark" ]; then
+  MITHRIL_CARGO_FEATURES="--features future_snark"
+else
+  MITHRIL_CARGO_FEATURES=""
+fi
 if [ -z "${MITHRIL_ERA}" ]; then
   MITHRIL_ERA="pythagoras"
 fi
