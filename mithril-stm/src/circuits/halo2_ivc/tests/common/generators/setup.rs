@@ -265,7 +265,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         &Parameters {
             k: QUORUM_SIZE as u64,
             m: number_of_lotteries as u64,
-            phi_f: 0.0,
+            phi_f: 0.2,
         },
         depth,
     )
