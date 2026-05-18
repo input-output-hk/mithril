@@ -111,15 +111,15 @@ impl MkSetProofTestExtension<CardanoTransaction> for MkSetProof<CardanoTransacti
 
 /// Extension trait adding test utilities to [SignedEntityTypeDiscriminants]
 pub trait SignedEntityTypeDiscriminantsTestExtension {
-    /// `TEST ONLY` - Get all the discriminants with unstable values
+    /// `TEST ONLY` - Get all the discriminants, including unstable values
     fn all_with_unstable() -> BTreeSet<SignedEntityTypeDiscriminants>;
 
-    /// `TEST ONLY` - Get all the discriminants with unstable values as a Vec
+    /// `TEST ONLY` - Get all the discriminants, including unstable values, as a Vec
     fn all_with_unstable_vec() -> Vec<SignedEntityTypeDiscriminants> {
         Self::all_with_unstable().into_iter().collect()
     }
 
-    /// `TEST ONLY` - Get all the discriminants with unstable values as a String, separated by the given separator
+    /// `TEST ONLY` - Get all the discriminants, including unstable values, as a String, separated by the given separator
     fn all_with_unstable_string(separator: &str) -> String {
         Self::all_with_unstable()
             .into_iter()

@@ -10,7 +10,8 @@ use crate::entities::{
 
 /// The signed entity type that represents a type of data signed by the Mithril protocol.
 ///
-// Important note: The order of the variants is important as it is used for the derived Ord trait.
+// Important note: The order of the variants is important as it is used for the derived Ord trait
+// of the `SignedEntityTypeDiscriminantsMessage` enum.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
 #[strum_discriminants(
@@ -301,32 +302,32 @@ mod comparison {
         fn eq(&self, other: &SignedEntityTypeMessage) -> bool {
             match (self, other) {
                 (
-                    SignedEntityType::MithrilStakeDistribution(other_epoch),
-                    SignedEntityTypeMessage::MithrilStakeDistribution(epoch),
+                    SignedEntityType::MithrilStakeDistribution(epoch),
+                    SignedEntityTypeMessage::MithrilStakeDistribution(other_epoch),
                 ) => epoch.eq(&other_epoch),
                 (
-                    SignedEntityType::CardanoStakeDistribution(other_epoch),
-                    SignedEntityTypeMessage::CardanoStakeDistribution(epoch),
+                    SignedEntityType::CardanoStakeDistribution(epoch),
+                    SignedEntityTypeMessage::CardanoStakeDistribution(other_epoch),
                 ) => epoch.eq(&other_epoch),
                 (
-                    SignedEntityType::CardanoImmutableFilesFull(other_beacon),
-                    SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon),
+                    SignedEntityType::CardanoImmutableFilesFull(beacon),
+                    SignedEntityTypeMessage::CardanoImmutableFilesFull(other_beacon),
                 ) => beacon.eq(other_beacon),
                 (
-                    SignedEntityType::CardanoDatabase(other_beacon),
-                    SignedEntityTypeMessage::CardanoDatabase(beacon),
+                    SignedEntityType::CardanoDatabase(beacon),
+                    SignedEntityTypeMessage::CardanoDatabase(other_beacon),
                 ) => beacon.eq(other_beacon),
                 (
-                    SignedEntityType::CardanoTransactions(other_epoch, other_block),
-                    SignedEntityTypeMessage::CardanoTransactions(epoch, block),
+                    SignedEntityType::CardanoTransactions(epoch, block),
+                    SignedEntityTypeMessage::CardanoTransactions(other_epoch, other_block),
                 ) => epoch.eq(&other_epoch) && block.eq(&other_block),
                 (
-                    SignedEntityType::CardanoBlocksTransactions(
+                    SignedEntityType::CardanoBlocksTransactions(epoch, block, offset),
+                    SignedEntityTypeMessage::CardanoBlocksTransactions(
                         other_epoch,
                         other_block,
                         other_offset,
                     ),
-                    SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset),
                 ) => epoch.eq(&other_epoch) && block.eq(&other_block) && offset.eq(&other_offset),
                 _ => false,
             }

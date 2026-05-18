@@ -45,7 +45,8 @@ const ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS: SignedEntityTypeId = 5;
 /// are identified by their discriminant (i.e. index in the enum), thus the
 /// modification of this type should only ever consist of appending new
 /// variants.
-// Important note: The order of the variants is important as it is used for the derived Ord trait.
+// Important note: The order of the variants is important as it is used for the derived Ord trait
+// of the `SignedEntityTypeDiscriminants` enum.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
 #[strum_discriminants(doc = "The discriminants of the SignedEntityType enum.")]
@@ -210,13 +211,22 @@ impl TryToBytes for SignedEntityType {
 }
 
 impl SignedEntityTypeDiscriminants {
-    /// Get all the discriminants without unstable values
+    /// Discriminants that are unstable and should be excluded from certain operations.
+    // Note: Empty right now since all discriminants are stable
+    const UNSTABLE_DISCRIMINANTS: [Self; 0] = [];
+
+    /// Get all stable discriminants.
+    ///
+    /// Unstable discriminants are intentionally excluded.
     pub fn all() -> BTreeSet<Self> {
         Self::iter_all().collect()
     }
 
+    /// Iterate over all stable discriminants.
+    ///
+    /// Unstable discriminants are intentionally excluded.
     fn iter_all() -> impl Iterator<Item = Self> {
-        Self::iter()
+        Self::iter().filter(|d| !Self::UNSTABLE_DISCRIMINANTS.contains(d))
     }
 
     /// Get the database value from enum's instance
@@ -605,6 +615,14 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             ]
+        );
+    }
+
+    #[test]
+    fn iter_all_discriminants_remove_unstable_values() {
+        assert!(
+            SignedEntityTypeDiscriminants::iter_all()
+                .all(|d| !SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS.contains(&d))
         );
     }
 

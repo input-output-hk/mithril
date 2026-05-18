@@ -75,8 +75,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn convert_from_protocol_conf_message_to_network_config_support_but_remove_unknown_discriminants()
-     {
+    fn convert_from_protocol_conf_message_to_network_config_remove_unknown_discriminants() {
         let message = ProtocolConfigurationMessage {
             available_signed_entity_types: BTreeSet::from([
                 SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
