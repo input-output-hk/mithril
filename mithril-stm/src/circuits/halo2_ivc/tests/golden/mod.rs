@@ -18,7 +18,7 @@ mod golden_verification_key_test {
     use crate::{
         Parameters,
         circuits::{
-            halo2::circuit::StmCircuit,
+            halo2::circuit::StmCertificateCircuit,
             halo2_ivc::{
                 circuit::IvcCircuit,
                 tests::{
@@ -46,7 +46,7 @@ mod golden_verification_key_test {
             phi_f: 0.2,
         };
         let merkle_tree_depth = 3;
-        let circuit = StmCircuit::try_new(&small_parameters, merkle_tree_depth).unwrap();
+        let circuit = StmCertificateCircuit::try_new(&small_parameters, merkle_tree_depth).unwrap();
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
 
         let mut srs_for_non_recursive_circuit = srs_for_recursive_circuit.clone();

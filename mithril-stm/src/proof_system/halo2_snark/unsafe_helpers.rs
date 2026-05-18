@@ -18,7 +18,7 @@ use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCircuit};
+use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCertificateCircuit};
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -29,7 +29,7 @@ struct SnarkSetupCacheKey {
     merkle_tree_depth: u32,
 }
 
-type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCircuit>)>;
+type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCertificateCircuit>)>;
 
 static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkSetupKeyPair)>>> =
     LazyLock::new(|| RwLock::new(None));
@@ -44,11 +44,11 @@ pub struct SnarkSetup {
     /// KZG Structured Reference String.
     pub(crate) srs: ParamsKZG<Bls12>,
     /// Compiled STM circuit.
-    pub(crate) circuit: StmCircuit,
+    pub(crate) circuit: StmCertificateCircuit,
     /// Verification key for the SNARK proof.
     pub(crate) verification_key: MidnightVK,
     /// Proving key for the SNARK proof.
-    pub(crate) proving_key: MidnightPK<StmCircuit>,
+    pub(crate) proving_key: MidnightPK<StmCertificateCircuit>,
 }
 
 impl SnarkSetup {
@@ -64,7 +64,7 @@ impl SnarkSetup {
     /// Returns an error if the SRS cannot be loaded or generated, or if the circuit
     /// cannot be compiled with the given parameters.
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
-        let circuit = StmCircuit::try_new(params, merkle_tree_depth)?;
+        let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
 
         // Uses a temporary directory to store the srs generated
@@ -143,7 +143,7 @@ fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
 /// multiple certificate generations within the same process.
 fn get_or_build_snark_keys(
     cache_key: SnarkSetupCacheKey,
-    circuit: &StmCircuit,
+    circuit: &StmCertificateCircuit,
     srs: &ParamsKZG<Bls12>,
 ) -> StmResult<SnarkSetupKeyPair> {
     if let Some(key_pair) = SNARK_SETUP_KEY_CACHE
@@ -179,7 +179,8 @@ mod test {
     use rand_core::SeedableRng;
 
     use crate::{
-        Parameters, circuits::halo2::circuit::StmCircuit, proof_system::halo2_snark::SnarkSetup,
+        Parameters, circuits::halo2::circuit::StmCertificateCircuit,
+        proof_system::halo2_snark::SnarkSetup,
     };
 
     use super::{SnarkSetupCacheKey, get_or_build_snark_keys, load_or_generate_srs, persist_srs};
@@ -268,8 +269,8 @@ mod test {
     #[test]
     fn get_or_build_snark_keys_caching_behavior() {
         let params = default_params();
-        let circuit_a = StmCircuit::try_new(&params, 2).unwrap();
-        let circuit_b = StmCircuit::try_new(&params, 3).unwrap();
+        let circuit_a = StmCertificateCircuit::try_new(&params, 2).unwrap();
+        let circuit_b = StmCertificateCircuit::try_new(&params, 3).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit_a).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
         let key_a = SnarkSetupCacheKey {

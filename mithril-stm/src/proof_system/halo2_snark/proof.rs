@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
-    circuits::halo2::{circuit::StmCircuit, types::CircuitBase},
+    circuits::halo2::{circuit::StmCertificateCircuit, types::CircuitBase},
     codec,
     proof_system::halo2_snark::{
         MERKLE_TREE_DEPTH_FOR_SNARK, SnarkError, build_snark_message,
@@ -82,7 +82,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         let proof_message = build_snark_message(merkle_root, message)?;
         let proof_instance = (proof_message[0].into(), proof_message[1].into());
 
-        let verify_result = zk::verify::<StmCircuit, PoseidonState<CircuitBase>>(
+        let verify_result = zk::verify::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
             &snark_setup.srs.verifier_params(),
             &self.circuit_verification_key.get_midnight_vk(),
             &proof_instance,
@@ -215,7 +215,7 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
         let instance = snark_prover_input.get_instance();
         let witness = snark_prover_input.into_witness();
 
-        let circuit_proof = zk::prove::<StmCircuit, PoseidonState<CircuitBase>>(
+        let circuit_proof = zk::prove::<StmCertificateCircuit, PoseidonState<CircuitBase>>(
             &self.setup.srs,
             &self.setup.proving_key,
             &self.setup.circuit,

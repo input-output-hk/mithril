@@ -14,6 +14,8 @@ use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
+use crate::Parameters;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::helpers::{
     merkle_tree::{MTLeaf as MerkleTreeLeaf, MerkleTree},
     protocol_message::AggregateVerificationKey,
@@ -22,14 +24,16 @@ use crate::circuits::halo2_ivc::helpers::{
             Signature as SchnorrSignature, SigningKey as SchnorrSigningKey,
             VerificationKey as SchnorrVerificationKey,
         },
-        unique_signature::{SigningKey, VerificationKey},
+        unique_signature::VerificationKey,
     },
     utils::jubjub_base_from_le_bytes,
 };
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
-use crate::circuits::halo2_ivc::tests::test_certificate::Certificate;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
+};
+use crate::signature_scheme::{
+    SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
 
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
@@ -83,7 +87,7 @@ impl Default for AssetPaths {
 #[derive(Debug)]
 pub(crate) struct AssetGenerationSetup {
     /// Deterministic certificate relation used by the golden generators.
-    pub(crate) certificate_relation: Certificate,
+    pub(crate) certificate_relation: StmCertificateCircuit,
     /// Verification key for the trusted genesis signature.
     pub(crate) genesis_verification_key: SchnorrVerificationKey,
     /// Hash of the deterministic genesis protocol message.
@@ -95,7 +99,7 @@ pub(crate) struct AssetGenerationSetup {
     /// Leaves committed into the deterministic signer-membership tree.
     pub(crate) merkle_tree_leaves: Vec<MerkleTreeLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
-    pub(crate) signing_keys: Vec<SigningKey>,
+    pub(crate) signing_keys: Vec<StmSchnorrSigningKey>,
     /// Aggregate verification key committed into the generated protocol messages.
     pub(crate) aggregate_verification_key: AggregateVerificationKey,
     /// Deterministic next Merkle root committed by the genesis message.
@@ -124,13 +128,17 @@ pub(crate) struct SharedRecursiveContext {
 fn build_merkle_tree(
     random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
-) -> (Vec<SigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
+) -> (Vec<StmSchnorrSigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
     let mut signing_keys = Vec::with_capacity(signer_count);
     let mut merkle_tree_leaves = Vec::with_capacity(signer_count);
     for _ in 0..signer_count {
-        let signing_key = SigningKey::generate(random_generator);
-        let verification_key = VerificationKey::from(&signing_key);
-        merkle_tree_leaves.push(MerkleTreeLeaf(verification_key, -F::ONE));
+        let signing_key = StmSchnorrSigningKey::generate(random_generator);
+        let schnorr_vk = StmSchnorrVerificationKey::new_from_signing_key(signing_key.clone());
+        // Shim: StmSchnorrVerificationKey wraps PrimeOrderProjectivePoint(JubjubSubgroup).
+        // helpers::VerificationKey also wraps JubjubSubgroup — unwrap the newtype chain.
+        // TODO(WS3): remove once helpers::MerkleTree is replaced with the STM equivalent.
+        let helpers_vk = VerificationKey(schnorr_vk.0.0);
+        merkle_tree_leaves.push(MerkleTreeLeaf(helpers_vk, -F::ONE));
         signing_keys.push(signing_key);
     }
 
@@ -253,7 +261,15 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let number_of_lotteries = QUORUM_SIZE * 10;
     let total_stake = 1_000_000u64;
 
-    let certificate_relation = Certificate::new(QUORUM_SIZE, number_of_lotteries, depth);
+    let certificate_relation = StmCertificateCircuit::try_new(
+        &Parameters {
+            k: QUORUM_SIZE as u64,
+            m: number_of_lotteries as u64,
+            phi_f: 0.2,
+        },
+        depth,
+    )
+    .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
     let aggregate_verification_key =
         AggregateVerificationKey::new(merkle_tree.to_merkle_tree_commitment(), total_stake);

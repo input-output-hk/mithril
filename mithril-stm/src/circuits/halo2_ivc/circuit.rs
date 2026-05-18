@@ -141,3 +141,29 @@ impl Circuit<F> for IvcCircuit {
         ivc_gadget.sha2_256_chip.load(&mut layouter)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ivc_circuit_constraint_count() {
+        let mut cs = ConstraintSystem::<F>::default();
+        configure_ivc_circuit(&mut cs);
+
+        let poly_constraints: usize = cs.gates().iter().map(|g| g.polynomials().len()).sum();
+        assert_eq!(
+            K, 19,
+            "circuit size k must not change without a deliberate decision"
+        );
+        assert_eq!(
+            poly_constraints, 53,
+            "polynomial constraint count must not silently grow"
+        );
+        assert_eq!(
+            cs.lookups().len(),
+            7,
+            "lookup argument count must not silently grow"
+        );
+    }
+}
