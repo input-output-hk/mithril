@@ -1,7 +1,7 @@
 //! `EpochData`: per-call external input carrying the certificate's epoch identifier
 //! and the upcoming epoch's announcements.
 
-use crate::circuits::{halo2::types::CircuitBase, halo2_ivc::PREIMAGE_SIZE};
+use crate::{BaseFieldElement, circuits::halo2_ivc::PREIMAGE_SIZE};
 
 /// Per-call external input carrying the certificate's epoch identifier and the
 /// upcoming epoch's announcements.
@@ -11,9 +11,9 @@ pub(crate) struct EpochData {
     /// Raw protocol-message preimage.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
     /// Certificate's epoch, decoded from `PREIMAGE_CURRENT_EPOCH_BYTES`.
-    pub(crate) current_epoch: CircuitBase,
+    pub(crate) current_epoch: BaseFieldElement,
     /// Next epoch's Merkle-tree commitment, decoded from `PREIMAGE_NEXT_MERKLE_ROOT_BYTES`.
-    pub(crate) next_merkle_root: CircuitBase,
+    pub(crate) next_merkle_root: BaseFieldElement,
     /// Next epoch's protocol parameters, decoded from `PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES`.
-    pub(crate) next_protocol_parameters: CircuitBase,
+    pub(crate) next_protocol_parameters: BaseFieldElement,
 }

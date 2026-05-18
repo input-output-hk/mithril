@@ -1,3 +1,8 @@
+//! Pre-circuit inputs produced by the IVC prover's preparation step.
+//!
+//! Holds the witness, the advanced chain state, and the folded accumulator that
+//! the in-circuit construction and proof-generation steps consume next.
+
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 
 use crate::circuits::halo2_ivc::state::{State, Witness};

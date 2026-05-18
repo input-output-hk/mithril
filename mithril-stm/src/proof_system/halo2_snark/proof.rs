@@ -637,9 +637,9 @@ mod tests {
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
-            let result = snark_proof.prepare_and_check(wrong_message.as_slice(), &avk);
-
-            assert!(result.is_err());
+            snark_proof
+                .prepare_and_check(wrong_message.as_slice(), &avk)
+                .expect_err("prepare_and_check should fail");
         }
 
         #[test]
@@ -666,8 +666,9 @@ mod tests {
             let random_proof =
                 SnarkProof::try_new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
 
-            let result = random_proof.prepare_and_check(message.as_slice(), &avk);
-            assert!(result.is_err());
+            random_proof
+                .prepare_and_check(message.as_slice(), &avk)
+                .expect_err("prepare_and_check should fail");
         }
 
         #[test]

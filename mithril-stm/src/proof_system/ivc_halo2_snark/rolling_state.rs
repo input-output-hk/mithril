@@ -2,9 +2,7 @@
 
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 
-use crate::circuits::halo2_ivc::{
-    helpers::signatures::schnorr_signature::Signature as SchnorrSignature, state::State,
-};
+use crate::{circuits::halo2_ivc::state::State, signature_scheme::StandardSchnorrSignature};
 
 /// Caller-owned bridge between consecutive IVC proving steps.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
@@ -17,5 +15,5 @@ pub(crate) struct IvcRollingState {
     /// Folded accumulator the new step will build on top of
     pub(crate) accumulator: Accumulator<BlstrsEmulation>,
     /// Chain-specific Schnorr signature over the genesis state
-    pub(crate) genesis_signature: SchnorrSignature,
+    pub(crate) genesis_signature: StandardSchnorrSignature,
 }
