@@ -95,6 +95,25 @@ ARTIFACTS_DIR=artifacts NUM_FULL_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
 # Epoch Length: the duration of a Cardano Epoch
 ARTIFACTS_DIR=artifacts SLOT_LENGTH=0.5 EPOCH_LENGTH=120 ./devnet-run.sh
 
+# Run devnet with custom Mithril run interval (500ms)
+# Mithril Run Interval: how often (in ms) the Mithril aggregator and signers run their state machines
+MITHRIL_RUN_INTERVAL=500 ./devnet-run.sh
+
+# Run devnet with a specific Mithril era
+# Mithril Era: the era advertised to aggregator and signers (e.g. 'pythagoras' or 'lagrange', case insensitive, defaults to 'pythagoras')
+MITHRIL_ERA=lagrange ./devnet-run.sh
+
+# Run devnet with a specific Mithril aggregate signature type
+# Mithril Aggregate Signature Type: the aggregate signature scheme used by the aggregator ('Concatenation' or 'Snark', case insensitive, defaults to 'Concatenation')
+# Note: 'Snark' requires the Mithril binaries to be built with the 'future_snark' Cargo feature.
+MITHRIL_AGGREGATE_SIGNATURE_TYPE=Snark ./devnet-run.sh
+
+# Run devnet with custom Mithril STM protocol parameters
+# K: minimum number of valid individual signatures required to aggregate a multi signature (defaults to 5)
+# M: total number of lotteries each signer plays per signing round (defaults to 100)
+# Phi_f: probability that a single lottery succeeds, in [0, 1] (defaults to 0.65)
+MITHRIL_PROTOCOL_PARAMETERS_K=5 MITHRIL_PROTOCOL_PARAMETERS_M=100 MITHRIL_PROTOCOL_PARAMETERS_PHI_F=0.65 ./devnet-run.sh
+
 # Logs devnet
 ARTIFACTS_DIR=artifacts LINES=10 ./devnet-log.sh
 
