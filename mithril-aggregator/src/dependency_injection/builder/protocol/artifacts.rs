@@ -308,7 +308,7 @@ impl DependenciesBuilder {
         if self.configuration.environment() == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type() {
                 SnapshotUploaderType::Gcp => {
-                    let allow_overwrite = false;
+                    let allow_overwrite = true;
                     let remote_folder_path =
                         CloudRemotePath::new("cardano-database").join("immutable");
 

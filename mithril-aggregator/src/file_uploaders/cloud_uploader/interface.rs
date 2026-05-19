@@ -54,6 +54,8 @@ pub trait CloudBackendUploader: Send + Sync {
     /// Check if a file exists in the cloud backend
     async fn file_exists(&self, remote_file_path: &CloudRemotePath) -> StdResult<Option<FileUri>>;
 
+    async fn list_files(&self, remote_folder_path: &CloudRemotePath) -> StdResult<Vec<FileUri>>;
+
     /// Upload a file to the cloud backend
     async fn upload_file(
         &self,

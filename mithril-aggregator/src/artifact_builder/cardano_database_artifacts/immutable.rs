@@ -106,9 +106,21 @@ impl ImmutableFilesUploader for CloudUploader {
         filepaths: &[PathBuf],
         compression_algorithm: Option<CompressionAlgorithm>,
     ) -> StdResult<ImmutablesLocation> {
+        let existing_immutable_files = self.list_remote_folder_files().await?;
+
+        let missing_filepaths: Vec<PathBuf> = filepaths
+            .iter()
+            .filter(|filepath| {
+                !existing_immutable_files
+                    .iter()
+                    .any(|file_uri| String::from(file_uri) == filepath.to_string_lossy().as_ref())
+            })
+            .cloned()
+            .collect();
+
         let mut file_uris = Vec::new();
-        for filepath in filepaths {
-            file_uris.push(self.upload(filepath).await?.into());
+        for filepath in missing_filepaths {
+            file_uris.push(self.upload(&filepath).await?.into());
         }
 
         let template_uri =

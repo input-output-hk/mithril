@@ -9,6 +9,7 @@ use gcloud_storage::http::object_access_controls::insert::{
     InsertObjectAccessControlRequest, ObjectAccessControlCreationConfig,
 };
 use gcloud_storage::http::objects::get::GetObjectRequest;
+use gcloud_storage::http::objects::list::ListObjectsRequest;
 use gcloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
 use slog::{Logger, info};
 use tokio_util::codec::{BytesCodec, FramedRead};
@@ -88,6 +89,35 @@ impl CloudBackendUploader for GCloudBackendUploader {
         };
 
         Ok(file_uri)
+    }
+
+    async fn list_files(&self, remote_folder_path: &CloudRemotePath) -> StdResult<Vec<FileUri>> {
+        info!(
+            self.logger,
+            "Listing files with prefix {remote_folder_path}"
+        );
+        let request = ListObjectsRequest {
+            bucket: self.bucket.clone(),
+            prefix: Some(remote_folder_path.to_string()),
+            ..Default::default()
+        };
+        let response = self
+            .storage_client
+            .list_objects(&request)
+            .await
+            .with_context(|| "remote listing files failure")?;
+
+        let file_uris = response
+            .items
+            .into_iter()
+            .flatten() // Handle Option<Vec<Object>>
+            .map(|object| {
+                CloudRemotePath::new(&object.name)
+                    .to_gcloud_storage_location(&self.bucket, self.use_cdn_domain)
+            })
+            .collect();
+
+        Ok(file_uris)
     }
 
     async fn upload_file(

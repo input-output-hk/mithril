@@ -40,6 +40,13 @@ impl CloudUploader {
             retry_policy,
         }
     }
+
+    pub async fn list_remote_folder_files(&self) -> StdResult<Vec<FileUri>> {
+        self.cloud_backend_uploader
+            .list_files(&self.remote_folder)
+            .await
+            .with_context(|| "listing files in cloud")
+    }
 }
 
 #[async_trait]
