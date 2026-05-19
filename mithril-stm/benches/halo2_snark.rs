@@ -12,10 +12,26 @@ struct Tier {
 }
 
 const TIERS: &[Tier] = &[
-    Tier { name: "small",      circuit_degree: 13, k: 3    },
-    Tier { name: "medium",     circuit_degree: 16, k: 32   },
-    Tier { name: "large",      circuit_degree: 21, k: 1024 },
-    Tier { name: "production", circuit_degree: 22, k: 2093 },
+    Tier {
+        name: "small",
+        circuit_degree: 13,
+        k: 3,
+    },
+    Tier {
+        name: "medium",
+        circuit_degree: 16,
+        k: 32,
+    },
+    Tier {
+        name: "large",
+        circuit_degree: 21,
+        k: 1024,
+    },
+    Tier {
+        name: "production",
+        circuit_degree: 22,
+        k: 2093,
+    },
 ];
 
 /// Returns true if no filter was passed, or if the filter matches `tier`.
@@ -87,22 +103,30 @@ fn bench_tier_single_run(tier: &Tier) {
 }
 
 fn bench_small(c: &mut Criterion) {
-    if !tier_is_selected("small") { return; }
+    if !tier_is_selected("small") {
+        return;
+    }
     bench_tier_criterion(c, &TIERS[0], 10);
 }
 
 fn bench_medium(c: &mut Criterion) {
-    if !tier_is_selected("medium") { return; }
+    if !tier_is_selected("medium") {
+        return;
+    }
     bench_tier_criterion(c, &TIERS[1], 60);
 }
 
 fn bench_large(_c: &mut Criterion) {
-    if !tier_is_selected("large") { return; }
+    if !tier_is_selected("large") {
+        return;
+    }
     bench_tier_single_run(&TIERS[2]);
 }
 
 fn bench_production(_c: &mut Criterion) {
-    if !tier_is_selected("production") { return; }
+    if !tier_is_selected("production") {
+        return;
+    }
     bench_tier_single_run(&TIERS[3]);
 }
 
