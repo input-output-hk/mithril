@@ -213,3 +213,45 @@ STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
                         time:   [13.944 ms 14.010 ms 14.077 ms]
 ```
+
+## Certificate Circuit Benchmarks
+
+Criterion benchmarks for the non-recursive `StmCertificateCircuit` (Halo2/KZG), gated behind the `future_snark` and `benchmark-internals` features.
+
+Three metrics are measured per tier: VK/PK setup time, proof generation time, and proof verification time. Circuit cost and proof size are printed at startup.
+
+### Hardware requirements
+
+| Tier | Min RAM | Typical machine |
+|---|---|---|
+| small | < 1 GB | Any |
+| medium | ~1 GB | Any |
+| large | ~38 GB | Apple M1 Pro 48 GB or equivalent |
+| production | ~70 GB | AWS r7i.12xlarge (384 GB) or equivalent |
+
+### Reference results (Apple M1 Pro, macOS, 3 000 signers, depth = 12)
+
+| Tier | Degree | k | Setup | Prove | Verify | Proof size |
+|---|---|---|---|---|---|---|
+| small | 13 | 3 | ~196 ms | ~365 ms | ~4.1 ms | 3,600 B |
+| medium | 16 | 32 | ~1.99 s | ~3.08 s | ~4.1 ms | 3,600 B |
+| large | 21 | 1,024 | ~89 s | ~111 s | ~6.3 ms | 3,600 B |
+| production† | 22 | 2,093 | ~136 s | ~362 s | ~7 ms | 3,824 B |
+
+†Production numbers from the SNARK Book (AWS r7i.12xlarge, 48 vCPU, 384 GB RAM). Requires ≥ 70 GB RAM.
+
+### Running the benchmarks
+
+Small and medium tiers use Criterion (10 samples, flat sampling — one iteration per sample):
+
+```bash
+cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/small
+cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/medium
+```
+
+Large and production tiers run a single timed measurement (Criterion's 10-sample minimum is impractical at this scale):
+
+```bash
+cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/large
+cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/production
+```
