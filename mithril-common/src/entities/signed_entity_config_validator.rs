@@ -9,9 +9,8 @@ use crate::entities::{
 
 /// Validates the consistency of signed entity configuration inputs.
 ///
-/// This validator checks whether the set of enabled signed entity discriminants:
-/// - Is stable
-/// - Is compatible with the available signing configuration, without depending on a concrete configuration type.
+/// This validator checks whether the set of enabled signed entity discriminants is compatible
+/// with the available signing configuration, without depending on a concrete configuration type.
 ///
 /// It is intended to be reusable by different configuration sources that expose the same
 /// validation data.
@@ -22,29 +21,28 @@ impl SignedEntityConfigValidator {
     ///
     ///- Returns `Ok` when all required configurations are present.
     ///- Returns `Err(...)` with the usable and non-usable discriminants when one or more required
-    ///  configurations are missing or the discriminant is unstable.
+    ///  configurations are missing.
     pub fn check_consistency(
         enabled_discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
         cardano_transactions_signing_config: &Option<CardanoTransactionsSigningConfig>,
         cardano_blocks_transactions_signing_config: &Option<CardanoBlocksTransactionsSigningConfig>,
     ) -> Result<(), InconsistentSignedEntityConfigError> {
         let (usable_discriminants, not_usable_discriminants): (BTreeSet<_>, BTreeSet<_>) =
-            enabled_discriminants.iter().partition(|discriminant| {
-                discriminant.is_stable()
-                    && match discriminant {
-                        SignedEntityTypeDiscriminants::CardanoTransactions => {
-                            cardano_transactions_signing_config.is_some()
-                        }
-                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
-                            cardano_blocks_transactions_signing_config.is_some()
-                        }
-                        // All other discriminants require no additional config and are always usable
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution
-                        | SignedEntityTypeDiscriminants::CardanoStakeDistribution
-                        | SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
-                        | SignedEntityTypeDiscriminants::CardanoDatabase => true,
+            enabled_discriminants
+                .iter()
+                .partition(|discriminant| match discriminant {
+                    SignedEntityTypeDiscriminants::CardanoTransactions => {
+                        cardano_transactions_signing_config.is_some()
                     }
-            });
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
+                        cardano_blocks_transactions_signing_config.is_some()
+                    }
+                    // All other discriminants require no additional config and are always usable
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution
+                    | SignedEntityTypeDiscriminants::CardanoStakeDistribution
+                    | SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
+                    | SignedEntityTypeDiscriminants::CardanoDatabase => true,
+                });
 
         if not_usable_discriminants.is_empty() {
             Ok(())
@@ -60,12 +58,12 @@ impl SignedEntityConfigValidator {
 /// [SignedEntityConfigValidator::check_consistency] error
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error(
-    "The following signed entity can't be used '{not_usable_discriminants:?}': unstable value or missing associated signing configuration"
+    "The following signed entity can't be used '{not_usable_discriminants:?}': missing associated signing configuration"
 )]
 pub struct InconsistentSignedEntityConfigError {
     /// The subset of the allowed discriminants that can be used.
     pub usable_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    /// The discriminants that can't be used because they are unstable or their configuration is inconsistent.
+    /// The discriminants that can't be used because the configuration is inconsistent.
     pub not_usable_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 }
 
@@ -134,28 +132,6 @@ mod tests {
             SignedEntityConfigValidator::check_consistency(
                 &BTreeSet::from([CardanoBlocksTransactions]),
                 &Some(CardanoTransactionsSigningConfig::dummy()),
-                &None,
-            )
-        );
-    }
-
-    #[test]
-    fn invalid_if_any_unstable_discriminant_is_configured() {
-        if SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS.is_empty() {
-            // Unstable discriminants are most of the time empty, in that case skip the test.
-            return;
-        }
-
-        assert_eq!(
-            Err(InconsistentSignedEntityConfigError {
-                usable_discriminants: BTreeSet::new(),
-                not_usable_discriminants: BTreeSet::from(
-                    SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS
-                )
-            }),
-            SignedEntityConfigValidator::check_consistency(
-                &BTreeSet::from(SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS),
-                &None,
                 &None,
             )
         );

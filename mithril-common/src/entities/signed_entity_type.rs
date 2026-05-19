@@ -213,8 +213,7 @@ impl TryToBytes for SignedEntityType {
 impl SignedEntityTypeDiscriminants {
     /// Discriminants that are unstable and should be excluded from certain operations.
     // Note: Empty right now since all discriminants are stable
-    #[doc(hidden)]
-    pub const UNSTABLE_DISCRIMINANTS: [Self; 0] = [];
+    const UNSTABLE_DISCRIMINANTS: [Self; 0] = [];
 
     /// Get all stable discriminants.
     ///
@@ -228,11 +227,6 @@ impl SignedEntityTypeDiscriminants {
     /// Unstable discriminants are intentionally excluded.
     fn iter_all() -> impl Iterator<Item = Self> {
         Self::iter().filter(|d| !Self::UNSTABLE_DISCRIMINANTS.contains(d))
-    }
-
-    /// Checks whether the current instance is stable.
-    pub fn is_stable(&self) -> bool {
-        !Self::UNSTABLE_DISCRIMINANTS.contains(self)
     }
 
     /// Get the database value from enum's instance
@@ -630,16 +624,6 @@ mod tests {
             SignedEntityTypeDiscriminants::iter_all()
                 .all(|d| !SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS.contains(&d))
         );
-    }
-
-    #[test]
-    fn is_stable_returns_true_for_discriminant_not_in_unstable_list() {
-        for unstable_discriminant in SignedEntityTypeDiscriminants::UNSTABLE_DISCRIMINANTS {
-            assert!(!unstable_discriminant.is_stable());
-        }
-        for stable_discriminant in SignedEntityTypeDiscriminants::iter_all() {
-            assert!(stable_discriminant.is_stable());
-        }
     }
 
     // Expected ord:
