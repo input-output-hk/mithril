@@ -4,14 +4,6 @@ pub type MithrilResult<T> = anyhow::Result<T>;
 /// Mithril error type, an alias of [anyhow::Error]
 pub type MithrilError = anyhow::Error;
 
-/// A Mithril snapshot of a Cardano Node database.
-///
-pub use mithril_common::messages::SnapshotMessage as Snapshot;
-
-/// List item of Mithril snapshots
-///
-pub use mithril_common::messages::SnapshotListItemMessage as SnapshotListItem;
-
 /// A Cardano node database snapshot
 ///
 pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
