@@ -25,6 +25,9 @@ pub(crate) mod types;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) mod witness;
 
+#[cfg(any(test, feature = "benchmark-internals"))]
+pub mod bench_helpers;
+
 #[cfg(test)]
 pub(crate) mod tests;
 
