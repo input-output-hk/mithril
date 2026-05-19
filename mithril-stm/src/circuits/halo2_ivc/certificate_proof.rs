@@ -48,6 +48,8 @@ pub(crate) fn verify_and_prepare_accumulator(
         CircuitTranscript<PoseidonState<CircuitBase>>,
     >(
         circuit_verification_key.vk(),
+        // `committed_instances` slot: identity matches what the in-circuit IVC verifier
+        // gadget passes, so the off-circuit `DualMSM` is byte-equivalent to its in-circuit twin.
         &[&[G1Projective::identity()]],
         &[&[public_inputs]],
         &mut transcript,

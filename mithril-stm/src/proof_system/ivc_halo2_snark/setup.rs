@@ -11,6 +11,16 @@ use midnight_proofs::{
 use crate::circuits::halo2::types::CircuitBase;
 
 /// Load-once, deployment-constant artifacts shared by every step of an IVC proving session.
+///
+/// # Invariants
+///
+/// The three fixed-base maps are not independent. The constructor must enforce:
+///
+/// `combined_fixed_bases.keys() == certificate_fixed_bases.keys() ∪ ivc_fixed_bases.keys()`
+///
+/// and values must agree across the three maps for any shared key. The in-circuit IVC
+/// verifier gadget builds a single merged fixed-base list from these names; any mismatch
+/// here produces folded accumulators the circuit will reject.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this setup
 #[allow(dead_code)]
 pub(crate) struct IvcSetup {
