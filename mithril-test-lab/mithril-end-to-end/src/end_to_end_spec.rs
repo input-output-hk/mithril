@@ -254,29 +254,6 @@ impl Spec {
                 .await?;
         }
 
-        // Verify that snapshot artifacts are produced and signed correctly
-        {
-            let digest = assertions::assert_node_producing_snapshot(aggregator).await?;
-            let certificate_hash = assertions::assert_signer_is_signing_snapshot(
-                aggregator,
-                &digest,
-                expected_epoch_min,
-            )
-            .await?;
-
-            assertions::assert_is_creating_certificate_with_enough_signers(
-                aggregator,
-                &certificate_hash,
-                infrastructure.signers().len(),
-            )
-            .await?;
-
-            let mut client = infrastructure.build_client(aggregator).await?;
-            if client.version().is_below("0.13.1") {
-                assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
-            }
-        }
-
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
         if self.is_signing_cardano_database {
             let hash =

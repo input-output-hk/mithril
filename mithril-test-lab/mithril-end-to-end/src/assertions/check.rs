@@ -14,15 +14,14 @@ use mithril_common::{
         CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
         CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
         CardanoTransactionSnapshotMessage, CertificateMessage, MithrilStakeDistributionListMessage,
-        MithrilStakeDistributionMessage, SnapshotMessage,
+        MithrilStakeDistributionMessage,
     },
 };
 
 use crate::{
-    Aggregator, CardanoBlockCommand, CardanoDbCommand, CardanoDbV2Command,
-    CardanoStakeDistributionCommand, CardanoTransactionCommand, CardanoTransactionV2Command,
-    Client, ClientCommand, FullNode, MithrilStakeDistributionCommand, NodeVersion, ToolsCommand,
-    UtxoHdCommand, attempt,
+    Aggregator, CardanoBlockCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
+    CardanoTransactionCommand, CardanoTransactionV2Command, Client, ClientCommand, FullNode,
+    MithrilStakeDistributionCommand, NodeVersion, ToolsCommand, UtxoHdCommand, attempt,
     utils::{AttemptResult, file_utils::copy_dir_all},
 };
 
@@ -126,78 +125,6 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
             aggregator.name()
         )
     })
-}
-
-pub async fn assert_node_producing_snapshot(aggregator: &Aggregator) -> StdResult<String> {
-    let url = format!("{}/artifact/snapshots", aggregator.endpoint());
-    info!("Waiting for the aggregator to produce a snapshot"; "aggregator" => &aggregator.name());
-
-    async fn fetch_last_snapshot_digest(url: String) -> StdResult<Option<String>> {
-        match get_json_response::<Vec<SnapshotMessage>>(url).await?.as_deref() {
-            Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
-            Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!("Invalid snapshot body: {err}",)),
-        }
-    }
-
-    match attempt!(30, Duration::from_millis(2000), {
-        fetch_last_snapshot_digest(url.clone()).await
-    }) {
-        AttemptResult::Ok(digest) => {
-            info!("Aggregator produced a snapshot"; "digest" => &digest, "aggregator" => &aggregator.name());
-            Ok(digest)
-        }
-        AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(anyhow!(
-            "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
-        )),
-    }
-    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
-}
-
-pub async fn assert_signer_is_signing_snapshot(
-    aggregator: &Aggregator,
-    digest: &str,
-    expected_epoch_min: Epoch,
-) -> StdResult<String> {
-    let url = format!("{}/artifact/snapshot/{digest}", aggregator.endpoint());
-    info!(
-        "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
-        digest,
-        expected_epoch_min;
-        "aggregator" => &aggregator.name()
-    );
-
-    async fn fetch_snapshot_message(
-        url: String,
-        expected_epoch_min: Epoch,
-    ) -> StdResult<Option<SnapshotMessage>> {
-        match get_json_response::<SnapshotMessage>(url).await? {
-            Ok(snapshot) => match snapshot.beacon.epoch {
-                epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
-                epoch => Err(anyhow!(
-                    "Minimum expected snapshot epoch not reached: {epoch} < {expected_epoch_min}"
-                )),
-            },
-            Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
-        }
-    }
-
-    match attempt!(10, Duration::from_millis(1000), {
-        fetch_snapshot_message(url.clone(), expected_epoch_min).await
-    }) {
-        AttemptResult::Ok(snapshot) => {
-            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash, "aggregator" => &aggregator.name());
-            Ok(snapshot.certificate_hash)
-        }
-        AttemptResult::Err(error) => {
-            Err(error).with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
-        }
-        AttemptResult::Timeout() => Err(anyhow!(
-            "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
-        )),
-    }
-    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_node_producing_cardano_database_snapshot(
@@ -669,17 +596,6 @@ pub async fn assert_client_can_verify_cardano_database(
         }))
         .await?;
     info!("Client downloaded & restored the cardano database snapshot"; "hash" => &hash);
-
-    Ok(())
-}
-
-pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {
-    client
-        .run(ClientCommand::CardanoDb(CardanoDbCommand::Download {
-            digest: digest.to_string(),
-        }))
-        .await?;
-    info!("Client downloaded & restored the snapshot"; "digest" => &digest);
 
     Ok(())
 }
