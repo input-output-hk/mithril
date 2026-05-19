@@ -86,7 +86,12 @@ impl BenchEnv {
         };
         let circuit = StmCertificateCircuit::try_new(&params, depth)
             .context("BenchEnv: failed to create StmCertificateCircuit")?;
-        let config = BenchCircuitConfig { circuit_degree, k, m, merkle_tree_depth: depth };
+        let config = BenchCircuitConfig {
+            circuit_degree,
+            k,
+            m,
+            merkle_tree_depth: depth,
+        };
         let key_pair = get_or_build_bench_keys(config, &circuit, &srs)?;
 
         Ok(Self {
@@ -116,7 +121,11 @@ impl BenchEnv {
         let (tree, signer_fixtures) = build_bench_merkle_tree(self.num_signers)?;
         let commitment = bench_merkle_root(&tree)?;
         let entries = build_bench_witness(&tree, &signer_fixtures, commitment, message, self.k)?;
-        Ok(BenchWitness { merkle_tree_commitment: commitment, message, entries })
+        Ok(BenchWitness {
+            merkle_tree_commitment: commitment,
+            message,
+            entries,
+        })
     }
 
     /// Generate a SNARK proof for `witness`.
@@ -173,7 +182,10 @@ struct SignerEntry {
 
 fn build_bench_merkle_tree(
     num_signers: usize,
-) -> StmResult<(StmMerkleTree<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>, Vec<SignerEntry>)> {
+) -> StmResult<(
+    StmMerkleTree<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>,
+    Vec<SignerEntry>,
+)> {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let circuit_target = -CircuitLotteryTargetValue::ONE;
     let stm_target = circuit_target.into();
@@ -185,7 +197,11 @@ fn build_bench_merkle_tree(
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone());
         stm_leaves.push(StmMerkleTreeSnarkLeaf(vk, stm_target));
-        signer_entries.push(SignerEntry { sk, vk, circuit_target });
+        signer_entries.push(SignerEntry {
+            sk,
+            vk,
+            circuit_target,
+        });
     }
 
     let tree = StmMerkleTree::<MidnightPoseidonDigest, StmMerkleTreeSnarkLeaf>::new(&stm_leaves);
@@ -272,11 +288,7 @@ fn get_or_build_bench_keys(
 
 fn load_or_generate_srs(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let assets_dir = manifest_dir
-        .join("src")
-        .join("circuits")
-        .join("halo2")
-        .join("assets");
+    let assets_dir = manifest_dir.join("src").join("circuits").join("halo2").join("assets");
     let path = assets_dir.join(format!("params_kzg_unsafe_{circuit_degree}"));
 
     if path.exists() {
@@ -288,7 +300,10 @@ fn load_or_generate_srs(circuit_degree: u32) -> StmResult<ParamsKZG<Bls12>> {
     }
 
     fs::create_dir_all(&assets_dir).with_context(|| {
-        format!("bench: failed to create SRS directory at '{}'", assets_dir.display())
+        format!(
+            "bench: failed to create SRS directory at '{}'",
+            assets_dir.display()
+        )
     })?;
 
     let srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));

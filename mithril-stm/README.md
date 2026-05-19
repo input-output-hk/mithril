@@ -222,21 +222,21 @@ Three metrics are measured per tier: VK/PK setup time, proof generation time, an
 
 ### Hardware requirements
 
-| Tier | Min RAM | Typical machine |
-|---|---|---|
-| small | < 1 GB | Any |
-| medium | ~1 GB | Any |
-| large | ~38 GB | Apple M1 Pro 48 GB or equivalent |
-| production | ~70 GB | AWS r7i.12xlarge (384 GB) or equivalent |
+| Tier       | Min RAM | Typical machine                         |
+| ---------- | ------- | --------------------------------------- |
+| small      | < 1 GB  | Any                                     |
+| medium     | ~1 GB   | Any                                     |
+| large      | ~38 GB  | Apple M4 Max 48 GB or equivalent        |
+| production | ~70 GB  | AWS r7i.12xlarge (384 GB) or equivalent |
 
-### Reference results (Apple M1 Pro, macOS, 3 000 signers, depth = 12)
+### Reference results (Apple M4 Max, 48 GB, macOS, 3 000 signers, depth = 12)
 
-| Tier | Degree | k | Setup | Prove | Verify | Proof size |
-|---|---|---|---|---|---|---|
-| small | 13 | 3 | ~196 ms | ~365 ms | ~4.1 ms | 3,600 B |
-| medium | 16 | 32 | ~1.99 s | ~3.08 s | ~4.1 ms | 3,600 B |
-| large | 21 | 1,024 | ~89 s | ~111 s | ~6.3 ms | 3,600 B |
-| production† | 22 | 2,093 | ~136 s | ~362 s | ~7 ms | 3,824 B |
+| Tier        | Degree | k     | Setup   | Prove   | Verify  | Proof size |
+| ----------- | ------ | ----- | ------- | ------- | ------- | ---------- |
+| small       | 13     | 3     | ~196 ms | ~365 ms | ~4.1 ms | 3,600 B    |
+| medium      | 16     | 32    | ~1.99 s | ~3.08 s | ~4.1 ms | 3,600 B    |
+| large       | 21     | 1,024 | ~89 s   | ~111 s  | ~6.3 ms | 3,600 B    |
+| production† | 22     | 2,093 | ~136 s  | ~362 s  | ~7 ms   | 3,824 B    |
 
 †Production numbers from the SNARK Book (AWS r7i.12xlarge, 48 vCPU, 384 GB RAM). Requires ≥ 70 GB RAM.
 
