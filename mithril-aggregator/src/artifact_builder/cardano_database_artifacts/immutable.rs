@@ -106,6 +106,7 @@ impl ImmutableFilesUploader for CloudUploader {
         filepaths: &[PathBuf],
         compression_algorithm: Option<CompressionAlgorithm>,
     ) -> StdResult<ImmutablesLocation> {
+        self.refresh_existing_files_path_cache().await?;
         let mut file_uris = Vec::new();
         for filepath in filepaths {
             file_uris.push(self.upload(filepath).await?.into());

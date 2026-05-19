@@ -9,6 +9,7 @@ use gcloud_storage::http::object_access_controls::insert::{
     InsertObjectAccessControlRequest, ObjectAccessControlCreationConfig,
 };
 use gcloud_storage::http::objects::get::GetObjectRequest;
+use gcloud_storage::http::objects::list::ListObjectsRequest;
 use gcloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
 use slog::{Logger, info};
 use tokio_util::codec::{BytesCodec, FramedRead};
@@ -88,6 +89,40 @@ impl CloudBackendUploader for GCloudBackendUploader {
         };
 
         Ok(file_uri)
+    }
+
+    async fn list_files(
+        &self,
+        remote_folder_path: &CloudRemotePath,
+    ) -> StdResult<Vec<CloudRemotePath>> {
+        let mut normalized_path = remote_folder_path.to_string();
+        if !normalized_path.is_empty() && !normalized_path.ends_with('/') {
+            normalized_path.push('/');
+        }
+        info!(self.logger, "Listing files with prefix {normalized_path}");
+        let request = ListObjectsRequest {
+            bucket: self.bucket.clone(),
+            prefix: Some(normalized_path),
+            ..Default::default()
+        };
+        let response = self
+            .storage_client
+            .list_objects(&request)
+            .await
+            .with_context(|| "remote listing files failure")?;
+
+        let files_path: Vec<CloudRemotePath> = response
+            .items
+            .into_iter()
+            .flatten()
+            .map(|object| CloudRemotePath::new(&object.name))
+            .collect();
+
+        Ok(files_path)
+    }
+
+    fn get_file_uri(&self, remote_file_path: &CloudRemotePath) -> FileUri {
+        remote_file_path.to_gcloud_storage_location(&self.bucket, self.use_cdn_domain)
     }
 
     async fn upload_file(
