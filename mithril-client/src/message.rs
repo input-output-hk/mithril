@@ -1,19 +1,13 @@
 use anyhow::Context;
 use slog::{Logger, o};
-#[cfg(feature = "fs")]
-use std::{path::Path, sync::Arc};
 
-#[cfg(feature = "fs")]
-use mithril_cardano_node_internal_database::digesters::{
-    CardanoImmutableDigester, ImmutableDigester,
-};
 use mithril_common::{
     crypto_helper::ProtocolKey, logging::LoggerExtensions, protocol::SignerBuilder,
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
 
 #[cfg(feature = "fs")]
-use crate::common::{MKProof, SignedEntityTypeMessage};
+use crate::common::MKProof;
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
     MithrilStakeDistribution, VerifiedCardanoTransactions,
@@ -25,8 +19,6 @@ use crate::{VerifiedCardanoBlocks, VerifiedCardanoTransactionsV2};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
-    #[cfg(feature = "fs")]
-    immutable_digester: Option<Arc<dyn ImmutableDigester>>,
     logger: Logger,
 }
 
@@ -34,11 +26,7 @@ impl MessageBuilder {
     /// Constructs a new `MessageBuilder`.
     pub fn new() -> MessageBuilder {
         let logger = Logger::root(slog::Discard, o!());
-        Self {
-            #[cfg(feature = "fs")]
-            immutable_digester: None,
-            logger,
-        }
+        Self { logger }
     }
 
     /// Set the [Logger] to use.
@@ -48,61 +36,6 @@ impl MessageBuilder {
     }
 
     cfg_fs! {
-        fn get_immutable_digester(&self, network: &str) -> Arc<dyn ImmutableDigester> {
-            match self.immutable_digester.as_ref() {
-                None => Arc::new(CardanoImmutableDigester::new(network.to_owned(),None, self.logger.clone())),
-                Some(digester) => digester.clone(),
-            }
-        }
-
-        /// Set the [ImmutableDigester] to be used for the message computation for snapshot.
-        ///
-        /// If not set a default implementation will be used.
-        pub fn with_immutable_digester(
-            mut self,
-            immutable_digester: Arc<dyn ImmutableDigester>,
-        ) -> Self {
-            self.immutable_digester = Some(immutable_digester);
-            self
-        }
-
-        /// Compute message for a snapshot (based on the directory where it was unpacked).
-        ///
-        /// Warning: this operation can be quite long depending on the snapshot size.
-        pub async fn compute_snapshot_message(
-            &self,
-            snapshot_certificate: &MithrilCertificate,
-            unpacked_snapshot_directory: &Path,
-        ) -> MithrilResult<ProtocolMessage> {
-            let digester = self.get_immutable_digester(&snapshot_certificate.metadata.network);
-            let beacon =
-                match &snapshot_certificate.signed_entity_type {
-                SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
-                other => {
-                    Err(anyhow::anyhow!(
-                    "Can't compute message: Given certificate `{}` does not certify a snapshot, certificate signed entity: {:?}",
-                    snapshot_certificate.hash,
-                    other
-                        )
-                    )},
-            }?;
-
-            let mut message = snapshot_certificate.protocol_message.clone();
-
-            let digest = digester
-                .compute_digest(unpacked_snapshot_directory, &beacon.clone())
-                .await
-                .with_context(|| {
-                    format!(
-                        "Snapshot digest computation failed: unpacked_dir: '{}'",
-                        unpacked_snapshot_directory.display()
-                    )
-                })?;
-            message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-
-            Ok(message)
-        }
-
         /// Compute message for a Cardano database.
         pub async fn compute_cardano_database_message(
         &self,
