@@ -114,6 +114,11 @@ MITHRIL_AGGREGATE_SIGNATURE_TYPE=Snark ./devnet-run.sh
 # Phi_f: probability that a single lottery succeeds, in [0, 1] (defaults to 0.65)
 MITHRIL_PROTOCOL_PARAMETERS_K=5 MITHRIL_PROTOCOL_PARAMETERS_M=100 MITHRIL_PROTOCOL_PARAMETERS_PHI_F=0.65 ./devnet-run.sh
 
+# Run devnet with custom signed entity types
+# Mithril Signed Entity Types: comma separated list of signed entity types the aggregator must sign
+# (defaults to 'CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase')
+MITHRIL_SIGNED_ENTITY_TYPES=CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase ./devnet-run.sh
+
 # Logs devnet
 ARTIFACTS_DIR=artifacts LINES=10 ./devnet-log.sh
 

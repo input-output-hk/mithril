@@ -140,6 +140,7 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATE_SIGNATURE_TYPE=${MITHRIL_AGGREGATE_SIGNATURE_TYPE}
       - ERA_READER_ADAPTER_TYPE=dummy
       - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
+      - SIGNED_ENTITY_TYPES=${MITHRIL_SIGNED_ENTITY_TYPES}
     command:
       [
         "-vvv",
@@ -177,6 +178,7 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATE_SIGNATURE_TYPE=${MITHRIL_AGGREGATE_SIGNATURE_TYPE}
       - ERA_READER_ADAPTER_TYPE=dummy
       - 'ERA_READER_ADAPTER_PARAMS={"markers":[{"name":"${MITHRIL_ERA}","epoch":0}]}'
+      - SIGNED_ENTITY_TYPES=${MITHRIL_SIGNED_ENTITY_TYPES}
     command:
       [
         "-vvv",
