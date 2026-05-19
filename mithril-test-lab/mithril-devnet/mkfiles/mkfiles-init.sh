@@ -111,8 +111,12 @@ fi
 if [ -z "${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}" ]; then
   MITHRIL_PROTOCOL_PARAMETERS_PHI_F="0.65"
 fi
+if [ -z "${MITHRIL_SIGNED_ENTITY_TYPES}" ]; then
+  MITHRIL_SIGNED_ENTITY_TYPES="CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase"
+fi
 export MITHRIL_RUN_INTERVAL MITHRIL_AGGREGATE_SIGNATURE_TYPE MITHRIL_ERA
 export MITHRIL_PROTOCOL_PARAMETERS_K MITHRIL_PROTOCOL_PARAMETERS_M MITHRIL_PROTOCOL_PARAMETERS_PHI_F
+export MITHRIL_SIGNED_ENTITY_TYPES
 DEVNET_VERSION=$(cat VERSION)
 
 # Display configuration summary
@@ -133,6 +137,7 @@ echo ">> Mithril Era [env::MITHRIL_ERA]: ${MITHRIL_ERA}"
 echo ">> Mithril Protocol Parameter K [env::MITHRIL_PROTOCOL_PARAMETERS_K]: ${MITHRIL_PROTOCOL_PARAMETERS_K}"
 echo ">> Mithril Protocol Parameter M [env::MITHRIL_PROTOCOL_PARAMETERS_M]: ${MITHRIL_PROTOCOL_PARAMETERS_M}"
 echo ">> Mithril Protocol Parameter Phi_f [env::MITHRIL_PROTOCOL_PARAMETERS_PHI_F]: ${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}"
+echo ">> Mithril Signed Entity Types [env::MITHRIL_SIGNED_ENTITY_TYPES]: ${MITHRIL_SIGNED_ENTITY_TYPES}"
 
 # Check if root directory already exists
 if ! mkdir -p "${ARTIFACTS_DIR}"; then
