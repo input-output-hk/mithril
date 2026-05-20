@@ -10,13 +10,16 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, RwLock};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow};
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
+use midnight_proofs::circuit::Value;
+use midnight_proofs::dev::MockProver;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::utils::SerdeFormat;
-use midnight_zk_stdlib::{self as zk, MidnightPK, MidnightVK};
+use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK, Relation};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
@@ -61,6 +64,7 @@ pub struct BenchEnv {
     pk: MidnightPK<StmCertificateCircuit>,
     num_signers: usize,
     k: u32,
+    circuit_degree: u32,
 }
 
 /// Pre-built witness ready for repeated `BenchEnv::prove` calls.
@@ -101,6 +105,7 @@ impl BenchEnv {
             pk: key_pair.1.clone(),
             num_signers,
             k,
+            circuit_degree,
         })
     }
 
@@ -168,10 +173,79 @@ impl BenchEnv {
         buf.len()
     }
 
+    /// Return the circuit degree (log₂ of the number of rows) used by this environment.
+    pub fn circuit_degree(&self) -> u32 {
+        self.circuit_degree
+    }
+
     /// Print the circuit cost model (rows, columns, gates) to stdout.
     pub fn print_circuit_cost(&self) {
         println!("{:?}", zk::cost_model(&self.circuit));
     }
+
+    /// Run the mock prover on `witness` and return timing for each phase.
+    ///
+    /// Three phases are timed separately to match Daniel's benchmark tables:
+    /// 1. Circuit construction (`MidnightCircuit::new`) — fills the witness into the circuit.
+    /// 2. Mock proving (`MockProver::run`) — synthesizes the circuit and evaluates constraints.
+    /// 3. Mock verification (`MockProver::verify`) — checks all constraints passed.
+    pub fn mock_run(&self, witness: &BenchWitness) -> StmResult<MockRunTimings> {
+        let instance = (witness.merkle_tree_commitment, witness.message);
+        let entries = witness.entries.clone();
+
+        let pi = StmCertificateCircuit::format_instance(&instance)
+            .map_err(|e| anyhow!("mock_run: failed to format instance: {e:?}"))?;
+
+        let t = Instant::now();
+        let mc = MidnightCircuit::new(
+            &self.circuit,
+            Value::known(instance),
+            Value::known(entries),
+            None,
+        );
+        let circuit_gen = t.elapsed();
+
+        let t = Instant::now();
+        let prover = MockProver::run(self.circuit_degree, &mc, vec![vec![], pi])
+            .map_err(|e| anyhow!("mock_run: MockProver::run failed: {e:?}"))?;
+        let mock_prove = t.elapsed();
+
+        let t = Instant::now();
+        prover
+            .verify()
+            .map_err(|e| anyhow!("mock_run: MockProver::verify failed: {e:?}"))?;
+        let mock_verify = t.elapsed();
+
+        Ok(MockRunTimings {
+            circuit_gen,
+            mock_prove,
+            mock_verify,
+        })
+    }
+}
+
+/// Timing breakdown from a single `BenchEnv::mock_run` call.
+pub struct MockRunTimings {
+    pub circuit_gen: Duration,
+    pub mock_prove: Duration,
+    pub mock_verify: Duration,
+}
+
+/// Compute the minimum circuit degree (K) required for the given parameters.
+///
+/// Uses `MidnightCircuit::from_relation().min_k()` with `DEFAULT_NUM_SIGNERS` and
+/// `phi_f = 0.2`. Call this once per tier to determine the `circuit_degree` argument
+/// for `BenchEnv::new`.
+pub fn compute_circuit_degree(k: u32, m: u32) -> StmResult<u32> {
+    let depth = DEFAULT_NUM_SIGNERS.next_power_of_two().trailing_zeros();
+    let params = Parameters {
+        k: k as u64,
+        m: m as u64,
+        phi_f: 0.2,
+    };
+    let circuit = StmCertificateCircuit::try_new(&params, depth)
+        .context("compute_circuit_degree: failed to create StmCertificateCircuit")?;
+    Ok(MidnightCircuit::from_relation(&circuit).min_k())
 }
 
 struct SignerEntry {
