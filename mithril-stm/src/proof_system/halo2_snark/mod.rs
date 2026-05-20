@@ -19,7 +19,7 @@ pub use proof::SnarkProof;
 pub(crate) use proof::SnarkProver;
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
-pub(crate) use unsafe_helpers::SnarkSetup;
+pub(crate) use unsafe_helpers::{SnarkSetup, SnarkVerifierSetup};
 
 /// Fixed merkle tree depth used of the merkle tree
 /// of signers for the SNARK proof. It is used to compute
