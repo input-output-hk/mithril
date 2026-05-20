@@ -28,9 +28,12 @@ data "googlesiteverification_dns_token" "mithril-aggregator-cdn-endpoint" {
 }
 
 resource "googlesiteverification_dns" "mithril-aggregator" {
-  domain     = "aggregator.${google_dns_managed_zone.mithril-api-zone.dns_name}"
-  token      = data.googlesiteverification_dns_token.mithril-aggregator-cdn-endpoint.record_value
-  depends_on = [google_dns_managed_zone.mithril-api-zone]
+  domain = "aggregator.${google_dns_managed_zone.mithril-api-zone.dns_name}"
+  token  = data.googlesiteverification_dns_token.mithril-aggregator-cdn-endpoint.record_value
+  depends_on = [
+    google_dns_managed_zone.mithril-api-zone,
+    google_dns_record_set.mithril-aggregator-txt,
+  ]
 }
 
 resource "google_dns_record_set" "mithril-aggregator-txt" {
