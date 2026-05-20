@@ -739,7 +739,7 @@ mod tests {
             epoch,
             configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                 enabled_signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
                 ]),
                 ..Dummy::dummy()
             },
@@ -799,7 +799,7 @@ mod tests {
 
         // Check allowed_discriminants
         assert_eq!(
-            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]),
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoDatabase]),
             *service.allowed_discriminants().unwrap()
         );
 
@@ -1019,7 +1019,7 @@ mod tests {
         // Success after `inform_epoch_settings` if `cardano_transactions_signing_config` is set
         {
             let allowed_discriminants =
-                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]);
+                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoDatabase]);
 
             let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
                 enabled_signed_entity_types: allowed_discriminants.clone(),
