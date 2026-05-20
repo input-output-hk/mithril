@@ -25,7 +25,7 @@ mod record {
         fn dummy() -> Self {
             let beacon = fake_data::beacon();
             let epoch = beacon.epoch;
-            let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
+            let signed_entity_type = SignedEntityType::CardanoDatabase(beacon);
 
             Self {
                 open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
@@ -83,7 +83,7 @@ mod entities {
         fn dummy() -> Self {
             let beacon = fake_data::beacon();
             let epoch = beacon.epoch;
-            let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
+            let signed_entity_type = SignedEntityType::CardanoDatabase(beacon);
 
             Self {
                 epoch,

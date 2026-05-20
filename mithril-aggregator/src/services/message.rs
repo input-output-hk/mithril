@@ -1259,8 +1259,8 @@ mod tests {
                 },
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                        fake_data::beacon(),
+                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                        fake_data::beacon().epoch,
                     ),
                     certificate_id: "cert_id-2".to_string(),
                     artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
@@ -1299,9 +1299,7 @@ mod tests {
                 // Another signed entity type on the same epoch
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                        CardanoDbBeacon::new(3, 100),
-                    ),
+                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(3)),
                     certificate_id: "cert_id-2".to_string(),
                     artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
                     created_at: Default::default(),

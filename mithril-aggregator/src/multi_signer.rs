@@ -287,7 +287,7 @@ mod tests {
 
         let mut open_message = OpenMessage {
             epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon {
+            signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon {
                 epoch,
                 ..fake_data::beacon()
             }),

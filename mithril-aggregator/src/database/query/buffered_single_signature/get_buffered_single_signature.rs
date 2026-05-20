@@ -47,7 +47,7 @@ impl Query for GetBufferedSingleSignatureQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
-        CardanoImmutableFilesFull, CardanoTransactions, MithrilStakeDistribution,
+        CardanoDatabase, CardanoTransactions, MithrilStakeDistribution,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -111,7 +111,7 @@ mod tests {
 
         let cursor = connection
             .fetch(GetBufferedSingleSignatureQuery::by_discriminant(
-                CardanoImmutableFilesFull,
+                CardanoDatabase,
             ))
             .unwrap();
         assert_eq!(0, cursor.count());

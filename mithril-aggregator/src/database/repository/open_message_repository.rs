@@ -219,7 +219,7 @@ mod tests {
 
         for signed_entity_type in [
             SignedEntityType::MithrilStakeDistribution(epoch),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(*epoch, 1)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(*epoch, 1)),
             SignedEntityType::CardanoTransactions(epoch, BlockNumber(100)),
         ] {
             repository
@@ -268,7 +268,7 @@ mod tests {
         let open_message = repository
             .create_open_message(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
+                &SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
                 &ProtocolMessage::new(),
             )
             .await
@@ -276,7 +276,7 @@ mod tests {
 
         assert_eq!(Epoch(1), open_message.epoch);
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
             open_message.signed_entity_type
         );
 
@@ -327,7 +327,7 @@ mod tests {
         let open_message = repository
             .create_open_message(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
+                &SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
                 &ProtocolMessage::new(),
             )
             .await
@@ -352,7 +352,7 @@ mod tests {
         let _ = repository
             .create_open_message(
                 beacon.epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+                &SignedEntityType::CardanoDatabase(beacon.clone()),
                 &ProtocolMessage::new(),
             )
             .await
@@ -360,7 +360,7 @@ mod tests {
         let _ = repository
             .create_open_message(
                 beacon.epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon {
+                &SignedEntityType::CardanoDatabase(CardanoDbBeacon {
                     epoch: Epoch(2),
                     ..beacon
                 }),
