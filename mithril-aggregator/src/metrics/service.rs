@@ -19,16 +19,6 @@ build_metrics_service!(
         "Number of certificate details served since startup on a Mithril aggregator node",
         &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
     ),
-    artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounterWithLabels(
-        "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
-        "Number of Cardano immutable files full artifact details served since startup on a Mithril aggregator node",
-        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
-    ),
-    cardano_immutable_files_full_total_restoration_since_startup:MetricCounterWithLabels(
-        "mithril_aggregator_cardano_db_total_restoration_since_startup",
-        "Number of Cardano immutable files full restorations since startup on a Mithril aggregator node",
-        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
-    ),
     cardano_database_immutable_files_restored_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_immutable_files_restored_since_startup",
         "Number of Cardano immutable files restored since startup on a Mithril aggregator node",
@@ -127,10 +117,6 @@ build_metrics_service!(
     certificate_total_produced_since_startup:MetricCounter(
         "mithril_aggregator_certificate_total_produced_since_startup",
         "Number of certificates produced since startup on a Mithril aggregator node"
-    ),
-    artifact_cardano_immutable_files_full_total_produced_since_startup:MetricCounter(
-        "mithril_aggregator_artifact_cardano_db_total_produced_since_startup",
-        "Number of Cardano immutable files full artifacts produced since startup on a Mithril aggregator node"
     ),
     artifact_cardano_database_total_produced_since_startup:MetricCounter(
         "mithril_aggregator_artifact_cardano_database_total_produced_since_startup",

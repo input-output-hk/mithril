@@ -4,7 +4,6 @@ use crate::http_server::routes::{
     artifact_routes, certificate_routes, epoch_routes, protocol_configuration_routes, root_routes,
     signatures_routes, signer_routes, statistics_routes, status,
 };
-use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
@@ -27,12 +26,10 @@ use super::{middlewares, proof_routes};
 /// HTTP Server configuration
 pub struct RouterConfig {
     pub network: CardanoNetwork,
-    pub server_url: SanitizedUrlWithTrailingSlash,
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_prover_max_hashes_allowed_by_request: usize,
     pub cardano_db_artifacts_directory: PathBuf,
     pub max_artifact_epoch_offset: u64,
-    pub snapshot_directory: PathBuf,
     pub cardano_node_version: String,
     pub allow_http_serve_directory: bool,
     pub origin_tag_white_list: HashSet<String>,
@@ -44,7 +41,6 @@ impl Dummy for RouterConfig {
     fn dummy() -> Self {
         Self {
             network: CardanoNetwork::TestNet(87),
-            server_url: SanitizedUrlWithTrailingSlash::parse("http://0.0.0.0:8000/").unwrap(),
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
@@ -52,7 +48,6 @@ impl Dummy for RouterConfig {
             cardano_prover_max_hashes_allowed_by_request: 1_000,
             cardano_db_artifacts_directory: PathBuf::from("/dummy/cardano-db/directory"),
             max_artifact_epoch_offset: 100,
-            snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
             cardano_node_version: "1.2.3".to_string(),
             allow_http_serve_directory: false,
             origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
@@ -131,7 +126,6 @@ pub fn routes(
         .and(warp::path(SERVER_BASE_PATH))
         .and(
             certificate_routes::routes(&state)
-                .or(artifact_routes::snapshot::routes(&state))
                 .or(artifact_routes::cardano_database::routes(&state))
                 .or(artifact_routes::mithril_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_stake_distribution::routes(&state))
