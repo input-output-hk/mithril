@@ -13,8 +13,8 @@ use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::{
     StdResult,
     crypto_helper::{
-        PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
-        ProtocolGenesisSigner, ProtocolKey,
+        GenesisEd25519Signature, GenesisEd25519Signer, PROTOCOL_VERSION,
+        ProtocolAggregateVerificationKey, ProtocolKey,
     },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
@@ -34,13 +34,13 @@ pub enum CertificateGenesisProducerError {
 /// CertificateGenesisProducer is in charge of producing a Genesis Certificate
 #[derive(Debug)]
 pub struct CertificateGenesisProducer {
-    genesis_signer: Option<Arc<ProtocolGenesisSigner>>,
+    genesis_signer: Option<Arc<GenesisEd25519Signer>>,
     logger: Logger,
 }
 
 impl CertificateGenesisProducer {
     /// CertificateGenesisProducer factory
-    pub fn new(genesis_signer: Option<Arc<ProtocolGenesisSigner>>) -> Self {
+    pub fn new(genesis_signer: Option<Arc<GenesisEd25519Signer>>) -> Self {
         Self {
             genesis_signer,
             logger: Logger::root(slog::Discard, o!()),
@@ -106,7 +106,7 @@ impl CertificateGenesisProducer {
     pub fn sign_genesis_protocol_message<T: ToMessage>(
         &self,
         genesis_message: T,
-    ) -> Result<ProtocolGenesisSignature, CertificateGenesisProducerError> {
+    ) -> Result<GenesisEd25519Signature, CertificateGenesisProducerError> {
         Ok(self
             .genesis_signer
             .as_ref()
@@ -121,7 +121,7 @@ impl CertificateGenesisProducer {
         network: T,
         epoch: Epoch,
         genesis_avk: ProtocolAggregateVerificationKey,
-        genesis_signature: ProtocolGenesisSignature,
+        genesis_signature: GenesisEd25519Signature,
         mithril_era: SupportedEra,
     ) -> StdResult<Certificate> {
         let protocol_version = PROTOCOL_VERSION.to_string();

@@ -9,9 +9,7 @@ use slog::{Logger, debug};
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_common::{
     StdResult,
-    crypto_helper::{
-        ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
-    },
+    crypto_helper::{GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey},
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey, SupportedEra},
 };
 use mithril_doc::{Documenter, StructDoc};
@@ -275,7 +273,7 @@ impl ImportGenesisSubCommand {
         genesis_tools
             .import_payload_signature(
                 &self.signed_payload_path,
-                &ProtocolGenesisVerificationKey::from_json_hex(&self.genesis_verification_key)?,
+                &GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?,
             )
             .await
             .with_context(|| "genesis-tools: import error")?;
@@ -365,9 +363,10 @@ impl BootstrapGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
-        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(&self.genesis_secret_key)
-            .with_context(|| "json hex decode of genesis secret key failure")?;
-        let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
+        let genesis_secret_key =
+            GenesisEd25519SecretKey::from_json_hex(&self.genesis_secret_key)
+                .with_context(|| "json hex decode of genesis secret key failure")?;
+        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await

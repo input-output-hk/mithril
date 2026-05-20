@@ -15,9 +15,10 @@ use crate::{
     StdResult,
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
-        ProtocolClosedKeyRegistration, ProtocolGenesisSigner, ProtocolInitializer, ProtocolOpCert,
-        ProtocolSigner, ProtocolSignerVerificationKeyForConcatenation,
+        GenesisEd25519Signer, ProtocolAggregateVerificationKey,
+        ProtocolAggregateVerificationKeyForConcatenation, ProtocolClosedKeyRegistration,
+        ProtocolInitializer, ProtocolOpCert, ProtocolSigner,
+        ProtocolSignerVerificationKeyForConcatenation,
         ProtocolSignerVerificationKeySignatureForConcatenation, ProtocolStakeDistribution,
     },
     entities::{
@@ -231,7 +232,7 @@ impl MithrilFixture {
         epoch: Epoch,
     ) -> Certificate {
         let genesis_avk = self.compute_aggregate_verification_key();
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
+        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let mithril_era = SupportedEra::Pythagoras;
         let genesis_protocol_message = genesis_producer

@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
-use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
+use mithril_common::crypto_helper::{GenesisEd25519Signer, ManifestSigner};
 use mithril_common::entities::{
     BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
     CardanoTransactionsSigningConfig, CompressionAlgorithm, ConfigSecret,
@@ -768,7 +768,7 @@ impl FromStr for AncillaryFilesSignerConfig {
 impl ServeCommandConfiguration {
     /// Create a sample configuration mainly for tests
     pub fn new_sample(tmp_path: PathBuf) -> Self {
-        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_signer()
+        let genesis_verification_key = GenesisEd25519Signer::create_deterministic_signer()
             .create_verifier()
             .to_verification_key();
         let ancillary_files_signer_secret_key =

@@ -400,7 +400,7 @@ mod test {
     use std::any::type_name;
 
     use crate::crypto_helper::{
-        ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
+        GenesisEd25519Signature, ManifestSignature, OpCert, ProtocolKey, ProtocolKeyCodec,
         ProtocolMembershipDigest, TryFromBytes, TryToBytes, key_decode_hex,
     };
 
@@ -474,7 +474,7 @@ mod test {
     #[test]
     fn assert_encoded_genesis_signatures_are_still_matching_concrete_type() {
         assert_decode_all(&genesis_signature(), |encoded_sig| {
-            ProtocolGenesisSignature::from_bytes_hex(encoded_sig).map_err(|e| e.to_string())?;
+            GenesisEd25519Signature::from_bytes_hex(encoded_sig).map_err(|e| e.to_string())?;
             Ok(())
         });
 

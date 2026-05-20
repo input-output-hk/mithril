@@ -8,7 +8,7 @@ use mithril_common::{
         CertificateRetriever, CertificateVerifier as CommonCertificateVerifier,
         MithrilCertificateVerifier as CommonMithrilCertificateVerifier,
     },
-    crypto_helper::ProtocolGenesisVerificationKey,
+    crypto_helper::GenesisEd25519VerificationKey,
     entities::Certificate,
     logging::LoggerExtensions,
 };
@@ -45,7 +45,7 @@ pub(super) async fn verify_chain(
 pub struct MithrilCertificateVerifier {
     retriever: Arc<InternalCertificateRetriever>,
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
-    genesis_verification_key: ProtocolGenesisVerificationKey,
+    genesis_verification_key: GenesisEd25519VerificationKey,
     feedback_sender: FeedbackSender,
     #[cfg(feature = "unstable")]
     verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
@@ -68,7 +68,7 @@ impl MithrilCertificateVerifier {
             retriever.clone(),
         ));
         let genesis_verification_key =
-            ProtocolGenesisVerificationKey::try_from(genesis_verification_key)
+            GenesisEd25519VerificationKey::try_from(genesis_verification_key)
                 .with_context(|| "Invalid genesis verification key")?;
 
         Ok(Self {
@@ -334,7 +334,7 @@ mod tests {
 
         fn build_verifier_with_cache(
             aggregator_client_mock_config: impl FnOnce(&mut MockCertificateAggregatorRequest),
-            genesis_verification_key: ProtocolGenesisVerificationKey,
+            genesis_verification_key: GenesisEd25519VerificationKey,
             cache: Arc<dyn CertificateVerifierCache>,
         ) -> MithrilCertificateVerifier {
             let mut aggregator_client = MockCertificateAggregatorRequest::new();
