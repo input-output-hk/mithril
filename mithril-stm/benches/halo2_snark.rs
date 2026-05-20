@@ -30,7 +30,7 @@ const TIERS: &[Tier] = &[
     Tier {
         name: "production",
         circuit_degree: 22,
-        k: 2093,
+        k: 1944,
     },
 ];
 
@@ -70,13 +70,10 @@ fn bench_tier_criterion(c: &mut Criterion, tier: &Tier, measurement_time_secs: u
     slow_group.bench_function("prove", |b| {
         b.iter(|| env.prove(&witness).expect("prove should not fail"));
     });
-    slow_group.finish();
-
-    let mut verify_group = c.benchmark_group(&group_name);
-    verify_group.bench_function("verify", |b| {
+    slow_group.bench_function("verify", |b| {
         b.iter(|| env.verify(&proof, &witness).expect("verify should not fail"));
     });
-    verify_group.finish();
+    slow_group.finish();
 }
 
 /// Single timed run for large/production tiers where 10 Criterion samples would be too costly.

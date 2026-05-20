@@ -236,7 +236,7 @@ Three metrics are measured per tier: VK/PK setup time, proof generation time, an
 | small       | 13     | 3     | ~196 ms | ~365 ms | ~4.1 ms | 3,600 B    |
 | medium      | 16     | 32    | ~1.99 s | ~3.08 s | ~4.1 ms | 3,600 B    |
 | large       | 21     | 1,024 | ~89 s   | ~111 s  | ~6.3 ms | 3,600 B    |
-| production† | 22     | 2,093 | ~136 s  | ~362 s  | ~7 ms   | 3,824 B    |
+| production† | 22     | 1,944 | ~136 s  | ~362 s  | ~7 ms   | 3,824 B    |
 
 †Production numbers from the SNARK Book (AWS r7i.12xlarge, 48 vCPU, 384 GB RAM). Requires ≥ 70 GB RAM.
 
