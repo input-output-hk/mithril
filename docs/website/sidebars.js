@@ -24,6 +24,19 @@ const sidebars = {
       dirName: "mithril",
     },
   ],
+  useCasesSideBar: [
+    {
+      type: "category",
+      label: "Wallets",
+      link: { type: "doc", id: "use-cases/wallets/index" },
+      collapsed: false,
+      items: [
+        { type: "doc", id: "use-cases/wallets/light-wallets" },
+        { type: "doc", label: "Case Study: Daedalus Wallet", id: "case-studies/daedalus"},
+      ],
+    },
+    { type: "doc", id: "use-cases/bridges" },
+  ],
 };
 
 module.exports = sidebars;

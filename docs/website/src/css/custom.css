@@ -15,6 +15,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;600&display=swap");
+
 @font-face {
   font-family: "Lexend";
   font-weight: 400;
@@ -257,6 +259,64 @@ a.menu__link {
 
 .markdown p {
   margin-bottom: 1.5rem;
+}
+
+.markdown .daedalus-wordmark p {
+  margin-bottom: 0;
+}
+
+.wallet-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.wallet-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 0.5rem;
+  color: inherit;
+  background: var(--ifm-card-background-color, var(--ifm-background-surface-color));
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.markdown .wallet-card,
+.markdown .wallet-card:hover {
+  text-decoration: none;
+}
+
+.wallet-card:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--ifm-color-emphasis-200);
+}
+
+.wallet-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.wallet-card__content h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.wallet-card__content p {
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9375rem;
+}
+
+.wallet-card__logo {
+  flex-shrink: 0;
+  width: 70px;
+  height: auto;
 }
 
 .markdown a {
