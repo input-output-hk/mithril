@@ -7,10 +7,10 @@ use mithril_common::crypto_helper::ManifestSigner;
 
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoBlocksTransactionsArtifactBuilder,
-    CardanoDatabaseArtifactBuilder, CardanoImmutableFilesFullArtifactBuilder,
-    CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
-    DigestArtifactBuilder, DigestFileUploader, DigestSnapshotter, ImmutableArtifactBuilder,
-    ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
+    CardanoDatabaseArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+    CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
+    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
+    MithrilStakeDistributionArtifactBuilder,
 };
 use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
@@ -39,18 +39,8 @@ impl DependenciesBuilder {
         let mithril_stake_distribution_artifact_builder = Arc::new(
             MithrilStakeDistributionArtifactBuilder::new(epoch_service.clone()),
         );
-        let snapshotter = self.get_snapshotter().await?;
-        let snapshot_uploader = self.get_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version())
             .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version()), error: Some(e.into()) })?;
-        let cardano_immutable_files_full_artifact_builder =
-            Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
-                self.configuration.get_network()?,
-                &cardano_node_version,
-                snapshotter,
-                snapshot_uploader,
-                logger.clone(),
-            ));
         let legacy_prover_service = self.get_legacy_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
             CardanoTransactionsArtifactBuilder::new(legacy_prover_service.clone()),
@@ -68,7 +58,6 @@ impl DependenciesBuilder {
         );
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
-            cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             cardano_blocks_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
