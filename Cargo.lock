@@ -3957,7 +3957,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0452a60c1863c1f50b5f77cd295e8d2786849f35883f0b9e18e7e6e1b5691b0"
 dependencies = [
  "half",
- "minicbor-derive",
+ "minicbor-derive 0.15.3",
+]
+
+[[package]]
+name = "minicbor"
+version = "0.26.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a309f581ade7597820083bc275075c4c6986e57e53f8d26f88507cfefc8c987"
+dependencies = [
+ "half",
+ "minicbor-derive 0.16.2",
 ]
 
 [[package]]
@@ -3965,6 +3975,17 @@ name = "minicbor-derive"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd2209fff77f705b00c737016a48e73733d7fbccb8b007194db148f03561fb70"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "minicbor-derive"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9882ef5c56df184b8ffc107fc6c61e33ee3a654b021961d790a78571bb9d67a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4168,9 +4189,9 @@ dependencies = [
  "mockall",
  "nom 8.0.0",
  "pallas-addresses",
- "pallas-codec",
- "pallas-crypto",
- "pallas-network",
+ "pallas-codec 0.35.0",
+ "pallas-crypto 0.35.0",
+ "pallas-network 0.35.0",
  "pallas-primitives",
  "pallas-traverse",
  "rand_core 0.6.4",
@@ -4365,8 +4386,8 @@ dependencies = [
  "mithril-cardano-node-chain",
  "mithril-common",
  "mockall",
- "pallas-codec",
- "pallas-network",
+ "pallas-codec 1.0.0-alpha.6",
+ "pallas-network 1.0.0-alpha.6",
  "serde",
  "serde_bytes",
  "slog",
@@ -5151,8 +5172,8 @@ dependencies = [
  "crc",
  "cryptoxide",
  "hex",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.35.0",
+ "pallas-crypto 0.35.0",
  "thiserror 1.0.69",
 ]
 
@@ -5163,9 +5184,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb2a83ec9e56b222250ba1cb3115c54e621852f114bb46b44a8d8e189ea9a8e"
 dependencies = [
  "hex",
- "minicbor",
+ "minicbor 0.25.1",
  "serde",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "pallas-codec"
+version = "1.0.0-alpha.6"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fupdate-dmq-message-payload#605511cce68919aab84fe4e1a0501f76d9e5e894"
+dependencies = [
+ "hex",
+ "minicbor 0.26.5",
+ "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5176,11 +5208,24 @@ checksum = "f8d372b115df0faf85c281fe78766c462c876c224e56f8107046fcc90daff9d0"
 dependencies = [
  "cryptoxide",
  "hex",
- "pallas-codec",
+ "pallas-codec 0.35.0",
  "rand_core 0.6.4",
  "serde",
  "thiserror 1.0.69",
  "zeroize",
+]
+
+[[package]]
+name = "pallas-crypto"
+version = "1.0.0-alpha.6"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fupdate-dmq-message-payload#605511cce68919aab84fe4e1a0501f76d9e5e894"
+dependencies = [
+ "cryptoxide",
+ "hex",
+ "pallas-codec 1.0.0-alpha.6",
+ "rand_core 0.10.1",
+ "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5190,7 +5235,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "663e2e071fa7d655213f00c0a5bc17c7683b1a6a0b511bc8af4c16df8345a090"
 dependencies = [
  "binary-layout",
- "pallas-network",
+ "pallas-network 0.35.0",
  "pallas-traverse",
  "tap",
  "thiserror 1.0.69",
@@ -5206,12 +5251,29 @@ dependencies = [
  "byteorder",
  "hex",
  "itertools 0.13.0",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.35.0",
+ "pallas-crypto 0.35.0",
  "rand 0.8.6",
  "serde",
  "socket2 0.5.10",
  "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pallas-network"
+version = "1.0.0-alpha.6"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fupdate-dmq-message-payload#605511cce68919aab84fe4e1a0501f76d9e5e894"
+dependencies = [
+ "byteorder",
+ "hex",
+ "itertools 0.14.0",
+ "pallas-codec 1.0.0-alpha.6",
+ "pallas-crypto 1.0.0-alpha.6",
+ "rand 0.10.1",
+ "socket2 0.6.3",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -5226,8 +5288,8 @@ dependencies = [
  "bech32 0.9.1",
  "hex",
  "log",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.35.0",
+ "pallas-crypto 0.35.0",
  "serde",
  "serde_json",
 ]
@@ -5241,8 +5303,8 @@ dependencies = [
  "hex",
  "itertools 0.13.0",
  "pallas-addresses",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.35.0",
+ "pallas-crypto 0.35.0",
  "pallas-primitives",
  "paste",
  "serde",
