@@ -388,9 +388,7 @@ mod tests {
         DumbBlockScanner, FakeChainObserver, InMemoryChainDataStore,
     };
     use mithril_cardano_node_internal_database::{
-        signable_builder::{
-            CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
-        },
+        signable_builder::CardanoDatabaseSignableBuilder,
         test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
     };
     use mithril_common::{
@@ -460,12 +458,6 @@ mod tests {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let digester = Arc::new(DumbImmutableDigester::default().with_digest(DIGESTER_RESULT));
-        let cardano_immutable_signable_builder =
-            Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
-                digester.clone(),
-                Path::new(""),
-                logger.clone(),
-            ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbBlockScanner::new());
@@ -520,7 +512,6 @@ mod tests {
         ));
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
-            cardano_immutable_signable_builder,
             cardano_transactions_builder,
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,

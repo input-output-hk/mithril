@@ -22,7 +22,7 @@ use mithril_cardano_node_internal_database::{
     digesters::cache::{
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
     },
-    signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
+    signable_builder::CardanoDatabaseSignableBuilder,
 };
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{
@@ -309,12 +309,6 @@ impl<'a> DependenciesBuilder<'a> {
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let aggregator_client = self.build_aggregator_client(&api_version_provider)?;
 
-        let cardano_immutable_snapshot_builder =
-            Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
-                digester.clone(),
-                &self.config.db_directory,
-                self.root_logger(),
-            ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let chain_data_store = Arc::new(SignerCardanoChainDataRepository::new(
@@ -414,7 +408,6 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
-            cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_signable_builder,
