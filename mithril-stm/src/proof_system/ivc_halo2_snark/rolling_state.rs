@@ -16,7 +16,6 @@ use crate::{
         io::{Read as IvcRead, Write as IvcWrite},
         state::{State, trivial_acc},
     },
-    proof_system::ivc_halo2_snark::errors::IvcSnarkError,
     signature_scheme::StandardSchnorrSignature,
 };
 
@@ -92,28 +91,23 @@ impl IvcRollingState {
     /// Persists the rolling state to `path`, overwriting any existing file.
     pub(crate) fn save(&self, path: &Path) -> StmResult<()> {
         let file = File::create(path)
-            .map_err(|_| IvcSnarkError::RollingStateCreate(Box::new(path.to_path_buf())))?;
+            .with_context(|| format!("Failed to create rolling state file at {path:?}"))?;
         let mut writer = BufWriter::new(file);
 
         IvcWrite::write(&self.state, &mut writer, SerdeFormat::RawBytes)
-            .map_err(|_| IvcSnarkError::RollingStateSave)
             .with_context(|| "Failed to write state to rolling state file")?;
 
         writer
             .write_all(&(self.ivc_proof.len() as u32).to_le_bytes())
-            .map_err(|_| IvcSnarkError::RollingStateSave)
             .with_context(|| "Failed to write IVC proof length to rolling state file")?;
         writer
             .write_all(&self.ivc_proof)
-            .map_err(|_| IvcSnarkError::RollingStateSave)
             .with_context(|| "Failed to write IVC proof bytes to rolling state file")?;
 
         IvcWrite::write(&self.accumulator, &mut writer, SerdeFormat::RawBytes)
-            .map_err(|_| IvcSnarkError::RollingStateSave)
             .with_context(|| "Failed to write accumulator to rolling state file")?;
 
         IvcWrite::write(&self.genesis_signature, &mut writer, SerdeFormat::RawBytes)
-            .map_err(|_| IvcSnarkError::RollingStateSave)
             .with_context(|| "Failed to write genesis signature to rolling state file")?;
 
         writer.flush().with_context(|| "Failed to flush rolling state file")?;
@@ -137,33 +131,28 @@ impl IvcRollingState {
     /// signature.
     fn read_from_disk(path: &Path) -> StmResult<Self> {
         let file = File::open(path)
-            .map_err(|_| IvcSnarkError::RollingStateOpen(Box::new(path.to_path_buf())))?;
+            .with_context(|| format!("Failed to open rolling state file at {path:?}"))?;
         let mut reader = BufReader::new(file);
 
         let state = <State as IvcRead>::read(&mut reader, SerdeFormat::RawBytes)
-            .map_err(|_| IvcSnarkError::RollingStateRead)
             .with_context(|| "Failed to read state from rolling state file")?;
 
         let mut len_bytes = [0u8; 4];
         reader
             .read_exact(&mut len_bytes)
-            .map_err(|_| IvcSnarkError::RollingStateRead)
             .with_context(|| "Failed to read IVC proof length from rolling state file")?;
         let ivc_proof_len = u32::from_le_bytes(len_bytes) as usize;
         let mut ivc_proof = vec![0u8; ivc_proof_len];
         reader
             .read_exact(&mut ivc_proof)
-            .map_err(|_| IvcSnarkError::RollingStateRead)
             .with_context(|| "Failed to read IVC proof bytes from rolling state file")?;
 
         let accumulator =
             <Accumulator<BlstrsEmulation> as IvcRead>::read(&mut reader, SerdeFormat::RawBytes)
-                .map_err(|_| IvcSnarkError::RollingStateRead)
                 .with_context(|| "Failed to read accumulator from rolling state file")?;
 
         let genesis_signature =
             <StandardSchnorrSignature as IvcRead>::read(&mut reader, SerdeFormat::RawBytes)
-                .map_err(|_| IvcSnarkError::RollingStateRead)
                 .with_context(|| "Failed to read genesis signature from rolling state file")?;
 
         Ok(Self {
@@ -234,13 +223,8 @@ mod tests {
         let genesis_signature = build_genesis_signature();
         let fixed_base_names = vec!["base_one".to_string()];
 
-        let err = IvcRollingState::load_or_genesis(&path, genesis_signature, &fixed_base_names)
-            .expect_err("Loading a corrupted file should fail with RollingStateRead");
-
-        assert!(matches!(
-            err.downcast_ref::<IvcSnarkError>(),
-            Some(IvcSnarkError::RollingStateRead)
-        ));
+        IvcRollingState::load_or_genesis(&path, genesis_signature, &fixed_base_names)
+            .expect_err("Loading a corrupted file should fail while reading the rolling state");
     }
 
     #[test]
@@ -284,13 +268,8 @@ mod tests {
             .set_len(10)
             .unwrap();
 
-        let err = IvcRollingState::load_or_genesis(&path, genesis_signature, &fixed_base_names)
-            .expect_err("Loading a truncated file should fail with RollingStateRead");
-
-        assert!(matches!(
-            err.downcast_ref::<IvcSnarkError>(),
-            Some(IvcSnarkError::RollingStateRead)
-        ));
+        IvcRollingState::load_or_genesis(&path, genesis_signature, &fixed_base_names)
+            .expect_err("Loading a truncated file should fail while reading the rolling state");
     }
 
     #[test]
@@ -308,13 +287,8 @@ mod tests {
             genesis_signature,
         );
 
-        let err = rolling_state
+        rolling_state
             .save(&path)
-            .expect_err("Saving to a missing parent dir should fail with RollingStateCreate");
-
-        assert!(matches!(
-            err.downcast_ref::<IvcSnarkError>(),
-            Some(IvcSnarkError::RollingStateCreate(_))
-        ));
+            .expect_err("Saving to a missing parent dir should fail while creating the file");
     }
 }
