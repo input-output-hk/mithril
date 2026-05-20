@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{
     CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, ProtocolParameters,
-    SignedEntityTypeDiscriminants,
 };
+use crate::messages::SignedEntityTypeDiscriminantsMessage;
 
 /// ProtocolConfiguration represents the protocol configuration of an epoch
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -22,5 +22,5 @@ pub struct ProtocolConfigurationMessage {
     pub cardano_blocks_transactions_signing_config: Option<CardanoBlocksTransactionsSigningConfig>,
 
     /// Aggregator enabled signed entity types
-    pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminantsMessage>,
 }

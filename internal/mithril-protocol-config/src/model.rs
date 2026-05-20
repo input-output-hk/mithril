@@ -7,7 +7,7 @@ use mithril_common::{
         CardanoBlocksTransactionsSigningConfig, CardanoTransactionsSigningConfig, Epoch,
         ProtocolParameters, SignedEntityTypeDiscriminants,
     },
-    messages::ProtocolConfigurationMessage,
+    messages::{ProtocolConfigurationMessage, SignedEntityTypeDiscriminantsMessage},
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -55,11 +55,39 @@ impl From<ProtocolConfigurationMessage> for MithrilNetworkConfigurationForEpoch 
     fn from(message: ProtocolConfigurationMessage) -> Self {
         MithrilNetworkConfigurationForEpoch {
             protocol_parameters: message.protocol_parameters,
-            enabled_signed_entity_types: message.available_signed_entity_types,
+            enabled_signed_entity_types:
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(
+                    message.available_signed_entity_types,
+                ),
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: message.cardano_transactions_signing_config,
                 cardano_blocks_transactions: message.cardano_blocks_transactions_signing_config,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::messages::SignedEntityTypeDiscriminantsMessage;
+    use mithril_common::test::double::Dummy;
+
+    use super::*;
+
+    #[test]
+    fn convert_from_protocol_conf_message_to_network_config_remove_unknown_discriminants() {
+        let message = ProtocolConfigurationMessage {
+            available_signed_entity_types: BTreeSet::from([
+                SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminantsMessage::Unknown,
+            ]),
+            ..Dummy::dummy()
+        };
+        let network_config = MithrilNetworkConfigurationForEpoch::from(message);
+
+        assert_eq!(
+            BTreeSet::from([SignedEntityTypeDiscriminants::MithrilStakeDistribution]),
+            network_config.enabled_signed_entity_types,
+        );
     }
 }

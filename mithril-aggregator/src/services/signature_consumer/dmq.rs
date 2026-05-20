@@ -34,12 +34,15 @@ impl SignatureConsumer for SignatureConsumerDmq {
             .map(|messages| {
                 messages
                     .into_iter()
-                    .map(|(message, party_id)| {
-                        let signature = message.signature;
+                    .filter_map(|(message, party_id)| {
+                        message.signed_entity_type.into_entity().map(|signed_entity_type| {
+                            (message.signature, signed_entity_type, party_id)
+                        })
+                    })
+                    .map(|(signature, signed_entity_type, party_id)| {
                         let won_indexes = signature.get_concatenation_signature_indices();
                         let single_signature =
                             SingleSignature::new(party_id, signature, won_indexes);
-                        let signed_entity_type = message.signed_entity_type;
 
                         (single_signature, signed_entity_type)
                     })
@@ -56,25 +59,33 @@ impl SignatureConsumer for SignatureConsumerDmq {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        crypto_helper::ProtocolSingleSignature,
-        test::double::{Dummy, fake_keys},
+        crypto_helper::ProtocolSingleSignature, entities::Epoch, messages::SignedEntityTypeMessage,
+        test::double::fake_keys,
     };
     use mithril_dmq::test::double::DmqConsumerFake;
 
     use super::*;
 
     #[tokio::test]
-    async fn get_signatures_success() {
-        let signed_entity_type = SignedEntityType::dummy();
+    async fn get_signatures_success_and_filter_out_unknown_signed_entity() {
         let single_signature: ProtocolSingleSignature =
             fake_keys::single_signature()[0].try_into().unwrap();
-        let dmq_consumer = Arc::new(DmqConsumerFake::new(vec![Ok(vec![(
-            RegisterSignatureMessageDmq {
-                signature: single_signature.clone(),
-                signed_entity_type: signed_entity_type.to_owned(),
-            },
-            "pool-id-1".to_string(),
-        )])]));
+        let dmq_consumer = Arc::new(DmqConsumerFake::new(vec![Ok(vec![
+            (
+                RegisterSignatureMessageDmq {
+                    signature: single_signature.clone(),
+                    signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(Epoch(3)),
+                },
+                "pool-id-1".to_string(),
+            ),
+            (
+                RegisterSignatureMessageDmq {
+                    signature: single_signature.clone(),
+                    signed_entity_type: SignedEntityTypeMessage::Unknown,
+                },
+                "pool-id-2".to_string(),
+            ),
+        ])]));
         let consumer = SignatureConsumerDmq::new(dmq_consumer);
 
         let signatures = consumer.get_signatures().await.unwrap();
@@ -86,7 +97,7 @@ mod tests {
                     single_signature.clone(),
                     single_signature.get_concatenation_signature_indices(),
                 ),
-                signed_entity_type
+                SignedEntityType::MithrilStakeDistribution(Epoch(3))
             )],
             signatures
         );

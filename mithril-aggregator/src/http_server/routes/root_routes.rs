@@ -39,6 +39,7 @@ mod handlers {
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
+        SignedEntityTypeDiscriminantsMessage,
     };
 
     use crate::http_server::routes::reply::json;
@@ -58,14 +59,17 @@ mod handlers {
         );
 
         let mut capabilities = AggregatorCapabilities {
-            signed_entity_types: allowed_signed_entity_type_discriminants,
+            signed_entity_types: allowed_signed_entity_type_discriminants
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             aggregate_signature_type,
             cardano_transactions_prover: None,
         };
 
         if capabilities
             .signed_entity_types
-            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
+            .contains(&SignedEntityTypeDiscriminantsMessage::CardanoTransactions)
         {
             capabilities.cardano_transactions_prover =
                 Some(CardanoTransactionsProverCapabilities {
@@ -97,6 +101,7 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
+        SignedEntityTypeDiscriminantsMessage,
     };
     use mithril_common::test::double::Dummy;
 
@@ -161,11 +166,11 @@ mod tests {
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
                     signed_entity_types: BTreeSet::from_iter([
-                        SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                        SignedEntityTypeDiscriminants::CardanoDatabase,
+                        SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                        SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull,
+                        SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                        SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                     ]),
                     aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {

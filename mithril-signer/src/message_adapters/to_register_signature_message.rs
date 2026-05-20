@@ -21,7 +21,7 @@ impl
         ),
     ) -> StdResult<RegisterSignatureMessageHttp> {
         let message = RegisterSignatureMessageHttp {
-            signed_entity_type,
+            signed_entity_type: signed_entity_type.into(),
             party_id: single_signature.party_id,
             signature: single_signature.signature.try_into().with_context(
                 || "'ToRegisterSignatureMessageAdapter' can not convert the single signature",

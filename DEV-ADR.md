@@ -23,6 +23,56 @@ To complete
 To complete
 -->
 
+### 9. Guidelines for adding a new Signed Entity Type
+
+**Date:** 2026-05-19
+**Status:** Draft
+
+#### Context
+
+Adding a new Signed Entity Type typically requires changes across several parts of the system:
+
+1. Define the Signed Entity type and its beacon.
+2. Optionally define an associated configuration, transmitted through the Mithril Protocol Configuration mechanism.
+3. Implement the Signable builder, which computes the message to be signed for the Signed Entity.
+4. Define the Signed Entity artifacts type, which contain the metadata needed to reconstruct the Signed Entity.
+5. Implement the Signed Entity artifact builder, which may publish data to third-party services such as cloud storage.
+6. Update the Mithril client library, WASM library, and CLI to support the new Signed Entity.
+
+Some Signed Entities may require additional steps depending on their requirements and capabilities.
+
+Because this process affects multiple components and requires careful planning and testing, adding a new Signed Entity
+is expected to be done incrementally, usually across multiple pull requests.
+
+#### Decision
+
+When adding a new Signed Entity, follow these guidelines:
+
+1. **Mirror the new Signed Entity type in the `SignedEntityTypeMessage` enum**: This enum is used for communication
+   between Mithril nodes.
+   It mirrors the Signed Entity type enum and adds an `Unknown` variant so that nodes can gracefully handle variants
+   they do not know yet.
+
+2. **Define the new Signed Entity type as unstable initially**: Add its discriminant to the `UNSTABLE_DISCRIMINANTS`
+   const array while the Signed Entity is still being implemented. This allows the type to exist in the codebase while
+   excluding it from production signing flows or tests that require a fully implemented Signed Entity.
+
+   Remove the discriminant from `UNSTABLE_DISCRIMINANTS` once the Signed Entity is fully implemented and covered by
+   end-to-end tests.
+
+3. **Add integration tests once the Signable builder is implemented**: Add or extend signer and aggregator integration
+   tests for the new Signed Entity as soon as its Signable builder is ready.
+
+#### Consequences
+
+- New Signed Entities can be implemented incrementally, making planning and review easier.
+- Partial implementations are expected, reviewers should not require a Signed Entity to be complete in a single PR.
+- New Signed Entities are tested earlier in the development process.
+- The unstable discriminant list becomes a temporary maintenance point and must be updated once the Signed Entity is
+  fully supported.
+
+---
+
 ### 8. Running slow tests on CI conditionally
 
 **Date:** 2025-04-23

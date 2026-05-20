@@ -125,7 +125,7 @@ mod tests {
             CardanoDatabase, CardanoStakeDistribution, CardanoTransactions,
             MithrilStakeDistribution,
         },
-        messages::AggregatorFeaturesMessage,
+        messages::{AggregatorFeaturesMessage, SignedEntityTypeDiscriminantsMessage},
     };
 
     use super::*;
@@ -152,9 +152,9 @@ mod tests {
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoTransactions,
-                    CardanoStakeDistribution,
-                    CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -163,15 +163,31 @@ mod tests {
         }
 
         #[test]
-        fn required_capabilities_match_signed_entity_types_failure() {
+        fn required_capabilities_match_signed_entity_types_fails_if_no_discriminants_match() {
             let required =
                 RequiredAggregatorCapabilities::SignedEntityType(MithrilStakeDistribution);
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoTransactions,
-                    CardanoStakeDistribution,
-                    CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                ]),
+                cardano_transactions_prover: None,
+            };
+
+            assert!(!required.matches(&available));
+        }
+
+        #[test]
+        fn required_capabilities_match_signed_entity_types_fails_if_only_unknown_discriminants_match()
+         {
+            let required =
+                RequiredAggregatorCapabilities::SignedEntityType(MithrilStakeDistribution);
+            let available = AggregatorCapabilities {
+                aggregate_signature_type: Concatenation,
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -185,9 +201,9 @@ mod tests {
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoTransactions,
-                    CardanoStakeDistribution,
-                    CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -204,9 +220,9 @@ mod tests {
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoTransactions,
-                    CardanoStakeDistribution,
-                    CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -224,9 +240,9 @@ mod tests {
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoTransactions,
-                    CardanoStakeDistribution,
-                    CardanoDatabase,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -243,7 +259,9 @@ mod tests {
             ]);
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoTransactions]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                ]),
                 cardano_transactions_prover: None,
             };
 
@@ -269,8 +287,8 @@ mod tests {
             let capabilities = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
-                    CardanoStakeDistribution,
-                    CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                 ]),
                 cardano_transactions_prover: None,
             };
@@ -307,7 +325,9 @@ mod tests {
         async fn get_available_aggregators_succeeds_when_aggregator_capabilities_do_not_match() {
             let capabilities = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoTransactions]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                ]),
                 cardano_transactions_prover: None,
             };
             let aggregator_server = MockServer::start();
@@ -345,7 +365,10 @@ mod tests {
             });
             let capabilities_2 = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoStakeDistribution, CardanoDatabase]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                ]),
                 cardano_transactions_prover: None,
             };
             let aggregator_server_2 = MockServer::start();
@@ -390,7 +413,9 @@ mod tests {
             });
             let capabilities_2 = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoStakeDistribution]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
+                ]),
                 cardano_transactions_prover: None,
             };
             let aggregator_server_2 = MockServer::start();
@@ -401,7 +426,9 @@ mod tests {
             });
             let capabilities_3 = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoDatabase]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                ]),
                 cardano_transactions_prover: None,
             };
             let aggregator_server_3 = MockServer::start();
@@ -412,7 +439,9 @@ mod tests {
             });
             let capabilities_4 = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
-                signed_entity_types: BTreeSet::from([CardanoDatabase]),
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                ]),
                 cardano_transactions_prover: None,
             };
             let aggregator_server_4 = MockServer::start();

@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::StdError;
 use crate::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-    SignedEntityType,
 };
-use crate::messages::CertificateMetadataMessagePart;
+use crate::messages::{CertificateMetadataMessagePart, SignedEntityTypeMessage};
 
 /// Message structure of a certificate
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -29,7 +28,7 @@ pub struct CertificateMessage {
 
     /// The signed entity type of the message.
     /// aka BEACON(p,n)
-    pub signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityTypeMessage,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -147,7 +146,7 @@ impl TryFrom<CertificateMessage> for Certificate {
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
-                    certificate_message.signed_entity_type,
+                    certificate_message.signed_entity_type.try_into()?,
                     certificate_message
                         .multi_signature
                         .try_into()
@@ -204,7 +203,7 @@ impl TryFrom<Certificate> for CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
             epoch: certificate.epoch,
-            signed_entity_type,
+            signed_entity_type: signed_entity_type.into(),
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
@@ -245,10 +244,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: Epoch(10),
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                *Epoch(10),
-                1728,
-            )),
+            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
+                CardanoDbBeacon::new(*Epoch(10), 1728),
+            ),
             metadata: CertificateMetadataMessagePart {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

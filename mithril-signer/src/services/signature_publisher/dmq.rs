@@ -34,7 +34,7 @@ impl SignaturePublisher for SignaturePublisherDmq {
     ) -> StdResult<()> {
         let message = RegisterSignatureMessageDmq {
             signature: signature.signature.to_owned(),
-            signed_entity_type: signed_entity_type.to_owned(),
+            signed_entity_type: signed_entity_type.to_owned().into(),
         };
 
         self.dmq_publisher

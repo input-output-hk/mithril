@@ -3,6 +3,7 @@ use std::fmt::{Debug, Formatter};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
+use crate::messages::SignedEntityTypeMessage;
 use crate::{
     StdResult,
     crypto_helper::{ProtocolSingleSignature, TryFromBytes, TryToBytes},
@@ -14,7 +15,7 @@ use crate::{
 pub struct RegisterSignatureMessageHttp {
     /// Signed entity type
     #[serde(rename = "entity_type")]
-    pub signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityTypeMessage,
 
     /// The unique identifier of the signer
     pub party_id: PartyId,
@@ -56,7 +57,7 @@ impl Debug for RegisterSignatureMessageHttp {
 #[derive(Clone, PartialEq, Eq)]
 pub struct RegisterSignatureMessageDmq {
     /// Signed entity type
-    pub signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityTypeMessage,
 
     /// The single signature.
     pub signature: ProtocolSingleSignature,
@@ -73,7 +74,8 @@ impl RegisterSignatureMessageDmq {
     pub fn try_to_bytes_vec(&self) -> StdResult<Vec<u8>> {
         let mut bytes = Vec::new();
 
-        let signed_entity_bytes = self.signed_entity_type.to_bytes_vec()?;
+        let signed_entity_type: SignedEntityType = self.signed_entity_type.clone().try_into()?;
+        let signed_entity_bytes = signed_entity_type.to_bytes_vec()?;
         bytes.extend_from_slice(&(signed_entity_bytes.len() as u16).to_be_bytes());
         bytes.extend_from_slice(&signed_entity_bytes);
 
@@ -120,7 +122,7 @@ impl RegisterSignatureMessageDmq {
         let signature = ProtocolSingleSignature::from_bytes(signature_bytes)?;
 
         Ok(Self {
-            signed_entity_type,
+            signed_entity_type: signed_entity_type.into(),
             signature,
         })
     }
@@ -178,7 +180,7 @@ mod tests {
 
         fn golden_message_current() -> RegisterSignatureMessageHttp {
             RegisterSignatureMessageHttp {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
                 CardanoDbBeacon::new(*Epoch(10), 1728),
             ),
             party_id: "party_id".to_string(),
@@ -228,7 +230,7 @@ mod tests {
 
         fn golden_message_current() -> RegisterSignatureMessageDmq {
             RegisterSignatureMessageDmq {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
                 CardanoDbBeacon::new(*Epoch(10), 1728),
             ),
             signature: "7b227369676d61223a5b3133302c3137372c31352c3232392c32342c3235312c3234372c3137312c3139362c3231302c3134332c3131332c38362c3138392c39322c35362c3131322c33332c3139332c3231322c35342c3231342c32382c3231362c3232372c3137332c3130302c3132372c3137382c34302c39382c38372c32392c3138312c3235352c3131312c3135372c3232342c3233352c34362c3130302c3136392c3233322c3138392c3235322c38322c3133392c33365d2c22696e6465786573223a5b302c312c332c342c362c382c392c31302c31312c31322c31342c31382c32312c32322c32332c32352c32362c32372c33302c33332c33342c33382c34312c34332c35302c35382c35392c36302c36312c36322c36372c36392c37312c37332c37352c37362c37372c38312c38322c38332c38342c39302c39312c39322c39332c39372c39385d2c227369676e65725f696e646578223a327d".to_string().try_into().unwrap(),

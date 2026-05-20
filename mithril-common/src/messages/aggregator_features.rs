@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use mithril_stm::AggregateSignatureType;
 
-use crate::entities::SignedEntityTypeDiscriminants;
+use crate::messages::SignedEntityTypeDiscriminantsMessage;
 
 /// Message advertised by an Aggregator to inform about its features
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -23,7 +23,7 @@ pub struct AggregatorFeaturesMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorCapabilities {
     /// Signed entity types that are signed by the aggregator
-    pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminantsMessage>,
 
     /// Aggregate signature type used by the aggregator
     #[serde(default)]
@@ -56,7 +56,7 @@ mod tests {
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct AggregatorCapabilitiesUntilV0_1_45 {
-        pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+        pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminantsMessage>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilitiesUntilV0_1_45 {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                 ]),
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request: 100,
@@ -88,7 +88,7 @@ mod tests {
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct AggregatorCapabilitiesUntilV0_6_17 {
-        pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+        pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminantsMessage>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -101,7 +101,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilitiesUntilV0_6_17 {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                 ]),
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request: 100,
@@ -117,7 +117,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilities {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                 ]),
                 aggregate_signature_type: AggregateSignatureType::Concatenation,
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
