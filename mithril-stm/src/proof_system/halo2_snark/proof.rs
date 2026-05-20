@@ -2,6 +2,8 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use midnight_circuits::hash::poseidon::PoseidonState;
+use midnight_curves::Bls12;
+use midnight_proofs::poly::kzg::msm::DualMSM;
 use midnight_zk_stdlib::{self as zk};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -9,7 +11,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
-    circuits::halo2::{circuit::StmCertificateCircuit, types::CircuitBase},
+    circuits::{
+        halo2::{circuit::StmCertificateCircuit, types::CircuitBase},
+        halo2_ivc::certificate_proof::verify_and_prepare_accumulator,
+    },
     codec,
     proof_system::halo2_snark::{
         MERKLE_TREE_DEPTH_FOR_SNARK, SnarkError, build_snark_message,
@@ -91,6 +96,42 @@ impl<D: MembershipDigest> SnarkProof<D> {
         );
 
         verify_result.map_err(|_| SnarkError::VerifyProofFail.into())
+    }
+
+    /// Runs the off-circuit SNARK verifier and returns the verifier's intermediate
+    /// `DualMSM`.
+    ///
+    /// The public inputs are reconstructed from `message` and the Merkle-tree root
+    /// inside `aggregate_verification_key_for_snark`; the proof is then checked
+    /// against the certificate verifying key under the Poseidon transcript.
+    ///
+    /// Functionally equivalent to [`Self::verify`] except for the return shape:
+    /// [`Self::verify`] consumes the verifier's intermediate accumulator in its
+    /// pairing check and yields `()`, while this method pairing-checks a clone and
+    /// hands back the original `DualMSM` on success. The returned accumulator is
+    /// the off-circuit twin of the one an in-circuit IVC verifier gadget would
+    /// compute on the same proof, so it can be wrapped into a certificate
+    /// accumulator for recursive aggregation.
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
+    #[allow(dead_code)]
+    pub(crate) fn prepare_and_check(
+        &self,
+        message: &[u8],
+        aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
+    ) -> StmResult<DualMSM<Bls12>> {
+        let snark_setup = SnarkSetup::try_new(&self.params, MERKLE_TREE_DEPTH_FOR_SNARK)?;
+
+        let merkle_root = &aggregate_verification_key_for_snark.get_merkle_tree_commitment().root;
+        let proof_message = build_snark_message(merkle_root, message)?;
+        let public_inputs: Vec<CircuitBase> =
+            vec![proof_message[0].into(), proof_message[1].into()];
+
+        verify_and_prepare_accumulator(
+            &self.circuit_proof,
+            &public_inputs,
+            &self.circuit_verification_key.get_midnight_vk(),
+            &snark_setup.srs.verifier_params(),
+        )
     }
 
     /// Converts a SnarkProof to CBOR bytes with a version prefix.
@@ -547,6 +588,87 @@ mod tests {
             let result = snark_proof.verify(wrong_message.as_slice(), &avk);
 
             assert!(result.is_err());
+        }
+
+        #[test]
+        fn valid_proof_prepares_and_checks() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            let dual_msm = snark_proof
+                .prepare_and_check(message.as_slice(), &avk)
+                .expect("prepare_and_check should succeed on a valid proof");
+
+            // The returned DualMSM must still satisfy its own pairing check;
+            // confirms the caller can reuse it (e.g. wrap into a cert accumulator).
+            let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            assert!(dual_msm.check(&snark_setup.srs.verifier_params()));
+        }
+
+        #[test]
+        fn prepare_and_check_fails_with_wrong_message() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let wrong_message = [2u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk = clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+            snark_proof
+                .prepare_and_check(wrong_message.as_slice(), &avk)
+                .expect_err("prepare_and_check should fail");
+        }
+
+        #[test]
+        fn prepare_and_check_fails_with_random_bytes() {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 10;
+            let message = [1u8; 32];
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
+                clerk.compute_aggregate_verification_key_for_snark();
+            let mut prover = create_prover(params, [0u8; 32]);
+            let snark_proof = prover
+                .aggregate_signatures::<D>(&clerk, &signatures, &message)
+                .unwrap();
+
+            let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
+            rng.fill_bytes(&mut random_bytes);
+            let random_proof =
+                SnarkProof::try_new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+
+            random_proof
+                .prepare_and_check(message.as_slice(), &avk)
+                .expect_err("prepare_and_check should fail");
         }
 
         #[test]

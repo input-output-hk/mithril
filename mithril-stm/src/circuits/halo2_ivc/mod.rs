@@ -50,8 +50,10 @@ pub(crate) use midnight_proofs::{
     poly::{EvaluationDomain, kzg::KZGCommitmentScheme},
 };
 
+pub(crate) mod certificate_proof;
 pub mod circuit;
 pub mod config;
+pub mod errors;
 pub mod gadget;
 pub mod helpers;
 pub mod io;
