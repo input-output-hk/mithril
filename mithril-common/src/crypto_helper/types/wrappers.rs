@@ -53,12 +53,12 @@ pub type ProtocolAggregateVerificationKeyForSnark =
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => AggregateSignature<ProtocolMembershipDigest>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKeyForConcatenation<ProtocolMembershipDigest>,
+    json_hex_codec => ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKeyForConcatenation<ProtocolMembershipDigest>,
         MKProof, VerificationKeyProofOfPossessionForConcatenation, Sum6KesSig, OpCert, SingleSignature
 );
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    bytes_hex_codec => ed25519_dalek::Signature
+    bytes_hex_codec => ed25519_dalek::Signature, AggregateSignature<ProtocolMembershipDigest>
 );
 
 #[cfg(feature = "future_snark")]

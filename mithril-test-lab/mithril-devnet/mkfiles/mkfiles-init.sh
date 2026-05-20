@@ -78,9 +78,43 @@ fi
 if [ -z "${EPOCH_LENGTH}" ]; then 
   EPOCH_LENGTH="100"
 fi
-if [ -z "${LISTENING_ADDR}" ]; then 
+if [ -z "${LISTENING_ADDR}" ]; then
   LISTENING_ADDR="127.0.0.1"
 fi
+if [ -z "${MITHRIL_RUN_INTERVAL}" ]; then
+  MITHRIL_RUN_INTERVAL="1000"
+fi
+if [ -z "${MITHRIL_AGGREGATE_SIGNATURE_TYPE}" ]; then
+  MITHRIL_AGGREGATE_SIGNATURE_TYPE="Concatenation"
+fi
+case "${MITHRIL_AGGREGATE_SIGNATURE_TYPE,,}" in
+  concatenation) MITHRIL_AGGREGATE_SIGNATURE_TYPE="Concatenation";;
+  snark)         MITHRIL_AGGREGATE_SIGNATURE_TYPE="Snark";;
+esac
+if [ "${MITHRIL_AGGREGATE_SIGNATURE_TYPE}" = "Snark" ]; then
+  MITHRIL_CARGO_FEATURES="--features future_snark"
+else
+  MITHRIL_CARGO_FEATURES=""
+fi
+if [ -z "${MITHRIL_ERA}" ]; then
+  MITHRIL_ERA="pythagoras"
+fi
+MITHRIL_ERA="${MITHRIL_ERA,,}"
+if [ -z "${MITHRIL_PROTOCOL_PARAMETERS_K}" ]; then
+  MITHRIL_PROTOCOL_PARAMETERS_K="5"
+fi
+if [ -z "${MITHRIL_PROTOCOL_PARAMETERS_M}" ]; then
+  MITHRIL_PROTOCOL_PARAMETERS_M="100"
+fi
+if [ -z "${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}" ]; then
+  MITHRIL_PROTOCOL_PARAMETERS_PHI_F="0.65"
+fi
+if [ -z "${MITHRIL_SIGNED_ENTITY_TYPES}" ]; then
+  MITHRIL_SIGNED_ENTITY_TYPES="CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase"
+fi
+export MITHRIL_RUN_INTERVAL MITHRIL_AGGREGATE_SIGNATURE_TYPE MITHRIL_ERA
+export MITHRIL_PROTOCOL_PARAMETERS_K MITHRIL_PROTOCOL_PARAMETERS_M MITHRIL_PROTOCOL_PARAMETERS_PHI_F
+export MITHRIL_SIGNED_ENTITY_TYPES
 DEVNET_VERSION=$(cat VERSION)
 
 # Display configuration summary
@@ -95,6 +129,13 @@ echo ">> Cardano Hard Fork Conway At Epoch [env::HARD_FORK_CONWAY_AT_EPOCH]: ${H
 echo ">> Cardano Slot Length [env::SLOT_LENGTH]: ${SLOT_LENGTH}s"
 echo ">> Cardano Epoch Length [env::EPOCH_LENGTH]: ${EPOCH_LENGTH}s"
 echo ">> Cardano Listening Address [env::LISTENING_ADDR]: ${LISTENING_ADDR}"
+echo ">> Mithril Run Interval [env::MITHRIL_RUN_INTERVAL]: ${MITHRIL_RUN_INTERVAL}ms"
+echo ">> Mithril Aggregate Signature Type [env::MITHRIL_AGGREGATE_SIGNATURE_TYPE]: ${MITHRIL_AGGREGATE_SIGNATURE_TYPE}"
+echo ">> Mithril Era [env::MITHRIL_ERA]: ${MITHRIL_ERA}"
+echo ">> Mithril Protocol Parameter K [env::MITHRIL_PROTOCOL_PARAMETERS_K]: ${MITHRIL_PROTOCOL_PARAMETERS_K}"
+echo ">> Mithril Protocol Parameter M [env::MITHRIL_PROTOCOL_PARAMETERS_M]: ${MITHRIL_PROTOCOL_PARAMETERS_M}"
+echo ">> Mithril Protocol Parameter Phi_f [env::MITHRIL_PROTOCOL_PARAMETERS_PHI_F]: ${MITHRIL_PROTOCOL_PARAMETERS_PHI_F}"
+echo ">> Mithril Signed Entity Types [env::MITHRIL_SIGNED_ENTITY_TYPES]: ${MITHRIL_SIGNED_ENTITY_TYPES}"
 
 # Check if root directory already exists
 if ! mkdir -p "${ARTIFACTS_DIR}"; then

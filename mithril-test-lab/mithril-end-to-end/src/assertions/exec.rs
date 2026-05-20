@@ -78,11 +78,20 @@ pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
-    let protocol_parameters_new = ProtocolParameters {
-        k: 145,
-        m: 210,
-        phi_f: 0.80,
+    let protocol_parameters_new = if aggregator.aggregate_signature_type == "Concatenation" {
+        ProtocolParameters {
+            k: 145,
+            m: 210,
+            phi_f: 0.80,
+        }
+    } else {
+        ProtocolParameters {
+            k: 7,
+            m: 10,
+            phi_f: 0.95,
+        }
     };
+
     info!(
         "> updating protocol parameters to {protocol_parameters_new:?}..."; "aggregator" => &aggregator.name()
     );

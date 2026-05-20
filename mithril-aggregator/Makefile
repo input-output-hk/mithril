@@ -1,11 +1,12 @@
 .PHONY: all build test check debug run help doc
 
 CARGO = cargo
+CARGO_FEATURES ?=
 
 all: test build
 
 build:
-	${CARGO} build --release
+	${CARGO} build --release ${CARGO_FEATURES}
 	cp ../target/release/mithril-aggregator .
 
 run: build
