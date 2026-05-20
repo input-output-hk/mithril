@@ -9,12 +9,6 @@ use crate::tools::file_archiver::FileArchive;
 #[async_trait]
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
-    /// Create a new snapshot containing all completed immutables.
-    async fn snapshot_all_completed_immutables(
-        &self,
-        archive_name_without_extension: &str,
-    ) -> StdResult<FileArchive>;
-
     /// Create a new snapshot of ancillary files.
     ///
     /// Ancillary files include the last, uncompleted, immutable trio and the two last ledger files.

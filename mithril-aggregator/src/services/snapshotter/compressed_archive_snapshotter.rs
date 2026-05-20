@@ -5,8 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
-use mithril_cardano_node_internal_database::entities::{ImmutableFile, LedgerStateSnapshot};
+use mithril_cardano_node_internal_database::entities::{
+    AncillaryFilesManifest, LedgerStateSnapshot,
+};
 use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
 use mithril_common::StdResult;
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
@@ -39,31 +40,6 @@ pub struct CompressedArchiveSnapshotter {
 
 #[async_trait]
 impl Snapshotter for CompressedArchiveSnapshotter {
-    async fn snapshot_all_completed_immutables(
-        &self,
-        archive_name_without_extension: &str,
-    ) -> StdResult<FileArchive> {
-        debug!(
-            self.logger,
-            "Snapshotting all completed immutables into archive: '{archive_name_without_extension}'"
-        );
-
-        let paths_to_include = ImmutableFile::list_completed_in_dir(&self.db_directory)
-            .with_context(|| {
-                format!(
-                    "Can not list completed immutables in database directory: '{}'",
-                    self.db_directory.display()
-                )
-            })?
-            .into_iter()
-            .map(|immutable_file: ImmutableFile| {
-                PathBuf::from(IMMUTABLE_DIR).join(immutable_file.filename)
-            })
-            .collect();
-        let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
-        self.snapshot(archive_name_without_extension, appender).await
-    }
-
     async fn snapshot_ancillary(
         &self,
         immutable_file_number: ImmutableFileNumber,
@@ -433,59 +409,12 @@ mod tests {
             TestLogger::stdout(),
         )
         .unwrap();
-        let snapshot = snapshotter
-            .snapshot_all_completed_immutables("whatever")
-            .await
-            .unwrap();
+        let snapshot = snapshotter.snapshot_immutable_trio(1, "whatever").await.unwrap();
 
         assert_eq!(
             pending_snapshot_directory,
             snapshot.get_file_path().parent().unwrap()
         );
-    }
-
-    mod snapshot_all_completed_immutables {
-        use super::*;
-
-        #[tokio::test]
-        async fn include_only_completed_immutables() {
-            let test_dir = temp_dir_create!();
-            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
-                .with_immutables(&[1, 2, 3])
-                .append_immutable_trio()
-                .with_legacy_ledger_snapshots(&[437])
-                .with_volatile_files(&["blocks-0.dat"])
-                .with_non_immutables(&["random_file.txt", "00002.trap"])
-                .build();
-
-            let snapshotter =
-                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
-
-            let snapshot = snapshotter
-                .snapshot_all_completed_immutables("completed_immutables")
-                .await
-                .unwrap();
-
-            let unpack_dir = snapshot.unpack_gzip(&test_dir);
-            let unpacked_files = list_files(&unpack_dir);
-            let unpacked_immutable_files = list_files(&unpack_dir.join(IMMUTABLE_DIR));
-
-            assert_equivalent!(vec![IMMUTABLE_DIR.to_string()], unpacked_files);
-            assert_equivalent!(
-                vec![
-                    "00001.chunk".to_string(),
-                    "00001.primary".to_string(),
-                    "00001.secondary".to_string(),
-                    "00002.chunk".to_string(),
-                    "00002.primary".to_string(),
-                    "00002.secondary".to_string(),
-                    "00003.chunk".to_string(),
-                    "00003.primary".to_string(),
-                    "00003.secondary".to_string(),
-                ],
-                unpacked_immutable_files,
-            );
-        }
     }
 
     mod snapshot_immutable_trio {
