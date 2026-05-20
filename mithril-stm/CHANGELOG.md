@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.21 (05-21-2026)
+
+### Added
+
+- Added Criterion benchmarks for `StmCertificateCircuit` covering VK/PK setup, proof generation, and verification across small, medium, large, and production parameter tiers.
+- Added CI parameter benchmarks comparing `MockProver` and real prover across a range of `k` values, with E2E extrapolation formula and reference results table documented in the README.
+
+### Changed
+
+- Corrected production tier `k` from `2093` to `1944` in benchmarks and README.
+- Unified `setup`, `prove`, and `verify` benchmarks into a single Criterion group with consistent flat sampling configuration.
+
 ## 0.10.20 (05-19-2026)
 
 ### Added
