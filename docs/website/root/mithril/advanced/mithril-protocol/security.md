@@ -37,6 +37,88 @@ For Mithril, the following is considered:
   - _Prevent certificate production_: the adversary might attempt to prevent a certificate's legitimate production by disrupting eligible signers' participation or introducing conflicts that prevent successful aggregation. This could halt the certificate generation process
   - _Manipulate stake distribution or lottery mechanism_: the adversary may try to exploit the lottery mechanism by grinding attacks or manipulating the stake distribution to increase their chance of being selected. This could influence the certificate generation process.
 
+## Honest majority in Mithril vs Cardano
+
+The security of Mithril requires an **honest majority on both Mithril and Cardano**:
+
+- Without an honest majority on Mithril, the **signing process** cannot be trusted
+- Without an honest majority on Cardano, **what is being signed** cannot be trusted.
+
+The two assumptions are similar but **separate**: an honest majority on Mithril is not automatically implied by an honest majority on Cardano. There are two reasons for this:
+
+- **Higher threshold**: under current parameters, the majority required for Mithril ($60\%$) is higher than that required for Cardano (around $51\%$). This is unlikely to change even if the parameters are retuned
+- **Voluntary participation**: SPOs may opt out of Mithril for their own reasons. As such, the SPO set of Mithril is a **subset** of Cardano's.
+
+### Estimating the cost of a forgery attack
+
+As an indication of the plausibility of the "Mithril has a $60\%$ honest majority" assumption, the table and chart below estimate, for a given **protocol participation**, the amount of ADA an adversary would need to control to reach $40\%$ of stake in Mithril (the **forgery threshold**).
+
+Producing a forgery requires an adversary to control the following amount of ADA:
+
+$$
+\mathrm{ADA}_{\text{forgery}} = T_{\text{Mithril}} \times P \times \sum_{\text{SPO}} \mathrm{ADA}
+$$
+
+where:
+
+- $T_\text{Mithril} = 40\%$ is the **Mithril forgery threshold**
+- $P$ is the **protocol participation**, i.e. the fraction of total Cardano SPO stake registered in Mithril
+- $\sum_\text{SPO} \mathrm{ADA}$ is the **total ADA held by Cardano SPOs**.
+
+The chart below maps the **cost of a forgery attack** (red line and blue bars) against the **protocol participation**, both expressed as a percentage of the total Cardano SPO stake. The dashed green horizontal line marks the $40\%$ forgery threshold (the upper bound, reached only when participation is $100\%$):
+
+<style>{`
+.forgery-chart {
+  padding-bottom: 3rem;
+}
+.forgery-chart svg {
+  display: block;
+  margin: 0 auto;
+}
+.forgery-chart .line-plot-2 {
+  stroke-dasharray: 6 4;
+}
+`}</style>
+
+<div className="forgery-chart" style={{textAlign: "center"}}>
+
+```mermaid
+---
+config:
+    xyChart:
+        width: 700
+        height: 400
+        xAxis:
+            labelPadding: 8
+        yAxis:
+            labelPadding: 8
+    themeVariables:
+        xyChart:
+            plotColorPalette: "#1F77B4, #D62728, #2CA02C"
+            backgroundColor: "transparent"
+---
+xychart-beta
+    title "Cost of forgery attack vs Mithril participation"
+    x-axis "Mithril participation (% of SPO stake)" [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+    y-axis "Forgery cost (% of SPO stake)" 0 --> 50
+    bar [4, 8, 12, 16, 20, 24, 28, 32, 36, 40]
+    line [4, 8, 12, 16, 20, 24, 28, 32, 36, 40]
+    line [40, 40, 40, 40, 40, 40, 40, 40, 40, 40]
+```
+
+</div>
+
+A few reference points along this line:
+
+| Mithril participation $P$ | Forgery cost (% of SPO stake) |
+| ------------------------- | ----------------------------- |
+| $25\%$                    | $10\%$                        |
+| $50\%$                    | $20\%$                        |
+| $75\%$                    | $30\%$                        |
+| $100\%$                   | $40\%$                        |
+
+The relationship is linear: **higher Mithril participation directly raises the cost of a forgery**, making the attack progressively more expensive as the protocol grows.
+
 ## Signature and proof integrity attacks
 
 This section groups _concatenation forgery_ and _collusion_ attacks under signature and proof integrity attacks and discusses Mithril security regarding these attacks. Please see the Appendix for further details.
