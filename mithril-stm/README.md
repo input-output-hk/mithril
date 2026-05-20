@@ -255,3 +255,42 @@ Large and production tiers run a single timed measurement (Criterion's 10-sample
 cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/large
 cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_snark -- certificate/production
 ```
+
+## CI Parameter Benchmarks
+
+Single-run benchmarks for the `StmCertificateCircuit` across small `k` values, covering both the real prover and the mock prover (`MockProver` from `midnight_proofs`). Used to determine the optimal circuit parameters for CI and end-to-end tests.
+
+Gated behind the `future_snark` and `benchmark-internals` features.
+
+### E2E extrapolation formula
+
+The E2E columns are derived from individual timings using the following formula:
+
+```text
+E2E (mock prover) ≈ mock_circuit_gen + 80 × mock_prove
+E2E (real prover) ≈ 80 × proof_gen
+```
+
+The constant 80 is the number of certificates generated in a standard Mithril end-to-end test run (with k = 70 or k = 140).
+
+### Hardware requirements
+
+All tiers complete in under 15 minutes on any developer machine with at least 4 GB RAM.
+
+### Reference results (Apple M4 Max, 48 GB, macOS, 3 000 signers, depth = 12)
+
+| k   | K   | mock_circuit_gen | mock_prove | mock_verify | e2e_mock | proof_gen | proof_verify | e2e_real |
+| --- | --- | ---------------- | ---------- | ----------- | -------- | --------- | ------------ | -------- |
+| 1   | 12  | ~25 ms           | ~62 ms     | ~11 ms      | ~5.0 s   | ~178 ms   | ~4 ms        | ~14.2 s  |
+| 2   | 13  | ~51 ms           | ~121 ms    | ~16 ms      | ~9.7 s   | ~300 ms   | ~4 ms        | ~23.9 s  |
+| 5   | 14  | ~133 ms          | ~300 ms    | ~33 ms      | ~24.1 s  | ~606 ms   | ~4 ms        | ~48.5 s  |
+| 10  | 15  | ~285 ms          | ~592 ms    | ~60 ms      | ~47.6 s  | ~1.2 s    | ~4 ms        | ~94.2 s  |
+| 20  | 16  | ~631 ms          | ~1.2 s     | ~115 ms     | ~94.8 s  | ~2.3 s    | ~4 ms        | ~184.9 s |
+| 50  | 17  | ~1.8 s           | ~3.0 s     | ~268 ms     | ~238.7 s | ~5.3 s    | ~4 ms        | ~422.1 s |
+| 100 | 18  | ~3.9 s           | ~5.9 s     | ~528 ms     | ~477.3 s | ~10.1 s   | ~4 ms        | ~811.4 s |
+
+### Running the benchmarks
+
+```bash
+cargo bench -p mithril-stm --features future_snark,benchmark-internals --bench halo2_prover_modes
+```
