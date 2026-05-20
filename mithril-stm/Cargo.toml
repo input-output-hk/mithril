@@ -104,6 +104,16 @@ harness = false
 required-features = ["future_snark", "benchmark-internals"]
 
 [[bench]]
+name = "halo2_snark"
+harness = false
+required-features = ["future_snark", "benchmark-internals"]
+
+[[bench]]
+name = "halo2_prover_modes"
+harness = false
+required-features = ["future_snark", "benchmark-internals"]
+
+[[bench]]
 name = "stm"
 harness = false
 
