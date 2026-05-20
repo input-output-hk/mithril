@@ -1,11 +1,9 @@
-//! Temporary helpers for SNARK setup during the build/prototyping phase.
+//! SNARK setup for the STM certificate circuit.
 //!
-//! This module bundles SRS loading, circuit compilation, and key derivation into
-//! [`SnarkSetup`]. The current implementation uses pre-generated SRS files with an
-//! unsafe deterministic fallback for testing. It will be replaced by production-ready
-//! setup code (trusted SRS ceremony, proper key management) before release.
+//! Bundles circuit compilation and key derivation into [`SnarkSetup`], and wires in the
+//! two-level cache: an in-process [`LazyLock`] for within-run reuse, and the on-disk
+//! [`CircuitKeyCache`] for reuse across process restarts.
 use std::{
-    env,
     fs::{self, File},
     io::{BufReader, BufWriter, ErrorKind},
     sync::{Arc, LazyLock, RwLock},
@@ -18,13 +16,14 @@ use midnight_proofs::{
     utils::SerdeFormat,
 };
 use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
 
 use crate::{
     Parameters, StmResult,
-    circuits::halo2::circuit::StmCertificateCircuit,
-    circuits::key_cache::{CacheState, CircuitKeyCache},
+    circuits::{
+        halo2::circuit::StmCertificateCircuit,
+        key_cache::{CacheState, CircuitKeyCache},
+        trusted_setup::TrustedSetupProvider,
+    },
 };
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
@@ -45,8 +44,6 @@ static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkS
 ///
 /// This includes the Structured Reference String (SRS), the compiled circuit, and the
 /// proving and verification keys derived from them.
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 pub struct SnarkSetup {
     /// KZG Structured Reference String.
     pub(crate) srs: ParamsKZG<Bls12>,
@@ -59,33 +56,22 @@ pub struct SnarkSetup {
 }
 
 impl SnarkSetup {
-    /// Build a new `SnarkSetup` from protocol parameters and Merkle tree depth.
-    ///
-    /// The setup pipeline:
-    /// 1. Computes the circuit degree from the protocol parameter `k`.
-    /// 2. Loads the SRS from a pre-generated file, or generates one with an unsafe
-    ///    deterministic seed if the file is not found.
-    /// 3. Compiles the STM circuit for the given parameters and tree depth.
-    /// 4. Derives the verification and proving keys from the SRS and circuit.
-    ///
-    /// Returns an error if the SRS cannot be loaded or generated, or if the circuit
-    /// cannot be compiled with the given parameters.
+    /// Loads the trusted SRS via [`TrustedSetupProvider`] and delegates to
+    /// [`Self::try_new_with_srs`].
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
+        let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
+        Self::try_new_with_srs(params, merkle_tree_depth, srs)
+    }
+
+    /// Build a new `SnarkSetup` from protocol parameters, Merkle tree depth, and a caller-supplied
+    /// SRS. The caller is responsible for providing a compatible SRS (degree ≥ circuit minimum).
+    pub(crate) fn try_new_with_srs(
+        params: &Parameters,
+        merkle_tree_depth: u32,
+        srs: ParamsKZG<Bls12>,
+    ) -> StmResult<Self> {
         let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
-
-        // Uses a temporary directory to store the srs generated
-        // and to access it again during execution
-        // TODO: Remove the use of temporary directory once the srs is
-        // properly handled
-        let srs_path = env::temp_dir()
-            .join("mithril-srs")
-            .join(format!("params_kzg_unsafe_{}", circuit_degree));
-
-        let srs = load_or_generate_srs(
-            circuit_degree,
-            srs_path.to_str().with_context(|| "SRS path contains invalid UTF-8")?,
-        )?;
 
         let cache_key = SnarkSetupCacheKey {
             circuit_degree,
@@ -149,7 +135,11 @@ impl SnarkVerifierSetup {
 /// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
 /// if the file does not exist. When generated, the result is persisted to `path` so
 /// subsequent calls can load it quickly.
+#[cfg(test)]
 fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<Bls12>> {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
     let file = File::open(path);
     match file {
         Ok(f) => {
@@ -172,6 +162,7 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 }
 
 /// Persist a KZG SRS to disk so subsequent calls to `load_or_generate_srs` can load it.
+#[cfg(test)]
 fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent)
@@ -431,16 +422,16 @@ mod test {
     }
 
     #[test]
-    fn try_new_succeeds_with_valid_parameters() {
-        let result = SnarkSetup::try_new(&default_params(), 4);
+    fn try_new_with_srs_succeeds_with_valid_parameters() {
+        let result = SnarkSetup::try_new_with_srs(&default_params(), 4, small_srs());
         assert!(result.is_ok());
     }
 
     #[test]
-    fn try_new_returns_same_verification_key_for_same_parameters() {
+    fn try_new_with_srs_returns_same_verification_key_for_same_parameters() {
         let params = default_params();
-        let setup1 = SnarkSetup::try_new(&params, 4).unwrap();
-        let setup2 = SnarkSetup::try_new(&params, 4).unwrap();
+        let setup1 = SnarkSetup::try_new_with_srs(&params, 4, small_srs()).unwrap();
+        let setup2 = SnarkSetup::try_new_with_srs(&params, 4, small_srs()).unwrap();
 
         let mut vk_bytes1 = vec![];
         setup1

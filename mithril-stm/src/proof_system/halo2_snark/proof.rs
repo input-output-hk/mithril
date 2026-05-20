@@ -285,6 +285,7 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
 #[cfg(feature = "future_snark")]
 #[cfg(test)]
 mod tests {
+    use midnight_proofs::poly::kzg::params::ParamsKZG;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
@@ -342,8 +343,23 @@ mod tests {
             .collect()
     }
 
+    fn unsafe_srs_for(params: &Parameters) -> ParamsKZG<midnight_curves::Bls12> {
+        ParamsKZG::unsafe_setup(
+            compute_circuit_degree(params.k),
+            ChaCha20Rng::seed_from_u64(42),
+        )
+    }
+
     fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
-        SnarkProver::try_new_deterministic(&params, MERKLE_TREE_DEPTH_FOR_SNARK, seed).unwrap()
+        SnarkProver {
+            setup: SnarkSetup::try_new_with_srs(
+                &params,
+                MERKLE_TREE_DEPTH_FOR_SNARK,
+                unsafe_srs_for(&params),
+            )
+            .unwrap(),
+            rng: ChaCha20Rng::from_seed(seed),
+        }
     }
 
     #[test]
@@ -614,7 +630,12 @@ mod tests {
 
             // The returned DualMSM must still satisfy its own pairing check;
             // confirms the caller can reuse it (e.g. wrap into a cert accumulator).
-            let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            let snark_setup = SnarkSetup::try_new_with_srs(
+                &params,
+                MERKLE_TREE_DEPTH_FOR_SNARK,
+                unsafe_srs_for(&params),
+            )
+            .unwrap();
             assert!(dual_msm.check(&snark_setup.srs.verifier_params()));
         }
 
@@ -747,9 +768,13 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
             let mut prover = SnarkProver {
-                setup: snark_setup,
+                setup: SnarkSetup::try_new_with_srs(
+                    &params,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                    unsafe_srs_for(&params),
+                )
+                .unwrap(),
                 rng: ChaCha20Rng::from_seed([0u8; 32]),
             };
             let mut snark_proof = prover
