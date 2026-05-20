@@ -40,7 +40,11 @@ impl CircuitKeyCache {
         };
 
         if bytes == self.expected_vk_bytes {
-            return Ok(CacheState::Valid);
+            return match fs::metadata(&self.pk_path) {
+                Ok(_) => Ok(CacheState::Valid),
+                Err(e) if e.kind() == ErrorKind::NotFound => Ok(CacheState::Empty),
+                Err(e) => Err(e.into()),
+            };
         }
 
         fs::remove_file(&self.vk_path).or_else(|e| {
@@ -111,7 +115,17 @@ mod tests {
         let (base_dir, cache) = make_test_cache("mithril-key-cache-test-match");
         fs::create_dir_all(cache.vk_path().parent().unwrap()).unwrap();
         fs::write(cache.vk_path(), b"expected-vk-bytes").unwrap();
+        fs::write(cache.pk_path(), b"some-pk-bytes").unwrap();
         assert!(matches!(cache.validate().unwrap(), CacheState::Valid));
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn validate_returns_empty_when_vk_matches_but_pk_absent() {
+        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-pk-missing");
+        fs::create_dir_all(cache.vk_path().parent().unwrap()).unwrap();
+        fs::write(cache.vk_path(), b"expected-vk-bytes").unwrap();
+        assert!(matches!(cache.validate().unwrap(), CacheState::Empty));
         fs::remove_dir_all(&base_dir).ok();
     }
 

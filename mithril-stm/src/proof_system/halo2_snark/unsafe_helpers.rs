@@ -6,7 +6,7 @@
 //! setup code (trusted SRS ceremony, proper key management) before release.
 use std::{
     env,
-    fs::File,
+    fs::{self, File},
     io::{BufReader, BufWriter, ErrorKind},
     sync::{Arc, LazyLock, RwLock},
 };
@@ -21,7 +21,11 @@ use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCertificateCircuit};
+use crate::{
+    Parameters, StmResult,
+    circuits::halo2::circuit::StmCertificateCircuit,
+    circuits::key_cache::{CacheState, CircuitKeyCache},
+};
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -89,14 +93,18 @@ impl SnarkSetup {
             m: params.m,
             merkle_tree_depth,
         };
-        let key_pair = get_or_build_snark_keys(cache_key, &circuit, &srs)?;
-        let (verification_key, proving_key) = (&key_pair.0, &key_pair.1);
+        let key_pair = get_or_build_snark_keys_with_disk_cache(
+            cache_key,
+            &circuit,
+            &srs,
+            &CircuitKeyCache::for_non_recursive_circuit(),
+        )?;
 
         Ok(Self {
             srs,
             circuit,
-            verification_key: verification_key.clone(),
-            proving_key: proving_key.clone(),
+            verification_key: key_pair.0.clone(),
+            proving_key: key_pair.1.clone(),
         })
     }
 }
@@ -181,6 +189,7 @@ fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
 /// The proving-key derivation (`zk::setup_pk`) is the dominant cost in `SnarkSetup::try_new`.
 /// Caching it per `(circuit_degree, k, m, merkle_tree_depth)` avoids redundant work across
 /// multiple certificate generations within the same process.
+#[cfg(test)]
 fn get_or_build_snark_keys(
     cache_key: SnarkSetupCacheKey,
     circuit: &StmCertificateCircuit,
@@ -208,22 +217,103 @@ fn get_or_build_snark_keys(
     Ok(key_pair)
 }
 
+fn get_or_build_snark_keys_with_disk_cache(
+    cache_key: SnarkSetupCacheKey,
+    circuit: &StmCertificateCircuit,
+    srs: &ParamsKZG<Bls12>,
+    disk_cache: &CircuitKeyCache,
+) -> StmResult<SnarkSetupKeyPair> {
+    // LazyLock is the hot in-process cache; disk survives process restarts.
+    if let Some(pair) = SNARK_SETUP_KEY_CACHE
+        .read()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
+        .as_ref()
+        .filter(|(k, _)| *k == cache_key)
+        .map(|(_, v)| v.clone())
+    {
+        return Ok(pair);
+    }
+
+    let (vk, pk) = 'keys: {
+        if let CacheState::Valid = disk_cache.validate()? {
+            let vk = MidnightVK::read(
+                &mut BufReader::new(
+                    File::open(disk_cache.vk_path()).with_context(|| "Failed to open cached VK")?,
+                ),
+                SerdeFormat::RawBytes,
+            )
+            .with_context(|| "Failed to deserialize cached VK")?;
+            match File::open(disk_cache.pk_path()) {
+                Ok(f) => {
+                    let pk = MidnightPK::<StmCertificateCircuit>::read(
+                        &mut BufReader::new(f),
+                        SerdeFormat::RawBytes,
+                    )
+                    .with_context(|| "Failed to deserialize cached PK")?;
+                    break 'keys (vk, pk);
+                }
+                Err(e) if e.kind() == ErrorKind::NotFound => {}
+                Err(e) => return Err(anyhow!("Failed to open cached PK: {e}")),
+            }
+        }
+        let vk = zk::setup_vk(srs, circuit);
+        let pk = zk::setup_pk(circuit, &vk);
+        if let Some(parent) = disk_cache.vk_path().parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| "Failed to create circuit key cache directory")?;
+        }
+        vk.write(
+            &mut BufWriter::new(
+                File::create(disk_cache.vk_path())
+                    .with_context(|| "Failed to create VK cache file")?,
+            ),
+            SerdeFormat::RawBytes,
+        )
+        .with_context(|| "Failed to write VK to disk")?;
+        if let Err(e) = (|| -> StmResult<()> {
+            pk.write(
+                &mut BufWriter::new(
+                    File::create(disk_cache.pk_path())
+                        .with_context(|| "Failed to create PK cache file")?,
+                ),
+                SerdeFormat::RawBytes,
+            )
+            .with_context(|| "Failed to write PK to disk")
+        })() {
+            let _ = fs::remove_file(disk_cache.vk_path());
+            return Err(e);
+        }
+        (vk, pk)
+    };
+
+    let key_pair = Arc::new((vk, pk));
+    *SNARK_SETUP_KEY_CACHE
+        .write()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))? =
+        Some((cache_key, key_pair.clone()));
+
+    Ok(key_pair)
+}
+
 #[cfg(test)]
 mod test {
     use std::{fs, sync::Arc};
 
     use midnight_curves::Bls12;
     use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
-    use midnight_zk_stdlib::MidnightCircuit;
+    use midnight_zk_stdlib::{self as zk, MidnightCircuit};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     use crate::{
         Parameters, circuits::halo2::circuit::StmCertificateCircuit,
-        proof_system::halo2_snark::SnarkSetup,
+        circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkSetup,
     };
 
-    use super::{SnarkSetupCacheKey, get_or_build_snark_keys, load_or_generate_srs, persist_srs};
+    use super::{
+        SnarkSetupCacheKey, get_or_build_snark_keys, get_or_build_snark_keys_with_disk_cache,
+        load_or_generate_srs, persist_srs,
+    };
 
     fn small_srs() -> ParamsKZG<Bls12> {
         ParamsKZG::unsafe_setup(3, ChaCha20Rng::seed_from_u64(42))
@@ -390,5 +480,79 @@ mod test {
 
             println!("{:?}", buf);
         }
+    }
+
+    #[test]
+    fn disk_cache_empty_writes_keys_to_disk() {
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 100).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let cache_key = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 100,
+        };
+
+        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-empty");
+        fs::remove_dir_all(&base_dir).ok();
+        let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
+
+        assert!(!disk_cache.vk_path().exists());
+        get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache).unwrap();
+        assert!(
+            disk_cache.vk_path().exists(),
+            "VK should be written to disk on cache miss"
+        );
+        assert!(
+            disk_cache.pk_path().exists(),
+            "PK should be written to disk on cache miss"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn disk_cache_valid_returns_expected_vk_bytes() {
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 101).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let cache_key = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 101,
+        };
+
+        let vk = zk::setup_vk(&srs, &circuit);
+        let pk = zk::setup_pk(&circuit, &vk);
+        let mut vk_bytes = vec![];
+        vk.write(&mut vk_bytes, SerdeFormat::RawBytes).unwrap();
+        let mut pk_bytes = vec![];
+        pk.write(&mut pk_bytes, SerdeFormat::RawBytes).unwrap();
+
+        // Box::leak converts runtime bytes to &'static [u8] for CircuitKeyCache.
+        let expected: &'static [u8] = Box::leak(vk_bytes.clone().into_boxed_slice());
+
+        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-valid");
+        fs::remove_dir_all(&base_dir).ok();
+        let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", expected);
+
+        fs::create_dir_all(disk_cache.vk_path().parent().unwrap()).unwrap();
+        fs::write(disk_cache.vk_path(), &vk_bytes).unwrap();
+        fs::write(disk_cache.pk_path(), &pk_bytes).unwrap();
+
+        let loaded =
+            get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache)
+                .unwrap();
+
+        let mut loaded_vk_bytes = vec![];
+        loaded.0.write(&mut loaded_vk_bytes, SerdeFormat::RawBytes).unwrap();
+        assert_eq!(
+            loaded_vk_bytes, vk_bytes,
+            "loaded VK must match what was written to disk"
+        );
+        fs::remove_dir_all(&base_dir).ok();
     }
 }
