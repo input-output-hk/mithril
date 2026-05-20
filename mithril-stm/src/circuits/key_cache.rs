@@ -94,6 +94,9 @@ impl CircuitKeyCache {
 mod tests {
     use std::{env, fs, path::PathBuf};
 
+    use crate::circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
+    use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
+
     use super::*;
 
     fn make_test_cache(name: &str) -> (PathBuf, CircuitKeyCache) {
@@ -156,5 +159,71 @@ mod tests {
         assert!(!vk_path.exists());
         assert!(!pk_path.exists());
         fs::remove_dir_all(&base_dir).ok();
+    }
+
+    // Both constructor tests below write to the real temp_dir() paths used by the production
+    // factory methods. Parallel test runs that also exercise the production path could race
+    // on the same directory. If these tests ever become flaky, switch to make_test_cache to
+    // isolate each run into a unique subdirectory.
+    #[test]
+    fn for_non_recursive_circuit_has_correct_path_and_uses_production_vk() {
+        let cache = CircuitKeyCache::for_non_recursive_circuit();
+
+        assert!(
+            cache
+                .vk_path()
+                .ends_with("mithril-circuit/non-recursive/verification-key"),
+            "vk_path should end with mithril-circuit/non-recursive/verification-key"
+        );
+        assert!(
+            cache.pk_path().ends_with("mithril-circuit/non-recursive/proving-key"),
+            "pk_path should end with mithril-circuit/non-recursive/proving-key"
+        );
+
+        let cleanup_dir = cache.vk_path().parent().unwrap().to_path_buf();
+        fs::remove_dir_all(&cleanup_dir).ok();
+        fs::create_dir_all(&cleanup_dir).unwrap();
+        fs::write(
+            cache.vk_path(),
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+        fs::write(cache.pk_path(), b"any-pk-bytes").unwrap();
+        assert!(
+            matches!(cache.validate().unwrap(), CacheState::Valid),
+            "validate() should return Valid when production VK bytes are on disk"
+        );
+        fs::remove_dir_all(&cleanup_dir).ok();
+    }
+
+    #[test]
+    fn for_recursive_circuit_has_correct_path_and_uses_production_vk() {
+        let cache = CircuitKeyCache::for_recursive_circuit();
+
+        assert!(
+            cache
+                .vk_path()
+                .ends_with("mithril-circuit/recursive/verification-key"),
+            "vk_path should end with mithril-circuit/recursive/verification-key"
+        );
+        assert!(
+            cache.pk_path().ends_with("mithril-circuit/recursive/proving-key"),
+            "pk_path should end with mithril-circuit/recursive/proving-key"
+        );
+
+        let cleanup_dir = cache.vk_path().parent().unwrap().to_path_buf();
+        fs::remove_dir_all(&cleanup_dir).ok();
+        fs::create_dir_all(&cleanup_dir).unwrap();
+        fs::write(
+            cache.vk_path(),
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .unwrap();
+        fs::write(cache.pk_path(), b"any-pk-bytes").unwrap();
+        assert!(
+            matches!(cache.validate().unwrap(), CacheState::Valid),
+            "validate() should return Valid when production VK bytes are on disk"
+        );
+        fs::remove_dir_all(&cleanup_dir).ok();
     }
 }
