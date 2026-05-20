@@ -165,8 +165,12 @@ impl BenchEnv {
     }
 
     /// Return the serialized byte length of the verification key.
+    ///
+    /// Infallible: the `Write` impl for `Vec<u8>` never returns an error.
     pub fn vk_size_bytes(&self) -> usize {
         let mut buf = vec![];
+        // Safety: writing to Vec<u8> is infallible; the only failure mode
+        // (allocation) would already have panicked before reaching this point.
         self.vk
             .write(&mut buf, SerdeFormat::RawBytes)
             .expect("VK serialization should not fail");
