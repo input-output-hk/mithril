@@ -22,34 +22,32 @@ Before integrating, review the [Protocol security](/mithril/advanced/mithril-pro
 
 When a user locks assets on Cardano, the bridge needs to confirm that the lock transaction was included on-chain before authorizing the corresponding action on the destination chain. With Mithril, the bridge can verify this using a Merkle proof linked to a certificate signed by a stake-weighted quorum of SPOs. The proof can be checked locally, without trusting the source of the data.
 
-This changes the bridge's security posture. The integrity of cross-chain transfers no longer depends on the honesty of any single data provider or on the operational security of any one node. A compromised API, a misconfigured indexer, or a hostile relayer cannot produce a valid Mithril proof — and a bridge that verifies proofs will reject anything that fails verification.
+This changes the bridge's security posture. The integrity of cross-chain transfers no longer depends on the honesty of any single data provider or on the operational security of any one node. A compromised API, a misconfigured indexer, or a hostile relayer cannot produce a valid Mithril proof. If verification fails, the bridge treats the underlying Cardano transaction as unconfirmed and does not authorize the corresponding action on the destination chain.
 
 Crucially, the bridge gets this assurance from a lightweight client. The proof is fetched and verified on demand, with no full Cardano node to sync, store, or operate. For bridge teams, that means the most secure verification path is also the cheapest one — there is no longer a trade-off between trust assumptions and infrastructure overhead.
 
 ### How it fits into existing bridge architectures
 
-Most bridges have an off-chain component — relayers, validators, or watchers — that observes events on the source chain and submits attestations to the destination chain. Mithril does not replace this component. It strengthens it: instead of trusting whatever endpoint the relayer happens to query, the relayer verifies a Mithril proof against the current certificate chain before treating a Cardano transaction as final.
+Most bridges have an off-chain component — relayers, validators, or watchers — that observes events on the source chain and submits attestations to the destination chain. Mithril does not replace this component. It strengthens it: instead of trusting whatever endpoint the relayer happens to query, the relayer verifies a Mithril proof against the current certificate chain before treating a Cardano transaction as certified.
 
 This preserves the existing architecture while removing the implicit trust placed in centralized infrastructure. For bridge designs that already rely on a multi-signature or threshold scheme among relayers, Mithril provides an additional, independent check rooted in Cardano's stake distribution — making collusion among relayers insufficient to forge a transfer if proofs are verified.
 
 ### Integration
 
-The easiest path for most bridge teams to integrate is using the official WASM package:
+Bridge relayers, validators, and watchers typically run as server-side services, so most bridge teams will integrate via the [Rust client library](https://crates.io/crates/mithril-client) or the [Mithril client CLI](https://mithril.network/doc/manual/develop/nodes/mithril-client). The library is the most direct path for native services that want to embed proof verification in their existing process; the CLI is a good fit for teams that prefer to shell out from a relayer written in another language.
 
-```bash
-npm install @mithril-dev/mithril-client-wasm
-```
-
-It works in Node.js and in the browser, making it suitable for relayers, monitoring services, and validator software. All major browsers are supported — see the [Browser Compatibility](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm#browser-compatibility) section of the npm package for details. A [Rust crate](https://crates.io/crates/mithril-client) is also available for native services.
+A [WASM package](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm) is also available for any browser-facing component of the bridge (e.g. a status dashboard or user-facing transfer UI that verifies proofs client-side).
 
 The core flow is straightforward:
 
 1. Observe the lock or burn transaction on Cardano
 2. Query the Mithril aggregator for a transaction proof of membership once the transation hash is known
 3. Verify the proof against the current Mithril certificate chain
-4. Treat the transaction as final and authorize the corresponding action on the destination chain.
+4. Apply your finality criteria, then authorize the corresponding action on the destination chain.
 
-Proofs are generated approximately every 30 blocks, with certification operating around 100 blocks behind the chain tip to ensure finality. Bridge teams should factor this into their finality model and user-facing expectations around transfer latency.
+Proofs are generated approximately every 30 blocks. Mithril certifies that a Cardano transaction was included, but the bridge decides how many additional confirmations to require before acting on it. Under the current [Cardano transaction certification](/mithril/advanced/mithril-certification/cardano-transactions), certification runs around 100 blocks behind the chain tip — generally sufficient for smaller transfers, but bridge teams may want a wider margin for high-value ones.
+
+Under the upcoming [Cardano blocks and transactions certification](/mithril/advanced/mithril-certification/cardano-blocks-and-transactions), each proof carries a depth from the chain tip at snapshot time, so the bridge can pick its own threshold per transfer. Bridge teams should factor this into their finality model and user-facing expectations around transfer latency.
 
 ### Questions?
 
@@ -90,7 +88,7 @@ Have a question during integration? Reach out in the [#ask-mithril](https://disc
 
 ## For bridge users
 
-When a bridge supports Mithril, cross-chain transfers from Cardano are more secure. Whether you interact with the bridge directly, or through a wallet or aggregator that abstracts the swap behind a simpler interface, the underlying assertion is the same: that your Cardano transaction was actually included on-chain before the bridge took action on the other side.
+When a bridge supports Mithril, cross-chain transfers from Cardano are more secure. Whether you interact with the bridge directly, or through a wallet or cross-chain DEX aggregator (e.g. 1inch) that abstracts the swap behind a simpler interface, the underlying assertion is the same: that your Cardano transaction was actually included on-chain before the bridge took action on the other side.
 
 With Mithril, that assertion is backed by a cryptographic proof signed by a stake-weighted quorum of Cardano's stake pool operators, rather than by the bridge's own infrastructure. This means a transfer cannot be authorized on the basis of a compromised API, a faulty indexer, or a single dishonest operator — the proof would simply fail to verify.
 
