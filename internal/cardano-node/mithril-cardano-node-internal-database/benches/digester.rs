@@ -56,14 +56,13 @@ fn create_logger() -> slog::Logger {
 }
 
 #[inline]
-async fn compute_digest(
+async fn compute_merkle_tree(
     cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
     number_of_immutables: ImmutableFileNumber,
 ) {
-    let digester =
-        CardanoImmutableDigester::new("devnet".to_string(), cache_provider, create_logger());
+    let digester = CardanoImmutableDigester::new(cache_provider, create_logger());
     digester
-        .compute_digest(&db_dir(), &CardanoDbBeacon::new(1, number_of_immutables))
+        .compute_merkle_tree(&db_dir(), &CardanoDbBeacon::new(1, number_of_immutables))
         .await
         .expect("digest computation should not fail");
 }
@@ -76,14 +75,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("digester no cache", |bencher| {
         bencher
             .to_async(&runtime)
-            .iter(|| async { compute_digest(None, number_of_immutable).await })
+            .iter(|| async { compute_merkle_tree(None, number_of_immutable).await })
     });
     c.bench_function("digester memory cache", |bencher| {
         let cache = Arc::new(MemoryImmutableFileDigestCacheProvider::default());
 
         bencher
             .to_async(&runtime)
-            .iter(|| async { compute_digest(Some(cache.clone()), number_of_immutable).await })
+            .iter(|| async { compute_merkle_tree(Some(cache.clone()), number_of_immutable).await })
     });
     c.bench_function("digester json cache", |bencher| {
         let cache = Arc::new(JsonImmutableFileDigestCacheProvider::new(
@@ -92,7 +91,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         bencher
             .to_async(&runtime)
-            .iter(|| async { compute_digest(Some(cache.clone()), number_of_immutable).await })
+            .iter(|| async { compute_merkle_tree(Some(cache.clone()), number_of_immutable).await })
     });
 }
 

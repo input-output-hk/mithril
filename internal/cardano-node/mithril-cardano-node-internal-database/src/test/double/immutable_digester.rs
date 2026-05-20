@@ -19,7 +19,7 @@ pub struct DumbImmutableDigester {
 }
 
 impl DumbImmutableDigester {
-    /// Set the digest returned by [compute_digest][DumbImmutableDigester::compute_digest]
+    /// Set the digest returned by [compute_digest][DumbImmutableDigester::compute_digests_for_range]
     pub fn with_digest(mut self, new_digest: &str) -> Self {
         self.digest = RwLock::new(new_digest.to_string());
         self
@@ -31,7 +31,7 @@ impl DumbImmutableDigester {
         self
     }
 
-    /// Update digest returned by [compute_digest][DumbImmutableDigester::compute_digest]
+    /// Update digest returned by [compute_digest][DumbImmutableDigester::compute_digests_for_range]
     pub async fn update_digest(&self, new_digest: String) {
         let mut digest = self.digest.write().await;
         *digest = new_digest;
@@ -56,22 +56,6 @@ impl Default for DumbImmutableDigester {
 
 #[async_trait]
 impl ImmutableDigester for DumbImmutableDigester {
-    async fn compute_digest(
-        &self,
-        dirpath: &Path,
-        beacon: &CardanoDbBeacon,
-    ) -> Result<String, ImmutableDigesterError> {
-        if self.is_success {
-            Ok(self.digest.read().await.clone())
-        } else {
-            Err(ImmutableDigesterError::NotEnoughImmutable {
-                expected_number: beacon.immutable_file_number,
-                found_number: None,
-                db_dir: dirpath.to_owned(),
-            })
-        }
-    }
-
     async fn compute_digests_for_range(
         &self,
         dirpath: &Path,

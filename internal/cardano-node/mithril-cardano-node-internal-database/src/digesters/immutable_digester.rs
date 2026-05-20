@@ -20,13 +20,6 @@ use crate::entities::{ImmutableFile, ImmutableFileListingError};
 /// A digester that can compute the digest used for mithril signatures
 #[async_trait]
 pub trait ImmutableDigester: Sync + Send {
-    /// Compute the digest
-    async fn compute_digest(
-        &self,
-        dirpath: &Path,
-        beacon: &CardanoDbBeacon,
-    ) -> Result<String, ImmutableDigesterError>;
-
     /// Compute the digests for a range of immutable files
     async fn compute_digests_for_range(
         &self,
