@@ -122,7 +122,7 @@ mod tests {
             "previous_hash": "previous_hash",
             "epoch": 10,
             "signed_entity_type": {
-                "CardanoImmutableFilesFull": {
+                "CardanoDatabase": {
                     "epoch": 10,
                     "immutable_file_number": 1728
                 }
@@ -165,9 +165,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new(*epoch, 1728),
-            ),
+            signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(CardanoDbBeacon::new(
+                *epoch, 1728,
+            )),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

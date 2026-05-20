@@ -483,19 +483,9 @@ mod tests {
     //TODO: uncomment those tests cases when feeding database index is generalized to all types
     // #[test]
     // fn signed_entity_with_shared_beacons_computes_different_hashes() {
-
     //     assert_ne!(
     //         hash(SignedEntityType::MithrilStakeDistribution(Epoch(15))),
     //         hash(SignedEntityType::CardanoStakeDistribution(Epoch(15)))
-    //     );
-
-    //     assert_ne!(
-    //         hash(SignedEntityType::CardanoImmutableFilesFull(
-    //             CardanoDbBeacon::new(98, 987)
-    //         )),
-    //         hash(SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
-    //             98, 987
-    //         )))
     //     );
     // }
 
@@ -627,7 +617,7 @@ mod tests {
     }
 
     // Expected ord:
-    // MithrilStakeDistribution < CardanoStakeDistribution < CardanoImmutableFilesFull < CardanoDatabase < CardanoTransactions
+    // MithrilStakeDistribution < CardanoStakeDistribution < CardanoDatabase < CardanoTransactions < CardanoBlocksTransactions
     #[test]
     fn ordering_discriminant() {
         let mut list = vec![
@@ -701,13 +691,13 @@ mod tests {
 
     #[test]
     fn parse_signed_entity_types_discriminants_with_correctly_formed_values() {
-        let discriminants_str = "MithrilStakeDistribution,CardanoImmutableFilesFull";
+        let discriminants_str = "MithrilStakeDistribution,CardanoDatabase";
         let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
             BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::CardanoDatabase
             ]),
             discriminants
         );
@@ -716,14 +706,14 @@ mod tests {
     #[test]
     fn parse_signed_entity_types_discriminants_should_trim_values() {
         let discriminants_str =
-            "MithrilStakeDistribution    ,  CardanoImmutableFilesFull  ,   CardanoTransactions   ";
+            "MithrilStakeDistribution    ,  CardanoDatabase  ,   CardanoTransactions   ";
         let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
             BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::CardanoDatabase,
             ]),
             discriminants
         );
@@ -743,13 +733,13 @@ mod tests {
 
     #[test]
     fn parse_signed_entity_types_discriminants_should_be_case_sensitive() {
-        let discriminants_str = "mithrilstakedistribution,CARDANOIMMUTABLEFILESFULL";
+        let discriminants_str = "mithrilstakedistribution,CARDANODATABASE";
         let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
 
         assert_eq!(
             SignedEntityTypeDiscriminants::format_parse_list_error(vec![
                 "mithrilstakedistribution",
-                "CARDANOIMMUTABLEFILESFULL"
+                "CARDANODATABASE"
             ]),
             error.to_string()
         );

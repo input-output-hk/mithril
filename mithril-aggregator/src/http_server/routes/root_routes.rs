@@ -128,7 +128,6 @@ mod tests {
         let config = RouterConfig {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
@@ -167,7 +166,6 @@ mod tests {
                 capabilities: AggregatorCapabilities {
                     signed_entity_types: BTreeSet::from_iter([
                         SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
-                        SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull,
                         SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
                         SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                         SignedEntityTypeDiscriminantsMessage::CardanoDatabase,

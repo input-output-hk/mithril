@@ -52,7 +52,7 @@ mod tests {
 
         fn golden_message_with_json_hex_encoding() -> RegisterSignatureMessageHttp {
             RegisterSignatureMessageHttp {
-                signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
+                signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),
                 party_id: "party_id".to_string(),
@@ -64,7 +64,7 @@ mod tests {
 
         fn golden_message_with_bytes_hex_encoding() -> RegisterSignatureMessageHttp {
             RegisterSignatureMessageHttp {
-                signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
+                signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),
                 party_id: "party_id".to_string(),

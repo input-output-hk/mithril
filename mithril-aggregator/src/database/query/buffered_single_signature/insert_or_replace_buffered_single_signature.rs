@@ -51,7 +51,7 @@ impl Query for InsertOrReplaceBufferedSingleSignatureRecordQuery {
 mod tests {
     use chrono::{Duration, Utc};
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
-        CardanoImmutableFilesFull, CardanoStakeDistribution,
+        CardanoDatabase, CardanoStakeDistribution,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -64,7 +64,7 @@ mod tests {
     fn insert_records_in_empty_db() {
         let connection = main_db_connection().unwrap();
 
-        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoImmutableFilesFull);
+        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoDatabase);
         let inserted_record = connection
             .fetch_first(InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
                 record.clone(),
@@ -78,7 +78,7 @@ mod tests {
     fn allow_to_insert_record_with_different_party_id_and_discriminant_but_different_signature() {
         let connection = main_db_connection().unwrap();
 
-        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoImmutableFilesFull);
+        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoDatabase);
         let other_record = BufferedSingleSignatureRecord {
             party_id: "party_10".to_string(),
             signed_entity_type_id: CardanoStakeDistribution,
@@ -107,7 +107,7 @@ mod tests {
     fn inserting_same_record_twice_should_replace_first_insert() {
         let connection = main_db_connection().unwrap();
 
-        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoImmutableFilesFull);
+        let record = BufferedSingleSignatureRecord::fake("party_8", CardanoDatabase);
 
         connection
             .fetch_first(InsertOrReplaceBufferedSingleSignatureRecordQuery::one(

@@ -91,10 +91,7 @@ impl CertificateRecord {
             id,
             parent_id,
             epoch,
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                *epoch,
-                immutable_file_number,
-            )),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable_file_number)),
         )
     }
 

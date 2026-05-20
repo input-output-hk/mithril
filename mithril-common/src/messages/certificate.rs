@@ -244,9 +244,10 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: Epoch(10),
-            signed_entity_type: SignedEntityTypeMessage::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new(*Epoch(10), 1728),
-            ),
+            signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(CardanoDbBeacon::new(
+                *Epoch(10),
+                1728,
+            )),
             metadata: CertificateMetadataMessagePart {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -299,7 +300,7 @@ mod tests {
             "previous_hash": "previous_hash",
             "epoch": 10,
             "signed_entity_type": {
-                "CardanoImmutableFilesFull": {
+                "CardanoDatabase": {
                     "epoch": 10,
                     "immutable_file_number": 1728
                 }
