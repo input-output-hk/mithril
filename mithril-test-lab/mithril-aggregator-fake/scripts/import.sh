@@ -198,7 +198,6 @@ join_artifacts_files() {
 
 join_all_artifacts_files() {
     for artifact_type in \
-        "snapshot" \
         "mithril-stake-distribution" \
         "ctx-snapshot" \
         "cardano-blocks-txs-snapshot" \
@@ -233,9 +232,6 @@ download_data "$BASE_URL/status" "status"
 
 echo "Downloading epoch-settings"
 download_data "$BASE_URL/epoch-settings" "epoch-settings"
-
-download_data "$BASE_URL/artifact/snapshots" "snapshots-list"
-download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest" true
 
 download_data "$BASE_URL/artifact/mithril-stake-distributions" "mithril-stake-distributions-list"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash" true

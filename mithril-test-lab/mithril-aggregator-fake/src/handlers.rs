@@ -8,7 +8,7 @@ use axum::{
     http::{HeaderValue, Response, StatusCode},
     middleware::{Next, from_fn},
     response::IntoResponse,
-    routing::{get, post},
+    routing::get,
 };
 use tower_http::{
     LatencyUnit,
@@ -25,7 +25,6 @@ pub async fn aggregator_router() -> Router<SharedState> {
     Router::new()
         .route("/status", get(status))
         .route("/epoch-settings", get(epoch_settings))
-        .route("/artifact/snapshots", get(snapshots))
         .route(
             "/artifact/mithril-stake-distributions",
             get(mithril_stake_distributions),
@@ -34,7 +33,6 @@ pub async fn aggregator_router() -> Router<SharedState> {
             "/artifact/mithril-stake-distribution/{digest}",
             get(mithril_stake_distribution),
         )
-        .route("/artifact/snapshot/{digest}", get(snapshot))
         .route(
             "/artifact/cardano-transactions",
             get(cardano_transaction_snapshots),
@@ -83,7 +81,6 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/proof/v2/cardano-block", get(cardano_block_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/{hash}", get(certificate))
-        .route("/statistics/snapshot", post(statistics))
         .layer(CorsLayer::permissive())
         .layer(from_fn(set_json_app_header))
         .layer(
@@ -113,31 +110,6 @@ pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, 
     let epoch_settings = app_state.get_epoch_settings().await?;
 
     Ok(epoch_settings)
-}
-
-/// HTTP: Return a snapshot identified by its digest.
-pub async fn snapshot(
-    Path(key): Path<String>,
-    State(state): State<SharedState>,
-) -> Result<Response<Body>, AppError> {
-    let app_state = state.read().await;
-
-    app_state
-        .get_snapshot(&key)
-        .await?
-        .map(|s| s.into_response())
-        .ok_or_else(|| {
-            debug!("snapshot digest={key} NOT FOUND.");
-            AppError::NotFound
-        })
-}
-
-/// HTTP: return the list of snapshots.
-pub async fn snapshots(State(state): State<SharedState>) -> Result<String, AppError> {
-    let app_state = state.read().await;
-    let snapshots = app_state.get_snapshots().await?;
-
-    Ok(snapshots)
 }
 
 /// HTTP: return the list of mithril stake distributions.
@@ -404,13 +376,6 @@ pub async fn cardano_block_proof(
         })
 }
 
-/// HTTP: return OK when the client registers download statistics
-pub async fn statistics() -> Result<Response<Body>, AppError> {
-    let response = Response::builder().status(StatusCode::CREATED);
-
-    response.body(String::new().into()).map_err(|e| e.into())
-}
-
 /// MIDDLEWARE: set JSON application type in HTTP headers
 pub async fn set_json_app_header(
     req: Request,
@@ -434,30 +399,6 @@ mod tests {
     use crate::{default_values, shared_state::AppState};
 
     pub use super::*;
-
-    #[tokio::test]
-    async fn invalid_snapshot_digest() {
-        let state: State<SharedState> = State(AppState::default().into());
-        let digest = Path("whatever".to_string());
-
-        let error = snapshot(digest, state).await.expect_err(
-            "The handler was expected to fail since the snapshot's digest does not exist.",
-        );
-
-        assert!(matches!(error, AppError::NotFound));
-    }
-
-    #[tokio::test]
-    async fn existing_snapshot_digest() {
-        let state: State<SharedState> = State(AppState::default().into());
-        let digest = Path(default_values::snapshot_digests()[0].to_string());
-
-        let response = snapshot(digest, state)
-            .await
-            .expect("The handler was expected to succeed since the snapshot's digest does exist.");
-
-        assert_eq!(StatusCode::OK, response.status());
-    }
 
     #[tokio::test]
     async fn invalid_mithril_stake_distribution_hash() {

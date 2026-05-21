@@ -17,8 +17,6 @@ pub struct AppState {
     epoch_settings: String,
     certificate_list: String,
     certificates: BTreeMap<String, String>,
-    snapshot_list: String,
-    snapshots: BTreeMap<String, String>,
     mithril_stake_distribution_list: String,
     mithril_stake_distributions: BTreeMap<String, String>,
     cardano_transaction_snapshot_list: String,
@@ -53,8 +51,6 @@ impl Default for AppState {
             epoch_settings: default_values::epoch_settings().to_owned(),
             certificate_list: default_values::certificate_list().to_owned(),
             certificates: default_values::certificates(),
-            snapshot_list: default_values::snapshot_list().to_owned(),
-            snapshots: default_values::snapshots(),
             mithril_stake_distribution_list: default_values::mithril_stake_distribution_list()
                 .to_owned(),
             mithril_stake_distributions: default_values::mithril_stake_distributions(),
@@ -90,7 +86,6 @@ impl AppState {
         let status = reader.read_file("status")?;
         let epoch_settings = reader.read_file("epoch-settings")?;
         let (certificate_list, certificates) = reader.read_files("certificates")?;
-        let (snapshot_list, snapshots) = reader.read_files("snapshots")?;
         let (mithril_stake_distribution_list, mithril_stake_distributions) =
             reader.read_files("mithril-stake-distributions")?;
         let (cardano_transaction_snapshot_list, cardano_transaction_snapshots) =
@@ -116,8 +111,6 @@ impl AppState {
             epoch_settings,
             certificate_list,
             certificates,
-            snapshot_list,
-            snapshots,
             mithril_stake_distribution_list,
             mithril_stake_distributions,
             cardano_transaction_snapshot_list,
@@ -148,11 +141,6 @@ impl AppState {
         Ok(self.epoch_settings.clone())
     }
 
-    /// return the list of snapshots in the same order as they were read
-    pub async fn get_snapshots(&self) -> StdResult<String> {
-        Ok(self.snapshot_list.clone())
-    }
-
     /// return the list of Mithril stake distributions in the same order as they were read
     pub async fn get_mithril_stake_distributions(&self) -> StdResult<String> {
         Ok(self.mithril_stake_distribution_list.clone())
@@ -161,11 +149,6 @@ impl AppState {
     /// return the list of certificates in the same order as they were read
     pub async fn get_certificates(&self) -> StdResult<String> {
         Ok(self.certificate_list.clone())
-    }
-
-    /// return the snapshot identified by the given key if any.
-    pub async fn get_snapshot(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.snapshots.get(key).cloned())
     }
 
     /// return the Mithril stake distribution identified by the given key if any.
