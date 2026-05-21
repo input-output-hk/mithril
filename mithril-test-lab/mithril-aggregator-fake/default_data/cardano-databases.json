@@ -1,20 +1,20 @@
 {
-  "152337464d0370b2cc262fef2bc3cff1ae21f032c7adc941064ac72113c81e47": {
-    "hash": "152337464d0370b2cc262fef2bc3cff1ae21f032c7adc941064ac72113c81e47",
-    "merkle_root": "acef10fe12c10efa98fc0446b227c157eb50b9ef01d223ff6df7a594d493d2a6",
+  "0e65f89c2dcce6ab07d137558ce126b6b033092fcb767300d53c131a1a6d9153": {
+    "hash": "0e65f89c2dcce6ab07d137558ce126b6b033092fcb767300d53c131a1a6d9153",
+    "merkle_root": "818afa78dc5dbcc66680ffb0c506fe09748a2edc7bc7615286179ccd3ea75fab",
     "network": "devnet",
     "beacon": {
-      "epoch": 13,
-      "immutable_file_number": 3
+      "epoch": 19,
+      "immutable_file_number": 4
     },
-    "certificate_hash": "59cf9a7f10a453df30892d3dc6a0173efc6846a5c1b8e5f9c5f20d39cb656269",
-    "total_db_size_uncompressed": 300580,
+    "certificate_hash": "557c74450766f6f48f2921bac59e529ff46acc35f5889a13d926cb3561c6de15",
+    "total_db_size_uncompressed": 452678,
     "digests": {
-      "size_uncompressed": 1393,
+      "size_uncompressed": 1741,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e13-i3.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e19-i4.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -24,7 +24,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92188,
+      "average_size_uncompressed": 91972,
       "locations": [
         {
           "type": "cloud_storage",
@@ -36,132 +36,34 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 24016,
+      "size_uncompressed": 84789,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e13-i3.ancillary.tar.zst",
-          "compression_algorithm": "zstandard"
-        }
-      ]
-    },
-    "cardano_node_version": "10.6.2",
-    "created_at": "2026-04-08T08:02:17.463161851Z"
-  },
-  "4ecb490cf81ba01604f5b364564fa770b3e5ee54aab6b803a13a90b134d22a11": {
-    "hash": "4ecb490cf81ba01604f5b364564fa770b3e5ee54aab6b803a13a90b134d22a11",
-    "merkle_root": "cd0693755010decd3f5cfd111ab0b502e60249ca85c5b6d0f552d53ef2deb4d1",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 9,
-      "immutable_file_number": 1
-    },
-    "certificate_hash": "ce91a1c3f44e65526703086a95603996538fadd33f20f48e611f3173b26dd6bd",
-    "total_db_size_uncompressed": 177984,
-    "digests": {
-      "size_uncompressed": 697,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e9-i1.digests.tar.zst",
-          "compression_algorithm": "zstandard"
-        },
-        {
-          "type": "aggregator",
-          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
-        }
-      ]
-    },
-    "immutables": {
-      "average_size_uncompressed": 92332,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": {
-            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
-          },
-          "compression_algorithm": "zstandard"
-        }
-      ]
-    },
-    "ancillary": {
-      "size_uncompressed": 85652,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e9-i1.ancillary.tar.zst",
-          "compression_algorithm": "zstandard"
-        }
-      ]
-    },
-    "cardano_node_version": "10.6.2",
-    "created_at": "2026-04-08T08:02:04.228718606Z"
-  },
-  "6062cd4eb92649c0b8609e23a55af9b2f5ccf8c75b3a538ffdb0d8e62a14ee2d": {
-    "hash": "6062cd4eb92649c0b8609e23a55af9b2f5ccf8c75b3a538ffdb0d8e62a14ee2d",
-    "merkle_root": "acef10fe12c10efa98fc0446b227c157eb50b9ef01d223ff6df7a594d493d2a6",
-    "network": "devnet",
-    "beacon": {
-      "epoch": 15,
-      "immutable_file_number": 3
-    },
-    "certificate_hash": "232fa5b6c75f1d29809e51f90e4a912f88a519a0aae3dd9046daad631568ccbb",
-    "total_db_size_uncompressed": 346417,
-    "digests": {
-      "size_uncompressed": 1393,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e15-i3.digests.tar.zst",
-          "compression_algorithm": "zstandard"
-        },
-        {
-          "type": "aggregator",
-          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
-        }
-      ]
-    },
-    "immutables": {
-      "average_size_uncompressed": 92188,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": {
-            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
-          },
-          "compression_algorithm": "zstandard"
-        }
-      ]
-    },
-    "ancillary": {
-      "size_uncompressed": 69853,
-      "locations": [
-        {
-          "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e15-i3.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e19-i4.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:22.231594386Z"
+    "created_at": "2026-05-21T14:42:05.985584391Z"
   },
-  "6623a1c5044a041077e949ebe9b5542d582bf54bfea061c593b425fbe1e519af": {
-    "hash": "6623a1c5044a041077e949ebe9b5542d582bf54bfea061c593b425fbe1e519af",
-    "merkle_root": "9bdd61c0d8ead4c377d05be215fcd490e70648d09ec0121c024f765049983c04",
+  "100b88b3a3fabfee67d68c4e95f4a078d3a8121f6f25f32826ebdeec967bf51d": {
+    "hash": "100b88b3a3fabfee67d68c4e95f4a078d3a8121f6f25f32826ebdeec967bf51d",
+    "merkle_root": "818afa78dc5dbcc66680ffb0c506fe09748a2edc7bc7615286179ccd3ea75fab",
     "network": "devnet",
     "beacon": {
-      "epoch": 11,
-      "immutable_file_number": 2
+      "epoch": 18,
+      "immutable_file_number": 4
     },
-    "certificate_hash": "d3da763f3e1bf078031419394c6f81415096f89094794df38bab1694806cddec",
-    "total_db_size_uncompressed": 233315,
+    "certificate_hash": "bcd1566fc0f7b3f90d578fd552e7aa7e7a201113a5eebf8df1f45a43a09d9c60",
+    "total_db_size_uncompressed": 425138,
     "digests": {
-      "size_uncompressed": 1045,
+      "size_uncompressed": 1741,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e11-i2.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e18-i4.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -171,7 +73,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92256,
+      "average_size_uncompressed": 91972,
       "locations": [
         {
           "type": "cloud_storage",
@@ -183,34 +85,34 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 48802,
+      "size_uncompressed": 57249,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e11-i2.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e18-i4.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:10.214302150Z"
+    "created_at": "2026-05-21T14:42:02.982590739Z"
   },
-  "c37b55b4e5e3bedeeffd468a38f7949b2bd09a4ca795bf9420433ff1cc3cad13": {
-    "hash": "c37b55b4e5e3bedeeffd468a38f7949b2bd09a4ca795bf9420433ff1cc3cad13",
-    "merkle_root": "9bdd61c0d8ead4c377d05be215fcd490e70648d09ec0121c024f765049983c04",
+  "1752fcc8c20e09974d75cb329f1f0b64d35b9b53019d1ebac9e4c098a75fa6ef": {
+    "hash": "1752fcc8c20e09974d75cb329f1f0b64d35b9b53019d1ebac9e4c098a75fa6ef",
+    "merkle_root": "9ceb7004c797bedf783a02f0b4730d98ae5f6dd065ff66477eacbfd7428cb2c2",
     "network": "devnet",
     "beacon": {
-      "epoch": 10,
-      "immutable_file_number": 2
+      "epoch": 23,
+      "immutable_file_number": 5
     },
-    "certificate_hash": "24d1800a5c2564000418398fa864f53f34a62db0172d87dc54ae578f252cc529",
-    "total_db_size_uncompressed": 208529,
+    "certificate_hash": "95e6b97b62f79edd61199c156137a73ae2bef1bebcb7fa1c8dac1b34811a77eb",
+    "total_db_size_uncompressed": 563420,
     "digests": {
-      "size_uncompressed": 1045,
+      "size_uncompressed": 2089,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e10-i2.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e23-i5.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -220,7 +122,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92256,
+      "average_size_uncompressed": 91988,
       "locations": [
         {
           "type": "cloud_storage",
@@ -232,34 +134,34 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 24016,
+      "size_uncompressed": 103480,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e10-i2.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e23-i5.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:07.460303703Z"
+    "created_at": "2026-05-21T14:42:17.981967209Z"
   },
-  "cf9ac4a0ae2f90d0b86b51e5244f2ee9c179d4251021a1fbfee520f2f079777b": {
-    "hash": "cf9ac4a0ae2f90d0b86b51e5244f2ee9c179d4251021a1fbfee520f2f079777b",
-    "merkle_root": "9bdd61c0d8ead4c377d05be215fcd490e70648d09ec0121c024f765049983c04",
+  "38192ffb4a7dbdb148a4db4c0fec9c933ece66ca7e16b28b70ebdd5427c367c7": {
+    "hash": "38192ffb4a7dbdb148a4db4c0fec9c933ece66ca7e16b28b70ebdd5427c367c7",
+    "merkle_root": "9ceb7004c797bedf783a02f0b4730d98ae5f6dd065ff66477eacbfd7428cb2c2",
     "network": "devnet",
     "beacon": {
-      "epoch": 13,
-      "immutable_file_number": 2
+      "epoch": 21,
+      "immutable_file_number": 5
     },
-    "certificate_hash": "39c00306eeef28263944bfe0ddc239d1d8fe7048d6d1d1589fe183bba9eed316",
-    "total_db_size_uncompressed": 288637,
+    "certificate_hash": "4111c4c87e0044ee24e349f0ce9b62d4e4fdd49d8d24773e18d01228491b5cdb",
+    "total_db_size_uncompressed": 508340,
     "digests": {
-      "size_uncompressed": 1045,
+      "size_uncompressed": 2089,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e13-i2.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e21-i5.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -269,7 +171,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92256,
+      "average_size_uncompressed": 91988,
       "locations": [
         {
           "type": "cloud_storage",
@@ -281,34 +183,34 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 104124,
+      "size_uncompressed": 48400,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e13-i2.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e21-i5.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:16.206769240Z"
+    "created_at": "2026-05-21T14:42:11.978537397Z"
   },
-  "f7f15e52351d22a47d1d1cba29ac6fa79cc33c01446dd198add258ae40452097": {
-    "hash": "f7f15e52351d22a47d1d1cba29ac6fa79cc33c01446dd198add258ae40452097",
-    "merkle_root": "acef10fe12c10efa98fc0446b227c157eb50b9ef01d223ff6df7a594d493d2a6",
+  "3b478ad2ec224c70dfbe0b8b8b805ffc31c4d2e728074cb8da3e28357c901e74": {
+    "hash": "3b478ad2ec224c70dfbe0b8b8b805ffc31c4d2e728074cb8da3e28357c901e74",
+    "merkle_root": "3d353a88fe0d3a4397dc5ebce0c0570053556dcee0e686c10940a21bf1d05953",
     "network": "devnet",
     "beacon": {
-      "epoch": 14,
-      "immutable_file_number": 3
+      "epoch": 24,
+      "immutable_file_number": 6
     },
-    "certificate_hash": "2b91e654a62a5d34ee989101c4a2a8362cbed44280836122a7bdb2cbed3fed02",
-    "total_db_size_uncompressed": 317959,
+    "certificate_hash": "cb09f15e28e12faf963eda65d933d1dfd0d38ced4c9d1eca86df52b5cc15fc2c",
+    "total_db_size_uncompressed": 590969,
     "digests": {
-      "size_uncompressed": 1393,
+      "size_uncompressed": 2437,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e14-i3.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e24-i6.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -318,7 +220,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92188,
+      "average_size_uncompressed": 91958,
       "locations": [
         {
           "type": "cloud_storage",
@@ -330,28 +232,126 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 41395,
+      "size_uncompressed": 39220,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e14-i3.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e24-i6.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:19.224537365Z"
+    "created_at": "2026-05-21T14:42:20.981765764Z"
   },
-  "fc883452a34e5858086136cbb1b86aa88e82c63fe10ed6daafc61d4d97c5c7a6": {
-    "hash": "fc883452a34e5858086136cbb1b86aa88e82c63fe10ed6daafc61d4d97c5c7a6",
-    "merkle_root": "acef10fe12c10efa98fc0446b227c157eb50b9ef01d223ff6df7a594d493d2a6",
+  "4cbdd602a9cf43d054899c45408e3a22ce83eef3bef9ea1dc768bd3295e860c6": {
+    "hash": "4cbdd602a9cf43d054899c45408e3a22ce83eef3bef9ea1dc768bd3295e860c6",
+    "merkle_root": "818afa78dc5dbcc66680ffb0c506fe09748a2edc7bc7615286179ccd3ea75fab",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 20,
+      "immutable_file_number": 4
+    },
+    "certificate_hash": "7fd9c66acb5d0770038a72b8942103258a3a9dca30be562f1754ee48c8dd1dc2",
+    "total_db_size_uncompressed": 480218,
+    "digests": {
+      "size_uncompressed": 1741,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e20-i4.digests.tar.zst",
+          "compression_algorithm": "zstandard"
+        },
+        {
+          "type": "aggregator",
+          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
+        }
+      ]
+    },
+    "immutables": {
+      "average_size_uncompressed": 91972,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": {
+            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
+          },
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "ancillary": {
+      "size_uncompressed": 112329,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e20-i4.ancillary.tar.zst",
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "cardano_node_version": "11.0.1",
+    "created_at": "2026-05-21T14:42:08.985413059Z"
+  },
+  "653a318e359a31ce576aaeaa063182c051837e4c8a6a38ae13ca6a30ff4c0eae": {
+    "hash": "653a318e359a31ce576aaeaa063182c051837e4c8a6a38ae13ca6a30ff4c0eae",
+    "merkle_root": "9ceb7004c797bedf783a02f0b4730d98ae5f6dd065ff66477eacbfd7428cb2c2",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 22,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "43b852d50f8e66a59acf2af93b882a9b49a7e1d125befa7a3d981ddf185f3306",
+    "total_db_size_uncompressed": 536798,
+    "digests": {
+      "size_uncompressed": 2089,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e22-i5.digests.tar.zst",
+          "compression_algorithm": "zstandard"
+        },
+        {
+          "type": "aggregator",
+          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
+        }
+      ]
+    },
+    "immutables": {
+      "average_size_uncompressed": 91988,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": {
+            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
+          },
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "ancillary": {
+      "size_uncompressed": 76858,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e22-i5.ancillary.tar.zst",
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "cardano_node_version": "11.0.1",
+    "created_at": "2026-05-21T14:42:15.108398891Z"
+  },
+  "6ccbe4ca9e29d50d9cff4412695620cbf201eb10c92f7250fae962074af41a22": {
+    "hash": "6ccbe4ca9e29d50d9cff4412695620cbf201eb10c92f7250fae962074af41a22",
+    "merkle_root": "220f273b83690ac0d684ef7f9ea3c36669c250056d9b0bee1f5d543ab118fbea",
     "network": "devnet",
     "beacon": {
       "epoch": 16,
       "immutable_file_number": 3
     },
-    "certificate_hash": "c58e8c4937329e4e3067b0efcf130d3f49009d4d2fde92b88dd7e018880f8636",
-    "total_db_size_uncompressed": 373039,
+    "certificate_hash": "ca5ff20b878b3d4cdd3db5e6852430460b6b55fa3811ef5a629a277e58dc6350",
+    "total_db_size_uncompressed": 369807,
     "digests": {
       "size_uncompressed": 1393,
       "locations": [
@@ -367,7 +367,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92188,
+      "average_size_uncompressed": 91946,
       "locations": [
         {
           "type": "cloud_storage",
@@ -379,7 +379,7 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 96475,
+      "size_uncompressed": 93969,
       "locations": [
         {
           "type": "cloud_storage",
@@ -389,24 +389,24 @@
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:25.219571641Z"
+    "created_at": "2026-05-21T14:41:57.013763820Z"
   },
-  "fd669893dc54754a94530a291d84d194aed57f9c673ac63294fa9ba6e9af9300": {
-    "hash": "fd669893dc54754a94530a291d84d194aed57f9c673ac63294fa9ba6e9af9300",
-    "merkle_root": "9bdd61c0d8ead4c377d05be215fcd490e70648d09ec0121c024f765049983c04",
+  "77d6d327c6e26d8cd4ccf782f9e4608f4db6101805afd2d0421df1cbcdbfe297": {
+    "hash": "77d6d327c6e26d8cd4ccf782f9e4608f4db6101805afd2d0421df1cbcdbfe297",
+    "merkle_root": "9ceb7004c797bedf783a02f0b4730d98ae5f6dd065ff66477eacbfd7428cb2c2",
     "network": "devnet",
     "beacon": {
-      "epoch": 12,
-      "immutable_file_number": 2
+      "epoch": 20,
+      "immutable_file_number": 5
     },
-    "certificate_hash": "f00a3f5039195c81d3f9a47c566cdc549264b000287007f38fcf2a0b9d940d99",
-    "total_db_size_uncompressed": 261097,
+    "certificate_hash": "079de70b013738544ec7878c822eb796b42f02c88dcdb6e66a3d2f5f7566580b",
+    "total_db_size_uncompressed": 482981,
     "digests": {
-      "size_uncompressed": 1045,
+      "size_uncompressed": 2089,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e12-i2.digests.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e20-i5.digests.tar.zst",
           "compression_algorithm": "zstandard"
         },
         {
@@ -416,7 +416,7 @@
       ]
     },
     "immutables": {
-      "average_size_uncompressed": 92256,
+      "average_size_uncompressed": 91988,
       "locations": [
         {
           "type": "cloud_storage",
@@ -428,16 +428,114 @@
       ]
     },
     "ancillary": {
-      "size_uncompressed": 76584,
+      "size_uncompressed": 23041,
       "locations": [
         {
           "type": "cloud_storage",
-          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e12-i2.ancillary.tar.zst",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e20-i5.ancillary.tar.zst",
           "compression_algorithm": "zstandard"
         }
       ]
     },
     "cardano_node_version": "11.0.1",
-    "created_at": "2026-04-08T08:02:13.210452377Z"
+    "created_at": "2026-05-21T14:42:09.240063015Z"
+  },
+  "91ef3fe4a5fcf803c07d3391ea5b56c5ac861e89d5e1851bbfeff43169d21964": {
+    "hash": "91ef3fe4a5fcf803c07d3391ea5b56c5ac861e89d5e1851bbfeff43169d21964",
+    "merkle_root": "3d353a88fe0d3a4397dc5ebce0c0570053556dcee0e686c10940a21bf1d05953",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 23,
+      "immutable_file_number": 6
+    },
+    "certificate_hash": "4371ce4132c4dd8ad42109dba7f021f8e42e8a855499f4a25c07951fa7a5c8e7",
+    "total_db_size_uncompressed": 575363,
+    "digests": {
+      "size_uncompressed": 2437,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e23-i6.digests.tar.zst",
+          "compression_algorithm": "zstandard"
+        },
+        {
+          "type": "aggregator",
+          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
+        }
+      ]
+    },
+    "immutables": {
+      "average_size_uncompressed": 91958,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": {
+            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
+          },
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "ancillary": {
+      "size_uncompressed": 23614,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e23-i6.ancillary.tar.zst",
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "cardano_node_version": "11.0.1",
+    "created_at": "2026-05-21T14:42:19.241060910Z"
+  },
+  "c50d0cef7a3d04fb355c3d97e0f581f63ba79c11bfd4a5e6eccb0fd28f5c76ef": {
+    "hash": "c50d0cef7a3d04fb355c3d97e0f581f63ba79c11bfd4a5e6eccb0fd28f5c76ef",
+    "merkle_root": "818afa78dc5dbcc66680ffb0c506fe09748a2edc7bc7615286179ccd3ea75fab",
+    "network": "devnet",
+    "beacon": {
+      "epoch": 17,
+      "immutable_file_number": 4
+    },
+    "certificate_hash": "55cec3fdb9bf879a0b3a754295034741409566e2ec38ec0e592aa0311cec9819",
+    "total_db_size_uncompressed": 397598,
+    "digests": {
+      "size_uncompressed": 1741,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/digests/devnet-e17-i4.digests.tar.zst",
+          "compression_algorithm": "zstandard"
+        },
+        {
+          "type": "aggregator",
+          "uri": "http://localhost:8080/aggregator/artifact/cardano-database/digests"
+        }
+      ]
+    },
+    "immutables": {
+      "average_size_uncompressed": 91972,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": {
+            "Template": "http://localhost:8080/aggregator/cardano-database-download/immutable/{immutable_file_number}.tar.zst"
+          },
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "ancillary": {
+      "size_uncompressed": 29709,
+      "locations": [
+        {
+          "type": "cloud_storage",
+          "uri": "http://localhost:8080/aggregator/cardano-database-download/ancillary/devnet-e17-i4.ancillary.tar.zst",
+          "compression_algorithm": "zstandard"
+        }
+      ]
+    },
+    "cardano_node_version": "11.0.1",
+    "created_at": "2026-05-21T14:41:59.986248091Z"
   }
 }
