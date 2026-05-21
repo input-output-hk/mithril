@@ -17,7 +17,7 @@ on:
         description: "Signed entity types parameters (discriminants names in an ordered comma separated list)"
         required: true
         type: string
-        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase,CardanoImmutableFilesFull"
+        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase"
       release-to-test:
         description: "Release to test against the latest published releases"
         required: true
@@ -38,7 +38,7 @@ on:
         default: "11.0.1"
       signed-entity-types:
         type: string
-        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase,CardanoImmutableFilesFull"
+        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase"
       release-to-test:
         type: string
         default: "unstable"
