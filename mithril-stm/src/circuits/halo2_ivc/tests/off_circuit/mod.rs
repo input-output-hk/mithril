@@ -6,16 +6,20 @@
 //! combined proof verification — as opposed to the in-circuit constraints
 //! covered by Layer C1.
 //!
-//! `accumulator_construction`  — `trivial_acc` structure and public-input encoding.
-//! `fixed_base_extraction`     — `extract_fixed_bases` reclassification and encoding effects.
-//! `accumulator_collapse`      — `collapse` preserves the `accumulator.check` invariant.
-//! `accumulator_verification`  — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
-//! `accumulator_update`        — full folding pipeline on stored assets; soundness under wrong previous accumulator.
-//! `proof_verification`        — `dual_msm.check` + `accumulator.check` combined for same-epoch and chain-state proofs.
+//! `accumulator_collapse`        — `collapse` preserves the `accumulator.check` invariant.
+//! `accumulator_construction`    — `trivial_acc` structure and public-input encoding.
+//! `accumulator_update`          — full folding pipeline on stored assets; soundness under wrong previous accumulator.
+//! `accumulator_verification`    — `accumulator.check` accepts valid stored accumulators and rejects tampered ones.
+//! `certificate_proof_rejection` — `verify_and_prepare_accumulator` rejects garbage bytes and wrong public inputs.
+//! `circuit_validation`          — `IvcCircuit::validate_self_vk_degree` rejects a VK with degree ≠ K.
+//! `fixed_base_extraction`       — `extract_fixed_bases` reclassification and encoding effects.
+//! `proof_verification`          — `dual_msm.check` + `accumulator.check` combined for same-epoch and chain-state proofs.
 
 mod accumulator_collapse;
 mod accumulator_construction;
 mod accumulator_update;
 mod accumulator_verification;
+mod certificate_proof_rejection;
+mod circuit_validation;
 mod fixed_base_extraction;
 mod proof_verification;
