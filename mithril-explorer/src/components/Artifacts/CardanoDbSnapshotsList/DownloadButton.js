@@ -82,7 +82,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
         setArtifact(undefined);
         setImmutableFileNumber(0);
         setMaxImmutableFileNumber(0);
-        console.error("Fetch Cardano DB v2 artifact details error:", error);
+        console.error("Fetch Cardano DB artifact details error:", error);
       })
       .finally(() => setLoaded(true));
   }, [artifactUrl, loaded, show]);

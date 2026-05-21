@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { DownloadImmutableFormInput } from "#/Artifacts/CardanoDbV2SnapshotsList/DownloadButton";
+import { DownloadImmutableFormInput } from "#/Artifacts/CardanoDbSnapshotsList/DownloadButton";
 
 const maxImmutable = 100_000;
 
