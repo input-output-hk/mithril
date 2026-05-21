@@ -99,11 +99,6 @@ impl SignedEntityRecord {
                 let artifact = fake_data::cardano_stake_distribution(epoch);
                 get_id_and_artifact(&artifact)
             }
-            SignedEntityType::CardanoImmutableFilesFull(cardano_db_beacon) => {
-                let mut artifact = fake_data::snapshot(cardano_db_beacon.immutable_file_number);
-                artifact.beacon = cardano_db_beacon;
-                get_id_and_artifact(&artifact)
-            }
             SignedEntityType::CardanoDatabase(cardano_db_beacon) => {
                 let mut artifact =
                     fake_data::cardano_database_snapshot(cardano_db_beacon.immutable_file_number);

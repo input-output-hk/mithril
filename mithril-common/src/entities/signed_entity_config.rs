@@ -61,12 +61,6 @@ impl SignedEntityConfig {
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
                 SignedEntityType::CardanoStakeDistribution(time_point.epoch.previous()?)
             }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                    *time_point.epoch,
-                    time_point.immutable_file_number,
-                ))
-            }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
                 match &self.cardano_transactions_signing_config {
                     Some(config) => SignedEntityType::CardanoTransactions(
@@ -253,16 +247,6 @@ mod tests {
             config
                 .time_point_to_signed_entity(
                     SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                    &time_point
-                )
-                .unwrap()
-        );
-
-        assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 5)),
-            config
-                .time_point_to_signed_entity(
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                     &time_point
                 )
                 .unwrap()

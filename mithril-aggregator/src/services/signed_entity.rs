@@ -14,7 +14,7 @@ use mithril_common::{
     entities::{
         BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
         CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
-        MithrilStakeDistribution, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
+        MithrilStakeDistribution, SignedEntityType, SignedEntityTypeDiscriminants,
     },
     logging::LoggerExtensions,
     signable_builder::{Artifact, SignedEntity},
@@ -37,18 +37,6 @@ pub trait SignedEntityService: Send + Sync {
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<JoinHandle<StdResult<()>>>;
-
-    /// Return a list of signed snapshots order by creation date descending.
-    async fn get_last_signed_snapshots(
-        &self,
-        total: usize,
-    ) -> StdResult<Vec<SignedEntity<Snapshot>>>;
-
-    /// Return a signed snapshot
-    async fn get_signed_snapshot_by_id(
-        &self,
-        signed_entity_id: &str,
-    ) -> StdResult<Option<SignedEntity<Snapshot>>>;
 
     /// Return a list of Cardano Database snapshots order by creation date descending.
     async fn get_last_signed_cardano_database_snapshots(
@@ -243,8 +231,6 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            // Todo: fully remove CardanoImmutableFilesFull from the SignedEntityType enum.
-            SignedEntityType::CardanoImmutableFilesFull(_beacon) => Err(anyhow!("Support for CardanoImmutableFilesFull was removed")),
             SignedEntityType::CardanoStakeDistribution(epoch) => Ok(Arc::new(
                 self.cardano_stake_distribution_artifact_builder
                     .compute_artifact(epoch, certificate)
@@ -312,9 +298,6 @@ impl MithrilSignedEntityService {
             SignedEntityType::MithrilStakeDistribution(..) => {
                 metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
             }
-            SignedEntityType::CardanoImmutableFilesFull(..) => {
-                return;
-            }
             SignedEntityType::CardanoStakeDistribution(..) => {
                 metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
             }
@@ -369,46 +352,6 @@ impl SignedEntityService for MithrilSignedEntityService {
                 "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
             ))?.inspect_err(|e| warn!(service.logger, "Error while creating artifact"; "error" => ?e))
         }))
-    }
-
-    async fn get_last_signed_snapshots(
-        &self,
-        total: usize,
-    ) -> StdResult<Vec<SignedEntity<Snapshot>>> {
-        let signed_entities = self
-            .get_last_signed_entities(
-                total,
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            )
-            .await?
-            .into_iter()
-            .map(|record| record.try_into())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(signed_entities)
-    }
-
-    async fn get_signed_snapshot_by_id(
-        &self,
-        signed_entity_id: &str,
-    ) -> StdResult<Option<SignedEntity<Snapshot>>> {
-        let entity: Option<SignedEntity<Snapshot>> = match self
-            .signed_entity_storer
-            .get_signed_entity(
-                signed_entity_id,
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            )
-            .await
-            .with_context(|| {
-                format!(
-                    "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
-                )
-            })? {
-            Some(entity) => Some(entity.try_into()?),
-            None => None,
-        };
-
-        Ok(entity)
     }
 
     async fn get_last_signed_cardano_database_snapshots(
@@ -731,7 +674,6 @@ mod tests {
             SignedEntityType::MithrilStakeDistribution(..) => metrics_service
                 .get_artifact_mithril_stake_distribution_total_produced_since_startup()
                 .get(),
-            SignedEntityType::CardanoImmutableFilesFull(..) => CounterValue::default(),
             SignedEntityType::CardanoStakeDistribution(..) => metrics_service
                 .get_artifact_cardano_stake_distribution_total_produced_since_startup()
                 .get(),

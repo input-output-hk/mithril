@@ -40,7 +40,6 @@ impl SignedEntityConfigValidator {
                     // All other discriminants require no additional config and are always usable
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution
                     | SignedEntityTypeDiscriminants::CardanoStakeDistribution
-                    | SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
                     | SignedEntityTypeDiscriminants::CardanoDatabase => true,
                 });
 

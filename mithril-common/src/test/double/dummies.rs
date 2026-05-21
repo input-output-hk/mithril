@@ -772,29 +772,12 @@ mod messages {
 
 mod signable_builder {
     use crate::entities::{
-        CardanoBlocksTransactionsSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
-        CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, SignedEntityType, Snapshot,
+        CardanoBlocksTransactionsSnapshot, CardanoStakeDistribution, CardanoTransactionsSnapshot,
+        Epoch, MithrilStakeDistribution, SignedEntityType,
     };
     use crate::signable_builder::SignedEntity;
 
     use super::*;
-
-    impl Dummy for SignedEntity<Snapshot> {
-        /// Create a dummy [SignedEntity] for [Snapshot] entity
-        fn dummy() -> Self {
-            SignedEntity {
-                signed_entity_id: "snapshot-id-123".to_string(),
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                    CardanoDbBeacon::default(),
-                ),
-                certificate_id: "certificate-hash-123".to_string(),
-                artifact: fake_data::snapshot(1),
-                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-            }
-        }
-    }
 
     impl Dummy for SignedEntity<MithrilStakeDistribution> {
         /// Create a dummy [SignedEntity] for [MithrilStakeDistribution] entity

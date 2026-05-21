@@ -26,9 +26,6 @@ pub enum SignedEntityTypeMessage {
     /// Cardano Stake Distribution
     CardanoStakeDistribution(Epoch),
 
-    /// Full Cardano Immutable Files
-    CardanoImmutableFilesFull(CardanoDbBeacon),
-
     /// Cardano Database
     CardanoDatabase(CardanoDbBeacon),
 
@@ -60,9 +57,6 @@ impl SignedEntityTypeMessage {
             }
             SignedEntityTypeMessage::CardanoStakeDistribution(epoch) => {
                 Some(SignedEntityType::CardanoStakeDistribution(epoch))
-            }
-            SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon) => {
-                Some(SignedEntityType::CardanoImmutableFilesFull(beacon))
             }
             SignedEntityTypeMessage::CardanoDatabase(beacon) => {
                 Some(SignedEntityType::CardanoDatabase(beacon))
@@ -103,9 +97,6 @@ impl SignedEntityTypeDiscriminantsMessage {
             }
             SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution => {
                 Some(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
-            }
-            SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull => {
-                Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
             }
             SignedEntityTypeDiscriminantsMessage::CardanoDatabase => {
                 Some(SignedEntityTypeDiscriminants::CardanoDatabase)
@@ -149,9 +140,6 @@ mod infallible_conversions {
                 "CardanoStakeDistribution" => {
                     SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution
                 }
-                "CardanoImmutableFilesFull" => {
-                    SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull
-                }
                 "CardanoDatabase" => SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
                 "CardanoTransactions" => SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
                 "CardanoBlocksTransactions" => {
@@ -170,9 +158,6 @@ mod infallible_conversions {
                 }
                 SignedEntityType::CardanoStakeDistribution(epoch) => {
                     SignedEntityTypeMessage::CardanoStakeDistribution(epoch)
-                }
-                SignedEntityType::CardanoImmutableFilesFull(beacon) => {
-                    SignedEntityTypeMessage::CardanoImmutableFilesFull(beacon)
                 }
                 SignedEntityType::CardanoDatabase(beacon) => {
                     SignedEntityTypeMessage::CardanoDatabase(beacon)
@@ -196,9 +181,6 @@ mod infallible_conversions {
                 SignedEntityType::CardanoStakeDistribution(..) => {
                     SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution
                 }
-                SignedEntityType::CardanoImmutableFilesFull(..) => {
-                    SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull
-                }
                 SignedEntityType::CardanoDatabase(..) => {
                     SignedEntityTypeDiscriminantsMessage::CardanoDatabase
                 }
@@ -220,9 +202,6 @@ mod infallible_conversions {
                 }
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
                     SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution
-                }
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                    SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull
                 }
                 SignedEntityTypeDiscriminants::CardanoDatabase => {
                     SignedEntityTypeDiscriminantsMessage::CardanoDatabase
@@ -269,9 +248,6 @@ mod fallible_conversions {
                 SignedEntityTypeMessage::CardanoStakeDistribution(..) => {
                     Ok(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
                 }
-                SignedEntityTypeMessage::CardanoImmutableFilesFull(..) => {
-                    Ok(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-                }
                 SignedEntityTypeMessage::CardanoDatabase(..) => {
                     Ok(SignedEntityTypeDiscriminants::CardanoDatabase)
                 }
@@ -310,10 +286,6 @@ mod comparison {
                     SignedEntityTypeMessage::CardanoStakeDistribution(other_epoch),
                 ) => epoch.eq(&other_epoch),
                 (
-                    SignedEntityType::CardanoImmutableFilesFull(beacon),
-                    SignedEntityTypeMessage::CardanoImmutableFilesFull(other_beacon),
-                ) => beacon.eq(other_beacon),
-                (
                     SignedEntityType::CardanoDatabase(beacon),
                     SignedEntityTypeMessage::CardanoDatabase(other_beacon),
                 ) => beacon.eq(other_beacon),
@@ -350,9 +322,6 @@ mod comparison {
                 ) | (
                     SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                     SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
-                ) | (
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                    SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull,
                 ) | (
                     SignedEntityTypeDiscriminants::CardanoDatabase,
                     SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
@@ -399,12 +368,6 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeMessage::CardanoStakeDistribution(Epoch(7)),
                 SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
-            ),
-            (
-                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(8, 109)),
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                SignedEntityTypeMessage::CardanoImmutableFilesFull(CardanoDbBeacon::new(8, 109)),
-                SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull,
             ),
             (
                 SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(9, 110)),
@@ -637,10 +600,6 @@ mod tests {
                 SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution
             );
             assert_eq!(
-                SignedEntityTypeDiscriminantsMessage::from("CardanoImmutableFilesFull"),
-                SignedEntityTypeDiscriminantsMessage::CardanoImmutableFilesFull
-            );
-            assert_eq!(
                 SignedEntityTypeDiscriminantsMessage::from("CardanoDatabase"),
                 SignedEntityTypeDiscriminantsMessage::CardanoDatabase
             );
@@ -735,12 +694,6 @@ mod tests {
                 }
                 SignedEntityType::CardanoStakeDistribution(epoch) => {
                     SignedEntityType::CardanoStakeDistribution(epoch + 1)
-                }
-                SignedEntityType::CardanoImmutableFilesFull(beacon) => {
-                    SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                        *beacon.epoch + 1,
-                        beacon.immutable_file_number + 5,
-                    ))
                 }
                 SignedEntityType::CardanoDatabase(beacon) => SignedEntityType::CardanoDatabase(
                     CardanoDbBeacon::new(*beacon.epoch + 1, beacon.immutable_file_number + 5),

@@ -132,15 +132,6 @@ impl AggregatorObserver {
         signed_entity_type_expected: &SignedEntityType,
     ) -> StdResult<bool> {
         match signed_entity_type_expected {
-            SignedEntityType::CardanoImmutableFilesFull(..) => {
-                Ok(Some(signed_entity_type_expected)
-                    == self
-                        .signed_entity_service
-                        .get_last_signed_snapshots(1)
-                        .await?
-                        .first()
-                        .map(|s| &s.signed_entity_type))
-            }
             SignedEntityType::MithrilStakeDistribution(..) => Ok(Some(signed_entity_type_expected)
                 == self
                     .signed_entity_service

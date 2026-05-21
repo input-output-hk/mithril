@@ -289,9 +289,6 @@ mod test {
                     SignedEntityType::CardanoStakeDistribution(epoch) => {
                         format!("cardano-stake-distribution-{epoch}")
                     }
-                    SignedEntityType::CardanoImmutableFilesFull(beacon) => {
-                        format!("snapshot-{}-{}", beacon.epoch, beacon.immutable_file_number)
-                    }
                     SignedEntityType::CardanoTransactions(epoch, block_number) => {
                         format!("cardano-transactions-{epoch}-{block_number}",)
                     }

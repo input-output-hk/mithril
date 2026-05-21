@@ -119,9 +119,6 @@ impl MithrilSignableBuilderService {
                     .compute_protocol_message(*e)
                     .await
             }
-            SignedEntityType::CardanoImmutableFilesFull(_beacon) => {
-                   anyhow::bail!("Support for signing CardanoImmutableFilesFull was removed");
-            }
             SignedEntityType::CardanoStakeDistribution(e) => {
                 self.cardano_stake_distribution_builder
                     .compute_protocol_message(*e)

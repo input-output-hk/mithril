@@ -19,6 +19,8 @@ use super::{BlockNumber, CardanoDbBeacon, Epoch};
 /// Unique numeric identifier of a [`SignedEntityType`] variant, as stored in the database.
 ///
 /// These values are **immutable**: existing mappings must never change or be reused.
+///
+/// Removed value (do not reuse): CardanoImmutableFilesFull = 2
 pub type SignedEntityTypeId = u16;
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
@@ -26,9 +28,6 @@ const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: SignedEntityTypeId = 0;
 
 /// Database representation of the SignedEntityType::CardanoStakeDistribution value
 const ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION: SignedEntityTypeId = 1;
-
-/// Database representation of the SignedEntityType::CardanoImmutableFilesFull value
-const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: SignedEntityTypeId = 2;
 
 /// Database representation of the SignedEntityType::CardanoTransactions value
 const ENTITY_TYPE_CARDANO_TRANSACTIONS: SignedEntityTypeId = 3;
@@ -67,9 +66,6 @@ pub enum SignedEntityType {
     /// Cardano Stake Distribution
     CardanoStakeDistribution(Epoch),
 
-    /// Full Cardano Immutable Files
-    CardanoImmutableFilesFull(CardanoDbBeacon),
-
     /// Cardano Database
     CardanoDatabase(CardanoDbBeacon),
 
@@ -89,7 +85,7 @@ impl SignedEntityType {
     /// Return the epoch from the signed entity.
     pub fn get_epoch(&self) -> Epoch {
         match self {
-            Self::CardanoImmutableFilesFull(b) | Self::CardanoDatabase(b) => b.epoch,
+            Self::CardanoDatabase(b) => b.epoch,
             Self::CardanoStakeDistribution(e)
             | Self::MithrilStakeDistribution(e)
             | Self::CardanoTransactions(e, _)
@@ -100,7 +96,7 @@ impl SignedEntityType {
     /// Return the epoch at which the signed entity type is signed.
     pub fn get_epoch_when_signed_entity_type_is_signed(&self) -> Epoch {
         match self {
-            Self::CardanoImmutableFilesFull(beacon) | Self::CardanoDatabase(beacon) => beacon.epoch,
+            Self::CardanoDatabase(beacon) => beacon.epoch,
             Self::CardanoStakeDistribution(epoch) => epoch.next(),
             Self::MithrilStakeDistribution(epoch)
             | Self::CardanoTransactions(epoch, _)
@@ -113,7 +109,6 @@ impl SignedEntityType {
         match self {
             Self::MithrilStakeDistribution(..) => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution(..) => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
-            Self::CardanoImmutableFilesFull(..) => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
             Self::CardanoTransactions(..) => ENTITY_TYPE_CARDANO_TRANSACTIONS,
             Self::CardanoBlocksTransactions(..) => ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS,
             Self::CardanoDatabase(..) => ENTITY_TYPE_CARDANO_DATABASE,
@@ -123,9 +118,7 @@ impl SignedEntityType {
     /// Return a JSON serialized value of the internal beacon
     pub fn get_json_beacon(&self) -> StdResult<String> {
         let value = match self {
-            Self::CardanoImmutableFilesFull(value) | Self::CardanoDatabase(value) => {
-                serde_json::to_string(value)?
-            }
+            Self::CardanoDatabase(value) => serde_json::to_string(value)?,
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
                 serde_json::to_string(value)?
             }
@@ -153,7 +146,6 @@ impl SignedEntityType {
     pub fn get_open_message_timeout(&self) -> Option<Duration> {
         match self {
             Self::MithrilStakeDistribution(..) => Some(Duration::from_secs(3600)),
-            Self::CardanoImmutableFilesFull(..) => Some(Duration::from_secs(600)),
             Self::CardanoStakeDistribution(..) => Some(Duration::from_secs(1800)),
             Self::CardanoTransactions(..) => Some(Duration::from_secs(600)),
             Self::CardanoBlocksTransactions(..) => Some(Duration::from_secs(600)),
@@ -173,8 +165,7 @@ impl SignedEntityType {
             | SignedEntityType::CardanoStakeDistribution(epoch) => {
                 hasher.update(&epoch.to_be_bytes())
             }
-            SignedEntityType::CardanoImmutableFilesFull(db_beacon)
-            | SignedEntityType::CardanoDatabase(db_beacon) => {
+            SignedEntityType::CardanoDatabase(db_beacon) => {
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
@@ -234,7 +225,6 @@ impl SignedEntityTypeDiscriminants {
         match self {
             Self::MithrilStakeDistribution => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
-            Self::CardanoImmutableFilesFull => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
             Self::CardanoTransactions => ENTITY_TYPE_CARDANO_TRANSACTIONS,
             Self::CardanoBlocksTransactions => ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS,
             Self::CardanoDatabase => ENTITY_TYPE_CARDANO_DATABASE,
@@ -248,7 +238,6 @@ impl SignedEntityTypeDiscriminants {
         match signed_entity_type_id {
             ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => Ok(Self::MithrilStakeDistribution),
             ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => Ok(Self::CardanoStakeDistribution),
-            ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => Ok(Self::CardanoImmutableFilesFull),
             ENTITY_TYPE_CARDANO_TRANSACTIONS => Ok(Self::CardanoTransactions),
             ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS => Ok(Self::CardanoBlocksTransactions),
             ENTITY_TYPE_CARDANO_DATABASE => Ok(Self::CardanoDatabase),
@@ -340,17 +329,6 @@ mod tests {
     }
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_immutable_files_full_return_epoch_stored_in_signed_entity_type()
-     {
-        let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(3, 100));
-        assert_eq!(
-            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
-            Epoch(3)
-        );
-    }
-
-    #[test]
     fn get_epoch_when_signed_entity_type_is_signed_for_cardano_transactions_return_epoch_stored_in_signed_entity_type()
      {
         let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(3), BlockNumber(77));
@@ -396,22 +374,6 @@ mod tests {
         assert_ne!(
             reference_hash,
             hash(SignedEntityType::CardanoStakeDistribution(Epoch(15)))
-        );
-
-        let reference_hash = hash(SignedEntityType::CardanoImmutableFilesFull(
-            CardanoDbBeacon::new(5, 100),
-        ));
-        assert_ne!(
-            reference_hash,
-            hash(SignedEntityType::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new(20, 100)
-            ))
-        );
-        assert_ne!(
-            reference_hash,
-            hash(SignedEntityType::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new(5, 507)
-            ))
         );
 
         let reference_hash = hash(SignedEntityType::CardanoTransactions(
@@ -496,11 +458,6 @@ mod tests {
             Some(Duration::from_secs(3600))
         );
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 1))
-                .get_open_message_timeout(),
-            Some(Duration::from_secs(600))
-        );
-        assert_eq!(
             SignedEntityType::CardanoStakeDistribution(Epoch(1)).get_open_message_timeout(),
             Some(Duration::from_secs(1800))
         );
@@ -553,15 +510,6 @@ mod tests {
             &cardano_transactions_json
         );
 
-        let cardano_immutable_files_full_json =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(5, 100))
-                .get_json_beacon()
-                .unwrap();
-        assert_same_json!(
-            r#"{"epoch":5,"immutable_file_number":100}"#,
-            &cardano_immutable_files_full_json
-        );
-
         let msd_json = SignedEntityType::MithrilStakeDistribution(Epoch(15))
             .get_json_beacon()
             .unwrap();
@@ -600,7 +548,6 @@ mod tests {
             vec![
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
@@ -624,7 +571,6 @@ mod tests {
             SignedEntityTypeDiscriminants::CardanoStakeDistribution,
             SignedEntityTypeDiscriminants::CardanoDatabase,
             SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
             SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
         ];
@@ -635,7 +581,6 @@ mod tests {
             vec![
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
@@ -653,7 +598,6 @@ mod tests {
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoStakeDistribution,
             SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
         ];
@@ -667,7 +611,6 @@ mod tests {
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
@@ -793,10 +736,6 @@ Accepted values are (case-sensitive): {}."#,
         assert_eq!(
             SignedEntityTypeDiscriminants::CardanoStakeDistribution.index(),
             ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION
-        );
-        assert_eq!(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.index(),
-            ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL
         );
         assert_eq!(
             SignedEntityTypeDiscriminants::CardanoTransactions.index(),
