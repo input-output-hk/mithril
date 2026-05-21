@@ -20,6 +20,8 @@ pub struct IvcConfig {
 }
 
 pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+    // unwrap_or(0) never panics: max() returns None only on an empty iterator,
+    // but both arrays are non-empty so the fallback is unreachable.
     let nb_advice_cols = [
         NB_EDWARDS_COLS,
         NB_POSEIDON_ADVICE_COLS,
@@ -43,8 +45,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     let native_config = NativeChip::configure(
         meta,
         &(
-            advice_columns[..NB_ARITH_COLS].try_into().unwrap(),
-            fixed_columns[..NB_ARITH_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_ARITH_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_ARITH_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
             [committed_instance_column, instance_column],
         ),
     );
@@ -53,8 +59,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
         P2RDecompositionChip::configure(meta, &(native_config.clone(), pow2_config))
     };
 
-    let jubjub_config =
-        EccChip::<Jubjub>::configure(meta, &advice_columns[..NB_EDWARDS_COLS].try_into().unwrap());
+    let jubjub_config = EccChip::<Jubjub>::configure(
+        meta,
+        &advice_columns[..NB_EDWARDS_COLS]
+            .try_into()
+            .expect("column counts pre-validated by validate_column_counts"),
+    );
 
     let base_config = FieldChip::<F, CBase, C, NG>::configure(meta, &advice_columns);
     let bls12_381_config =
@@ -63,16 +73,24 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     let poseidon_config = PoseidonChip::configure(
         meta,
         &(
-            advice_columns[..NB_POSEIDON_ADVICE_COLS].try_into().unwrap(),
-            fixed_columns[..NB_POSEIDON_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_POSEIDON_ADVICE_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_POSEIDON_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
         ),
     );
 
     let sha256_config = Sha256Chip::configure(
         meta,
         &(
-            advice_columns[..NB_SHA256_ADVICE_COLS].try_into().unwrap(),
-            fixed_columns[..NB_SHA256_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_SHA256_ADVICE_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_SHA256_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
         ),
     );
 
