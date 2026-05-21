@@ -19,7 +19,7 @@ To achieve this, Mithril signers and aggregators independently compute a message
 A natural structure for the message is a **Merkle tree**, which:
 
 - Can be succinctly represented by its **Merkle root** (the signed message)
-- Enables membership proof of an immutable file by providing the **Merkle path** from the transaction to the root.
+- Enables membership proof of an immutable file in the set by providing the **Merkle path** from the immutable file to the root.
 
 :::info
 
@@ -36,7 +36,7 @@ The Cardano node internal database:
 
 [![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/end-to-end-process.jpg)](./images/cardano-node-database-v2/end-to-end-process.jpg)
 
-<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano transactions</small></div>
+<div style={{textAlign: "center", paddingBottom: "2em"}}><small>End-to-end certification for Cardano node database</small></div>
 
 :::info
 

@@ -204,6 +204,14 @@ const config = {
             from: ["/mithril/threat-model"],
           },
           {
+            to: "/mithril/advanced/mithril-certification/cardano-node-database",
+            from: ["/mithril/advanced/mithril-certification/cardano-node-database-v2"],
+          },
+          {
+            to: "/next/mithril/advanced/mithril-certification/cardano-node-database",
+            from: ["/next/mithril/advanced/mithril-certification/cardano-node-database-v2"],
+          },
+          {
             to: "/aggregator-api/current",
             from: ["/aggregator-api"],
           },
