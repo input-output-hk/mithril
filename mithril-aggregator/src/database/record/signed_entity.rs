@@ -14,7 +14,7 @@ use mithril_common::messages::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
-    SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
+    SignerWithStakeMessagePart,
 };
 use mithril_common::signable_builder::{Artifact, SignedEntity};
 use mithril_persistence::database::Hydrator;
@@ -195,29 +195,6 @@ where
         };
 
         Ok(signed_entity)
-    }
-}
-
-impl TryFrom<SignedEntityRecord> for SnapshotMessage {
-    type Error = StdError;
-
-    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
-        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
-        let snapshot_message = SnapshotMessage {
-            digest: artifact.digest,
-            network: artifact.network.clone(),
-            beacon: artifact.beacon,
-            certificate_hash: value.certificate_id,
-            size: artifact.size,
-            ancillary_size: artifact.ancillary_size,
-            created_at: value.created_at,
-            locations: artifact.locations,
-            ancillary_locations: artifact.ancillary_locations,
-            compression_algorithm: artifact.compression_algorithm,
-            cardano_node_version: artifact.cardano_node_version,
-        };
-
-        Ok(snapshot_message)
     }
 }
 
@@ -403,29 +380,6 @@ impl TryFrom<SignedEntityRecord> for CardanoBlocksTransactionsSnapshotListItemMe
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
             created_at: value.created_at,
-        };
-
-        Ok(message)
-    }
-}
-
-impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
-    type Error = StdError;
-
-    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
-        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
-        let message = SnapshotListItemMessage {
-            digest: artifact.digest,
-            network: artifact.network.clone(),
-            beacon: artifact.beacon,
-            certificate_hash: value.certificate_id,
-            size: artifact.size,
-            ancillary_size: artifact.ancillary_size,
-            created_at: value.created_at,
-            locations: artifact.locations,
-            ancillary_locations: artifact.ancillary_locations,
-            compression_algorithm: artifact.compression_algorithm,
-            cardano_node_version: artifact.cardano_node_version,
         };
 
         Ok(message)

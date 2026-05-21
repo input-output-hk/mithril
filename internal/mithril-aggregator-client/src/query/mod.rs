@@ -3,8 +3,7 @@
 //! Available queries
 //! - Get:
 //!   - Aggregator: [Get current aggregator features][GetAggregatorFeaturesQuery], [Get current aggregator status][GetAggregatorStatusQuery]
-//!   - Cardano database v1 (aka Snapshot): [List][GetSnapshotsListQuery], [Get by hash][GetSnapshotQuery]
-//!   - Cardano database v2: [List latest, list for an epoch, list for latest epoch, list for latest epoch with an offset][GetCardanoDatabaseListQuery], [Get by hash][GetCardanoDatabaseQuery]
+//!   - Cardano database: [List latest, list for an epoch, list for latest epoch, list for latest epoch with an offset][GetCardanoDatabaseListQuery], [Get by hash][GetCardanoDatabaseQuery]
 //!   - Cardano stake distribution: [List][GetCardanoStakeDistributionsListQuery], [Get by hash, get for an epoch, get for latest epoch, get for latest epoch with an offset][GetCardanoStakeDistributionQuery]
 //!   - Cardano transactions snapshot: [List][GetCardanoTransactionsListQuery], [Get by hash][GetCardanoTransactionQuery]
 //!   - Cardano transactions proof: [Get for a list of transactions hashes][GetCardanoTransactionProofQuery]
@@ -15,8 +14,7 @@
 //! - Post:
 //!   - Signature: [Register a signature][PostRegisterSignatureQuery]
 //!   - Registration: [Send a signer registration][PostRegisterSignerQuery]
-//!   - Cardano database v1 (aka Snapshot): [Increment snapshot download statistic][PostIncrementSnapshotDownloadStatisticQuery]
-//!   - Cardano database v2:
+//!   - Cardano database:
 //!     - Increment Cardano database snapshot [complete or partial restoration statistic][PostIncrementCardanoDatabaseRestorationStatisticQuery]
 //!     - Increment Cardano database snapshot [immutables restored statistic][PostIncrementCardanoDatabaseImmutablesRestoredStatisticQuery]
 //!     - Increment Cardano database snapshot [ancillary files restored statistic][PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery]

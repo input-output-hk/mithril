@@ -24,9 +24,6 @@ mod proof_v2;
 mod protocol_configuration;
 mod register_signature;
 mod register_signer;
-mod snapshot;
-mod snapshot_download;
-mod snapshot_list;
 
 pub use aggregator_features::{
     AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
@@ -73,6 +70,3 @@ pub use proof_v2::*;
 pub use protocol_configuration::ProtocolConfigurationMessage;
 pub use register_signature::{RegisterSignatureMessageDmq, RegisterSignatureMessageHttp};
 pub use register_signer::RegisterSignerMessage;
-pub use snapshot::SnapshotMessage;
-pub use snapshot_download::SnapshotDownloadMessage;
-pub use snapshot_list::{SnapshotListItemMessage, SnapshotListMessage};
