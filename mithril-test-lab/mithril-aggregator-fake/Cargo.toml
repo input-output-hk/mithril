@@ -29,5 +29,5 @@ mithril-build-script = { path = "../../internal/mithril-build-script" }
 
 [dev-dependencies]
 mithril-api-spec = { path = "../../internal/tests/mithril-api-spec" }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["rustls"] }
 warp = { workspace = true }
