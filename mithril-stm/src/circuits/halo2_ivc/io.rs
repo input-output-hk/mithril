@@ -1,5 +1,4 @@
-use super::{Accumulator, C, F, Msm, S, state::State};
-use crate::signature_scheme::StandardSchnorrSignature;
+use super::{Accumulator, C, F, Msm, S};
 use midnight_curves::serde::SerdeObject;
 use midnight_proofs::utils::{SerdeFormat, helpers::ProcessedSerdeObject};
 use std::{collections::BTreeMap, io};
@@ -93,47 +92,5 @@ impl Read for Accumulator<S> {
         let lhs = Msm::read(reader, format)?;
         let rhs = Msm::read(reader, format)?;
         Ok(Accumulator::<S>::new(lhs, rhs))
-    }
-}
-
-impl Write for State {
-    fn write<W: io::Write>(&self, writer: &mut W, _format: SerdeFormat) -> io::Result<()> {
-        self.counter.write_raw(writer)?;
-        self.msg.write_raw(writer)?;
-        self.merkle_root.write_raw(writer)?;
-        self.next_merkle_root.write_raw(writer)?;
-        self.protocol_params.write_raw(writer)?;
-        self.next_protocol_params.write_raw(writer)?;
-        self.current_epoch.write_raw(writer)?;
-        Ok(())
-    }
-}
-
-impl Read for State {
-    fn read<R: io::Read>(reader: &mut R, _format: SerdeFormat) -> io::Result<Self> {
-        Ok(State {
-            counter: F::read_raw(reader)?,
-            msg: F::read_raw(reader)?,
-            merkle_root: F::read_raw(reader)?,
-            next_merkle_root: F::read_raw(reader)?,
-            protocol_params: F::read_raw(reader)?,
-            next_protocol_params: F::read_raw(reader)?,
-            current_epoch: F::read_raw(reader)?,
-        })
-    }
-}
-
-impl Write for StandardSchnorrSignature {
-    fn write<W: io::Write>(&self, writer: &mut W, _format: SerdeFormat) -> io::Result<()> {
-        writer.write_all(&self.to_bytes())
-    }
-}
-
-impl Read for StandardSchnorrSignature {
-    fn read<R: io::Read>(reader: &mut R, _format: SerdeFormat) -> io::Result<Self> {
-        let mut bytes = [0u8; 64];
-        reader.read_exact(&mut bytes)?;
-        StandardSchnorrSignature::from_bytes(&bytes)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))
     }
 }

@@ -13,10 +13,7 @@ use crate::{
     },
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey, CircuitVerifyingKey,
-        unsafe_setup_helpers::{
-            TempCertificateVerifyingKeyProvider, TempIvcProvingKeyProvider,
-            TempIvcVerifyingKeyProvider,
-        },
+        unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
     },
 };
 
@@ -53,7 +50,7 @@ pub(crate) struct IvcSetup {
 
 #[allow(dead_code)]
 impl IvcSetup {
-    /// Derives the full IVC setup by orchestrating the three key providers.
+    /// Derives the full IVC setup by orchestrating the key providers.
     ///
     /// The function pulls the SRS, the certificate verifying key, the IVC verifying key,
     /// and the IVC proving key from the supplied providers, extracts the three fixed-base
@@ -63,19 +60,29 @@ impl IvcSetup {
     /// `unsafe_setup_helpers`; they share the API surface the production cache providers
     /// will expose. When the cache work lands, the temp provider types in this signature
     /// are replaced with the real cache providers; the body stays unchanged.
+    ///
+    /// # SRS consistency
+    ///
+    /// The SRS and the key providers are sourced independently by design (today the temp
+    /// providers store an `Arc<ParamsKZG<Bls12>>` field; the production cache providers
+    /// will not). The caller must ensure the SRS yielded by `trusted_setup_provider`
+    /// matches the SRS that produced the key artifacts the providers return. A mismatch
+    /// produces an internally inconsistent `IvcSetup` that surfaces only at proof
+    /// generation or verification time. In practice: route all of them through the same
+    /// `TrustedSetupProvider` instance (temp design) or the same canonical trusted setup
+    /// source (production cache design).
     // TODO: swap `Temp*Provider` parameters for the production IVC cache providers
     // once they ship.
     pub(crate) fn load(
         trusted_setup_provider: &TrustedSetupProvider,
-        ivc_verifying_key_provider: &TempIvcVerifyingKeyProvider,
-        certificate_verifying_key_provider: &TempCertificateVerifyingKeyProvider,
-        ivc_proving_key_provider: &TempIvcProvingKeyProvider,
+        certificate_key_provider: &TempCertificateKeyProvider,
+        ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
         let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
 
-        let certificate_verifying_key = certificate_verifying_key_provider.get_verifying_key()?;
-        let ivc_verifying_key = ivc_verifying_key_provider.get_verifying_key()?;
-        let ivc_proving_key = ivc_proving_key_provider.get_proving_key()?;
+        let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
+        let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
+        let ivc_proving_key = ivc_key_provider.get_proving_key()?;
 
         let (certificate_fixed_bases, _) =
             fixed_bases_and_names(CERT_VK_NAME, &certificate_verifying_key);
@@ -108,91 +115,73 @@ impl IvcSetup {
 // that swap; only the call site (here) and the provider types change.
 #[cfg(test)]
 mod tests {
-    use std::{
-        fs::{File, create_dir_all},
-        io::Write,
-        path::Path,
-        time::Duration,
-    };
+    use std::sync::Arc;
 
-    use midnight_proofs::utils::SerdeFormat;
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-    use sha2::{Digest, Sha256};
     use tempfile::tempdir;
 
     use super::*;
-    use crate::{Parameters, circuits::halo2_ivc::K};
+    use crate::{
+        Parameters,
+        circuits::{halo2_ivc::K, trusted_setup::build_provider_with_unsafe_srs},
+    };
 
-    fn build_provider_with_unsafe_srs(base_dir: &Path) -> TrustedSetupProvider {
-        let srs = ParamsKZG::<Bls12>::unsafe_setup(K, ChaCha20Rng::seed_from_u64(42));
+    // Generates a K=19 SRS and runs `keygen_pk` for the IVC circuit; runs in the
+    // `slow` tier (invoke with `cargo test slow::`).
+    //
+    // TODO: once the production IVC cache providers ship, rewrite this test to use
+    // them (warm caches eliminate SRS generation and VK/PK keygen). The rewritten
+    // test should run in the default tier rather than `mod slow`.
+    mod slow {
+        use super::*;
 
-        let mut srs_bytes = Vec::new();
-        srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
-        let srs_dir = base_dir.join("srs");
-        create_dir_all(&srs_dir).unwrap();
-        File::create(srs_dir.join("srs-parameters"))
-            .unwrap()
-            .write_all(&srs_bytes)
+        #[test]
+        fn load_succeeds_with_unsafe_srs() {
+            let temp_dir = tempdir().unwrap();
+            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+            let srs = Arc::new(trusted_setup_provider.get_trusted_setup_parameters().unwrap());
+
+            let parameters = Parameters {
+                k: 3,
+                m: 10,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = 4;
+
+            let certificate_key_provider =
+                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
+            let certificate_verifying_key = certificate_key_provider.get_verifying_key().unwrap();
+            let ivc_key_provider = TempIvcKeyProvider::new(srs, certificate_verifying_key);
+
+            let setup = IvcSetup::load(
+                &trusted_setup_provider,
+                &certificate_key_provider,
+                &ivc_key_provider,
+            )
             .unwrap();
-        let expected_hash = hex::encode(Sha256::digest(&srs_bytes));
 
-        TrustedSetupProvider::new(base_dir, expected_hash, "", Duration::from_secs(600))
-    }
-
-    #[test]
-    #[ignore = "slow: generates K=19 SRS and runs keygen_pk for the IVC circuit"]
-    fn load_succeeds_with_unsafe_srs() {
-        let temp_dir = tempdir().unwrap();
-        let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path());
-        let srs = trusted_setup_provider.get_trusted_setup_parameters().unwrap();
-
-        let parameters = Parameters {
-            k: 3,
-            m: 10,
-            phi_f: 0.2,
-        };
-        let merkle_tree_depth = 4;
-
-        let cert_vk_provider =
-            TempCertificateVerifyingKeyProvider::new(srs.clone(), parameters, merkle_tree_depth);
-        let certificate_verifying_key = cert_vk_provider.get_verifying_key().unwrap();
-        let ivc_vk_provider =
-            TempIvcVerifyingKeyProvider::new(srs, certificate_verifying_key.clone());
-        let ivc_verifying_key = ivc_vk_provider.get_verifying_key().unwrap();
-        let ivc_pk_provider =
-            TempIvcProvingKeyProvider::new(certificate_verifying_key, ivc_verifying_key);
-
-        let setup = IvcSetup::load(
-            &trusted_setup_provider,
-            &ivc_vk_provider,
-            &cert_vk_provider,
-            &ivc_pk_provider,
-        )
-        .unwrap();
-
-        assert!(
-            !setup.certificate_fixed_bases.is_empty(),
-            "certificate fixed bases should be populated"
-        );
-        assert!(
-            !setup.ivc_fixed_bases.is_empty(),
-            "IVC fixed bases should be populated"
-        );
-
-        for (key, value) in &setup.certificate_fixed_bases {
-            assert_eq!(
-                setup.combined_fixed_bases.get(key),
-                Some(value),
-                "combined map should preserve every certificate base"
+            assert!(
+                !setup.certificate_fixed_bases.is_empty(),
+                "certificate fixed bases should be populated"
             );
-        }
-        for (key, value) in &setup.ivc_fixed_bases {
-            assert_eq!(
-                setup.combined_fixed_bases.get(key),
-                Some(value),
-                "combined map should preserve every IVC base"
+            assert!(
+                !setup.ivc_fixed_bases.is_empty(),
+                "IVC fixed bases should be populated"
             );
+
+            for (key, value) in &setup.certificate_fixed_bases {
+                assert_eq!(
+                    setup.combined_fixed_bases.get(key),
+                    Some(value),
+                    "combined map should preserve every certificate base"
+                );
+            }
+            for (key, value) in &setup.ivc_fixed_bases {
+                assert_eq!(
+                    setup.combined_fixed_bases.get(key),
+                    Some(value),
+                    "combined map should preserve every IVC base"
+                );
+            }
         }
     }
 }

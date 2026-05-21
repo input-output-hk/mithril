@@ -1,12 +1,18 @@
 //! Temporary unsafe setup helpers used by `IvcSetup::load` until the production
 //! cache providers for the recursive circuit are implemented.
 //!
-//! Each provider stores its prerequisites as owned fields and computes its artifact
-//! on demand. The caller orchestrates the chain: first the cert VK provider, then
-//! the IVC VK provider (constructed with the computed cert VK), then the IVC PK
-//! provider (constructed with both VKs).
+//! Two providers, one per circuit, each exposing both `get_verifying_key` and
+//! `get_proving_key`. The IVC provider depends on the certificate verifying
+//! key: the caller pulls the cert VK from the certificate provider first, then
+//! constructs the IVC provider with it.
+//!
+//! Each provider stores its prerequisites as owned fields and recomputes its
+//! artifact on demand. Without a cache, `get_proving_key` recomputes the
+//! verifying key internally; that overhead disappears at production swap time.
 
 // TODO: remove this module once the production IVC cache providers ship.
+
+use std::sync::Arc;
 
 use midnight_curves::Bls12;
 use midnight_proofs::{
@@ -24,17 +30,25 @@ use crate::{
     proof_system::ivc_halo2_snark::{CircuitProvingKey, CircuitVerifyingKey},
 };
 
+/// Recomputes the certificate-circuit verifying key and proving key from a
+/// shared SRS plus the `Parameters` and Merkle tree depth that pin the circuit
+/// shape.
 #[allow(dead_code)]
-pub(crate) struct TempCertificateVerifyingKeyProvider {
-    srs: ParamsKZG<Bls12>,
+pub(crate) struct TempCertificateKeyProvider {
+    /// Shared KZG structured reference string, sized for the IVC circuit. Cloned
+    /// on demand and downsized in place before certificate-circuit keygen.
+    srs: Arc<ParamsKZG<Bls12>>,
+    /// STM protocol parameters that determine the certificate circuit shape.
     parameters: Parameters,
+    /// Merkle tree depth used by the certificate circuit.
     merkle_tree_depth: u32,
 }
 
 #[allow(dead_code)]
-impl TempCertificateVerifyingKeyProvider {
+impl TempCertificateKeyProvider {
+    /// Stores the prerequisites needed to recompute the certificate keys.
     pub(crate) fn new(
-        srs: ParamsKZG<Bls12>,
+        srs: Arc<ParamsKZG<Bls12>>,
         parameters: Parameters,
         merkle_tree_depth: u32,
     ) -> Self {
@@ -45,25 +59,45 @@ impl TempCertificateVerifyingKeyProvider {
         }
     }
 
+    /// Builds the certificate circuit, clones the shared SRS so it can be
+    /// downsized in place, and runs `zk::setup_vk` to produce the verifying key.
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
-        let cert_circuit =
+        let certificate_circuit =
             StmCertificateCircuit::try_new(&self.parameters, self.merkle_tree_depth)?;
-        let mut cert_srs = self.srs.clone();
-        zk::downsize_srs_for_relation(&mut cert_srs, &cert_circuit);
-        Ok(zk::setup_vk(&cert_srs, &cert_circuit).vk().clone())
+        let mut certificate_srs = (*self.srs).clone();
+        zk::downsize_srs_for_relation(&mut certificate_srs, &certificate_circuit);
+        Ok(zk::setup_vk(&certificate_srs, &certificate_circuit).vk().clone())
+    }
+
+    /// Recomputes the verifying key (the temp layer has no cache, so the VK is
+    /// re-derived here) and runs `zk::setup_pk` to produce the proving key.
+    pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
+        let certificate_circuit =
+            StmCertificateCircuit::try_new(&self.parameters, self.merkle_tree_depth)?;
+        let mut certificate_srs = (*self.srs).clone();
+        zk::downsize_srs_for_relation(&mut certificate_srs, &certificate_circuit);
+        let midnight_vk = zk::setup_vk(&certificate_srs, &certificate_circuit);
+        Ok(zk::setup_pk(&certificate_circuit, &midnight_vk).pk().clone())
     }
 }
 
+/// Recomputes the IVC-circuit verifying key and proving key from a shared SRS
+/// and the already-computed certificate verifying key (which the IVC circuit
+/// recursively verifies).
 #[allow(dead_code)]
-pub(crate) struct TempIvcVerifyingKeyProvider {
-    srs: ParamsKZG<Bls12>,
+pub(crate) struct TempIvcKeyProvider {
+    /// Shared KZG structured reference string, sized for the IVC circuit.
+    srs: Arc<ParamsKZG<Bls12>>,
+    /// Certificate verifying key produced by the cert provider; the IVC circuit
+    /// is parameterized by this key.
     certificate_verifying_key: CircuitVerifyingKey,
 }
 
 #[allow(dead_code)]
-impl TempIvcVerifyingKeyProvider {
+impl TempIvcKeyProvider {
+    /// Stores the prerequisites needed to recompute the IVC keys.
     pub(crate) fn new(
-        srs: ParamsKZG<Bls12>,
+        srs: Arc<ParamsKZG<Bls12>>,
         certificate_verifying_key: CircuitVerifyingKey,
     ) -> Self {
         Self {
@@ -72,32 +106,18 @@ impl TempIvcVerifyingKeyProvider {
         }
     }
 
+    /// Builds an unknown-witness IVC circuit parameterized by the certificate VK
+    /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `K`.
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
-        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key);
-        Ok(keygen_vk_with_k(&self.srs, &ivc_circuit, K)?)
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) struct TempIvcProvingKeyProvider {
-    certificate_verifying_key: CircuitVerifyingKey,
-    ivc_verifying_key: CircuitVerifyingKey,
-}
-
-#[allow(dead_code)]
-impl TempIvcProvingKeyProvider {
-    pub(crate) fn new(
-        certificate_verifying_key: CircuitVerifyingKey,
-        ivc_verifying_key: CircuitVerifyingKey,
-    ) -> Self {
-        Self {
-            certificate_verifying_key,
-            ivc_verifying_key,
-        }
+        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key)?;
+        Ok(keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit, K)?)
     }
 
+    /// Recomputes the IVC verifying key (the temp layer has no cache, so the VK
+    /// is re-derived here) and runs `keygen_pk` to produce the proving key.
     pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
-        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key);
-        Ok(keygen_pk(self.ivc_verifying_key.clone(), &ivc_circuit)?)
+        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key)?;
+        let ivc_verifying_key = keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit, K)?;
+        Ok(keygen_pk(ivc_verifying_key, &ivc_circuit)?)
     }
 }
