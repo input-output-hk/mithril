@@ -9,6 +9,7 @@ use super::{
     PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PoseidonChip,
     PublicInputInstructions, S, Value, VerifierGadget, ZeroInstructions,
     config::IvcConfig,
+    errors::{IvcCircuitError, to_synthesis_error},
     state::{
         AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness, fixed_base_names,
     },
@@ -137,8 +138,12 @@ impl IvcGadget {
             self.native_gadget
                 .assign_many(layouter, &values)?
                 .try_into()
-                // this won't fail
-                .unwrap()
+                .map_err(|v: Vec<_>| {
+                    to_synthesis_error(IvcCircuitError::AssignedValueCountMismatch {
+                        expected: 7,
+                        actual: v.len(),
+                    })
+                })?
         };
 
         Ok(AssignedState {
@@ -195,8 +200,12 @@ impl IvcGadget {
             self.native_gadget
                 .assign_many(layouter, &values)?
                 .try_into()
-                // this won't fail
-                .unwrap()
+                .map_err(|v: Vec<_>| {
+                    to_synthesis_error(IvcCircuitError::AssignedValueCountMismatch {
+                        expected: 2,
+                        actual: v.len(),
+                    })
+                })?
         };
 
         let msg_preimage = {
