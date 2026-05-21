@@ -35,7 +35,7 @@ pub struct IvcCircuit {
 
 impl IvcCircuit {
     /// Validates that the self VK degree matches the IVC circuit degree constant K.
-    fn validate_self_vk_degree(self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>) -> StmResult<()> {
+    pub(crate) fn validate_self_vk_degree(self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>) -> StmResult<()> {
         let actual = self_vk.get_domain().k();
         if actual != K {
             return Err(anyhow!(IvcCircuitError::SelfVkDegreeMismatch {
