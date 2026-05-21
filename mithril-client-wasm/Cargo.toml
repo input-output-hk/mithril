@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.10.4"
+version = "0.10.5"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -25,6 +25,7 @@ crate-type = ["cdylib"]
 default = ["rustls"]
 rustls = ["mithril-client/rustls"]
 test-node = []
+future_snark = ["mithril-client/future_snark"]
 
 [dependencies]
 anyhow = { workspace = true }

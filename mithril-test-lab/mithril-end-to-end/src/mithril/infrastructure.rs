@@ -10,8 +10,9 @@ use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::{
-    Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet, DmqNodeFlavor, FullNode,
-    PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer, assertions,
+    AggregateSignatureType, Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet,
+    DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer,
+    assertions,
 };
 
 use super::signer::SignerConfig;
@@ -30,7 +31,7 @@ pub struct MithrilInfrastructureConfig {
     pub mithril_era: String,
     pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
-    pub aggregate_signature_type: String,
+    pub aggregate_signature_type: AggregateSignatureType,
     pub run_only_mode: bool,
     pub check_client_cli_snapshot_converter: bool,
     pub use_relays: bool,
@@ -68,7 +69,7 @@ impl MithrilInfrastructureConfig {
             mithril_era: "era1".to_string(),
             mithril_era_reader_adapter: "adapter1".to_string(),
             signed_entity_types: vec!["type1".to_string()],
-            aggregate_signature_type: "Concatenation".to_string(),
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
             run_only_mode: false,
             check_client_cli_snapshot_converter: false,
             use_relays: false,
@@ -99,6 +100,7 @@ pub struct MithrilInfrastructure {
     current_era: RwLock<String>,
     era_reader_adapter: String,
     use_era_specific_work_dir: bool,
+    aggregate_signature_type: AggregateSignatureType,
 }
 
 impl MithrilInfrastructure {
@@ -171,6 +173,7 @@ impl MithrilInfrastructure {
             current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
             use_era_specific_work_dir: config.use_era_specific_work_dir,
+            aggregate_signature_type: config.aggregate_signature_type,
         })
     }
 
@@ -270,20 +273,26 @@ impl MithrilInfrastructure {
             mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
             mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
             signed_entity_types: &config.signed_entity_types,
-            aggregate_signature_type: &config.aggregate_signature_type,
+            aggregate_signature_type: &config.aggregate_signature_type.to_string(),
             chain_observer_type,
             leader_aggregator_endpoint: &leader_aggregator_endpoint,
             use_dmq: config.use_dmq,
             dmq_node_flavor: &config.dmq_node_flavor,
         })?;
 
-        aggregator
-            .set_protocol_parameters(&ProtocolParameters {
+        let protocol_parameters_new = match config.aggregate_signature_type {
+            AggregateSignatureType::Concatenation => ProtocolParameters {
                 k: 70,
                 m: 105,
                 phi_f: 0.95,
-            })
-            .await;
+            },
+            AggregateSignatureType::Snark => ProtocolParameters {
+                k: 5,
+                m: 9,
+                phi_f: 0.95,
+            },
+        };
+        aggregator.set_protocol_parameters(&protocol_parameters_new).await;
 
         Ok(aggregator)
     }
@@ -494,6 +503,10 @@ impl MithrilInfrastructure {
 
     pub fn cardano_node_version(&self) -> &semver::Version {
         &self.cardano_node_version
+    }
+
+    pub fn aggregate_signature_type(&self) -> AggregateSignatureType {
+        self.aggregate_signature_type
     }
 
     pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {

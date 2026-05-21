@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.14.9"
+version = "0.14.10"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -41,12 +41,7 @@ rustls-no-provider = ["reqwest/rustls-no-provider"]
 # Support compressed traffic with `reqwest`
 enable-http-compression = ["reqwest/gzip", "reqwest/zstd", "reqwest/deflate", "reqwest/brotli"]
 
-# Empty feature: intentionally does NOT propagate to `mithril-common/future_snark` because
-# `cargo publish --dry-run` resolves `mithril-common` from crates.io where `future_snark`
-# does not exist yet. In CI, `--all-features` activates both this and `mithril-common`'s
-# `future_snark` at the workspace level, so the gated client code compiles correctly.
-# TODO: propagate to `mithril-common/future_snark` once the `future_snark` feature is published on crates.io.
-future_snark = []
+future_snark = ["mithril-common/future_snark"]
 
 # Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 rug-backend = ["mithril-common/rug-backend"]

@@ -1,11 +1,12 @@
 .PHONY: all build test check debug run help doc
 
 CARGO = cargo
+CARGO_BUILD_ARGS ?=
 
 all: test build
 
 build:
-	${CARGO} build --release
+	${CARGO} build --release ${CARGO_BUILD_ARGS}
 	cp ../target/release/mithril-signer .
 
 run: build
