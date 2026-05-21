@@ -156,7 +156,11 @@ impl Spec {
         .await?;
 
         if aggregator.is_first() || aggregator.version().is_below("0.7.94") {
-            assertions::update_protocol_parameters(aggregator).await?;
+            assertions::update_protocol_parameters(
+                aggregator,
+                infrastructure.aggregate_signature_type(),
+            )
+            .await?;
         }
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times

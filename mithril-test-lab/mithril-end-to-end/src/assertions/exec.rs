@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{Aggregator, Devnet};
+use crate::{AggregateSignatureType, Aggregator, Devnet};
 use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
@@ -73,23 +73,25 @@ pub async fn transfer_funds(devnet: &Devnet) -> StdResult<()> {
     Ok(())
 }
 
-pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()> {
+pub async fn update_protocol_parameters(
+    aggregator: &Aggregator,
+    aggregate_signature_type: AggregateSignatureType,
+) -> StdResult<()> {
     info!("Update protocol parameters"; "aggregator" => &aggregator.name());
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
-    let protocol_parameters_new = if aggregator.aggregate_signature_type == "Concatenation" {
-        ProtocolParameters {
+    let protocol_parameters_new = match aggregate_signature_type {
+        AggregateSignatureType::Concatenation => ProtocolParameters {
             k: 145,
             m: 210,
             phi_f: 0.80,
-        }
-    } else {
-        ProtocolParameters {
+        },
+        AggregateSignatureType::Snark => ProtocolParameters {
             k: 7,
             m: 10,
             phi_f: 0.95,
-        }
+        },
     };
 
     info!(

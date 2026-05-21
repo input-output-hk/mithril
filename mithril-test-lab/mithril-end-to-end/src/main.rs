@@ -20,8 +20,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError, Devnet,
-    DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
+    AggregateSignatureType, Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError,
+    Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
     NodeVersion, RelaySigner, RetryableDevnetError, RunOnly, Signer, Spec,
 };
 
@@ -106,8 +106,8 @@ pub struct Args {
     signed_entity_types: Vec<String>,
 
     /// Aggregate signature type used to create the certificates
-    #[clap(long, default_value = "Concatenation")]
-    aggregate_signature_type: String,
+    #[clap(long, value_enum, default_value = "Concatenation")]
+    aggregate_signature_type: AggregateSignatureType,
 
     /// Enable run only mode
     #[clap(long)]

@@ -55,7 +55,6 @@ pub struct Aggregator {
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
     full_node: FullNode,
-    pub aggregate_signature_type: String,
 }
 
 impl Aggregator {
@@ -85,6 +84,7 @@ impl Aggregator {
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
         let cardano_node_version = aggregator_config.cardano_node_version.to_string();
+        let aggregate_signature_type = aggregator_config.aggregate_signature_type.to_string();
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
@@ -124,10 +124,7 @@ impl Aggregator {
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
-            (
-                "AGGREGATE_SIGNATURE_TYPE",
-                aggregator_config.aggregate_signature_type,
-            ),
+            ("AGGREGATE_SIGNATURE_TYPE", &aggregate_signature_type),
             ("CARDANO_NODE_VERSION", &cardano_node_version),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
             (
@@ -209,7 +206,6 @@ impl Aggregator {
             process: RwLock::new(None),
             chain_observer,
             full_node: aggregator_config.full_node.clone(),
-            aggregate_signature_type: aggregator_config.aggregate_signature_type.to_string(),
         })
     }
 
@@ -229,7 +225,6 @@ impl Aggregator {
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
             full_node: other.full_node.clone(),
-            aggregate_signature_type: other.aggregate_signature_type.clone(),
         }
     }
 
