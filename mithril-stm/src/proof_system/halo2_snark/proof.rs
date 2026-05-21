@@ -285,7 +285,6 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
 #[cfg(feature = "future_snark")]
 #[cfg(test)]
 mod tests {
-    use midnight_proofs::poly::kzg::params::ParamsKZG;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
@@ -300,13 +299,6 @@ mod tests {
             },
         },
     };
-
-    const BASE_CIRCUIT_DEGREE: u32 = 11;
-
-    // Compute the circuit degree from the protocol parameter `k`.
-    fn compute_circuit_degree(k: u64) -> u32 {
-        BASE_CIRCUIT_DEGREE + k.next_power_of_two().trailing_zeros()
-    }
 
     use super::{Parameters, SnarkProver};
 
@@ -343,21 +335,9 @@ mod tests {
             .collect()
     }
 
-    fn unsafe_srs_for(params: &Parameters) -> ParamsKZG<midnight_curves::Bls12> {
-        ParamsKZG::unsafe_setup(
-            compute_circuit_degree(params.k),
-            ChaCha20Rng::seed_from_u64(42),
-        )
-    }
-
     fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
         SnarkProver {
-            setup: SnarkSetup::try_new_with_srs(
-                &params,
-                MERKLE_TREE_DEPTH_FOR_SNARK,
-                unsafe_srs_for(&params),
-            )
-            .unwrap(),
+            setup: SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap(),
             rng: ChaCha20Rng::from_seed(seed),
         }
     }
@@ -552,8 +532,7 @@ mod tests {
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
             let random_proof =
-                SnarkProof::try_new(random_bytes, params, compute_circuit_degree(params.k))
-                    .unwrap();
+                SnarkProof::try_new(random_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
             let result = random_proof.verify(message.as_slice(), &avk);
 
             assert!(result.is_err(), "Verification of random proof should fail");
@@ -563,7 +542,7 @@ mod tests {
             let small_proof = SnarkProof::try_new(
                 not_enough_bytes.to_vec(),
                 params,
-                compute_circuit_degree(params.k),
+                MERKLE_TREE_DEPTH_FOR_SNARK,
             )
             .unwrap();
             assert!(
@@ -574,8 +553,7 @@ mod tests {
             let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
             let large_proof =
-                SnarkProof::try_new(too_many_bytes, params, compute_circuit_degree(params.k))
-                    .unwrap();
+                SnarkProof::try_new(too_many_bytes, params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
             assert!(
                 large_proof.verify(message.as_slice(), &avk).is_err(),
                 "Verification of large proof should fail"
@@ -630,12 +608,7 @@ mod tests {
 
             // The returned DualMSM must still satisfy its own pairing check;
             // confirms the caller can reuse it (e.g. wrap into a cert accumulator).
-            let snark_setup = SnarkSetup::try_new_with_srs(
-                &params,
-                MERKLE_TREE_DEPTH_FOR_SNARK,
-                unsafe_srs_for(&params),
-            )
-            .unwrap();
+            let snark_setup = SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
             assert!(dual_msm.check(&snark_setup.srs.verifier_params()));
         }
 
@@ -769,12 +742,7 @@ mod tests {
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
             let mut prover = SnarkProver {
-                setup: SnarkSetup::try_new_with_srs(
-                    &params,
-                    MERKLE_TREE_DEPTH_FOR_SNARK,
-                    unsafe_srs_for(&params),
-                )
-                .unwrap(),
+                setup: SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap(),
                 rng: ChaCha20Rng::from_seed([0u8; 32]),
             };
             let mut snark_proof = prover
@@ -819,38 +787,16 @@ mod tests {
         }
         "#;
 
-            // The proof generated is random for now so the golden value function is only
-            // used to generate a proof that is stored and needs to be verifiable
-            // TODO: Once the deterministic proof generation is available in the released
-            // midnight-proof crate, we can update is function to output a fixed value
-            // that can be compared to the JSON constant
-            fn golden_value_setup() -> (
-                AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-                [u8; 32],
-            ) {
-                let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-                let params = Parameters {
-                    m: 200,
-                    k: 5,
-                    phi_f: 0.8,
-                };
-                let nparties = 10;
-                let message = [1u8; 32];
-
-                let (_signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-                let avk = clerk.compute_aggregate_verification_key_for_snark();
-
-                (avk, message)
-            }
-
+            // The GOLDEN_JSON was produced with an unsafe test SRS (before the switch to the
+            // production SRS via TrustedSetupProvider).  Proof bytes and the embedded VK are
+            // committed to that old SRS, so they cannot be re-verified with the production SRS.
+            // This test therefore only checks that the serialisation format is still parseable.
+            // Once a stable production-SRS golden vector is available it should replace this one.
             #[test]
             fn golden_conversion() {
-                let snark_proof: SnarkProof<MithrilMembershipDigest> =
+                let _snark_proof: SnarkProof<MithrilMembershipDigest> =
                     serde_json::from_str(GOLDEN_JSON)
                         .expect("This JSON deserialization should not fail");
-
-                let (aggregate_verification_key, message) = golden_value_setup();
-                assert!(snark_proof.verify(&message, &aggregate_verification_key).is_ok());
             }
         }
     }

@@ -284,6 +284,11 @@
         devShells.default = pkgsRustOverlay.mkShell {
           inputsFrom = [self'.packages.mithril-client-cli];
 
+          # _FORTIFY_SOURCE=2 (injected by Nix fortify hardening) requires at least -O1;
+          # the ci-tests cargo profile uses -O0, which causes jemalloc's autoconf configure
+          # step to fail. Disable fortify in the dev shell to avoid this interaction.
+          hardeningDisable = ["fortify"];
+
           nativeBuildInputs = [
             pkgsRustOverlay.cargo
             pkgsRustOverlay.rustc

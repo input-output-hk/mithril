@@ -37,16 +37,32 @@ mod tests {
         setup_parties(params, stake)
     }
 
+    fn setup_equal_parties_with_rng(
+        params: Parameters,
+        nparties: usize,
+        rng: &mut ChaCha20Rng,
+    ) -> Vec<Signer<D>> {
+        setup_parties_with_rng(params, vec![1; nparties], rng)
+    }
+
     fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<Signer<D>> {
-        let mut kr = KeyRegistration::initialize();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.random());
+        setup_parties_with_rng(params, stake, &mut rng)
+    }
+
+    fn setup_parties_with_rng(
+        params: Parameters,
+        stake: Vec<Stake>,
+        rng: &mut ChaCha20Rng,
+    ) -> Vec<Signer<D>> {
+        let mut kr = KeyRegistration::initialize();
 
         #[allow(clippy::needless_collect)]
         let ps = stake
             .into_iter()
             .map(|stake| {
-                let p = Initializer::new(params, stake, &mut rng);
+                let p = Initializer::new(params, stake, rng);
                 let entry: RegistrationEntry = p.clone().try_into().unwrap();
                 kr.register_by_entry(&entry).unwrap();
                 p
@@ -385,7 +401,7 @@ mod tests {
                     let mut msg = [0u8; 32];
                     rng.fill_bytes(&mut msg);
                     let params = Parameters { m, k, phi_f: 0.95 };
-                    let ps = setup_equal_parties(params, nparties);
+                    let ps = setup_equal_parties_with_rng(params, nparties, &mut rng);
                     let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 
                     let all_ps: Vec<usize> = (0..nparties).collect();

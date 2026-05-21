@@ -64,14 +64,16 @@ impl SnarkSetup {
     }
 
     /// Build a new `SnarkSetup` from protocol parameters, Merkle tree depth, and a caller-supplied
-    /// SRS. The caller is responsible for providing a compatible SRS (degree ≥ circuit minimum).
+    /// SRS. The SRS must have `max_k >= circuit.min_k()`; it is downsized to the exact circuit
+    /// degree before key derivation (required by `keygen_vk`).
     pub(crate) fn try_new_with_srs(
         params: &Parameters,
         merkle_tree_depth: u32,
-        srs: ParamsKZG<Bls12>,
+        mut srs: ParamsKZG<Bls12>,
     ) -> StmResult<Self> {
         let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+        zk::downsize_srs_for_relation(&mut srs, &circuit);
 
         let cache_key = SnarkSetupCacheKey {
             circuit_degree,
@@ -101,34 +103,14 @@ pub(crate) struct SnarkVerifierSetup {
     pub(crate) verifier_params: ParamsVerifierKZG<Bls12>,
 }
 
-/// Serialized `s_g2` (the only material the KZG verifier needs) for the deterministic SNARK setup
-/// seeded with `ChaCha20Rng::seed_from_u64(42)`.
-///
-/// Regenerate by running the `compute_snark_verifier_params_bytes` test and copying its printed
-/// decimal byte sequence.
-const SNARK_VERIFIER_PARAMS_BYTES: [u8; 192] = [
-    9, 133, 52, 70, 100, 186, 221, 42, 162, 210, 65, 103, 250, 71, 142, 192, 58, 111, 199, 110,
-    176, 91, 161, 195, 250, 201, 221, 136, 183, 74, 68, 204, 221, 93, 8, 139, 182, 151, 92, 6, 168,
-    223, 75, 16, 6, 248, 229, 53, 10, 219, 248, 43, 58, 117, 134, 19, 245, 109, 69, 25, 218, 98,
-    249, 7, 90, 223, 221, 136, 43, 53, 243, 90, 85, 245, 50, 71, 17, 145, 52, 137, 36, 165, 195,
-    133, 133, 41, 248, 60, 251, 3, 44, 200, 150, 47, 121, 34, 9, 231, 248, 39, 163, 121, 37, 113,
-    212, 227, 126, 233, 45, 198, 96, 170, 240, 47, 77, 250, 32, 66, 193, 18, 103, 251, 89, 161,
-    202, 162, 45, 89, 203, 163, 70, 170, 27, 1, 80, 237, 9, 87, 173, 20, 38, 94, 11, 146, 14, 217,
-    151, 197, 170, 203, 108, 179, 227, 90, 187, 9, 128, 97, 0, 213, 149, 128, 132, 129, 179, 255,
-    247, 26, 178, 177, 112, 81, 142, 4, 53, 235, 114, 223, 242, 209, 244, 23, 177, 150, 185, 252,
-    175, 141, 204, 205, 242, 78,
-];
-
 impl SnarkVerifierSetup {
-    /// Build the verifier setup from the embedded constant verifier params bytes.
+    /// Build the verifier setup from the Midnight trusted SRS, which must match the SRS used by
+    /// the prover. The SRS is loaded (and cached on disk) via [`TrustedSetupProvider`].
     pub(crate) fn try_new() -> StmResult<Self> {
-        let verifier_params = ParamsVerifierKZG::<Bls12>::read(
-            &mut &SNARK_VERIFIER_PARAMS_BYTES[..],
-            SerdeFormat::RawBytesUnchecked,
-        )
-        .with_context(|| "Failed to read embedded SNARK verifier params bytes")?;
-
-        Ok(Self { verifier_params })
+        let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
+        Ok(Self {
+            verifier_params: srs.verifier_params(),
+        })
     }
 }
 
@@ -423,15 +405,22 @@ mod test {
 
     #[test]
     fn try_new_with_srs_succeeds_with_valid_parameters() {
-        let result = SnarkSetup::try_new_with_srs(&default_params(), 4, small_srs());
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let result = SnarkSetup::try_new_with_srs(&params, 4, srs);
         assert!(result.is_ok());
     }
 
     #[test]
     fn try_new_with_srs_returns_same_verification_key_for_same_parameters() {
         let params = default_params();
-        let setup1 = SnarkSetup::try_new_with_srs(&params, 4, small_srs()).unwrap();
-        let setup2 = SnarkSetup::try_new_with_srs(&params, 4, small_srs()).unwrap();
+        let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let make_srs = || ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let setup1 = SnarkSetup::try_new_with_srs(&params, 4, make_srs()).unwrap();
+        let setup2 = SnarkSetup::try_new_with_srs(&params, 4, make_srs()).unwrap();
 
         let mut vk_bytes1 = vec![];
         setup1
@@ -451,25 +440,30 @@ mod test {
     }
 
     mod verifier_setup {
-        use ff::Field;
-        use group::Group;
-        use midnight_curves::{Fq, G2Projective};
-        use midnight_proofs::utils::helpers::ProcessedSerdeObject;
-
         use super::*;
+        use crate::circuits::trusted_setup::TrustedSetupProvider;
+        use crate::proof_system::halo2_snark::SnarkVerifierSetup;
 
-        /// Compute the deterministic verifier params bytes for the unsafe SNARK setup seeded with
-        /// `ChaCha20Rng::seed_from_u64(42)`.
         #[test]
-        fn compute_snark_verifier_params_bytes() {
-            let mut rng = ChaCha20Rng::seed_from_u64(42);
-            let s = Fq::random(&mut rng);
-            let s_g2 = G2Projective::generator() * s;
-
-            let mut buf = Vec::new();
-            s_g2.write(&mut buf, SerdeFormat::RawBytesUnchecked).unwrap();
-
-            println!("{:?}", buf);
+        fn verifier_setup_matches_trusted_srs() {
+            let setup = SnarkVerifierSetup::try_new().unwrap();
+            let srs = TrustedSetupProvider::default()
+                .get_trusted_setup_parameters()
+                .unwrap();
+            let expected = srs.verifier_params();
+            let mut expected_bytes = vec![];
+            expected
+                .write(&mut expected_bytes, SerdeFormat::RawBytesUnchecked)
+                .unwrap();
+            let mut actual_bytes = vec![];
+            setup
+                .verifier_params
+                .write(&mut actual_bytes, SerdeFormat::RawBytesUnchecked)
+                .unwrap();
+            assert_eq!(
+                expected_bytes, actual_bytes,
+                "verifier params must match the Midnight trusted SRS"
+            );
         }
     }
 
