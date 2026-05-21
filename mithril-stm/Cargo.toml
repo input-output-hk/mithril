@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.10.20"
+version = "0.10.21"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -100,6 +100,16 @@ required-features = ["benchmark-internals"]
 
 [[bench]]
 name = "schnorr_sig"
+harness = false
+required-features = ["future_snark", "benchmark-internals"]
+
+[[bench]]
+name = "halo2_snark"
+harness = false
+required-features = ["future_snark", "benchmark-internals"]
+
+[[bench]]
+name = "halo2_prover_modes"
 harness = false
 required-features = ["future_snark", "benchmark-internals"]
 
