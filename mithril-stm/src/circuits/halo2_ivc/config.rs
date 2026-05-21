@@ -19,10 +19,13 @@ pub struct IvcConfig {
     pub(crate) sha256_config: Sha256Config,
 }
 
-pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+/// Returns `(nb_advice_cols, nb_fixed_cols)` — the column pool sizes allocated by
+/// `configure_ivc_circuit`. Single source of truth shared with `validate_column_counts`.
+pub(crate) fn ivc_column_pool_sizes() -> (usize, usize) {
     // unwrap_or(0) never panics: max() returns None only on an empty iterator,
     // but both arrays are non-empty so the fallback is unreachable.
     let nb_advice_cols = [
+        NB_ARITH_COLS,
         NB_EDWARDS_COLS,
         NB_POSEIDON_ADVICE_COLS,
         NB_SHA256_ADVICE_COLS,
@@ -36,6 +39,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
         .into_iter()
         .max()
         .unwrap_or(0);
+
+    (nb_advice_cols, nb_fixed_cols)
+}
+
+pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+    let (nb_advice_cols, nb_fixed_cols) = ivc_column_pool_sizes();
 
     let advice_columns: Vec<_> = (0..nb_advice_cols).map(|_| meta.advice_column()).collect();
     let fixed_columns: Vec<_> = (0..nb_fixed_cols).map(|_| meta.fixed_column()).collect();

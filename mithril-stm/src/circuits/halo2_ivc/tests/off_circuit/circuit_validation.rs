@@ -6,7 +6,7 @@ use crate::circuits::halo2_ivc::{
 };
 
 #[test]
-fn try_new_rejects_self_vk_with_wrong_degree() {
+fn validate_self_vk_degree_rejects_wrong_degree_vk() {
     // The certificate VK stored in the verification context has degree
     // CERTIFICATE_CIRCUIT_DEGREE (13) != K (19), so it is a cheap wrong-degree
     // input for validate_self_vk_degree without requiring any SRS generation.

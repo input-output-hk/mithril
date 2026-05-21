@@ -31,6 +31,10 @@ pub enum IvcCircuitError {
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.
+///
+/// Takes `IvcCircuitError` directly rather than `StmError` (unlike the `halo2` variant) because
+/// `halo2_ivc::synthesize` has no `anyhow` wrapping layer — call sites always hold the concrete
+/// type and no downcasting is needed.
 pub(crate) fn to_synthesis_error(error: IvcCircuitError) -> PlonkError {
     PlonkError::Synthesis(error.to_string())
 }

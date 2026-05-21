@@ -1,3 +1,4 @@
+use crate::StmResult;
 use anyhow::anyhow;
 
 use super::{
@@ -5,13 +6,12 @@ use super::{
     EvaluationDomain, F, K, KZGCommitmentScheme, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
     NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
     NB_SHA256_FIXED_COLS, NG, PublicInputInstructions, S, SimpleFloorPlanner, Value, VerifyingKey,
-    config::{IvcConfig, configure_ivc_circuit},
+    config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
     errors::IvcCircuitError,
     gadget::IvcGadget,
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
 };
-use crate::StmResult;
 
 #[derive(Clone, Debug)]
 pub struct IvcCircuit {
@@ -53,26 +53,14 @@ impl IvcCircuit {
     /// `try_new` and `unknown`) so that the `.expect` calls inside `configure_ivc_circuit`
     /// are guaranteed not to trigger.
     fn validate_column_counts() -> StmResult<()> {
-        let nb_advice_cols = [
-            NB_EDWARDS_COLS,
-            NB_POSEIDON_ADVICE_COLS,
-            NB_SHA256_ADVICE_COLS,
-            nb_foreign_ecc_chip_columns::<F, C, C, NG>(),
-        ]
-        .into_iter()
-        .max()
-        .unwrap_or(0);
-
-        let nb_fixed_cols = [NB_ARITH_FIXED_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_FIXED_COLS]
-            .into_iter()
-            .max()
-            .unwrap_or(0);
+        let (nb_advice_cols, nb_fixed_cols) = ivc_column_pool_sizes();
 
         for needed in [
             NB_ARITH_COLS,
             NB_EDWARDS_COLS,
             NB_POSEIDON_ADVICE_COLS,
             NB_SHA256_ADVICE_COLS,
+            nb_foreign_ecc_chip_columns::<F, C, C, NG>(),
         ] {
             if needed > nb_advice_cols {
                 return Err(anyhow!(IvcCircuitError::InsufficientAdviceColumns {
@@ -94,6 +82,12 @@ impl IvcCircuit {
         Ok(())
     }
 
+    /// Creates a new `IvcCircuit` with the given witness and proof data.
+    ///
+    /// Validates that `self_vk` has degree `K` and that the column pool allocated by
+    /// `configure_ivc_circuit` is sufficient for all chips. Returns an error containing
+    /// [`IvcCircuitError::SelfVkDegreeMismatch`] or [`IvcCircuitError::InsufficientAdviceColumns`]
+    /// / [`IvcCircuitError::InsufficientFixedColumns`] if either check fails.
     #[allow(clippy::too_many_arguments)]
     pub fn try_new(
         global: Global,

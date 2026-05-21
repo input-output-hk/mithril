@@ -47,7 +47,7 @@ fn compute_recursive_circuit_verification_key(srs_path: &Path) -> StmResult<Vec<
         MidnightVK::read(&mut non_recursive_verification_key, SerdeFormat::RawBytes)
             .with_context(|| "Failed to deserialize the circuit verification key.")?;
 
-    // Create the IVC circuit, it is initiliazed with empty public inputs and the verification key
+    // Create the IVC circuit, it is initialized with empty public inputs and the verification key
     // of the non-recursive circuit
     let default_ivc_circuit =
         IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
