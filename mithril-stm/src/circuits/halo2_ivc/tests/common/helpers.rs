@@ -272,7 +272,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
     prev_state: State,
     witness: Witness,
 ) -> IvcCircuit {
-    IvcCircuit::new(
+    IvcCircuit::try_new(
         setup.global.clone(),
         prev_state,
         witness,
@@ -282,6 +282,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
         setup.certificate_verifying_key.vk(),
         &setup.recursive_verifying_key,
     )
+    .expect("valid IvcCircuit construction")
 }
 
 /// Builds the public-input vector for a MockProver-based negative test.

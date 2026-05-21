@@ -130,7 +130,7 @@ mod slow {
             cert_accumulator,
         );
 
-        let circuit = IvcCircuit::new(
+        let circuit = IvcCircuit::try_new(
             mock_prover_setup.global.clone(),
             recursive_chain_state.state.clone(),
             ivc_witness,
@@ -139,7 +139,8 @@ mod slow {
             recursive_chain_state.accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
-        );
+        )
+        .expect("valid IvcCircuit construction");
 
         let mut accumulator_encoding = AssignedAccumulator::as_public_input(&next_accumulator);
         accumulator_encoding[0] = F::ONE;

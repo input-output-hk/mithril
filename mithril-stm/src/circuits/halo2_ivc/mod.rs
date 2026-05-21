@@ -29,6 +29,8 @@ pub(crate) use midnight_circuits::{
     hash::poseidon::{
         NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, PoseidonChip, PoseidonConfig,
     },
+    hash::sha256::NB_SHA256_ADVICE_COLS,
+    hash::sha256::NB_SHA256_FIXED_COLS,
     instructions::{
         ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
         ControlFlowInstructions, ConversionInstructions, EccInstructions, EqualityInstructions,

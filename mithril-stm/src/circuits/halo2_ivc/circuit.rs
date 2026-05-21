@@ -1,11 +1,17 @@
+use anyhow::anyhow;
+
 use super::{
-    Accumulator, BinaryInstructions, Circuit, ComposableChip, ConstraintSystem, E, Error,
-    EvaluationDomain, F, K, KZGCommitmentScheme, Layouter, PublicInputInstructions, S,
-    SimpleFloorPlanner, Value, VerifyingKey,
+    Accumulator, BinaryInstructions, C, Circuit, ComposableChip, ConstraintSystem, E, Error,
+    EvaluationDomain, F, K, KZGCommitmentScheme, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
+    NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
+    NB_SHA256_FIXED_COLS, NG, PublicInputInstructions, S, SimpleFloorPlanner, Value, VerifyingKey,
     config::{IvcConfig, configure_ivc_circuit},
+    errors::IvcCircuitError,
     gadget::IvcGadget,
+    nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
 };
+use crate::StmResult;
 
 #[derive(Clone, Debug)]
 pub struct IvcCircuit {
@@ -28,8 +34,66 @@ pub struct IvcCircuit {
 }
 
 impl IvcCircuit {
+    /// Validates that the self VK degree matches the IVC circuit degree constant K.
+    fn validate_self_vk_degree(self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>) -> StmResult<()> {
+        let actual = self_vk.get_domain().k();
+        if actual != K {
+            return Err(anyhow!(IvcCircuitError::SelfVkDegreeMismatch {
+                expected: K,
+                actual,
+            }));
+        }
+        Ok(())
+    }
+
+    /// Validates that the column pool allocated by `configure_ivc_circuit` is large enough
+    /// for every chip. Must be called before `Circuit::configure` is reached (e.g. in
+    /// `try_new` and `unknown`) so that the `.expect` calls inside `configure_ivc_circuit`
+    /// are guaranteed not to trigger.
+    fn validate_column_counts() -> StmResult<()> {
+        let nb_advice_cols = [
+            NB_EDWARDS_COLS,
+            NB_POSEIDON_ADVICE_COLS,
+            NB_SHA256_ADVICE_COLS,
+            nb_foreign_ecc_chip_columns::<F, C, C, NG>(),
+        ]
+        .into_iter()
+        .max()
+        .unwrap_or(0);
+
+        let nb_fixed_cols = [NB_ARITH_FIXED_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_FIXED_COLS]
+            .into_iter()
+            .max()
+            .unwrap_or(0);
+
+        for needed in [
+            NB_ARITH_COLS,
+            NB_EDWARDS_COLS,
+            NB_POSEIDON_ADVICE_COLS,
+            NB_SHA256_ADVICE_COLS,
+        ] {
+            if needed > nb_advice_cols {
+                return Err(anyhow!(IvcCircuitError::InsufficientAdviceColumns {
+                    needed,
+                    available: nb_advice_cols,
+                }));
+            }
+        }
+
+        for needed in [NB_ARITH_FIXED_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_FIXED_COLS] {
+            if needed > nb_fixed_cols {
+                return Err(anyhow!(IvcCircuitError::InsufficientFixedColumns {
+                    needed,
+                    available: nb_fixed_cols,
+                }));
+            }
+        }
+
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn try_new(
         global: Global,
         state: State,
         witness: Witness,
@@ -38,8 +102,9 @@ impl IvcCircuit {
         acc: Accumulator<S>,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-    ) -> Self {
-        IvcCircuit {
+    ) -> StmResult<Self> {
+        Self::validate_self_vk_degree(self_vk)?;
+        Ok(IvcCircuit {
             global: Value::known(global),
             state: Value::known(state),
             witness: Value::known(witness),
@@ -48,16 +113,17 @@ impl IvcCircuit {
             acc: Value::known(acc),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
             self_domain_cs: (self_vk.get_domain().clone(), self_vk.cs().clone()),
-        }
+        })
     }
 
-    // Create a default ivc circuit for generating ivc proving key and verifying key
-    pub fn unknown(cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>) -> Self {
+    /// Creates a default IVC circuit for generating the proving and verifying keys.
+    pub fn unknown(cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>) -> StmResult<Self> {
+        Self::validate_column_counts()?;
         let mut self_cs = ConstraintSystem::default();
         configure_ivc_circuit(&mut self_cs);
         let self_domain = EvaluationDomain::new(self_cs.degree() as u32, K);
 
-        IvcCircuit {
+        Ok(IvcCircuit {
             global: Value::unknown(),
             state: Value::unknown(),
             witness: Value::unknown(),
@@ -66,7 +132,7 @@ impl IvcCircuit {
             acc: Value::unknown(),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
             self_domain_cs: (self_domain, self_cs),
-        }
+        })
     }
 }
 
@@ -76,7 +142,16 @@ impl Circuit<F> for IvcCircuit {
     type Params = ();
 
     fn without_witnesses(&self) -> Self {
-        unreachable!()
+        IvcCircuit {
+            global: Value::unknown(),
+            state: Value::unknown(),
+            witness: Value::unknown(),
+            cert_proof: Value::unknown(),
+            self_proof: Value::unknown(),
+            acc: Value::unknown(),
+            cert_domain_cs: self.cert_domain_cs.clone(),
+            self_domain_cs: self.self_domain_cs.clone(),
+        }
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
