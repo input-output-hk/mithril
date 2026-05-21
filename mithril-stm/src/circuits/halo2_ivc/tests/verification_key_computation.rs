@@ -49,7 +49,8 @@ fn compute_recursive_circuit_verification_key(srs_path: &Path) -> StmResult<Vec<
 
     // Create the IVC circuit, it is initiliazed with empty public inputs and the verification key
     // of the non-recursive circuit
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
+    let default_ivc_circuit =
+        IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
     let recursive_verification_key: VerifyingKey<
         <BlstrsEmulation as SelfEmulation>::F,
         KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,
