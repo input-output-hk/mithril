@@ -56,7 +56,8 @@ mod golden_verification_key_test {
         let circuit_verification_key =
             midnight_zk_stdlib::setup_vk(&srs_for_non_recursive_circuit, &circuit);
 
-        let default_ivc_circuit = IvcCircuit::unknown(circuit_verification_key.vk());
+        let default_ivc_circuit =
+            IvcCircuit::unknown(circuit_verification_key.vk()).expect("valid IvcCircuit unknown");
         let recursive_verifying_key: VerifyingKey<
             <BlstrsEmulation as SelfEmulation>::F,
             KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,

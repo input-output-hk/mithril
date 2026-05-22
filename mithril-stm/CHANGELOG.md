@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.24 (05-22-2026)
+
+### Changed
+
+- Replaced infallible `IvcCircuit::new` with fallible `try_new` and `unknown` returning `StmResult` with typed `IvcCircuitError` variants.
+- Added `validate_self_vk_degree` and `validate_column_counts` pre-flight guards in the `halo2_ivc` circuit.
+- Added unit tests for `IvcCircuitError` variants in the `halo2_ivc` off-circuit test suite.
+
 ## 0.10.22 (05-21-2026)
 
 ### Added

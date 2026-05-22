@@ -120,7 +120,7 @@ fn build_recursive_chain_snapshot(
             INITIAL_CHAIN_LENGTH + 1
         );
         let recursive_step_start = Instant::now();
-        let circuit = IvcCircuit::new(
+        let circuit = IvcCircuit::try_new(
             global.clone(),
             current_state.clone(),
             artifacts.recursive_witnesses[i].clone(),
@@ -129,7 +129,8 @@ fn build_recursive_chain_snapshot(
             current_accumulator.clone(),
             context.certificate_verifying_key.vk(),
             &context.recursive_verifying_key,
-        );
+        )
+        .expect("valid IvcCircuit construction");
 
         let public_inputs = [
             global.as_public_input(),
@@ -293,7 +294,7 @@ fn build_recursive_step_output_proof(
     next_step_inputs: &NextRecursiveStepInputs,
 ) -> Vec<u8> {
     let mut recursive_step_output_random_generator = OsRng;
-    let circuit = IvcCircuit::new(
+    let circuit = IvcCircuit::try_new(
         global.clone(),
         recursive_chain_state.state.clone(),
         next_step_inputs.recursive_witness.clone(),
@@ -302,7 +303,8 @@ fn build_recursive_step_output_proof(
         recursive_chain_state.accumulator.clone(),
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
-    );
+    )
+    .expect("valid IvcCircuit construction");
     let public_inputs = [
         global.as_public_input(),
         next_step_inputs.next_state.as_public_input(),
@@ -512,7 +514,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
     let current_accumulator = trivial_acc(&combined_fixed_base_names);
     let next_accumulator = current_accumulator.clone();
 
-    let circuit = IvcCircuit::new(
+    let circuit = IvcCircuit::try_new(
         global.clone(),
         State::genesis(),
         genesis_witness,
@@ -521,7 +523,8 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         current_accumulator,
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
-    );
+    )
+    .expect("valid IvcCircuit construction");
 
     let public_inputs = [
         global.as_public_input(),
@@ -650,7 +653,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         "same-epoch next accumulator check failed"
     );
 
-    let circuit = IvcCircuit::new(
+    let circuit = IvcCircuit::try_new(
         global.clone(),
         chain_state.state.clone(),
         ivc_witness,
@@ -659,7 +662,8 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         chain_state.accumulator.clone(),
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
-    );
+    )
+    .expect("valid IvcCircuit construction");
 
     let public_inputs = [
         global.as_public_input(),

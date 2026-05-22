@@ -187,7 +187,8 @@ pub(crate) fn build_shared_recursive_context(
         &certificate_commitment_parameters,
         &setup.certificate_relation,
     );
-    let default_ivc_circuit = IvcCircuit::unknown(certificate_verifying_key.vk());
+    let default_ivc_circuit =
+        IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
     let recursive_verifying_key = keygen_vk_with_k(
         &recursive_commitment_parameters,
         &default_ivc_circuit,
@@ -209,7 +210,8 @@ pub(crate) fn build_shared_recursive_context(
 pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
-    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk());
+    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk())
+        .expect("valid IvcCircuit unknown");
     keygen_pk(
         context.recursive_verifying_key.clone(),
         &default_ivc_circuit,

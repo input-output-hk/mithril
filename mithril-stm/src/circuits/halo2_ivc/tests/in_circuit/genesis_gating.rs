@@ -38,7 +38,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::new(
+        let circuit = IvcCircuit::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -47,7 +47,8 @@ mod slow {
             mock_prover_setup.trivial_accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
-        );
+        )
+        .expect("valid IvcCircuit construction");
         assert_recursive_mock_prover_accepts_with_label(
             circuit,
             public_inputs,
@@ -68,7 +69,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::new(
+        let circuit = IvcCircuit::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -77,7 +78,8 @@ mod slow {
             mock_prover_setup.trivial_accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
-        );
+        )
+        .expect("valid IvcCircuit construction");
         assert_recursive_mock_prover_accepts_with_label(
             circuit,
             public_inputs,

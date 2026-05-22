@@ -19,8 +19,13 @@ pub struct IvcConfig {
     pub(crate) sha256_config: Sha256Config,
 }
 
-pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+/// Returns `(nb_advice_cols, nb_fixed_cols)` — the column pool sizes allocated by
+/// `configure_ivc_circuit`. Single source of truth shared with `validate_column_counts`.
+pub(crate) fn ivc_column_pool_sizes() -> (usize, usize) {
+    // unwrap_or(0) never panics: max() returns None only on an empty iterator,
+    // but both arrays are non-empty so the fallback is unreachable.
     let nb_advice_cols = [
+        NB_ARITH_COLS,
         NB_EDWARDS_COLS,
         NB_POSEIDON_ADVICE_COLS,
         NB_SHA256_ADVICE_COLS,
@@ -35,6 +40,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
         .max()
         .unwrap_or(0);
 
+    (nb_advice_cols, nb_fixed_cols)
+}
+
+pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
+    let (nb_advice_cols, nb_fixed_cols) = ivc_column_pool_sizes();
+
     let advice_columns: Vec<_> = (0..nb_advice_cols).map(|_| meta.advice_column()).collect();
     let fixed_columns: Vec<_> = (0..nb_fixed_cols).map(|_| meta.fixed_column()).collect();
     let committed_instance_column = meta.instance_column();
@@ -43,8 +54,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     let native_config = NativeChip::configure(
         meta,
         &(
-            advice_columns[..NB_ARITH_COLS].try_into().unwrap(),
-            fixed_columns[..NB_ARITH_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_ARITH_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_ARITH_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
             [committed_instance_column, instance_column],
         ),
     );
@@ -53,8 +68,12 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
         P2RDecompositionChip::configure(meta, &(native_config.clone(), pow2_config))
     };
 
-    let jubjub_config =
-        EccChip::<Jubjub>::configure(meta, &advice_columns[..NB_EDWARDS_COLS].try_into().unwrap());
+    let jubjub_config = EccChip::<Jubjub>::configure(
+        meta,
+        &advice_columns[..NB_EDWARDS_COLS]
+            .try_into()
+            .expect("column counts pre-validated by validate_column_counts"),
+    );
 
     let base_config = FieldChip::<F, CBase, C, NG>::configure(meta, &advice_columns);
     let bls12_381_config =
@@ -63,16 +82,24 @@ pub fn configure_ivc_circuit(meta: &mut ConstraintSystem<F>) -> IvcConfig {
     let poseidon_config = PoseidonChip::configure(
         meta,
         &(
-            advice_columns[..NB_POSEIDON_ADVICE_COLS].try_into().unwrap(),
-            fixed_columns[..NB_POSEIDON_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_POSEIDON_ADVICE_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_POSEIDON_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
         ),
     );
 
     let sha256_config = Sha256Chip::configure(
         meta,
         &(
-            advice_columns[..NB_SHA256_ADVICE_COLS].try_into().unwrap(),
-            fixed_columns[..NB_SHA256_FIXED_COLS].try_into().unwrap(),
+            advice_columns[..NB_SHA256_ADVICE_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
+            fixed_columns[..NB_SHA256_FIXED_COLS]
+                .try_into()
+                .expect("column counts pre-validated by validate_column_counts"),
         ),
     );
 
