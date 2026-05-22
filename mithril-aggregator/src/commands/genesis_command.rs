@@ -133,15 +133,31 @@ impl GenesisCommand {
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
-        extract_all!(
-            command_path,
-            GenesisSubCommand,
-            Export = { ExportGenesisSubCommand },
-            Import = { ImportGenesisSubCommand },
-            Sign = { SignGenesisSubCommand },
-            Bootstrap = { BootstrapGenesisSubCommand },
-            GenerateKeypair = { GenerateKeypairGenesisSubCommand },
-        )
+        #[cfg(feature = "future_snark")]
+        {
+            extract_all!(
+                command_path,
+                GenesisSubCommand,
+                Export = { ExportGenesisSubCommand },
+                Import = { ImportGenesisSubCommand },
+                Sign = { SignGenesisSubCommand },
+                Bootstrap = { BootstrapGenesisSubCommand },
+                GenerateKeypair = { GenerateKeypairGenesisSubCommand },
+                UpgradeKeyToDual = { UpgradeKeyToDualGenesisSubCommand },
+            )
+        }
+        #[cfg(not(feature = "future_snark"))]
+        {
+            extract_all!(
+                command_path,
+                GenesisSubCommand,
+                Export = { ExportGenesisSubCommand },
+                Import = { ImportGenesisSubCommand },
+                Sign = { SignGenesisSubCommand },
+                Bootstrap = { BootstrapGenesisSubCommand },
+                GenerateKeypair = { GenerateKeypairGenesisSubCommand },
+            )
+        }
     }
 }
 
@@ -162,6 +178,10 @@ pub enum GenesisSubCommand {
 
     /// Genesis keypair generation command.
     GenerateKeypair(GenerateKeypairGenesisSubCommand),
+
+    /// Upgrade a legacy single-Ed25519 genesis keypair into a dual signing/verification bundle.
+    #[cfg(feature = "future_snark")]
+    UpgradeKeyToDual(UpgradeKeyToDualGenesisSubCommand),
 }
 
 impl GenesisSubCommand {
@@ -176,6 +196,8 @@ impl GenesisSubCommand {
             Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Sign(cmd) => cmd.execute(root_logger).await,
             Self::GenerateKeypair(cmd) => cmd.execute(root_logger).await,
+            #[cfg(feature = "future_snark")]
+            Self::UpgradeKeyToDual(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -460,11 +482,52 @@ impl GenerateKeypairGenesisSubCommand {
     }
 }
 
+/// Upgrade a legacy single-Ed25519 genesis keypair into a dual signing/verification bundle.
+#[cfg(feature = "future_snark")]
+#[derive(Parser, Debug, Clone)]
+pub struct UpgradeKeyToDualGenesisSubCommand {
+    /// Legacy single-Ed25519 secret key file (genesis.sk).
+    #[clap(long)]
+    legacy_secret_key_path: PathBuf,
+
+    /// Target path for the dual signing/verification bundle files.
+    #[clap(long)]
+    target_path: PathBuf,
+}
+
+#[cfg(feature = "future_snark")]
+impl UpgradeKeyToDualGenesisSubCommand {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
+        debug!(root_logger, "UPGRADE-KEY-TO-DUAL GENESIS command");
+        println!(
+            "Upgrade legacy genesis keypair from {} to dual bundle at {}",
+            self.legacy_secret_key_path.to_string_lossy(),
+            self.target_path.to_string_lossy()
+        );
+
+        GenesisTools::upgrade_legacy_keypair_to_dual(
+            &self.legacy_secret_key_path,
+            &self.target_path,
+        )
+        .with_context(|| "genesis-tools: upgrade-key-to-dual error")?;
+
+        Ok(())
+    }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
+    #[cfg(feature = "future_snark")]
+    use mithril_common::crypto_helper::GenesisEd25519Signer;
     use mithril_common::temp_dir;
+    #[cfg(feature = "future_snark")]
+    use mithril_common::temp_dir_create;
 
     use crate::test::TestLogger;
 
@@ -549,6 +612,32 @@ mod tests {
         cmd.execute(TestLogger::stdout())
             .await
             .expect("generate-keypair should succeed with explicit era");
+        assert!(target.join("genesis.sk").exists());
+        assert!(target.join("genesis.vk").exists());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn upgrade_key_to_dual_subcommand_writes_bundle_files() {
+        let temp = temp_dir_create!();
+        let legacy_path = temp.join("genesis.sk");
+        let signer = GenesisEd25519Signer::create_deterministic_signer();
+        signer.secret_key().write_json_hex_to_file(&legacy_path).unwrap();
+        let target = temp.join("out");
+        std::fs::create_dir_all(&target).unwrap();
+
+        let cmd = UpgradeKeyToDualGenesisSubCommand::try_parse_from([
+            "upgrade-key-to-dual",
+            "--legacy-secret-key-path",
+            legacy_path.to_str().unwrap(),
+            "--target-path",
+            target.to_str().unwrap(),
+        ])
+        .unwrap();
+
+        cmd.execute(TestLogger::stdout())
+            .await
+            .expect("upgrade should succeed");
         assert!(target.join("genesis.sk").exists());
         assert!(target.join("genesis.vk").exists());
     }
