@@ -161,14 +161,37 @@ impl GenesisTools {
             .await
     }
 
-    /// Automatic bootstrap of the genesis certificate (test only)
+    /// Automatic bootstrap of the genesis certificate (test only).
+    ///
+    /// Pythagoras runs a single Ed25519 ceremony; Lagrange runs the dual ceremony with the SNARK
+    /// signer attached to the producer.
     pub async fn bootstrap_test_genesis_certificate(
         &self,
-        genesis_signer: GenesisEd25519Signer,
+        genesis_signer: GenesisSigner,
     ) -> StdResult<()> {
-        let genesis_verification_key = &genesis_signer.verification_key();
-        let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)))
-            .with_logger(self.logger.clone());
+        #[cfg(feature = "future_snark")]
+        let genesis_signer = if matches!(self.configuration.mithril_era, SupportedEra::Lagrange)
+            && genesis_signer.schnorr.is_none()
+        {
+            GenesisSigner {
+                ed25519: genesis_signer.ed25519,
+                schnorr: Some(GenesisSchnorrSigner::create_non_deterministic_signer()),
+            }
+        } else {
+            genesis_signer
+        };
+        genesis_signer.ensure_supports_era(self.configuration.mithril_era)?;
+        let ed25519_verification_key = genesis_signer.ed25519.verification_key();
+        let genesis_producer =
+            CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.ed25519)))
+                .with_logger(self.logger.clone());
+        #[cfg(feature = "future_snark")]
+        let genesis_producer = match genesis_signer.schnorr {
+            Some(schnorr_signer) => {
+                genesis_producer.with_schnorr_genesis_signer(Arc::new(schnorr_signer))
+            }
+            None => genesis_producer,
+        };
         let genesis_protocol_message = genesis_producer.create_genesis_protocol_message(
             &self.configuration.genesis_protocol_parameters,
             &self.configuration.genesis_avk,
@@ -177,8 +200,22 @@ impl GenesisTools {
         )?;
         let genesis_signature =
             genesis_producer.sign_genesis_protocol_message(genesis_protocol_message)?;
-        self.create_and_save_genesis_certificate(genesis_signature, genesis_verification_key)
+        let genesis_certificate = genesis_producer.create_genesis_certificate(
+            self.configuration.genesis_protocol_parameters.clone(),
+            self.configuration.network,
+            self.configuration.epoch,
+            self.configuration.genesis_avk.clone(),
+            genesis_signature,
+            self.configuration.mithril_era,
+        )?;
+        self.certificate_verifier
+            .verify_genesis_certificate(&genesis_certificate, &ed25519_verification_key)
+            .await?;
+        self.certificate_repository
+            .create_certificate(genesis_certificate)
             .await
+            .with_context(|| "Genesis tool can not save bootstrap genesis certificate")?;
+        Ok(())
     }
 
     /// Sign the genesis certificate offline.
@@ -323,6 +360,7 @@ mod tests {
             GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey,
             GenesisEd25519Verifier,
         },
+        entities::Certificate,
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
 
@@ -349,6 +387,18 @@ mod tests {
         Arc<GenesisEd25519Verifier>,
         Arc<dyn CertificateVerifier>,
     ) {
+        build_tools_for_era(genesis_signer, SupportedEra::Pythagoras)
+    }
+
+    fn build_tools_for_era(
+        genesis_signer: &GenesisEd25519Signer,
+        mithril_era: SupportedEra,
+    ) -> (
+        GenesisTools,
+        Arc<CertificateRepository>,
+        Arc<GenesisEd25519Verifier>,
+        Arc<dyn CertificateVerifier>,
+    ) {
         let connection = main_db_connection().unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(
@@ -362,7 +412,7 @@ mod tests {
             epoch: Epoch(10),
             genesis_avk,
             genesis_protocol_parameters: fake_data::protocol_parameters(),
-            mithril_era: SupportedEra::Pythagoras,
+            mithril_era,
         };
         let genesis_tools = GenesisTools::new(
             configuration,
@@ -431,12 +481,12 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_test_genesis_certificate_works() {
-        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
+        let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
-            build_tools(&genesis_signer);
+            build_tools(&ed25519_signer);
 
         genesis_tools
-            .bootstrap_test_genesis_certificate(genesis_signer)
+            .bootstrap_test_genesis_certificate(GenesisSigner::from_ed25519(ed25519_signer))
             .await
             .expect("bootstrap test genesis certificate should not fail");
 
@@ -503,6 +553,76 @@ mod tests {
             verification_bundle.schnorr.unwrap().to_bytes(),
             expected_schnorr_verification_key.to_bytes()
         );
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod bootstrap {
+        use mithril_common::crypto_helper::{GenesisSchnorrSigner, GenesisSigningKeyBundle};
+
+        use super::*;
+
+        fn build_dual_signer() -> (GenesisEd25519Signer, GenesisSigner) {
+            let ed25519 = GenesisEd25519Signer::create_deterministic_signer();
+            let schnorr = GenesisSchnorrSigner::create_non_deterministic_signer();
+            let bundle = GenesisSigningKeyBundle::new(ed25519.secret_key(), schnorr.secret_key());
+            (ed25519.clone(), GenesisSigner::from_bundle(bundle))
+        }
+
+        #[tokio::test]
+        async fn pythagoras_accepts_dual_signing_bundle() {
+            let (ed25519_signer, signer) = build_dual_signer();
+            let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
+                build_tools_for_era(&ed25519_signer, SupportedEra::Pythagoras);
+
+            genesis_tools
+                .bootstrap_test_genesis_certificate(signer)
+                .await
+                .expect("Pythagoras must accept a dual bundle");
+
+            let last = certificate_store.get_latest_certificates(10).await.unwrap();
+            assert_eq!(1, last.len());
+            certificate_verifier
+                .verify_genesis_certificate(&last[0], &genesis_verifier.to_verification_key())
+                .await
+                .expect("Ed25519 verification must pass");
+        }
+
+        #[tokio::test]
+        async fn lagrange_runs_dual_ceremony() {
+            let (ed25519_signer, signer) = build_dual_signer();
+            let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
+                build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
+
+            genesis_tools
+                .bootstrap_test_genesis_certificate(signer)
+                .await
+                .expect("Lagrange dual bootstrap must succeed");
+
+            let last = certificate_store.get_latest_certificates(10).await.unwrap();
+            assert_eq!(1, last.len());
+            certificate_verifier
+                .verify_genesis_certificate(&last[0], &genesis_verifier.to_verification_key())
+                .await
+                .expect("Ed25519 verification must pass on the dual variant");
+        }
+
+        #[tokio::test]
+        async fn lagrange_auto_augments_a_legacy_signer_with_a_fresh_schnorr_signer() {
+            let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
+            let (genesis_tools, certificate_store, _, _) =
+                build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
+
+            genesis_tools
+                .bootstrap_test_genesis_certificate(GenesisSigner::from_ed25519(ed25519_signer))
+                .await
+                .expect(
+                    "Lagrange bootstrap must auto-augment a legacy signer for test convenience",
+                );
+
+            let last: Vec<Certificate> =
+                certificate_store.get_latest_certificates(10).await.unwrap();
+            assert_eq!(1, last.len());
+        }
     }
 
     #[cfg(feature = "future_snark")]

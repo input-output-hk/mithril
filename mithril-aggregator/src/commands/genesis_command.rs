@@ -9,7 +9,7 @@ use slog::{Logger, debug};
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_common::{
     StdResult,
-    crypto_helper::{GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey},
+    crypto_helper::{GenesisEd25519VerificationKey, GenesisSigner},
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey, SupportedEra},
 };
 use mithril_doc::{Documenter, StructDoc};
@@ -371,10 +371,8 @@ impl BootstrapGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
-        let genesis_secret_key =
-            GenesisEd25519SecretKey::from_json_hex(&self.genesis_secret_key)
-                .with_context(|| "json hex decode of genesis secret key failure")?;
-        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
+        let genesis_signer = GenesisSigner::try_from_hex(&self.genesis_secret_key)
+            .with_context(|| "hex decode of genesis secret key failure")?;
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
@@ -440,6 +438,19 @@ mod tests {
                 "Should error when multiple eras exist and none is provided"
             );
         }
+    }
+
+    #[test]
+    fn bootstrap_subcommand_parses_era_flag() {
+        let cmd = BootstrapGenesisSubCommand::try_parse_from([
+            "bootstrap",
+            "--genesis-secret-key",
+            "deadbeef",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
     }
 
     #[test]
