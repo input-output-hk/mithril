@@ -432,6 +432,12 @@ pub struct GenerateKeypairGenesisSubCommand {
     /// Target path for the generated keypair
     #[clap(long)]
     target_path: PathBuf,
+
+    /// Mithril era to use for the generated keypair
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl GenerateKeypairGenesisSubCommand {
@@ -441,8 +447,9 @@ impl GenerateKeypairGenesisSubCommand {
             "Genesis generate keypair to {}",
             self.target_path.to_string_lossy()
         );
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
 
-        GenesisTools::create_and_save_genesis_keypair(&self.target_path, SupportedEra::Pythagoras)
+        GenesisTools::create_and_save_genesis_keypair(&self.target_path, mithril_era)
             .with_context(|| "genesis-tools: keypair generation error")?;
 
         Ok(())
@@ -524,6 +531,26 @@ mod tests {
         ])
         .expect("CLI parse should succeed");
         assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
+    }
+
+    #[tokio::test]
+    async fn generate_keypair_subcommand_parses_era_flag() {
+        let target = temp_dir!().join("keys");
+        std::fs::create_dir_all(&target).unwrap();
+        let cmd = GenerateKeypairGenesisSubCommand::try_parse_from([
+            "generate-keypair",
+            "--target-path",
+            target.to_str().unwrap(),
+            "--mithril-era",
+            &SupportedEra::Pythagoras.to_string(),
+        ])
+        .unwrap();
+
+        cmd.execute(TestLogger::stdout())
+            .await
+            .expect("generate-keypair should succeed with explicit era");
+        assert!(target.join("genesis.sk").exists());
+        assert!(target.join("genesis.vk").exists());
     }
 
     #[tokio::test]
