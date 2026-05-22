@@ -298,6 +298,12 @@ pub struct SignGenesisSubCommand {
     /// Genesis Secret Key Path
     #[clap(long)]
     genesis_secret_key_path: PathBuf,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl SignGenesisSubCommand {
@@ -308,11 +314,13 @@ impl SignGenesisSubCommand {
             self.to_sign_payload_path.to_string_lossy(),
             self.target_signed_payload_path.to_string_lossy()
         );
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
 
         GenesisTools::sign_genesis_certificate(
             &self.to_sign_payload_path,
             &self.target_signed_payload_path,
             &self.genesis_secret_key_path,
+            mithril_era,
         )
         .await
         .with_context(|| "genesis-tools: sign error")?;
@@ -432,6 +440,23 @@ mod tests {
                 "Should error when multiple eras exist and none is provided"
             );
         }
+    }
+
+    #[test]
+    fn sign_subcommand_parses_era_flag() {
+        let cmd = SignGenesisSubCommand::try_parse_from([
+            "sign",
+            "--to-sign-payload-path",
+            "/tmp/to-sign",
+            "--target-signed-payload-path",
+            "/tmp/signed",
+            "--genesis-secret-key-path",
+            "/tmp/genesis.sk",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
     }
 
     #[tokio::test]

@@ -12,13 +12,15 @@ use mithril_common::{
     CardanoNetwork, StdResult,
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
-        GenesisEd25519SecretKey, GenesisEd25519Signature, GenesisEd25519Signer,
-        GenesisEd25519VerificationKey, ProtocolAggregateVerificationKey,
+        GenesisEd25519Signature, GenesisEd25519Signer, GenesisEd25519VerificationKey,
+        GenesisSigner, ProtocolAggregateVerificationKey,
     },
     entities::{Epoch, ProtocolParameters, SupportedEra},
     protocol::SignerBuilder,
 };
 
+#[cfg(feature = "future_snark")]
+use crate::tools::GenesisSignedPayload;
 use crate::{
     database::repository::CertificateRepository,
     dependency_injection::GenesisCommandDependenciesContainer,
@@ -26,6 +28,7 @@ use crate::{
 #[cfg(feature = "future_snark")]
 use mithril_common::crypto_helper::{
     GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, ProtocolKey,
+    sha256_digest, signed_message_from_digest,
 };
 
 /// Configuration for the genesis tools.
@@ -116,7 +119,11 @@ impl GenesisTools {
         ))
     }
 
-    /// Export AVK of the genesis stake distribution to a payload file
+    /// Export AVK of the genesis stake distribution to a payload file.
+    ///
+    /// Pythagoras writes the canonical protocol-message hash bytes (hex string); Lagrange writes
+    /// the rigid protocol-message preimage so the offline sign tool can produce both the legacy
+    /// Ed25519 signature and the SNARK-friendly Schnorr signature.
     pub fn export_payload_to_sign(&self, target_path: &Path) -> StdResult<()> {
         let mut target_file = File::create(target_path)?;
         let genesis_producer =
@@ -127,7 +134,15 @@ impl GenesisTools {
             &self.configuration.epoch,
             self.configuration.mithril_era,
         )?;
-        target_file.write_all(protocol_message.compute_hash().as_bytes())?;
+        match self.configuration.mithril_era {
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                target_file.write_all(&protocol_message.rigid_preimage())?;
+            }
+            _ => {
+                target_file.write_all(protocol_message.compute_hash().as_bytes())?;
+            }
+        }
         Ok(())
     }
 
@@ -166,22 +181,47 @@ impl GenesisTools {
             .await
     }
 
-    /// Sign the genesis certificate
+    /// Sign the genesis certificate offline.
+    ///
+    /// Pythagoras signs the payload bytes with the ed25519 signer and writes the raw
+    /// Ed25519 signature. Lagrange hashes the rigid preimage with SHA-256, signs the
+    /// hex-encoded digest with the ed25519 signer (matching the `signed_message` bytes),
+    /// signs the raw digest with the SNARK signer, and writes a versioned dual-signature
+    /// envelope ([`crate::tools::GenesisSignedPayload`]).
     pub async fn sign_genesis_certificate(
         to_sign_payload_path: &Path,
         target_signed_payload_path: &Path,
         genesis_secret_key_path: &Path,
+        mithril_era: SupportedEra,
     ) -> StdResult<()> {
-        let genesis_secret_key =
-            GenesisEd25519SecretKey::read_json_hex_from_file(genesis_secret_key_path)?;
-        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
+        let genesis_signer = GenesisSigner::read_from_file(genesis_secret_key_path)?;
+        genesis_signer.ensure_supports_era(mithril_era)?;
 
-        let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();
+        let mut to_sign_payload_file = File::open(to_sign_payload_path)?;
         let mut to_sign_payload_buffer = Vec::new();
         to_sign_payload_file.read_to_end(&mut to_sign_payload_buffer)?;
 
-        let genesis_signature = genesis_signer.sign(&to_sign_payload_buffer);
-        let signed_payload = genesis_signature.to_bytes();
+        let signed_payload = match mithril_era {
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                let digest = sha256_digest(&to_sign_payload_buffer);
+                let signed_message = signed_message_from_digest(&digest);
+                let ed25519 = genesis_signer.ed25519.sign(signed_message.as_bytes());
+                let schnorr = genesis_signer
+                    .schnorr
+                    .as_ref()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Lagrange genesis sign requires a SNARK signer")
+                    })?
+                    .sign_non_deterministic(&digest)?;
+                GenesisSignedPayload::new(ed25519, schnorr).to_bytes()
+            }
+            _ => genesis_signer
+                .ed25519
+                .sign(&to_sign_payload_buffer)
+                .to_bytes()
+                .to_vec(),
+        };
 
         let mut target_signed_payload_file = File::create(target_signed_payload_path)?;
         target_signed_payload_file.write_all(&signed_payload)?;
@@ -238,14 +278,14 @@ impl GenesisTools {
             }
             #[cfg(feature = "future_snark")]
             SupportedEra::Lagrange => {
-                let concatenation = GenesisEd25519Signer::create_non_deterministic_signer();
-                let snark = GenesisSchnorrSigner::create_non_deterministic_signer();
+                let ed25519 = GenesisEd25519Signer::create_non_deterministic_signer();
+                let schnorr = GenesisSchnorrSigner::create_non_deterministic_signer();
 
                 let signing_bundle =
-                    GenesisSigningKeyBundle::new(concatenation.secret_key(), snark.secret_key());
+                    GenesisSigningKeyBundle::new(ed25519.secret_key(), schnorr.secret_key());
                 let verification_bundle = GenesisVerificationKeyBundle::new(
-                    concatenation.verification_key(),
-                    snark.verification_key(),
+                    ed25519.verification_key(),
+                    schnorr.verification_key(),
                 );
 
                 std::fs::write(
@@ -363,6 +403,7 @@ mod tests {
             &payload_path,
             &signed_payload_path,
             &genesis_secret_key_path,
+            SupportedEra::Pythagoras,
         )
         .await
         .expect("sign_genesis_certificate should not fail");
@@ -455,12 +496,126 @@ mod tests {
         let verification_bundle =
             GenesisVerificationKeyBundle::try_from_hex_or_legacy(&verification_hex)
                 .expect("verification bundle hex must round-trip");
-        let expected_snark_verification_key =
+        let expected_schnorr_verification_key =
             GenesisSchnorrSigner::from_secret_key(signing_bundle.schnorr).verification_key();
 
         assert_eq!(
             verification_bundle.schnorr.unwrap().to_bytes(),
-            expected_snark_verification_key.to_bytes()
+            expected_schnorr_verification_key.to_bytes()
         );
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod sign {
+        use std::fs;
+
+        use mithril_common::crypto_helper::{
+            GenesisSchnorrVerifier, GenesisSigner, sha256_digest, signed_message_from_digest,
+        };
+
+        use crate::tools::GenesisSignedPayload;
+
+        use super::*;
+
+        fn write_signing_key(target_dir: &Path, era: SupportedEra) -> PathBuf {
+            let (signing_key_path, _) =
+                GenesisTools::create_and_save_genesis_keypair(target_dir, era)
+                    .expect("keypair generation should not fail");
+            signing_key_path
+        }
+
+        #[tokio::test]
+        async fn lagrange_writes_dual_envelope_that_verifies_both_signatures() {
+            let temp = get_temp_dir("lagrange_sign_writes_envelope");
+            let preimage_path = temp.join("preimage.bin");
+            let signed_path = temp.join("signed.bin");
+            let signing_key_path = write_signing_key(&temp, SupportedEra::Lagrange);
+
+            let preimage = vec![0x42u8; 190];
+            fs::write(&preimage_path, &preimage).unwrap();
+
+            GenesisTools::sign_genesis_certificate(
+                &preimage_path,
+                &signed_path,
+                &signing_key_path,
+                SupportedEra::Lagrange,
+            )
+            .await
+            .expect("Lagrange sign should not fail");
+
+            let envelope_bytes = fs::read(&signed_path).unwrap();
+            let envelope = GenesisSignedPayload::try_from_bytes(&envelope_bytes)
+                .expect("envelope must round-trip");
+
+            let signer = GenesisSigner::read_from_file(&signing_key_path).unwrap();
+            let digest = sha256_digest(&preimage);
+            signer
+                .ed25519
+                .create_verifier()
+                .verify(
+                    signed_message_from_digest(&digest).as_bytes(),
+                    &envelope.ed25519,
+                )
+                .expect("Ed25519 signature must verify");
+            GenesisSchnorrVerifier::from_verification_key(
+                signer.schnorr.as_ref().unwrap().verification_key(),
+            )
+            .verify(&digest, &envelope.schnorr)
+            .expect("Schnorr signature must verify");
+        }
+
+        #[tokio::test]
+        async fn lagrange_rejects_legacy_signing_key() {
+            let temp = get_temp_dir("lagrange_sign_rejects_legacy_key");
+            let preimage_path = temp.join("preimage.bin");
+            let signed_path = temp.join("signed.bin");
+            let signing_key_path = write_signing_key(&temp, SupportedEra::Pythagoras);
+            fs::write(&preimage_path, vec![0xAAu8; 190]).unwrap();
+
+            let error = GenesisTools::sign_genesis_certificate(
+                &preimage_path,
+                &signed_path,
+                &signing_key_path,
+                SupportedEra::Lagrange,
+            )
+            .await
+            .unwrap_err();
+
+            assert!(matches!(
+                error.downcast_ref::<mithril_common::crypto_helper::GenesisBundleError>(),
+                Some(mithril_common::crypto_helper::GenesisBundleError::LegacySigningKey)
+            ));
+        }
+
+        #[tokio::test]
+        async fn pythagoras_accepts_dual_signing_bundle() {
+            let temp = get_temp_dir("pythagoras_sign_accepts_dual_bundle");
+            let payload_path = temp.join("payload.txt");
+            let signed_path = temp.join("signed.bin");
+            let signing_key_path = write_signing_key(&temp, SupportedEra::Lagrange);
+
+            let payload = b"protocol-message-hash";
+            fs::write(&payload_path, payload).unwrap();
+
+            GenesisTools::sign_genesis_certificate(
+                &payload_path,
+                &signed_path,
+                &signing_key_path,
+                SupportedEra::Pythagoras,
+            )
+            .await
+            .expect("Pythagoras sign with a dual bundle should succeed");
+
+            let signature_bytes = fs::read(&signed_path).unwrap();
+            assert_eq!(signature_bytes.len(), 64);
+
+            let signer = GenesisSigner::read_from_file(&signing_key_path).unwrap();
+            let signature = GenesisEd25519Signature::from_bytes(&signature_bytes).unwrap();
+            signer
+                .ed25519
+                .create_verifier()
+                .verify(payload, &signature)
+                .expect("Ed25519 signature must verify");
+        }
     }
 }
