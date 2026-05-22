@@ -23,6 +23,10 @@ use crate::{
     database::repository::CertificateRepository,
     dependency_injection::GenesisCommandDependenciesContainer,
 };
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::{
+    GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, ProtocolKey,
+};
 
 /// Configuration for the genesis tools.
 pub struct GenesisToolsConfiguration {
@@ -214,18 +218,52 @@ impl GenesisTools {
         Ok(())
     }
 
-    /// Export the genesis keypair to a folder and returns the paths to the files (secret key, verification_key)
-    pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
-        let genesis_signer = GenesisEd25519Signer::create_non_deterministic_signer();
+    /// Export the genesis keypair to a folder and return the paths to the files (secret key, verification key).
+    ///
+    /// Pythagoras writes the legacy single-Ed25519 JSON-hex layout; Lagrange writes a dual signing
+    /// bundle plus its matching verification bundle as bytes-hex.
+    pub fn create_and_save_genesis_keypair(
+        keypair_path: &Path,
+        mithril_era: SupportedEra,
+    ) -> StdResult<(PathBuf, PathBuf)> {
         let genesis_secret_key_path = keypair_path.join("genesis.sk");
-        genesis_signer
-            .secret_key()
-            .write_json_hex_to_file(&genesis_secret_key_path)?;
         let genesis_verification_key_path = keypair_path.join("genesis.vk");
-        genesis_signer
-            .verification_key()
-            .write_json_hex_to_file(&genesis_verification_key_path)?;
+        match mithril_era {
+            SupportedEra::Pythagoras => {
+                let signer = GenesisEd25519Signer::create_non_deterministic_signer();
+                signer.secret_key().write_json_hex_to_file(&genesis_secret_key_path)?;
+                signer
+                    .verification_key()
+                    .write_json_hex_to_file(&genesis_verification_key_path)?;
+            }
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                let concatenation = GenesisEd25519Signer::create_non_deterministic_signer();
+                let snark = GenesisSchnorrSigner::create_non_deterministic_signer();
 
+                let signing_bundle =
+                    GenesisSigningKeyBundle::new(concatenation.secret_key(), snark.secret_key());
+                let verification_bundle = GenesisVerificationKeyBundle::new(
+                    concatenation.verification_key(),
+                    snark.verification_key(),
+                );
+
+                std::fs::write(
+                    &genesis_secret_key_path,
+                    ProtocolKey::new(signing_bundle).to_bytes_hex()?,
+                )?;
+                std::fs::write(
+                    &genesis_verification_key_path,
+                    ProtocolKey::new(verification_bundle).to_bytes_hex()?,
+                )?;
+            }
+            #[cfg(not(feature = "future_snark"))]
+            SupportedEra::Lagrange => {
+                return Err(anyhow::anyhow!(
+                    "Lagrange genesis keypair generation requires the 'future_snark' build feature"
+                ));
+            }
+        }
         Ok((genesis_secret_key_path, genesis_verification_key_path))
     }
 }
@@ -234,6 +272,11 @@ impl GenesisTools {
 mod tests {
     use std::{fs::read_to_string, path::PathBuf};
 
+    #[cfg(feature = "future_snark")]
+    use mithril_common::crypto_helper::{
+        BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSigner, GenesisSigningKeyBundle,
+        GenesisVerificationKeyBundle,
+    };
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{
@@ -301,8 +344,9 @@ mod tests {
         let test_dir = get_temp_dir("export_payload_to_sign");
         let payload_path = test_dir.join("payload.txt");
         let signed_payload_path = test_dir.join("payload-signed.txt");
-        let (genesis_secret_key_path, _) = GenesisTools::create_and_save_genesis_keypair(&test_dir)
-            .expect("exporting the keypair should not fail");
+        let (genesis_secret_key_path, _) =
+            GenesisTools::create_and_save_genesis_keypair(&test_dir, SupportedEra::Pythagoras)
+                .expect("exporting the keypair should not fail");
         let genesis_secret_key = GenesisEd25519SecretKey::from_json_hex(
             &read_to_string(&genesis_secret_key_path)
                 .expect("reading genesis secret key file should not fail"),
@@ -370,10 +414,10 @@ mod tests {
     }
 
     #[test]
-    fn test_create_and_save_genesis_keypair() {
-        let temp_dir = get_temp_dir("test_create_and_save_genesis_keypair");
+    fn create_and_save_genesis_keypair_pythagoras() {
+        let temp_dir = get_temp_dir("create_and_save_genesis_keypair_pythagoras");
         let (genesis_secret_key_path, genesis_verification_key_path) =
-            GenesisTools::create_and_save_genesis_keypair(&temp_dir)
+            GenesisTools::create_and_save_genesis_keypair(&temp_dir, SupportedEra::Pythagoras)
                 .expect("Failed to create and save genesis keypair");
         let genesis_secret_key = GenesisEd25519SecretKey::from_json_hex(
             &read_to_string(&genesis_secret_key_path)
@@ -390,5 +434,33 @@ mod tests {
 
         let expected_genesis_verification_key = genesis_verifier.to_verification_key();
         assert_eq!(expected_genesis_verification_key, genesis_verification_key);
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn create_and_save_genesis_keypair_lagrange() {
+        let temp_dir = get_temp_dir("create_and_save_genesis_keypair_lagrange");
+        let (genesis_secret_key_path, genesis_verification_key_path) =
+            GenesisTools::create_and_save_genesis_keypair(&temp_dir, SupportedEra::Lagrange)
+                .expect("Failed to create and save genesis keypair");
+
+        let signing_hex = read_to_string(&genesis_secret_key_path).unwrap();
+        let verification_hex = read_to_string(&genesis_verification_key_path).unwrap();
+
+        assert_eq!(signing_hex.as_bytes()[0], BUNDLE_FIRST_HEX_CHAR);
+        assert_eq!(verification_hex.as_bytes()[0], BUNDLE_FIRST_HEX_CHAR);
+
+        let signing_bundle = GenesisSigningKeyBundle::try_from_hex(&signing_hex)
+            .expect("signing bundle hex must round-trip");
+        let verification_bundle =
+            GenesisVerificationKeyBundle::try_from_hex_or_legacy(&verification_hex)
+                .expect("verification bundle hex must round-trip");
+        let expected_snark_verification_key =
+            GenesisSchnorrSigner::from_secret_key(signing_bundle.schnorr).verification_key();
+
+        assert_eq!(
+            verification_bundle.schnorr.unwrap().to_bytes(),
+            expected_snark_verification_key.to_bytes()
+        );
     }
 }

@@ -395,7 +395,7 @@ impl GenerateKeypairGenesisSubCommand {
             self.target_path.to_string_lossy()
         );
 
-        GenesisTools::create_and_save_genesis_keypair(&self.target_path)
+        GenesisTools::create_and_save_genesis_keypair(&self.target_path, SupportedEra::Pythagoras)
             .with_context(|| "genesis-tools: keypair generation error")?;
 
         Ok(())
