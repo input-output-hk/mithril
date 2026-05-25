@@ -10,7 +10,10 @@
     "pretty:check": "prettier . --check",
     "pretty:write": "prettier . --write",
     "test": "jest --watch",
-    "test:ci": "jest --ci"
+    "test:ci": "jest --ci",
+    "generate:genesis-verification-keys": "node scripts/generate.genesis-verification-keys.js",
+    "predev": "npm run generate:genesis-verification-keys",
+    "prebuild": "npm run generate:genesis-verification-keys"
   },
   "dependencies": {
     "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm",
