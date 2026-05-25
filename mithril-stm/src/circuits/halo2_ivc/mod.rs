@@ -87,7 +87,6 @@ pub(crate) const CERT_VK_NAME: &str = "cert_vk";
 pub(crate) const IVC_ONE_NAME: &str = "ivc_one_vk";
 
 pub(crate) const DST_UNIQUE_SIGNATURE: JubjubBase = JubjubBase::from_raw([2, 2, 0, 0]);
-pub(crate) const DST_SCHNORR_SIGNATURE: JubjubBase = JubjubBase::from_raw([2, 3, 0, 0]);
 
 type JubjubHashToCurve = HashToCurveGadget<
     JubjubBase,

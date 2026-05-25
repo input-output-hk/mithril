@@ -19,13 +19,7 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::helpers::{
     merkle_tree::{MTLeaf as MerkleTreeLeaf, MerkleTree},
     protocol_message::AggregateVerificationKey,
-    signatures::{
-        schnorr_signature::{
-            Signature as SchnorrSignature, SigningKey as SchnorrSigningKey,
-            VerificationKey as SchnorrVerificationKey,
-        },
-        unique_signature::VerificationKey,
-    },
+    signatures::unique_signature::VerificationKey,
     utils::jubjub_base_from_le_bytes,
 };
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
@@ -33,7 +27,7 @@ use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
 };
 use crate::signature_scheme::{
-    SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
+    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, StandardSchnorrSignature,
 };
 
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
@@ -93,13 +87,13 @@ pub(crate) struct AssetGenerationSetup {
     /// Hash of the deterministic genesis protocol message.
     pub(crate) genesis_message: F,
     /// Deterministic trusted genesis signature.
-    pub(crate) genesis_signature: SchnorrSignature,
+    pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Deterministic signer-membership Merkle tree.
     pub(crate) merkle_tree: MerkleTree,
     /// Leaves committed into the deterministic signer-membership tree.
     pub(crate) merkle_tree_leaves: Vec<MerkleTreeLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
-    pub(crate) signing_keys: Vec<StmSchnorrSigningKey>,
+    pub(crate) signing_keys: Vec<SchnorrSigningKey>,
     /// Aggregate verification key committed into the generated protocol messages.
     pub(crate) aggregate_verification_key: AggregateVerificationKey,
     /// Deterministic next Merkle root committed by the genesis message.
@@ -128,12 +122,12 @@ pub(crate) struct SharedRecursiveContext {
 fn build_merkle_tree(
     random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
-) -> (Vec<StmSchnorrSigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
+) -> (Vec<SchnorrSigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
     let mut signing_keys = Vec::with_capacity(signer_count);
     let mut merkle_tree_leaves = Vec::with_capacity(signer_count);
     for _ in 0..signer_count {
-        let signing_key = StmSchnorrSigningKey::generate(random_generator);
-        let schnorr_vk = StmSchnorrVerificationKey::new_from_signing_key(signing_key.clone());
+        let signing_key = SchnorrSigningKey::generate(random_generator);
+        let schnorr_vk = SchnorrVerificationKey::new_from_signing_key(signing_key.clone());
         // Shim: StmSchnorrVerificationKey wraps PrimeOrderProjectivePoint(JubjubSubgroup).
         // helpers::VerificationKey also wraps JubjubSubgroup — unwrap the newtype chain.
         // TODO(WS3): remove once helpers::MerkleTree is replaced with the STM equivalent.
@@ -277,7 +271,8 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         AggregateVerificationKey::new(merkle_tree.to_merkle_tree_commitment(), total_stake);
 
     let genesis_signing_key = SchnorrSigningKey::generate(&mut rng);
-    let genesis_verification_key = SchnorrVerificationKey::from(&genesis_signing_key);
+    let genesis_verification_key =
+        SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
     let genesis_next_merkle_root = merkle_tree.root();
     let genesis_next_protocol_params = F::from(7u64);
@@ -292,9 +287,12 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         jubjub_base_from_le_bytes(&message_hash)
     };
 
-    let genesis_signature = genesis_signing_key.sign(&[genesis_message], &mut rng);
+    let genesis_message_base = BaseFieldElement::from(genesis_message);
+    let genesis_signature = genesis_signing_key
+        .sign_standard(&[genesis_message_base], &mut rng)
+        .expect("deterministic genesis signature should be produced");
     genesis_signature
-        .verify(&[genesis_message], &genesis_verification_key)
+        .verify(&[genesis_message_base], &genesis_verification_key)
         .expect("deterministic genesis signature should verify");
 
     AssetGenerationSetup {

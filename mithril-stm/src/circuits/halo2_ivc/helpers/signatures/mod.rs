@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-pub mod schnorr_signature;
 pub mod unique_signature;
 
 #[derive(Debug, Error)]

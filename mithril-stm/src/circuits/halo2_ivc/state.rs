@@ -3,9 +3,7 @@ use super::{
     AssignedVk, C, ConstraintSystem, E, F, Instantiable, Jubjub, KZGCommitmentScheme, Msm,
     PREIMAGE_SIZE, S, VerifyingKey, verifier,
 };
-use crate::circuits::halo2_ivc::helpers::signatures::schnorr_signature::{
-    Signature as SchnorrSignature, VerificationKey as SchnorrVerificationKey,
-};
+use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 use ff::Field;
 use group::Group;
 use std::collections::BTreeMap;
@@ -124,7 +122,8 @@ impl Global {
     pub fn as_public_input(&self) -> Vec<F> {
         [
             vec![self.genesis_msg],
-            AssignedNativePoint::<Jubjub>::as_public_input(&self.genesis_vk.0),
+            // TODO(WS7): replace .0.0 with a named accessor on SchnorrVerificationKey once the type boundary is reworked
+            AssignedNativePoint::<Jubjub>::as_public_input(&self.genesis_vk.0.0),
             vec![self.cert_vk_repr, self.self_vk_repr],
         ]
         .concat()
@@ -144,7 +143,7 @@ pub struct AssignedGlobal {
 
 #[derive(Clone, Debug)]
 pub struct Witness {
-    pub(crate) genesis_sig: SchnorrSignature,
+    pub(crate) genesis_sig: StandardSchnorrSignature,
     pub(crate) cert_msg: F,
     pub(crate) cert_merkle_root: F,
     // Protocol msg preimage bytes
@@ -153,7 +152,7 @@ pub struct Witness {
 
 impl Witness {
     pub fn new(
-        genesis_sig: SchnorrSignature,
+        genesis_sig: StandardSchnorrSignature,
         cert_merkle_root: F,
         cert_msg: F,
         msg_preimage: [u8; PREIMAGE_SIZE],
