@@ -137,5 +137,14 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (5, 'Cardano Blocks and Transactions');
         "#,
         ),
+        // Migration 9
+        // Drop support for `CardanoImmutableFilesFull` signed entity type.
+        SqlMigration::new(
+            9,
+            r#"
+delete from signed_beacon where signed_beacon.signed_entity_type_id = 2;
+delete from signed_entity_type where signed_entity_type.signed_entity_type_id = 2;
+            "#,
+        ),
     ]
 }

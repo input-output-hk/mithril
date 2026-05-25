@@ -21,9 +21,6 @@ pub struct FakeAggregatorData {
     certificates_list: FileContent,
     individual_certificates: BTreeMap<ArtifactId, FileContent>,
 
-    snapshots_list: FileContent,
-    individual_snapshots: BTreeMap<ArtifactId, FileContent>,
-
     mithril_stake_distributions_list: FileContent,
     individual_mithril_stake_distributions: BTreeMap<ArtifactId, FileContent>,
 
@@ -33,6 +30,7 @@ pub struct FakeAggregatorData {
 
     cardano_blocks_transactions_snapshots_list: FileContent,
     individual_cardano_blocks_transactions_snapshots: BTreeMap<ArtifactId, FileContent>,
+
     cardano_block_proofs: BTreeMap<ArtifactId, FileContent>,
     cardano_transaction_v2_proofs: BTreeMap<ArtifactId, FileContent>,
 
@@ -66,9 +64,6 @@ impl FakeAggregatorData {
                 "mithril-stake-distributions-list.json" => {
                     data.mithril_stake_distributions_list = file_content;
                 }
-                "snapshots-list.json" => {
-                    data.snapshots_list = file_content;
-                }
                 "cardano-stake-distributions-list.json" => {
                     data.cardano_stake_distributions_list = file_content;
                 }
@@ -87,9 +82,6 @@ impl FakeAggregatorData {
                 "mithril-stake-distributions.json" => {
                     data.individual_mithril_stake_distributions =
                         Self::read_artifacts_json_file(&entry.path());
-                }
-                "snapshots.json" => {
-                    data.individual_snapshots = Self::read_artifacts_json_file(&entry.path());
                 }
                 "cardano-stake-distributions.json" => {
                     data.individual_cardano_stake_distributions =
@@ -136,10 +128,6 @@ impl FakeAggregatorData {
 
         Self::assemble_code(
             &[
-                generate_ids_array(
-                    "snapshot_digests",
-                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned()),
-                ),
                 generate_ids_array(
                     "mithril_stake_distribution_hashes",
                     BTreeSet::from_iter(
@@ -207,12 +195,6 @@ impl FakeAggregatorData {
             &[
                 generate_list_getter("status", self.status),
                 generate_list_getter("epoch_settings", self.epoch_settings),
-                generate_ids_array(
-                    "snapshot_digests",
-                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned()),
-                ),
-                generate_artifact_getter("snapshots", self.individual_snapshots),
-                generate_list_getter("snapshot_list", self.snapshots_list),
                 generate_ids_array(
                     "mithril_stake_distribution_hashes",
                     BTreeSet::from_iter(

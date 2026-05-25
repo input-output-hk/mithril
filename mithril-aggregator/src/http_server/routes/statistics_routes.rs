@@ -6,25 +6,10 @@ use crate::http_server::routes::{MAX_CONTENT_LENGTH, middlewares};
 pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
-    post_statistics(router_state)
-        .or(post_cardano_database_immutable_files_restored(router_state))
+    post_cardano_database_immutable_files_restored(router_state)
         .or(post_cardano_database_ancillary_files_restored(router_state))
         .or(post_cardano_database_complete_restoration(router_state))
         .or(post_cardano_database_partial_restoration(router_state))
-}
-
-/// POST /statistics/snapshot
-fn post_statistics(
-    router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
-    warp::path!("statistics" / "snapshot")
-        .and(warp::post())
-        .and(middlewares::with_client_metadata(router_state))
-        .and(middlewares::json_with_max_length(MAX_CONTENT_LENGTH))
-        .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_event_transmitter(router_state))
-        .and(middlewares::with_metrics_service(router_state))
-        .and_then(handlers::post_snapshot_statistics)
 }
 
 /// POST /statistics/cardano-database/immutable-files-restored
@@ -83,46 +68,12 @@ mod handlers {
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
-    use mithril_common::messages::{
-        CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
-    };
+    use mithril_common::messages::CardanoDatabaseImmutableFilesRestoredMessage;
 
     use crate::MetricsService;
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
-
-    pub async fn post_snapshot_statistics(
-        client_metadata: ClientMetadata,
-        snapshot_download_message: SnapshotDownloadMessage,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
-        metrics_service: Arc<MetricsService>,
-    ) -> Result<impl warp::Reply, Infallible> {
-        metrics_service
-            .get_cardano_immutable_files_full_total_restoration_since_startup()
-            .increment(&[
-                client_metadata.origin_tag.as_deref().unwrap_or_default(),
-                client_metadata.client_type.as_deref().unwrap_or_default(),
-            ]);
-
-        let headers: Vec<(&str, &str)> = Vec::new();
-
-        let message = EventMessage::new(
-            "HTTP::statistics",
-            "snapshot_downloaded",
-            &snapshot_download_message,
-            headers,
-        );
-
-        match event_transmitter.try_send(message.clone()) {
-            Err(e) => {
-                warn!(logger, "Event message error"; "error" => ?e);
-                Ok(reply::internal_server_error(e))
-            }
-            Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
-        }
-    }
 
     pub async fn post_cardano_database_immutable_files_restored(
         client_metadata: ClientMetadata,
@@ -229,9 +180,7 @@ mod tests {
     };
 
     use mithril_api_spec::APISpec;
-    use mithril_common::messages::{
-        CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
-    };
+    use mithril_common::messages::CardanoDatabaseImmutableFilesRestoredMessage;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, temp_dir, test::double::Dummy,
     };
@@ -254,68 +203,6 @@ mod tests {
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
         warp::any().and(routes(&state).with(cors))
-    }
-
-    #[tokio::test]
-    async fn post_statistics_ok() {
-        let (dependency_manager, mut rx) = setup_dependencies(temp_dir!()).await;
-        let snapshot_download_message = SnapshotDownloadMessage::dummy();
-
-        let method = Method::POST.as_str();
-        let path = "/statistics/snapshot";
-
-        let response = request()
-            .method(method)
-            .json(&snapshot_download_message)
-            .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
-                dependency_manager,
-            )))
-            .await;
-
-        let result = APISpec::verify_conformity(
-            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
-            method,
-            path,
-            "application/json",
-            &snapshot_download_message,
-            &response,
-            &StatusCode::CREATED,
-        );
-
-        let _ = rx.try_recv().unwrap();
-        result.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_post_statistics_increments_cardano_db_total_restoration_since_startup_metric() {
-        let method = Method::POST.as_str();
-        let path = "/statistics/snapshot";
-        let dependency_manager = Arc::new(initialize_dependencies!().await);
-        let initial_counter_value = dependency_manager
-            .metrics_service
-            .get_cardano_immutable_files_full_total_restoration_since_startup()
-            .get(&["TEST", "CLI"]);
-
-        request()
-            .method(method)
-            .json(&SnapshotDownloadMessage::dummy())
-            .path(path)
-            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
-            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
-            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
-                dependency_manager.clone(),
-                &["TEST"],
-            )))
-            .await;
-
-        assert_eq!(
-            initial_counter_value + 1,
-            dependency_manager
-                .metrics_service
-                .get_cardano_immutable_files_full_total_restoration_since_startup()
-                .get(&["TEST", "CLI"])
-        );
     }
 
     mod post_cardano_database_immutable_files_restored {

@@ -291,14 +291,13 @@ impl InternalArtifactProver {
 
     pub async fn verify_cardano_database(
         &self,
-        certificate: &CertificateMessage,
+        _certificate: &CertificateMessage,
         cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
         immutable_file_range: &ImmutableFileRange,
         allow_missing: bool,
         database_dir: &Path,
         verified_digests: &VerifiedDigests,
     ) -> Result<MKProof, CardanoDatabaseVerificationError> {
-        let network = certificate.metadata.network.clone();
         let immutable_file_number_range = immutable_file_range
             .to_range_inclusive(cardano_database_snapshot.beacon.immutable_file_number)
             .map_err(CardanoDatabaseVerificationError::ImmutableFilesRangeCreation)?;
@@ -307,7 +306,7 @@ impl InternalArtifactProver {
         } else {
             Self::list_missing_immutable_files(database_dir, &immutable_file_number_range)
         };
-        let immutable_digester = CardanoImmutableDigester::new(network, None, self.logger.clone());
+        let immutable_digester = CardanoImmutableDigester::new(None, self.logger.clone());
         let computed_digest_entries = immutable_digester
             .compute_digests_for_range(database_dir, &immutable_file_number_range)
             .await?
@@ -1097,8 +1096,7 @@ mod tests {
                 .append_immutable_trio()
                 .build();
             let database_dir = cardano_db.get_dir();
-            let immutable_digester =
-                CardanoImmutableDigester::new("whatever".to_string(), None, TestLogger::stdout());
+            let immutable_digester = CardanoImmutableDigester::new(None, TestLogger::stdout());
             let computed_digests = immutable_digester
                 .compute_digests_for_range(database_dir, immutable_file_range)
                 .await

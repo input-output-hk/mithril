@@ -27,7 +27,7 @@ use mithril_cardano_node_chain::{
 };
 use mithril_cardano_node_internal_database::{
     ImmutableFileObserver,
-    signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
+    signable_builder::CardanoDatabaseSignableBuilder,
     test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
 };
 use mithril_common::{
@@ -217,12 +217,6 @@ impl StateMachineTester {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
-        let cardano_immutable_snapshot_builder =
-            Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
-                digester.clone(),
-                Path::new(""),
-                logger.clone(),
-            ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let block_scanner = Arc::new(DumbBlockScanner::new());
@@ -280,7 +274,6 @@ impl StateMachineTester {
         ));
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
-            cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,

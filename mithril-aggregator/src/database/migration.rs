@@ -320,5 +320,17 @@ delete from signed_entity where signed_entity.signed_entity_type_id = 5;
 delete from certificate where certificate.signed_entity_type_id = 5;
         "#,
         ),
+        // Migration 43
+        // Drop support for `CardanoImmutableFilesFull` signed entity type.
+        SqlMigration::new(
+            43,
+            r#"
+delete from signed_entity where signed_entity.signed_entity_type_id = 2;
+delete from certificate where certificate.signed_entity_type_id = 2;
+delete from open_message where open_message.signed_entity_type_id = 2;
+delete from buffered_single_signature where buffered_single_signature.signed_entity_type_id = 2;
+delete from signed_entity_type where signed_entity_type.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }

@@ -116,8 +116,8 @@ MITHRIL_PROTOCOL_PARAMETERS_K=5 MITHRIL_PROTOCOL_PARAMETERS_M=100 MITHRIL_PROTOC
 
 # Run devnet with custom signed entity types
 # Mithril Signed Entity Types: comma separated list of signed entity types the aggregator must sign
-# (defaults to 'CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase')
-MITHRIL_SIGNED_ENTITY_TYPES=CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase ./devnet-run.sh
+# (defaults to 'CardanoTransactions,CardanoStakeDistribution,CardanoDatabase')
+MITHRIL_SIGNED_ENTITY_TYPES=CardanoTransactions,CardanoStakeDistribution,CardanoDatabase ./devnet-run.sh
 
 # Logs devnet
 ARTIFACTS_DIR=artifacts LINES=10 ./devnet-log.sh

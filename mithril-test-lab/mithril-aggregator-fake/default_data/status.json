@@ -1,10 +1,10 @@
 {
-  "epoch": 16,
+  "epoch": 24,
   "cardano_era": "Conway",
   "cardano_network": "devnet",
   "mithril_era": "pythagoras",
   "cardano_node_version": "11.0.1",
-  "aggregator_node_version": "0.8.40",
+  "aggregator_node_version": "0.8.53",
   "protocol": {
     "k": 70,
     "m": 105,

@@ -289,9 +289,6 @@ mod test {
                     SignedEntityType::CardanoStakeDistribution(epoch) => {
                         format!("cardano-stake-distribution-{epoch}")
                     }
-                    SignedEntityType::CardanoImmutableFilesFull(beacon) => {
-                        format!("snapshot-{}-{}", beacon.epoch, beacon.immutable_file_number)
-                    }
                     SignedEntityType::CardanoTransactions(epoch, block_number) => {
                         format!("cardano-transactions-{epoch}-{block_number}",)
                     }
@@ -554,7 +551,7 @@ mod test {
                     "old_hash_2",
                     "old_genesis",
                     time_at(1, 3),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
                 dummy_certificate(
                     "old_hash_3",
@@ -566,19 +563,19 @@ mod test {
                     "old_hash_4",
                     "old_hash_3",
                     time_at(2, 4),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
                 dummy_certificate(
                     "old_hash_5",
                     "old_hash_3",
                     time_at(3, 5),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
                 dummy_certificate(
                     "old_hash_6",
                     "old_hash_5",
                     time_at(4, 6),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
             ],
         )
@@ -602,7 +599,7 @@ mod test {
                     "old_hash_2",
                     "old_genesis",
                     time_at(1, 3),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
                 dummy_genesis("old_genesis_2", time_at(3, 5)),
                 dummy_certificate(
@@ -615,7 +612,7 @@ mod test {
                     "old_hash_4",
                     "old_hash_3",
                     time_at(5, 7),
-                    Type::CardanoImmutableFilesFull,
+                    Type::CardanoDatabase,
                 ),
                 dummy_genesis("old_genesis_3", time_at(5, 7)),
                 dummy_certificate(

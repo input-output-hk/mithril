@@ -9,6 +9,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- **REMOVED** support for `CardanoImmutableFilesFull` in Mithril signer and aggregator:
+  - Use `CardanoDatabase` (also known as "cardano database v2") instead, which supports partial database restoration and
+    verification of existing databases.
+  - Signers no longer send signatures for this certificate type.
+  - Aggregators no longer aggregate signatures for this certificate type.
+  - Aggregators will discard signatures of this type received from older signers.
+
 - Support for `Cardano node` `11.0.1` in the signer and the aggregator.
 
 - Added a new internal crate `mithril-merkle-tree` for the implementation of Merkle tree and merkelized map primitives used by Mithril nodes.

@@ -202,11 +202,10 @@ pub trait ConfigurationSource {
         panic!("ancillary_files_signer_config is not implemented.");
     }
 
-    /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
-    /// separated list).
+    /// Signed entity types parameters (discriminants names in an ordered, case-sensitive,
+    /// comma-separated list).
     ///
-    /// The values `MithrilStakeDistribution` and `CardanoImmutableFilesFull` are prepended
-    /// automatically to the list.
+    /// The value `MithrilStakeDistribution` is prepended automatically to the list.
     fn signed_entity_types(&self) -> Option<String> {
         panic!("signed_entity_types is not implemented.");
     }
@@ -583,7 +582,7 @@ pub struct ServeCommandConfiguration {
     /// separated list).
     ///
     /// The value `MithrilStakeDistribution` is prepended is automatically to the list.
-    #[example = "`CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`"]
+    #[example = "`CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`"]
     pub signed_entity_types: Option<String>,
 
     /// Compression algorithm used for the snapshot archive artifacts.

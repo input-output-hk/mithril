@@ -36,7 +36,7 @@ impl
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{CardanoDbBeacon, Epoch};
+    use mithril_common::entities::Epoch;
     use mithril_common::test::double::fake_data;
 
     use super::*;
@@ -59,19 +59,5 @@ mod tests {
             SignedEntityType::MithrilStakeDistribution(Epoch(6)),
             message.signed_entity_type
         );
-    }
-
-    #[test]
-    fn adapt_cardano_immutable_files_full_message() {
-        let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(6, 54));
-        let message: RegisterSignatureMessageHttp = ToRegisterSignatureMessageAdapter::try_adapt((
-            signed_entity_type.clone(),
-            fake_data::single_signature([1, 3].to_vec()),
-            &ProtocolMessage::default(),
-        ))
-        .unwrap();
-
-        assert_eq!(signed_entity_type, message.signed_entity_type);
     }
 }

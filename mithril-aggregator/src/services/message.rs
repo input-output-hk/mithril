@@ -18,7 +18,7 @@ use mithril_common::{
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateListMessage, CertificateMessage, EpochSettingsMessage,
         MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
-        ProtocolConfigurationMessage, SignerMessagePart, SnapshotListMessage, SnapshotMessage,
+        ProtocolConfigurationMessage, SignerMessagePart,
     },
 };
 
@@ -58,16 +58,6 @@ pub trait MessageService: Sync + Send {
     /// Return the message representation of the last N certificates.
     async fn get_certificate_list_message(&self, limit: usize)
     -> StdResult<CertificateListMessage>;
-
-    /// Return the information regarding the given snapshot.
-    async fn get_snapshot_message(
-        &self,
-        signed_entity_id: &str,
-    ) -> StdResult<Option<SnapshotMessage>>;
-
-    /// Return the list of the last signed snapshots. The limit of the list is
-    /// passed as argument.
-    async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage>;
 
     /// Return the information regarding the Cardano database for the given identifier.
     async fn get_cardano_database_message(
@@ -276,31 +266,6 @@ impl MessageService for MithrilMessageService {
         limit: usize,
     ) -> StdResult<CertificateListMessage> {
         self.certificate_repository.get_latest_certificates(limit).await
-    }
-
-    async fn get_snapshot_message(
-        &self,
-        signed_entity_id: &str,
-    ) -> StdResult<Option<SnapshotMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(
-                signed_entity_id,
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            )
-            .await?;
-
-        signed_entity.map(|s| s.try_into()).transpose()
-    }
-
-    async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage> {
-        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoImmutableFilesFull;
-        let entities = self
-            .signed_entity_storer
-            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
-            .await?;
-
-        entities.into_iter().map(|i| i.try_into()).collect()
     }
 
     async fn get_cardano_database_message(
@@ -1138,78 +1103,6 @@ mod tests {
         }
     }
 
-    mod snapshot {
-        use super::*;
-
-        #[tokio::test]
-        async fn get_snapshot_not_exist() {
-            let service = MessageServiceBuilder::new().build().await;
-            let snapshot = service.get_snapshot_message("whatever").await.unwrap();
-
-            assert!(snapshot.is_none());
-        }
-
-        #[tokio::test]
-        async fn get_snapshot() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
-                created_at: Default::default(),
-            };
-            let message: SnapshotMessage = record.clone().try_into().unwrap();
-
-            let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(std::slice::from_ref(&record))
-                .build()
-                .await;
-
-            let response = service
-                .get_snapshot_message(&record.signed_entity_id)
-                .await
-                .unwrap()
-                .expect("A SnapshotMessage was expected.");
-
-            assert_eq!(message, response);
-        }
-
-        #[tokio::test]
-        async fn get_snapshot_list_message() {
-            let records = vec![
-                SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id-1".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                        fake_data::beacon(),
-                    ),
-                    certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
-                    created_at: Default::default(),
-                },
-                SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id-2".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
-                    certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
-                        .unwrap(),
-                    created_at: Default::default(),
-                },
-            ];
-            let message: SnapshotListMessage = vec![records[0].clone().try_into().unwrap()];
-
-            let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&records)
-                .build()
-                .await;
-
-            let response = service.get_snapshot_list_message(0).await.unwrap();
-            assert!(response.is_empty());
-
-            let response = service.get_snapshot_list_message(3).await.unwrap();
-            assert_eq!(message, response);
-        }
-    }
-
     mod cardano_database {
         use super::*;
 
@@ -1259,8 +1152,8 @@ mod tests {
                 },
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                        fake_data::beacon(),
+                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                        fake_data::beacon().epoch,
                     ),
                     certificate_id: "cert_id-2".to_string(),
                     artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
@@ -1299,9 +1192,7 @@ mod tests {
                 // Another signed entity type on the same epoch
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
-                        CardanoDbBeacon::new(3, 100),
-                    ),
+                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(3)),
                     certificate_id: "cert_id-2".to_string(),
                     artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
                     created_at: Default::default(),

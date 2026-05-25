@@ -35,8 +35,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .with_legacy_ledger_snapshots(&[437, 537, 637])
         .with_volatile_files(&["blocks-0.dat", "blocks-1.dat"])
         .build();
-    let digester =
-        CardanoImmutableDigester::new("whatever".to_string(), None, extensions::test_logger());
+    let digester = CardanoImmutableDigester::new(None, extensions::test_logger());
     let range = 1..=4;
     let fake_aggregator = FakeAggregator::spawn_with_cardano_db_snapshot(
         CardanoDatabaseSnapshotV2Fixture {

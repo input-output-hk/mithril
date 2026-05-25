@@ -200,7 +200,7 @@ impl SignedEntityStorer for SignedEntityStore {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{CardanoDbBeacon, Epoch, MithrilStakeDistribution, Snapshot},
+        entities::{CardanoDatabaseSnapshot, CardanoDbBeacon, Epoch, MithrilStakeDistribution},
         signable_builder::SignedEntity,
         test::double::fake_data,
     };
@@ -212,21 +212,55 @@ mod tests {
     fn insert_golden_signed_entities(connection: &SqliteConnection) {
         connection
             .execute(r#"
-            -- Cardano immutable file full
+            -- Cardano database
             insert into signed_entity values(
-                'bfcd77e372a25e13353bb77697d0d08785ba98b703e22640a317c5054dc05fb1',
-                2,
-                '258edf0f1238c60985d0229869a6d4c4c635c118915b4d524d2686515be99946',
-                '{"epoch":142,"immutable_file_number":2847}',
-                '2023-05-09T13:11:15Z',
+                '1b36382a862fa97d5c9498da3fecb08d86418dd44fc12057e0e9da9564646cd0',
+                4,
+                '620ae2301b0deaf5b73233a2d73ecd818d6ccc28533c913cdac1e215c15b0b30',
+                '{"epoch":632,"immutable_file_number":8687}',
+                '2026-05-20T10:17:57.441865924+00:00',
                 '{
-                    "digest":"bfcd77e372a25e13353bb77697d0d08785ba98b703e22640a317c5054dc05fb1",
-                    "network":"preview",
-                    "beacon":{"epoch":142,"immutable_file_number":2847},
-                    "size":1689696245,
-                    "locations":["https://storage.googleapis.com/mithril-testing-preview-cs/preview-e142-i2847.bfcd77e372a25e13353bb77697d0d08785ba98b703e22640a317c5054dc05fb1.tar.gz"],
-                    "compression_algorithm":"gzip",
-                    "cardano_node_version": "0.0.1"
+                    "type":"CardanoDatabaseSnapshot",
+                    "hash":"1b36382a862fa97d5c9498da3fecb08d86418dd44fc12057e0e9da9564646cd0",
+                    "merkle_root":"7dbb1a8074da5eddbe00124d109973a289cf361c49d40a82f8e949e323a017e6",
+                    "network":"MainNet",
+                    "beacon":{"epoch":632,"immutable_file_number":8687},
+                    "total_db_size_uncompressed":233619879587,
+                    "digests":{
+                        "size_uncompressed":3023425,
+                        "locations":[
+                            {
+                                "type":"cloud_storage",
+                                "uri":"https://storage.googleapis.com/cdn.aggregator.release-mainnet.api.mithril.network/cardano-database/digests/mainnet-e632-i8687.digests.tar.zst",
+                                "compression_algorithm":"zstandard"
+                            },
+                            {
+                                "type":"aggregator",
+                                "uri":"https://aggregator.release-mainnet.api.mithril.network/aggregator/artifact/cardano-database/digests"
+                            }
+                        ]
+                    },
+                    "immutables": {
+                        "average_size_uncompressed":26275394,
+                        "locations": [
+                            {
+                                "type":"cloud_storage",
+                                "uri":{"Template":"https://storage.googleapis.com/cdn.aggregator.release-mainnet.api.mithril.network/cardano-database/immutable/{immutable_file_number}.tar.zst"},
+                                "compression_algorithm":"zstandard"
+                            }
+                        ]
+                    },
+                    "ancillary":{
+                        "size_uncompressed":5365523345,
+                        "locations":[
+                            {
+                                "type":"cloud_storage",
+                                "uri":"https://storage.googleapis.com/cdn.aggregator.release-mainnet.api.mithril.network/cardano-database/ancillary/mainnet-e632-i8687.ancillary.tar.zst",
+                                "compression_algorithm":"zstandard"
+                            }
+                        ]
+                    },
+                    "cardano_node_version":"10.7.1"
                 }'
             );
 
@@ -264,9 +298,9 @@ mod tests {
         insert_golden_signed_entities(&connection);
 
         let store = SignedEntityStore::new(Arc::new(connection));
-        let cardano_immutable_files_fulls: Vec<SignedEntity<Snapshot>> = store
+        let cardano_immutable_files_fulls: Vec<SignedEntity<CardanoDatabaseSnapshot>> = store
             .get_last_signed_entities_by_type(
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
                 usize::MAX,
             )
             .await
@@ -353,7 +387,7 @@ mod tests {
 
         let stored_records = store
             .get_last_signed_entities_by_type(
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
                 usize::MAX,
             )
             .await

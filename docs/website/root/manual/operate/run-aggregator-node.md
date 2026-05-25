@@ -254,7 +254,7 @@ The configuration values for the `/opt/mithril/mithril-aggregator.env` file are 
 
 **Base configuration** values are:
 
-- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (eg, `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
+- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (eg, `MithrilStakeDistribution,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
 - `SERVER_PORT`: Listening server port (default: `8080`)
 - `PUBLIC_SERVER_URL`: Public URL of your aggregator (eg, `https://aggregator.example.com/aggregator`)
 - `LEADER_AGGREGATOR_ENDPOINT`: Endpoint of the leader aggregator to synchronize with (required for follower aggregators, can be found in the [Network configurations](../getting-started/network-configurations.md))

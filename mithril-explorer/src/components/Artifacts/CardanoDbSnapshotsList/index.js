@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
-import ArtifactTitle from "#/Artifacts/ArtifactTitle";
+import { Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
+import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
-import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import QuestionTooltip from "#/QuestionTooltip";
-import { selectedAggregator } from "@/store/settingsSlice";
+import RawJsonButton from "#/RawJsonButton";
 import { formatBytes } from "@/utils";
+import DownloadButton from "./DownloadButton";
+import { selectedAggregator } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoDbSnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/snapshots`,
+    (state) => `${selectedAggregator(state)}/artifact/cardano-database`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
@@ -62,43 +62,32 @@ export default function CardanoDbSnapshotsList(props) {
         <Container fluid>
           <Row>
             {Object.entries(cardanoDbSnapshots).length === 0 ? (
-              <p>No snapshot available</p>
+              <p>No cardano database snapshot available</p>
             ) : (
-              cardanoDbSnapshots.map((snapshot, index) => (
-                <Col key={snapshot.digest} className="mb-2">
+              cardanoDbSnapshots.map((cdb_snapshot, index) => (
+                <Col key={cdb_snapshot.hash} className="mb-2">
                   <Card border={index === 0 ? "primary" : ""}>
                     <Card.Body className="pt-2 pb-1">
-                      <ArtifactTitle hash={snapshot.digest} index={index} />
+                      <ArtifactTitle hash={cdb_snapshot.hash} index={index} />
                       <Container fluid>
                         <Row>
-                          <ArtifactCol label="Epoch">{snapshot.beacon.epoch}</ArtifactCol>
+                          <ArtifactCol label="Epoch">{cdb_snapshot.beacon.epoch}</ArtifactCol>
                           <ArtifactCol label="Immutable file number">
-                            {snapshot.beacon.immutable_file_number}
+                            {cdb_snapshot.beacon.immutable_file_number}
                           </ArtifactCol>
                           <ArtifactCol label="Created">
-                            <LocalDateTime datetime={snapshot.created_at} />
+                            <LocalDateTime datetime={cdb_snapshot.created_at} />
                           </ArtifactCol>
-                          <ArtifactCol label="Archive size">
-                            {formatBytes(snapshot.size + (snapshot.ancillary_size ?? 0))}
-                            <QuestionTooltip
-                              tooltip={
-                                <span>
-                                  Immutable files archive size: {formatBytes(snapshot.size)}
-                                  <hr className="m-1" />
-                                  Ancillary archive size:{" "}
-                                  {formatBytes(snapshot.ancillary_size ?? 0)}
-                                </span>
-                              }
-                            />
+                          <ArtifactCol label="DB size">
+                            {formatBytes(cdb_snapshot.total_db_size_uncompressed)}{" "}
+                            <QuestionTooltip tooltip="Total uncompressed database size" />
                           </ArtifactCol>
                           <ArtifactCol label="Cardano node">
-                            {snapshot.cardano_node_version}
+                            {cdb_snapshot.cardano_node_version}
                           </ArtifactCol>
-                          <ArtifactCol label="Compression">
-                            {snapshot.compression_algorithm}
-                          </ArtifactCol>
+                          <ArtifactCol label="Merkle Root">{cdb_snapshot.merkle_root}</ArtifactCol>
                           <ArtifactCol label="Certificate hash">
-                            {snapshot.certificate_hash}
+                            {cdb_snapshot.certificate_hash}
                           </ArtifactCol>
                         </Row>
                       </Container>
@@ -106,15 +95,18 @@ export default function CardanoDbSnapshotsList(props) {
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
                         <LatestBadge show={index === 0} />
-                        <Badge bg="secondary">{snapshot.network}</Badge>
                         <Button
                           size="sm"
                           className="ms-auto"
-                          onClick={() => showCertificate(snapshot.certificate_hash)}>
+                          onClick={() => showCertificate(cdb_snapshot.certificate_hash)}>
                           Show Certificate
                         </Button>
+                        <DownloadButton
+                          size="sm"
+                          artifactUrl={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
+                        />
                         <RawJsonButton
-                          href={`${aggregator}/artifact/snapshot/${snapshot.digest}`}
+                          href={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
                           size="sm"
                         />
                       </Stack>

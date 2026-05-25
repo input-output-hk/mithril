@@ -453,12 +453,10 @@ impl DependenciesBuilder {
         impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<>,
     > {
         let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
-        let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(
             dependency_container.clone(),
             RouterConfig {
                 network: self.configuration.get_network()?,
-                server_url: self.configuration.get_server_url()?,
                 allowed_discriminants: self
                     .configuration
                     .compute_allowed_signed_entity_types_discriminants()?,
@@ -467,7 +465,6 @@ impl DependenciesBuilder {
                     .cardano_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 max_artifact_epoch_offset: MAX_ARTIFACT_EPOCH_OFFSET,
-                snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
                 origin_tag_white_list: self.configuration.compute_origin_tag_white_list(),

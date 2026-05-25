@@ -63,14 +63,6 @@ impl Hydrator {
                 })?;
                 SignedEntityType::CardanoStakeDistribution(epoch)
             }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
-                    HydrationError::InvalidData(format!(
-                        "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-                    ))
-                })?;
-                SignedEntityType::CardanoImmutableFilesFull(beacon)
-            }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
                 #[derive(Deserialize)]
                 struct CardanoTransactionsBeacon {

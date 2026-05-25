@@ -1115,7 +1115,7 @@ mod tests {
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoDatabase,
         ]);
 
         let mut service = EpochServiceBuilder {
@@ -1156,7 +1156,7 @@ mod tests {
         let epoch = Epoch(5);
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoDatabase,
             SignedEntityTypeDiscriminants::CardanoTransactions,
         ]);
         let enabled_discriminants = BTreeSet::from([

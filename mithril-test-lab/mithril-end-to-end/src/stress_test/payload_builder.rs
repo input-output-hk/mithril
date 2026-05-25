@@ -125,8 +125,7 @@ pub async fn compute_immutable_files_signatures(
             // Minus one because the last immutable isn't "finished"
             let immutable_file_number = cardano_db.last_immutable_number().unwrap() - 1;
             let beacon = CardanoDbBeacon::new(*epoch, immutable_file_number);
-            let digester =
-                CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
+            let digester = CardanoImmutableDigester::new(None, slog_scope::logger());
             let merkle_tree = digester
                 .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
                 .await

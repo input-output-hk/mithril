@@ -41,6 +41,22 @@ impl DumbSnapshotter {
 
         Ok(value)
     }
+
+    fn create_dumb_archive(&self, archive_name_without_extension: &str) -> FileArchive {
+        let mut value = self.last_snapshot.write().unwrap();
+        let snapshot = FileArchive::new(
+            PathBuf::from(format!(
+                "{archive_name_without_extension}.{}",
+                self.compression_algorithm.tar_file_extension()
+            )),
+            self.archive_size,
+            0,
+            self.compression_algorithm,
+        );
+        *value = Some(snapshot.clone());
+
+        snapshot
+    }
 }
 
 impl Default for DumbSnapshotter {
@@ -55,32 +71,12 @@ impl Default for DumbSnapshotter {
 
 #[async_trait]
 impl Snapshotter for DumbSnapshotter {
-    async fn snapshot_all_completed_immutables(
-        &self,
-        archive_name_without_extension: &str,
-    ) -> StdResult<FileArchive> {
-        let mut value = self.last_snapshot.write().unwrap();
-        let snapshot = FileArchive::new(
-            PathBuf::from(format!(
-                "{archive_name_without_extension}.{}",
-                self.compression_algorithm.tar_file_extension()
-            )),
-            self.archive_size,
-            0,
-            self.compression_algorithm,
-        );
-        *value = Some(snapshot.clone());
-
-        Ok(snapshot)
-    }
-
     async fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        self.snapshot_all_completed_immutables(archive_name_without_extension)
-            .await
+        Ok(self.create_dumb_archive(archive_name_without_extension))
     }
 
     async fn snapshot_immutable_trio(
@@ -88,8 +84,7 @@ impl Snapshotter for DumbSnapshotter {
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        self.snapshot_all_completed_immutables(archive_name_without_extension)
-            .await
+        Ok(self.create_dumb_archive(archive_name_without_extension))
     }
 
     async fn compute_immutable_files_total_uncompressed_size(
@@ -127,14 +122,8 @@ impl FakeSnapshotter {
         self.compression_algorithm = compression_algorithm;
         self
     }
-}
 
-#[async_trait]
-impl Snapshotter for FakeSnapshotter {
-    async fn snapshot_all_completed_immutables(
-        &self,
-        archive_name_without_extension: &str,
-    ) -> StdResult<FileArchive> {
+    fn create_fake_archive(&self, archive_name_without_extension: &str) -> FileArchive {
         let fake_archive_path = self.work_dir.join(format!(
             "{archive_name_without_extension}.{}",
             self.compression_algorithm.tar_file_extension()
@@ -144,21 +133,18 @@ impl Snapshotter for FakeSnapshotter {
         }
         File::create(&fake_archive_path).unwrap();
 
-        Ok(FileArchive::new(
-            fake_archive_path,
-            0,
-            0,
-            self.compression_algorithm,
-        ))
+        FileArchive::new(fake_archive_path, 0, 0, self.compression_algorithm)
     }
+}
 
+#[async_trait]
+impl Snapshotter for FakeSnapshotter {
     async fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        self.snapshot_all_completed_immutables(archive_name_without_extension)
-            .await
+        Ok(self.create_fake_archive(archive_name_without_extension))
     }
 
     async fn snapshot_immutable_trio(
@@ -166,8 +152,7 @@ impl Snapshotter for FakeSnapshotter {
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        self.snapshot_all_completed_immutables(archive_name_without_extension)
-            .await
+        Ok(self.create_fake_archive(archive_name_without_extension))
     }
 
     async fn compute_immutable_files_total_uncompressed_size(
@@ -205,16 +190,6 @@ mod tests {
          {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
-            let snapshot = snapshotter
-                .snapshot_all_completed_immutables("archive_full_immutables")
-                .await
-                .unwrap();
-            assert_eq!(
-                PathBuf::from("archive_full_immutables.tar.gz"),
-                *snapshot.get_file_path()
-            );
-            assert_eq!(0, snapshot.get_archive_size());
-
             let snapshot = snapshotter.snapshot_ancillary(3, "archive_ancillary").await.unwrap();
             assert_eq!(
                 PathBuf::from("archive_ancillary.tar.gz"),
@@ -246,18 +221,6 @@ mod tests {
             );
 
             {
-                let full_immutables_snapshot = snapshotter
-                    .snapshot_all_completed_immutables("whatever")
-                    .await
-                    .expect("Dumb snapshotter::snapshot_all_completed_immutables should not fail.");
-                assert_eq!(
-                    Some(full_immutables_snapshot),
-                    snapshotter.get_last_snapshot().expect(
-                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
-                    )
-                );
-            }
-            {
                 let ancillary_snapshot = snapshotter
                     .snapshot_ancillary(3, "whatever")
                     .await
@@ -288,17 +251,11 @@ mod tests {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
             // Default size is 0
-            let snapshot = snapshotter
-                .snapshot_all_completed_immutables("whatever")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_immutable_trio(1, "whatever").await.unwrap();
             assert_eq!(0, snapshot.get_archive_size());
 
             let snapshotter = snapshotter.with_archive_size(42);
-            let snapshot = snapshotter
-                .snapshot_all_completed_immutables("whatever")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_immutable_trio(2, "whatever").await.unwrap();
             assert_eq!(42, snapshot.get_archive_size());
         }
     }
@@ -323,18 +280,6 @@ mod tests {
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
 
             for filename in ["direct_child", "one_level_subdir/child", "two_levels/subdir/child"] {
-                {
-                    let full_immutables_snapshot = fake_snapshotter
-                        .snapshot_all_completed_immutables(filename)
-                        .await
-                        .unwrap();
-
-                    assert_eq!(
-                        full_immutables_snapshot.get_file_path(),
-                        &test_dir.join(filename).with_extension("tar.gz")
-                    );
-                    assert!(full_immutables_snapshot.get_file_path().is_file());
-                }
                 {
                     let ancillary_snapshot =
                         fake_snapshotter.snapshot_ancillary(3, filename).await.unwrap();

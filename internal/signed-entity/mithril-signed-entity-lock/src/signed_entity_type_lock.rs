@@ -108,11 +108,11 @@ mod tests {
     async fn locking_a_signed_entity_does_not_lock_other_entity() {
         let signed_entity_type_lock = SignedEntityTypeLock::new();
         signed_entity_type_lock
-            .lock(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+            .lock(SignedEntityTypeDiscriminants::CardanoDatabase)
             .await;
         assert!(
             signed_entity_type_lock
-                .is_locked(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+                .is_locked(SignedEntityTypeDiscriminants::CardanoDatabase)
                 .await
         );
         assert!(
@@ -159,7 +159,7 @@ mod tests {
         assert!(!signed_entity_type_lock.is_locked(released_entity).await);
         assert!(
             signed_entity_type_lock
-                .is_locked(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+                .is_locked(SignedEntityTypeDiscriminants::CardanoDatabase)
                 .await
         );
         assert!(

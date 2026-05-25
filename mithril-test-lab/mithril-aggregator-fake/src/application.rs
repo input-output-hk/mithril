@@ -168,31 +168,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_snapshots() {
-        const PORT: u16 = 3002;
-        let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
-            yield_now().await;
-
-            let path = "/artifact/snapshots";
-            let response = http_request(PORT, path).await;
-
-            APISpec::verify_conformity(
-                get_spec_file(),
-                "GET",
-                path,
-                "application/json",
-                &Null,
-                &response,
-                &StatusCode::OK,
-            )
-            .map_err(|e| anyhow!(e))
-        });
-
-        test(task, PORT).await;
-    }
-
-    #[tokio::test]
     async fn get_mithril_stake_distributions() {
         const PORT: u16 = 3003;
         let task = tokio::spawn(async move {
@@ -254,58 +229,6 @@ mod tests {
             let path = "/certificate/{certificate_hash}";
             let response =
                 http_request(PORT, &path.replace("{certificate_hash}", "whatever")).await;
-
-            APISpec::verify_conformity(
-                get_spec_file(),
-                "GET",
-                path,
-                "application/json",
-                &Null,
-                &response,
-                &StatusCode::NOT_FOUND,
-            )
-            .map_err(|e| anyhow!(e))
-        });
-
-        test(task, PORT).await;
-    }
-
-    #[tokio::test]
-    async fn get_snapshot() {
-        const PORT: u16 = 3006;
-        let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
-            yield_now().await;
-
-            let path = "/artifact/snapshot/{digest}";
-            let digest = default_values::snapshot_digests()[0];
-            let response = http_request(PORT, path.replace("{digest}", digest).as_str()).await;
-
-            APISpec::verify_conformity(
-                get_spec_file(),
-                "GET",
-                path,
-                "application/json",
-                &Null,
-                &response,
-                &StatusCode::OK,
-            )
-            .map_err(|e| anyhow!(e))
-        });
-
-        test(task, PORT).await;
-    }
-
-    #[tokio::test]
-    async fn get_no_snapshot() {
-        const PORT: u16 = 3007;
-        let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
-            yield_now().await;
-
-            let path = "/artifact/snapshot/{digest}";
-            let digest = "whatever";
-            let response = http_request(PORT, &path.replace("{digest}", digest)).await;
 
             APISpec::verify_conformity(
                 get_spec_file(),

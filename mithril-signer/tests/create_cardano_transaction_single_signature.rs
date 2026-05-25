@@ -4,9 +4,7 @@ use mithril_common::{
     current_function,
     entities::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch,
-        SignedEntityType::{
-            CardanoImmutableFilesFull, CardanoTransactions, MithrilStakeDistribution,
-        },
+        SignedEntityType::{CardanoDatabase, CardanoTransactions, MithrilStakeDistribution},
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     test::{builder::MithrilFixtureBuilder, crypto_helper},
@@ -44,7 +42,7 @@ async fn test_create_cardano_transaction_single_signature() {
         .is_init().await.unwrap()
         .aggregator_allow_signed_entities(&[
             SignedEntityTypeDiscriminants::CardanoTransactions, 
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
+            SignedEntityTypeDiscriminants::CardanoDatabase
         ]).await
         .cycle_unregistered().await.unwrap()
 
@@ -69,8 +67,8 @@ async fn test_create_cardano_transaction_single_signature() {
         .comment("signer signs a single signature for MithrilStakeDistribution = ReadyToSign")
         .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(3))).await.unwrap()
         
-        .comment("signer signs a single signature for CardanoImmutableFilesFull = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new(3, 1))).await.unwrap()
+        .comment("signer signs a single signature for CardanoDatabase = ReadyToSign")
+        .cycle_ready_to_sign_with_signature_registration(CardanoDatabase(CardanoDbBeacon::new(3, 1))).await.unwrap()
         
         .comment("signer signs a single signature for CardanoTransactions = ReadyToSign")
         .cycle_ready_to_sign_with_signature_registration(CardanoTransactions(Epoch(3), BlockNumber(89))).await.unwrap()

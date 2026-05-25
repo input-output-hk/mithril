@@ -30,24 +30,6 @@ describe("parseSignedEntity", () => {
     });
   });
 
-  it("parse correctly formed `CardanoImmutableFilesFull` signed entity", () => {
-    const [epoch, immutable_file_number] = [1432, 7548];
-    const signed_entity = {
-      [signedEntityType.CardanoImmutableFilesFull]: {
-        epoch: epoch,
-        immutable_file_number: immutable_file_number,
-      },
-    };
-
-    expect(parseSignedEntity(signed_entity)).toEqual({
-      name: signedEntityType.CardanoImmutableFilesFull,
-      fields: {
-        epoch: epoch,
-        immutable_file_number: immutable_file_number,
-      },
-    });
-  });
-
   it("parse correctly formed `CardanoDatabase` signed entity", () => {
     const [epoch, immutable_file_number] = [1432, 7548];
     const signed_entity = {
