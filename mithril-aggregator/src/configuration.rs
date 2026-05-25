@@ -379,7 +379,7 @@ pub trait ConfigurationSource {
         let allowed_discriminants = self
             .signed_entity_types()
             .as_ref()
-            .map(SignedEntityTypeDiscriminants::parse_list)
+            .map(SignedEntityTypeDiscriminants::parse_list_strict)
             .transpose()
             .with_context(|| "Invalid 'signed_entity_types' configuration")?
             .unwrap_or_default();

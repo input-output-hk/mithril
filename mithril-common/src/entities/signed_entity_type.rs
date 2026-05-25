@@ -201,6 +201,22 @@ impl TryToBytes for SignedEntityType {
     }
 }
 
+/// Result of [SignedEntityTypeDiscriminants::parse_list]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedDiscriminants {
+    /// The deduplicated set of discriminants that were parsed successfully.
+    pub discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    /// The list of values that were ignored during parsing (e.g. unknown or malformed values).
+    pub ignored_values: Vec<String>,
+}
+
+impl ParsedDiscriminants {
+    /// Return true if the list of ignored values is not empty.
+    pub fn has_ignored_values(&self) -> bool {
+        !self.ignored_values.is_empty()
+    }
+}
+
 impl SignedEntityTypeDiscriminants {
     /// Discriminants that are unstable and should be excluded from certain operations.
     // Note: Empty right now since all discriminants are stable
@@ -245,13 +261,19 @@ impl SignedEntityTypeDiscriminants {
         }
     }
 
-    /// Parse the deduplicated list of signed entity types discriminants from a comma separated
+    /// Parse the deduplicated list of signed entity type discriminants from a comma-separated
     /// string.
     ///
-    /// Unknown or incorrectly formed values are ignored.
-    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> StdResult<BTreeSet<Self>> {
+    /// Empty values are ignored, and each value is trimmed before parsing.
+    ///
+    /// A value is valid if it matches one of the [SignedEntityTypeDiscriminants] variants,
+    /// with the exact same casing.
+    ///
+    /// This method does not fail. Unknown or incorrectly formed values are returned separately
+    /// in [ParsedDiscriminants::ignored_values].
+    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> ParsedDiscriminants {
         let mut discriminants = BTreeSet::new();
-        let mut invalid_discriminants = Vec::new();
+        let mut ignored_values = Vec::new();
 
         for name in discriminants_string
             .as_ref()
@@ -264,21 +286,52 @@ impl SignedEntityTypeDiscriminants {
                     discriminants.insert(discriminant);
                 }
                 Err(_) => {
-                    invalid_discriminants.push(name);
+                    ignored_values.push(name.to_string());
                 }
             }
         }
 
-        if invalid_discriminants.is_empty() {
-            Ok(discriminants)
+        ParsedDiscriminants {
+            discriminants,
+            ignored_values,
+        }
+    }
+
+    /// Parse the deduplicated list of signed entity type discriminants from a comma-separated
+    /// string.
+    ///
+    /// Empty values are ignored, and each value is trimmed before parsing.
+    ///
+    /// A value is valid if it matches one of the [SignedEntityTypeDiscriminants] variants,
+    /// with the exact same casing.
+    ///
+    /// This method does not fail. Unknown or incorrectly formed values are discarded.
+    pub fn parse_list_lossy<T: AsRef<str>>(discriminants_string: T) -> BTreeSet<Self> {
+        Self::parse_list(discriminants_string).discriminants
+    }
+
+    /// Parse the deduplicated list of signed entity type discriminants from a comma-separated
+    /// string.
+    ///
+    /// Empty values are ignored, and each value is trimmed before parsing.
+    ///
+    /// A value is valid if it matches one of the [SignedEntityTypeDiscriminants] variants,
+    /// with the exact same casing.
+    ///
+    /// Returns an error if any value is unknown or incorrectly formed.
+    pub fn parse_list_strict<T: AsRef<str>>(discriminants_string: T) -> StdResult<BTreeSet<Self>> {
+        let parsed_discriminants = Self::parse_list(discriminants_string);
+
+        if parsed_discriminants.ignored_values.is_empty() {
+            Ok(parsed_discriminants.discriminants)
         } else {
             Err(anyhow!(Self::format_parse_list_error(
-                invalid_discriminants
+                &parsed_discriminants.ignored_values
             )))
         }
     }
 
-    fn format_parse_list_error(invalid_discriminants: Vec<&str>) -> String {
+    fn format_parse_list_error(invalid_discriminants: &[String]) -> String {
         format!(
             r#"Invalid signed entity types discriminants: {}.
 
@@ -619,112 +672,170 @@ mod tests {
         );
     }
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_discriminant_without_values() {
-        let discriminants_str = "";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+    mod parse_list {
+        use super::*;
 
-        assert_eq!(BTreeSet::new(), discriminants);
+        impl ParsedDiscriminants {
+            fn new<const N: usize, T: Into<String>>(
+                discriminants: [SignedEntityTypeDiscriminants; N],
+                ignored: Vec<T>,
+            ) -> Self {
+                Self {
+                    discriminants: BTreeSet::from(discriminants),
+                    ignored_values: ignored.into_iter().map(Into::into).collect(),
+                }
+            }
 
-        let discriminants_str = "     ";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+            fn new_no_ignored<const N: usize>(
+                discriminants: [SignedEntityTypeDiscriminants; N],
+            ) -> Self {
+                Self::new(discriminants, Vec::<String>::new())
+            }
+        }
 
-        assert_eq!(BTreeSet::new(), discriminants);
-    }
+        #[test]
+        fn empty_string_should_return_empty_set() {
+            for discriminants_str in ["", "  ", "   "] {
+                let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_with_correctly_formed_values() {
-        let discriminants_str = "MithrilStakeDistribution,CardanoDatabase";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+                assert_eq!(ParsedDiscriminants::new_no_ignored([]), parse_result);
+            }
+        }
 
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoDatabase
-            ]),
-            discriminants
-        );
-    }
+        #[test]
+        fn comma_separated_list_should_return_set_of_discriminants() {
+            let discriminants_str = "MithrilStakeDistribution,CardanoDatabase";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_should_trim_values() {
-        let discriminants_str =
-            "MithrilStakeDistribution    ,  CardanoDatabase  ,   CardanoTransactions   ";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+            assert_eq!(
+                ParsedDiscriminants::new_no_ignored([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ]),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeDiscriminants::CardanoDatabase,
-            ]),
-            discriminants
-        );
-    }
+        #[test]
+        fn whitespaces_should_be_ignored() {
+            let discriminants_str =
+                "MithrilStakeDistribution    ,  CardanoDatabase  ,   CardanoTransactions   ";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_should_remove_duplicates() {
-        let discriminants_str =
-            "CardanoTransactions,CardanoTransactions,CardanoTransactions,CardanoTransactions";
-        let discriminant = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+            assert_eq!(
+                ParsedDiscriminants::new_no_ignored([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ]),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]),
-            discriminant
-        );
-    }
+        #[test]
+        fn duplicate_discriminants_should_be_discarded() {
+            let discriminants_str =
+                "CardanoTransactions,CardanoTransactions,CardanoTransactions,CardanoTransactions";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_should_be_case_sensitive() {
-        let discriminants_str = "mithrilstakedistribution,CARDANODATABASE";
-        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+            assert_eq!(
+                ParsedDiscriminants::new_no_ignored([
+                    SignedEntityTypeDiscriminants::CardanoTransactions
+                ]),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            SignedEntityTypeDiscriminants::format_parse_list_error(vec![
-                "mithrilstakedistribution",
-                "CARDANODATABASE"
-            ]),
-            error.to_string()
-        );
-    }
+        #[test]
+        fn should_be_case_sensitive() {
+            let discriminants_str = "mithrilstakedistribution,CARDANODATABASE";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types() {
-        let discriminants_str = "Unknown";
-        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+            assert_eq!(
+                ParsedDiscriminants::new(
+                    [],
+                    vec!["mithrilstakedistribution".to_string(), "CARDANODATABASE".to_string()]
+                ),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Unknown"]),
-            error.to_string()
-        );
-    }
+        #[test]
+        fn should_not_return_unknown_signed_entity_types() {
+            let discriminants_str = "Unknown";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_signed_entity_types_discriminants_should_fail_if_there_is_at_least_one_invalid_value()
-    {
-        let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
-        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+            assert_eq!(
+                ParsedDiscriminants::new([], vec!["Unknown".to_string()]),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Invalid"]),
-            error.to_string()
-        );
-    }
+        #[test]
+        fn separates_valid_discriminants_from_invalid_values() {
+            let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
 
-    #[test]
-    fn parse_list_error_format_to_an_useful_message() {
-        let invalid_discriminants = vec!["Unknown", "Invalid"];
-        let error = SignedEntityTypeDiscriminants::format_parse_list_error(invalid_discriminants);
+            assert_eq!(
+                ParsedDiscriminants::new(
+                    [
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                    ],
+                    vec!["Invalid".to_string()]
+                ),
+                parse_result
+            );
+        }
 
-        assert_eq!(
-            format!(
-                r#"Invalid signed entity types discriminants: Unknown, Invalid.
+        #[test]
+        fn lossy_parsing_discards_invalid_values() {
+            let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
+            let parse_result = SignedEntityTypeDiscriminants::parse_list_lossy(discriminants_str);
+
+            assert_eq!(
+                BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ],),
+                parse_result
+            );
+        }
+
+        #[test]
+        fn parsed_discriminant_has_ignored_values() {
+            assert!(!ParsedDiscriminants::new_no_ignored([]).has_ignored_values());
+            assert!(ParsedDiscriminants::new([], vec!["ignored".to_string()]).has_ignored_values());
+        }
+
+        #[test]
+        fn strict_parsing_fails_on_invalid_values() {
+            let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
+            let error =
+                SignedEntityTypeDiscriminants::parse_list_strict(discriminants_str).unwrap_err();
+
+            assert_eq!(
+                SignedEntityTypeDiscriminants::format_parse_list_error(&["Invalid".to_string()]),
+                error.to_string()
+            );
+        }
+
+        #[test]
+        fn parse_list_error_is_human_readable() {
+            let invalid_discriminants = vec!["Unknown".to_string(), "Invalid".to_string()];
+            let error =
+                SignedEntityTypeDiscriminants::format_parse_list_error(&invalid_discriminants);
+
+            assert_eq!(
+                format!(
+                    r#"Invalid signed entity types discriminants: Unknown, Invalid.
 
 Accepted values are (case-sensitive): {}."#,
-                SignedEntityTypeDiscriminants::accepted_discriminants()
-            ),
-            error
-        );
+                    SignedEntityTypeDiscriminants::accepted_discriminants()
+                ),
+                error
+            );
+        }
     }
 
     #[test]
