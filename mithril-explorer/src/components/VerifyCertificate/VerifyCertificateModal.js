@@ -1,14 +1,13 @@
 import { Modal } from "react-bootstrap";
-import { useEffect, useState } from "react";
-import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
+import { useState, useEffect } from "react";
+import CertificateVerifier from "./CertificateVerifier";
 import { useSelector } from "react-redux";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [loading, setLoading] = useState(false);
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
-  const [client, setClient] = useState(undefined);
-  const [certificate, setCertificate] = useState(undefined);
+  const [verificationContext, setVerificationContext] = useState(undefined);
 
   useEffect(() => {
     if (show) {
@@ -20,10 +19,13 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
       fetchGenesisVerificationKey(currentAggregator)
         .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
         .then((client) => {
-          setClient(client);
-          return client.get_mithril_certificate(certificateHash);
+          client.get_mithril_certificate(certificateHash).then((certificate) => {
+            setVerificationContext({
+              client: client,
+              certificate: certificate,
+            });
+          });
         })
-        .then((certificate) => setCertificate(certificate))
         .catch((err) => console.error("VerifyCertificateModal init error:", err));
     }
   }, [show, currentAggregator, certificateHash]);
@@ -34,6 +36,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
       setShowLoadingWarning(true);
     } else {
       setShowLoadingWarning(false);
+      setVerificationContext(undefined);
       onClose();
     }
   }
@@ -57,13 +60,12 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
                 minute).
               </div>
             )}
-            {client && certificate && (
+            {verificationContext && (
               <CertificateVerifier
-                client={client}
-                certificate={certificate}
-                onStepChange={(step) =>
-                  setLoading(step === certificateValidationSteps.validationInProgress)
-                }
+                client={verificationContext.client}
+                certificate={verificationContext.certificate}
+                onStart={() => setLoading(true)}
+                onDone={() => setLoading(false)}
               />
             )}
           </>

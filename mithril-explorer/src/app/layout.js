@@ -17,6 +17,25 @@ export const metadata = {
   description: "Explore a Mithril Network",
 };
 
+function MithrilHeader() {
+  return (
+    <h1 className={styles.title}>
+      <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
+        <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} /> Mithril
+        Explorer
+      </Link>
+      {process.env.UNSTABLE && (
+        <>
+          {" "}
+          <Badge bg="danger" className="fs-6 align-text-top">
+            Unstable
+          </Badge>
+        </>
+      )}
+    </h1>
+  );
+}
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
@@ -27,20 +46,7 @@ export default function RootLayout({ children }) {
           <Providers>
             <div className={styles.container}>
               <main className={styles.main}>
-                <h1 className={styles.title}>
-                  <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
-                    <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} />{" "}
-                    Mithril Explorer
-                  </Link>
-                  {process.env.UNSTABLE && (
-                    <>
-                      {" "}
-                      <Badge bg="danger" className="fs-6 align-text-top">
-                        Unstable
-                      </Badge>
-                    </>
-                  )}
-                </h1>
+                <MithrilHeader />
                 {children}
               </main>
             </div>

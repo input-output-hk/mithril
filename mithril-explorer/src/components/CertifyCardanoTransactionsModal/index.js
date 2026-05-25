@@ -39,23 +39,26 @@ export default function CertifyCardanoTransactionsModal({
   const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const [certificateVerifierStep, setCertificateVerifierStep] = useState(
-    certificateValidationSteps.ready,
-  );
   const [transactionsProofs, setTransactionsProofs] = useState({});
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [isProofValid, setIsProofValid] = useState(false);
   const [isCertificateChainValid, setIsCertificateChainValid] = useState(true);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
-  const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
+  const [selectedTab, setSelectedTab] = useState(undefined);
+  const currentTab =
+    currentStep === validationSteps.done && selectedTab !== undefined
+      ? selectedTab
+      : getTabForStep(currentStep);
   const [currentError, setCurrentError] = useState(undefined);
 
   async function getTransactionsProofsAndCertificate(client, transactionHashes) {
     const proofs = await client.get_cardano_transaction_proofs(transactionHashes);
     const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
 
-    setTransactionsProofs(proofs);
-    setCertificate(certificate);
+    return {
+      proofs: proofs,
+      certificate: certificate,
+    };
   }
 
   async function verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate) {
@@ -67,7 +70,6 @@ export default function CertifyCardanoTransactionsModal({
     const isProofValid =
       (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
 
-    setIsProofValid(isProofValid);
     return isProofValid;
   }
 
@@ -77,18 +79,16 @@ export default function CertifyCardanoTransactionsModal({
     setCurrentStep(validationSteps.done);
   }
 
-  function handleStepClick(step) {
-    // Only allow navigation when the work is done
-    if (currentStep === validationSteps.done) {
-      setCurrentTab(getTabForStep(step));
-    }
-  }
-
   function handleCertificateClick(hash) {
     // Only allow to open the submodal when the work is done
     if (currentStep === validationSteps.done) {
       setSelectedCertificateHash(hash);
     }
+  }
+
+  function handleCertificateVerifierDone() {
+    setCurrentStep(validationSteps.done);
+    setShowLoadingWarning(false);
   }
 
   function closeIfNotRunning() {
@@ -99,14 +99,16 @@ export default function CertifyCardanoTransactionsModal({
     }
   }
 
-  useEffect(() => {
+  function resetState() {
     setShowLoadingWarning(false);
     setIsProofValid(false);
     setIsCertificateChainValid(true);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
     setCurrentError(undefined);
+  }
 
+  useEffect(() => {
     if (transactionHashes?.length > 0) {
       const {
         fetchGenesisVerificationKey,
@@ -122,25 +124,17 @@ export default function CertifyCardanoTransactionsModal({
   }, [currentAggregator, transactionHashes]);
 
   useEffect(() => {
-    if (certificateVerifierStep === certificateValidationSteps.done) {
-      setCurrentStep(validationSteps.done);
-      setShowLoadingWarning(false);
-    }
-  }, [certificateVerifierStep]);
-
-  useEffect(() => {
-    setCurrentTab(getTabForStep(currentStep));
-  }, [currentStep]);
-
-  useEffect(() => {
     if (currentStep === validationSteps.fetchingProof) {
       getTransactionsProofsAndCertificate(client, transactionHashes)
-        .then(() =>
+        .then((res) => {
+          setTransactionsProofs(res.proofs);
+          setCertificate(res.certificate);
+
           // Artificial wait to give the user a feel of the workload under-hood
           setTimeout(() => {
             setCurrentStep(validationSteps.validatingProof);
-          }, 350),
-        )
+          }, 350);
+        })
         .catch((err) => handleError(err));
     }
   }, [client, currentStep, transactionHashes]);
@@ -149,6 +143,8 @@ export default function CertifyCardanoTransactionsModal({
     if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
       verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate)
         .then((proofValid) => {
+          setIsProofValid(proofValid);
+
           if (proofValid) {
             // Artificial wait to give the user a feel of the workload under-hood
             return setTimeout(() => {
@@ -166,6 +162,7 @@ export default function CertifyCardanoTransactionsModal({
     <Modal
       show={transactionHashes !== undefined && transactionHashes.length > 0}
       onHide={closeIfNotRunning}
+      onShow={resetState}
       size="xl"
       aria-labelledby="contained-modal-title-vcenter"
       centered>
@@ -184,7 +181,7 @@ export default function CertifyCardanoTransactionsModal({
                   currentStep={currentStep}
                   isProofValid={isProofValid}
                   isCertificateChainValid={isCertificateChainValid}
-                  onStepClick={handleStepClick}
+                  onStepClick={(step) => setSelectedTab(getTabForStep(step))}
                 />
                 {showLoadingWarning && (
                   <Alert variant="warning" className="mt-2">
@@ -210,7 +207,7 @@ export default function CertifyCardanoTransactionsModal({
                       <CertificateVerifier
                         client={client}
                         certificate={certificate}
-                        onStepChange={(step) => setCertificateVerifierStep(step)}
+                        onDone={handleCertificateVerifierDone}
                         onChainValidationError={() => setIsCertificateChainValid(false)}
                         onCertificateClick={handleCertificateClick}
                         showCertificateLinks
