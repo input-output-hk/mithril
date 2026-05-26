@@ -1,4 +1,4 @@
 out
 explorer
 font.css.hbs
-src/genesis-verification-keys.generated.js
+src/aggregators-list.generated.js
