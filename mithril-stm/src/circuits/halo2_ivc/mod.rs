@@ -6,15 +6,12 @@
 //! The code in this module is moved from the standalone recursive prototype and
 //! is kept locally here until the recursive circuit is wired into STM.
 
-pub(crate) use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub, JubjubSubgroup,
-};
+pub(crate) use midnight_curves::JubjubExtended as Jubjub;
 
 pub(crate) use midnight_circuits::{
     ecc::{
         curves::CircuitCurve,
         foreign::{ForeignEccChip, ForeignEccConfig, nb_foreign_ecc_chip_columns},
-        hash_to_curve::HashToCurveGadget,
         native::{EccChip, EccConfig, NB_EDWARDS_COLS},
     },
     field::{
@@ -33,7 +30,7 @@ pub(crate) use midnight_circuits::{
     instructions::{
         ArithInstructions, AssertionInstructions, AssignmentInstructions, BinaryInstructions,
         ControlFlowInstructions, ConversionInstructions, EccInstructions, EqualityInstructions,
-        HashInstructions, HashToCurveCPU, PublicInputInstructions, ZeroInstructions, hash::HashCPU,
+        HashInstructions, PublicInputInstructions, ZeroInstructions,
     },
     types::{
         AssignedBit, AssignedByte, AssignedForeignPoint, AssignedNative, AssignedNativePoint,
@@ -85,20 +82,6 @@ pub const PREIMAGE_CURRENT_EPOCH_BYTES: std::ops::Range<usize> = 182..190;
 
 pub(crate) const CERT_VK_NAME: &str = "cert_vk";
 pub(crate) const IVC_ONE_NAME: &str = "ivc_one_vk";
-
-pub(crate) const DST_UNIQUE_SIGNATURE: JubjubBase = JubjubBase::from_raw([2, 2, 0, 0]);
-
-type JubjubHashToCurve = HashToCurveGadget<
-    JubjubBase,
-    Jubjub,
-    AssignedNative<JubjubBase>,
-    PoseidonChip<JubjubBase>,
-    EccChip<Jubjub>,
->;
-
-type PoseidonHash = PoseidonChip<JubjubBase>;
-
-pub(crate) type Target = JubjubBase;
 
 /// Circuit verification key of the recursive circuit used for production.
 /// It is created using the circuit verification key of the non-recursive

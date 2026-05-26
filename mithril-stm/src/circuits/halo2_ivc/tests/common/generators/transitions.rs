@@ -10,10 +10,8 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
-    Position as Halo2Position,
 };
 use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::Position as HelpersPosition,
     protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
     utils::jubjub_base_from_le_bytes,
 };
@@ -173,34 +171,29 @@ fn build_certificate_asset_data_inner(
                 random_generator,
             )
             .expect("certificate witness signature should not fail");
-        let helpers_path = setup.merkle_tree.get_path(j);
-        let computed_root = helpers_path.compute_root(setup.merkle_tree_leaves[j]);
-        assert_eq!(
-            merkle_root, computed_root,
-            "merkle path root mismatch for signer index {j}"
-        );
+        let leaf = setup.merkle_tree_leaves[j];
+        let stm_path = setup
+            .merkle_tree
+            .compute_merkle_tree_path_fixed_length(j, certificate_relation.merkle_tree_depth());
+        setup
+            .merkle_tree
+            .to_merkle_tree_commitment()
+            .verify_leaf_membership_from_path(&leaf, &stm_path)
+            .unwrap_or_else(|_| panic!("STM Merkle path should verify for signer index {j}"));
         let schnorr_vk =
             StmSchnorrVerificationKey::new_from_signing_key(setup.signing_keys[j].clone());
+        assert_eq!(
+            schnorr_vk, leaf.0,
+            "STM leaf verification key mismatch for signer index {j}"
+        );
         unique_schnorr_signature
             .verify(
                 &[BaseFieldElement::from(merkle_root), BaseFieldElement::from(message)],
                 &schnorr_vk,
             )
             .expect("fresh certificate signature should verify");
-        let halo2_merkle_path = Halo2MerklePath::new(
-            helpers_path
-                .siblings
-                .iter()
-                .map(|(pos, f)| {
-                    let halo2_pos = match pos {
-                        HelpersPosition::Left => Halo2Position::Left,
-                        HelpersPosition::Right => Halo2Position::Right,
-                    };
-                    (halo2_pos, CircuitBaseField::from(*f))
-                })
-                .collect(),
-        );
-        let leaf = setup.merkle_tree_leaves[j];
+        let halo2_merkle_path = Halo2MerklePath::try_from(&stm_path)
+            .expect("STM Merkle path should adapt to the Halo2 witness path");
         let circuit_leaf = CircuitMerkleTreeLeaf(schnorr_vk, CircuitBaseField::from(leaf.1));
         certificate_witness_entries.push(CircuitWitnessEntry {
             leaf: circuit_leaf,

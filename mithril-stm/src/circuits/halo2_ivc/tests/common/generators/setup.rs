@@ -14,24 +14,25 @@ use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
-use crate::Parameters;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::{MTLeaf as MerkleTreeLeaf, MerkleTree},
-    protocol_message::AggregateVerificationKey,
-    signatures::unique_signature::VerificationKey,
-    utils::jubjub_base_from_le_bytes,
+    protocol_message::AggregateVerificationKey, utils::jubjub_base_from_le_bytes,
 };
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
 };
+use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, StandardSchnorrSignature,
 };
+use crate::{MembershipDigest, MithrilMembershipDigest, Parameters};
 
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
+
+type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
+type SignerMerkleTree = StmMerkleTree<SnarkHash, MerkleTreeSnarkLeaf>;
 
 pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(crate) const GENESIS_EPOCH: u64 = 5;
@@ -89,9 +90,9 @@ pub(crate) struct AssetGenerationSetup {
     /// Deterministic trusted genesis signature.
     pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Deterministic signer-membership Merkle tree.
-    pub(crate) merkle_tree: MerkleTree,
+    pub(crate) merkle_tree: SignerMerkleTree,
     /// Leaves committed into the deterministic signer-membership tree.
-    pub(crate) merkle_tree_leaves: Vec<MerkleTreeLeaf>,
+    pub(crate) merkle_tree_leaves: Vec<MerkleTreeSnarkLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
     pub(crate) signing_keys: Vec<SchnorrSigningKey>,
     /// Aggregate verification key committed into the generated protocol messages.
@@ -122,22 +123,39 @@ pub(crate) struct SharedRecursiveContext {
 fn build_merkle_tree(
     random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
-) -> (Vec<SchnorrSigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
+) -> (
+    Vec<SchnorrSigningKey>,
+    Vec<MerkleTreeSnarkLeaf>,
+    SignerMerkleTree,
+) {
     let mut signing_keys = Vec::with_capacity(signer_count);
     let mut merkle_tree_leaves = Vec::with_capacity(signer_count);
     for _ in 0..signer_count {
         let signing_key = SchnorrSigningKey::generate(random_generator);
         let schnorr_vk = SchnorrVerificationKey::new_from_signing_key(signing_key.clone());
-        // Shim: StmSchnorrVerificationKey wraps PrimeOrderProjectivePoint(JubjubSubgroup).
-        // helpers::VerificationKey also wraps JubjubSubgroup — unwrap the newtype chain.
-        // TODO(WS3): remove once helpers::MerkleTree is replaced with the STM equivalent.
-        let helpers_vk = VerificationKey(schnorr_vk.0.0);
-        merkle_tree_leaves.push(MerkleTreeLeaf(helpers_vk, -F::ONE));
+        merkle_tree_leaves.push(MerkleTreeSnarkLeaf(
+            schnorr_vk,
+            BaseFieldElement::from(-F::ONE),
+        ));
         signing_keys.push(signing_key);
     }
 
-    let merkle_tree = MerkleTree::create(&merkle_tree_leaves);
+    let merkle_tree = StmMerkleTree::new(&merkle_tree_leaves);
     (signing_keys, merkle_tree_leaves, merkle_tree)
+}
+
+fn merkle_root_from_stm_tree(merkle_tree: &SignerMerkleTree) -> F {
+    let commitment = merkle_tree.to_merkle_tree_commitment();
+    // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
+    // the recursive state stores the same root as the circuit field element.
+    let root_bytes: [u8; 32] = commitment
+        .root
+        .as_slice()
+        .try_into()
+        .expect("STM Poseidon Merkle root should be 32 bytes");
+    F::from_bytes_le(&root_bytes)
+        .into_option()
+        .expect("STM Poseidon Merkle root should be a canonical field element")
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
@@ -267,14 +285,15 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     )
     .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
+    let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
+    let signer_count = merkle_tree_leaves.len() as u32;
     let aggregate_verification_key =
-        AggregateVerificationKey::new(merkle_tree.to_merkle_tree_commitment(), total_stake);
+        AggregateVerificationKey::new(genesis_next_merkle_root, signer_count, total_stake);
 
     let genesis_signing_key = SchnorrSigningKey::generate(&mut rng);
     let genesis_verification_key =
         SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
-    let genesis_next_merkle_root = merkle_tree.root();
     let genesis_next_protocol_params = F::from(7u64);
 
     let genesis_message = {

@@ -1,4 +1,4 @@
-use crate::circuits::halo2_ivc::helpers::merkle_tree::MerkleTreeCommitment;
+use crate::circuits::halo2_ivc::F;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -128,14 +128,14 @@ impl ProtocolMessage {
 
 #[derive(Debug, Clone)]
 pub struct AggregateVerificationKey {
-    mt_commit: MerkleTreeCommitment,
+    mt_commit: AggregateVerificationKeyMerkleCommitment,
     total_stake: u64,
 }
 
 impl AggregateVerificationKey {
-    pub fn new(mt_commit: MerkleTreeCommitment, total_stake: u64) -> Self {
+    pub fn new(merkle_root: F, nr_leaves: u32, total_stake: u64) -> Self {
         Self {
-            mt_commit,
+            mt_commit: AggregateVerificationKeyMerkleCommitment::new(merkle_root, nr_leaves),
             total_stake,
         }
     }
@@ -146,6 +146,51 @@ impl From<AggregateVerificationKey> for Vec<u8> {
         let mut bytes = Vec::from(avk.mt_commit);
         bytes.extend_from_slice(&avk.total_stake.to_le_bytes());
         bytes
+    }
+}
+
+#[derive(Debug, Clone)]
+struct AggregateVerificationKeyMerkleCommitment {
+    merkle_root: F,
+    nr_leaves: u32,
+}
+
+impl AggregateVerificationKeyMerkleCommitment {
+    fn new(merkle_root: F, nr_leaves: u32) -> Self {
+        Self {
+            merkle_root,
+            nr_leaves,
+        }
+    }
+}
+
+impl From<AggregateVerificationKeyMerkleCommitment> for Vec<u8> {
+    fn from(mt_commit: AggregateVerificationKeyMerkleCommitment) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&mt_commit.merkle_root.to_bytes_le());
+        bytes.extend_from_slice(&mt_commit.nr_leaves.to_le_bytes());
+        bytes
+    }
+}
+
+impl TryFrom<&[u8]> for AggregateVerificationKeyMerkleCommitment {
+    type Error = &'static str;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        if bytes.len() != 36 {
+            return Err("Invalid byte length for AggregateVerificationKey merkle commitment");
+        }
+
+        let merkle_root_bytes: [u8; 32] = bytes[0..32].try_into().unwrap();
+        let merkle_root = F::from_bytes_le(&merkle_root_bytes)
+            .into_option()
+            .ok_or("Invalid merkle root bytes for AggregateVerificationKey merkle commitment")?;
+        let nr_leaves = u32::from_le_bytes(bytes[32..36].try_into().unwrap());
+
+        Ok(Self {
+            merkle_root,
+            nr_leaves,
+        })
     }
 }
 
