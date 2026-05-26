@@ -7,6 +7,7 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
+    protocol_message::{ProtocolMessage, ProtocolMessagePartKey},
     state::State,
     tests::common::{
         asset_readers::{
@@ -23,6 +24,145 @@ use crate::circuits::halo2_ivc::{
         },
     },
 };
+use crate::MithrilMembershipDigest;
+
+fn valid_rigid_protocol_message() -> ProtocolMessage {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+    message
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_next_snark_aggregate_verification_key() {
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "missing SNARK AVK should make the rigid preimage fallible"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_hex() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        "not-hex".to_string(),
+    );
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "invalid SNARK AVK hex should make the rigid preimage fallible"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_next_protocol_parameters() {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "missing next protocol parameters should make the rigid preimage fallible"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_wrong_next_protocol_parameters_width() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 31]),
+    );
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "31-byte next protocol parameters should make the rigid preimage fallible"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_current_epoch() {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "missing current epoch should make the rigid preimage fallible"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_current_epoch() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "oops".to_string());
+
+    assert!(
+        message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .is_err(),
+        "non-decimal current epoch should make the rigid preimage fallible"
+    );
+}
 
 #[test]
 fn next_merkle_root_tampered_public_input_is_rejected() {

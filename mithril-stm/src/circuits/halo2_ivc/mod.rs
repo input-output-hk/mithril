@@ -50,6 +50,7 @@ pub(crate) use midnight_proofs::{
 
 pub(crate) mod certificate_proof;
 pub mod circuit;
+pub(crate) mod protocol_message;
 pub mod config;
 pub mod errors;
 pub mod gadget;

@@ -15,9 +15,9 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
-use crate::circuits::halo2_ivc::helpers::{
-    protocol_message::AggregateVerificationKey, utils::jubjub_base_from_le_bytes,
-};
+use sha2::{Digest as Sha2Digest, Sha256};
+
+use crate::circuits::halo2_ivc::helpers::utils::jubjub_base_from_le_bytes;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
@@ -95,8 +95,8 @@ pub(crate) struct AssetGenerationSetup {
     pub(crate) merkle_tree_leaves: Vec<MerkleTreeSnarkLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
     pub(crate) signing_keys: Vec<SchnorrSigningKey>,
-    /// Aggregate verification key committed into the generated protocol messages.
-    pub(crate) aggregate_verification_key: AggregateVerificationKey,
+    /// Hex-encoded legacy AVK bytes (root_LE_32 || stake_BE_8) used in protocol messages.
+    pub(crate) avk_hex: String,
     /// Deterministic next Merkle root committed by the genesis message.
     pub(crate) genesis_next_merkle_root: F,
     /// Deterministic next protocol parameters committed by the genesis message.
@@ -286,9 +286,16 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
     let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
-    let signer_count = merkle_tree_leaves.len() as u32;
-    let aggregate_verification_key =
-        AggregateVerificationKey::new(genesis_next_merkle_root, signer_count, total_stake);
+
+    // Build hex-encoded legacy AVK: root_LE(32) || stake_BE(8).
+    // from_bytes_legacy expects this layout; to_rigid_slot_bytes writes root(32)||zeros(4)||stake_LE(8).
+    let avk_hex = {
+        let commitment = merkle_tree.to_merkle_tree_commitment();
+        let mut avk_input = [0u8; 40];
+        avk_input[0..32].copy_from_slice(&commitment.root);
+        avk_input[32..40].copy_from_slice(&total_stake.to_be_bytes());
+        hex::encode(avk_input)
+    };
 
     let genesis_signing_key = SchnorrSigningKey::generate(&mut rng);
     let genesis_verification_key =
@@ -297,13 +304,14 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_next_protocol_params = F::from(7u64);
 
     let genesis_message = {
-        let protocol_message = build_genesis_protocol_message(
-            &aggregate_verification_key,
-            genesis_next_protocol_params,
-            genesis_epoch,
-        );
-        let message_hash = protocol_message.compute_hash();
-        jubjub_base_from_le_bytes(&message_hash)
+        let params_hex = hex::encode(genesis_next_protocol_params.to_bytes_le());
+        let protocol_message =
+            build_genesis_protocol_message(&avk_hex, &params_hex, genesis_epoch);
+        let preimage = protocol_message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .expect("genesis protocol message preimage should succeed");
+        let message_hash = Sha256::digest(&preimage);
+        jubjub_base_from_le_bytes(message_hash.as_ref())
     };
 
     let genesis_message_base = BaseFieldElement::from(genesis_message);
@@ -322,7 +330,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         merkle_tree,
         merkle_tree_leaves,
         signing_keys,
-        aggregate_verification_key,
+        avk_hex,
         genesis_next_merkle_root,
         genesis_next_protocol_params,
     }
