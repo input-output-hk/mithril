@@ -107,6 +107,9 @@ export default function Explorer() {
     <Stack gap={3}>
       <ControlPanel />
       <Tabs activeKey={displayedTab} onSelect={(key) => setCurrentTab(key)}>
+        <Tab title="Certificates" eventKey={certificateTab}>
+          <CertificatesList />
+        </Tab>
         {enableCardanoDbTab && (
           <Tab title="Cardano Db" eventKey={signedEntityType.CardanoDb}>
             <CardanoDbSnapshotsList />
@@ -135,9 +138,6 @@ export default function Explorer() {
           title="Mithril Stake Distribution"
           eventKey={signedEntityType.MithrilStakeDistribution}>
           <MithrilStakeDistributionsList />
-        </Tab>
-        <Tab title="Certificates" eventKey={certificateTab}>
-          <CertificatesList />
         </Tab>
       </Tabs>
     </Stack>
