@@ -65,10 +65,10 @@ impl IvcGadget {
         let genesis_msg: AssignedNative<_> = self
             .native_gadget
             .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_msg))?;
-        // TODO(WS7): replace .0.0 with a named accessor on SchnorrVerificationKey once the type boundary is reworked
-        let genesis_vk: AssignedNativePoint<_> = self
-            .jubjub_chip
-            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_vk.0.0))?;
+        let genesis_vk: AssignedNativePoint<_> = self.jubjub_chip.assign_as_public_input(
+            layouter,
+            global.clone().map(|gl| *gl.genesis_vk.as_jubjub_subgroup()),
+        )?;
 
         let (cert_domain, cert_cs) = &cert_domain_cs;
         let cert_vk: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(

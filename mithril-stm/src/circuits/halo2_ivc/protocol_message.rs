@@ -1,6 +1,4 @@
-// Types and constants are only consumed from #[cfg(test)] generators; Rust's dead-code
-// analysis does not see across that boundary. Suppressed until wired into production code.
-#![allow(dead_code)]
+//! Test/generator-side protocol message builder for Halo2 IVC circuit assets.
 
 use std::collections::BTreeMap;
 
@@ -52,10 +50,6 @@ impl ProtocolMessage {
 
     pub(crate) fn set_message_part(&mut self, key: ProtocolMessagePartKey, value: String) {
         self.message_parts.insert(key, value);
-    }
-
-    pub(crate) fn get_message_part(&self, key: &ProtocolMessagePartKey) -> Option<&String> {
-        self.message_parts.get(key)
     }
 
     /// Assembles the 190-byte rigid preimage that matches `mithril-common::ProtocolMessage::rigid_preimage()`.

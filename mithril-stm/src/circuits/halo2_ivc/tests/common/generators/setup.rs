@@ -32,7 +32,7 @@ use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEG
 use super::transitions::build_genesis_protocol_message;
 
 type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
-type SignerMerkleTree = StmMerkleTree<SnarkHash, MerkleTreeSnarkLeaf>;
+type SignerRegistrationMerkleTree = StmMerkleTree<SnarkHash, MerkleTreeSnarkLeaf>;
 
 pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(crate) const GENESIS_EPOCH: u64 = 5;
@@ -90,12 +90,15 @@ pub(crate) struct AssetGenerationSetup {
     /// Deterministic trusted genesis signature.
     pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Deterministic signer-membership Merkle tree.
-    pub(crate) merkle_tree: SignerMerkleTree,
+    pub(crate) merkle_tree: SignerRegistrationMerkleTree,
     /// Leaves committed into the deterministic signer-membership tree.
     pub(crate) merkle_tree_leaves: Vec<MerkleTreeSnarkLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
     pub(crate) signing_keys: Vec<SchnorrSigningKey>,
-    /// Hex-encoded legacy AVK bytes (root_LE_32 || stake_BE_8) used in protocol messages.
+    /// Protocol-message string value for the legacy AVK bytes (`root_LE_32 || stake_BE_8`).
+    ///
+    /// `ProtocolMessage` stores parts as strings, then decodes this hex value before calling
+    /// `AggregateVerificationKeyForSnark::from_bytes`.
     pub(crate) avk_hex: String,
     /// Deterministic next Merkle root committed by the genesis message.
     pub(crate) genesis_next_merkle_root: F,
@@ -126,7 +129,7 @@ fn build_merkle_tree(
 ) -> (
     Vec<SchnorrSigningKey>,
     Vec<MerkleTreeSnarkLeaf>,
-    SignerMerkleTree,
+    SignerRegistrationMerkleTree,
 ) {
     let mut signing_keys = Vec::with_capacity(signer_count);
     let mut merkle_tree_leaves = Vec::with_capacity(signer_count);
@@ -144,7 +147,7 @@ fn build_merkle_tree(
     (signing_keys, merkle_tree_leaves, merkle_tree)
 }
 
-fn merkle_root_from_stm_tree(merkle_tree: &SignerMerkleTree) -> F {
+fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
     let commitment = merkle_tree.to_merkle_tree_commitment();
     // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
     // the recursive state stores the same root as the circuit field element.
@@ -287,8 +290,8 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
     let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
 
-    // Build hex-encoded legacy AVK: root_LE(32) || stake_BE(8).
-    // from_bytes_legacy expects this layout; to_rigid_slot_bytes writes root(32)||zeros(4)||stake_LE(8).
+    // Build the protocol-message value for the legacy AVK bytes: root_LE(32) || stake_BE(8).
+    // The serializer decodes the hex string before calling AggregateVerificationKeyForSnark::from_bytes.
     let avk_hex = {
         let commitment = merkle_tree.to_merkle_tree_commitment();
         let mut avk_input = [0u8; 40];

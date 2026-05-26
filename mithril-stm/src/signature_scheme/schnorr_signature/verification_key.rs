@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Ok, anyhow};
+use midnight_curves::JubjubSubgroup;
 use serde::{Deserialize, Serialize};
 
 use crate::{StmResult, signature_scheme::BaseFieldElement};
@@ -36,6 +37,11 @@ impl SchnorrVerificationKey {
         self.0.is_on_curve()?;
 
         Ok(())
+    }
+
+    /// Returns the underlying Jubjub subgroup point for circuit witness encoding.
+    pub(crate) fn as_jubjub_subgroup(&self) -> &JubjubSubgroup {
+        &self.0.0
     }
 
     /// Convert a `SchnorrVerificationKey` into bytes by decomposing it into

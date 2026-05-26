@@ -54,6 +54,7 @@ pub mod config;
 pub mod errors;
 pub mod gadget;
 pub mod io;
+#[cfg(test)]
 pub(crate) mod protocol_message;
 pub mod state;
 

@@ -122,8 +122,7 @@ impl Global {
     pub fn as_public_input(&self) -> Vec<F> {
         [
             vec![self.genesis_msg],
-            // TODO(WS7): replace .0.0 with a named accessor on SchnorrVerificationKey once the type boundary is reworked
-            AssignedNativePoint::<Jubjub>::as_public_input(&self.genesis_vk.0.0),
+            AssignedNativePoint::<Jubjub>::as_public_input(self.genesis_vk.as_jubjub_subgroup()),
             vec![self.cert_vk_repr, self.self_vk_repr],
         ]
         .concat()
