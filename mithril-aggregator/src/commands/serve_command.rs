@@ -19,6 +19,7 @@ use mithril_cli_helper::{
     register_config_value, register_config_value_bool, register_config_value_option,
 };
 use mithril_common::StdResult;
+use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_metric::MetricsServer;
 
@@ -129,6 +130,8 @@ impl ServeCommand {
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "SERVE command"; "config" => format!("{config:?}"));
+        Self::warns_on_invalid_but_not_critical_config_values(&root_logger, &config);
+
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
@@ -351,5 +354,22 @@ impl ServeCommand {
             command_path,
             ServeCommandConfiguration::extract().merge_struct_doc(&DefaultConfiguration::extract()),
         )])
+    }
+
+    pub fn warns_on_invalid_but_not_critical_config_values(
+        logger: &Logger,
+        config: &ServeCommandConfiguration,
+    ) {
+        if let Some(parsed_discriminants) = config
+            .signed_entity_types
+            .as_ref()
+            .map(SignedEntityTypeDiscriminants::parse_list)
+            && parsed_discriminants.has_ignored_values()
+        {
+            warn!(
+                logger, "Ignoring invalid configured signed entity types";
+                "invalid_signed_entity_types" => ?parsed_discriminants.ignored_values
+            );
+        }
     }
 }
