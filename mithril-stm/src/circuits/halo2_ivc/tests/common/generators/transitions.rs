@@ -7,20 +7,20 @@ use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::MithrilMembershipDigest;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{
     CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
 };
-use crate::circuits::halo2_ivc::helpers::utils::jubjub_base_from_le_bytes;
 use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
-use crate::MithrilMembershipDigest;
 
+use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
 use super::proofs::verify_prepare_poseidon_ivc;
 use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 
@@ -295,7 +295,10 @@ pub(crate) fn next_message_and_preimage_for_step(
         .try_rigid_preimage::<MithrilMembershipDigest>()
         .expect("protocol message preimage should succeed");
     let message_hash = Sha256::digest(&preimage);
-    (jubjub_base_from_le_bytes(message_hash.as_ref()), preimage.to_vec())
+    (
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
+        preimage.to_vec(),
+    )
 }
 
 /// Returns the deterministic certificate message and preimage for one
@@ -327,7 +330,10 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
         .try_rigid_preimage::<MithrilMembershipDigest>()
         .expect("protocol message preimage should succeed");
     let message_hash = Sha256::digest(&preimage);
-    (jubjub_base_from_le_bytes(message_hash.as_ref()), preimage.to_vec())
+    (
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
+        preimage.to_vec(),
+    )
 }
 
 /// Returns the recursive next state for a non-genesis step once the next

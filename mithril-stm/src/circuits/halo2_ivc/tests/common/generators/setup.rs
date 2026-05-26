@@ -17,7 +17,6 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use sha2::{Digest as Sha2Digest, Sha256};
 
-use crate::circuits::halo2_ivc::helpers::utils::jubjub_base_from_le_bytes;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
@@ -28,6 +27,7 @@ use crate::signature_scheme::{
 };
 use crate::{MembershipDigest, MithrilMembershipDigest, Parameters};
 
+use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
 
@@ -305,13 +305,12 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
 
     let genesis_message = {
         let params_hex = hex::encode(genesis_next_protocol_params.to_bytes_le());
-        let protocol_message =
-            build_genesis_protocol_message(&avk_hex, &params_hex, genesis_epoch);
+        let protocol_message = build_genesis_protocol_message(&avk_hex, &params_hex, genesis_epoch);
         let preimage = protocol_message
             .try_rigid_preimage::<MithrilMembershipDigest>()
             .expect("genesis protocol message preimage should succeed");
         let message_hash = Sha256::digest(&preimage);
-        jubjub_base_from_le_bytes(message_hash.as_ref())
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref())
     };
 
     let genesis_message_base = BaseFieldElement::from(genesis_message);

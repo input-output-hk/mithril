@@ -17,10 +17,11 @@ use crate::StmResult;
 use crate::circuits::halo2_ivc::{
     Accumulator, C, E, F, KZGCommitmentScheme, S, VerifyingKey,
     circuit::IvcCircuit,
-    helpers::utils::jubjub_base_from_le_bytes,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
 };
+
+use super::field_encoding::jubjub_base_from_raw_le_bytes;
 
 /// Stored recursive chain checkpoint used by the golden tests.
 #[derive(Debug)]
@@ -92,7 +93,7 @@ fn create_asset_file(path: &Path) -> StmResult<BufWriter<File>> {
 fn read_field_element<R: Read>(reader: &mut R) -> StmResult<F> {
     let mut bytes = [0u8; 32];
     reader.read_exact(&mut bytes)?;
-    Ok(jubjub_base_from_le_bytes(&bytes))
+    Ok(jubjub_base_from_raw_le_bytes(&bytes))
 }
 
 /// Writes one field element as 32 little-endian bytes.

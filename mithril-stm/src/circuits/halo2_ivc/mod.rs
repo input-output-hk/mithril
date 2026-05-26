@@ -50,12 +50,11 @@ pub(crate) use midnight_proofs::{
 
 pub(crate) mod certificate_proof;
 pub mod circuit;
-pub(crate) mod protocol_message;
 pub mod config;
 pub mod errors;
 pub mod gadget;
-pub mod helpers;
 pub mod io;
+pub(crate) mod protocol_message;
 pub mod state;
 
 #[cfg(test)]
