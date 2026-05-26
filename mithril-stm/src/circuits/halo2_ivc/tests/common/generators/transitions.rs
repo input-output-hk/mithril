@@ -8,11 +8,10 @@ use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::MithrilMembershipDigest;
+use crate::circuits::common::merkle::MerklePath;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
-use crate::circuits::halo2::witness::{
-    CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
-};
+use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
 use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
@@ -194,12 +193,12 @@ fn build_certificate_asset_data_inner(
                 &schnorr_vk,
             )
             .expect("fresh certificate signature should verify");
-        let halo2_merkle_path = Halo2MerklePath::try_from(&stm_path)
-            .expect("STM Merkle path should adapt to the Halo2 witness path");
+        let circuit_merkle_path = MerklePath::try_from(&stm_path)
+            .expect("STM Merkle path should adapt to the circuit witness path");
         let circuit_leaf = CircuitMerkleTreeLeaf(schnorr_vk, CircuitBaseField::from(leaf.1));
         certificate_witness_entries.push(CircuitWitnessEntry {
             leaf: circuit_leaf,
-            merkle_path: halo2_merkle_path,
+            merkle_path: circuit_merkle_path,
             unique_schnorr_signature,
             lottery_index: (j + 1) as u64,
         });

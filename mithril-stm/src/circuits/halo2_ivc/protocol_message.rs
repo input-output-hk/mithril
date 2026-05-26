@@ -2,6 +2,10 @@
 // analysis does not see across that boundary. Suppressed until wired into production code.
 #![allow(dead_code)]
 
+// TODO: Move this host-side rigid preimage builder to `proof_system::ivc_halo2_snark`
+// when the IVC prover starts consuming protocol messages. It lives next to the circuit
+// only while the Halo2 IVC asset generators are the sole callers.
+
 use std::collections::BTreeMap;
 
 use sha2::{Digest as Sha2Digest, Sha256};
