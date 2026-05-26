@@ -13,7 +13,9 @@
     "test:ci": "jest --ci",
     "generate:aggregators-list": "node scripts/generate.aggregators-list.js",
     "predev": "npm run generate:aggregators-list",
-    "prebuild": "npm run generate:aggregators-list"
+    "prebuild": "npm run generate:aggregators-list",
+    "pretest": "npm run generate:aggregators-list",
+    "pretest:ci": "npm run generate:aggregators-list"
   },
   "dependencies": {
     "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm",

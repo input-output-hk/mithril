@@ -3,7 +3,7 @@ import { Accordion, Badge, Button, Col, Container, Modal, Row, Table } from "rea
 import { Bar } from "react-chartjs-2";
 import { useSelector } from "react-redux";
 import { computeStakeShapesDataset } from "@/charts";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { selectedAggregatorUrl } from "@/store/settingsSlice";
 import RawJsonButton from "#/RawJsonButton";
 import Stake from "#/Stake";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -23,7 +23,7 @@ export default function CertificateModal({
   });
   const [showVerifyCertificateModal, setShowVerifyCertificateModal] = useState(false);
   const certificateEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/certificate/${hash}`,
+    (state) => `${selectedAggregatorUrl(state)}/certificate/${hash}`,
   );
 
   useEffect(() => {

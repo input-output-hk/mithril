@@ -10,14 +10,14 @@ import QuestionTooltip from "#/QuestionTooltip";
 import RawJsonButton from "#/RawJsonButton";
 import { formatBytes } from "@/utils";
 import DownloadButton from "./DownloadButton";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { selectedAggregatorUrl } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoDbSnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/cardano-database`,
+    (state) => `${selectedAggregatorUrl(state)}/artifact/cardano-database`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);

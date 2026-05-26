@@ -25,7 +25,7 @@ import { aggregatorSearchParam, signedEntityType } from "@/constants";
 import { setChartJsDefaults } from "@/charts";
 import {
   selectAggregator,
-  selectedAggregator as currentlySelectedAggregator,
+  selectedAggregatorUrl as currentlySelectedAggregatorUrl,
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "@/store/settingsSlice";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
@@ -42,7 +42,7 @@ export default function Explorer() {
 
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const isUpdatingAggregatorInUrl = useRef(false);
-  const selectedAggregator = useSelector(currentlySelectedAggregator);
+  const selectedAggregator = useSelector(currentlySelectedAggregatorUrl);
   const selectedAggregatorSignedEntities = useSelector((state) =>
     currentAggregatorSignedEntities(state),
   );
@@ -96,7 +96,7 @@ export default function Explorer() {
       } else {
         const aggregatorInUrl = searchParams.get("aggregator");
 
-        dispatch(selectAggregator(aggregatorInUrl));
+        dispatch(selectAggregator({ url: aggregatorInUrl }));
       }
     }
 

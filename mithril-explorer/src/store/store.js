@@ -5,10 +5,10 @@ import {
   initialState as settingsInitialState,
   settingsSlice,
 } from "./settingsSlice";
-import default_available_aggregators from "@/aggregators-list";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { checkUrl } from "@/utils";
 
-const SAVED_STATE_KEY = "Explorer_State";
+const SAVED_STATE_KEY = "Explorer_State_v2";
 
 export function saveToLocalStorage(state) {
   if (typeof window !== "undefined" && localStorage) {
@@ -26,7 +26,9 @@ function loadFromLocalStorage() {
 }
 
 function reorderAggregatorAndAddMissingDefaults(currentList, defaultAggregators) {
-  let not_default_aggregators = currentList.filter((a) => !defaultAggregators.includes(a));
+  let not_default_aggregators = currentList.filter(
+    (a) => !defaultAggregators.map((d) => d.url).includes(a.url),
+  );
   return [...defaultAggregators, ...not_default_aggregators];
 }
 
@@ -37,8 +39,8 @@ function getSettings(defaultSettings, initialAggregator) {
     default_available_aggregators,
   );
 
-  if (initialAggregator && checkUrl(initialAggregator)) {
-    if (!aggregators.includes(initialAggregator)) {
+  if (initialAggregator?.url && checkUrl(initialAggregator.url)) {
+    if (!aggregators.map((a) => a.url).includes(initialAggregator.url)) {
       aggregators.push(initialAggregator);
     }
 

@@ -12,8 +12,15 @@ export default function AggregatorSetter(props) {
   const dispatch = useDispatch();
 
   function copySelected() {
-    if (window.isSecureContext && selectedAggregator) {
-      navigator.clipboard.writeText(selectedAggregator).then(() => {});
+    if (window.isSecureContext && selectedAggregator?.url) {
+      navigator.clipboard.writeText(selectedAggregator.url).then(() => {});
+    }
+  }
+
+  function handleSelectAggregator(aggregatorUrl) {
+    const aggregator = availableAggregators.find((a) => a.url === aggregatorUrl);
+    if (aggregator) {
+      dispatch(selectAggregator(aggregator));
     }
   }
 
@@ -39,11 +46,11 @@ export default function AggregatorSetter(props) {
             </>
           )}
           <Form.Select
-            value={selectedAggregator}
-            onChange={(e) => dispatch(selectAggregator(e.target.value))}>
+            value={selectedAggregator.url}
+            onChange={(e) => handleSelectAggregator(e.target.value)}>
             {availableAggregators.map((aggregator, index) => (
-              <option key={"agg-" + index} value={aggregator}>
-                {aggregator}
+              <option key={`aggr-${index}`} value={aggregator.url}>
+                {aggregator.url}
               </option>
             ))}
           </Form.Select>

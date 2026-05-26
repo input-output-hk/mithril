@@ -21,7 +21,7 @@ export default function AddAggregatorModal(props) {
 
     if (checkUrl(value)) {
       handleClose();
-      dispatch(selectAggregator(value));
+      dispatch(selectAggregator({ url: value }));
     } else {
       setIsInvalid(true);
     }

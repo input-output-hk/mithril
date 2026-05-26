@@ -3,7 +3,7 @@ import "@testing-library/jest-dom";
 import { initStore } from "./helpers";
 import { Provider } from "react-redux";
 import AggregatorSetter from "#/ControlPanel/AggregatorSetter";
-import default_available_aggregators from "@/aggregators-list";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { settingsSlice } from "@/store/settingsSlice";
 
 function renderAggregatorSetter(default_state = undefined) {
@@ -23,16 +23,20 @@ describe("AggregatorSetter", () => {
     const [_, store] = renderAggregatorSetter();
     const settingsState = store.getState().settings;
 
-    expect(screen.getByRole("option", { name: settingsState.selectedAggregator }).selected).toBe(
-      true,
-    );
+    expect(
+      screen.getByRole("option", { name: settingsState.selectedAggregator.url }).selected,
+    ).toBe(true);
     expect(screen.getAllByRole("option").map((o) => o.value)).toEqual(
-      settingsState.availableAggregators,
+      settingsState.availableAggregators.map((a) => a.url),
     );
   });
 
   it("Load custom aggregators", () => {
-    const customAggregator = "http://aggregator.test";
+    const customAggregator = {
+      name: "custom",
+      url: "http://aggregator.test",
+      genesisVerificationKey: "whatever",
+    };
     renderAggregatorSetter({
       settings: {
         ...settingsSlice.getInitialState(),
@@ -41,7 +45,7 @@ describe("AggregatorSetter", () => {
       },
     });
 
-    expect(screen.getByRole("option", { name: customAggregator }).selected).toBe(true);
-    expect(screen.getAllByRole("option").map((o) => o.value)).toContain(customAggregator);
+    expect(screen.getByRole("option", { name: customAggregator.url }).selected).toBe(true);
+    expect(screen.getAllByRole("option").map((o) => o.value)).toContain(customAggregator.url);
   });
 });

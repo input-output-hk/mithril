@@ -7,7 +7,7 @@ import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import LocalDateTime from "#/LocalDateTime";
 import RawJsonButton from "#/RawJsonButton";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { selectedAggregatorUrl } from "@/store/settingsSlice";
 import { parseSignedEntity } from "@/utils";
 import { fetchAggregator } from "@/aggregator-api";
 
@@ -32,8 +32,10 @@ function BeaconColumns({ signedEntity }) {
 export default function CertificatesList(props) {
   const [certificates, setCertificates] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const aggregator = useSelector(selectedAggregator);
-  const certificatesEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificates`);
+  const aggregator = useSelector(selectedAggregatorUrl);
+  const certificatesEndpoint = useSelector(
+    (state) => `${selectedAggregatorUrl(state)}/certificates`,
+  );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 

@@ -10,7 +10,7 @@ import CertifyHashesFormInput from "#/CertifyHashesFormInput";
 import CertificateModal from "#/CertificateModal";
 import CertifyCardanoTransactionsModal from "#/CertifyCardanoTransactionsModal";
 import { defaultAggregatorCapabilities } from "@/constants";
-import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
+import { selectedAggregatorUrl, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
 import { certifiedMessageTypes } from "#/CertifyCardanoBlocksOrTransactionsModal";
 
@@ -19,9 +19,9 @@ export default function CardanoTransactionsSnapshotsList(props) {
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const [showCertificationFormValidation, setShowCertificationFormValidation] = useState(false);
   const [transactionHashesToCertify, setTransactionHashesToCertify] = useState([]);
-  const aggregator = useSelector(selectedAggregator);
+  const aggregator = useSelector(selectedAggregatorUrl);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/cardano-transactions`,
+    (state) => `${selectedAggregatorUrl(state)}/artifact/cardano-transactions`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);

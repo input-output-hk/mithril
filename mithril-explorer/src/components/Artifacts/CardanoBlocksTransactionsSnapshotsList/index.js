@@ -1,17 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import {
-  Button,
-  Card,
-  Col,
-  Container,
-  Form,
-  Row,
-  Stack,
-  ToggleButton,
-  ButtonGroup,
-  Nav,
-} from "react-bootstrap";
+import { Button, Card, Col, Container, Form, Row, Stack, Nav } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -22,7 +11,7 @@ import CertificateModal from "#/CertificateModal";
 import CertifyCardanoBlocksOrTransactionsModal, {
   certifiedMessageTypes,
 } from "#/CertifyCardanoBlocksOrTransactionsModal";
-import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
+import { selectedAggregatorUrl, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
 import { defaultAggregatorCapabilities } from "@/constants";
 
@@ -34,9 +23,9 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
     certifiedMessageTypes.transaction,
   );
   const [itemHashesToCertify, setItemHashesToCertify] = useState([]);
-  const aggregator = useSelector(selectedAggregator);
+  const aggregator = useSelector(selectedAggregatorUrl);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/cardano-blocks-transactions`,
+    (state) => `${selectedAggregatorUrl(state)}/artifact/cardano-blocks-transactions`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
