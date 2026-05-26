@@ -12,10 +12,6 @@ use crate::signature_scheme::{
 use super::types::CircuitBaseField;
 
 pub use crate::circuits::common::merkle::MerklePath;
-// Compatibility re-export for existing focused tests and benchmark helpers. Production callers
-// should import `Position` from `circuits::common::merkle` directly.
-#[cfg(any(test, feature = "benchmark-internals"))]
-pub use crate::circuits::common::merkle::Position;
 
 /// Lottery target value used by the circuit for signer eligibility checks.
 pub type LotteryTargetValue = CircuitBaseField;

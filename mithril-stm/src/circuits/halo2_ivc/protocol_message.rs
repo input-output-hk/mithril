@@ -76,9 +76,7 @@ impl ProtocolMessage {
     /// || epoch_slot                      (8 bytes)
     /// = 190 bytes
     /// ```
-    pub(crate) fn try_rigid_preimage<D: MembershipDigest>(
-        &self,
-    ) -> StmResult<[u8; PREIMAGE_SIZE]> {
+    pub(crate) fn try_rigid_preimage<D: MembershipDigest>(&self) -> StmResult<[u8; PREIMAGE_SIZE]> {
         let dynamic_hash = self.compute_dynamic_parts_hash();
         let avk_slot = self.avk_slot_from_key::<D>()?;
         let params_slot = self.params_slot_from_key()?;
@@ -88,8 +86,7 @@ impl ProtocolMessage {
         let mut cursor = 0;
 
         // offset 0..6
-        preimage[cursor..cursor + RIGID_DIGEST_LABEL.len()]
-            .copy_from_slice(RIGID_DIGEST_LABEL);
+        preimage[cursor..cursor + RIGID_DIGEST_LABEL.len()].copy_from_slice(RIGID_DIGEST_LABEL);
         cursor += RIGID_DIGEST_LABEL.len();
 
         // offset 6..38

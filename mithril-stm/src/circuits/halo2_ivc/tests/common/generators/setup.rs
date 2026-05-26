@@ -309,7 +309,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         let preimage = protocol_message
             .try_rigid_preimage::<MithrilMembershipDigest>()
             .expect("genesis protocol message preimage should succeed");
-        let message_hash = Sha256::digest(&preimage);
+        let message_hash = Sha256::digest(preimage);
         jubjub_base_from_raw_le_bytes(message_hash.as_ref())
     };
 

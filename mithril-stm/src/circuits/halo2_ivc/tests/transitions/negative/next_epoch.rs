@@ -107,7 +107,7 @@ mod slow {
             .state;
         let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.next_merkle_root,
             message,
             preimage_bytes
@@ -136,7 +136,7 @@ mod slow {
             .state;
         let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.next_merkle_root,
             message,
             preimage_bytes
@@ -165,7 +165,7 @@ mod slow {
             .state;
         let (message, preimage_bytes) = next_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.next_merkle_root,
             message,
             preimage_bytes

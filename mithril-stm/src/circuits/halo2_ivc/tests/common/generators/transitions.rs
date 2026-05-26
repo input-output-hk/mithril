@@ -67,7 +67,7 @@ pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> W
     let preimage: [u8; PREIMAGE_SIZE] = build_genesis_protocol_message_preimage(setup)
         .try_into()
         .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
-    Witness::new(setup.genesis_signature.clone(), F::ZERO, F::ZERO, preimage)
+    Witness::new(setup.genesis_signature, F::ZERO, F::ZERO, preimage)
 }
 
 /// Builds the first next-state public output produced by the recursive base case.
@@ -234,7 +234,7 @@ fn build_certificate_asset_data_inner(
     certificate_accumulator.collapse();
 
     let ivc_witness = Witness::new(
-        setup.genesis_signature.clone(),
+        setup.genesis_signature,
         merkle_root,
         message,
         message_preimage.try_into().unwrap(),
@@ -293,7 +293,7 @@ pub(crate) fn next_message_and_preimage_for_step(
     let preimage = protocol_message
         .try_rigid_preimage::<MithrilMembershipDigest>()
         .expect("protocol message preimage should succeed");
-    let message_hash = Sha256::digest(&preimage);
+    let message_hash = Sha256::digest(preimage);
     (
         jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
         preimage.to_vec(),
@@ -328,7 +328,7 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
     let preimage = protocol_message
         .try_rigid_preimage::<MithrilMembershipDigest>()
         .expect("protocol message preimage should succeed");
-    let message_hash = Sha256::digest(&preimage);
+    let message_hash = Sha256::digest(preimage);
     (
         jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
         preimage.to_vec(),

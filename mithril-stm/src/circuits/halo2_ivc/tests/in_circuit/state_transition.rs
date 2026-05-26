@@ -42,7 +42,7 @@ mod slow {
         let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.merkle_root,
             same_epoch_message,
             same_epoch_message_preimage_bytes
@@ -71,7 +71,7 @@ mod slow {
         let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.merkle_root,
             same_epoch_message,
             same_epoch_message_preimage_bytes
@@ -101,7 +101,7 @@ mod slow {
         let (same_epoch_message, same_epoch_message_preimage_bytes) =
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
-            setup.genesis_signature.clone(),
+            setup.genesis_signature,
             prev_state.merkle_root,
             same_epoch_message,
             same_epoch_message_preimage_bytes

@@ -64,7 +64,6 @@ rayon = { workspace = true }
 reqwest = { workspace = true, default-features = false, features = ["blocking"], optional = true }
 serde = { workspace = true }
 sha2 = { version = "0.10.9", optional = true }
-subtle = "2.6.1"
 thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]

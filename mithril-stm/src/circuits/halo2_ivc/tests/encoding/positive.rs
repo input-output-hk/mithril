@@ -5,6 +5,7 @@ use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
 use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::MithrilMembershipDigest;
 use crate::circuits::halo2_ivc::{
     Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_CURRENT_EPOCH_BYTES,
     PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE, S,
@@ -21,7 +22,6 @@ use crate::circuits::halo2_ivc::{
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
     },
 };
-use crate::MithrilMembershipDigest;
 
 /// Minimal fixture for rigid preimage layout pinning tests.
 /// Input: 40-byte legacy AVK (root_LE_32 || stake_BE_8); output: expected 44-byte slot.
@@ -36,7 +36,10 @@ fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
     avk_slot[36] = 1; // total_stake = 1, little-endian u64
 
     let mut msg = ProtocolMessage::new();
-    msg.set_message_part(ProtocolMessagePartKey::SnapshotDigest, hex::encode([2u8; 32]));
+    msg.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
     msg.set_message_part(
         ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
         hex::encode(avk_input),

@@ -119,13 +119,14 @@ mod tests {
     use midnight_circuits::instructions::{AssignmentInstructions, ConversionInstructions};
     use midnight_proofs::plonk::Error;
 
+    use crate::circuits::common::merkle::Position;
     use crate::circuits::halo2::tests::test_helpers::{
         TEST_MERKLE_TREE_DEPTH, TEST_MERKLE_TREE_DEPTH_FOR_PATH_PADDING, assert_relation_rejected,
         impl_focused_test_relation, jubjub_poseidon_used_chips, prove_and_verify_relation,
         sample_valid_circuit_witness_entry,
     };
     use crate::circuits::halo2::types::{CircuitBase, CircuitBaseField};
-    use crate::circuits::halo2::witness::{CircuitWitnessEntry, MerkleRoot, Position};
+    use crate::circuits::halo2::witness::{CircuitWitnessEntry, MerkleRoot};
 
     use super::{MerklePathInputs, verify_merkle_path};
 

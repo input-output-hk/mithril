@@ -4,6 +4,7 @@
 use ff::Field;
 use midnight_circuits::types::Instantiable;
 
+use crate::MithrilMembershipDigest;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
@@ -24,7 +25,6 @@ use crate::circuits::halo2_ivc::{
         },
     },
 };
-use crate::MithrilMembershipDigest;
 
 fn valid_rigid_protocol_message() -> ProtocolMessage {
     let mut avk_input = [0u8; 40];
@@ -61,9 +61,7 @@ fn rigid_preimage_rejects_missing_next_snark_aggregate_verification_key() {
     message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "missing SNARK AVK should make the rigid preimage fallible"
     );
 }
@@ -77,9 +75,7 @@ fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_hex() {
     );
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "invalid SNARK AVK hex should make the rigid preimage fallible"
     );
 }
@@ -101,9 +97,7 @@ fn rigid_preimage_rejects_missing_next_protocol_parameters() {
     message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "missing next protocol parameters should make the rigid preimage fallible"
     );
 }
@@ -117,9 +111,7 @@ fn rigid_preimage_rejects_wrong_next_protocol_parameters_width() {
     );
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "31-byte next protocol parameters should make the rigid preimage fallible"
     );
 }
@@ -144,9 +136,7 @@ fn rigid_preimage_rejects_missing_current_epoch() {
     );
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "missing current epoch should make the rigid preimage fallible"
     );
 }
@@ -157,9 +147,7 @@ fn rigid_preimage_rejects_invalid_current_epoch() {
     message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "oops".to_string());
 
     assert!(
-        message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
-            .is_err(),
+        message.try_rigid_preimage::<MithrilMembershipDigest>().is_err(),
         "non-decimal current epoch should make the rigid preimage fallible"
     );
 }
