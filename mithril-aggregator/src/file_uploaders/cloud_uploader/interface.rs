@@ -7,7 +7,7 @@ use mithril_common::StdResult;
 use mithril_common::entities::FileUri;
 
 /// CloudRemotePath represents a cloud remote path
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct CloudRemotePath(PathBuf);
 
 impl CloudRemotePath {
@@ -53,6 +53,15 @@ impl From<&Path> for CloudRemotePath {
 pub trait CloudBackendUploader: Send + Sync {
     /// Check if a file exists in the cloud backend
     async fn file_exists(&self, remote_file_path: &CloudRemotePath) -> StdResult<Option<FileUri>>;
+
+    /// List files URI from remote folder of cloud backend
+    async fn list_files(
+        &self,
+        remote_folder_path: &CloudRemotePath,
+    ) -> StdResult<Vec<CloudRemotePath>>;
+
+    /// Get the file URI for a given remote file path in the cloud backend
+    fn get_file_uri(&self, remote_file_path: &CloudRemotePath) -> FileUri;
 
     /// Upload a file to the cloud backend
     async fn upload_file(
