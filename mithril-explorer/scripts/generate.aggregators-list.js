@@ -13,12 +13,39 @@ const readGenesisVerificationKey = (network) => {
   return fs.readFileSync(genesisVerificationKeyFile, "utf8").trim();
 };
 
+// Sort networks rules:
+// - first by main network: mainnet, preprod, preview (in that order)
+// - second by subtype: release, pre, testing
+// - otherwise alphabetically
+const compareNetworks = (left, right) => {
+  const mainNetworks = ["mainnet", "preprod", "preview"];
+  const subtypes = ["release", "pre-release", "testing"];
+
+  const findLastIndexOrFallback = (array, value, fallback) => {
+    const index = array.findLastIndex((item) => value.includes(item));
+    return index !== -1 ? index : fallback;
+  };
+  const computeScore = (network) =>
+    findLastIndexOrFallback(mainNetworks, network, 9) * 10 +
+    findLastIndexOrFallback(subtypes, network, 9);
+
+  const leftNetworkScore = computeScore(left);
+  const rightNetworkScore = computeScore(right);
+
+  if (leftNetworkScore !== rightNetworkScore) {
+    return leftNetworkScore - rightNetworkScore;
+  } else {
+    return left.localeCompare(right);
+  }
+};
+
 const networks_with_vkeys = fs
   .readdirSync(configurationDirectory, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
+  .filter((network) => !network.startsWith("dev-"))
   .filter((network) => fs.existsSync(path.join(configurationDirectory, network, "genesis.vkey")))
-  .sort();
+  .sort(compareNetworks);
 
 const networks = networks_with_vkeys.map((network) => ({
   name: network,
@@ -46,3 +73,8 @@ fs.writeFileSync(outputFile, fileContent);
 console.log(
   `Generated ${path.relative(repositoryRoot, outputFile)} with ${networks.length} aggregators`,
 );
+
+module.exports = {
+  networks,
+  compareNetworks,
+};
