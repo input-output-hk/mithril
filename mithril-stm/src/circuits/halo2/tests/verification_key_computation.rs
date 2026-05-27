@@ -19,6 +19,10 @@ const STM_PARAMETERS_FOR_PRODUCTION: Parameters = Parameters {
     phi_f: 0.2,
 };
 
+/// Derive the non-recursive circuit verification key from the production SRS and the given
+/// protocol parameters. Used by
+/// [`write_non_recursive_circuit_verification_key_for_production_to_file`] to regenerate
+/// `non_recursive_circuit_verification_key_for_production.bin` when the circuit changes.
 fn compute_non_recursive_circuit_verification_key(
     params: &Parameters,
     merkle_tree_depth: u32,

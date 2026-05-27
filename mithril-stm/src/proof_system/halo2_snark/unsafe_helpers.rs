@@ -190,6 +190,17 @@ fn get_or_build_snark_keys(
     Ok(key_pair)
 }
 
+/// Return a cached VK/PK pair, consulting two cache levels before recomputing.
+///
+/// 1. **In-process (`SNARK_SETUP_KEY_CACHE`)**: a `LazyLock<RwLock>` that avoids recomputing
+///    keys when `SnarkSetup::try_new` is called multiple times within the same process.
+/// 2. **On-disk (`disk_cache`)**: persists across process restarts. [`CircuitKeyCache::validate`]
+///    guards this level: a stale VK (left from a previous circuit version) is wiped before the
+///    cached keys are used, so the prover never starts with a silently wrong key pair.
+///
+/// If both caches miss, the VK and PK are derived from the SRS and written to disk. The PK
+/// write is wrapped so that a failure removes the already-written VK, keeping the cache
+/// directory in a clean state for the next startup.
 fn get_or_build_snark_keys_with_disk_cache(
     cache_key: SnarkSetupCacheKey,
     circuit: &StmCertificateCircuit,

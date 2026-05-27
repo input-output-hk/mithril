@@ -1,3 +1,9 @@
+// On-disk circuit key cache with staleness detection.
+//
+// [`CircuitKeyCache`] guards the VK/PK files written by [`crate::proof_system`]: on each
+// startup it compares the on-disk verification key against the hard-coded expected bytes
+// embedded in the binary. A mismatch means the circuit was rotated; the stale files are
+// removed so the caller recomputes fresh keys from the SRS.
 use std::{
     fs,
     io::ErrorKind,
@@ -11,11 +17,17 @@ use super::{
     halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
 };
 
+/// Outcome of [`CircuitKeyCache::validate`].
 pub enum CacheState {
+    /// On-disk VK matches the expected bytes and the PK file is also present.
     Valid,
+    /// No VK on disk, or the cache was stale and has been cleared.
     Empty,
 }
 
+/// Owns the disk paths and expected VK bytes for one circuit's key cache.
+///
+/// See [`CircuitKeyCache::validate`] for the three-way decision logic.
 pub struct CircuitKeyCache {
     vk_path: PathBuf,
     pk_path: PathBuf,
@@ -23,6 +35,7 @@ pub struct CircuitKeyCache {
 }
 
 impl CircuitKeyCache {
+    /// Build a cache rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`.
     pub fn new(base_dir: PathBuf, circuit_name: &str, expected_vk_bytes: &'static [u8]) -> Self {
         let circuit_dir = base_dir.join(MITHRIL_CIRCUIT_CACHE_FOLDER).join(circuit_name);
         Self {
@@ -32,6 +45,13 @@ impl CircuitKeyCache {
         }
     }
 
+    /// Inspect the on-disk VK and decide whether the cache is usable.
+    ///
+    /// - **No VK file** → [`CacheState::Empty`] (first run or cache was cleared).
+    /// - **VK matches expected bytes and PK is present** → [`CacheState::Valid`].
+    /// - **VK matches but PK is missing** → [`CacheState::Empty`] (partial write; recompute).
+    /// - **VK does not match** → both files are removed (stale cache after a key rotation)
+    ///   and [`CacheState::Empty`] is returned. Both removals are idempotent.
     pub fn validate(&self) -> StmResult<CacheState> {
         let bytes = match fs::read(&self.vk_path) {
             Ok(b) => b,
@@ -73,6 +93,7 @@ impl CircuitKeyCache {
         &self.pk_path
     }
 
+    /// Cache for the non-recursive STM certificate circuit, rooted at `std::env::temp_dir()`.
     pub fn for_non_recursive_circuit() -> Self {
         Self::new(
             std::env::temp_dir(),
@@ -81,6 +102,7 @@ impl CircuitKeyCache {
         )
     }
 
+    /// Cache for the recursive (IVC) circuit, rooted at `std::env::temp_dir()`.
     pub fn for_recursive_circuit() -> Self {
         Self::new(
             std::env::temp_dir(),

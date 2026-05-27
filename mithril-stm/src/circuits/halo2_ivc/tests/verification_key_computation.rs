@@ -16,9 +16,13 @@ use crate::{
     },
 };
 
+/// Derive the recursive circuit verification key from the production SRS and the hardcoded
+/// non-recursive VK. Used by [`write_recursive_circuit_verification_key_for_production_to_file`]
+/// to regenerate `recursive_circuit_verification_key_for_production.bin` when the circuit changes.
 fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
     let shared_srs_degree = K;
     let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
+    // The recursive circuit uses a fixed SRS degree K, smaller than the full production SRS.
     let mut recursive_commitment_parameters = srs;
     recursive_commitment_parameters.downsize(shared_srs_degree);
 
