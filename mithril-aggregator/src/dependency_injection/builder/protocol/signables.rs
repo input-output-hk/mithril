@@ -41,6 +41,15 @@ impl DependenciesBuilder {
             &self.configuration.db_directory(),
             self.root_logger(),
         ));
+
+        //TODO wire correct CardanoNodeLedgerStateSignableBuilder instead of reusing CardanoDatabaseSignableBuilder
+        let cardano_node_ledger_state_signable_builder =
+            Arc::new(CardanoDatabaseSignableBuilder::new(
+                self.get_immutable_digester().await?,
+                &self.configuration.db_directory(),
+                self.root_logger(),
+            ));
+
         #[cfg(feature = "future_snark")]
         let era_fetcher = self.get_era_checker().await?;
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
@@ -49,6 +58,7 @@ impl DependenciesBuilder {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_fetcher,
         );

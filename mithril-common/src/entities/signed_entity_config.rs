@@ -93,6 +93,12 @@ impl SignedEntityConfig {
             SignedEntityTypeDiscriminants::CardanoDatabase => SignedEntityType::CardanoDatabase(
                 CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number),
             ),
+            SignedEntityTypeDiscriminants::CardanoNodeLedgerState => {
+                SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(
+                    *time_point.epoch,
+                    time_point.immutable_file_number,
+                ))
+            }
         };
 
         Ok(signed_entity_type)

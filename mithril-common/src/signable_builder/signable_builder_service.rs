@@ -41,6 +41,7 @@ pub struct MithrilSignableBuilderService {
         Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    cardano_node_ledger_state_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     #[cfg(feature = "future_snark")]
     era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
     logger: Logger,
@@ -54,6 +55,7 @@ pub struct SignableBuilderServiceDependencies {
         Arc<dyn SignableBuilder<(BlockNumber, BlockNumberOffset)>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    cardano_node_ledger_state_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     #[cfg(feature = "future_snark")]
     era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
 }
@@ -68,6 +70,7 @@ impl SignableBuilderServiceDependencies {
         >,
         cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
         cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+        cardano_node_ledger_state_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
         #[cfg(feature = "future_snark")] era_fetcher: Arc<dyn SignableBuilderServiceEraFetcher>,
     ) -> Self {
         Self {
@@ -76,6 +79,7 @@ impl SignableBuilderServiceDependencies {
             cardano_blocks_transactions_signable_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_fetcher,
         }
@@ -98,6 +102,8 @@ impl MithrilSignableBuilderService {
                 .cardano_blocks_transactions_signable_builder,
             cardano_stake_distribution_builder: dependencies.cardano_stake_distribution_builder,
             cardano_database_signable_builder: dependencies.cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder: dependencies
+                .cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_fetcher: dependencies.era_fetcher,
             logger: logger.new_with_component_name::<Self>(),
@@ -136,6 +142,11 @@ impl MithrilSignableBuilderService {
             }
             SignedEntityType::CardanoDatabase(beacon) => {
                 self.cardano_database_signable_builder
+                    .compute_protocol_message(beacon.clone())
+                    .await
+            }
+            SignedEntityType::CardanoNodeLedgerState(beacon) => {
+                self.cardano_node_ledger_state_signable_builder
                     .compute_protocol_message(beacon.clone())
                     .await
             }
@@ -258,6 +269,7 @@ mod tests {
             MockSignableBuilderImpl<(BlockNumber, BlockNumberOffset)>,
         mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
         mock_cardano_database_signable_builder: MockSignableBuilderImpl<CardanoDbBeacon>,
+        mock_cardano_node_ledger_state_signable_builder: MockSignableBuilderImpl<CardanoDbBeacon>,
         #[cfg(feature = "future_snark")]
         mock_era_fetcher: MockSignableBuilderServiceEraFetcher,
     }
@@ -271,6 +283,7 @@ mod tests {
                 mock_cardano_blocks_transactions_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_database_signable_builder: MockSignableBuilderImpl::new(),
+                mock_cardano_node_ledger_state_signable_builder: MockSignableBuilderImpl::new(),
                 #[cfg(feature = "future_snark")]
                 mock_era_fetcher: MockSignableBuilderServiceEraFetcher::new(),
             }
@@ -283,6 +296,7 @@ mod tests {
                 Arc::new(self.mock_cardano_blocks_transactions_signable_builder),
                 Arc::new(self.mock_cardano_stake_distribution_signable_builder),
                 Arc::new(self.mock_cardano_database_signable_builder),
+                Arc::new(self.mock_cardano_node_ledger_state_signable_builder),
                 #[cfg(feature = "future_snark")]
                 Arc::new(self.mock_era_fetcher),
             );

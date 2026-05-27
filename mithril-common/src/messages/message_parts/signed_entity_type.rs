@@ -35,6 +35,9 @@ pub enum SignedEntityTypeMessage {
     /// Cardano Blocks and Transactions
     CardanoBlocksTransactions(Epoch, BlockNumber, BlockNumberOffset),
 
+    /// Cardano Node Ledger State
+    CardanoNodeLedgerState(CardanoDbBeacon),
+
     /// Unknown signed entity type, used to catch unknown values
     #[serde(other)]
     #[strum_discriminants(serde(other))]
@@ -67,6 +70,9 @@ impl SignedEntityTypeMessage {
             SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset) => Some(
                 SignedEntityType::CardanoBlocksTransactions(epoch, block, offset),
             ),
+            SignedEntityTypeMessage::CardanoNodeLedgerState(beacon) => {
+                Some(SignedEntityType::CardanoNodeLedgerState(beacon))
+            }
             SignedEntityTypeMessage::Unknown => None,
         }
     }
@@ -107,6 +113,9 @@ impl SignedEntityTypeDiscriminantsMessage {
             SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions => {
                 Some(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
             }
+            SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState => {
+                Some(SignedEntityTypeDiscriminants::CardanoNodeLedgerState)
+            }
             SignedEntityTypeDiscriminantsMessage::Unknown => None,
         }
     }
@@ -145,6 +154,9 @@ mod infallible_conversions {
                 "CardanoBlocksTransactions" => {
                     SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
                 }
+                "CardanoNodeLedgerState" => {
+                    SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState
+                }
                 _ => SignedEntityTypeDiscriminantsMessage::Unknown,
             }
         }
@@ -168,6 +180,9 @@ mod infallible_conversions {
                 SignedEntityType::CardanoBlocksTransactions(epoch, block, offset) => {
                     SignedEntityTypeMessage::CardanoBlocksTransactions(epoch, block, offset)
                 }
+                SignedEntityType::CardanoNodeLedgerState(beacon) => {
+                    SignedEntityTypeMessage::CardanoNodeLedgerState(beacon)
+                }
             }
         }
     }
@@ -190,6 +205,9 @@ mod infallible_conversions {
                 SignedEntityType::CardanoBlocksTransactions(..) => {
                     SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
                 }
+                SignedEntityType::CardanoNodeLedgerState(..) => {
+                    SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState
+                }
             }
         }
     }
@@ -211,6 +229,9 @@ mod infallible_conversions {
                 }
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions => {
                     SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
+                }
+                SignedEntityTypeDiscriminants::CardanoNodeLedgerState => {
+                    SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState
                 }
             }
         }
@@ -257,6 +278,9 @@ mod fallible_conversions {
                 SignedEntityTypeMessage::CardanoBlocksTransactions(..) => {
                     Ok(SignedEntityTypeDiscriminants::CardanoBlocksTransactions)
                 }
+                SignedEntityTypeMessage::CardanoNodeLedgerState(..) => {
+                    Ok(SignedEntityTypeDiscriminants::CardanoNodeLedgerState)
+                }
                 SignedEntityTypeMessage::Unknown => Err(UnknownSignedEntityTypeError),
             }
         }
@@ -301,6 +325,10 @@ mod comparison {
                         other_offset,
                     ),
                 ) => epoch.eq(&other_epoch) && block.eq(&other_block) && offset.eq(&other_offset),
+                (
+                    SignedEntityType::CardanoNodeLedgerState(beacon),
+                    SignedEntityTypeMessage::CardanoNodeLedgerState(other_beacon),
+                ) => beacon.eq(other_beacon),
                 _ => false,
             }
         }
@@ -331,6 +359,9 @@ mod comparison {
                 ) | (
                     SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
                     SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions,
+                ) | (
+                    SignedEntityTypeDiscriminants::CardanoNodeLedgerState,
+                    SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState,
                 )
             )
         }
@@ -394,6 +425,12 @@ mod tests {
                     BlockNumberOffset(14),
                 ),
                 SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions,
+            ),
+            (
+                SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(15, 120)),
+                SignedEntityTypeDiscriminants::CardanoNodeLedgerState,
+                SignedEntityTypeMessage::CardanoNodeLedgerState(CardanoDbBeacon::new(15, 120)),
+                SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState,
             ),
         ]
     }
@@ -611,6 +648,10 @@ mod tests {
                 SignedEntityTypeDiscriminantsMessage::from("CardanoBlocksTransactions"),
                 SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
             );
+            assert_eq!(
+                SignedEntityTypeDiscriminantsMessage::from("CardanoNodeLedgerState"),
+                SignedEntityTypeDiscriminantsMessage::CardanoNodeLedgerState
+            );
             // special case included for completeness
             assert_eq!(
                 SignedEntityTypeDiscriminantsMessage::from("Unknown"),
@@ -703,6 +744,12 @@ mod tests {
                 }
                 SignedEntityType::CardanoBlocksTransactions(epoch, block, offset) => {
                     SignedEntityType::CardanoBlocksTransactions(epoch + 1, block + 1, offset + 1)
+                }
+                SignedEntityType::CardanoNodeLedgerState(beacon) => {
+                    SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(
+                        *beacon.epoch + 1,
+                        beacon.immutable_file_number + 5,
+                    ))
                 }
             }
         }

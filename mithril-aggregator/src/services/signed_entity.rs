@@ -271,6 +271,17 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
+            // TODO wire correct artifact builder 
+            SignedEntityType::CardanoNodeLedgerState(cardano_db_beacon) => Ok(Arc::new(
+                self.cardano_database_artifact_builder
+                    .compute_artifact(cardano_db_beacon, certificate)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?,
+            )),
         }
     }
 
@@ -308,6 +319,10 @@ impl MithrilSignedEntityService {
                 metrics.get_artifact_cardano_blocks_transactions_total_produced_since_startup()
             }
             SignedEntityType::CardanoDatabase(..) => {
+                metrics.get_artifact_cardano_database_total_produced_since_startup()
+            }
+            //TODO wire correct metric counter for CardanoNodeLedgerState artifact
+            SignedEntityType::CardanoNodeLedgerState(..) => {
                 metrics.get_artifact_cardano_database_total_produced_since_startup()
             }
         };
@@ -684,6 +699,10 @@ mod tests {
                 .get_artifact_cardano_blocks_transactions_total_produced_since_startup()
                 .get(),
             SignedEntityType::CardanoDatabase(..) => metrics_service
+                .get_artifact_cardano_database_total_produced_since_startup()
+                .get(),
+            //TODO wire correct metric counter for CardanoNodeLedgerState artifact
+            SignedEntityType::CardanoNodeLedgerState(..) => metrics_service
                 .get_artifact_cardano_database_total_produced_since_startup()
                 .get(),
         }

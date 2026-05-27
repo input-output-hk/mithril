@@ -307,6 +307,12 @@ mod test {
                             beacon.epoch, beacon.immutable_file_number
                         )
                     }
+                    SignedEntityType::CardanoNodeLedgerState(beacon) => {
+                        format!(
+                            "cardano-node-ledger-state-{}-{}",
+                            beacon.epoch, beacon.immutable_file_number
+                        )
+                    }
                 };
 
                 let signed_entity_record = SignedEntityRecord {

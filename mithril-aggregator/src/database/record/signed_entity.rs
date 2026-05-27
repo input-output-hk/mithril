@@ -120,6 +120,13 @@ impl SignedEntityRecord {
                 );
                 get_id_and_artifact(&artifact)
             }
+            SignedEntityType::CardanoNodeLedgerState(cardano_db_beacon) => {
+                //TODO: wire the correct snapshot creation for CardanoNodeLedgerState
+                let mut artifact =
+                    fake_data::cardano_database_snapshot(cardano_db_beacon.immutable_file_number);
+                artifact.beacon = cardano_db_beacon;
+                get_id_and_artifact(&artifact)
+            }
         };
 
         SignedEntityRecord {

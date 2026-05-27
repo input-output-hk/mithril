@@ -146,5 +146,14 @@ delete from signed_beacon where signed_beacon.signed_entity_type_id = 2;
 delete from signed_entity_type where signed_entity_type.signed_entity_type_id = 2;
             "#,
         ),
+        // Migration 10
+        // Add the `signed_entity_type` record for 'CardanoNodeLedgerState'
+        SqlMigration::new(
+            10,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name)
+    values  (6, 'Cardano Node Ledger State');
+        "#,
+        ),
     ]
 }

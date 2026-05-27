@@ -38,6 +38,9 @@ const ENTITY_TYPE_CARDANO_DATABASE: SignedEntityTypeId = 4;
 /// Database representation of the SignedEntityType::CardanoBlocksTransactions value
 const ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS: SignedEntityTypeId = 5;
 
+/// Database representation of the SignedEntityType::CardanoNodeLedgerState value
+const ENTITY_TYPE_CARDANO_NODE_LEDGER_STATE: SignedEntityTypeId = 6;
+
 /// The signed entity type that represents a type of data signed by the Mithril
 /// protocol Note: Each variant of this enum must be associated to an entry in
 /// the `signed_entity_type` table of the signer/aggregator nodes. The variant
@@ -74,6 +77,9 @@ pub enum SignedEntityType {
 
     /// Cardano Blocks and Transactions
     CardanoBlocksTransactions(Epoch, BlockNumber, BlockNumberOffset),
+
+    /// Cardano Node Ledger State
+    CardanoNodeLedgerState(CardanoDbBeacon),
 }
 
 impl SignedEntityType {
@@ -90,6 +96,7 @@ impl SignedEntityType {
             | Self::MithrilStakeDistribution(e)
             | Self::CardanoTransactions(e, _)
             | Self::CardanoBlocksTransactions(e, _, _) => *e,
+            Self::CardanoNodeLedgerState(b) => b.epoch,
         }
     }
 
@@ -101,6 +108,7 @@ impl SignedEntityType {
             Self::MithrilStakeDistribution(epoch)
             | Self::CardanoTransactions(epoch, _)
             | Self::CardanoBlocksTransactions(epoch, _, _) => *epoch,
+            Self::CardanoNodeLedgerState(beacon) => beacon.epoch,
         }
     }
 
@@ -112,13 +120,16 @@ impl SignedEntityType {
             Self::CardanoTransactions(..) => ENTITY_TYPE_CARDANO_TRANSACTIONS,
             Self::CardanoBlocksTransactions(..) => ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS,
             Self::CardanoDatabase(..) => ENTITY_TYPE_CARDANO_DATABASE,
+            Self::CardanoNodeLedgerState(..) => ENTITY_TYPE_CARDANO_NODE_LEDGER_STATE,
         }
     }
 
     /// Return a JSON serialized value of the internal beacon
     pub fn get_json_beacon(&self) -> StdResult<String> {
         let value = match self {
-            Self::CardanoDatabase(value) => serde_json::to_string(value)?,
+            Self::CardanoDatabase(value) | Self::CardanoNodeLedgerState(value) => {
+                serde_json::to_string(value)?
+            }
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
                 serde_json::to_string(value)?
             }
@@ -150,6 +161,7 @@ impl SignedEntityType {
             Self::CardanoTransactions(..) => Some(Duration::from_secs(600)),
             Self::CardanoBlocksTransactions(..) => Some(Duration::from_secs(600)),
             Self::CardanoDatabase(..) => Some(Duration::from_secs(600)),
+            Self::CardanoNodeLedgerState(..) => Some(Duration::from_secs(600)),
         }
     }
 
@@ -165,7 +177,8 @@ impl SignedEntityType {
             | SignedEntityType::CardanoStakeDistribution(epoch) => {
                 hasher.update(&epoch.to_be_bytes())
             }
-            SignedEntityType::CardanoDatabase(db_beacon) => {
+            SignedEntityType::CardanoDatabase(db_beacon)
+            | SignedEntityType::CardanoNodeLedgerState(db_beacon) => {
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
@@ -244,6 +257,7 @@ impl SignedEntityTypeDiscriminants {
             Self::CardanoTransactions => ENTITY_TYPE_CARDANO_TRANSACTIONS,
             Self::CardanoBlocksTransactions => ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS,
             Self::CardanoDatabase => ENTITY_TYPE_CARDANO_DATABASE,
+            Self::CardanoNodeLedgerState => ENTITY_TYPE_CARDANO_NODE_LEDGER_STATE,
         }
     }
 
@@ -257,6 +271,7 @@ impl SignedEntityTypeDiscriminants {
             ENTITY_TYPE_CARDANO_TRANSACTIONS => Ok(Self::CardanoTransactions),
             ENTITY_TYPE_CARDANO_BLOCKS_TRANSACTIONS => Ok(Self::CardanoBlocksTransactions),
             ENTITY_TYPE_CARDANO_DATABASE => Ok(Self::CardanoDatabase),
+            ENTITY_TYPE_CARDANO_NODE_LEDGER_STATE => Ok(Self::CardanoNodeLedgerState),
             index => Err(anyhow!("Invalid entity_type_id {index}.")),
         }
     }
@@ -416,6 +431,17 @@ mod tests {
     }
 
     #[test]
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_node_ledger_state_return_epoch_stored_in_signed_entity_type()
+     {
+        let signed_entity_type =
+            SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(42, 123));
+        assert_eq!(
+            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
+            Epoch(42)
+        );
+    }
+
+    #[test]
     fn verify_signed_entity_type_properties_are_included_in_computed_hash() {
         let reference_hash = hash(SignedEntityType::MithrilStakeDistribution(Epoch(5)));
         assert_ne!(
@@ -533,6 +559,11 @@ mod tests {
                 .get_open_message_timeout(),
             Some(Duration::from_secs(600))
         );
+        assert_eq!(
+            SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(1, 1))
+                .get_open_message_timeout(),
+            Some(Duration::from_secs(600))
+        );
     }
 
     #[test]
@@ -576,6 +607,15 @@ mod tests {
             r#"{"epoch":12,"immutable_file_number":987}"#,
             &cardano_database_full_json
         );
+
+        let cardano_node_ledger_state_json =
+            SignedEntityType::CardanoNodeLedgerState(CardanoDbBeacon::new(42, 123))
+                .get_json_beacon()
+                .unwrap();
+        assert_same_json!(
+            r#"{"epoch":42,"immutable_file_number":123}"#,
+            &cardano_node_ledger_state_json
+        );
     }
 
     #[test]
@@ -604,6 +644,7 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                SignedEntityTypeDiscriminants::CardanoNodeLedgerState,
             ]
         );
     }
@@ -859,6 +900,10 @@ Accepted values are (case-sensitive): {}."#,
         assert_eq!(
             SignedEntityTypeDiscriminants::CardanoDatabase.index(),
             ENTITY_TYPE_CARDANO_DATABASE
+        );
+        assert_eq!(
+            SignedEntityTypeDiscriminants::CardanoNodeLedgerState.index(),
+            ENTITY_TYPE_CARDANO_NODE_LEDGER_STATE
         );
     }
 }

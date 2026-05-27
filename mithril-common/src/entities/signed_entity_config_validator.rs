@@ -40,7 +40,8 @@ impl SignedEntityConfigValidator {
                     // All other discriminants require no additional config and are always usable
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution
                     | SignedEntityTypeDiscriminants::CardanoStakeDistribution
-                    | SignedEntityTypeDiscriminants::CardanoDatabase => true,
+                    | SignedEntityTypeDiscriminants::CardanoDatabase
+                    | SignedEntityTypeDiscriminants::CardanoNodeLedgerState => true,
                 });
 
         if not_usable_discriminants.is_empty() {
