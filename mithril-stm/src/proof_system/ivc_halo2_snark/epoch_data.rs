@@ -31,6 +31,7 @@ impl EpochData {
     /// protocol-message preimage. The decoding mirrors the circuit's
     /// `combine_bytes` step: bytes are interpreted little-endian against
     /// powers-of-256, reducing modulo the base field for the 32-byte ranges.
+    // TODO: Replace with the protocol message functions introduced in PR 3288, when merged.
     pub(crate) fn new(message_preimage: [u8; PREIMAGE_SIZE]) -> StmResult<Self> {
         let current_epoch_bytes: [u8; 8] =
             message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].try_into()?;
