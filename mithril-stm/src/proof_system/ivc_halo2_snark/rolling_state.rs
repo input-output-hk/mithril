@@ -2,18 +2,190 @@
 
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 
-use crate::{circuits::halo2_ivc::state::State, signature_scheme::StandardSchnorrSignature};
+use crate::{
+    circuits::halo2_ivc::state::{State, trivial_acc},
+    signature_scheme::StandardSchnorrSignature,
+};
+
+use super::proof::IvcProof;
 
 /// Caller-owned bridge between consecutive IVC proving steps.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
 #[allow(dead_code)]
+#[derive(Debug)]
 pub(crate) struct IvcRollingState {
     /// Last committed chain state.
-    pub(crate) state: State,
+    state: State,
     /// Bytes of the last IVC proof under the Poseidon transcript
-    pub(crate) ivc_proof: Vec<u8>,
+    ivc_proof: Vec<u8>,
     /// Folded accumulator the new step will build on top of
-    pub(crate) accumulator: Accumulator<BlstrsEmulation>,
+    accumulator: Accumulator<BlstrsEmulation>,
     /// Chain-specific Schnorr signature over the genesis state
-    pub(crate) genesis_signature: StandardSchnorrSignature,
+    genesis_signature: StandardSchnorrSignature,
+}
+
+#[allow(dead_code)]
+impl IvcRollingState {
+    /// Builds a rolling state from the four fields produced by an IVC proving step.
+    pub(crate) fn new(
+        state: State,
+        ivc_proof: Vec<u8>,
+        accumulator: Accumulator<BlstrsEmulation>,
+        genesis_signature: StandardSchnorrSignature,
+    ) -> Self {
+        Self {
+            state,
+            ivc_proof,
+            accumulator,
+            genesis_signature,
+        }
+    }
+
+    /// Builds the genesis rolling state: zeroed chain state, empty IVC proof,
+    /// trivial accumulator over the supplied fixed-base names, and the
+    /// caller-supplied genesis signature.
+    ///
+    /// `fixed_base_names` must be the keys of `IvcSetup::combined_fixed_bases`.
+    /// Passing any other list produces a genesis accumulator that does not match
+    /// what the in-circuit verifier expects, and the first proving step will fail.
+    pub(crate) fn genesis(
+        genesis_signature: StandardSchnorrSignature,
+        fixed_base_names: &[String],
+    ) -> Self {
+        Self {
+            state: State::genesis(),
+            ivc_proof: Vec::new(),
+            accumulator: trivial_acc(fixed_base_names),
+            genesis_signature,
+        }
+    }
+
+    /// Builds the rolling state for the next step from the previous IVC proof.
+    /// The chain state, proof bytes, and folded accumulator are pulled from the
+    /// previous proof; the genesis signature is the chain-specific constant
+    /// supplied once at session start.
+    pub(crate) fn from_previous_proof(
+        previous_proof: &IvcProof,
+        genesis_signature: StandardSchnorrSignature,
+    ) -> Self {
+        Self {
+            state: previous_proof.state.clone(),
+            ivc_proof: previous_proof.proof_bytes.clone(),
+            accumulator: previous_proof.accumulator.clone(),
+            genesis_signature,
+        }
+    }
+
+    /// Returns the last committed chain state.
+    pub(crate) fn state(&self) -> &State {
+        &self.state
+    }
+
+    /// Returns the bytes of the last IVC proof.
+    pub(crate) fn ivc_proof(&self) -> &[u8] {
+        &self.ivc_proof
+    }
+
+    /// Returns the folded accumulator the new step will build on top of.
+    pub(crate) fn accumulator(&self) -> &Accumulator<BlstrsEmulation> {
+        &self.accumulator
+    }
+
+    /// Returns the chain-specific Schnorr signature over the genesis state.
+    pub(crate) fn genesis_signature(&self) -> StandardSchnorrSignature {
+        self.genesis_signature
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey};
+
+    use super::*;
+
+    fn build_genesis_signature() -> StandardSchnorrSignature {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let signing_key = SchnorrSigningKey::generate(&mut rng);
+        let message = vec![BaseFieldElement::from(1u64)];
+        signing_key.sign_standard(&message, &mut rng).unwrap()
+    }
+
+    #[test]
+    fn genesis_initializes_zero_state_empty_proof_and_supplied_signature() {
+        let genesis_signature = build_genesis_signature();
+        let fixed_base_names = vec!["base_one".to_string(), "base_two".to_string()];
+
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &fixed_base_names);
+
+        assert_eq!(
+            rolling_state.state().as_public_input(),
+            State::genesis().as_public_input(),
+            "genesis rolling state must carry the genesis chain state"
+        );
+        assert!(
+            rolling_state.ivc_proof().is_empty(),
+            "genesis rolling state must have an empty IVC proof"
+        );
+        assert_eq!(rolling_state.genesis_signature(), genesis_signature);
+    }
+
+    #[test]
+    fn genesis_accumulator_carries_supplied_fixed_base_names() {
+        let genesis_signature = build_genesis_signature();
+        let fixed_base_names = vec!["base_one".to_string(), "base_two".to_string()];
+
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &fixed_base_names);
+
+        let mut accumulator_fixed_base_keys: Vec<String> = rolling_state
+            .accumulator()
+            .rhs()
+            .fixed_base_scalars()
+            .keys()
+            .cloned()
+            .collect();
+        accumulator_fixed_base_keys.sort();
+        let mut expected = fixed_base_names.clone();
+        expected.sort();
+        assert_eq!(accumulator_fixed_base_keys, expected);
+    }
+
+    #[test]
+    fn from_previous_proof_carries_proof_bytes_and_supplied_signature() {
+        let genesis_signature = build_genesis_signature();
+        let proof_bytes = vec![0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03];
+        let previous_proof = IvcProof {
+            proof_bytes: proof_bytes.clone(),
+            state: State::genesis(),
+            accumulator: trivial_acc(&["base_one".to_string()]),
+        };
+
+        let rolling_state =
+            IvcRollingState::from_previous_proof(&previous_proof, genesis_signature);
+
+        assert_eq!(rolling_state.ivc_proof(), proof_bytes.as_slice());
+        assert_eq!(rolling_state.genesis_signature(), genesis_signature);
+    }
+
+    #[test]
+    fn from_previous_proof_chain_state_matches_previous_proof_chain_state() {
+        let genesis_signature = build_genesis_signature();
+        let previous_state = State::genesis();
+        let previous_proof = IvcProof {
+            proof_bytes: Vec::new(),
+            state: previous_state,
+            accumulator: trivial_acc(&["base_one".to_string()]),
+        };
+
+        let rolling_state =
+            IvcRollingState::from_previous_proof(&previous_proof, genesis_signature);
+
+        assert_eq!(
+            rolling_state.state().as_public_input(),
+            State::genesis().as_public_input(),
+            "rolling state's chain state must mirror the previous proof's chain state"
+        );
+    }
 }
