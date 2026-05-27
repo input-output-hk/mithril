@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use mithril_cardano_node_chain::chain_importer::CardanoChainDataImporter;
-use mithril_cardano_node_internal_database::signable_builder::CardanoDatabaseSignableBuilder;
+use mithril_cardano_node_internal_database::signable_builder::{
+    CardanoDatabaseSignableBuilder, CardanoNodeLedgerStateSignableBuilder,
+};
 use mithril_common::crypto_helper::MKTreeStoreInMemory;
 use mithril_common::signable_builder::{
     CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
@@ -42,10 +44,8 @@ impl DependenciesBuilder {
             self.root_logger(),
         ));
 
-        //TODO wire correct CardanoNodeLedgerStateSignableBuilder instead of reusing CardanoDatabaseSignableBuilder
         let cardano_node_ledger_state_signable_builder =
-            Arc::new(CardanoDatabaseSignableBuilder::new(
-                self.get_immutable_digester().await?,
+            Arc::new(CardanoNodeLedgerStateSignableBuilder::new(
                 &self.configuration.db_directory(),
                 self.root_logger(),
             ));

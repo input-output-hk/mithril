@@ -321,7 +321,7 @@ impl MithrilSignedEntityService {
             SignedEntityType::CardanoDatabase(..) => {
                 metrics.get_artifact_cardano_database_total_produced_since_startup()
             }
-            //TODO wire correct metric counter for CardanoNodeLedgerState artifact
+            //TODO: wire correct metric counter for CardanoNodeLedgerState artifact
             SignedEntityType::CardanoNodeLedgerState(..) => {
                 metrics.get_artifact_cardano_database_total_produced_since_startup()
             }
@@ -701,7 +701,7 @@ mod tests {
             SignedEntityType::CardanoDatabase(..) => metrics_service
                 .get_artifact_cardano_database_total_produced_since_startup()
                 .get(),
-            //TODO wire correct metric counter for CardanoNodeLedgerState artifact
+            //TODO: wire correct metric counter for CardanoNodeLedgerState artifact
             SignedEntityType::CardanoNodeLedgerState(..) => metrics_service
                 .get_artifact_cardano_database_total_produced_since_startup()
                 .get(),
