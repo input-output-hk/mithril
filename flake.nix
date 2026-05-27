@@ -290,6 +290,7 @@
             pkgsRustOverlay.libiconv
             config.treefmt.package
             pkgsRustOverlay.gnumake
+            pkgsRustOverlay.cargo-edit
           ];
 
           shellHook = ''

@@ -45,9 +45,13 @@ impl JsonImmutableFileDigestCacheProvider {
         &self,
         values: InnerStructure,
     ) -> Result<(), ImmutableDigesterCacheStoreError> {
-        let mut file = File::create(&self.filepath).await?;
+        let tmp_path = self.filepath.with_extension("tmp");
+        let mut file = File::create(&tmp_path).await?;
         file.write_all(serde_json::to_string_pretty(&values)?.as_bytes())
             .await?;
+        file.flush().await?;
+        drop(file);
+        fs::rename(&tmp_path, &self.filepath).await?;
 
         Ok(())
     }

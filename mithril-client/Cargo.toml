@@ -78,7 +78,7 @@ zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 mithril-aggregator-discovery = { path = "../internal/mithril-aggregator-discovery", version = "0.1.6" }
-mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "0.2.0" }
+mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "0.2.1" }
 rand = { version = "0.10.1" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
