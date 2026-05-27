@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::{Context, Ok, anyhow};
+use anyhow::{Context, anyhow};
 use midnight_curves::JubjubSubgroup;
 use serde::{Deserialize, Serialize};
 

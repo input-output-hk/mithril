@@ -1,3 +1,11 @@
+use std::collections::HashSet;
+
+use ff::Field;
+use group::Group;
+use midnight_circuits::hash::sha256::Sha256Chip;
+
+use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
+
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
@@ -14,11 +22,7 @@ use super::{
         AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness, fixed_base_names,
     },
 };
-use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
-use ff::Field;
-use group::Group;
-use midnight_circuits::hash::sha256::Sha256Chip;
-use std::collections::HashSet;
+
 #[derive(Debug, Clone)]
 pub struct IvcGadget {
     pub(crate) core_decomp_chip: P2RDecompositionChip<F>,

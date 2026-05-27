@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use anyhow::{Context, anyhow};
 use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::{AggregateVerificationKeyForSnark, MembershipDigest, StmResult};
@@ -50,6 +51,17 @@ impl ProtocolMessage {
 
     pub(crate) fn set_message_part(&mut self, key: ProtocolMessagePartKey, value: String) {
         self.message_parts.insert(key, value);
+    }
+
+    fn required_message_part(
+        &self,
+        key: ProtocolMessagePartKey,
+        name: &'static str,
+    ) -> StmResult<&str> {
+        self.message_parts
+            .get(&key)
+            .map(String::as_str)
+            .ok_or_else(|| anyhow!("{name} slot is required"))
     }
 
     /// Assembles the 190-byte rigid preimage that matches `mithril-common::ProtocolMessage::rigid_preimage()`.
@@ -132,35 +144,33 @@ impl ProtocolMessage {
     }
 
     fn avk_slot_from_key<D: MembershipDigest>(&self) -> StmResult<[u8; 44]> {
-        let value = self
-            .message_parts
-            .get(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey)
-            .map(String::as_str)
-            .unwrap_or("");
-        let bytes = hex::decode(value)?;
-        let avk = AggregateVerificationKeyForSnark::<D>::from_bytes(&bytes)?;
+        let value = self.required_message_part(
+            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+            "next SNARK aggregate verification key",
+        )?;
+        let bytes =
+            hex::decode(value).context("invalid next SNARK aggregate verification key hex")?;
+        let avk = AggregateVerificationKeyForSnark::<D>::from_bytes(&bytes)
+            .context("invalid next SNARK aggregate verification key bytes")?;
         avk.to_rigid_slot_bytes()
     }
 
     fn params_slot_from_key(&self) -> StmResult<[u8; 32]> {
-        let value = self
-            .message_parts
-            .get(&ProtocolMessagePartKey::NextProtocolParameters)
-            .map(String::as_str)
-            .unwrap_or("");
-        let bytes = hex::decode(value)?;
-        bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("protocol parameters slot must be exactly 32 bytes"))
+        let value = self.required_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            "next protocol parameters",
+        )?;
+        let bytes = hex::decode(value).context("invalid next protocol parameters hex")?;
+        let actual = bytes.len();
+        bytes.try_into().map_err(|_| {
+            anyhow!("next protocol parameters slot must be exactly 32 bytes, got {actual}")
+        })
     }
 
     fn epoch_slot_from_key(&self) -> StmResult<[u8; 8]> {
-        let value = self
-            .message_parts
-            .get(&ProtocolMessagePartKey::CurrentEpoch)
-            .map(String::as_str)
-            .ok_or_else(|| anyhow::anyhow!("current epoch slot is required"))?;
-        let epoch: u64 = value.parse()?;
+        let value =
+            self.required_message_part(ProtocolMessagePartKey::CurrentEpoch, "current epoch")?;
+        let epoch: u64 = value.parse().context("invalid current epoch slot")?;
         Ok(epoch.to_le_bytes())
     }
 }

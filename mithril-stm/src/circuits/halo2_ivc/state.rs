@@ -1,12 +1,15 @@
+use std::collections::BTreeMap;
+
+use ff::Field;
+use group::Group;
+
+use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
+
 use super::{
     Accumulator, AssignedByte, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
     AssignedVk, C, ConstraintSystem, E, F, Instantiable, Jubjub, KZGCommitmentScheme, Msm,
     PREIMAGE_SIZE, S, VerifyingKey, verifier,
 };
-use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
-use ff::Field;
-use group::Group;
-use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
 pub struct State {

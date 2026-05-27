@@ -8,7 +8,6 @@ use midnight_proofs::{
 };
 use midnight_zk_stdlib::MidnightCircuit;
 
-use super::setup::build_deterministic_params;
 use crate::{
     Parameters,
     circuits::{
@@ -16,6 +15,8 @@ use crate::{
         halo2_ivc::{circuit::IvcCircuit, tests::golden::RECURSIVE_CIRCUIT_DEGREE},
     },
 };
+
+use super::setup::build_deterministic_params;
 
 pub(crate) fn golden_recursive_circuit_verification_key_bytes() -> Vec<u8> {
     let srs_for_recursive_circuit = build_deterministic_params(RECURSIVE_CIRCUIT_DEGREE);

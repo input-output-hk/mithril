@@ -52,8 +52,8 @@ impl MerklePath {
 #[derive(Debug, Error)]
 pub enum MerklePathAdapterError {
     /// A Merkle digest did not contain the expected 32-byte field encoding.
-    #[error("invalid merkle digest length")]
-    InvalidDigestLength,
+    #[error("invalid merkle digest length: expected {expected} bytes, got {actual}")]
+    InvalidDigestLength { expected: usize, actual: usize },
     /// A 32-byte digest was not a canonical circuit base-field element encoding.
     #[error("non-canonical merkle digest")]
     NonCanonicalDigest,
@@ -66,10 +66,12 @@ impl<D: Digest> TryFrom<&StmMerklePath<D>> for MerklePath {
         let mut siblings = Vec::with_capacity(stm_path.values.len());
 
         for (i, value) in stm_path.values.iter().enumerate() {
-            let bytes: [u8; 32] = value
-                .as_slice()
-                .try_into()
-                .map_err(|_| MerklePathAdapterError::InvalidDigestLength)?;
+            let bytes: [u8; 32] = value.as_slice().try_into().map_err(|_| {
+                MerklePathAdapterError::InvalidDigestLength {
+                    expected: 32,
+                    actual: value.as_slice().len(),
+                }
+            })?;
             let node = BaseFieldElement::from_bytes(&bytes)
                 .ok()
                 .map(|base| base.into())
@@ -118,7 +120,13 @@ mod tests {
         let error =
             MerklePath::try_from(&stm_path).expect_err("invalid digest length should be rejected");
 
-        assert!(matches!(error, MerklePathAdapterError::InvalidDigestLength));
+        assert!(matches!(
+            error,
+            MerklePathAdapterError::InvalidDigestLength {
+                expected: 32,
+                actual: 31
+            }
+        ));
     }
 
     #[test]

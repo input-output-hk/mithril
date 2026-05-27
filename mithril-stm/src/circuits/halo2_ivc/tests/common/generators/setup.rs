@@ -13,10 +13,9 @@ use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-
-use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
