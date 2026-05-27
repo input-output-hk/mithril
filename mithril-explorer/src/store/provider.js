@@ -9,7 +9,13 @@ import { useState } from "react";
 export function Providers({ children }) {
   const searchParams = useSearchParams();
   const initialAggregator = searchParams.get(aggregatorSearchParam);
-  const [store] = useState(storeBuilder(initialAggregator));
+  const initialAggregatorGenesisVerificationKey = searchParams.get("genesisVerificationKey");
+  const [store] = useState(
+    storeBuilder({
+      url: initialAggregator,
+      genesisVerificationKey: initialAggregatorGenesisVerificationKey ?? "",
+    }),
+  );
 
   store.subscribe(() => saveToLocalStorage(store.getState()));
 

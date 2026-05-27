@@ -21,11 +21,12 @@ import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributions
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
 import CertificatesList from "#/Artifacts/CertificatesList";
 import MithrilStakeDistributionsList from "#/Artifacts/MithrilStakeDistributionsList";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { aggregatorSearchParam, signedEntityType } from "@/constants";
 import { setChartJsDefaults } from "@/charts";
 import {
   selectAggregator,
-  selectedAggregatorUrl as currentlySelectedAggregatorUrl,
+  selectedAggregator as currentlySelectedAggregator,
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "@/store/settingsSlice";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
@@ -36,13 +37,17 @@ setChartJsDefaults(Chart);
 const certificateTab = "certificates";
 const defaultTab = certificateTab;
 
+function isDefaultAggregator(aggregator) {
+  return default_available_aggregators.map((d) => d.url).includes(aggregator.url);
+}
+
 export default function Explorer() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const isUpdatingAggregatorInUrl = useRef(false);
-  const selectedAggregator = useSelector(currentlySelectedAggregatorUrl);
+  const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
     currentAggregatorSignedEntities(state),
   );
@@ -77,16 +82,19 @@ export default function Explorer() {
   useEffect(() => {
     const aggregatorInUrl = searchParams.get(aggregatorSearchParam);
 
-    if (selectedAggregator !== aggregatorInUrl) {
+    if (selectedAggregator?.url !== aggregatorInUrl) {
       const params = new URLSearchParams();
-      params.set("aggregator", selectedAggregator);
+      params.set("aggregator", selectedAggregator.url);
+      if (!isDefaultAggregator(selectedAggregator) && selectedAggregator?.genesisVerificationKey) {
+        params.set("genesisVerificationKey", selectedAggregator.genesisVerificationKey);
+      }
 
       isUpdatingAggregatorInUrl.current = true;
       window.history.pushState(null, "", `?${params.toString()}`);
     }
 
-    dispatch(updatePoolsForAggregator(selectedAggregator));
-  }, [selectedAggregator]); // eslint-disable-line react-hooks/exhaustive-deps
+    dispatch(updatePoolsForAggregator(selectedAggregator.url));
+  }, [selectedAggregator?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allow navigation to work (previous, next)
   useEffect(() => {
@@ -95,8 +103,13 @@ export default function Explorer() {
         isUpdatingAggregatorInUrl.current = false;
       } else {
         const aggregatorInUrl = searchParams.get("aggregator");
+        const genesisVerificationKeyInUrl = searchParams.get("genesisVerificationKey");
+        let aggregator = {
+          url: aggregatorInUrl,
+          genesisVerificationKey: genesisVerificationKeyInUrl ?? "",
+        };
 
-        dispatch(selectAggregator({ url: aggregatorInUrl }));
+        dispatch(selectAggregator(aggregator));
       }
     }
 
