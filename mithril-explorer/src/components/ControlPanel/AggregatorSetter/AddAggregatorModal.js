@@ -1,27 +1,35 @@
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Button, Form, FormGroup, Modal } from "react-bootstrap";
+import { Button, Form, Modal } from "react-bootstrap";
 import { selectAggregator } from "@/store/settingsSlice";
 import { checkUrl } from "@/utils";
 
 export default function AddAggregatorModal(props) {
-  const [value, setValue] = useState("");
+  const [url, setUrl] = useState("");
+  const [genesisVerificationKey, setGenesisVerificationKey] = useState("");
   const [isInvalid, setIsInvalid] = useState(false);
   const dispatch = useDispatch();
+
+  function handleUrlChange(event) {
+    setUrl(event.target.value);
+  }
 
   function handleClose() {
     props.onAskClose();
     setIsInvalid(false);
-    setValue("");
+    setUrl("");
+    setGenesisVerificationKey("");
   }
 
   function handleSave(event) {
     // Avoid form submit if the enter key is pressed
     event.preventDefault();
 
-    if (checkUrl(value)) {
+    const form = event.target;
+
+    if (form.checkValidity() === true && checkUrl(url)) {
       handleClose();
-      dispatch(selectAggregator({ url: value }));
+      dispatch(selectAggregator({ url: url, genesisVerificationKey: genesisVerificationKey }));
     } else {
       setIsInvalid(true);
     }
@@ -40,17 +48,33 @@ export default function AddAggregatorModal(props) {
 
       <Modal.Body>
         <Form onSubmit={handleSave}>
-          <FormGroup>
+          <Form.Group>
             <Form.Label>URL</Form.Label>
             <Form.Control
+              name="aggregatorUrl"
               type="url"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
+              value={url}
+              onChange={handleUrlChange}
               isInvalid={isInvalid}
+              required
               autoFocus
             />
             <Form.Control.Feedback type="invalid">Invalid URL</Form.Control.Feedback>
-          </FormGroup>
+          </Form.Group>
+
+          <Form.Group>
+            <Form.Label>Genesis verification key</Form.Label>
+            <Form.Control
+              name="genesisVerificationKey"
+              type="text"
+              value={genesisVerificationKey}
+              onChange={(e) => setGenesisVerificationKey(e.target.value)}
+            />
+            <Form.Text className="text-muted">
+              Optional, allows verification of the certificate chain and of Cardano artifacts (e.g.
+              transactions).
+            </Form.Text>
+          </Form.Group>
         </Form>
       </Modal.Body>
 
