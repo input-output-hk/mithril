@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { Accordion, Badge, Button, Col, Container, Modal, Row, Table } from "react-bootstrap";
+import {
+  Accordion,
+  Badge,
+  Button,
+  Col,
+  Container,
+  Modal,
+  OverlayTrigger,
+  Row,
+  Table,
+  Tooltip,
+} from "react-bootstrap";
 import { Bar } from "react-chartjs-2";
 import { useSelector } from "react-redux";
 import { computeStakeShapesDataset } from "@/charts";
-import { selectedAggregatorUrl } from "@/store/settingsSlice";
+import { selectedAggregator } from "@/store/settingsSlice";
 import RawJsonButton from "#/RawJsonButton";
 import Stake from "#/Stake";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -23,7 +34,10 @@ export default function CertificateModal({
   });
   const [showVerifyCertificateModal, setShowVerifyCertificateModal] = useState(false);
   const certificateEndpoint = useSelector(
-    (state) => `${selectedAggregatorUrl(state)}/certificate/${hash}`,
+    (state) => `${selectedAggregator(state)?.url}/certificate/${hash}`,
+  );
+  const canVerifyChain = useSelector((state) =>
+    Boolean(selectedAggregator(state)?.genesisVerificationKey),
   );
 
   useEffect(() => {
@@ -146,13 +160,28 @@ export default function CertificateModal({
         )}
       </Modal.Body>
       <Modal.Footer>
-        {!hideButtons && (
+        {!hideButtons && canVerifyChain && (
           <Button
             size="sm"
             onClick={() => setShowVerifyCertificateModal(true)}
             className="text-break">
             Verify certificate
           </Button>
+        )}
+        {!hideButtons && !canVerifyChain && (
+          <OverlayTrigger
+            overlay={
+              <Tooltip>
+                Verification of certificates is unavailable. Add a genesis verification key to the
+                selected aggregator to enable certificate chain verification.
+              </Tooltip>
+            }>
+            <span className="d-inline-block">
+              <Button size="sm" className="text-break disabled">
+                Verify certificate <i className="bi bi-exclamation-circle"></i>
+              </Button>
+            </span>
+          </OverlayTrigger>
         )}
         {certificate.genesis_signature !== "" ? (
           <Badge bg="warning">Genesis</Badge>
