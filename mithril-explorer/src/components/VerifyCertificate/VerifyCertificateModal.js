@@ -11,13 +11,9 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
 
   useEffect(() => {
     if (show) {
-      const {
-        fetchGenesisVerificationKey,
-        newMithrilWasmClient,
-      } = require("@/wasm-client-helpers");
+      const { newMithrilWasmClient } = require("@/wasm-client-helpers");
 
-      fetchGenesisVerificationKey(currentAggregator)
-        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+      newMithrilWasmClient(currentAggregator.url, currentAggregator.genesisVerificationKey)
         .then((client) => {
           client.get_mithril_certificate(certificateHash).then((certificate) => {
             setVerificationContext({

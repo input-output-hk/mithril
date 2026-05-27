@@ -160,13 +160,9 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
 
   useEffect(() => {
     if (hashes?.length > 0) {
-      const {
-        fetchGenesisVerificationKey,
-        newMithrilWasmClient,
-      } = require("@/wasm-client-helpers");
+      const { newMithrilWasmClient } = require("@/wasm-client-helpers");
 
-      fetchGenesisVerificationKey(currentAggregator)
-        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+      newMithrilWasmClient(currentAggregator.url, currentAggregator.genesisVerificationKey)
         .then((client) => setClient(client))
         .then(() => setCurrentStep(validationSteps.fetchingProof))
         .catch((err) => handleError(err, certifiedMessageType));
