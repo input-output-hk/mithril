@@ -301,3 +301,22 @@ options:
   mapSeverity:
     cardano.node.ChainDB: Notice
     cardano.node.DnsSubscription: Debug
+
+LedgerDB:
+  # remains as-is
+  Backend: V2InMemory
+  Snapshots:
+
+    # start taking the snaphots at slot 172800, after Byron
+    SlotOffset: 120
+
+    # take snapshots every 432000 slots, at the end of every Shelley epoch
+    SnapshotInterval: 100
+
+    # A minimum duration between snapshots, in seconds (used to avoid excessive snapshots while syncing).
+    RateLimit: 0 # default is 10 minutes
+
+    # randomised snapshot delay range, in seconds.
+    # Both Min and Max need to be specified, otherwise the default delay of (5min, 10min) will be used
+    MinDelay: 0
+    MaxDelay: 0
