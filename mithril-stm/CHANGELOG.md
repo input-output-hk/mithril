@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.26 (05-28-2026)
+
+### Changed
+
+- Replaced `helpers/` module in `halo2_ivc` with STM equivalents and removed it entirely.
+- Moved `MerklePath` and `TryFrom<&StmMerklePath<D>>` adapter to a new shared `circuits/common/merkle` module.
+- Added `SchnorrVerificationKey::as_jubjub_subgroup()` crate-private accessor for circuit witness encoding.
+- Enriched `MerklePathAdapterError::InvalidDigestLength` with `expected` and `actual` byte-length fields.
+
 ## 0.10.25 (05-27-2026)
 
 ### Added
