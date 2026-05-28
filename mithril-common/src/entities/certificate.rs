@@ -65,20 +65,6 @@ impl CertificateSignature {
             CertificateSignature::MultiSignature(_, signature) => signature.to_json_hex(),
         }
     }
-
-    /// Return the Schnorr genesis signature carried by a [CertificateSignature::GenesisDualSignature]
-    /// variant, or `None` for any other variant.
-    ///
-    /// SNARK clients fetch the Schnorr signature through this accessor when running the in-circuit
-    /// genesis attestation; the bytes are intentionally excluded from
-    /// [CertificateSignature::to_bytes_hex_for_certificate_hash].
-    #[cfg(feature = "future_snark")]
-    pub fn schnorr_signature(&self) -> Option<&GenesisSchnorrSignature> {
-        match self {
-            CertificateSignature::GenesisDualSignature(_, schnorr) => Some(schnorr),
-            _ => None,
-        }
-    }
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature

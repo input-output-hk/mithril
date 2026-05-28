@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 #[cfg(feature = "future_snark")]
@@ -15,7 +14,7 @@ use crate::{
     StdResult,
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        GenesisEd25519Signer, ProtocolAggregateVerificationKey,
+        GenesisSigner, ProtocolAggregateVerificationKey,
         ProtocolAggregateVerificationKeyForConcatenation, ProtocolClosedKeyRegistration,
         ProtocolInitializer, ProtocolOpCert, ProtocolSigner,
         ProtocolSignerVerificationKeyForConcatenation,
@@ -232,8 +231,8 @@ impl MithrilFixture {
         epoch: Epoch,
     ) -> Certificate {
         let genesis_avk = self.compute_aggregate_verification_key();
-        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
-        let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
+        let genesis_signer = GenesisSigner::create_deterministic_signer();
+        let genesis_producer = CertificateGenesisProducer::new();
         let mithril_era = SupportedEra::Pythagoras;
         let genesis_protocol_message = genesis_producer
             .create_genesis_protocol_message(
@@ -243,8 +242,8 @@ impl MithrilFixture {
                 mithril_era,
             )
             .unwrap();
-        let genesis_signature = genesis_producer
-            .sign_genesis_protocol_message(genesis_protocol_message)
+        let signature = genesis_signer
+            .sign_deterministic(&genesis_protocol_message, mithril_era)
             .unwrap();
 
         genesis_producer
@@ -253,7 +252,7 @@ impl MithrilFixture {
                 network,
                 epoch,
                 genesis_avk,
-                genesis_signature,
+                signature,
                 mithril_era,
             )
             .unwrap()
