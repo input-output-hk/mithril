@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import React, { Suspense } from "react";
-import { Badge } from "react-bootstrap";
+import { Badge, Spinner, Stack } from "react-bootstrap";
 import { Providers } from "@/store/provider";
 
 // These styles apply to every route in the application
@@ -36,22 +36,29 @@ function MithrilHeader() {
   );
 }
 
+function Loader() {
+  return (
+    <Stack direction="horizontal" gap={2} className="justify-content-center">
+      <Spinner animation="border" role="status" />
+      <div>Loading...</div>
+    </Stack>
+  );
+}
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
         <link rel="icon" href="/explorer/favicon.svg?v=3" type="image/svg+xml" />
 
-        <Suspense>
-          <Providers>
-            <div className={styles.container}>
-              <main className={styles.main}>
-                <MithrilHeader />
-                {children}
-              </main>
-            </div>
-          </Providers>
-        </Suspense>
+        <div className={styles.container}>
+          <main className={styles.main}>
+            <MithrilHeader />
+            <Suspense fallback={<Loader />}>
+              <Providers fallback={<Loader />}>{children}</Providers>
+            </Suspense>
+          </main>
+        </div>
 
         <footer className={styles.footer}>
           <span className={styles.logo}>

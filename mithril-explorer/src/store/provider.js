@@ -1,34 +1,36 @@
 "use client";
 
 import { aggregatorSearchParam } from "@/constants";
-import {
-  getPreloadedStateFromLocalStorage,
-  saveToLocalStorage,
-  storeBuilder,
-  getEmptyPreloadedState,
-} from "./store";
+import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "./store";
 import { Provider } from "react-redux";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export function Providers({ children }) {
+export function Providers({ children, fallback }) {
+  const [hydrated, setHydrated] = useState(false);
   const searchParams = useSearchParams();
-  const initialAggregator = searchParams.get(aggregatorSearchParam);
-  const initialAggregatorGenesisVerificationKey = searchParams.get("genesisVerificationKey");
-  const initialState = getPreloadedStateFromLocalStorage({
-    url: initialAggregator,
-    genesisVerificationKey: initialAggregatorGenesisVerificationKey ?? "",
-  });
 
-  const [store] = useState(storeBuilder(initialState));
+  const [store, setStore] = useState(undefined);
 
   useEffect(() => {
-    return store.subscribe(() => saveToLocalStorage(store.getState()));
-  }, [store]);
+    function loadStoreFromLocalStorage(initialAggregator, initialAggregatorGenesisVerificationKey) {
+      const initialState = getPreloadedStateFromLocalStorage({
+        url: initialAggregator,
+        genesisVerificationKey: initialAggregatorGenesisVerificationKey ?? "",
+      });
+      const store = storeBuilder(initialState);
+      store.subscribe(() => saveToLocalStorage(store.getState()));
 
-  return (
-    <Provider store={store} serverState={getEmptyPreloadedState()}>
-      {children}
-    </Provider>
-  );
+      setStore(store);
+      setHydrated(true);
+    }
+
+    if (!hydrated) {
+      const initialAggregator = searchParams.get(aggregatorSearchParam);
+      const initialAggregatorGenesisVerificationKey = searchParams.get("genesisVerificationKey");
+      loadStoreFromLocalStorage(initialAggregator, initialAggregatorGenesisVerificationKey);
+    }
+  }, [hydrated, searchParams]);
+
+  return hydrated ? <Provider store={store}>{children}</Provider> : <>{fallback}</>;
 }

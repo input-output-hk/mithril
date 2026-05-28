@@ -67,13 +67,6 @@ function buildPreloadedState(defaultState, initialAggregator) {
   };
 }
 
-function getEmptyPreloadedState() {
-  return buildPreloadedState({
-    settings: settingsInitialState,
-    pools: poolsInitialState,
-  });
-}
-
 function getPreloadedStateFromLocalStorage(initialAggregator) {
   return buildPreloadedState(loadFromLocalStorage(), initialAggregator);
 }
@@ -93,9 +86,4 @@ const storeBuilder = (preloadedState) => {
   });
 };
 
-export {
-  getEmptyPreloadedState,
-  getPreloadedStateFromLocalStorage,
-  storeBuilder,
-  saveToLocalStorage,
-};
+export { getPreloadedStateFromLocalStorage, storeBuilder, saveToLocalStorage };
