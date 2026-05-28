@@ -27,8 +27,8 @@ use crate::{
 };
 #[cfg(feature = "future_snark")]
 use mithril_common::crypto_helper::{
-    GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, ProtocolKey,
-    sha256_digest, signed_message_from_digest,
+    GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, GenesisVerifier,
+    ProtocolKey, sha256_digest, signed_message_from_digest,
 };
 
 /// Configuration for the genesis tools.
@@ -209,7 +209,10 @@ impl GenesisTools {
             self.configuration.mithril_era,
         )?;
         self.certificate_verifier
-            .verify_genesis_certificate(&genesis_certificate, &ed25519_verification_key)
+            .verify_genesis_certificate(
+                &genesis_certificate,
+                &GenesisVerifier::from_ed25519(ed25519_verification_key),
+            )
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate)
@@ -282,7 +285,10 @@ impl GenesisTools {
             self.configuration.mithril_era,
         )?;
         self.certificate_verifier
-            .verify_genesis_certificate(&genesis_certificate, genesis_verification_key)
+            .verify_genesis_certificate(
+                &genesis_certificate,
+                &GenesisVerifier::from_ed25519(*genesis_verification_key),
+            )
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate.clone())

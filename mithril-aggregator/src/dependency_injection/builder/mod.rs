@@ -25,12 +25,10 @@ use mithril_cardano_node_internal_database::{
     ImmutableFileObserver,
     digesters::{ImmutableDigester, cache::ImmutableFileDigestCacheProvider},
 };
-#[cfg(feature = "future_snark")]
-use mithril_common::crypto_helper::GenesisSchnorrVerifier;
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
-    crypto_helper::GenesisEd25519Verifier,
+    crypto_helper::GenesisVerifier,
     entities::SupportedEra,
     signable_builder::{SignableBuilderService, SignableSeedBuilder},
 };
@@ -191,14 +189,7 @@ pub struct DependenciesBuilder {
     pub certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
 
     /// Genesis signature verifier service.
-    pub genesis_verifier: Option<Arc<GenesisEd25519Verifier>>,
-
-    /// SNARK-friendly genesis signature verifier service.
-    ///
-    /// `None` when the configured verification key is the legacy single-Ed25519 file; `Some`
-    /// when the configured verification key is a dual signing bundle.
-    #[cfg(feature = "future_snark")]
-    pub genesis_schnorr_verifier: Option<Option<Arc<GenesisSchnorrVerifier>>>,
+    pub genesis_verifier: Option<Arc<GenesisVerifier>>,
 
     /// Certificate chain synchronizer service
     pub certificate_chain_synchronizer: Option<Arc<dyn CertificateChainSynchronizer>>,
@@ -336,8 +327,6 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
-            #[cfg(feature = "future_snark")]
-            genesis_schnorr_verifier: None,
             certificate_chain_synchronizer: None,
             mithril_signer_registration_leader: None,
             mithril_signer_registration_follower: None,
