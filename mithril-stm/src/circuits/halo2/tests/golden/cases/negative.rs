@@ -1,4 +1,5 @@
 use crate::LotteryIndex;
+use crate::circuits::common::merkle::Position;
 use crate::circuits::halo2::errors::StmCircuitError;
 use crate::circuits::halo2::gadgets::LOTTERY_BIT_BOUND;
 use crate::circuits::halo2::tests::golden::helpers::{
@@ -9,7 +10,7 @@ use crate::circuits::halo2::tests::golden::helpers::{
     prove_and_verify_result, setup_stm_circuit_env,
 };
 use crate::circuits::halo2::witness::{
-    CircuitMerkleTreeLeaf, CircuitWitnessEntry, Position, SignedMessageWithoutPrefix,
+    CircuitMerkleTreeLeaf, CircuitWitnessEntry, SignedMessageWithoutPrefix,
 };
 use crate::signature_scheme::{BaseFieldElement, ScalarFieldElement};
 

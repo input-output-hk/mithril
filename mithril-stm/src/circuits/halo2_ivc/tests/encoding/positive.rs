@@ -3,11 +3,16 @@
 
 use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
+use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::MithrilMembershipDigest;
 use crate::circuits::halo2_ivc::{
-    Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_SIZE, S, VerifyingKey,
+    Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_CURRENT_EPOCH_BYTES,
+    PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE, S,
+    VerifyingKey,
     circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
+    protocol_message::{ProtocolMessage, ProtocolMessagePartKey},
     state::State,
     tests::common::{
         asset_readers::{
@@ -17,6 +22,35 @@ use crate::circuits::halo2_ivc::{
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
     },
 };
+
+/// Minimal fixture for rigid preimage layout pinning tests.
+/// Input: 40-byte legacy AVK (root_LE_32 || stake_BE_8); output: expected 44-byte slot.
+fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
+    // Legacy AVK input: root(32) || total_stake_BE(8) — no leaf-count field.
+    // from_bytes_legacy: root = bytes[0..32], stake = be_u64(bytes[32..40]).
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1; // total_stake = 1, big-endian u64
+
+    // to_rigid_slot_bytes output: root(32) || zeros(4) || stake_LE(8).
+    let mut avk_slot = [0u8; 44];
+    avk_slot[36] = 1; // total_stake = 1, little-endian u64
+
+    let mut msg = ProtocolMessage::new();
+    msg.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    msg.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    msg.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+    msg.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+    (msg, avk_slot)
+}
 
 #[test]
 fn folded_accumulator_serialized_bytes_are_stable() {
@@ -163,4 +197,99 @@ fn vk_serialization_round_trip() {
         deserialized.transcript_repr(),
         "verifying key transcript_repr should be identical after a round-trip"
     );
+}
+
+// --- Rigid preimage layout pinning tests ---
+// These pin each label and slot to its exact byte offset in the 190-byte rigid preimage,
+// matching the layout the IVC circuit reads at PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
+// PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, and PREIMAGE_CURRENT_EPOCH_BYTES.
+
+#[test]
+fn rigid_preimage_length_is_190_bytes() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed for a valid message");
+    assert_eq!(preimage.len(), PREIMAGE_SIZE);
+}
+
+#[test]
+fn rigid_preimage_digest_label_is_at_offset_0() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(&preimage[0..6], b"digest");
+}
+
+#[test]
+fn rigid_preimage_dynamic_hash_is_at_offset_6() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    // Dynamic parts: only SnapshotDigest is non-fixed; SHA256("snapshot_digest" || hex([2u8;32]))
+    let mut hasher = Sha256::new();
+    hasher.update(b"snapshot_digest");
+    hasher.update(hex::encode([2u8; 32]).as_bytes());
+    let expected: [u8; 32] = hasher.finalize().into();
+    assert_eq!(&preimage[6..38], &expected);
+}
+
+#[test]
+fn rigid_preimage_avk_label_is_at_offset_38() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(&preimage[38..69], b"next_aggregate_verification_key");
+}
+
+#[test]
+fn rigid_preimage_avk_slot_matches_expected_output() {
+    let (msg, avk_slot) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(PREIMAGE_NEXT_MERKLE_ROOT_BYTES, 69..101);
+    // AVK slot occupies 69..113: root(32) || zeros(4) || stake_LE(8).
+    assert_eq!(&preimage[69..113], &avk_slot);
+}
+
+#[test]
+fn rigid_preimage_params_label_is_at_offset_113() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(&preimage[113..137], b"next_protocol_parameters");
+}
+
+#[test]
+fn rigid_preimage_params_slot_matches_input() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, 137..169);
+    assert_eq!(&preimage[137..169], &[7u8; 32]);
+}
+
+#[test]
+fn rigid_preimage_epoch_label_is_at_offset_169() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(&preimage[169..182], b"current_epoch");
+}
+
+#[test]
+fn rigid_preimage_epoch_slot_is_42_le() {
+    let (msg, _) = build_test_message();
+    let preimage = msg
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("try_rigid_preimage should succeed");
+    assert_eq!(PREIMAGE_CURRENT_EPOCH_BYTES, 182..190);
+    assert_eq!(&preimage[182..190], &42u64.to_le_bytes());
 }

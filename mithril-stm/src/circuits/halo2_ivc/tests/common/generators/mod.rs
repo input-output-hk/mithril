@@ -4,6 +4,7 @@ mod asset_generation;
 pub(crate) mod proofs;
 pub(crate) mod setup;
 pub(crate) mod transitions;
+mod verification_key;
 
 pub(crate) use proofs::{
     try_verify_prepare_poseidon_ivc, verify_prepare_blake2b_ivc, verify_prepare_poseidon_ivc,
@@ -18,3 +19,4 @@ pub(crate) use transitions::{
     certificate_public_inputs_for_step, next_message_and_preimage_for_step, next_state_for_step,
     same_epoch_message_and_preimage_for_step, same_epoch_next_state_for_step,
 };
+pub(crate) use verification_key::golden_recursive_circuit_verification_key_bytes;

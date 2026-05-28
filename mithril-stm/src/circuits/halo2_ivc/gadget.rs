@@ -1,24 +1,28 @@
+use std::collections::HashSet;
+
+use ff::Field;
+use group::Group;
+use midnight_circuits::hash::sha256::Sha256Chip;
+
+use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
+
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
     AssignedVk, AssignmentInstructions, BinaryInstructions, C, CERT_VK_NAME, CircuitCurve,
-    ComposableChip, ConstraintSystem, ControlFlowInstructions, ConversionInstructions,
-    DST_SCHNORR_SIGNATURE, EccChip, EccInstructions, EqualityInstructions, Error, EvaluationDomain,
-    F, ForeignEccChip, HashInstructions, IVC_ONE_NAME, Jubjub, K, Layouter, NG, NativeChip,
-    NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
-    PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PoseidonChip,
-    PublicInputInstructions, S, Value, VerifierGadget, ZeroInstructions,
+    ComposableChip, ConstraintSystem, ControlFlowInstructions, ConversionInstructions, EccChip,
+    EccInstructions, EqualityInstructions, Error, EvaluationDomain, F, ForeignEccChip,
+    HashInstructions, IVC_ONE_NAME, Jubjub, K, Layouter, NG, NativeChip, NativeGadget,
+    P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PoseidonChip, PublicInputInstructions, S, Value,
+    VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
     state::{
         AssignedGlobal, AssignedState, AssignedWitness, Global, State, Witness, fixed_base_names,
     },
 };
-use ff::Field;
-use group::Group;
-use std::collections::HashSet;
 
-use midnight_circuits::hash::sha256::Sha256Chip;
 #[derive(Debug, Clone)]
 pub struct IvcGadget {
     pub(crate) core_decomp_chip: P2RDecompositionChip<F>,
@@ -65,9 +69,10 @@ impl IvcGadget {
         let genesis_msg: AssignedNative<_> = self
             .native_gadget
             .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_msg))?;
-        let genesis_vk: AssignedNativePoint<_> = self
-            .jubjub_chip
-            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_vk.0))?;
+        let genesis_vk: AssignedNativePoint<_> = self.jubjub_chip.assign_as_public_input(
+            layouter,
+            global.clone().map(|gl| *gl.genesis_vk.as_jubjub_subgroup()),
+        )?;
 
         let (cert_domain, cert_cs) = &cert_domain_cs;
         let cert_vk: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(
@@ -185,10 +190,10 @@ impl IvcGadget {
         let genesis_sig = {
             let s: AssignedScalarOfNativeCurve<_> = self
                 .jubjub_chip
-                .assign(layouter, witness.clone().map(|w| w.genesis_sig.s))?;
+                .assign(layouter, witness.clone().map(|w| w.genesis_sig.response.0))?;
             let c: AssignedNative<_> = self
                 .native_gadget
-                .assign(layouter, witness.clone().map(|w| w.genesis_sig.c))?;
+                .assign(layouter, witness.clone().map(|w| w.genesis_sig.challenge.0))?;
             (s, c)
         };
 
@@ -239,8 +244,9 @@ impl IvcGadget {
         let c_native = witness.genesis_sig.1.clone();
         let c: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.convert(layouter, &c_native)?;
 
-        let dst_signature: AssignedNative<_> =
-            self.native_gadget.assign_fixed(layouter, DST_SCHNORR_SIGNATURE)?;
+        let dst_signature: AssignedNative<_> = self
+            .native_gadget
+            .assign_fixed(layouter, DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE.0)?;
         let generator: AssignedNativePoint<_> = self.jubjub_chip.assign_fixed(
             layouter,
             <Jubjub as CircuitCurve>::CryptographicGroup::generator(),

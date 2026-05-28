@@ -5,24 +5,21 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_core::{CryptoRng, RngCore};
+use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::MithrilMembershipDigest;
+use crate::circuits::common::merkle::MerklePath;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
-use crate::circuits::halo2::witness::{
-    CircuitMerkleTreeLeaf, CircuitWitnessEntry, MerklePath as Halo2MerklePath,
-    Position as Halo2Position,
-};
-use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::Position as HelpersPosition,
-    protocol_message::{AggregateVerificationKey, ProtocolMessage, ProtocolMessagePartKey},
-    utils::jubjub_base_from_le_bytes,
-};
+use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
+use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
 
+use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
 use super::proofs::verify_prepare_poseidon_ivc;
 use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 
@@ -32,35 +29,37 @@ use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 /// recursive base-case path, so future tests can reuse it without re-encoding
 /// the protocol-message layout by hand.
 pub(super) fn build_genesis_protocol_message(
-    aggregate_verification_key: &AggregateVerificationKey,
-    genesis_next_protocol_params: F,
+    avk_hex: &str,
+    params_hex: &str,
     genesis_epoch: u64,
 ) -> ProtocolMessage {
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![2u8; 32]);
     protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextAggregateVerificationKey,
-        aggregate_verification_key.clone().into(),
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    protocol_message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        avk_hex.to_owned(),
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextProtocolParameters,
-        genesis_next_protocol_params.to_bytes_le().to_vec(),
+        params_hex.to_owned(),
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::CurrentEpoch,
-        genesis_epoch.to_le_bytes().into(),
+        genesis_epoch.to_string(),
     );
     protocol_message
 }
 
 /// Returns the raw genesis protocol-message preimage bytes produced by the serializer.
 pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSetup) -> Vec<u8> {
-    build_genesis_protocol_message(
-        &setup.aggregate_verification_key,
-        setup.genesis_next_protocol_params,
-        GENESIS_EPOCH,
-    )
-    .get_preimage()
+    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
+    build_genesis_protocol_message(&setup.avk_hex, &params_hex, GENESIS_EPOCH)
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("genesis protocol message preimage should succeed")
+        .to_vec()
 }
 
 /// Builds the witness used by the recursive genesis/base-case branch.
@@ -68,7 +67,7 @@ pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> W
     let preimage: [u8; PREIMAGE_SIZE] = build_genesis_protocol_message_preimage(setup)
         .try_into()
         .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
-    Witness::new(setup.genesis_signature.clone(), F::ZERO, F::ZERO, preimage)
+    Witness::new(setup.genesis_signature, F::ZERO, F::ZERO, preimage)
 }
 
 /// Builds the first next-state public output produced by the recursive base case.
@@ -173,38 +172,33 @@ fn build_certificate_asset_data_inner(
                 random_generator,
             )
             .expect("certificate witness signature should not fail");
-        let helpers_path = setup.merkle_tree.get_path(j);
-        let computed_root = helpers_path.compute_root(setup.merkle_tree_leaves[j]);
-        assert_eq!(
-            merkle_root, computed_root,
-            "merkle path root mismatch for signer index {j}"
-        );
+        let leaf = setup.merkle_tree_leaves[j];
+        let stm_path = setup
+            .merkle_tree
+            .compute_merkle_tree_path_fixed_length(j, certificate_relation.merkle_tree_depth());
+        setup
+            .merkle_tree
+            .to_merkle_tree_commitment()
+            .verify_leaf_membership_from_path(&leaf, &stm_path)
+            .unwrap_or_else(|_| panic!("STM Merkle path should verify for signer index {j}"));
         let schnorr_vk =
             StmSchnorrVerificationKey::new_from_signing_key(setup.signing_keys[j].clone());
+        assert_eq!(
+            schnorr_vk, leaf.0,
+            "STM leaf verification key mismatch for signer index {j}"
+        );
         unique_schnorr_signature
             .verify(
                 &[BaseFieldElement::from(merkle_root), BaseFieldElement::from(message)],
                 &schnorr_vk,
             )
             .expect("fresh certificate signature should verify");
-        let halo2_merkle_path = Halo2MerklePath::new(
-            helpers_path
-                .siblings
-                .iter()
-                .map(|(pos, f)| {
-                    let halo2_pos = match pos {
-                        HelpersPosition::Left => Halo2Position::Left,
-                        HelpersPosition::Right => Halo2Position::Right,
-                    };
-                    (halo2_pos, CircuitBaseField::from(*f))
-                })
-                .collect(),
-        );
-        let leaf = setup.merkle_tree_leaves[j];
+        let circuit_merkle_path = MerklePath::try_from(&stm_path)
+            .expect("STM Merkle path should adapt to the circuit witness path");
         let circuit_leaf = CircuitMerkleTreeLeaf(schnorr_vk, CircuitBaseField::from(leaf.1));
         certificate_witness_entries.push(CircuitWitnessEntry {
             leaf: circuit_leaf,
-            merkle_path: halo2_merkle_path,
+            merkle_path: circuit_merkle_path,
             unique_schnorr_signature,
             lottery_index: (j + 1) as u64,
         });
@@ -240,7 +234,7 @@ fn build_certificate_asset_data_inner(
     certificate_accumulator.collapse();
 
     let ivc_witness = Witness::new(
-        setup.genesis_signature.clone(),
+        setup.genesis_signature,
         merkle_root,
         message,
         message_preimage.try_into().unwrap(),
@@ -279,25 +273,31 @@ pub(crate) fn next_message_and_preimage_for_step(
 ) -> (F, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
+    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
 
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![(step as u8) + 2; 32]);
     protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextAggregateVerificationKey,
-        setup.aggregate_verification_key.clone().into(),
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode(vec![(step as u8) + 2; 32]),
     );
     protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        setup.avk_hex.clone(),
     );
+    protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
     protocol_message.set_message_part(
         ProtocolMessagePartKey::CurrentEpoch,
-        (current_epoch + 1).to_le_bytes().into(),
+        (current_epoch + 1).to_string(),
     );
 
-    let message_preimage = protocol_message.get_preimage();
-    let message_hash = protocol_message.compute_hash();
-    (jubjub_base_from_le_bytes(&message_hash), message_preimage)
+    let preimage = protocol_message
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("protocol message preimage should succeed");
+    let message_hash = Sha256::digest(preimage);
+    (
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
+        preimage.to_vec(),
+    )
 }
 
 /// Returns the deterministic certificate message and preimage for one
@@ -308,25 +308,31 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
 ) -> (F, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
+    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
 
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(ProtocolMessagePartKey::Digest, vec![(step as u8) + 2; 32]);
     protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextAggregateVerificationKey,
-        setup.aggregate_verification_key.clone().into(),
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode(vec![(step as u8) + 2; 32]),
     );
     protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        setup.genesis_next_protocol_params.to_bytes_le().to_vec(),
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        setup.avk_hex.clone(),
     );
+    protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
     protocol_message.set_message_part(
         ProtocolMessagePartKey::CurrentEpoch,
-        current_epoch.to_le_bytes().into(),
+        current_epoch.to_string(),
     );
 
-    let message_preimage = protocol_message.get_preimage();
-    let message_hash = protocol_message.compute_hash();
-    (jubjub_base_from_le_bytes(&message_hash), message_preimage)
+    let preimage = protocol_message
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect("protocol message preimage should succeed");
+    let message_hash = Sha256::digest(preimage);
+    (
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref()),
+        preimage.to_vec(),
+    )
 }
 
 /// Returns the recursive next state for a non-genesis step once the next

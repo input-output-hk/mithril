@@ -4,14 +4,14 @@
 //! keeping them separate from lower-level circuit primitives in `types.rs`.
 //! Integrators should treat these types as the circuit-facing contract.
 
-use ff::Field;
-
 use crate::LotteryIndex;
 use crate::signature_scheme::{
     PrimeOrderProjectivePoint, SchnorrVerificationKey, UniqueSchnorrSignature,
 };
 
-use super::types::{CircuitBase, CircuitBaseField};
+use super::types::CircuitBaseField;
+
+pub use crate::circuits::common::merkle::MerklePath;
 
 /// Lottery target value used by the circuit for signer eligibility checks.
 pub type LotteryTargetValue = CircuitBaseField;
@@ -43,46 +43,6 @@ impl CircuitMerkleTreeLeaf {
     /// Returns the lottery target value associated with this witness leaf.
     pub fn lottery_target_value(&self) -> LotteryTargetValue {
         self.1
-    }
-}
-
-/// Position of a sibling node relative to the current hash in a Merkle path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Position {
-    /// The sibling node is on the left side of the current hash.
-    Left,
-    /// The sibling node is on the right side of the current hash.
-    Right,
-}
-
-impl From<Position> for CircuitBase {
-    fn from(position: Position) -> Self {
-        match position {
-            Position::Left => Self::ZERO,
-            Position::Right => Self::ONE,
-        }
-    }
-}
-
-impl From<Position> for CircuitBaseField {
-    fn from(position: Position) -> Self {
-        CircuitBase::from(position).into()
-    }
-}
-
-/// Merkle authentication path used by the Halo2 circuit witness.
-///
-/// Each entry stores sibling position and sibling hash value for one tree level.
-#[derive(Clone, Debug)]
-pub struct MerklePath {
-    /// Ordered list of `(position, sibling_hash)` from leaf level to root level.
-    pub siblings: Vec<(Position, CircuitBaseField)>,
-}
-
-impl MerklePath {
-    /// Creates a new Merkle path from ordered sibling entries.
-    pub fn new(siblings: Vec<(Position, CircuitBaseField)>) -> Self {
-        Self { siblings }
     }
 }
 

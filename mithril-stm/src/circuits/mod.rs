@@ -5,6 +5,7 @@
 //
 // Currently, we expose the Halo2-based prototype under `circuits::halo2`.
 
+pub(crate) mod common;
 pub mod halo2;
 pub mod halo2_ivc;
 #[cfg(not(target_family = "wasm"))]

@@ -13,31 +13,25 @@ use midnight_zk_stdlib as zk_lib;
 use midnight_zk_stdlib::MidnightVK;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
+use sha2::{Digest as Sha2Digest, Sha256};
 
-use crate::Parameters;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
-use crate::circuits::halo2_ivc::helpers::{
-    merkle_tree::{MTLeaf as MerkleTreeLeaf, MerkleTree},
-    protocol_message::AggregateVerificationKey,
-    signatures::{
-        schnorr_signature::{
-            Signature as SchnorrSignature, SigningKey as SchnorrSigningKey,
-            VerificationKey as SchnorrVerificationKey,
-        },
-        unique_signature::VerificationKey,
-    },
-    utils::jubjub_base_from_le_bytes,
-};
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
 };
+use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
-    SchnorrSigningKey as StmSchnorrSigningKey, SchnorrVerificationKey as StmSchnorrVerificationKey,
+    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, StandardSchnorrSignature,
 };
+use crate::{MembershipDigest, MithrilMembershipDigest, Parameters};
 
+use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
 use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
+
+type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;
+type SignerRegistrationMerkleTree = StmMerkleTree<SnarkHash, MerkleTreeSnarkLeaf>;
 
 pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(crate) const GENESIS_EPOCH: u64 = 5;
@@ -93,15 +87,18 @@ pub(crate) struct AssetGenerationSetup {
     /// Hash of the deterministic genesis protocol message.
     pub(crate) genesis_message: F,
     /// Deterministic trusted genesis signature.
-    pub(crate) genesis_signature: SchnorrSignature,
+    pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Deterministic signer-membership Merkle tree.
-    pub(crate) merkle_tree: MerkleTree,
+    pub(crate) merkle_tree: SignerRegistrationMerkleTree,
     /// Leaves committed into the deterministic signer-membership tree.
-    pub(crate) merkle_tree_leaves: Vec<MerkleTreeLeaf>,
+    pub(crate) merkle_tree_leaves: Vec<MerkleTreeSnarkLeaf>,
     /// Deterministic signing keys used to build certificate witnesses.
-    pub(crate) signing_keys: Vec<StmSchnorrSigningKey>,
-    /// Aggregate verification key committed into the generated protocol messages.
-    pub(crate) aggregate_verification_key: AggregateVerificationKey,
+    pub(crate) signing_keys: Vec<SchnorrSigningKey>,
+    /// Protocol-message string value for the legacy AVK bytes (`root_LE_32 || stake_BE_8`).
+    ///
+    /// `ProtocolMessage` stores parts as strings, then decodes this hex value before calling
+    /// `AggregateVerificationKeyForSnark::from_bytes`.
+    pub(crate) avk_hex: String,
     /// Deterministic next Merkle root committed by the genesis message.
     pub(crate) genesis_next_merkle_root: F,
     /// Deterministic next protocol parameters committed by the genesis message.
@@ -128,22 +125,39 @@ pub(crate) struct SharedRecursiveContext {
 fn build_merkle_tree(
     random_generator: &mut (impl RngCore + CryptoRng),
     signer_count: usize,
-) -> (Vec<StmSchnorrSigningKey>, Vec<MerkleTreeLeaf>, MerkleTree) {
+) -> (
+    Vec<SchnorrSigningKey>,
+    Vec<MerkleTreeSnarkLeaf>,
+    SignerRegistrationMerkleTree,
+) {
     let mut signing_keys = Vec::with_capacity(signer_count);
     let mut merkle_tree_leaves = Vec::with_capacity(signer_count);
     for _ in 0..signer_count {
-        let signing_key = StmSchnorrSigningKey::generate(random_generator);
-        let schnorr_vk = StmSchnorrVerificationKey::new_from_signing_key(signing_key.clone());
-        // Shim: StmSchnorrVerificationKey wraps PrimeOrderProjectivePoint(JubjubSubgroup).
-        // helpers::VerificationKey also wraps JubjubSubgroup — unwrap the newtype chain.
-        // TODO(WS3): remove once helpers::MerkleTree is replaced with the STM equivalent.
-        let helpers_vk = VerificationKey(schnorr_vk.0.0);
-        merkle_tree_leaves.push(MerkleTreeLeaf(helpers_vk, -F::ONE));
+        let signing_key = SchnorrSigningKey::generate(random_generator);
+        let schnorr_vk = SchnorrVerificationKey::new_from_signing_key(signing_key.clone());
+        merkle_tree_leaves.push(MerkleTreeSnarkLeaf(
+            schnorr_vk,
+            BaseFieldElement::from(-F::ONE),
+        ));
         signing_keys.push(signing_key);
     }
 
-    let merkle_tree = MerkleTree::create(&merkle_tree_leaves);
+    let merkle_tree = StmMerkleTree::new(&merkle_tree_leaves);
     (signing_keys, merkle_tree_leaves, merkle_tree)
+}
+
+fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
+    let commitment = merkle_tree.to_merkle_tree_commitment();
+    // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
+    // the recursive state stores the same root as the circuit field element.
+    let root_bytes: [u8; 32] = commitment
+        .root
+        .as_slice()
+        .try_into()
+        .expect("STM Poseidon Merkle root should be 32 bytes");
+    F::from_bytes_le(&root_bytes)
+        .into_option()
+        .expect("STM Poseidon Merkle root should be a canonical field element")
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
@@ -273,28 +287,40 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     )
     .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
-    let aggregate_verification_key =
-        AggregateVerificationKey::new(merkle_tree.to_merkle_tree_commitment(), total_stake);
+    let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
+
+    // Build the protocol-message value for the legacy AVK bytes: root_LE(32) || stake_BE(8).
+    // The serializer decodes the hex string before calling AggregateVerificationKeyForSnark::from_bytes.
+    let avk_hex = {
+        let commitment = merkle_tree.to_merkle_tree_commitment();
+        let mut avk_input = [0u8; 40];
+        avk_input[0..32].copy_from_slice(&commitment.root);
+        avk_input[32..40].copy_from_slice(&total_stake.to_be_bytes());
+        hex::encode(avk_input)
+    };
 
     let genesis_signing_key = SchnorrSigningKey::generate(&mut rng);
-    let genesis_verification_key = SchnorrVerificationKey::from(&genesis_signing_key);
+    let genesis_verification_key =
+        SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
-    let genesis_next_merkle_root = merkle_tree.root();
     let genesis_next_protocol_params = F::from(7u64);
 
     let genesis_message = {
-        let protocol_message = build_genesis_protocol_message(
-            &aggregate_verification_key,
-            genesis_next_protocol_params,
-            genesis_epoch,
-        );
-        let message_hash = protocol_message.compute_hash();
-        jubjub_base_from_le_bytes(&message_hash)
+        let params_hex = hex::encode(genesis_next_protocol_params.to_bytes_le());
+        let protocol_message = build_genesis_protocol_message(&avk_hex, &params_hex, genesis_epoch);
+        let preimage = protocol_message
+            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .expect("genesis protocol message preimage should succeed");
+        let message_hash = Sha256::digest(preimage);
+        jubjub_base_from_raw_le_bytes(message_hash.as_ref())
     };
 
-    let genesis_signature = genesis_signing_key.sign(&[genesis_message], &mut rng);
+    let genesis_message_base = BaseFieldElement::from(genesis_message);
+    let genesis_signature = genesis_signing_key
+        .sign_standard(&[genesis_message_base], &mut rng)
+        .expect("deterministic genesis signature should be produced");
     genesis_signature
-        .verify(&[genesis_message], &genesis_verification_key)
+        .verify(&[genesis_message_base], &genesis_verification_key)
         .expect("deterministic genesis signature should verify");
 
     AssetGenerationSetup {
@@ -305,7 +331,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         merkle_tree,
         merkle_tree_leaves,
         signing_keys,
-        aggregate_verification_key,
+        avk_hex,
         genesis_next_merkle_root,
         genesis_next_protocol_params,
     }

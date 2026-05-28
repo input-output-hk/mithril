@@ -4,9 +4,11 @@
 use ff::Field;
 use midnight_circuits::types::Instantiable;
 
+use crate::MithrilMembershipDigest;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
+    protocol_message::{ProtocolMessage, ProtocolMessagePartKey},
     state::State,
     tests::common::{
         asset_readers::{
@@ -23,6 +25,162 @@ use crate::circuits::halo2_ivc::{
         },
     },
 };
+
+fn valid_rigid_protocol_message() -> ProtocolMessage {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+    message
+}
+
+fn assert_rigid_preimage_rejects_with_message(message: ProtocolMessage, expected: &str) {
+    let error = message
+        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .expect_err("rigid preimage should reject invalid message");
+
+    assert!(
+        error.to_string().contains(expected),
+        "expected error to contain `{expected}`, got `{error}`"
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_next_snark_aggregate_verification_key() {
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+
+    assert_rigid_preimage_rejects_with_message(
+        message,
+        "next SNARK aggregate verification key slot is required",
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_hex() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        "not-hex".to_string(),
+    );
+
+    assert_rigid_preimage_rejects_with_message(
+        message,
+        "invalid next SNARK aggregate verification key hex",
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_bytes() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode([0u8; 7]),
+    );
+
+    assert_rigid_preimage_rejects_with_message(
+        message,
+        "invalid next SNARK aggregate verification key bytes",
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_next_protocol_parameters() {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+
+    assert_rigid_preimage_rejects_with_message(
+        message,
+        "next protocol parameters slot is required",
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_next_protocol_parameters_hex() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        "not-hex".to_string(),
+    );
+
+    assert_rigid_preimage_rejects_with_message(message, "invalid next protocol parameters hex");
+}
+
+#[test]
+fn rigid_preimage_rejects_wrong_next_protocol_parameters_width() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 31]),
+    );
+
+    assert_rigid_preimage_rejects_with_message(
+        message,
+        "next protocol parameters slot must be exactly 32 bytes, got 31",
+    );
+}
+
+#[test]
+fn rigid_preimage_rejects_missing_current_epoch() {
+    let mut avk_input = [0u8; 40];
+    avk_input[39] = 1;
+
+    let mut message = ProtocolMessage::new();
+    message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        hex::encode([2u8; 32]),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
+        hex::encode(avk_input),
+    );
+    message.set_message_part(
+        ProtocolMessagePartKey::NextProtocolParameters,
+        hex::encode([7u8; 32]),
+    );
+
+    assert_rigid_preimage_rejects_with_message(message, "current epoch slot is required");
+}
+
+#[test]
+fn rigid_preimage_rejects_invalid_current_epoch() {
+    let mut message = valid_rigid_protocol_message();
+    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "oops".to_string());
+
+    assert_rigid_preimage_rejects_with_message(message, "invalid current epoch slot");
+}
 
 #[test]
 fn next_merkle_root_tampered_public_input_is_rejected() {
