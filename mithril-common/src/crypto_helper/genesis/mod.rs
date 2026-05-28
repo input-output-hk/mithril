@@ -8,8 +8,10 @@ mod bundles;
 mod ed25519;
 #[cfg(feature = "future_snark")]
 mod schnorr;
+mod signer;
 
 pub use bundles::*;
 pub use ed25519::*;
 #[cfg(feature = "future_snark")]
 pub use schnorr::*;
+pub use signer::*;
