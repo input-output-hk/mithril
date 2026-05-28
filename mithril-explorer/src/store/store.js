@@ -1,5 +1,5 @@
 import { configureStore, createListenerMiddleware } from "@reduxjs/toolkit";
-import { poolsSlice } from "./poolsSlice";
+import { poolsSlice, initialState as poolsInitialState } from "./poolsSlice";
 import {
   addSettingsListeners,
   initialState as settingsInitialState,
@@ -10,7 +10,7 @@ import { checkUrl } from "@/utils";
 
 const SAVED_STATE_KEY = "Explorer_State_v2";
 
-export function saveToLocalStorage(state) {
+function saveToLocalStorage(state) {
   if (typeof window !== "undefined" && localStorage) {
     localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(state));
   }
@@ -60,18 +60,25 @@ function getSettings(defaultSettings, initialAggregator) {
   return settings;
 }
 
-function initStore(defaultState, initialAggregator) {
+function buildPreloadedState(defaultState, initialAggregator) {
   return {
     ...defaultState,
     settings: getSettings(defaultState?.settings, initialAggregator),
   };
 }
 
-export function initStoreFromLocalStorage(initialAggregator) {
-  return initStore(loadFromLocalStorage(), initialAggregator);
+function getEmptyPreloadedState() {
+  return buildPreloadedState({
+    settings: settingsInitialState,
+    pools: poolsInitialState,
+  });
 }
 
-export const storeBuilder = (initialAggregator) => {
+function getPreloadedStateFromLocalStorage(initialAggregator) {
+  return buildPreloadedState(loadFromLocalStorage(), initialAggregator);
+}
+
+const storeBuilder = (preloadedState) => {
   const listenerMiddleware = createListenerMiddleware();
   addSettingsListeners(listenerMiddleware);
 
@@ -80,8 +87,15 @@ export const storeBuilder = (initialAggregator) => {
       settings: settingsSlice.reducer,
       pools: poolsSlice.reducer,
     },
-    preloadedState: initStoreFromLocalStorage(initialAggregator),
+    preloadedState: preloadedState,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().prepend(listenerMiddleware.middleware),
   });
+};
+
+module.exports = {
+  getEmptyPreloadedState,
+  getPreloadedStateFromLocalStorage,
+  storeBuilder,
+  saveToLocalStorage,
 };

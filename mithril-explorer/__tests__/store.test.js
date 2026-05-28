@@ -8,7 +8,7 @@ import {
   settingsSlice,
   setUpdateInterval,
 } from "@/store/settingsSlice";
-import { saveToLocalStorage, storeBuilder } from "@/store/store";
+import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "@/store/store";
 import { waitFor } from "@testing-library/react";
 import { initStore } from "./helpers";
 
@@ -48,7 +48,7 @@ describe("Store Initialization", () => {
       },
     };
     saveToLocalStorage(expected);
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState()).toEqual(expected);
   });
@@ -70,7 +70,7 @@ describe("Store Initialization", () => {
     };
     saveToLocalStorage(expected);
     expected.settings.selectedAggregator = initialAggregator;
-    const store = storeBuilder(initialAggregator);
+    const store = storeBuilder(getPreloadedStateFromLocalStorage(initialAggregator));
 
     expect(store.getState()).toEqual(expected);
   });
@@ -196,7 +196,7 @@ describe("Store Initialization", () => {
         availableAggregators: oldDefaultAggregators,
       },
     });
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState().settings.availableAggregators).toEqual(expected);
   });
@@ -211,7 +211,7 @@ describe("Store Initialization", () => {
         availableAggregators: oldDefaultAggregators,
       },
     });
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState().settings.availableAggregators).toContain(newDefaultAggregator);
   });
