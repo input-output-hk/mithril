@@ -1,7 +1,13 @@
 //! Genesis-certificate cryptographic primitives.
 //!
-//! Groups the Ed25519 type aliases under a dedicated sub-module.
+//! Groups the Ed25519 and SNARK-friendly (Schnorr over Jubjub) genesis
+//! signers, the dual signing/verification-key bundles that pair them, and the wrapped
+//! [`GenesisSigner`] that hides their parsing and selection behind a single type.
 
 mod ed25519;
+#[cfg(feature = "future_snark")]
+mod schnorr;
 
 pub use ed25519::*;
+#[cfg(feature = "future_snark")]
+pub use schnorr::*;
