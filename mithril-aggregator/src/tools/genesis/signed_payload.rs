@@ -1,60 +1,37 @@
 //! Versioned envelope carrying the dual genesis signature (Ed25519 + Schnorr) produced by the
 //! offline sign ceremony under the Lagrange era.
 
-#![allow(dead_code)]
+use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{GenesisEd25519Signature, GenesisSchnorrSignature};
-use thiserror::Error;
 
 /// Current envelope version.
 pub const GENESIS_SIGNED_PAYLOAD_VERSION: u8 = 1;
 
-/// Expected raw Ed25519 signature byte length.
-pub const ED25519_SIGNATURE_BYTES: u8 = 64;
-
-/// Expected raw Schnorr signature byte length.
-pub const SCHNORR_SIGNATURE_BYTES: u8 = 64;
-
-/// Errors raised when parsing or serialising a dual genesis signed payload.
+/// Errors raised when parsing a dual genesis signed payload.
 #[derive(Error, Debug)]
 pub enum GenesisSignedPayloadError {
+    /// The envelope is empty and carries no version byte.
+    #[error("empty genesis signed payload")]
+    Empty,
+
     /// The envelope declares a version other than [GENESIS_SIGNED_PAYLOAD_VERSION].
     #[error("unsupported genesis signed payload version: {version} (only version 1 is supported)")]
     UnsupportedVersion {
         /// Version byte read from the envelope.
         version: u8,
     },
-
-    /// A length-prefix field in the envelope does not match its expected fixed value.
-    #[error("{field_kind} length prefix mismatch: expected {expected} bytes, got {actual}")]
-    LengthPrefixMismatch {
-        /// Field name (`Ed25519` or `Schnorr`) prefixed with signature kind.
-        field_kind: &'static str,
-        /// Expected byte length pinned by [GENESIS_SIGNED_PAYLOAD_VERSION].
-        expected: u8,
-        /// Length actually declared by the envelope.
-        actual: u8,
-    },
-
-    /// The envelope decoded to fewer bytes than the layout requires.
-    #[error("genesis signed payload truncated: missing {field}")]
-    Truncated {
-        /// Layout segment that ran short.
-        field: &'static str,
-    },
-
-    /// The envelope decoded to more bytes than the layout consumes.
-    #[error("trailing bytes in genesis signed payload ({extra} extra bytes)")]
-    TrailingBytes {
-        /// Number of unconsumed bytes after the envelope layout.
-        extra: usize,
-    },
 }
 
 /// Dual genesis signed payload: a legacy Ed25519 signature paired with a SNARK-friendly Schnorr
 /// signature.
-#[derive(Debug, Clone)]
+///
+/// Serialised as a single version byte followed by the CBOR encoding of the two signatures, so the
+/// envelope can evolve without a hand-written byte parser.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenesisSignedPayload {
     /// Ed25519 signature produced by the ed25519 signer.
     pub ed25519: GenesisEd25519Signature,
@@ -69,79 +46,24 @@ impl GenesisSignedPayload {
         Self { ed25519, schnorr }
     }
 
-    /// Encode the envelope as raw bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(3 + 64 + 64);
-        bytes.push(GENESIS_SIGNED_PAYLOAD_VERSION);
-        bytes.push(ED25519_SIGNATURE_BYTES);
-        bytes.extend_from_slice(&self.ed25519.to_bytes());
-        bytes.push(SCHNORR_SIGNATURE_BYTES);
-        bytes.extend_from_slice(&self.schnorr.to_bytes());
-        bytes
+    /// Encode the envelope as a version-prefixed CBOR payload.
+    pub fn to_bytes(&self) -> StdResult<Vec<u8>> {
+        let mut bytes = vec![GENESIS_SIGNED_PAYLOAD_VERSION];
+        ciborium::ser::into_writer(self, &mut bytes)
+            .with_context(|| "Failed to encode genesis signed payload to CBOR")?;
+        Ok(bytes)
     }
 
-    /// Decode an envelope from raw bytes.
+    /// Decode a version-prefixed CBOR envelope.
     pub fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-        let mut cursor = bytes;
-        let version = read_u8(&mut cursor, "version")?;
-        if version != GENESIS_SIGNED_PAYLOAD_VERSION {
-            return Err(GenesisSignedPayloadError::UnsupportedVersion { version }.into());
+        let (version, payload) = bytes.split_first().ok_or(GenesisSignedPayloadError::Empty)?;
+        if *version != GENESIS_SIGNED_PAYLOAD_VERSION {
+            return Err(GenesisSignedPayloadError::UnsupportedVersion { version: *version }.into());
         }
-        let ed25519_bytes = read_length_prefixed(
-            &mut cursor,
-            "Ed25519 signature",
-            ED25519_SIGNATURE_BYTES,
-            "ed25519 signature body",
-        )?;
-        let schnorr_bytes = read_length_prefixed(
-            &mut cursor,
-            "Schnorr signature",
-            SCHNORR_SIGNATURE_BYTES,
-            "schnorr signature body",
-        )?;
-        if !cursor.is_empty() {
-            return Err(GenesisSignedPayloadError::TrailingBytes {
-                extra: cursor.len(),
-            }
-            .into());
-        }
-        let ed25519 = GenesisEd25519Signature::from_bytes(ed25519_bytes)?;
-        let schnorr = GenesisSchnorrSignature::from_bytes(schnorr_bytes)?;
-        Ok(Self { ed25519, schnorr })
-    }
-}
 
-fn read_u8(cursor: &mut &[u8], field: &'static str) -> StdResult<u8> {
-    match cursor.split_first() {
-        Some((byte, rest)) => {
-            *cursor = rest;
-            Ok(*byte)
-        }
-        None => Err(GenesisSignedPayloadError::Truncated { field }.into()),
+        ciborium::de::from_reader(payload)
+            .with_context(|| "Failed to decode genesis signed payload from CBOR")
     }
-}
-
-fn read_length_prefixed<'a>(
-    cursor: &mut &'a [u8],
-    field_kind: &'static str,
-    expected: u8,
-    body_field: &'static str,
-) -> StdResult<&'a [u8]> {
-    let actual = read_u8(cursor, "length prefix")?;
-    if actual != expected {
-        return Err(GenesisSignedPayloadError::LengthPrefixMismatch {
-            field_kind,
-            expected,
-            actual,
-        }
-        .into());
-    }
-    if cursor.len() < expected as usize {
-        return Err(GenesisSignedPayloadError::Truncated { field: body_field }.into());
-    }
-    let (head, tail) = cursor.split_at(expected as usize);
-    *cursor = tail;
-    Ok(head)
 }
 
 #[cfg(test)]
@@ -163,7 +85,9 @@ mod tests {
     #[test]
     fn round_trips_through_bytes() {
         let payload = deterministic_payload();
-        let bytes = payload.to_bytes();
+        let bytes = payload.to_bytes().unwrap();
+
+        assert_eq!(bytes[0], GENESIS_SIGNED_PAYLOAD_VERSION);
 
         let restored = GenesisSignedPayload::try_from_bytes(&bytes).unwrap();
 
@@ -172,8 +96,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_empty_payload() {
+        let error = GenesisSignedPayload::try_from_bytes(&[]).unwrap_err();
+
+        assert!(matches!(
+            error.downcast_ref::<GenesisSignedPayloadError>(),
+            Some(GenesisSignedPayloadError::Empty)
+        ));
+    }
+
+    #[test]
     fn rejects_unsupported_version() {
-        let mut bytes = deterministic_payload().to_bytes();
+        let mut bytes = deterministic_payload().to_bytes().unwrap();
         bytes[0] = 2;
 
         let error = GenesisSignedPayload::try_from_bytes(&bytes).unwrap_err();
@@ -185,46 +119,11 @@ mod tests {
     }
 
     #[test]
-    fn rejects_length_prefix_mismatch() {
-        let mut bytes = deterministic_payload().to_bytes();
-        bytes[1] = 32;
+    fn rejects_corrupted_cbor_body() {
+        let bytes = deterministic_payload().to_bytes().unwrap();
+        let truncated = &bytes[..bytes.len() - 1];
 
-        let error = GenesisSignedPayload::try_from_bytes(&bytes).unwrap_err();
-
-        assert!(matches!(
-            error.downcast_ref::<GenesisSignedPayloadError>(),
-            Some(GenesisSignedPayloadError::LengthPrefixMismatch {
-                field_kind: "Ed25519 signature",
-                expected: 64,
-                actual: 32
-            })
-        ));
-    }
-
-    #[test]
-    fn rejects_trailing_bytes() {
-        let mut bytes = deterministic_payload().to_bytes();
-        bytes.push(0xAA);
-
-        let error = GenesisSignedPayload::try_from_bytes(&bytes).unwrap_err();
-
-        assert!(matches!(
-            error.downcast_ref::<GenesisSignedPayloadError>(),
-            Some(GenesisSignedPayloadError::TrailingBytes { extra: 1 })
-        ));
-    }
-
-    #[test]
-    fn rejects_truncated_envelope() {
-        let bytes = deterministic_payload().to_bytes();
-        let truncated = &bytes[..2];
-
-        let error = GenesisSignedPayload::try_from_bytes(truncated).unwrap_err();
-
-        assert!(matches!(
-            error.downcast_ref::<GenesisSignedPayloadError>(),
-            Some(GenesisSignedPayloadError::Truncated { .. })
-        ));
+        GenesisSignedPayload::try_from_bytes(truncated).unwrap_err();
     }
 
     mod golden {

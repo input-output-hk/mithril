@@ -13,7 +13,7 @@ use mithril_common::{
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
         GenesisEd25519Signature, GenesisEd25519Signer, GenesisEd25519VerificationKey,
-        GenesisSigner, ProtocolAggregateVerificationKey,
+        GenesisSigner, GenesisVerifier, ProtocolAggregateVerificationKey,
     },
     entities::{Epoch, ProtocolParameters, SupportedEra},
     protocol::SignerBuilder,
@@ -27,8 +27,8 @@ use crate::{
 };
 #[cfg(feature = "future_snark")]
 use mithril_common::crypto_helper::{
-    GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, GenesisVerifier,
-    ProtocolKey, sha256_digest, signed_message_from_digest,
+    GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle, ProtocolKey,
+    sha256_digest, signed_message_from_digest,
 };
 
 /// Configuration for the genesis tools.
@@ -146,19 +146,54 @@ impl GenesisTools {
         Ok(())
     }
 
-    /// Import signature of the AVK of the genesis stake distribution from a file
+    /// Import a Pythagoras-era Ed25519 signed payload and persist the genesis certificate.
     pub async fn import_payload_signature(
         &self,
         signed_payload_path: &Path,
         genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
-        let mut signed_payload_file = File::open(signed_payload_path).unwrap();
-        let mut signed_payload_buffer = Vec::new();
-        signed_payload_file.read_to_end(&mut signed_payload_buffer)?;
+        let signed_payload_buffer = std::fs::read(signed_payload_path)?;
         let genesis_signature = GenesisEd25519Signature::from_bytes(&signed_payload_buffer)?;
-
         self.create_and_save_genesis_certificate(genesis_signature, genesis_verification_key)
             .await
+    }
+
+    /// Import a Lagrange-era dual signed-payload envelope and persist the dual genesis certificate.
+    ///
+    /// Decodes the [`crate::tools::GenesisSignedPayload`] envelope, reconstructs the certificate
+    /// from the pre-computed Ed25519 + Schnorr signatures, then runs both the legacy and the
+    /// SNARK verifiers against it before saving.
+    #[cfg(feature = "future_snark")]
+    pub async fn import_dual_payload_signature(
+        &self,
+        signed_payload_path: &Path,
+        genesis_verifier: &GenesisVerifier,
+    ) -> StdResult<()> {
+        genesis_verifier.ensure_supports_era(self.configuration.mithril_era)?;
+        let signed_payload_buffer = std::fs::read(signed_payload_path)?;
+        let envelope = GenesisSignedPayload::try_from_bytes(&signed_payload_buffer)?;
+        genesis_verifier.verification_key_bundle().schnorr_or_err()?;
+        let genesis_producer =
+            CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
+        let certificate = genesis_producer.create_genesis_certificate_from_dual_signature(
+            self.configuration.genesis_protocol_parameters.clone(),
+            self.configuration.network,
+            self.configuration.epoch,
+            self.configuration.genesis_avk.clone(),
+            envelope.ed25519,
+            envelope.schnorr,
+        )?;
+        self.certificate_verifier
+            .verify_genesis_certificate(
+                &certificate,
+                &genesis_verifier.to_ed25519_verification_key(),
+            )
+            .await?;
+        self.certificate_repository
+            .create_certificate(certificate)
+            .await
+            .with_context(|| "Genesis tool can not save imported dual genesis certificate")?;
+        Ok(())
     }
 
     /// Automatic bootstrap of the genesis certificate (test only).
@@ -182,6 +217,9 @@ impl GenesisTools {
         };
         genesis_signer.ensure_supports_era(self.configuration.mithril_era)?;
         let ed25519_verification_key = genesis_signer.ed25519.verification_key();
+        #[cfg(feature = "future_snark")]
+        let schnorr_verification_key =
+            genesis_signer.schnorr.as_ref().map(|s| s.verification_key());
         let genesis_producer =
             CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.ed25519)))
                 .with_logger(self.logger.clone());
@@ -208,10 +246,20 @@ impl GenesisTools {
             genesis_signature,
             self.configuration.mithril_era,
         )?;
+        #[cfg(not(feature = "future_snark"))]
+        let genesis_verifier = GenesisVerifier::from_ed25519(ed25519_verification_key);
+        #[cfg(feature = "future_snark")]
+        let genesis_verifier = match schnorr_verification_key {
+            Some(schnorr) => GenesisVerifier::from_bundle(GenesisVerificationKeyBundle::new(
+                ed25519_verification_key,
+                schnorr,
+            )),
+            None => GenesisVerifier::from_ed25519(ed25519_verification_key),
+        };
         self.certificate_verifier
             .verify_genesis_certificate(
                 &genesis_certificate,
-                &GenesisVerifier::from_ed25519(ed25519_verification_key),
+                &genesis_verifier.to_ed25519_verification_key(),
             )
             .await?;
         self.certificate_repository
@@ -254,7 +302,7 @@ impl GenesisTools {
                         anyhow::anyhow!("Lagrange genesis sign requires a SNARK signer")
                     })?
                     .sign_non_deterministic(&digest)?;
-                GenesisSignedPayload::new(ed25519, schnorr).to_bytes()
+                GenesisSignedPayload::new(ed25519, schnorr).to_bytes()?
             }
             _ => genesis_signer
                 .ed25519
@@ -285,10 +333,7 @@ impl GenesisTools {
             self.configuration.mithril_era,
         )?;
         self.certificate_verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &GenesisVerifier::from_ed25519(*genesis_verification_key),
-            )
+            .verify_genesis_certificate(&genesis_certificate, genesis_verification_key)
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate.clone())
@@ -742,6 +787,92 @@ mod tests {
                 .create_verifier()
                 .verify(payload, &signature)
                 .expect("Ed25519 signature must verify");
+        }
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod import {
+        use std::fs;
+
+        use mithril_common::crypto_helper::{
+            GenesisSchnorrSigner, GenesisSigningKeyBundle, GenesisVerificationKeyBundle,
+        };
+
+        use super::*;
+
+        #[tokio::test]
+        async fn lagrange_round_trip_through_dual_envelope() {
+            let temp = get_temp_dir("import_lagrange_round_trip");
+            let preimage_path = temp.join("preimage.bin");
+            let signed_path = temp.join("signed.bin");
+
+            let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
+            let schnorr_signer = GenesisSchnorrSigner::create_non_deterministic_signer();
+            let bundle = GenesisVerificationKeyBundle::new(
+                ed25519_signer.verification_key(),
+                schnorr_signer.verification_key(),
+            );
+            let signer = GenesisSigner::from_bundle(GenesisSigningKeyBundle::new(
+                ed25519_signer.secret_key(),
+                schnorr_signer.secret_key(),
+            ));
+            let signing_key_path = temp.join("genesis.sk");
+            signer.write_to_file(&signing_key_path).unwrap();
+
+            let (genesis_tools, certificate_store, _, _) =
+                build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
+
+            genesis_tools
+                .export_payload_to_sign(&preimage_path)
+                .expect("export should not fail");
+            let preimage_bytes = fs::read(&preimage_path).unwrap();
+            assert_eq!(preimage_bytes.len(), 190);
+
+            GenesisTools::sign_genesis_certificate(
+                &preimage_path,
+                &signed_path,
+                &signing_key_path,
+                SupportedEra::Lagrange,
+            )
+            .await
+            .expect("sign should not fail");
+
+            genesis_tools
+                .import_dual_payload_signature(&signed_path, &GenesisVerifier::from_bundle(bundle))
+                .await
+                .expect("import should not fail");
+
+            let last: Vec<Certificate> =
+                certificate_store.get_latest_certificates(10).await.unwrap();
+            assert_eq!(1, last.len());
+        }
+
+        #[tokio::test]
+        async fn lagrange_rejects_legacy_verification_key_bundle() {
+            let temp = get_temp_dir("import_lagrange_rejects_legacy_vk");
+            let signed_path = temp.join("signed.bin");
+            fs::write(&signed_path, vec![0u8; 8]).unwrap();
+
+            let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
+            let legacy_bundle = GenesisVerificationKeyBundle {
+                ed25519: ed25519_signer.verification_key(),
+                schnorr: None,
+            };
+            let (genesis_tools, _, _, _) =
+                build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
+
+            let error = genesis_tools
+                .import_dual_payload_signature(
+                    &signed_path,
+                    &GenesisVerifier::from_bundle(legacy_bundle),
+                )
+                .await
+                .unwrap_err();
+
+            assert!(matches!(
+                error.downcast_ref::<mithril_common::crypto_helper::GenesisBundleError>(),
+                Some(mithril_common::crypto_helper::GenesisBundleError::SchnorrVerificationKeyRequired)
+            ));
         }
     }
 }

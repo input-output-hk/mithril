@@ -4063,6 +4063,7 @@ dependencies = [
  "axum-test",
  "blockfrost",
  "chrono",
+ "ciborium",
  "clap",
  "config",
  "criterion",

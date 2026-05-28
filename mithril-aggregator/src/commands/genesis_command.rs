@@ -7,9 +7,13 @@ use serde::Deserialize;
 use slog::{Logger, debug};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
+#[cfg(not(feature = "future_snark"))]
+use mithril_common::crypto_helper::GenesisEd25519VerificationKey;
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::GenesisVerifier;
 use mithril_common::{
     StdResult,
-    crypto_helper::{GenesisEd25519VerificationKey, GenesisSigner},
+    crypto_helper::GenesisSigner,
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey, SupportedEra},
 };
 use mithril_doc::{Documenter, StructDoc};
@@ -239,6 +243,12 @@ pub struct ImportGenesisSubCommand {
     /// Genesis Verification Key
     #[clap(long)]
     genesis_verification_key: HexEncodedGenesisVerificationKey,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl ImportGenesisSubCommand {
@@ -257,7 +267,7 @@ impl ImportGenesisSubCommand {
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
-        let mithril_era = resolve_mithril_era(None)?;
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
@@ -270,14 +280,45 @@ impl ImportGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
+
+        self.run_import(&genesis_tools, mithril_era).await
+    }
+
+    #[cfg(not(feature = "future_snark"))]
+    async fn run_import(
+        &self,
+        genesis_tools: &GenesisTools,
+        _mithril_era: SupportedEra,
+    ) -> StdResult<()> {
+        let verification_key =
+            GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?;
         genesis_tools
-            .import_payload_signature(
-                &self.signed_payload_path,
-                &GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?,
-            )
+            .import_payload_signature(&self.signed_payload_path, &verification_key)
             .await
-            .with_context(|| "genesis-tools: import error")?;
-        Ok(())
+            .with_context(|| "genesis-tools: import error")
+    }
+
+    #[cfg(feature = "future_snark")]
+    async fn run_import(
+        &self,
+        genesis_tools: &GenesisTools,
+        mithril_era: SupportedEra,
+    ) -> StdResult<()> {
+        let verifier = GenesisVerifier::try_from_hex(&self.genesis_verification_key)?;
+        verifier.ensure_supports_era(mithril_era)?;
+        match mithril_era {
+            SupportedEra::Lagrange => genesis_tools
+                .import_dual_payload_signature(&self.signed_payload_path, &verifier)
+                .await
+                .with_context(|| "genesis-tools: import error"),
+            _ => genesis_tools
+                .import_payload_signature(
+                    &self.signed_payload_path,
+                    &verifier.ed25519.to_verification_key(),
+                )
+                .await
+                .with_context(|| "genesis-tools: import error"),
+        }
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
@@ -438,6 +479,21 @@ mod tests {
                 "Should error when multiple eras exist and none is provided"
             );
         }
+    }
+
+    #[test]
+    fn import_subcommand_parses_era_flag() {
+        let cmd = ImportGenesisSubCommand::try_parse_from([
+            "import",
+            "--signed-payload-path",
+            "/tmp/signed",
+            "--genesis-verification-key",
+            "deadbeef",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
     }
 
     #[test]

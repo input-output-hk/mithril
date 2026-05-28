@@ -13,13 +13,14 @@ repository = { workspace = true }
 default = ["rustls"]
 rustls = ["reqwest/rustls"]
 
-future_snark = ["mithril-common/future_snark"]
+future_snark = ["mithril-common/future_snark", "dep:ciborium"]
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 blockfrost = { version = "1.2.4", default-features = false, features = ["rustls"] }
 chrono = { workspace = true }
+ciborium = { version = "0.2.2", optional = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
 flate2 = "1.1.9"
