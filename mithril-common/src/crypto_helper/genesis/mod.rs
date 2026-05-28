@@ -4,10 +4,12 @@
 //! signers, the dual signing/verification-key bundles that pair them, and the wrapped
 //! [`GenesisSigner`] that hides their parsing and selection behind a single type.
 
+mod bundles;
 mod ed25519;
 #[cfg(feature = "future_snark")]
 mod schnorr;
 
+pub use bundles::*;
 pub use ed25519::*;
 #[cfg(feature = "future_snark")]
 pub use schnorr::*;
