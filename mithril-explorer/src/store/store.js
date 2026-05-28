@@ -93,7 +93,7 @@ const storeBuilder = (preloadedState) => {
   });
 };
 
-module.exports = {
+export {
   getEmptyPreloadedState,
   getPreloadedStateFromLocalStorage,
   storeBuilder,

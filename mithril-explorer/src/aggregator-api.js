@@ -42,7 +42,7 @@ function fetchRegistrations(aggregator, epoch) {
     });
 }
 
-module.exports = {
+export {
   fetchAggregator,
   fetchAggregatorCapabilities,
   fetchSignersTickers,

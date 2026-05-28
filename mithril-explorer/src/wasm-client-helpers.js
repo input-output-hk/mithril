@@ -30,6 +30,4 @@ async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
   return new MithrilClient(aggregator, genesisVerificationKey, client_options);
 }
 
-module.exports = {
-  newMithrilWasmClient,
-};
+export { newMithrilWasmClient };

@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import aggregator_api from "@/aggregator-api";
+import * as aggregator_api from "@/aggregator-api";
 import default_available_aggregators from "@/aggregators-list.generated";
 import { checkUrl } from "@/utils";
 import { defaultAggregatorCapabilities } from "@/constants";
