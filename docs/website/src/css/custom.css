@@ -15,8 +15,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;600&display=swap");
-
 @font-face {
   font-family: "Lexend";
   font-weight: 400;

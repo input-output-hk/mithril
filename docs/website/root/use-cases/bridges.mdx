@@ -34,7 +34,7 @@ This preserves the existing architecture while removing the implicit trust place
 
 ### Integration
 
-Bridge relayers, validators, and watchers typically run as server-side services, so most bridge teams will integrate via the [Rust client library](https://crates.io/crates/mithril-client) or the [Mithril client CLI](https://mithril.network/doc/manual/develop/nodes/mithril-client). The library is the most direct path for native services that want to embed proof verification in their existing process; the CLI is a good fit for teams that prefer to shell out from a relayer written in another language.
+Bridge relayers, validators, and watchers typically run as server-side services, so most bridge teams will integrate via the [Rust client library](https://crates.io/crates/mithril-client) or the [Mithril client CLI](https://mithril.network/doc/manual/develop/nodes/mithril-client). The library is the most direct path for native services that want to embed proof verification in their existing process; the CLI is a good fit for teams that prefer to shell out from a relayer written in another language. The [`client-cardano-transaction`](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-transaction) example walks through the full Rust-library flow for fetching and verifying a transaction proof.
 
 A [WASM package](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm) is also available for any browser-facing component of the bridge (e.g. a status dashboard or user-facing transfer UI that verifies proofs client-side).
 
