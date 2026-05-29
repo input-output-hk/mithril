@@ -29,9 +29,12 @@ pub enum CacheState {
 ///
 /// See [`CircuitKeyCache::validate`] for the three-way decision logic.
 pub struct CircuitKeyCache {
-    vk_path: PathBuf,
-    pk_path: PathBuf,
-    expected_vk_bytes: &'static [u8],
+    /// Path to the on-disk verification key file.
+    verification_key_path: PathBuf,
+    /// Path to the on-disk proving key file.
+    proving_key_path: PathBuf,
+    /// Hard-coded expected VK bytes embedded in the binary, used for staleness detection.
+    expected_verification_key_bytes: &'static [u8],
 }
 
 impl CircuitKeyCache {
@@ -39,9 +42,9 @@ impl CircuitKeyCache {
     pub fn new(base_dir: PathBuf, circuit_name: &str, expected_vk_bytes: &'static [u8]) -> Self {
         let circuit_dir = base_dir.join(MITHRIL_CIRCUIT_CACHE_FOLDER).join(circuit_name);
         Self {
-            vk_path: circuit_dir.join("verification-key"),
-            pk_path: circuit_dir.join("proving-key"),
-            expected_vk_bytes,
+            verification_key_path: circuit_dir.join("verification-key"),
+            proving_key_path: circuit_dir.join("proving-key"),
+            expected_verification_key_bytes: expected_vk_bytes,
         }
     }
 
@@ -53,28 +56,28 @@ impl CircuitKeyCache {
     /// - **VK does not match** → both files are removed (stale cache after a key rotation)
     ///   and [`CacheState::Empty`] is returned. Both removals are idempotent.
     pub fn validate(&self) -> StmResult<CacheState> {
-        let bytes = match fs::read(&self.vk_path) {
+        let bytes = match fs::read(&self.verification_key_path) {
             Ok(b) => b,
             Err(e) if e.kind() == ErrorKind::NotFound => return Ok(CacheState::Empty),
             Err(e) => return Err(e.into()),
         };
 
-        if bytes == self.expected_vk_bytes {
-            return match fs::metadata(&self.pk_path) {
+        if bytes == self.expected_verification_key_bytes {
+            return match fs::metadata(&self.proving_key_path) {
                 Ok(_) => Ok(CacheState::Valid),
                 Err(e) if e.kind() == ErrorKind::NotFound => Ok(CacheState::Empty),
                 Err(e) => Err(e.into()),
             };
         }
 
-        fs::remove_file(&self.vk_path).or_else(|e| {
+        fs::remove_file(&self.verification_key_path).or_else(|e| {
             if e.kind() == ErrorKind::NotFound {
                 Ok(())
             } else {
                 Err(e)
             }
         })?;
-        fs::remove_file(&self.pk_path).or_else(|e| {
+        fs::remove_file(&self.proving_key_path).or_else(|e| {
             if e.kind() == ErrorKind::NotFound {
                 Ok(())
             } else {
@@ -85,19 +88,21 @@ impl CircuitKeyCache {
         Ok(CacheState::Empty)
     }
 
+    /// Returns the path to the on-disk verification key file.
     pub fn vk_path(&self) -> &Path {
-        &self.vk_path
+        &self.verification_key_path
     }
 
+    /// Returns the path to the on-disk proving key file.
     pub fn pk_path(&self) -> &Path {
-        &self.pk_path
+        &self.proving_key_path
     }
 
     /// Cache for the non-recursive STM certificate circuit, rooted at `std::env::temp_dir()`.
     pub fn for_non_recursive_circuit() -> Self {
         Self::new(
             std::env::temp_dir(),
-            "non-recursive",
+            "non-recursive-keys",
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         )
     }
@@ -106,7 +111,7 @@ impl CircuitKeyCache {
     pub fn for_recursive_circuit() -> Self {
         Self::new(
             std::env::temp_dir(),
-            "recursive",
+            "recursive-keys",
             RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         )
     }
@@ -194,12 +199,14 @@ mod tests {
         assert!(
             cache
                 .vk_path()
-                .ends_with("mithril-circuit/non-recursive/verification-key"),
-            "vk_path should end with mithril-circuit/non-recursive/verification-key"
+                .ends_with("mithril-circuit/non-recursive-keys/verification-key"),
+            "vk_path should end with mithril-circuit/non-recursive-keys/verification-key"
         );
         assert!(
-            cache.pk_path().ends_with("mithril-circuit/non-recursive/proving-key"),
-            "pk_path should end with mithril-circuit/non-recursive/proving-key"
+            cache
+                .pk_path()
+                .ends_with("mithril-circuit/non-recursive-keys/proving-key"),
+            "pk_path should end with mithril-circuit/non-recursive-keys/proving-key"
         );
 
         let cleanup_dir = cache.vk_path().parent().unwrap().to_path_buf();
@@ -225,12 +232,14 @@ mod tests {
         assert!(
             cache
                 .vk_path()
-                .ends_with("mithril-circuit/recursive/verification-key"),
-            "vk_path should end with mithril-circuit/recursive/verification-key"
+                .ends_with("mithril-circuit/recursive-keys/verification-key"),
+            "vk_path should end with mithril-circuit/recursive-keys/verification-key"
         );
         assert!(
-            cache.pk_path().ends_with("mithril-circuit/recursive/proving-key"),
-            "pk_path should end with mithril-circuit/recursive/proving-key"
+            cache
+                .pk_path()
+                .ends_with("mithril-circuit/recursive-keys/proving-key"),
+            "pk_path should end with mithril-circuit/recursive-keys/proving-key"
         );
 
         let cleanup_dir = cache.vk_path().parent().unwrap().to_path_buf();
