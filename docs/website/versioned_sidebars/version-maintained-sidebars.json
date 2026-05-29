@@ -29,7 +29,11 @@
       "collapsed": false,
       "items": [
         { "type": "doc", "id": "use-cases/wallets/light-wallets" },
-        { "type": "doc", "id": "case-studies/daedalus", "label": "Case Study: Daedalus Wallet" }
+        {
+          "type": "doc",
+          "id": "case-studies/daedalus",
+          "label": "Case Study: Daedalus Wallet"
+        }
       ]
     },
     { "type": "doc", "id": "use-cases/bridges" }

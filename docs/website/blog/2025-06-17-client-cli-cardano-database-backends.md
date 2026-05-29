@@ -35,27 +35,22 @@ In particular, the `cardano-db` command in the Mithril client CLI has been updat
 To support this transition, both certification versions will remain available during the migration period, allowing users to adapt at their own pace.
 
 - [x] **Distribution [2524](https://github.com/input-output-hk/mithril/releases/tag/2524.0)**:
-
   - Introduced the `--backend` parameter in the `cardano-db` command
   - The default backend is `v1`; the `v2` backend is still considered **unstable**
   - No breaking changes in the client CLI
   - The `v2` backend is accessible via the `cardano_database_v2` function in the client library.
 
 - [x] **Distribution [2537](https://github.com/input-output-hk/mithril/releases/tag/2537.0)**:
-
   - The `v2` backend is promoted to **stable** status but will remain optional
   - The `v1` backend is still the default.
 
 - [x] **Distribution [2543](https://github.com/input-output-hk/mithril/releases/tag/2543.0)**:
-
   - The `v2` backend is the default
 
 - [x] **Distribution [2603](https://github.com/input-output-hk/mithril/releases/tag/2603.1)**:
-
   - The `v1` backend is deprecated.
 
 - [x] **Distribution [2617](https://github.com/input-output-hk/mithril/releases/tag/2617.0)**:
-
   - The `v1` backend is decommissioned and removed from the client CLI and library.
 
 - [ ] **Distribution +5**:

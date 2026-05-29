@@ -17,9 +17,9 @@ To provide a clear overview of supported platforms, the team has added a new 'Pl
 
 | Binary             | Linux x64 | Linux arm64 | macOS arm64 | Windows x64 |
 | ------------------ | :-------: | :---------: | :---------: | :---------: |
-| mithril-aggregator |    ✔     |   ✔ ⁽\*⁾   |     ⛔      |     ⛔      |
-| mithril-signer     |    ✔     |   ✔ ⁽\*⁾   |     ⛔      |     ⛔      |
-| mithril-client     |    ✔     |   ✔ ⁽\*⁾   |     ✔      |     ✔      |
+| mithril-aggregator |     ✔     |   ✔ ⁽\*⁾    |     ⛔      |     ⛔      |
+| mithril-signer     |     ✔     |   ✔ ⁽\*⁾    |     ⛔      |     ⛔      |
+| mithril-client     |     ✔     |   ✔ ⁽\*⁾    |      ✔      |      ✔      |
 
 ⁽\*⁾⚠️ Linux arm64 builds are provided on a best-effort basis and are not officially supported.
 

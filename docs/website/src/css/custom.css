@@ -279,8 +279,14 @@ a.menu__link {
   border: 1px solid var(--ifm-color-emphasis-200);
   border-radius: 0.5rem;
   color: inherit;
-  background: var(--ifm-card-background-color, var(--ifm-background-surface-color));
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  background: var(
+    --ifm-card-background-color,
+    var(--ifm-background-surface-color)
+  );
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .markdown .wallet-card,
