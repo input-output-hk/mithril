@@ -108,7 +108,9 @@ export default function CertificateVerifier({
   }
 
   async function onCacheResetClick() {
-    await client.reset_certificate_verifier_cache();
+    if (process.env.UNSTABLE) {
+      await client.reset_certificate_verifier_cache();
+    }
   }
 
   useEffect(() => {
@@ -241,7 +243,8 @@ export default function CertificateVerifier({
                 .map((evt) => (
                   <div key={evt.id}>{evt.message}</div>
                 ))}
-              {client.is_certificate_verifier_cache_enabled() &&
+              {process.env.UNSTABLE &&
+                client.is_certificate_verifier_cache_enabled() &&
                 currentStep === certificateValidationSteps.done && (
                   <>
                     Cache enabled:{" "}
