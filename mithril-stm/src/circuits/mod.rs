@@ -9,6 +9,8 @@ pub(crate) mod common;
 pub mod halo2;
 pub mod halo2_ivc;
 #[cfg(not(target_family = "wasm"))]
+pub mod key_cache;
+#[cfg(not(target_family = "wasm"))]
 pub mod trusted_setup;
 
 #[cfg(test)]

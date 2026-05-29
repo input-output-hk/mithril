@@ -1,12 +1,10 @@
-//! Temporary helpers for SNARK setup during the build/prototyping phase.
+//! SNARK setup for the STM certificate circuit.
 //!
-//! This module bundles SRS loading, circuit compilation, and key derivation into
-//! [`SnarkSetup`]. The current implementation uses pre-generated SRS files with an
-//! unsafe deterministic fallback for testing. It will be replaced by production-ready
-//! setup code (trusted SRS ceremony, proper key management) before release.
+//! Bundles circuit compilation and key derivation into [`SnarkSetup`], and wires in the
+//! two-level cache: an in-process [`LazyLock`] for within-run reuse, and the on-disk
+//! [`CircuitKeyCache`] for reuse across process restarts.
 use std::{
-    env,
-    fs::File,
+    fs::{self, File},
     io::{BufReader, BufWriter, ErrorKind},
     sync::{Arc, LazyLock, RwLock},
 };
@@ -18,10 +16,15 @@ use midnight_proofs::{
     utils::SerdeFormat,
 };
 use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
 
-use crate::{Parameters, StmResult, circuits::halo2::circuit::StmCertificateCircuit};
+use crate::{
+    Parameters, StmResult,
+    circuits::{
+        halo2::circuit::StmCertificateCircuit,
+        key_cache::{CacheState, CircuitKeyCache},
+        trusted_setup::TrustedSetupProvider,
+    },
+};
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -41,8 +44,6 @@ static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkS
 ///
 /// This includes the Structured Reference String (SRS), the compiled circuit, and the
 /// proving and verification keys derived from them.
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 pub struct SnarkSetup {
     /// KZG Structured Reference String.
     pub(crate) srs: ParamsKZG<Bls12>,
@@ -55,33 +56,24 @@ pub struct SnarkSetup {
 }
 
 impl SnarkSetup {
-    /// Build a new `SnarkSetup` from protocol parameters and Merkle tree depth.
-    ///
-    /// The setup pipeline:
-    /// 1. Computes the circuit degree from the protocol parameter `k`.
-    /// 2. Loads the SRS from a pre-generated file, or generates one with an unsafe
-    ///    deterministic seed if the file is not found.
-    /// 3. Compiles the STM circuit for the given parameters and tree depth.
-    /// 4. Derives the verification and proving keys from the SRS and circuit.
-    ///
-    /// Returns an error if the SRS cannot be loaded or generated, or if the circuit
-    /// cannot be compiled with the given parameters.
+    /// Loads the trusted SRS via [`TrustedSetupProvider`] and delegates to
+    /// [`Self::try_new_with_srs`].
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
+        let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
+        Self::try_new_with_srs(params, merkle_tree_depth, srs)
+    }
+
+    /// Build a new `SnarkSetup` from protocol parameters, Merkle tree depth, and a caller-supplied
+    /// SRS. The SRS must have `max_k >= circuit.min_k()`; it is downsized to the exact circuit
+    /// degree before key derivation (required by `keygen_vk`).
+    pub(crate) fn try_new_with_srs(
+        params: &Parameters,
+        merkle_tree_depth: u32,
+        mut srs: ParamsKZG<Bls12>,
+    ) -> StmResult<Self> {
         let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
-
-        // Uses a temporary directory to store the srs generated
-        // and to access it again during execution
-        // TODO: Remove the use of temporary directory once the srs is
-        // properly handled
-        let srs_path = env::temp_dir()
-            .join("mithril-srs")
-            .join(format!("params_kzg_unsafe_{}", circuit_degree));
-
-        let srs = load_or_generate_srs(
-            circuit_degree,
-            srs_path.to_str().with_context(|| "SRS path contains invalid UTF-8")?,
-        )?;
+        zk::downsize_srs_for_relation(&mut srs, &circuit);
 
         let cache_key = SnarkSetupCacheKey {
             circuit_degree,
@@ -89,14 +81,18 @@ impl SnarkSetup {
             m: params.m,
             merkle_tree_depth,
         };
-        let key_pair = get_or_build_snark_keys(cache_key, &circuit, &srs)?;
-        let (verification_key, proving_key) = (&key_pair.0, &key_pair.1);
+        let key_pair = get_or_build_snark_keys_with_disk_cache(
+            cache_key,
+            &circuit,
+            &srs,
+            &CircuitKeyCache::for_non_recursive_circuit(),
+        )?;
 
         Ok(Self {
             srs,
             circuit,
-            verification_key: verification_key.clone(),
-            proving_key: proving_key.clone(),
+            verification_key: key_pair.0.clone(),
+            proving_key: key_pair.1.clone(),
         })
     }
 }
@@ -107,22 +103,23 @@ pub(crate) struct SnarkVerifierSetup {
     pub(crate) verifier_params: ParamsVerifierKZG<Bls12>,
 }
 
-/// Serialized `s_g2` (the only material the KZG verifier needs) for the deterministic SNARK setup
-/// seeded with `ChaCha20Rng::seed_from_u64(42)`.
+/// Serialized `s_g2` (the only material the KZG verifier needs) extracted from the Midnight
+/// production trusted SRS.
 ///
-/// Regenerate by running the `compute_snark_verifier_params_bytes` test and copying its printed
-/// decimal byte sequence.
+/// Regenerate by running the `verifier_setup_matches_trusted_srs` test with a print statement,
+/// or by extracting `srs.verifier_params()` from `TrustedSetupProvider` and serializing with
+/// `SerdeFormat::RawBytesUnchecked`.
 const SNARK_VERIFIER_PARAMS_BYTES: [u8; 192] = [
-    9, 133, 52, 70, 100, 186, 221, 42, 162, 210, 65, 103, 250, 71, 142, 192, 58, 111, 199, 110,
-    176, 91, 161, 195, 250, 201, 221, 136, 183, 74, 68, 204, 221, 93, 8, 139, 182, 151, 92, 6, 168,
-    223, 75, 16, 6, 248, 229, 53, 10, 219, 248, 43, 58, 117, 134, 19, 245, 109, 69, 25, 218, 98,
-    249, 7, 90, 223, 221, 136, 43, 53, 243, 90, 85, 245, 50, 71, 17, 145, 52, 137, 36, 165, 195,
-    133, 133, 41, 248, 60, 251, 3, 44, 200, 150, 47, 121, 34, 9, 231, 248, 39, 163, 121, 37, 113,
-    212, 227, 126, 233, 45, 198, 96, 170, 240, 47, 77, 250, 32, 66, 193, 18, 103, 251, 89, 161,
-    202, 162, 45, 89, 203, 163, 70, 170, 27, 1, 80, 237, 9, 87, 173, 20, 38, 94, 11, 146, 14, 217,
-    151, 197, 170, 203, 108, 179, 227, 90, 187, 9, 128, 97, 0, 213, 149, 128, 132, 129, 179, 255,
-    247, 26, 178, 177, 112, 81, 142, 4, 53, 235, 114, 223, 242, 209, 244, 23, 177, 150, 185, 252,
-    175, 141, 204, 205, 242, 78,
+    4, 187, 225, 162, 79, 204, 79, 152, 140, 110, 242, 104, 208, 193, 22, 14, 172, 10, 12, 79, 83,
+    216, 11, 215, 79, 61, 46, 70, 103, 190, 39, 64, 134, 37, 168, 56, 37, 53, 78, 39, 199, 8, 89,
+    136, 49, 2, 235, 67, 7, 172, 181, 105, 179, 24, 124, 15, 209, 153, 57, 128, 170, 82, 166, 233,
+    226, 8, 11, 150, 151, 250, 185, 106, 189, 92, 95, 28, 59, 152, 130, 86, 242, 217, 147, 102,
+    241, 187, 204, 241, 60, 240, 226, 7, 2, 254, 225, 140, 15, 8, 23, 150, 4, 171, 232, 193, 130,
+    11, 190, 209, 17, 39, 64, 141, 203, 80, 114, 173, 202, 184, 87, 116, 163, 45, 81, 139, 104, 35,
+    80, 176, 106, 34, 168, 123, 241, 120, 135, 115, 42, 10, 244, 93, 223, 204, 191, 248, 16, 225,
+    178, 33, 226, 165, 145, 29, 111, 150, 131, 163, 111, 78, 127, 231, 212, 66, 129, 222, 134, 161,
+    134, 204, 16, 108, 51, 54, 245, 143, 236, 224, 30, 118, 109, 196, 20, 125, 56, 227, 25, 54, 16,
+    90, 73, 68, 203, 89,
 ];
 
 impl SnarkVerifierSetup {
@@ -141,7 +138,11 @@ impl SnarkVerifierSetup {
 /// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
 /// if the file does not exist. When generated, the result is persisted to `path` so
 /// subsequent calls can load it quickly.
+#[cfg(test)]
 fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<Bls12>> {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
     let file = File::open(path);
     match file {
         Ok(f) => {
@@ -164,6 +165,7 @@ fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<
 }
 
 /// Persist a KZG SRS to disk so subsequent calls to `load_or_generate_srs` can load it.
+#[cfg(test)]
 fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent)
@@ -181,6 +183,7 @@ fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
 /// The proving-key derivation (`zk::setup_pk`) is the dominant cost in `SnarkSetup::try_new`.
 /// Caching it per `(circuit_degree, k, m, merkle_tree_depth)` avoids redundant work across
 /// multiple certificate generations within the same process.
+#[cfg(test)]
 fn get_or_build_snark_keys(
     cache_key: SnarkSetupCacheKey,
     circuit: &StmCertificateCircuit,
@@ -208,22 +211,115 @@ fn get_or_build_snark_keys(
     Ok(key_pair)
 }
 
+/// Return a cached VK/PK pair, consulting two cache levels before recomputing.
+///
+/// 1. **In-process (`SNARK_SETUP_KEY_CACHE`)**: a `LazyLock<RwLock>` that avoids recomputing
+///    keys when `SnarkSetup::try_new` is called multiple times within the same process.
+/// 2. **On-disk (`disk_cache`)**: persists across process restarts. [`CircuitKeyCache::validate`]
+///    guards this level: a stale VK (left from a previous circuit version) is wiped before the
+///    cached keys are used, so the prover never starts with a silently wrong key pair.
+///
+/// If both caches miss, the VK and PK are derived from the SRS and written to disk. The PK
+/// write is wrapped so that a failure removes the already-written VK, keeping the cache
+/// directory in a clean state for the next startup.
+fn get_or_build_snark_keys_with_disk_cache(
+    cache_key: SnarkSetupCacheKey,
+    circuit: &StmCertificateCircuit,
+    srs: &ParamsKZG<Bls12>,
+    disk_cache: &CircuitKeyCache,
+) -> StmResult<SnarkSetupKeyPair> {
+    // LazyLock is the hot in-process cache; disk survives process restarts.
+    if let Some(pair) = SNARK_SETUP_KEY_CACHE
+        .read()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
+        .as_ref()
+        .filter(|(k, _)| *k == cache_key)
+        .map(|(_, v)| v.clone())
+    {
+        return Ok(pair);
+    }
+
+    let (vk, pk) = 'keys: {
+        if let CacheState::Valid = disk_cache.validate()? {
+            let vk = MidnightVK::read(
+                &mut BufReader::new(
+                    File::open(disk_cache.verification_key_path())
+                        .with_context(|| "Failed to open cached VK")?,
+                ),
+                SerdeFormat::RawBytes,
+            )
+            .with_context(|| "Failed to deserialize cached VK")?;
+            match File::open(disk_cache.proving_key_path()) {
+                Ok(f) => {
+                    let pk = MidnightPK::<StmCertificateCircuit>::read(
+                        &mut BufReader::new(f),
+                        SerdeFormat::RawBytes,
+                    )
+                    .with_context(|| "Failed to deserialize cached PK")?;
+                    break 'keys (vk, pk);
+                }
+                Err(e) if e.kind() == ErrorKind::NotFound => {}
+                Err(e) => return Err(anyhow!("Failed to open cached PK: {e}")),
+            }
+        }
+        let vk = zk::setup_vk(srs, circuit);
+        let pk = zk::setup_pk(circuit, &vk);
+        if let Some(parent) = disk_cache.verification_key_path().parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| "Failed to create circuit key cache directory")?;
+        }
+        vk.write(
+            &mut BufWriter::new(
+                File::create(disk_cache.verification_key_path())
+                    .with_context(|| "Failed to create VK cache file")?,
+            ),
+            SerdeFormat::RawBytes,
+        )
+        .with_context(|| "Failed to write VK to disk")?;
+        if let Err(e) = (|| -> StmResult<()> {
+            pk.write(
+                &mut BufWriter::new(
+                    File::create(disk_cache.proving_key_path())
+                        .with_context(|| "Failed to create PK cache file")?,
+                ),
+                SerdeFormat::RawBytes,
+            )
+            .with_context(|| "Failed to write PK to disk")
+        })() {
+            let _ = fs::remove_file(disk_cache.verification_key_path());
+            return Err(e);
+        }
+        (vk, pk)
+    };
+
+    let key_pair = Arc::new((vk, pk));
+    *SNARK_SETUP_KEY_CACHE
+        .write()
+        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))? =
+        Some((cache_key, key_pair.clone()));
+
+    Ok(key_pair)
+}
+
 #[cfg(test)]
 mod test {
     use std::{fs, sync::Arc};
 
     use midnight_curves::Bls12;
     use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
-    use midnight_zk_stdlib::MidnightCircuit;
+    use midnight_zk_stdlib::{self as zk, MidnightCircuit};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     use crate::{
         Parameters, circuits::halo2::circuit::StmCertificateCircuit,
-        proof_system::halo2_snark::SnarkSetup,
+        circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkSetup,
     };
 
-    use super::{SnarkSetupCacheKey, get_or_build_snark_keys, load_or_generate_srs, persist_srs};
+    use super::{
+        SnarkSetupCacheKey, get_or_build_snark_keys, get_or_build_snark_keys_with_disk_cache,
+        load_or_generate_srs, persist_srs,
+    };
 
     fn small_srs() -> ParamsKZG<Bls12> {
         ParamsKZG::unsafe_setup(3, ChaCha20Rng::seed_from_u64(42))
@@ -341,16 +437,23 @@ mod test {
     }
 
     #[test]
-    fn try_new_succeeds_with_valid_parameters() {
-        let result = SnarkSetup::try_new(&default_params(), 4);
+    fn try_new_with_srs_succeeds_with_valid_parameters() {
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let result = SnarkSetup::try_new_with_srs(&params, 4, srs);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn try_new_returns_same_verification_key_for_same_parameters() {
+    fn try_new_with_srs_returns_same_verification_key_for_same_parameters() {
         let params = default_params();
-        let setup1 = SnarkSetup::try_new(&params, 4).unwrap();
-        let setup2 = SnarkSetup::try_new(&params, 4).unwrap();
+        let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let make_srs = || ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let setup1 = SnarkSetup::try_new_with_srs(&params, 4, make_srs()).unwrap();
+        let setup2 = SnarkSetup::try_new_with_srs(&params, 4, make_srs()).unwrap();
 
         let mut vk_bytes1 = vec![];
         setup1
@@ -370,25 +473,104 @@ mod test {
     }
 
     mod verifier_setup {
-        use ff::Field;
-        use group::Group;
-        use midnight_curves::{Fq, G2Projective};
-        use midnight_proofs::utils::helpers::ProcessedSerdeObject;
-
         use super::*;
+        use crate::circuits::trusted_setup::TrustedSetupProvider;
+        use crate::proof_system::halo2_snark::SnarkVerifierSetup;
 
-        /// Compute the deterministic verifier params bytes for the unsafe SNARK setup seeded with
-        /// `ChaCha20Rng::seed_from_u64(42)`.
         #[test]
-        fn compute_snark_verifier_params_bytes() {
-            let mut rng = ChaCha20Rng::seed_from_u64(42);
-            let s = Fq::random(&mut rng);
-            let s_g2 = G2Projective::generator() * s;
-
-            let mut buf = Vec::new();
-            s_g2.write(&mut buf, SerdeFormat::RawBytesUnchecked).unwrap();
-
-            println!("{:?}", buf);
+        fn verifier_setup_matches_trusted_srs() {
+            let setup = SnarkVerifierSetup::try_new().unwrap();
+            let srs = TrustedSetupProvider::default()
+                .get_trusted_setup_parameters()
+                .unwrap();
+            let expected = srs.verifier_params();
+            let mut expected_bytes = vec![];
+            expected
+                .write(&mut expected_bytes, SerdeFormat::RawBytesUnchecked)
+                .unwrap();
+            let mut actual_bytes = vec![];
+            setup
+                .verifier_params
+                .write(&mut actual_bytes, SerdeFormat::RawBytesUnchecked)
+                .unwrap();
+            assert_eq!(
+                expected_bytes, actual_bytes,
+                "verifier params must match the Midnight trusted SRS"
+            );
         }
+    }
+
+    #[test]
+    fn disk_cache_empty_writes_keys_to_disk() {
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 100).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let cache_key = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 100,
+        };
+
+        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-empty");
+        fs::remove_dir_all(&base_dir).ok();
+        let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
+
+        assert!(!disk_cache.verification_key_path().exists());
+        get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache).unwrap();
+        assert!(
+            disk_cache.verification_key_path().exists(),
+            "VK should be written to disk on cache miss"
+        );
+        assert!(
+            disk_cache.proving_key_path().exists(),
+            "PK should be written to disk on cache miss"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn disk_cache_valid_returns_expected_vk_bytes() {
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 101).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+        let cache_key = SnarkSetupCacheKey {
+            circuit_degree: degree,
+            k: params.k,
+            m: params.m,
+            merkle_tree_depth: 101,
+        };
+
+        let vk = zk::setup_vk(&srs, &circuit);
+        let pk = zk::setup_pk(&circuit, &vk);
+        let mut vk_bytes = vec![];
+        vk.write(&mut vk_bytes, SerdeFormat::RawBytes).unwrap();
+        let mut pk_bytes = vec![];
+        pk.write(&mut pk_bytes, SerdeFormat::RawBytes).unwrap();
+
+        // Box::leak converts runtime bytes to &'static [u8] for CircuitKeyCache.
+        let expected: &'static [u8] = Box::leak(vk_bytes.clone().into_boxed_slice());
+
+        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-valid");
+        fs::remove_dir_all(&base_dir).ok();
+        let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", expected);
+
+        fs::create_dir_all(disk_cache.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(disk_cache.verification_key_path(), &vk_bytes).unwrap();
+        fs::write(disk_cache.proving_key_path(), &pk_bytes).unwrap();
+
+        let loaded =
+            get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache)
+                .unwrap();
+
+        let mut loaded_vk_bytes = vec![];
+        loaded.0.write(&mut loaded_vk_bytes, SerdeFormat::RawBytes).unwrap();
+        assert_eq!(
+            loaded_vk_bytes, vk_bytes,
+            "loaded VK must match what was written to disk"
+        );
+        fs::remove_dir_all(&base_dir).ok();
     }
 }
