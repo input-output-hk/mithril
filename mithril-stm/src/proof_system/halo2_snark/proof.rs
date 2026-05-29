@@ -336,10 +336,7 @@ mod tests {
     }
 
     fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
-        SnarkProver {
-            setup: SnarkSetup::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap(),
-            rng: ChaCha20Rng::from_seed(seed),
-        }
+        SnarkProver::try_new_deterministic(&params, MERKLE_TREE_DEPTH_FOR_SNARK, seed).unwrap()
     }
 
     #[test]

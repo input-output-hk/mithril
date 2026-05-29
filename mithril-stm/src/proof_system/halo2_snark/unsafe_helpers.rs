@@ -103,14 +103,34 @@ pub(crate) struct SnarkVerifierSetup {
     pub(crate) verifier_params: ParamsVerifierKZG<Bls12>,
 }
 
+/// Serialized `s_g2` (the only material the KZG verifier needs) for the deterministic SNARK setup
+/// seeded with `ChaCha20Rng::seed_from_u64(42)`.
+///
+/// Regenerate by running the `compute_snark_verifier_params_bytes` test and copying its printed
+/// decimal byte sequence.
+const SNARK_VERIFIER_PARAMS_BYTES: [u8; 192] = [
+    9, 133, 52, 70, 100, 186, 221, 42, 162, 210, 65, 103, 250, 71, 142, 192, 58, 111, 199, 110,
+    176, 91, 161, 195, 250, 201, 221, 136, 183, 74, 68, 204, 221, 93, 8, 139, 182, 151, 92, 6, 168,
+    223, 75, 16, 6, 248, 229, 53, 10, 219, 248, 43, 58, 117, 134, 19, 245, 109, 69, 25, 218, 98,
+    249, 7, 90, 223, 221, 136, 43, 53, 243, 90, 85, 245, 50, 71, 17, 145, 52, 137, 36, 165, 195,
+    133, 133, 41, 248, 60, 251, 3, 44, 200, 150, 47, 121, 34, 9, 231, 248, 39, 163, 121, 37, 113,
+    212, 227, 126, 233, 45, 198, 96, 170, 240, 47, 77, 250, 32, 66, 193, 18, 103, 251, 89, 161,
+    202, 162, 45, 89, 203, 163, 70, 170, 27, 1, 80, 237, 9, 87, 173, 20, 38, 94, 11, 146, 14, 217,
+    151, 197, 170, 203, 108, 179, 227, 90, 187, 9, 128, 97, 0, 213, 149, 128, 132, 129, 179, 255,
+    247, 26, 178, 177, 112, 81, 142, 4, 53, 235, 114, 223, 242, 209, 244, 23, 177, 150, 185, 252,
+    175, 141, 204, 205, 242, 78,
+];
+
 impl SnarkVerifierSetup {
-    /// Build the verifier setup from the Midnight trusted SRS, which must match the SRS used by
-    /// the prover. The SRS is loaded (and cached on disk) via [`TrustedSetupProvider`].
+    /// Build the verifier setup from the embedded constant verifier params bytes.
     pub(crate) fn try_new() -> StmResult<Self> {
-        let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
-        Ok(Self {
-            verifier_params: srs.verifier_params(),
-        })
+        let verifier_params = ParamsVerifierKZG::<Bls12>::read(
+            &mut &SNARK_VERIFIER_PARAMS_BYTES[..],
+            SerdeFormat::RawBytesUnchecked,
+        )
+        .with_context(|| "Failed to read embedded SNARK verifier params bytes")?;
+
+        Ok(Self { verifier_params })
     }
 }
 
