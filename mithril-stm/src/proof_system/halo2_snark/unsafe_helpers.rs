@@ -243,12 +243,13 @@ fn get_or_build_snark_keys_with_disk_cache(
         if let CacheState::Valid = disk_cache.validate()? {
             let vk = MidnightVK::read(
                 &mut BufReader::new(
-                    File::open(disk_cache.vk_path()).with_context(|| "Failed to open cached VK")?,
+                    File::open(disk_cache.verification_key_path())
+                        .with_context(|| "Failed to open cached VK")?,
                 ),
                 SerdeFormat::RawBytes,
             )
             .with_context(|| "Failed to deserialize cached VK")?;
-            match File::open(disk_cache.pk_path()) {
+            match File::open(disk_cache.proving_key_path()) {
                 Ok(f) => {
                     let pk = MidnightPK::<StmCertificateCircuit>::read(
                         &mut BufReader::new(f),
@@ -263,13 +264,13 @@ fn get_or_build_snark_keys_with_disk_cache(
         }
         let vk = zk::setup_vk(srs, circuit);
         let pk = zk::setup_pk(circuit, &vk);
-        if let Some(parent) = disk_cache.vk_path().parent() {
+        if let Some(parent) = disk_cache.verification_key_path().parent() {
             fs::create_dir_all(parent)
                 .with_context(|| "Failed to create circuit key cache directory")?;
         }
         vk.write(
             &mut BufWriter::new(
-                File::create(disk_cache.vk_path())
+                File::create(disk_cache.verification_key_path())
                     .with_context(|| "Failed to create VK cache file")?,
             ),
             SerdeFormat::RawBytes,
@@ -278,14 +279,14 @@ fn get_or_build_snark_keys_with_disk_cache(
         if let Err(e) = (|| -> StmResult<()> {
             pk.write(
                 &mut BufWriter::new(
-                    File::create(disk_cache.pk_path())
+                    File::create(disk_cache.proving_key_path())
                         .with_context(|| "Failed to create PK cache file")?,
                 ),
                 SerdeFormat::RawBytes,
             )
             .with_context(|| "Failed to write PK to disk")
         })() {
-            let _ = fs::remove_file(disk_cache.vk_path());
+            let _ = fs::remove_file(disk_cache.verification_key_path());
             return Err(e);
         }
         (vk, pk)
@@ -516,14 +517,14 @@ mod test {
         fs::remove_dir_all(&base_dir).ok();
         let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
 
-        assert!(!disk_cache.vk_path().exists());
+        assert!(!disk_cache.verification_key_path().exists());
         get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache).unwrap();
         assert!(
-            disk_cache.vk_path().exists(),
+            disk_cache.verification_key_path().exists(),
             "VK should be written to disk on cache miss"
         );
         assert!(
-            disk_cache.pk_path().exists(),
+            disk_cache.proving_key_path().exists(),
             "PK should be written to disk on cache miss"
         );
         fs::remove_dir_all(&base_dir).ok();
@@ -556,9 +557,9 @@ mod test {
         fs::remove_dir_all(&base_dir).ok();
         let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", expected);
 
-        fs::create_dir_all(disk_cache.vk_path().parent().unwrap()).unwrap();
-        fs::write(disk_cache.vk_path(), &vk_bytes).unwrap();
-        fs::write(disk_cache.pk_path(), &pk_bytes).unwrap();
+        fs::create_dir_all(disk_cache.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(disk_cache.verification_key_path(), &vk_bytes).unwrap();
+        fs::write(disk_cache.proving_key_path(), &pk_bytes).unwrap();
 
         let loaded =
             get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache)
