@@ -11,6 +11,7 @@ mod cardano_chain_point;
 mod cardano_database;
 mod cardano_db_beacon;
 mod cardano_network;
+mod cardano_node_ledger_state_snapshot;
 mod cardano_stake_distribution;
 mod cardano_transaction;
 mod cardano_transactions_set_proof;
@@ -53,6 +54,7 @@ pub use cardano_database::{
 };
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
+pub use cardano_node_ledger_state_snapshot::CardanoNodeLedgerStateSnapshot;
 pub use cardano_stake_distribution::CardanoStakeDistribution;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;

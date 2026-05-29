@@ -13,8 +13,9 @@ use mithril_common::{
     StdResult,
     entities::{
         BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
-        CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
-        MithrilStakeDistribution, SignedEntityType, SignedEntityTypeDiscriminants,
+        CardanoDbBeacon, CardanoNodeLedgerStateSnapshot, CardanoStakeDistribution,
+        CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution,
+        SignedEntityType, SignedEntityTypeDiscriminants,
     },
     logging::LoggerExtensions,
     signable_builder::{Artifact, SignedEntity},
@@ -79,6 +80,12 @@ pub trait SignedEntityService: Send + Sync {
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<CardanoStakeDistribution>>>;
+
+    /// Return a list of Cardano Node Ledger State snapshots order by creation date descending.
+    async fn get_last_signed_cardano_node_ledger_state_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoNodeLedgerStateSnapshot>>>;
 }
 
 /// Mithril ArtifactBuilder Service
@@ -97,6 +104,8 @@ pub struct MithrilSignedEntityService {
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
     cardano_database_artifact_builder:
         Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>>,
+    cardano_node_ledger_state_artifact_builder:
+        Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoNodeLedgerStateSnapshot>>,
     metrics_service: Arc<MetricsService>,
     logger: Logger,
 }
@@ -114,6 +123,8 @@ pub struct SignedEntityServiceArtifactsDependencies {
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
     cardano_database_artifact_builder:
         Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>>,
+    cardano_node_ledger_state_artifact_builder:
+        Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoNodeLedgerStateSnapshot>>,
 }
 
 impl SignedEntityServiceArtifactsDependencies {
@@ -134,6 +145,9 @@ impl SignedEntityServiceArtifactsDependencies {
         cardano_database_artifact_builder: Arc<
             dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>,
         >,
+        cardano_node_ledger_state_artifact_builder: Arc<
+            dyn ArtifactBuilder<CardanoDbBeacon, CardanoNodeLedgerStateSnapshot>,
+        >,
     ) -> Self {
         Self {
             mithril_stake_distribution_artifact_builder,
@@ -141,6 +155,7 @@ impl SignedEntityServiceArtifactsDependencies {
             cardano_blocks_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
             cardano_database_artifact_builder,
+            cardano_node_ledger_state_artifact_builder,
         }
     }
 }
@@ -165,6 +180,8 @@ impl MithrilSignedEntityService {
             cardano_stake_distribution_artifact_builder: dependencies
                 .cardano_stake_distribution_artifact_builder,
             cardano_database_artifact_builder: dependencies.cardano_database_artifact_builder,
+            cardano_node_ledger_state_artifact_builder: dependencies
+                .cardano_node_ledger_state_artifact_builder,
             signed_entity_type_lock,
             metrics_service,
             logger: logger.new_with_component_name::<Self>(),
@@ -271,10 +288,9 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            // TODO wire correct artifact builder 
-            SignedEntityType::CardanoNodeLedgerState(cardano_db_beacon) => Ok(Arc::new(
-                self.cardano_database_artifact_builder
-                    .compute_artifact(cardano_db_beacon, certificate)
+            SignedEntityType::CardanoNodeLedgerState(beacon) => Ok(Arc::new(
+                self.cardano_node_ledger_state_artifact_builder
+                    .compute_artifact(beacon, certificate)
                     .await
                     .with_context(|| {
                         format!(
@@ -375,6 +391,23 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Vec<SignedEntity<CardanoDatabaseSnapshot>>> {
         let signed_entities = self
             .get_last_signed_entities(total, &SignedEntityTypeDiscriminants::CardanoDatabase)
+            .await?
+            .into_iter()
+            .map(|record| record.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(signed_entities)
+    }
+
+    async fn get_last_signed_cardano_node_ledger_state_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoNodeLedgerStateSnapshot>>> {
+        let signed_entities = self
+            .get_last_signed_entities(
+                total,
+                &SignedEntityTypeDiscriminants::CardanoNodeLedgerState,
+            )
             .await?
             .into_iter()
             .map(|record| record.try_into())
@@ -544,6 +577,8 @@ mod tests {
             MockArtifactBuilder<Epoch, CardanoStakeDistribution>,
         mock_cardano_database_artifact_builder:
             MockArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>,
+        mock_cardano_node_ledger_state_artifact_builder:
+            MockArtifactBuilder<CardanoDbBeacon, CardanoNodeLedgerStateSnapshot>,
     }
 
     impl MockDependencyInjector {
@@ -570,6 +605,10 @@ mod tests {
                     CardanoDbBeacon,
                     CardanoDatabaseSnapshot,
                 >::new(),
+                mock_cardano_node_ledger_state_artifact_builder: MockArtifactBuilder::<
+                    CardanoDbBeacon,
+                    CardanoNodeLedgerStateSnapshot,
+                >::new(),
             }
         }
 
@@ -580,6 +619,7 @@ mod tests {
                 Arc::new(self.mock_cardano_blocks_transactions_artifact_builder),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
                 Arc::new(self.mock_cardano_database_artifact_builder),
+                Arc::new(self.mock_cardano_node_ledger_state_artifact_builder),
             );
             MithrilSignedEntityService::new(
                 Arc::new(self.mock_signed_entity_storer),
@@ -637,6 +677,7 @@ mod tests {
                 Arc::new(self.mock_cardano_blocks_transactions_artifact_builder),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
                 Arc::new(cardano_database_long_artifact_builder),
+                Arc::new(self.mock_cardano_node_ledger_state_artifact_builder),
             );
             MithrilSignedEntityService::new(
                 Arc::new(self.mock_signed_entity_storer),

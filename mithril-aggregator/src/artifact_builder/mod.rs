@@ -2,6 +2,7 @@
 mod cardano_blocks_transactions;
 mod cardano_database;
 mod cardano_database_artifacts;
+mod cardano_node_ledger_state;
 mod cardano_stake_distribution;
 mod cardano_transactions;
 mod interface;
@@ -10,6 +11,7 @@ mod mithril_stake_distribution;
 pub use cardano_blocks_transactions::*;
 pub use cardano_database::*;
 pub use cardano_database_artifacts::*;
+pub use cardano_node_ledger_state::*;
 pub use cardano_stake_distribution::*;
 pub use cardano_transactions::*;
 pub use interface::*;

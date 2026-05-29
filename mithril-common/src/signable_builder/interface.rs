@@ -5,8 +5,9 @@ use crate::{
     StdResult,
     entities::{
         BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSnapshot, CardanoDatabaseSnapshot,
-        CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch,
-        MithrilStakeDistribution, ProtocolMessage, ProtocolMessagePartValue, Snapshot,
+        CardanoDbBeacon, CardanoNodeLedgerStateSnapshot, CardanoStakeDistribution,
+        CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, ProtocolMessage,
+        ProtocolMessagePartValue, Snapshot,
     },
 };
 
@@ -102,5 +103,12 @@ impl Artifact for MithrilStakeDistribution {
 impl Artifact for Snapshot {
     fn get_id(&self) -> String {
         self.digest.clone()
+    }
+}
+
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
+impl Artifact for CardanoNodeLedgerStateSnapshot {
+    fn get_id(&self) -> String {
+        self.hash.clone()
     }
 }

@@ -7,10 +7,10 @@ use mithril_common::crypto_helper::ManifestSigner;
 
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoBlocksTransactionsArtifactBuilder,
-    CardanoDatabaseArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
-    CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
-    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
-    MithrilStakeDistributionArtifactBuilder,
+    CardanoDatabaseArtifactBuilder, CardanoNodeLedgerStateArtifactBuilder,
+    CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
+    DigestArtifactBuilder, DigestFileUploader, DigestSnapshotter, ImmutableArtifactBuilder,
+    ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
 };
 use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
@@ -53,15 +53,22 @@ impl DependenciesBuilder {
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
         let cardano_database_artifact_builder = Arc::new(
-            self.build_cardano_database_artifact_builder(cardano_node_version)
+            self.build_cardano_database_artifact_builder(cardano_node_version.clone())
                 .await?,
         );
+        let cardano_node_ledger_state_artifact_builder =
+            Arc::new(CardanoNodeLedgerStateArtifactBuilder::new(
+                self.configuration.get_network()?,
+                &cardano_node_version,
+            ));
+
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_transactions_artifact_builder,
             cardano_blocks_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
             cardano_database_artifact_builder,
+            cardano_node_ledger_state_artifact_builder,
         );
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
