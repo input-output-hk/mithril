@@ -380,6 +380,7 @@ mod tests {
     use std::collections::BTreeSet;
     use std::{path::Path, sync::Arc};
 
+    use mithril_cardano_node_internal_database::signable_builder::CardanoNodeLedgerStateSignableBuilder;
     use mockall::predicate::eq;
     use tokio::sync::RwLock;
 
@@ -491,6 +492,9 @@ mod tests {
             Path::new(""),
             logger.clone(),
         ));
+        let cardano_node_ledger_state_signable_builder = Arc::new(
+            CardanoNodeLedgerStateSignableBuilder::new(Path::new(""), logger.clone()),
+        );
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
             sqlite_connection.clone(),
             None,
@@ -516,6 +520,7 @@ mod tests {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_checker.clone(),
         );

@@ -27,7 +27,7 @@ use mithril_cardano_node_chain::{
 };
 use mithril_cardano_node_internal_database::{
     ImmutableFileObserver,
-    signable_builder::CardanoDatabaseSignableBuilder,
+    signable_builder::{CardanoDatabaseSignableBuilder, CardanoNodeLedgerStateSignableBuilder},
     test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
 };
 use mithril_common::{
@@ -257,6 +257,9 @@ impl StateMachineTester {
             Path::new(""),
             logger.clone(),
         ));
+        let cardano_node_ledger_state_signable_builder = Arc::new(
+            CardanoNodeLedgerStateSignableBuilder::new(Path::new(""), logger.clone()),
+        );
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             era_checker.clone(),
             stake_store.clone(),
@@ -278,6 +281,7 @@ impl StateMachineTester {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_builder,
             cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_checker.clone(),
         );

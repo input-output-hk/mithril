@@ -18,11 +18,11 @@ use mithril_cardano_node_chain::{
 };
 use mithril_cardano_node_internal_database::{
     ImmutableFileObserver, ImmutableFileSystemObserver,
-    digesters::CardanoImmutableDigester,
-    digesters::cache::{
-        ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
+    digesters::{
+        CardanoImmutableDigester,
+        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
     },
-    signable_builder::CardanoDatabaseSignableBuilder,
+    signable_builder::{CardanoDatabaseSignableBuilder, CardanoNodeLedgerStateSignableBuilder},
 };
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{
@@ -390,6 +390,11 @@ impl<'a> DependenciesBuilder<'a> {
             &self.config.db_directory,
             self.root_logger(),
         ));
+        let cardano_node_ledger_state_signable_builder =
+            Arc::new(CardanoNodeLedgerStateSignableBuilder::new(
+                &self.config.db_directory,
+                self.root_logger(),
+            ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             era_checker.clone(),
             stake_store.clone(),
@@ -411,6 +416,7 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_blocks_transactions_builder,
             cardano_stake_distribution_signable_builder,
             cardano_database_signable_builder,
+            cardano_node_ledger_state_signable_builder,
             #[cfg(feature = "future_snark")]
             era_checker.clone(),
         );
