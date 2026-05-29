@@ -37,6 +37,16 @@ pub struct CircuitKeyCache {
     expected_verification_key_bytes: &'static [u8],
 }
 
+fn remove_if_exists(path: &Path) -> StmResult<()> {
+    fs::remove_file(path).or_else(|e| {
+        if e.kind() == ErrorKind::NotFound {
+            Ok(())
+        } else {
+            Err(e.into())
+        }
+    })
+}
+
 impl CircuitKeyCache {
     /// Build a cache rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`.
     pub fn new(base_dir: PathBuf, circuit_name: &str, expected_vk_bytes: &'static [u8]) -> Self {
@@ -56,36 +66,44 @@ impl CircuitKeyCache {
     /// - **VK does not match** → both files are removed (stale cache after a key rotation)
     ///   and [`CacheState::Empty`] is returned. Both removals are idempotent.
     pub fn validate(&self) -> StmResult<CacheState> {
-        let bytes = match fs::read(&self.verification_key_path) {
-            Ok(b) => b,
-            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(CacheState::Empty),
-            Err(e) => return Err(e.into()),
+        let Some(bytes) = self.read_vk_bytes()? else {
+            return Ok(CacheState::Empty);
         };
 
         if bytes == self.expected_verification_key_bytes {
-            return match fs::metadata(&self.proving_key_path) {
-                Ok(_) => Ok(CacheState::Valid),
-                Err(e) if e.kind() == ErrorKind::NotFound => Ok(CacheState::Empty),
-                Err(e) => Err(e.into()),
+            return if self.pk_present()? {
+                Ok(CacheState::Valid)
+            } else {
+                Ok(CacheState::Empty)
             };
         }
 
-        fs::remove_file(&self.verification_key_path).or_else(|e| {
-            if e.kind() == ErrorKind::NotFound {
-                Ok(())
-            } else {
-                Err(e)
-            }
-        })?;
-        fs::remove_file(&self.proving_key_path).or_else(|e| {
-            if e.kind() == ErrorKind::NotFound {
-                Ok(())
-            } else {
-                Err(e)
-            }
-        })?;
-
+        self.clear_stale_files()?;
         Ok(CacheState::Empty)
+    }
+
+    /// Read the on-disk VK bytes, returning `None` if the file does not exist.
+    fn read_vk_bytes(&self) -> StmResult<Option<Vec<u8>>> {
+        match fs::read(&self.verification_key_path) {
+            Ok(b) => Ok(Some(b)),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Return `true` if the PK file is present on disk.
+    fn pk_present(&self) -> StmResult<bool> {
+        match fs::metadata(&self.proving_key_path) {
+            Ok(_) => Ok(true),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Remove both key files, ignoring not-found errors (idempotent).
+    fn clear_stale_files(&self) -> StmResult<()> {
+        remove_if_exists(&self.verification_key_path)?;
+        remove_if_exists(&self.proving_key_path)
     }
 
     /// Returns the path to the on-disk verification key file.
