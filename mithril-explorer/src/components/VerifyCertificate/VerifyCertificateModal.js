@@ -1,13 +1,16 @@
-import { Modal } from "react-bootstrap";
+import { Alert, Modal } from "react-bootstrap";
 import { useState, useEffect } from "react";
 import CertificateVerifier from "./CertificateVerifier";
 import { useSelector } from "react-redux";
+
+import styles from "./styles.module.css";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [loading, setLoading] = useState(false);
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [verificationContext, setVerificationContext] = useState(undefined);
+  const [initError, setInitError] = useState(undefined);
 
   useEffect(() => {
     if (show) {
@@ -22,7 +25,10 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
             });
           });
         })
-        .catch((err) => console.error("VerifyCertificateModal init error:", err));
+        .catch((err) => {
+          console.error("VerifyCertificateModal init error:", err);
+          setInitError(err);
+        });
     }
   }, [show, currentAggregator, certificateHash]);
 
@@ -33,6 +39,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
     } else {
       setShowLoadingWarning(false);
       setVerificationContext(undefined);
+      setInitError(undefined);
       onClose();
     }
   }
@@ -63,6 +70,18 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
                 onStart={() => setLoading(true)}
                 onDone={() => setLoading(false)}
               />
+            )}
+            {initError !== undefined && (
+              <Alert variant="danger" className="mt-2">
+                <Alert.Heading>
+                  <i className="text-danger bi bi-shield-slash"></i> Certificate chain verification
+                  failed
+                </Alert.Heading>
+                <div className="my-2">
+                  Initialization failed. Check that the genesis verification key is correct.
+                </div>
+                <div className={styles.error}>{initError.toString()}</div>
+              </Alert>
             )}
           </>
         )}
