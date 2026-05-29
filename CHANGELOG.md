@@ -24,6 +24,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Gracefully handle unknown signed entity types across Mithril nodes for improved forward compatibility.
 
+- Allow users to set the network genesis verification key when adding an aggregator in the Mithril Explorer.
+
 - **UNSTABLE**:
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
 
