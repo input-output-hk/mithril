@@ -50,6 +50,7 @@ sqlite3 ${DATA_STORES_DIRECTORY}/signer.sqlite3 "UPDATE protocol_initializer SET
 From now, SPOs can either run their node by:
 
 - **Declaring their Cardano `PoolId`**:
+
   - This is the mode that all nodes were running prior to this release
   - This mode is still the **stable** mode
   - We intend to deprecate this mode in the near future

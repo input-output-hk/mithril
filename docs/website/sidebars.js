@@ -32,7 +32,7 @@ const sidebars = {
       collapsed: false,
       items: [
         { type: "doc", id: "use-cases/wallets/light-wallets" },
-        { type: "doc", label: "Case Study: Daedalus Wallet", id: "case-studies/daedalus"},
+        { type: "doc", label: "Case Study: Daedalus Wallet", id: "case-studies/daedalus" },
       ],
     },
     { type: "doc", id: "use-cases/bridges" },
