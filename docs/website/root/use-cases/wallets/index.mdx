@@ -1,0 +1,34 @@
+---
+title: Wallets
+sidebar_label: Wallets
+---
+
+import Link from "@docusaurus/Link";
+
+# Mithril for wallets
+
+Cardano wallets come in two broad shapes: **light wallets** that delegate ledger storage to hosted infrastructure, and **full-node wallets** that run a Cardano node locally. Mithril improves user experience for both — in different ways.
+
+For **light wallets**, Mithril enables trustless verification of transaction inclusion. Instead of trusting a hosted API response, a wallet verifies a stake-weighted Mithril proof locally — preserving familiar infrastructure while adding a cryptographic guarantee.
+
+For **full-node wallets**, Mithril dramatically shortens the time to a usable wallet on first install. Rather than replaying the chain from genesis, the wallet bootstraps from a Mithril-certified snapshot of the Cardano node database, with the same trust guarantees as a chain-replayed node.
+
+<div className="wallet-card-grid">
+  <Link to="/use-cases/wallets/light-wallets" className="wallet-card">
+    <div className="wallet-card__content">
+      <h3>Light wallets</h3>
+      <p>An integration guide for light wallets</p>
+    </div>
+  </Link>
+  <Link to="/case-studies/daedalus" className="wallet-card">
+    <div className="wallet-card__content">
+      <h3>Daedalus Wallet</h3>
+      <p>A full-node wallet case study</p>
+    </div>
+    <img
+      src="/doc/img/daedalus-logo.svg"
+      alt="Daedalus"
+      className="wallet-card__logo"
+    />
+  </Link>
+</div>
