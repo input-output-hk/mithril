@@ -57,6 +57,7 @@ pub mod io;
 #[cfg(test)]
 pub(crate) mod protocol_message;
 pub mod state;
+pub(crate) mod types;
 
 #[cfg(test)]
 pub mod tests;
