@@ -24,6 +24,7 @@ use crate::circuits::halo2_ivc::{
             verify_prepare_blake2b_recursive_proof,
         },
     },
+    types::{EpochNumber, MerkleTreeCommitment, ProtocolParametersHash},
 };
 
 fn valid_rigid_protocol_message() -> ProtocolMessage {
@@ -193,7 +194,7 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_merkle_root = F::ONE;
+    tampered_state.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -225,7 +226,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_protocol_params = F::ONE;
+    tampered_state.next_protocol_params = ProtocolParametersHash::from_field(F::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -257,7 +258,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.current_epoch = F::ONE;
+    tampered_state.current_epoch = EpochNumber::from_field(F::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -291,7 +292,7 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].fill(0xff);
+        witness.msg_preimage.as_mut_bytes()[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -311,7 +312,7 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].fill(0xff);
+        witness.msg_preimage.as_mut_bytes()[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
@@ -331,7 +332,7 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
+        witness.msg_preimage.as_mut_bytes()[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(

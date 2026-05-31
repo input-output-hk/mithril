@@ -68,7 +68,7 @@ impl IvcGadget {
     ) -> Result<AssignedGlobal, Error> {
         let genesis_msg: AssignedNative<_> = self
             .native_gadget
-            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_msg))?;
+            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_msg.as_field()))?;
         let genesis_vk: AssignedNativePoint<_> = self.jubjub_chip.assign_as_public_input(
             layouter,
             global.clone().map(|gl| *gl.genesis_vk.as_jubjub_subgroup()),
@@ -80,7 +80,7 @@ impl IvcGadget {
             CERT_VK_NAME,
             cert_domain,
             cert_cs,
-            global.clone().map(|gl| gl.cert_vk_repr),
+            global.clone().map(|gl| gl.cert_vk_repr.as_field()),
         )?;
 
         // Assign for self-proof verification
@@ -90,7 +90,7 @@ impl IvcGadget {
             IVC_ONE_NAME,
             self_domain,
             self_cs,
-            global.clone().map(|gl| gl.self_vk_repr),
+            global.clone().map(|gl| gl.self_vk_repr.as_field()),
         )?;
 
         let fixed_base_names = {
@@ -120,13 +120,13 @@ impl IvcGadget {
             .clone()
             .map(|s| {
                 vec![
-                    s.counter,
-                    s.msg,
-                    s.merkle_root,
-                    s.next_merkle_root,
-                    s.protocol_params,
-                    s.next_protocol_params,
-                    s.current_epoch,
+                    s.counter.as_field(),
+                    s.msg.as_field(),
+                    s.merkle_root.as_field(),
+                    s.next_merkle_root.as_field(),
+                    s.protocol_params.as_field(),
+                    s.next_protocol_params.as_field(),
+                    s.current_epoch.as_field(),
                 ]
             })
             .transpose_vec(7);
@@ -200,7 +200,7 @@ impl IvcGadget {
         let [cert_msg, cert_merkle_root]: [AssignedNative<F>; 2] = {
             let values = witness
                 .clone()
-                .map(|w| vec![w.cert_msg, w.cert_merkle_root])
+                .map(|w| vec![w.cert_msg.as_field(), w.cert_merkle_root.as_field()])
                 .transpose_vec(2);
             self.native_gadget
                 .assign_many(layouter, &values)?
@@ -214,7 +214,7 @@ impl IvcGadget {
         };
 
         let msg_preimage = {
-            let preimage = witness.clone().map(|w| w.msg_preimage).transpose_array();
+            let preimage = witness.clone().map(|w| w.msg_preimage.into_inner()).transpose_array();
             self.native_gadget.assign_many(layouter, &preimage)?
         };
 

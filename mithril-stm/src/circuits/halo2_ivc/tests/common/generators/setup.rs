@@ -17,6 +17,7 @@ use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
+use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
     C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
 };
@@ -262,7 +263,7 @@ pub(crate) fn build_recursive_global(
     recursive_verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
 ) -> Global {
     Global::new(
-        setup.genesis_message,
+        MessageHash::from_field(setup.genesis_message),
         setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         recursive_verifying_key,

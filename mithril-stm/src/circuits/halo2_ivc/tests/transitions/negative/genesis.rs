@@ -13,6 +13,7 @@ use crate::circuits::halo2_ivc::{
             build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
         },
     },
+    types::{EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolParametersHash, StepCounter},
 };
 
 #[test]
@@ -21,7 +22,7 @@ fn merkle_root_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.merkle_root = F::ONE,
+        |s| s.merkle_root = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered merkle_root should be rejected by the verifier",
     );
 }
@@ -32,7 +33,7 @@ fn protocol_params_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.protocol_params = F::ONE,
+        |s| s.protocol_params = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered protocol_params should be rejected by the verifier",
     );
 }
@@ -43,7 +44,7 @@ fn next_merkle_root_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_merkle_root = F::ONE,
+        |s| s.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered next_merkle_root should be rejected by the verifier",
     );
 }
@@ -54,7 +55,7 @@ fn next_protocol_params_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_protocol_params = F::ONE,
+        |s| s.next_protocol_params = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered next_protocol_params should be rejected by the verifier",
     );
 }
@@ -65,7 +66,7 @@ fn counter_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.counter = F::from(2u64),
+        |s| s.counter = StepCounter::new(2),
         "proof with tampered counter should be rejected by the verifier",
     );
 }
@@ -76,7 +77,7 @@ fn current_epoch_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.current_epoch = F::ONE,
+        |s| s.current_epoch = EpochNumber::from_field(F::ONE),
         "proof with tampered current_epoch should be rejected by the verifier",
     );
 }
@@ -87,7 +88,7 @@ fn msg_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.msg = F::ONE,
+        |s| s.msg = MessageHash::from_field(F::ONE),
         "proof with tampered msg should be rejected by the verifier",
     );
 }
@@ -119,6 +120,8 @@ mod slow {
     fn circuit_rejects_msg_inconsistent_with_preimage() {
         // MockProver check that the in-circuit Blake2b hash constraint between
         // msg_preimage bytes and the resulting msg field is wired correctly.
-        assert_genesis_circuit_rejects_tampered_next_state(|s| s.msg = F::ONE);
+        assert_genesis_circuit_rejects_tampered_next_state(|s| {
+            s.msg = MessageHash::from_field(F::ONE)
+        });
     }
 }

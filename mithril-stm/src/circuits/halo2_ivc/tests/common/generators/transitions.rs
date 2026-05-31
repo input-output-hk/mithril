@@ -1,4 +1,3 @@
-use ff::Field;
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
@@ -14,6 +13,10 @@ use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
 use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
+use crate::circuits::halo2_ivc::types::{
+    EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
+    ProtocolParametersHash, StepCounter,
+};
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
@@ -67,7 +70,12 @@ pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> W
     let preimage: [u8; PREIMAGE_SIZE] = build_genesis_protocol_message_preimage(setup)
         .try_into()
         .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
-    Witness::new(setup.genesis_signature, F::ZERO, F::ZERO, preimage)
+    Witness::new(
+        setup.genesis_signature,
+        MerkleTreeCommitment::ZERO,
+        MessageHash::ZERO,
+        ProtocolMessagePreimage::new(preimage),
+    )
 }
 
 /// Builds the first next-state public output produced by the recursive base case.
@@ -76,13 +84,13 @@ pub(crate) fn build_genesis_base_case_next_state(
     genesis_epoch: u64,
 ) -> State {
     State::new(
-        F::ONE,
-        setup.genesis_message,
-        F::ZERO,
-        setup.genesis_next_merkle_root,
-        F::ZERO,
-        setup.genesis_next_protocol_params,
-        F::from(genesis_epoch),
+        StepCounter::new(1),
+        MessageHash::from_field(setup.genesis_message),
+        MerkleTreeCommitment::ZERO,
+        MerkleTreeCommitment::from_field(setup.genesis_next_merkle_root),
+        ProtocolParametersHash::ZERO,
+        ProtocolParametersHash::from_field(setup.genesis_next_protocol_params),
+        EpochNumber::new(genesis_epoch),
     )
 }
 
@@ -95,7 +103,7 @@ pub(crate) fn build_next_certificate_asset_data(
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (Vec<u8>, Accumulator<S>, State, Witness) {
-    let merkle_root = recursive_chain_state.next_merkle_root;
+    let merkle_root = recursive_chain_state.next_merkle_root.as_field();
     let (message, message_preimage) =
         next_message_and_preimage_for_step(setup, recursive_chain_state);
     let next_state = next_state_for_step(recursive_chain_state, message);
@@ -121,7 +129,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (Vec<u8>, Accumulator<S>, State, Witness) {
-    let merkle_root = recursive_chain_state.merkle_root;
+    let merkle_root = recursive_chain_state.merkle_root.as_field();
     let (message, message_preimage) =
         same_epoch_message_and_preimage_for_step(setup, recursive_chain_state);
     let next_state = same_epoch_next_state_for_step(recursive_chain_state, message);
@@ -204,7 +212,7 @@ fn build_certificate_asset_data_inner(
         });
     }
 
-    let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg);
+    let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg.as_field());
 
     let certificate_proof = zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
         certificate_commitment_parameters,
@@ -235,9 +243,9 @@ fn build_certificate_asset_data_inner(
 
     let ivc_witness = Witness::new(
         setup.genesis_signature,
-        merkle_root,
-        message,
-        message_preimage.try_into().unwrap(),
+        MerkleTreeCommitment::from_field(merkle_root),
+        MessageHash::from_field(message),
+        ProtocolMessagePreimage::new(message_preimage.try_into().unwrap()),
     );
 
     (
@@ -262,7 +270,10 @@ pub(crate) fn certificate_public_inputs_for_step(
     previous_state: &State,
     next_state: &State,
 ) -> Vec<F> {
-    certificate_public_inputs(previous_state.next_merkle_root, next_state.msg)
+    certificate_public_inputs(
+        previous_state.next_merkle_root.as_field(),
+        next_state.msg.as_field(),
+    )
 }
 
 /// Returns the deterministic next certificate message and preimage for one
@@ -342,13 +353,13 @@ pub(crate) fn next_state_for_step(previous_state: &State, message: F) -> State {
     let step = step_index_from_state(previous_state);
 
     State::new(
-        F::from((step + 1) as u64),
-        message,
+        StepCounter::new((step + 1) as u64),
+        MessageHash::from_field(message),
         previous_state.next_merkle_root,
         previous_state.next_merkle_root,
         previous_state.next_protocol_params,
         previous_state.next_protocol_params,
-        F::from(current_epoch + 1),
+        EpochNumber::new(current_epoch + 1),
     )
 }
 
@@ -358,22 +369,20 @@ pub(crate) fn same_epoch_next_state_for_step(previous_state: &State, message: F)
     let step = step_index_from_state(previous_state);
 
     State::new(
-        F::from((step + 1) as u64),
-        message,
+        StepCounter::new((step + 1) as u64),
+        MessageHash::from_field(message),
         previous_state.merkle_root,
         previous_state.next_merkle_root,
         previous_state.protocol_params,
         previous_state.next_protocol_params,
-        F::from(current_epoch),
+        EpochNumber::new(current_epoch),
     )
 }
 
 fn current_epoch_from_state(previous_state: &State) -> u64 {
-    let bytes = previous_state.current_epoch.to_bytes_le();
-    u64::from_le_bytes(bytes[0..8].try_into().unwrap())
+    previous_state.current_epoch.as_u64()
 }
 
 fn step_index_from_state(previous_state: &State) -> usize {
-    let bytes = previous_state.counter.to_bytes_le();
-    u64::from_le_bytes(bytes[0..8].try_into().unwrap()) as usize
+    previous_state.counter.as_u64() as usize
 }

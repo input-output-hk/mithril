@@ -19,6 +19,7 @@ use crate::circuits::halo2_ivc::{
     circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
+    types::{EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolParametersHash, StepCounter},
 };
 
 use super::field_encoding::jubjub_base_from_raw_le_bytes;
@@ -105,13 +106,13 @@ fn write_field_element<W: Write>(writer: &mut W, value: &F) -> StmResult<()> {
 /// Reads the seven public-input field elements that define a recursive state.
 fn read_state_public_input<R: Read>(reader: &mut R) -> StmResult<State> {
     Ok(State::new(
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
+        StepCounter::from_field(read_field_element(reader)?),
+        MessageHash::from_field(read_field_element(reader)?),
+        MerkleTreeCommitment::from_field(read_field_element(reader)?),
+        MerkleTreeCommitment::from_field(read_field_element(reader)?),
+        ProtocolParametersHash::from_field(read_field_element(reader)?),
+        ProtocolParametersHash::from_field(read_field_element(reader)?),
+        EpochNumber::from_field(read_field_element(reader)?),
     ))
 }
 
