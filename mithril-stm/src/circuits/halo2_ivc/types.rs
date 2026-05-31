@@ -112,6 +112,10 @@ impl ProtocolMessagePreimage {
         &self.0
     }
 
+    pub(crate) fn as_mut_bytes(&mut self) -> &mut [u8; PREIMAGE_SIZE] {
+        &mut self.0
+    }
+
     pub(crate) fn into_inner(self) -> [u8; PREIMAGE_SIZE] {
         self.0
     }

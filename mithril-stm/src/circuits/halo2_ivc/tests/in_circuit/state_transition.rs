@@ -28,6 +28,9 @@ mod slow {
                 build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
             },
         },
+        types::{
+            MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage, ProtocolParametersHash,
+        },
     };
 
     #[test]
@@ -44,13 +47,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.merkle_root,
-            same_epoch_message,
-            same_epoch_message_preimage_bytes
-                .try_into()
-                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(same_epoch_message),
+            ProtocolMessagePreimage::new(
+                same_epoch_message_preimage_bytes
+                    .try_into()
+                    .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_merkle_root = F::ONE;
+        tampered_state.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
@@ -73,13 +78,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.merkle_root,
-            same_epoch_message,
-            same_epoch_message_preimage_bytes
-                .try_into()
-                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(same_epoch_message),
+            ProtocolMessagePreimage::new(
+                same_epoch_message_preimage_bytes
+                    .try_into()
+                    .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_protocol_params = F::ONE;
+        tampered_state.next_protocol_params = ProtocolParametersHash::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
@@ -103,13 +110,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.merkle_root,
-            same_epoch_message,
-            same_epoch_message_preimage_bytes
-                .try_into()
-                .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(same_epoch_message),
+            ProtocolMessagePreimage::new(
+                same_epoch_message_preimage_bytes
+                    .try_into()
+                    .expect("same-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.msg = F::ONE;
+        tampered_state.msg = MessageHash::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,

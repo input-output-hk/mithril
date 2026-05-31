@@ -21,6 +21,7 @@ use crate::circuits::halo2_ivc::{
         },
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
     },
+    types::{EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolParametersHash, StepCounter},
 };
 
 /// Minimal fixture for rigid preimage layout pinning tests.
@@ -102,13 +103,13 @@ fn state_public_input_has_7_elements_in_correct_order() {
     let current_epoch = F::from(7u64);
 
     let state = State::new(
-        counter,
-        msg,
-        merkle_root,
-        next_merkle_root,
-        protocol_params,
-        next_protocol_params,
-        current_epoch,
+        StepCounter::from_field(counter),
+        MessageHash::from_field(msg),
+        MerkleTreeCommitment::from_field(merkle_root),
+        MerkleTreeCommitment::from_field(next_merkle_root),
+        ProtocolParametersHash::from_field(protocol_params),
+        ProtocolParametersHash::from_field(next_protocol_params),
+        EpochNumber::from_field(current_epoch),
     );
     let public_input = state.as_public_input();
 

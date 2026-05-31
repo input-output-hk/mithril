@@ -184,7 +184,8 @@ fn build_recursive_chain_snapshot(
     }
 
     assert_eq!(
-        current_state.next_merkle_root, setup.genesis_next_merkle_root,
+        current_state.next_merkle_root.as_field(),
+        setup.genesis_next_merkle_root,
         "recursive_chain_state writer is about to persist a next_merkle_root that does not match setup"
     );
 
@@ -217,7 +218,8 @@ fn store_recursive_chain_snapshot(
     let reloaded = load_recursive_chain_state_asset(&paths.recursive_chain_state)
         .expect("failed to reload recursive_chain_state asset after writing");
     assert_eq!(
-        reloaded.state.next_merkle_root, setup.genesis_next_merkle_root,
+        reloaded.state.next_merkle_root.as_field(),
+        setup.genesis_next_merkle_root,
         "reloaded recursive_chain_state next_merkle_root does not match setup"
     );
 }
