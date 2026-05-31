@@ -150,12 +150,13 @@ impl From<[u8; PREIMAGE_SIZE]> for ProtocolMessagePreimage {
 pub(crate) struct CertificateProofBytes(Vec<u8>);
 
 impl CertificateProofBytes {
-    pub(crate) fn new(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-
     pub(crate) fn empty() -> Self {
         Self(Vec::new())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn garbage(bytes: Vec<u8>) -> Self {
+        Self(bytes)
     }
 
     pub(crate) fn as_bytes(&self) -> &[u8] {
@@ -164,12 +165,6 @@ impl CertificateProofBytes {
 
     pub(crate) fn into_vec(self) -> Vec<u8> {
         self.0
-    }
-}
-
-impl From<Vec<u8>> for CertificateProofBytes {
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
     }
 }
 
