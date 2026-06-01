@@ -16,7 +16,7 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
     state::{Global, State, Witness, trivial_acc},
-    types::CertificateProofBytes,
+    types::{CertificateProofBytes, IvcProofBytes},
 };
 
 pub(crate) use super::generators::{
@@ -190,7 +190,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
 
     let previous_dual_msm = verify_prepare_poseidon_recursive_proof(
         &setup.recursive_verifying_key,
-        &recursive_chain_state.proof,
+        recursive_chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(
@@ -278,7 +278,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
         prev_state,
         witness,
         CertificateProofBytes::empty(),
-        vec![],
+        IvcProofBytes::empty(),
         setup.trivial_accumulator.clone(),
         setup.certificate_verifying_key.vk(),
         &setup.recursive_verifying_key,
@@ -326,7 +326,7 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets()
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
         verification_context.certificate_verifying_key.vk(),
-        &recursive_step_output.certificate_proof,
+        recursive_step_output.certificate_proof.as_bytes(),
         &certificate_public_inputs,
     )
     .into();
@@ -364,7 +364,7 @@ pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets()
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_chain_state.proof,
+        recursive_chain_state.proof.as_bytes(),
         &public_inputs,
     )
     .into();

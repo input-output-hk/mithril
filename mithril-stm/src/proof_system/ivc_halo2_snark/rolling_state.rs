@@ -3,7 +3,10 @@
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 
 use crate::{
-    circuits::halo2_ivc::state::{State, trivial_acc},
+    circuits::halo2_ivc::{
+        state::{State, trivial_acc},
+        types::IvcProofBytes,
+    },
     signature_scheme::StandardSchnorrSignature,
 };
 
@@ -17,7 +20,7 @@ pub(crate) struct IvcRollingState {
     /// Last committed chain state.
     state: State,
     /// Bytes of the last IVC proof under the Poseidon transcript
-    ivc_proof: Vec<u8>,
+    ivc_proof: IvcProofBytes,
     /// Folded accumulator the new step will build on top of
     accumulator: Accumulator<BlstrsEmulation>,
     /// Chain-specific Schnorr signature over the genesis state
@@ -29,7 +32,7 @@ impl IvcRollingState {
     /// Builds a rolling state from the four fields produced by an IVC proving step.
     pub(crate) fn new(
         state: State,
-        ivc_proof: Vec<u8>,
+        ivc_proof: IvcProofBytes,
         accumulator: Accumulator<BlstrsEmulation>,
         genesis_signature: StandardSchnorrSignature,
     ) -> Self {
@@ -54,7 +57,7 @@ impl IvcRollingState {
     ) -> Self {
         Self {
             state: State::genesis(),
-            ivc_proof: Vec::new(),
+            ivc_proof: IvcProofBytes::empty(),
             accumulator: trivial_acc(fixed_base_names),
             genesis_signature,
         }
@@ -82,7 +85,7 @@ impl IvcRollingState {
     }
 
     /// Returns the bytes of the last IVC proof.
-    pub(crate) fn ivc_proof(&self) -> &[u8] {
+    pub(crate) fn ivc_proof(&self) -> &IvcProofBytes {
         &self.ivc_proof
     }
 
@@ -155,7 +158,7 @@ mod tests {
     #[test]
     fn from_previous_proof_carries_proof_bytes_and_supplied_signature() {
         let genesis_signature = build_genesis_signature();
-        let proof_bytes = vec![0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03];
+        let proof_bytes = IvcProofBytes::new(vec![0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03]);
         let previous_proof = IvcProof {
             proof_bytes: proof_bytes.clone(),
             state: State::genesis(),
@@ -165,7 +168,7 @@ mod tests {
         let rolling_state =
             IvcRollingState::from_previous_proof(&previous_proof, genesis_signature);
 
-        assert_eq!(rolling_state.ivc_proof(), proof_bytes.as_slice());
+        assert_eq!(rolling_state.ivc_proof(), &proof_bytes);
         assert_eq!(rolling_state.genesis_signature(), genesis_signature);
     }
 
@@ -174,7 +177,7 @@ mod tests {
         let genesis_signature = build_genesis_signature();
         let previous_state = State::genesis();
         let previous_proof = IvcProof {
-            proof_bytes: Vec::new(),
+            proof_bytes: IvcProofBytes::empty(),
             state: previous_state,
             accumulator: trivial_acc(&["base_one".to_string()]),
         };
