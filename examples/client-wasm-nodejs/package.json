@@ -1,6 +1,6 @@
 {
   "name": "client-wasm-nodejs",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "private": true,
   "type": "module",
   "scripts": {
