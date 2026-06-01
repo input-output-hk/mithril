@@ -92,7 +92,7 @@ pub(crate) fn build_genesis_base_case_next_state(
 ) -> State {
     State::new(
         StepCounter::new(1),
-        MessageHash::from_field(setup.genesis_message),
+        setup.genesis_message,
         MerkleTreeCommitment::ZERO,
         MerkleTreeCommitment::from_field(setup.genesis_next_merkle_root),
         ProtocolParametersHash::ZERO,
