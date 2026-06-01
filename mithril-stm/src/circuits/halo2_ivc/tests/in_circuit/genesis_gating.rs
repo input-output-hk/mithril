@@ -20,6 +20,7 @@ use crate::circuits::halo2_ivc::{
             assert_recursive_mock_prover_accepts_with_label, build_mock_prover_setup_from_assets,
         },
     },
+    types::CertificateProofBytes,
 };
 
 mod slow {
@@ -42,7 +43,7 @@ mod slow {
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
-            vec![0u8; 64],
+            CertificateProofBytes::garbage(vec![0u8; 64]),
             vec![],
             mock_prover_setup.trivial_accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
@@ -73,7 +74,7 @@ mod slow {
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
-            vec![],
+            CertificateProofBytes::empty(),
             vec![0u8; 64],
             mock_prover_setup.trivial_accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),

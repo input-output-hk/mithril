@@ -11,6 +11,7 @@ use super::{
     gadget::IvcGadget,
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
+    types::CertificateProofBytes,
 };
 
 #[derive(Clone, Debug)]
@@ -35,6 +36,8 @@ pub struct IvcCircuit {
 
 impl IvcCircuit {
     /// Validates that the self VK degree matches the IVC circuit degree constant K.
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this circuit
+    #[allow(dead_code)]
     pub(crate) fn validate_self_vk_degree(
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     ) -> StmResult<()> {
@@ -88,12 +91,14 @@ impl IvcCircuit {
     /// `configure_ivc_circuit` is sufficient for all chips. Returns an error containing
     /// [`IvcCircuitError::SelfVkDegreeMismatch`] or [`IvcCircuitError::InsufficientAdviceColumns`]
     /// / [`IvcCircuitError::InsufficientFixedColumns`] if either check fails.
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this circuit
+    #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
-    pub fn try_new(
+    pub(crate) fn try_new(
         global: Global,
         state: State,
         witness: Witness,
-        cert_proof: Vec<u8>,
+        cert_proof: CertificateProofBytes,
         self_proof: Vec<u8>,
         acc: Accumulator<S>,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
@@ -105,7 +110,7 @@ impl IvcCircuit {
             global: Value::known(global),
             state: Value::known(state),
             witness: Value::known(witness),
-            cert_proof: Value::known(cert_proof),
+            cert_proof: Value::known(cert_proof.into_vec()),
             self_proof: Value::known(self_proof),
             acc: Value::known(acc),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),

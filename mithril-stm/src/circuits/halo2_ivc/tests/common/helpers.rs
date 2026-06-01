@@ -16,6 +16,7 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
     circuit::IvcCircuit,
     state::{Global, State, Witness, trivial_acc},
+    types::CertificateProofBytes,
 };
 
 pub(crate) use super::generators::{
@@ -276,7 +277,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
         setup.global.clone(),
         prev_state,
         witness,
-        vec![],
+        CertificateProofBytes::empty(),
         vec![],
         setup.trivial_accumulator.clone(),
         setup.certificate_verifying_key.vk(),

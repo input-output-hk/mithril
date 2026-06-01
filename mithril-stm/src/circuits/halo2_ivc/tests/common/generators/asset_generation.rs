@@ -25,10 +25,11 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, S,
     circuit::IvcCircuit,
     state::{Global, State, trivial_acc},
+    types::CertificateProofBytes,
 };
 
 struct CertificateChainArtifacts {
-    certificate_proofs: Vec<Vec<u8>>,
+    certificate_proofs: Vec<CertificateProofBytes>,
     certificate_accumulators: Vec<Accumulator<S>>,
     recursive_next_states: Vec<State>,
     recursive_witnesses: Vec<crate::circuits::halo2_ivc::state::Witness>,
@@ -41,7 +42,7 @@ struct RecursiveChainSnapshot {
 }
 
 struct NextRecursiveStepInputs {
-    certificate_proof: Vec<u8>,
+    certificate_proof: CertificateProofBytes,
     next_state: State,
     recursive_witness: crate::circuits::halo2_ivc::state::Witness,
     next_accumulator: Accumulator<S>,
@@ -52,7 +53,7 @@ fn build_certificate_chain_artifacts(
     context: &super::setup::SharedRecursiveContext,
     recursive_fixed_base_names: &[String],
 ) -> CertificateChainArtifacts {
-    let mut certificate_proofs = vec![vec![]];
+    let mut certificate_proofs = vec![CertificateProofBytes::empty()];
     let mut certificate_accumulators = vec![trivial_acc(recursive_fixed_base_names)];
     let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, GENESIS_EPOCH)];
     let mut recursive_witnesses = vec![build_genesis_base_case_witness(setup)];
@@ -349,7 +350,7 @@ fn store_recursive_step_output(
         proof,
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
-        certificate_proof: next_step_inputs.certificate_proof,
+        certificate_proof: next_step_inputs.certificate_proof.into_vec(),
     };
     store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
         .expect("failed to write recursive_step_output asset");
@@ -520,7 +521,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         global.clone(),
         State::genesis(),
         genesis_witness,
-        vec![],
+        CertificateProofBytes::empty(),
         vec![],
         current_accumulator,
         context.certificate_verifying_key.vk(),
@@ -564,7 +565,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         proof,
         next_accumulator,
         next_state: genesis_next_state,
-        certificate_proof: vec![],
+        certificate_proof: CertificateProofBytes::empty().into_vec(),
     };
     store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
         .expect("failed to write genesis_step_output asset");
@@ -702,7 +703,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         proof,
         next_accumulator,
         next_state,
-        certificate_proof,
+        certificate_proof: certificate_proof.into_vec(),
     };
     store_recursive_step_output_asset(&paths.same_epoch_step_output, &asset)
         .expect("failed to write same_epoch_step_output asset");
