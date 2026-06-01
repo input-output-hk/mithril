@@ -3,36 +3,33 @@
 //! This module gives domain names to values that are represented as raw field
 //! elements or bytes at lower circuit/gadget boundaries.
 
-#![allow(dead_code)]
-
 use ff::Field;
 
-use super::{
-    F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE,
-};
-
-fn field_from_le_bytes(bytes: &[u8]) -> F {
-    let bytes: &[u8; 32] = bytes
-        .try_into()
-        .expect("protocol message field slot should be 32 bytes");
-    F::from_bytes_le(bytes)
-        .into_option()
-        .expect("protocol message field slot should be canonical")
-}
+use super::{F, PREIMAGE_SIZE};
 
 macro_rules! field_wrapper {
-    ($name:ident) => {
+    ($name:ident, zero) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub(crate) struct $name(F);
 
         impl $name {
             pub(crate) const ZERO: Self = Self(F::ZERO);
 
-            pub(crate) fn new(value: F) -> Self {
+            #[cfg(test)]
+            pub(crate) fn from_field(value: F) -> Self {
                 Self(value)
             }
 
+            pub(crate) fn as_field(self) -> F {
+                self.0
+            }
+        }
+    };
+    ($name:ident) => {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub(crate) struct $name(F);
+
+        impl $name {
             pub(crate) fn from_field(value: F) -> Self {
                 Self(value)
             }
@@ -44,9 +41,9 @@ macro_rules! field_wrapper {
     };
 }
 
-field_wrapper!(MessageHash);
-field_wrapper!(MerkleTreeCommitment);
-field_wrapper!(ProtocolParametersHash);
+field_wrapper!(MessageHash, zero);
+field_wrapper!(MerkleTreeCommitment, zero);
+field_wrapper!(ProtocolParametersHash, zero);
 field_wrapper!(CertificateCircuitVerificationKeyRepresentation);
 field_wrapper!(IvcCircuitVerificationKeyRepresentation);
 
@@ -58,14 +55,12 @@ macro_rules! u64_wrapper {
         impl $name {
             pub(crate) const ZERO: Self = Self(0);
 
+            #[cfg(test)]
             pub(crate) fn new(value: u64) -> Self {
                 Self(value)
             }
 
-            pub(crate) fn zero() -> Self {
-                Self(0)
-            }
-
+            #[cfg(test)]
             pub(crate) fn as_u64(self) -> u64 {
                 self.0
             }
@@ -74,6 +69,7 @@ macro_rules! u64_wrapper {
                 F::from(self.0)
             }
 
+            #[cfg(test)]
             pub(crate) fn from_field(value: F) -> Self {
                 let bytes = value.to_bytes_le();
                 let low_bytes = bytes[0..8]
@@ -104,39 +100,18 @@ u64_wrapper!(StepCounter);
 pub(crate) struct ProtocolMessagePreimage([u8; PREIMAGE_SIZE]);
 
 impl ProtocolMessagePreimage {
+    #[cfg(test)]
     pub(crate) fn new(bytes: [u8; PREIMAGE_SIZE]) -> Self {
         Self(bytes)
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8; PREIMAGE_SIZE] {
-        &self.0
-    }
-
+    #[cfg(test)]
     pub(crate) fn as_mut_bytes(&mut self) -> &mut [u8; PREIMAGE_SIZE] {
         &mut self.0
     }
 
     pub(crate) fn into_inner(self) -> [u8; PREIMAGE_SIZE] {
         self.0
-    }
-
-    pub(crate) fn next_merkle_root(&self) -> MerkleTreeCommitment {
-        MerkleTreeCommitment::from_field(field_from_le_bytes(
-            &self.0[PREIMAGE_NEXT_MERKLE_ROOT_BYTES],
-        ))
-    }
-
-    pub(crate) fn next_protocol_params(&self) -> ProtocolParametersHash {
-        ProtocolParametersHash::from_field(field_from_le_bytes(
-            &self.0[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES],
-        ))
-    }
-
-    pub(crate) fn current_epoch(&self) -> EpochNumber {
-        let bytes = self.0[PREIMAGE_CURRENT_EPOCH_BYTES]
-            .try_into()
-            .expect("current epoch preimage slot should be 8 bytes");
-        EpochNumber::new(u64::from_le_bytes(bytes))
     }
 }
 
@@ -154,6 +129,7 @@ impl CertificateProofBytes {
         Self(bytes)
     }
 
+    #[cfg(test)]
     pub(crate) fn empty() -> Self {
         Self(Vec::new())
     }
@@ -163,6 +139,7 @@ impl CertificateProofBytes {
         Self(bytes)
     }
 
+    #[cfg(test)]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -177,6 +154,7 @@ impl CertificateProofBytes {
 pub(crate) struct IvcProofBytes(Vec<u8>);
 
 impl IvcProofBytes {
+    #[cfg(test)]
     pub(crate) fn new(bytes: Vec<u8>) -> Self {
         Self(bytes)
     }
@@ -185,10 +163,12 @@ impl IvcProofBytes {
         Self(Vec::new())
     }
 
+    #[cfg(test)]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
+    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
