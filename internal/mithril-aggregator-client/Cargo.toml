@@ -23,7 +23,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-http = "1.4.0"
+http = "1.4.1"
 httpmock = "0.8.3"
 mockall = { workspace = true }
 slog-async = { workspace = true }
