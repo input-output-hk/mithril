@@ -485,7 +485,6 @@ mod tests {
     use std::fs;
 
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
-    use pallas_crypto::hash::Hash;
     use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::{
         Point,
@@ -497,6 +496,7 @@ mod tests {
             },
         },
     };
+    use pallas_primitives::Hash;
     use tokio::net::UnixListener;
 
     use mithril_common::test::TempDir;
