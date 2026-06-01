@@ -478,6 +478,7 @@ mod test {
         use crate::proof_system::halo2_snark::SnarkVerifierSetup;
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn verifier_setup_matches_trusted_srs() {
             let setup = SnarkVerifierSetup::try_new().unwrap();
             let srs = TrustedSetupProvider::default()
