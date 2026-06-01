@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg(feature = "future_snark")]
-use crate::proof_system::SnarkProof;
+use crate::proof_system::{SnarkProof, SnarkVerifierSetup};
 
 use super::{AggregateSignatureError, AggregateVerificationKey};
 
@@ -132,7 +132,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 let snark_avk = avk.to_snark_aggregate_verification_key().ok_or_else(|| {
                     anyhow!(AggregateSignatureError::MissingSnarkAggregateVerificationKey)
                 })?;
-                snark_proof.verify(msg, snark_avk)
+                let verifier_setup = SnarkVerifierSetup::try_new()?;
+                snark_proof.verify(msg, snark_avk, &verifier_setup.verifier_params)
             }
         }
     }
@@ -969,7 +970,8 @@ mod tests {
         use super::AggregateSignature;
         use crate::{
             Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
-            SingleSignature, proof_system::SnarkProver,
+            SingleSignature,
+            proof_system::{SnarkProver, SnarkSetup},
         };
 
         type D = MithrilMembershipDigest;
@@ -1383,11 +1385,12 @@ mod tests {
                 .next_power_of_two()
                 .trailing_zeros();
 
-            let snark_proof =
-                SnarkProver::try_new_deterministic(&params, merkle_tree_depth, prover_seed)
-                    .expect("SnarkProver creation must succeed")
-                    .aggregate_signatures::<D>(snark_clerk, &signatures, &message)
-                    .expect("SNARK signature aggregation must succeed");
+            let setup = SnarkSetup::try_new(&params, merkle_tree_depth)
+                .expect("SnarkSetup creation must succeed");
+            let snark_proof = SnarkProver::try_new_deterministic(prover_seed, setup)
+                .expect("SnarkProver creation must succeed")
+                .aggregate_signatures::<D>(snark_clerk, &signatures, &message)
+                .expect("SNARK signature aggregation must succeed");
 
             AggregateSignature::Snark(Box::new(snark_proof))
         }
