@@ -1,30 +1,34 @@
-import { Modal } from "react-bootstrap";
-import { useEffect, useState } from "react";
-import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
+import { Alert, Modal } from "react-bootstrap";
+import { useState, useEffect } from "react";
+import CertificateVerifier from "./CertificateVerifier";
 import { useSelector } from "react-redux";
+
+import styles from "./styles.module.css";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [loading, setLoading] = useState(false);
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
-  const [client, setClient] = useState(undefined);
-  const [certificate, setCertificate] = useState(undefined);
+  const [verificationContext, setVerificationContext] = useState(undefined);
+  const [initError, setInitError] = useState(undefined);
 
   useEffect(() => {
     if (show) {
-      const {
-        fetchGenesisVerificationKey,
-        newMithrilWasmClient,
-      } = require("@/wasm-client-helpers");
+      const { newMithrilWasmClient } = require("@/wasm-client-helpers");
 
-      fetchGenesisVerificationKey(currentAggregator)
-        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+      newMithrilWasmClient(currentAggregator.url, currentAggregator.genesisVerificationKey)
         .then((client) => {
-          setClient(client);
-          return client.get_mithril_certificate(certificateHash);
+          client.get_mithril_certificate(certificateHash).then((certificate) => {
+            setVerificationContext({
+              client: client,
+              certificate: certificate,
+            });
+          });
         })
-        .then((certificate) => setCertificate(certificate))
-        .catch((err) => console.error("VerifyCertificateModal init error:", err));
+        .catch((err) => {
+          console.error("VerifyCertificateModal init error:", err);
+          setInitError(err);
+        });
     }
   }, [show, currentAggregator, certificateHash]);
 
@@ -34,6 +38,8 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
       setShowLoadingWarning(true);
     } else {
       setShowLoadingWarning(false);
+      setVerificationContext(undefined);
+      setInitError(undefined);
       onClose();
     }
   }
@@ -57,14 +63,25 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
                 minute).
               </div>
             )}
-            {client && certificate && (
+            {verificationContext && (
               <CertificateVerifier
-                client={client}
-                certificate={certificate}
-                onStepChange={(step) =>
-                  setLoading(step === certificateValidationSteps.validationInProgress)
-                }
+                client={verificationContext.client}
+                certificate={verificationContext.certificate}
+                onStart={() => setLoading(true)}
+                onDone={() => setLoading(false)}
               />
+            )}
+            {initError !== undefined && (
+              <Alert variant="danger" className="mt-2">
+                <Alert.Heading>
+                  <i className="text-danger bi bi-shield-slash"></i> Certificate chain verification
+                  failed
+                </Alert.Heading>
+                <div className="my-2">
+                  Initialization failed. Check that the genesis verification key is correct.
+                </div>
+                <div className={styles.error}>{initError.toString()}</div>
+              </Alert>
             )}
           </>
         )}

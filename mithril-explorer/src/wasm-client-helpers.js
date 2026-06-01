@@ -9,12 +9,11 @@
  * ```
  * Instead, use `require` to import these functions:
  * ```js
- * const { newMithrilWasmClient, fetchGenesisVerificationKey } = require("@/wasm-client-helpers");
+ * const { newMithrilWasmClient } = require("@/wasm-client-helpers");
  * ```
  */
 
 import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
-import { computeAggregatorNetworkFromUrl } from "@/utils";
 
 async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
   const isCacheEnabled = process.env.UNSTABLE === true;
@@ -31,16 +30,4 @@ async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
   return new MithrilClient(aggregator, genesisVerificationKey, client_options);
 }
 
-async function fetchGenesisVerificationKey(aggregator) {
-  const network = computeAggregatorNetworkFromUrl(aggregator);
-  return fetch(
-    `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${network}/genesis.vkey`,
-  )
-    .then((res) => res.text())
-    .catch((err) => console.error("Error fetching genesis verification key:", err));
-}
-
-module.exports = {
-  newMithrilWasmClient,
-  fetchGenesisVerificationKey,
-};
+export { newMithrilWasmClient };

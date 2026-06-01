@@ -1,4 +1,4 @@
-import { saveToLocalStorage, storeBuilder } from "@/store/store";
+import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "@/store/store";
 import * as mockRouter from "next-router-mock";
 
 const baseLocation = "http://localhost";
@@ -7,7 +7,7 @@ function initStore(default_state = undefined) {
   if (default_state) {
     saveToLocalStorage(default_state);
   }
-  return storeBuilder();
+  return storeBuilder(getPreloadedStateFromLocalStorage());
 }
 
 const mockNextNavigation = {

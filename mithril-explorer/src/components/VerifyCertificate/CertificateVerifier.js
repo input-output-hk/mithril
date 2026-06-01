@@ -11,9 +11,8 @@ import styles from "./styles.module.css";
 let nextVerifyEventId = 0;
 
 export const certificateValidationSteps = {
-  ready: 1,
-  validationInProgress: 2,
-  done: 3,
+  validationInProgress: 1,
+  done: 2,
 };
 
 const certificateChainValidationEvents = {
@@ -56,54 +55,20 @@ export default function CertificateVerifier({
   certificate,
   hideSpinner = false,
   showCertificateLinks = false,
-  onStepChange = (step) => {},
+  onStart = () => {},
+  onDone = () => {},
   onChainValidationError = (error) => {},
   onCertificateClick = (hash) => {},
 }) {
-  const [currentStep, setCurrentStep] = useState(certificateValidationSteps.ready);
+  const [currentStep, setCurrentStep] = useState(certificateValidationSteps.validationInProgress);
   const [validationError, setValidationError] = useState(undefined);
   const [verificationDuration, setVerificationDuration] = useState(null);
   const [verificationEvents, setVerificationEvents] = useState([]);
 
-  useEffect(() => {
-    const broadcast_channel = new BroadcastChannel("mithril-client");
-    broadcast_channel.addEventListener("message", clientEventListener);
-
-    return () => broadcast_channel.close();
-  }, []);
-
-  useEffect(() => {
-    onStepChange(currentStep);
-  }, [currentStep, onStepChange]);
-
-  useEffect(() => {
-    if (validationError) {
-      onChainValidationError(validationError);
-    }
-  }, [validationError, onChainValidationError]);
-
-  useEffect(() => {
-    if (currentStep === certificateValidationSteps.ready) {
-      setVerificationEvents([]);
-      setValidationError(undefined);
-
-      if (client && certificate) {
-        setCurrentStep(certificateValidationSteps.validationInProgress);
-
-        verifyCertificateChain(client, certificate.hash)
-          .catch((err) => {
-            console.error("Certificate Chain verification error:\n", err);
-            setValidationError(err);
-          })
-          .finally(() => setCurrentStep(certificateValidationSteps.done));
-      }
-    }
-  }, [currentStep, client, certificate]);
-
   async function verifyCertificateChain(client, certificateHash) {
     let startTime = performance.now();
     await client.verify_certificate_chain(certificateHash);
-    setVerificationDuration(formatProcessDuration(startTime));
+    return formatProcessDuration(startTime);
   }
 
   function clientEventListener(e) {
@@ -143,7 +108,65 @@ export default function CertificateVerifier({
   }
 
   async function onCacheResetClick() {
-    await client.reset_certificate_verifier_cache();
+    if (process.env.UNSTABLE) {
+      await client.reset_certificate_verifier_cache();
+    }
+  }
+
+  useEffect(() => {
+    const broadcast_channel = new BroadcastChannel("mithril-client");
+    broadcast_channel.addEventListener("message", clientEventListener);
+
+    return () => broadcast_channel.close();
+  }, []);
+
+  useEffect(() => {
+    if (currentStep === certificateValidationSteps.validationInProgress) {
+      onStart();
+    }
+  }, [currentStep, onStart]);
+
+  useEffect(() => {
+    if (currentStep === certificateValidationSteps.done) {
+      onDone();
+    }
+  }, [currentStep, onDone]);
+
+  useEffect(() => {
+    if (validationError) {
+      onChainValidationError(validationError);
+    }
+  }, [validationError, onChainValidationError]);
+
+  useEffect(() => {
+    if (!client || !certificate?.hash) {
+      return;
+    }
+
+    verifyCertificateChain(client, certificate.hash)
+      .then((duration) => {
+        setVerificationDuration(duration);
+      })
+      .catch((err) => {
+        console.error("Certificate Chain verification error:\n", err);
+        setValidationError(err);
+      })
+      .finally(() => {
+        setCurrentStep(certificateValidationSteps.done);
+      });
+  }, [client, certificate.hash]);
+
+  if (!client || !certificate?.hash) {
+    return (
+      <Alert variant="danger" className="mt-2">
+        <Alert.Heading>
+          <i className="text-danger bi bi-shield-slash"></i> An error occurred
+        </Alert.Heading>
+        <div className={styles.error}>
+          Either the certificate is not available or the Mithril client could not be initialized.
+        </div>
+      </Alert>
+    );
   }
 
   return (
@@ -220,7 +243,8 @@ export default function CertificateVerifier({
                 .map((evt) => (
                   <div key={evt.id}>{evt.message}</div>
                 ))}
-              {client.is_certificate_verifier_cache_enabled() &&
+              {process.env.UNSTABLE &&
+                client.is_certificate_verifier_cache_enabled() &&
                 currentStep === certificateValidationSteps.done && (
                   <>
                     Cache enabled:{" "}

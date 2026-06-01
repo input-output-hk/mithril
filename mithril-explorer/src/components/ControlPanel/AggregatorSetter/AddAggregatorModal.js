@@ -1,27 +1,34 @@
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Button, Form, FormGroup, Modal } from "react-bootstrap";
+import { Button, Form, Modal } from "react-bootstrap";
 import { selectAggregator } from "@/store/settingsSlice";
 import { checkUrl } from "@/utils";
 
-export default function AddAggregatorModal(props) {
-  const [value, setValue] = useState("");
+export default function AddAggregatorModal({ show, onAskClose }) {
   const [isInvalid, setIsInvalid] = useState(false);
   const dispatch = useDispatch();
 
   function handleClose() {
-    props.onAskClose();
+    onAskClose();
     setIsInvalid(false);
-    setValue("");
   }
 
   function handleSave(event) {
-    // Avoid form submit if the enter key is pressed
+    // Prevent browser navigation/page reload.
     event.preventDefault();
 
-    if (checkUrl(value)) {
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const formJson = Object.fromEntries(formData.entries());
+
+    if (form.checkValidity() && checkUrl(formJson?.aggregatorUrl)) {
+      dispatch(
+        selectAggregator({
+          url: formJson.aggregatorUrl,
+          genesisVerificationKey: formJson?.genesisVerificationKey ?? "",
+        }),
+      );
       handleClose();
-      dispatch(selectAggregator(value));
     } else {
       setIsInvalid(true);
     }
@@ -29,7 +36,7 @@ export default function AddAggregatorModal(props) {
 
   return (
     <Modal
-      show={props.show}
+      show={show}
       onHide={handleClose}
       size="lg"
       aria-labelledby="add-aggregator-title"
@@ -39,18 +46,21 @@ export default function AddAggregatorModal(props) {
       </Modal.Header>
 
       <Modal.Body>
-        <Form onSubmit={handleSave}>
-          <FormGroup>
+        <Form id="add-aggregator-form" onSubmit={handleSave} validated={isInvalid} noValidate>
+          <Form.Group>
             <Form.Label>URL</Form.Label>
-            <Form.Control
-              type="url"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              isInvalid={isInvalid}
-              autoFocus
-            />
+            <Form.Control name="aggregatorUrl" type="url" required autoFocus />
             <Form.Control.Feedback type="invalid">Invalid URL</Form.Control.Feedback>
-          </FormGroup>
+          </Form.Group>
+
+          <Form.Group>
+            <Form.Label>Genesis verification key</Form.Label>
+            <Form.Control name="genesisVerificationKey" type="text" />
+            <Form.Text className="text-muted">
+              Optional, allows verification of the certificate chain and of Cardano artifacts (e.g.
+              transactions).
+            </Form.Text>
+          </Form.Group>
         </Form>
       </Modal.Body>
 
@@ -58,7 +68,7 @@ export default function AddAggregatorModal(props) {
         <Button variant="secondary" onClick={handleClose}>
           Close
         </Button>
-        <Button variant="primary" onClick={handleSave}>
+        <Button variant="primary" type="submit" form="add-aggregator-form">
           Save
         </Button>
       </Modal.Footer>

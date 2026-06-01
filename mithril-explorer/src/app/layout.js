@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import React, { Suspense } from "react";
-import { Badge } from "react-bootstrap";
+import { Badge, Spinner, Stack } from "react-bootstrap";
 import { Providers } from "@/store/provider";
 
 // These styles apply to every route in the application
@@ -17,35 +17,48 @@ export const metadata = {
   description: "Explore a Mithril Network",
 };
 
+function MithrilHeader() {
+  return (
+    <h1 className={styles.title}>
+      <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
+        <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} /> Mithril
+        Explorer
+      </Link>
+      {process.env.UNSTABLE && (
+        <>
+          {" "}
+          <Badge bg="danger" className="fs-6 align-text-top">
+            Unstable
+          </Badge>
+        </>
+      )}
+    </h1>
+  );
+}
+
+function Loader() {
+  return (
+    <Stack direction="horizontal" gap={2} className="justify-content-center">
+      <Spinner animation="border" role="status" />
+      <div>Loading...</div>
+    </Stack>
+  );
+}
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
         <link rel="icon" href="/explorer/favicon.svg?v=3" type="image/svg+xml" />
 
-        <Suspense>
-          <Providers>
-            <div className={styles.container}>
-              <main className={styles.main}>
-                <h1 className={styles.title}>
-                  <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
-                    <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} />{" "}
-                    Mithril Explorer
-                  </Link>
-                  {process.env.UNSTABLE && (
-                    <>
-                      {" "}
-                      <Badge bg="danger" className="fs-6 align-text-top">
-                        Unstable
-                      </Badge>
-                    </>
-                  )}
-                </h1>
-                {children}
-              </main>
-            </div>
-          </Providers>
-        </Suspense>
+        <div className={styles.container}>
+          <main className={styles.main}>
+            <MithrilHeader />
+            <Suspense fallback={<Loader />}>
+              <Providers fallback={<Loader />}>{children}</Providers>
+            </Suspense>
+          </main>
+        </div>
 
         <footer className={styles.footer}>
           <span className={styles.logo}>

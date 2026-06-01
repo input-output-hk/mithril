@@ -7,15 +7,15 @@ import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { selectedAggregatorUrl } from "@/store/settingsSlice";
 import { fetchAggregator } from "@/aggregator-api";
 
 export default function MithrilStakeDistributionsList(props) {
   const [mithrilStakeDistributions, setMithrilStakeDistributions] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const aggregator = useSelector(selectedAggregator);
+  const aggregator = useSelector(selectedAggregatorUrl);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/mithril-stake-distributions`,
+    (state) => `${selectedAggregatorUrl(state)}/artifact/mithril-stake-distributions`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);

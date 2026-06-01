@@ -1,4 +1,4 @@
-import default_available_aggregators from "@/aggregators-list";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { signedEntityType } from "@/constants";
 import { poolsSlice } from "@/store/poolsSlice";
 import {
@@ -8,13 +8,15 @@ import {
   settingsSlice,
   setUpdateInterval,
 } from "@/store/settingsSlice";
-import { saveToLocalStorage, storeBuilder } from "@/store/store";
+import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "@/store/store";
 import { waitFor } from "@testing-library/react";
 import { initStore } from "./helpers";
 
 const expectedCapabilities = {
   signed_entity_types: [signedEntityType.CardanoTransactions],
 };
+
+const dummyAggregator = (name, url) => ({ name, url, genesisVerificationKey: "whatever" });
 
 jest.mock("../src/aggregator-api", () => {
   return {
@@ -32,7 +34,10 @@ describe("Store Initialization", () => {
   });
 
   it("init with local storage saved state", () => {
-    let aggregators = [...default_available_aggregators, "https://aggregator.test"];
+    let aggregators = [
+      ...default_available_aggregators,
+      dummyAggregator("custom", "https://aggregator.test"),
+    ];
     let expected = {
       pools: poolsSlice.getInitialState(),
       settings: {
@@ -43,14 +48,17 @@ describe("Store Initialization", () => {
       },
     };
     saveToLocalStorage(expected);
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState()).toEqual(expected);
   });
 
   it("init with local storage and initial aggregator", () => {
     const initialAggregator = default_available_aggregators.at(1);
-    let aggregators = [...default_available_aggregators, "https://aggregator.test"];
+    let aggregators = [
+      ...default_available_aggregators,
+      dummyAggregator("custom", "https://aggregator.test"),
+    ];
     let expected = {
       pools: poolsSlice.getInitialState(),
       settings: {
@@ -62,7 +70,7 @@ describe("Store Initialization", () => {
     };
     saveToLocalStorage(expected);
     expected.settings.selectedAggregator = initialAggregator;
-    const store = storeBuilder(initialAggregator);
+    const store = storeBuilder(getPreloadedStateFromLocalStorage(initialAggregator));
 
     expect(store.getState()).toEqual(expected);
   });
@@ -116,9 +124,17 @@ describe("Store Initialization", () => {
     expect(store.getState().settings.selectedAggregator).toEqual(expected);
   });
 
+  it("Can change selectedAggregator with the url only", () => {
+    const store = initStore();
+    const expected = default_available_aggregators[2];
+
+    store.dispatch(selectAggregator({ url: expected.url }));
+    expect(store.getState().settings.selectedAggregator).toEqual(expected);
+  });
+
   it("Add a custom aggregator when selectAggregator is called with an unknown aggregator", () => {
     const store = initStore();
-    const expected = "http://aggregator.test";
+    const expected = dummyAggregator("custom", "https://aggregator.test");
 
     store.dispatch(selectAggregator(expected));
     expect(store.getState().settings.selectedAggregator).toEqual(expected);
@@ -132,7 +148,7 @@ describe("Store Initialization", () => {
         aggregatorCapabilities: { signed_entity_types: [] },
       },
     });
-    const aggregator = "http://aggregator.test";
+    const aggregator = dummyAggregator("custom", "https://aggregator.test");
 
     store.dispatch(selectAggregator(aggregator));
     await waitFor(() =>
@@ -150,7 +166,7 @@ describe("Store Initialization", () => {
   });
 
   it("Can remove a custom aggregator", () => {
-    const customAggregator = "http://aggregator.test";
+    const customAggregator = dummyAggregator("custom", "https://aggregator.test");
     const store = initStore({
       settings: {
         ...settingsSlice.getInitialState(),
@@ -164,9 +180,15 @@ describe("Store Initialization", () => {
   });
 
   it("loading state from local storage should sort default aggregators", () => {
-    const oldDefaultAggregators = [...default_available_aggregators, "http://aggregator.test"];
+    const oldDefaultAggregators = [
+      ...default_available_aggregators,
+      dummyAggregator("custom", "http://aggregator.test"),
+    ];
     oldDefaultAggregators.reverse();
-    let expected = [...default_available_aggregators, "http://aggregator.test"];
+    let expected = [
+      ...default_available_aggregators,
+      dummyAggregator("custom", "http://aggregator.test"),
+    ];
 
     saveToLocalStorage({
       settings: {
@@ -174,7 +196,7 @@ describe("Store Initialization", () => {
         availableAggregators: oldDefaultAggregators,
       },
     });
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState().settings.availableAggregators).toEqual(expected);
   });
@@ -189,7 +211,7 @@ describe("Store Initialization", () => {
         availableAggregators: oldDefaultAggregators,
       },
     });
-    const store = storeBuilder();
+    const store = storeBuilder(getPreloadedStateFromLocalStorage());
 
     expect(store.getState().settings.availableAggregators).toContain(newDefaultAggregator);
   });

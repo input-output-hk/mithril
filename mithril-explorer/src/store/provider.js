@@ -1,17 +1,36 @@
 "use client";
 
 import { aggregatorSearchParam } from "@/constants";
-import { saveToLocalStorage, storeBuilder } from "./store";
+import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "./store";
 import { Provider } from "react-redux";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export function Providers({ children }) {
+export function Providers({ children, fallback }) {
+  const [hydrated, setHydrated] = useState(false);
   const searchParams = useSearchParams();
-  const initialAggregator = searchParams.get(aggregatorSearchParam);
-  const [store] = useState(storeBuilder(initialAggregator));
 
-  store.subscribe(() => saveToLocalStorage(store.getState()));
+  const [store, setStore] = useState(undefined);
 
-  return <Provider store={store}>{children}</Provider>;
+  useEffect(() => {
+    function loadStoreFromLocalStorage(initialAggregator, initialAggregatorGenesisVerificationKey) {
+      const initialState = getPreloadedStateFromLocalStorage({
+        url: initialAggregator,
+        genesisVerificationKey: initialAggregatorGenesisVerificationKey ?? "",
+      });
+      const store = storeBuilder(initialState);
+      store.subscribe(() => saveToLocalStorage(store.getState()));
+
+      setStore(store);
+      setHydrated(true);
+    }
+
+    if (!hydrated) {
+      const initialAggregator = searchParams.get(aggregatorSearchParam);
+      const initialAggregatorGenesisVerificationKey = searchParams.get("genesisVerificationKey");
+      loadStoreFromLocalStorage(initialAggregator, initialAggregatorGenesisVerificationKey);
+    }
+  }, [hydrated, searchParams]);
+
+  return hydrated ? <Provider store={store}>{children}</Provider> : <>{fallback}</>;
 }

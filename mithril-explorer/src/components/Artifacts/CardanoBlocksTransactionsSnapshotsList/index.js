@@ -1,17 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import {
-  Button,
-  Card,
-  Col,
-  Container,
-  Form,
-  Row,
-  Stack,
-  ToggleButton,
-  ButtonGroup,
-  Nav,
-} from "react-bootstrap";
+import { Button, Card, Col, Container, Form, Row, Stack, Nav } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -36,13 +25,14 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
   const [itemHashesToCertify, setItemHashesToCertify] = useState([]);
   const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/artifact/cardano-blocks-transactions`,
+    (state) => `${selectedAggregator(state)?.url}/artifact/cardano-blocks-transactions`,
   );
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const currentAggregatorCapabilities = useSelector((state) =>
     selectedAggregatorCapabilities(state),
   );
+  const canCertify = Boolean(aggregator?.genesisVerificationKey);
 
   useEffect(() => {
     let fetchSnapshots = () => {
@@ -143,7 +133,14 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
                     </Nav.Item>
                   ))}
                 </Nav>
-                <Row>
+                <fieldset disabled={!canCertify}>
+                  {!canCertify && (
+                    <Form.Text className="fst-italic">
+                      <i className="bi bi-exclamation-circle"></i> Verification of certificates is
+                      unavailable. Add a genesis verification key to the selected aggregator to
+                      enable {certifiedMessageType.pluralName} certification.
+                    </Form.Text>
+                  )}
                   <input
                     type="hidden"
                     name="certifiedMessageType"
@@ -158,7 +155,7 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
                         .max_hashes_allowed_by_request
                     }
                   />
-                </Row>
+                </fieldset>
               </Form>
             </Row>
           )}
@@ -208,7 +205,7 @@ export default function CardanoBlocksTransactionsSnapshotsList(props) {
                           Show Certificate
                         </Button>
                         <RawJsonButton
-                          href={`${aggregator}/artifact/cardano-blocks-transaction/${cardanoBlocksTransactionsSnapshot.hash}`}
+                          href={`${aggregator?.url}/artifact/cardano-blocks-transaction/${cardanoBlocksTransactionsSnapshot.hash}`}
                           size="sm"
                         />
                       </Stack>

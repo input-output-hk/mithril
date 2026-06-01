@@ -1,12 +1,14 @@
 import { createAsyncThunk, createSelector, createSlice } from "@reduxjs/toolkit";
-import aggregator_api from "@/aggregator-api";
+import * as aggregator_api from "@/aggregator-api";
 
 // Delete all caches older than 6 hours
 const cacheRefreshIntervalInMilliseconds = 6 * 3600 * 1000;
 
+export const initialState = { list: [] };
+
 export const poolsSlice = createSlice({
   name: "pools",
-  initialState: { list: [] },
+  initialState: initialState,
   reducers: {},
   extraReducers: (builder) =>
     builder.addCase(updatePoolsForAggregator.fulfilled, (state, action) => {

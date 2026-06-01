@@ -6,7 +6,7 @@ import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
 import QuestionTooltip from "#/QuestionTooltip";
 import Stake from "#/Stake";
-import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
+import { selectedAggregatorUrl, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 import { checkUrl, formatStake, percent } from "@/utils";
 import { fetchAggregator } from "@/aggregator-api";
 
@@ -48,9 +48,9 @@ function parseVersion(version) {
 
 export default function AggregatorStatus({ showContent = true }) {
   const [aggregatorStatus, setAggregatorStatus] = useState({});
-  const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
+  const currentAggregator = useSelector(selectedAggregatorUrl);
   const isAggregatorUrlValid = checkUrl(currentAggregator);
-  const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
+  const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregatorUrl(state)}/status`);
   const aggregatorCapabilities = useSelector(selectedAggregatorCapabilities);
   const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);

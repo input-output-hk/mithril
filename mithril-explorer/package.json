@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.7.51",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -10,30 +10,35 @@
     "pretty:check": "prettier . --check",
     "pretty:write": "prettier . --write",
     "test": "jest --watch",
-    "test:ci": "jest --ci"
+    "test:ci": "jest --ci",
+    "generate:aggregators-list": "node scripts/generate.aggregators-list.js",
+    "predev": "npm run generate:aggregators-list",
+    "prebuild": "npm run generate:aggregators-list",
+    "pretest": "npm run generate:aggregators-list",
+    "pretest:ci": "npm run generate:aggregators-list"
   },
   "dependencies": {
     "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm",
     "@popperjs/core": "^2.11.8",
-    "@reduxjs/toolkit": "^2.11.2",
+    "@reduxjs/toolkit": "^2.12.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "chart.js": "^4.5.1",
-    "next": "^16.2.4",
-    "react": "^19.2.5",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
     "react-bootstrap": "^2.10.10",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "^19.2.5",
-    "react-redux": "^9.2.0"
+    "react-dom": "^19.2.6",
+    "react-redux": "^9.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.4",
+    "eslint-config-next": "^16.2.6",
     "fantasticon": "^4.1.0",
-    "jest": "^30.3.0",
-    "jest-environment-jsdom": "^30.3.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
     "next-router-mock": "^1.0.5",
     "prettier": "^3.8.3"
   }

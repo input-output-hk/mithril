@@ -207,7 +207,7 @@ function parseSignedEntity(entityType) {
   return result;
 }
 
-module.exports = {
+export {
   checkUrl,
   percent,
   formatStake,

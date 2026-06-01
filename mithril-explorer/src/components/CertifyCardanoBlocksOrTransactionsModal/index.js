@@ -108,9 +108,6 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
   const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const [certificateVerifierStep, setCertificateVerifierStep] = useState(
-    certificateValidationSteps.ready,
-  );
   const [proof, setProof] = useState({});
   const certifiedItems = certifiedItemsFromProof(proof, certifiedMessageType);
   const nonCertifiedItems = nonCertifiedItemsFromProof(proof, certifiedMessageType);
@@ -119,20 +116,17 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
   const [isProofValid, setIsProofValid] = useState(false);
   const [isCertificateChainValid, setIsCertificateChainValid] = useState(true);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
-  const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
+  const [selectedTab, setSelectedTab] = useState(undefined);
+  const currentTab =
+    currentStep === validationSteps.done && selectedTab !== undefined
+      ? selectedTab
+      : getTabForStep(currentStep);
   const [currentError, setCurrentError] = useState(undefined);
 
   function handleError(error) {
     console.error(`Cardano blocks/transactions certification error:`, error);
     setCurrentError(error);
     setCurrentStep(validationSteps.done);
-  }
-
-  function handleStepClick(step) {
-    // Only allow navigation when the work is done
-    if (currentStep === validationSteps.done) {
-      setCurrentTab(getTabForStep(step));
-    }
   }
 
   function handleCertificateClick(hash) {
@@ -150,38 +144,30 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
     }
   }
 
-  useEffect(() => {
+  function handleCertificateVerifierDone() {
+    setCurrentStep(validationSteps.done);
+    setShowLoadingWarning(false);
+  }
+
+  function resetState() {
     setShowLoadingWarning(false);
     setIsProofValid(false);
     setIsCertificateChainValid(true);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
     setCurrentError(undefined);
+  }
 
+  useEffect(() => {
     if (hashes?.length > 0) {
-      const {
-        fetchGenesisVerificationKey,
-        newMithrilWasmClient,
-      } = require("@/wasm-client-helpers");
+      const { newMithrilWasmClient } = require("@/wasm-client-helpers");
 
-      fetchGenesisVerificationKey(currentAggregator)
-        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+      newMithrilWasmClient(currentAggregator.url, currentAggregator.genesisVerificationKey)
         .then((client) => setClient(client))
         .then(() => setCurrentStep(validationSteps.fetchingProof))
         .catch((err) => handleError(err, certifiedMessageType));
     }
   }, [currentAggregator, hashes, certifiedMessageType]);
-
-  useEffect(() => {
-    if (certificateVerifierStep === certificateValidationSteps.done) {
-      setCurrentStep(validationSteps.done);
-      setShowLoadingWarning(false);
-    }
-  }, [certificateVerifierStep]);
-
-  useEffect(() => {
-    setCurrentTab(getTabForStep(currentStep));
-  }, [currentStep]);
 
   useEffect(() => {
     if (currentStep === validationSteps.fetchingProof) {
@@ -230,6 +216,7 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
     <Modal
       show={hashes !== undefined && hashes.length > 0}
       onHide={closeIfNotRunning}
+      onShow={resetState}
       size="xl"
       aria-labelledby="contained-modal-title-vcenter"
       centered>
@@ -250,7 +237,7 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
                   currentStep={currentStep}
                   isProofValid={isProofValid}
                   isCertificateChainValid={isCertificateChainValid}
-                  onStepClick={handleStepClick}
+                  onStepClick={(step) => setSelectedTab(getTabForStep(step))}
                 />
                 {showLoadingWarning && (
                   <Alert variant="warning" className="mt-2">
@@ -282,7 +269,7 @@ export default function CertifyCardanoBlocksOrTransactionsModal({
                       <CertificateVerifier
                         client={client}
                         certificate={certificate}
-                        onStepChange={(step) => setCertificateVerifierStep(step)}
+                        onDone={handleCertificateVerifierDone}
                         onChainValidationError={() => setIsCertificateChainValid(false)}
                         onCertificateClick={handleCertificateClick}
                         showCertificateLinks

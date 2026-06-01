@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
 import { Stack, Tab, Tabs } from "react-bootstrap";
@@ -21,6 +21,7 @@ import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributions
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
 import CertificatesList from "#/Artifacts/CertificatesList";
 import MithrilStakeDistributionsList from "#/Artifacts/MithrilStakeDistributionsList";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { aggregatorSearchParam, signedEntityType } from "@/constants";
 import { setChartJsDefaults } from "@/charts";
 import {
@@ -36,40 +37,36 @@ setChartJsDefaults(Chart);
 const certificateTab = "certificates";
 const defaultTab = certificateTab;
 
+function isDefaultAggregator(aggregator) {
+  return default_available_aggregators.map((d) => d.url).includes(aggregator.url);
+}
+
 export default function Explorer() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
-  const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
-  const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
-  const [enableCardanoBlocksTransactionTab, setEnableCardanoBlocksTransactionTab] = useState(false);
-  const [enableCardanoStakeDistributionTab, setEnableCardanoStakeDistributionTab] = useState(false);
-  const [enableCardanoDbTab, setEnableCardanoDbTab] = useState(false);
-  const [currentTab, setCurrentTab] = useState(defaultTab);
+  const isUpdatingAggregatorInUrl = useRef(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
     currentAggregatorSignedEntities(state),
   );
-
-  useEffect(() => {
-    setEnableCardanoTransactionTab(
-      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
-    );
-    setEnableCardanoBlocksTransactionTab(
-      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoBlocksTransactions),
-    );
-    setEnableCardanoStakeDistributionTab(
-      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoStakeDistribution),
-    );
-    setEnableCardanoDbTab(selectedAggregatorSignedEntities.includes(signedEntityType.CardanoDb));
-  }, [selectedAggregatorSignedEntities]);
-
-  useEffect(() => {
-    if (!selectedAggregatorSignedEntities.includes(currentTab)) {
-      setCurrentTab(defaultTab);
-    }
-  }, [currentTab, selectedAggregatorSignedEntities]);
+  const enableCardanoTransactionTab = useSelector((state) =>
+    currentAggregatorSignedEntities(state).includes(signedEntityType.CardanoTransactions),
+  );
+  const enableCardanoBlocksTransactionTab = useSelector((state) =>
+    currentAggregatorSignedEntities(state).includes(signedEntityType.CardanoBlocksTransactions),
+  );
+  const enableCardanoStakeDistributionTab = useSelector((state) =>
+    currentAggregatorSignedEntities(state).includes(signedEntityType.CardanoStakeDistribution),
+  );
+  const enableCardanoDbTab = useSelector((state) =>
+    currentAggregatorSignedEntities(state).includes(signedEntityType.CardanoDb),
+  );
+  const [currentTab, setCurrentTab] = useState(defaultTab);
+  const displayedTab = selectedAggregatorSignedEntities.includes(currentTab)
+    ? currentTab
+    : defaultTab;
 
   // Global mithril client wasm init
   useEffect(() => {
@@ -85,26 +82,34 @@ export default function Explorer() {
   useEffect(() => {
     const aggregatorInUrl = searchParams.get(aggregatorSearchParam);
 
-    if (selectedAggregator !== aggregatorInUrl) {
+    if (selectedAggregator?.url !== aggregatorInUrl) {
       const params = new URLSearchParams();
-      params.set("aggregator", selectedAggregator);
+      params.set("aggregator", selectedAggregator.url);
+      if (!isDefaultAggregator(selectedAggregator) && selectedAggregator?.genesisVerificationKey) {
+        params.set("genesisVerificationKey", selectedAggregator.genesisVerificationKey);
+      }
 
-      setIsUpdatingAggregatorInUrl(true);
+      isUpdatingAggregatorInUrl.current = true;
       window.history.pushState(null, "", `?${params.toString()}`);
     }
 
-    dispatch(updatePoolsForAggregator(selectedAggregator));
-  }, [selectedAggregator]); // eslint-disable-line react-hooks/exhaustive-deps
+    dispatch(updatePoolsForAggregator(selectedAggregator.url));
+  }, [selectedAggregator?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allow navigation to work (previous, next)
   useEffect(() => {
     function allowNavigation() {
-      if (isUpdatingAggregatorInUrl) {
-        setIsUpdatingAggregatorInUrl(false);
+      if (isUpdatingAggregatorInUrl.current) {
+        isUpdatingAggregatorInUrl.current = false;
       } else {
         const aggregatorInUrl = searchParams.get("aggregator");
+        const genesisVerificationKeyInUrl = searchParams.get("genesisVerificationKey");
+        let aggregator = {
+          url: aggregatorInUrl,
+          genesisVerificationKey: genesisVerificationKeyInUrl ?? "",
+        };
 
-        dispatch(selectAggregator(aggregatorInUrl));
+        dispatch(selectAggregator(aggregator));
       }
     }
 
@@ -114,7 +119,10 @@ export default function Explorer() {
   return (
     <Stack gap={3}>
       <ControlPanel />
-      <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
+      <Tabs activeKey={displayedTab} onSelect={(key) => setCurrentTab(key)}>
+        <Tab title="Certificates" eventKey={certificateTab}>
+          <CertificatesList />
+        </Tab>
         {enableCardanoDbTab && (
           <Tab title="Cardano Db" eventKey={signedEntityType.CardanoDb}>
             <CardanoDbSnapshotsList />
@@ -143,9 +151,6 @@ export default function Explorer() {
           title="Mithril Stake Distribution"
           eventKey={signedEntityType.MithrilStakeDistribution}>
           <MithrilStakeDistributionsList />
-        </Tab>
-        <Tab title="Certificates" eventKey={certificateTab}>
-          <CertificatesList />
         </Tab>
       </Tabs>
     </Stack>

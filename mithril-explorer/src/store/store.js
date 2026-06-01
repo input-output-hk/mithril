@@ -1,16 +1,16 @@
 import { configureStore, createListenerMiddleware } from "@reduxjs/toolkit";
-import { poolsSlice } from "./poolsSlice";
+import { poolsSlice, initialState as poolsInitialState } from "./poolsSlice";
 import {
   addSettingsListeners,
   initialState as settingsInitialState,
   settingsSlice,
 } from "./settingsSlice";
-import default_available_aggregators from "@/aggregators-list";
+import default_available_aggregators from "@/aggregators-list.generated";
 import { checkUrl } from "@/utils";
 
-const SAVED_STATE_KEY = "Explorer_State";
+const SAVED_STATE_KEY = "Explorer_State_v2";
 
-export function saveToLocalStorage(state) {
+function saveToLocalStorage(state) {
   if (typeof window !== "undefined" && localStorage) {
     localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(state));
   }
@@ -26,7 +26,9 @@ function loadFromLocalStorage() {
 }
 
 function reorderAggregatorAndAddMissingDefaults(currentList, defaultAggregators) {
-  let not_default_aggregators = currentList.filter((a) => !defaultAggregators.includes(a));
+  let not_default_aggregators = currentList.filter(
+    (a) => !defaultAggregators.map((d) => d.url).includes(a.url),
+  );
   return [...defaultAggregators, ...not_default_aggregators];
 }
 
@@ -37,8 +39,8 @@ function getSettings(defaultSettings, initialAggregator) {
     default_available_aggregators,
   );
 
-  if (initialAggregator && checkUrl(initialAggregator)) {
-    if (!aggregators.includes(initialAggregator)) {
+  if (initialAggregator?.url && checkUrl(initialAggregator.url)) {
+    if (!aggregators.map((a) => a.url).includes(initialAggregator.url)) {
       aggregators.push(initialAggregator);
     }
 
@@ -58,18 +60,18 @@ function getSettings(defaultSettings, initialAggregator) {
   return settings;
 }
 
-function initStore(defaultState, initialAggregator) {
+function buildPreloadedState(defaultState, initialAggregator) {
   return {
     ...defaultState,
     settings: getSettings(defaultState?.settings, initialAggregator),
   };
 }
 
-export function initStoreFromLocalStorage(initialAggregator) {
-  return initStore(loadFromLocalStorage(), initialAggregator);
+function getPreloadedStateFromLocalStorage(initialAggregator) {
+  return buildPreloadedState(loadFromLocalStorage(), initialAggregator);
 }
 
-export const storeBuilder = (initialAggregator) => {
+const storeBuilder = (preloadedState) => {
   const listenerMiddleware = createListenerMiddleware();
   addSettingsListeners(listenerMiddleware);
 
@@ -78,8 +80,10 @@ export const storeBuilder = (initialAggregator) => {
       settings: settingsSlice.reducer,
       pools: poolsSlice.reducer,
     },
-    preloadedState: initStoreFromLocalStorage(initialAggregator),
+    preloadedState: preloadedState,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().prepend(listenerMiddleware.middleware),
   });
 };
+
+export { getPreloadedStateFromLocalStorage, storeBuilder, saveToLocalStorage };
