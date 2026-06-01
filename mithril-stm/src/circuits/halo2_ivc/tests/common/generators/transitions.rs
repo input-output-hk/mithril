@@ -6,12 +6,13 @@ use midnight_zk_stdlib::{MidnightVK, Relation};
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest as Sha2Digest, Sha256};
 
-use crate::MithrilMembershipDigest;
 use crate::circuits::common::merkle::MerklePath;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
-use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
+use crate::circuits::halo2_ivc::protocol_message::{
+    ProtocolMessage, ProtocolMessagePartKey, aggregate_verification_key_message_part,
+};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::types::{
     CertificateProofBytes, EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
@@ -21,6 +22,7 @@ use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S}
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
+use crate::{AggregateVerificationKeyForSnark, MithrilMembershipDigest};
 
 use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
 use super::proofs::verify_prepare_poseidon_ivc;
@@ -32,7 +34,7 @@ use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 /// recursive base-case path, so future tests can reuse it without re-encoding
 /// the protocol-message layout by hand.
 pub(super) fn build_genesis_protocol_message(
-    avk_hex: &str,
+    aggregate_verification_key: &AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
     params_hex: &str,
     genesis_epoch: u64,
 ) -> ProtocolMessage {
@@ -43,7 +45,8 @@ pub(super) fn build_genesis_protocol_message(
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        avk_hex.to_owned(),
+        aggregate_verification_key_message_part(aggregate_verification_key)
+            .expect("aggregate verification key message part should be produced"),
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextProtocolParameters,
@@ -59,10 +62,14 @@ pub(super) fn build_genesis_protocol_message(
 /// Returns the raw genesis protocol-message preimage bytes produced by the serializer.
 pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSetup) -> Vec<u8> {
     let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
-    build_genesis_protocol_message(&setup.avk_hex, &params_hex, GENESIS_EPOCH)
-        .try_rigid_preimage::<MithrilMembershipDigest>()
-        .expect("genesis protocol message preimage should succeed")
-        .to_vec()
+    build_genesis_protocol_message(
+        &setup.aggregate_verification_key,
+        &params_hex,
+        GENESIS_EPOCH,
+    )
+    .try_rigid_preimage::<MithrilMembershipDigest>()
+    .expect("genesis protocol message preimage should succeed")
+    .to_vec()
 }
 
 /// Builds the witness used by the recursive genesis/base-case branch.
@@ -295,7 +302,8 @@ pub(crate) fn next_message_and_preimage_for_step(
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        setup.avk_hex.clone(),
+        aggregate_verification_key_message_part(&setup.aggregate_verification_key)
+            .expect("aggregate verification key message part should be produced"),
     );
     protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
     protocol_message.set_message_part(
@@ -330,7 +338,8 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
     );
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        setup.avk_hex.clone(),
+        aggregate_verification_key_message_part(&setup.aggregate_verification_key)
+            .expect("aggregate verification key message part should be produced"),
     );
     protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
     protocol_message.set_message_part(
