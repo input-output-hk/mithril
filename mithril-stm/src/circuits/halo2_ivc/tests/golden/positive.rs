@@ -49,7 +49,7 @@ fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
 
     let dual_msm = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_chain_state.proof,
+        recursive_chain_state.proof.as_bytes(),
         &public_inputs,
     );
 
@@ -78,7 +78,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_step_output.proof,
+        recursive_step_output.proof.as_bytes(),
         &public_inputs,
     );
 
@@ -142,7 +142,7 @@ mod slow {
             &mock_prover_setup,
             &recursive_chain_state,
             &expected_next_state,
-            &recursive_step_output.certificate_proof,
+            recursive_step_output.certificate_proof.as_bytes(),
         );
         assert_eq!(
             expected_next_state.as_public_input(),

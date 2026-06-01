@@ -214,7 +214,7 @@ fn build_certificate_asset_data_inner(
 
     let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg.as_field());
 
-    let certificate_proof = CertificateProofBytes::from_snark_proof_bytes(
+    let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
         zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
             certificate_commitment_parameters,
             &certificate_proving_key,

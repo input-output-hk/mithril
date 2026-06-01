@@ -67,7 +67,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
     // TODO: remove this allow dead_code directive when the IVC prover consumes this method
     #[allow(dead_code)]
     pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
-        CertificateProofBytes::from_snark_proof_bytes(self.circuit_proof)
+        CertificateProofBytes::from_certificate_circuit_proof_bytes(self.circuit_proof)
     }
 
     /// Verify a SNARK proof given a message, an aggregate verification key for snark

@@ -36,7 +36,7 @@ fn assert_step_proof_verifies(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &step_output.proof,
+        step_output.proof.as_bytes(),
         &public_inputs,
     );
 

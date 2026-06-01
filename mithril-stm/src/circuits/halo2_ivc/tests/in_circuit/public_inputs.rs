@@ -47,7 +47,7 @@ fn assert_genesis_step_output_rejects_tampered_public_inputs(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &genesis_step_output.proof,
+        genesis_step_output.proof.as_bytes(),
         &public_inputs,
     );
 

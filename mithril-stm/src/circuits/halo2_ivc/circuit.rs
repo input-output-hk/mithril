@@ -11,7 +11,7 @@ use super::{
     gadget::IvcGadget,
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
-    types::CertificateProofBytes,
+    types::{CertificateProofBytes, IvcProofBytes},
 };
 
 #[derive(Clone, Debug)]
@@ -99,7 +99,7 @@ impl IvcCircuit {
         state: State,
         witness: Witness,
         cert_proof: CertificateProofBytes,
-        self_proof: Vec<u8>,
+        self_proof: IvcProofBytes,
         acc: Accumulator<S>,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
@@ -111,7 +111,7 @@ impl IvcCircuit {
             state: Value::known(state),
             witness: Value::known(witness),
             cert_proof: Value::known(cert_proof.into_vec()),
-            self_proof: Value::known(self_proof),
+            self_proof: Value::known(self_proof.into_vec()),
             acc: Value::known(acc),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
             self_domain_cs: (self_vk.get_domain().clone(), self_vk.cs().clone()),

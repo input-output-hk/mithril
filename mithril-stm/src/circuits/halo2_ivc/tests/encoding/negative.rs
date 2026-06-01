@@ -205,7 +205,7 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_step_output.proof,
+        recursive_step_output.proof.as_bytes(),
         &public_inputs,
     );
 
@@ -237,7 +237,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_step_output.proof,
+        recursive_step_output.proof.as_bytes(),
         &public_inputs,
     );
 
@@ -269,7 +269,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        &recursive_step_output.proof,
+        recursive_step_output.proof.as_bytes(),
         &public_inputs,
     );
 

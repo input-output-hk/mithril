@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, S,
     circuit::IvcCircuit,
     state::{Global, State, trivial_acc},
-    types::CertificateProofBytes,
+    types::{CertificateProofBytes, IvcProofBytes},
 };
 
 struct CertificateChainArtifacts {
@@ -37,7 +37,7 @@ struct CertificateChainArtifacts {
 
 struct RecursiveChainSnapshot {
     state: State,
-    proof: Vec<u8>,
+    proof: IvcProofBytes,
     accumulator: Accumulator<S>,
 }
 
@@ -109,7 +109,7 @@ fn build_recursive_chain_snapshot(
 ) -> RecursiveChainSnapshot {
     let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
     let mut current_state = State::genesis();
-    let mut recursive_proof = vec![];
+    let mut recursive_proof = IvcProofBytes::empty();
     let mut current_accumulator = trivial_acc(&combined_fixed_base_names);
     let mut next_accumulator = current_accumulator.clone();
     let mut recursive_random_generator = OsRng;
@@ -164,7 +164,7 @@ fn build_recursive_chain_snapshot(
 
         current_state = artifacts.recursive_next_states[i].clone();
         current_accumulator = next_accumulator.clone();
-        recursive_proof = proof;
+        recursive_proof = IvcProofBytes::new(proof);
 
         if i < INITIAL_CHAIN_LENGTH {
             let mut accumulated_accumulator = Accumulator::accumulate(&[
@@ -258,7 +258,7 @@ fn build_next_recursive_step_inputs(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        &recursive_chain_state.proof,
+        recursive_chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
@@ -347,10 +347,10 @@ fn store_recursive_step_output(
         paths.recursive_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
-        certificate_proof: next_step_inputs.certificate_proof.into_vec(),
+        certificate_proof: next_step_inputs.certificate_proof,
     };
     store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
         .expect("failed to write recursive_step_output asset");
@@ -522,7 +522,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         State::genesis(),
         genesis_witness,
         CertificateProofBytes::empty(),
-        vec![],
+        IvcProofBytes::empty(),
         current_accumulator,
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
@@ -562,10 +562,10 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         paths.genesis_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state: genesis_next_state,
-        certificate_proof: CertificateProofBytes::empty().into_vec(),
+        certificate_proof: CertificateProofBytes::empty(),
     };
     store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
         .expect("failed to write genesis_step_output asset");
@@ -631,7 +631,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        &chain_state.proof,
+        chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(
@@ -700,10 +700,10 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         paths.same_epoch_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state,
-        certificate_proof: certificate_proof.into_vec(),
+        certificate_proof,
     };
     store_recursive_step_output_asset(&paths.same_epoch_step_output, &asset)
         .expect("failed to write same_epoch_step_output asset");
