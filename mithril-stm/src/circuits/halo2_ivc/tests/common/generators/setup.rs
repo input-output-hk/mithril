@@ -87,7 +87,7 @@ pub(crate) struct AssetGenerationSetup {
     /// Verification key for the trusted genesis signature.
     pub(crate) genesis_verification_key: SchnorrVerificationKey,
     /// Hash of the deterministic genesis protocol message.
-    pub(crate) genesis_message: F,
+    pub(crate) genesis_message: MessageHash,
     /// Deterministic trusted genesis signature.
     pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Deterministic signer-membership Merkle tree.
@@ -262,7 +262,7 @@ pub(crate) fn build_recursive_global(
     recursive_verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
 ) -> Global {
     Global::new(
-        MessageHash::from_field(setup.genesis_message),
+        setup.genesis_message,
         setup.genesis_verification_key,
         certificate_verifying_key.vk(),
         recursive_verifying_key,
@@ -330,7 +330,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     AssetGenerationSetup {
         certificate_relation,
         genesis_verification_key,
-        genesis_message,
+        genesis_message: MessageHash::from_field(genesis_message),
         genesis_signature,
         merkle_tree,
         merkle_tree_leaves,

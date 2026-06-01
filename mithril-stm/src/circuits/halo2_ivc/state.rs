@@ -18,7 +18,7 @@ use super::{
 };
 
 #[derive(Clone, Debug)]
-pub struct State {
+pub(crate) struct State {
     pub(crate) counter: StepCounter,
     pub(crate) msg: MessageHash,
     pub(crate) merkle_root: MerkleTreeCommitment,
@@ -81,7 +81,7 @@ impl State {
 
 /// In-circuit counterpart of [`State`].
 #[derive(Clone, Debug)]
-pub struct AssignedState {
+pub(crate) struct AssignedState {
     pub(crate) counter: AssignedNative<F>,
     pub(crate) msg: AssignedNative<F>,
     pub(crate) merkle_root: AssignedNative<F>,
@@ -92,7 +92,7 @@ pub struct AssignedState {
 }
 
 impl AssignedState {
-    pub fn as_public_input(&self) -> Vec<AssignedNative<F>> {
+    pub(crate) fn as_public_input(&self) -> Vec<AssignedNative<F>> {
         let state = self.clone();
         vec![
             state.counter,
@@ -107,7 +107,7 @@ impl AssignedState {
 }
 
 #[derive(Clone, Debug)]
-pub struct Global {
+pub(crate) struct Global {
     // Persistent values that do not change through an ivc stream
     pub(crate) genesis_msg: MessageHash,
     pub(crate) genesis_vk: SchnorrVerificationKey,
@@ -149,7 +149,7 @@ impl Global {
 }
 
 #[derive(Clone, Debug)]
-pub struct AssignedGlobal {
+pub(crate) struct AssignedGlobal {
     //Persistent values that do not change through an ivc stream
     pub(crate) genesis_msg: AssignedNative<F>,
     pub(crate) genesis_vk: AssignedNativePoint<Jubjub>,
@@ -160,7 +160,7 @@ pub struct AssignedGlobal {
 }
 
 #[derive(Clone, Debug)]
-pub struct Witness {
+pub(crate) struct Witness {
     pub(crate) genesis_sig: StandardSchnorrSignature,
     pub(crate) cert_msg: MessageHash,
     pub(crate) cert_merkle_root: MerkleTreeCommitment,
@@ -186,7 +186,7 @@ impl Witness {
 }
 
 #[derive(Clone, Debug)]
-pub struct AssignedWitness {
+pub(crate) struct AssignedWitness {
     pub(crate) genesis_sig: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
     pub(crate) cert_merkle_root: AssignedNative<F>,
     pub(crate) cert_msg: AssignedNative<F>,
@@ -194,7 +194,7 @@ pub struct AssignedWitness {
     pub(crate) msg_preimage: Vec<AssignedByte<F>>,
 }
 
-pub fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
+pub(crate) fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
     Accumulator::<S>::new(
         Msm::new(&[C::default()], &[F::ONE], &BTreeMap::new()),
         Msm::new(
@@ -205,7 +205,7 @@ pub fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
     )
 }
 
-pub fn fixed_bases_and_names(
+pub(crate) fn fixed_bases_and_names(
     vk_name: &str,
     vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
 ) -> (BTreeMap<String, C>, Vec<String>) {
@@ -216,7 +216,7 @@ pub fn fixed_bases_and_names(
     (fixed_bases, fixed_base_names)
 }
 
-pub fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<F>) -> Vec<String> {
+pub(crate) fn fixed_base_names(vk_name: &str, cs: &ConstraintSystem<F>) -> Vec<String> {
     let mut fixed_base_names = vec![String::from("com_instance")];
     fixed_base_names.extend(verifier::fixed_base_names::<S>(
         vk_name,

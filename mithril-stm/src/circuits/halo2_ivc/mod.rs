@@ -61,7 +61,7 @@ pub(crate) mod state;
 pub(crate) mod types;
 
 #[cfg(test)]
-pub mod tests;
+pub(crate) mod tests;
 
 type S = BlstrsEmulation;
 type F = <S as SelfEmulation>::F;
