@@ -67,7 +67,8 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
 semver = "1.0.28"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.150"
-slog = "2.8.2"
+# Pin slog to `2.7.0`: `2.8.2` introduces failures in our test suite
+slog = "=2.7.0"
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-term = "2.9.2"
