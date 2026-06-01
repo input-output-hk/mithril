@@ -15,7 +15,9 @@ upgrade: clean install
 		prettier@latest \
 		webpack@latest \
 		webpack-cli@latest \
-		webpack-dev-server@latest \
+		webpack-dev-server@latest
+	# Apply npm's recommended audit fixes
+	npm audit fix
 
 lint:
 	npm run pretty:check

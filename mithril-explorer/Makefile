@@ -75,3 +75,5 @@ upgrade: clean install
 		jest-environment-jsdom@latest \
 		next-router-mock@latest \
 		prettier@latest
+	# Apply npm's recommended audit fixes
+	npm audit fix

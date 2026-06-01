@@ -46,6 +46,8 @@ upgrade: clean install
 	react@^18.3.1 \
 	react-dom@^18.3.1 \
 	redocusaurus@latest
+	# Apply npm's recommended audit fixes
+	npm audit fix
 
 update-current:
 	# Use docusaurus command to create a new version using a temporary name
