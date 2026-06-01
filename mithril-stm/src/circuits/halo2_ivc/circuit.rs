@@ -17,21 +17,21 @@ use super::{
 #[derive(Clone, Debug)]
 pub struct IvcCircuit {
     // Persistent values throughout an ivc stream. This is the root of trust for an ivc stream.
-    pub global: Value<Global>,
+    global: Value<Global>,
     // State values from the last aggregated certificate
-    pub state: Value<State>,
+    state: Value<State>,
     // Witness (mainly the next certificate to be aggregated) for deriving the next state
-    pub witness: Value<Witness>,
+    witness: Value<Witness>,
     // Snark proof of the next certificate
-    pub cert_proof: Value<Vec<u8>>,
+    cert_proof: Value<Vec<u8>>,
     // Latest IVC proof
-    pub self_proof: Value<Vec<u8>>,
+    self_proof: Value<Vec<u8>>,
     // Latest Accumulator
-    pub acc: Value<Accumulator<S>>,
+    acc: Value<Accumulator<S>>,
     // Domain and ConstraintSystem associated with certificate circuit VerifyingKey
-    pub cert_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
+    cert_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
     // Domain and ConstraintSystem associated with ivc circuit VerifyingKey
-    pub self_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
+    self_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
 }
 
 impl IvcCircuit {
