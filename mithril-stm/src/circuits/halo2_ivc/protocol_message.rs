@@ -42,6 +42,17 @@ pub(crate) struct ProtocolMessage {
     message_parts: BTreeMap<ProtocolMessagePartKey, String>,
 }
 
+/// Formats the SNARK AVK protocol-message value like `mithril-common` does through
+/// `ProtocolAggregateVerificationKeyForSnark::to_bytes_hex()`.
+pub(crate) fn aggregate_verification_key_message_part<D: MembershipDigest>(
+    aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
+) -> StmResult<String> {
+    let bytes = aggregate_verification_key
+        .to_bytes()
+        .context("aggregate verification key serialization failed")?;
+    Ok(hex::encode(bytes))
+}
+
 impl ProtocolMessage {
     pub(crate) fn new() -> Self {
         Self {

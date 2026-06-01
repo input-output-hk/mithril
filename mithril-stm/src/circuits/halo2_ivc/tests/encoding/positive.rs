@@ -5,14 +5,15 @@ use ff::Field;
 use midnight_proofs::utils::SerdeFormat;
 use sha2::{Digest as Sha2Digest, Sha256};
 
-use crate::MithrilMembershipDigest;
 use crate::circuits::halo2_ivc::{
     Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_CURRENT_EPOCH_BYTES,
     PREIMAGE_NEXT_MERKLE_ROOT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE, S,
     VerifyingKey,
     circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
-    protocol_message::{ProtocolMessage, ProtocolMessagePartKey},
+    protocol_message::{
+        ProtocolMessage, ProtocolMessagePartKey, aggregate_verification_key_message_part,
+    },
     state::State,
     tests::common::{
         asset_readers::{
@@ -23,18 +24,28 @@ use crate::circuits::halo2_ivc::{
     },
     types::{EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolParametersHash, StepCounter},
 };
+use crate::{AggregateVerificationKeyForSnark, MithrilMembershipDigest};
 
-/// Minimal fixture for rigid preimage layout pinning tests.
-/// Input: 40-byte legacy AVK (root_LE_32 || stake_BE_8); output: expected 44-byte slot.
-fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
-    // Legacy AVK input: root(32) || total_stake_BE(8) — no leaf-count field.
-    // from_bytes_legacy: root = bytes[0..32], stake = be_u64(bytes[32..40]).
+type TestAggregateVerificationKey = AggregateVerificationKeyForSnark<MithrilMembershipDigest>;
+
+fn build_test_aggregate_verification_key() -> TestAggregateVerificationKey {
     let mut avk_input = [0u8; 40];
     avk_input[39] = 1; // total_stake = 1, big-endian u64
+    AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_input)
+        .expect("valid test aggregate verification key should decode")
+}
 
-    // to_rigid_slot_bytes output: root(32) || zeros(4) || stake_LE(8).
-    let mut avk_slot = [0u8; 44];
-    avk_slot[36] = 1; // total_stake = 1, little-endian u64
+/// Minimal fixture for rigid preimage layout pinning tests.
+///
+/// The input message part uses the same bytes-hex representation as the production
+/// `ProtocolAggregateVerificationKeyForSnark::to_bytes_hex()` path.
+fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
+    let avk = build_test_aggregate_verification_key();
+    let avk_hex = aggregate_verification_key_message_part(&avk)
+        .expect("test aggregate verification key should serialize");
+    let avk_slot = avk
+        .to_rigid_slot_bytes()
+        .expect("test aggregate verification key should project to rigid slot");
 
     let mut msg = ProtocolMessage::new();
     msg.set_message_part(
@@ -43,13 +54,14 @@ fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
     );
     msg.set_message_part(
         ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        hex::encode(avk_input),
+        avk_hex,
     );
     msg.set_message_part(
         ProtocolMessagePartKey::NextProtocolParameters,
         hex::encode([7u8; 32]),
     );
     msg.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+
     (msg, avk_slot)
 }
 
