@@ -340,6 +340,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires SRS download from the internet"]
     fn fails_with_insufficient_signatures() {
         let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
         let params = Parameters {
@@ -362,6 +363,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires SRS download from the internet"]
     fn fails_with_empty_signatures() {
         let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
         let params = Parameters {
@@ -384,6 +386,7 @@ mod tests {
         use super::*;
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn produces_valid_snark_proof() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -413,6 +416,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn valid_snark_proof_with_different_path_length() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -453,6 +457,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn valid_proof_verifies() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -476,6 +481,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn different_parameters_prove_and_verify_fails() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -508,6 +514,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn verify_fails_with_random_bytes_or_wrong_number_bytes() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -558,6 +565,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn verify_fails_with_wrong_message() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -582,6 +590,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn valid_proof_prepares_and_checks() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -610,6 +619,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn prepare_and_check_fails_with_wrong_message() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -634,6 +644,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn prepare_and_check_fails_with_random_bytes() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -663,6 +674,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn non_deterministic_proofs_verify() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -694,6 +706,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn snark_proof_to_from_bytes() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
@@ -726,6 +739,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "requires SRS download from the internet"]
         fn midnight_vk_wrapper_to_from_bytes() {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let params = Parameters {
