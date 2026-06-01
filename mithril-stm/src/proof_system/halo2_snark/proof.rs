@@ -13,7 +13,9 @@ use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, Parameters, SingleSignature, StmResult,
     circuits::{
         halo2::{circuit::StmCertificateCircuit, types::CircuitBase},
-        halo2_ivc::certificate_proof::verify_and_prepare_accumulator,
+        halo2_ivc::{
+            certificate_proof::verify_and_prepare_accumulator, types::CertificateProofBytes,
+        },
     },
     codec,
     proof_system::halo2_snark::{
@@ -60,6 +62,12 @@ impl<D: MembershipDigest> SnarkProof<D> {
             merkle_tree_depth,
             phantom: PhantomData,
         })
+    }
+
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
+    #[allow(dead_code)]
+    pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
+        CertificateProofBytes::from_snark_proof_bytes(self.circuit_proof)
     }
 
     /// Verify a SNARK proof given a message, an aggregate verification key for snark

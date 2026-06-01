@@ -14,7 +14,7 @@ use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry
 use crate::circuits::halo2_ivc::protocol_message::{ProtocolMessage, ProtocolMessagePartKey};
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::types::{
-    EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
+    CertificateProofBytes, EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
     ProtocolParametersHash, StepCounter,
 };
 use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
@@ -102,7 +102,7 @@ pub(crate) fn build_next_certificate_asset_data(
     certificate_verifying_key: &MidnightVK,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (Vec<u8>, Accumulator<S>, State, Witness) {
+) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
     let merkle_root = recursive_chain_state.next_merkle_root.as_field();
     let (message, message_preimage) =
         next_message_and_preimage_for_step(setup, recursive_chain_state);
@@ -128,7 +128,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     certificate_verifying_key: &MidnightVK,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (Vec<u8>, Accumulator<S>, State, Witness) {
+) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
     let merkle_root = recursive_chain_state.merkle_root.as_field();
     let (message, message_preimage) =
         same_epoch_message_and_preimage_for_step(setup, recursive_chain_state);
@@ -162,7 +162,7 @@ fn build_certificate_asset_data_inner(
     message_preimage: Vec<u8>,
     next_state: State,
     random_generator: &mut (impl RngCore + CryptoRng),
-) -> (Vec<u8>, Accumulator<S>, State, Witness) {
+) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
     let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
     let (certificate_fixed_bases, _) =
         fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
@@ -214,22 +214,24 @@ fn build_certificate_asset_data_inner(
 
     let certificate_instance = certificate_public_inputs(merkle_root, next_state.msg.as_field());
 
-    let certificate_proof = zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
-        certificate_commitment_parameters,
-        &certificate_proving_key,
-        certificate_relation,
-        &(
-            CircuitBaseField::from(certificate_instance[0]),
-            CircuitBaseField::from(certificate_instance[1]),
-        ),
-        certificate_witness_entries,
-        random_generator,
-    )
-    .expect("Certificate proof generation should not fail");
+    let certificate_proof = CertificateProofBytes::from_snark_proof_bytes(
+        zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
+            certificate_commitment_parameters,
+            &certificate_proving_key,
+            certificate_relation,
+            &(
+                CircuitBaseField::from(certificate_instance[0]),
+                CircuitBaseField::from(certificate_instance[1]),
+            ),
+            certificate_witness_entries,
+            random_generator,
+        )
+        .expect("Certificate proof generation should not fail"),
+    );
 
     let certificate_dual_msm = verify_prepare_poseidon_ivc(
         certificate_verifying_key.vk(),
-        &certificate_proof,
+        certificate_proof.as_bytes(),
         &certificate_instance,
     );
     assert!(
