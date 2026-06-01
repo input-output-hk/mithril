@@ -14,10 +14,10 @@ use mithril_common::{
         CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
         CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
-        CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
-        CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
-        CertificateListMessage, CertificateMessage, EpochSettingsMessage,
-        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+        CardanoNodeLedgerStateSnapshotListMessage, CardanoStakeDistributionListMessage,
+        CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
+        CardanoTransactionSnapshotMessage, CertificateListMessage, CertificateMessage,
+        EpochSettingsMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
         ProtocolConfigurationMessage, SignerMessagePart,
     },
 };
@@ -136,6 +136,12 @@ pub trait MessageService: Sync + Send {
         &self,
         limit: usize,
     ) -> StdResult<CardanoStakeDistributionListMessage>;
+
+    /// Return the list of the last Cardano node ledger state message.
+    async fn get_cardano_node_ledger_state_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoNodeLedgerStateSnapshotListMessage>;
 }
 
 /// Implementation of the [MessageService]
@@ -288,6 +294,19 @@ impl MessageService for MithrilMessageService {
         limit: usize,
     ) -> StdResult<CardanoDatabaseSnapshotListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoDatabase;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
+    }
+
+    async fn get_cardano_node_ledger_state_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoNodeLedgerStateSnapshotListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoNodeLedgerState;
         let entities = self
             .signed_entity_storer
             .get_last_signed_entities_by_type(&signed_entity_type_id, limit)

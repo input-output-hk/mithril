@@ -4,17 +4,18 @@ use serde::{Deserialize, Serialize};
 use mithril_common::StdError;
 use mithril_common::crypto_helper::ProtocolParameters;
 use mithril_common::entities::{
-    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntityType, Snapshot, StakeDistribution,
+    BlockNumber, CardanoDatabaseSnapshot, CardanoNodeLedgerStateSnapshot, Epoch, SignedEntityType,
+    Snapshot, StakeDistribution,
 };
 #[cfg(test)]
 use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
 use mithril_common::messages::{
     CardanoBlocksTransactionsSnapshotListItemMessage, CardanoBlocksTransactionsSnapshotMessage,
     CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotMessage,
-    CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
-    CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
-    MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
-    SignerWithStakeMessagePart,
+    CardanoNodeLedgerStateSnapshotListItemMessage, CardanoStakeDistributionListItemMessage,
+    CardanoStakeDistributionMessage, CardanoTransactionSnapshotListItemMessage,
+    CardanoTransactionSnapshotMessage, MithrilStakeDistributionListItemMessage,
+    MithrilStakeDistributionMessage, SignerWithStakeMessagePart,
 };
 use mithril_common::signable_builder::{Artifact, SignedEntity};
 use mithril_persistence::database::Hydrator;
@@ -244,6 +245,24 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotListItemMessage {
         };
 
         Ok(cardano_database_snapshot_list_item_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoNodeLedgerStateSnapshotListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        let artifact = serde_json::from_str::<CardanoNodeLedgerStateSnapshot>(&value.artifact)?;
+        let cardano_node_ledger_state_snapshot_list_item_message =
+            CardanoNodeLedgerStateSnapshotListItemMessage {
+                hash: artifact.hash,
+                beacon: artifact.beacon,
+                certificate_hash: value.certificate_id,
+                cardano_node_version: artifact.cardano_node_version,
+                created_at: value.created_at,
+            };
+
+        Ok(cardano_node_ledger_state_snapshot_list_item_message)
     }
 }
 

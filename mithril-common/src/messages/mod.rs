@@ -8,6 +8,7 @@ mod cardano_database;
 mod cardano_database_digest_list;
 mod cardano_database_immutable_files_restored;
 mod cardano_database_list;
+mod cardano_node_ledger_state_list;
 mod cardano_stake_distribution;
 mod cardano_stake_distribution_list;
 mod cardano_transaction_snapshot;
@@ -42,6 +43,9 @@ pub use cardano_database_digest_list::{
 pub use cardano_database_immutable_files_restored::CardanoDatabaseImmutableFilesRestoredMessage;
 pub use cardano_database_list::{
     CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotListMessage,
+};
+pub use cardano_node_ledger_state_list::{
+    CardanoNodeLedgerStateSnapshotListItemMessage, CardanoNodeLedgerStateSnapshotListMessage,
 };
 pub use cardano_stake_distribution::CardanoStakeDistributionMessage;
 pub use cardano_stake_distribution_list::{
