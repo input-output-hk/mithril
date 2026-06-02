@@ -84,7 +84,7 @@ impl CertificatesHashMigrator {
             };
 
             if let Some(new_hash) = {
-                let computed_hash = certificate.compute_hash();
+                let computed_hash = certificate.try_compute_hash()?;
                 // return none if the hash did not change
                 (computed_hash != certificate.hash).then_some(computed_hash)
             } {
