@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.10.27"
+version = "0.10.28"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -15,7 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 default = ["num-integer-backend"]
- # For benchmarking
+# For benchmarking
 benchmark-internals = []
 # Enable experimental SNARK support 
 future_snark = [
@@ -31,7 +31,8 @@ future_snark = [
     "dep:sha2",
     "dep:rand_chacha",
     "dep:reqwest",
-    "rustls", # Temporarily activate rustls before it is activated in the caller
+    # Temporarily activate rustls before it is activated in the caller
+    "rustls",
 ]
 # TLS backend for the SRS download client (used by `future_snark`).
 # Exactly one of these must be enabled together with `future_snark`.
@@ -50,10 +51,11 @@ digest = { workspace = true }
 ff = { version = "0.13.1", optional = true }
 group = { version = "0.13.0", optional = true }
 hex = { workspace = true }
-midnight-circuits = { version = "6.0.0", optional = true }
-midnight-curves = { version = "0.2.0", optional = true }
-midnight-proofs = { version = "0.7.0", optional = true }
-midnight-zk-stdlib = { version = "1.0.0", optional = true }
+# Pin `midnight` crates. Updates must be done following this runbook: `<repository_root>/docs/runbook/update-circuit-keys`
+midnight-circuits = { version = "=6.0.0", optional = true }
+midnight-curves = { version = "=0.2.0", optional = true }
+midnight-proofs = { version = "=0.7.1", optional = true }
+midnight-zk-stdlib = { version = "=1.0.0", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
 num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2.19", optional = true }
@@ -78,10 +80,10 @@ num-bigint = { version = "0.4.6", optional = true }
 num-rational = { version = "0.4.2", optional = true }
 num-traits = { version = "0.2.19", optional = true }
 # only unix supports the rug backend
-rug = { version = "1.29.0", optional = true }
+rug = { version = "1.30.0", optional = true }
 
 [dev-dependencies]
-blake2b_simd = "1.0.3"
+blake2b_simd = "1.0.4"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 httpmock = "0.8.3"
 num-bigint = "0.4.6"

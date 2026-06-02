@@ -11,8 +11,9 @@ clean:
 
 upgrade: clean install
 	npm install \
-		prettier@latest \
-
+		prettier@latest
+	# Apply npm's recommended audit fixes
+	npm audit fix
 
 lint:
 	npm run pretty:check

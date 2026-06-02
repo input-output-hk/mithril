@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.9.2"
+version = "0.9.3"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -18,7 +18,7 @@ future_snark = ["mithril-common/future_snark"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-blockfrost = { version = "1.2.3", default-features = false, features = ["rustls"] }
+blockfrost = { version = "1.2.4", default-features = false, features = ["rustls"] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
@@ -53,26 +53,26 @@ slog = { workspace = true, features = ["max_level_trace", "release_max_level_deb
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 sqlite = { version = "0.37.0", features = ["bundled"] }
-tar = "0.4.45"
+tar = "0.4.46"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.18", features = ["codec"] }
-uuid = { version = "1.23.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
+uuid = { version = "1.23.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 
 [target.'cfg(all(not(target_os = "windows"), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
-tikv-jemallocator = { version = "0.6.1" }
+tikv-jemallocator = { version = "0.7.0" }
 
 [target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
-mimalloc = { version = "0.1.48" }
+mimalloc = { version = "0.1.52" }
 
 [dev-dependencies]
 axum = { version = "0.8.9", features = ["json"] }
-axum-test = "20.0.0"
+axum-test = "20.1.0"
 criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
 hex = { workspace = true }
-http = "1.4.0"
+http = "1.4.1"
 httpmock = "0.8.3"
 mithril-api-spec = { path = "../internal/tests/mithril-api-spec" }
 mithril-common = { path = "../mithril-common", features = ["allow_skip_signer_certification"] }
