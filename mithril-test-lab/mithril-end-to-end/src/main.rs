@@ -19,10 +19,11 @@ use tokio::{
 
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
+use mithril_end_to_end::scenario::{FullScenario, RunOnlyScenario};
 use mithril_end_to_end::{
     AggregateSignatureType, Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError,
     Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
-    NodeVersion, RelaySigner, RetryableDevnetError, RunOnly, Signer, Spec,
+    NodeVersion, RelaySigner, RetryableDevnetError, Signer,
 };
 
 /// Tests args
@@ -474,9 +475,9 @@ impl App {
         *self.infrastructure.lock().await = Some(infrastructure.clone());
 
         let runner: StdResult<()> = match run_only_mode {
-            true => RunOnly::new(infrastructure).run().await,
+            true => RunOnlyScenario::new(infrastructure).run().await,
             false => {
-                Spec::new(
+                FullScenario::new(
                     infrastructure,
                     args.mithril.signed_entity_types,
                     args.mithril.mithril_next_era,

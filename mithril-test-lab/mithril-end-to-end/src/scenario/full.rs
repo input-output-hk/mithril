@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-pub struct Spec {
+pub struct FullScenario {
     pub infrastructure: Arc<MithrilInfrastructure>,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_blocks_transactions: bool,
@@ -26,7 +26,7 @@ pub struct Spec {
     regenesis_on_era_switch: bool,
 }
 
-impl Spec {
+impl FullScenario {
     pub fn new(
         infrastructure: Arc<MithrilInfrastructure>,
         signed_entity_types: Vec<String>,

@@ -6,11 +6,11 @@ use mithril_common::StdResult;
 
 use crate::{MithrilInfrastructure, assertions};
 
-pub struct RunOnly {
+pub struct RunOnlyScenario {
     pub infrastructure: Arc<MithrilInfrastructure>,
 }
 
-impl RunOnly {
+impl RunOnlyScenario {
     pub fn new(infrastructure: Arc<MithrilInfrastructure>) -> Self {
         Self { infrastructure }
     }
