@@ -22,6 +22,7 @@ pub struct Spec {
     is_signing_cardano_blocks_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
     is_signing_cardano_database: bool,
+    is_signing_cardano_node_ledger_state: bool,
     next_era: Option<String>,
     regenesis_on_era_switch: bool,
 }
@@ -58,6 +59,8 @@ impl Spec {
                 .contains(&SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string()),
             is_signing_cardano_database: signed_entity_types
                 .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
+            is_signing_cardano_node_ledger_state: signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoNodeLedgerState.to_string()),
             next_era,
             regenesis_on_era_switch,
         }
@@ -362,6 +365,19 @@ impl Spec {
                 )
                 .await?;
             }
+        }
+
+        if self.is_signing_cardano_node_ledger_state {
+            let last_snapshot =
+                assertions::assert_node_producing_cardano_node_ledger_state_snapshot(aggregator)
+                    .await?;
+
+            assertions::assert_is_creating_certificate_with_enough_signers(
+                aggregator,
+                &last_snapshot.certificate_hash,
+                infrastructure.signers().len(),
+            )
+            .await?;
         }
 
         Ok(target_epoch)

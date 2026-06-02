@@ -11,7 +11,8 @@ use mithril_common::{
     messages::{
         CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
         CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
-        CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
+        CardanoDatabaseSnapshotMessage, CardanoNodeLedgerStateSnapshotListItemMessage,
+        CardanoNodeLedgerStateSnapshotListMessage, CardanoStakeDistributionListMessage,
         CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
         CardanoTransactionSnapshotMessage, CertificateMessage, MithrilStakeDistributionListMessage,
         MithrilStakeDistributionMessage,
@@ -154,6 +155,45 @@ pub async fn assert_node_producing_cardano_database_snapshot(
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
+        )),
+    }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
+}
+
+pub async fn assert_node_producing_cardano_node_ledger_state_snapshot(
+    aggregator: &Aggregator,
+) -> StdResult<CardanoNodeLedgerStateSnapshotListItemMessage> {
+    let url = format!(
+        "{}/artifact/cardano-node-ledger-state",
+        aggregator.endpoint()
+    );
+    info!("Waiting for the aggregator to produce a Cardano node ledger state snapshot"; "aggregator" => &aggregator.name());
+
+    async fn fetch_last_cardano_node_ledger_state_snapshot_hash(
+        url: String,
+    ) -> StdResult<Option<CardanoNodeLedgerStateSnapshotListItemMessage>> {
+        match get_json_response::<CardanoNodeLedgerStateSnapshotListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([snapshot, ..]) => Ok(Some(snapshot.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!(
+                "Invalid Cardano node ledger state snapshot body: {err}",
+            )),
+        }
+    }
+
+    match attempt!(30, Duration::from_millis(2000), {
+        fetch_last_cardano_node_ledger_state_snapshot_hash(url.clone()).await
+    }) {
+        AttemptResult::Ok(snapshot) => {
+            info!("Aggregator produced a Cardano node ledger state snapshot"; "hash" => &snapshot.hash, "aggregator" => &aggregator.name());
+            Ok(snapshot)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_cardano_node_ledger_state_snapshot, no response from `{url}`"
         )),
     }
     .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
