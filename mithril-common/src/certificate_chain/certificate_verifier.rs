@@ -194,7 +194,7 @@ impl MithrilCertificateVerifier {
     }
 
     fn verify_hash_matches_content(&self, certificate: &Certificate) -> StdResult<()> {
-        if certificate.compute_hash() != certificate.hash {
+        if certificate.try_compute_hash()? != certificate.hash {
             return Err(anyhow!(CertificateVerifierError::CertificateHashUnmatch));
         }
 

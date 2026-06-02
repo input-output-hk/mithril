@@ -147,7 +147,7 @@ impl Certificate {
         certificate
     }
 
-    /// Computes the hash of a Certificate.
+    /// Computes the hash of a Certificate, propagating any serialization failure.
     ///
     /// The signature is fed into the hash via
     /// [CertificateSignature::to_bytes_hex_for_certificate_hash], which deliberately excludes
@@ -157,19 +157,27 @@ impl Certificate {
     /// dual-signature Lagrange genesis certificate hashes byte-identically to a legacy
     /// `GenesisSignature(ed)` certificate carrying the same Ed25519 signature. This is
     /// intentional, so legacy clients keep walking the chain across the Lagrange boundary.
-    pub fn compute_hash(&self) -> String {
+    pub fn try_compute_hash(&self) -> crate::StdResult<String> {
         let mut hasher = Sha256::new();
         hasher.update(self.previous_hash.as_bytes());
         hasher.update(self.epoch.to_be_bytes());
         hasher.update(self.metadata.compute_hash().as_bytes());
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
-        hasher.update(self.aggregate_verification_key.to_json_hex().unwrap().as_bytes());
+        hasher.update(self.aggregate_verification_key.to_json_hex()?.as_bytes());
         if let CertificateSignature::MultiSignature(signed_entity_type, _) = &self.signature {
             signed_entity_type.feed_hash(&mut hasher);
         }
-        hasher.update(self.signature.to_bytes_hex_for_certificate_hash().unwrap());
-        hex::encode(hasher.finalize())
+        hasher.update(self.signature.to_bytes_hex_for_certificate_hash()?);
+        Ok(hex::encode(hasher.finalize()))
+    }
+
+    /// Infallible [Self::try_compute_hash] for construction-time hashing, where the inputs were
+    /// just built and validated. Panics only on a genuinely impossible serialization bug; the
+    /// verification path uses [Self::try_compute_hash] so it cannot crash the process.
+    pub fn compute_hash(&self) -> String {
+        self.try_compute_hash()
+            .expect("certificate hashing is infallible for a well-formed certificate")
     }
 
     /// Tell if the certificate is a genesis certificate (covers both the legacy and the
