@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -27,7 +27,7 @@ use mithril_end_to_end::{
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
-pub struct Args {
+pub struct Cli {
     /// Available commands
     #[command(subcommand)]
     command: Option<EndToEndCommands>,
@@ -41,10 +41,6 @@ pub struct Args {
     #[clap(long)]
     work_directory: Option<PathBuf>,
 
-    /// Directory containing scripts to bootstrap a devnet
-    #[clap(long, default_value = "./devnet")]
-    devnet_scripts_directory: PathBuf,
-
     /// Directory to the mithril binaries
     ///
     /// It must contains the binaries of the aggregator, signer and client.
@@ -53,6 +49,41 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
+    #[command(flatten)]
+    cardano_devnet: CardanoDevnetArgs,
+
+    #[command(flatten)]
+    mithril: MithrilArgs,
+
+    #[command(flatten)]
+    network_topology: NetworkTopologyArgs,
+
+    #[command(flatten)]
+    scenario: ScenarioArgs,
+
+    /// Verbosity level
+    #[clap(
+        short,
+        long,
+        action = clap::ArgAction::Count,
+        help = "Verbosity level, add more v to increase"
+    )]
+    verbose: u8,
+}
+
+#[derive(Args, Debug, Clone)]
+struct ScenarioArgs {
+    /// Enable 'run-only' mode
+    #[clap(long)]
+    run_only: bool,
+
+    /// Will check the ledger snapshot conversion step using utxo-hd snapshot-converter
+    #[clap(long)]
+    check_client_cli_snapshot_converter: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+struct NetworkTopologyArgs {
     /// Number of aggregators
     #[clap(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..))]
     number_of_aggregators: u8,
@@ -61,22 +92,40 @@ pub struct Args {
     #[clap(long, default_value_t = 2, value_parser = clap::value_parser!(u8).range(1..))]
     number_of_signers: u8,
 
-    /// Length of a Cardano slot in the devnet (in s)
-    #[clap(long, default_value_t = 0.10)]
-    cardano_slot_length: f64,
+    /// Use Mithril relays
+    #[clap(long)]
+    use_relays: bool,
 
-    /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 30.0)]
-    cardano_epoch_length: f64,
+    /// Signer registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
+    #[clap(long, default_value = "passthrough")]
+    relay_signer_registration_mode: String,
 
-    /// Cardano node version, must be a valid semver version
-    #[clap(long, default_value = "11.0.1")]
-    cardano_node_version: semver::Version,
+    /// Signature registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
+    #[clap(long, default_value = "p2p")]
+    relay_signature_registration_mode: String,
 
-    /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
-    #[clap(long, default_value_t = 0)]
-    cardano_hard_fork_latest_era_at_epoch: u16,
+    /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
+    #[clap(long, default_value = "false")]
+    use_p2p_passive_relays: bool,
 
+    /// Use DMQ protocol (used to broadcast signatures)
+    #[clap(long)]
+    use_dmq: bool,
+
+    /// DMQ node flavor (used only when 'use_dmq' is set, can be 'haskell' or 'fake')
+    ///
+    /// 'haskell': will use the DMQ network created within the 'cardano-devnet'
+    /// 'fake': will use a fake DMQ network within created with the Mithril relay
+    #[arg(long, value_enum, default_value = "haskell")]
+    dmq_node_flavor: Option<DmqNodeFlavor>,
+
+    /// Haskell DMQ node version
+    #[clap(long)]
+    dmq_node_version: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+struct MithrilArgs {
     /// Mithril run interval for nodes (in ms)
     #[clap(long, default_value_t = 125)]
     mithril_run_interval: u32,
@@ -109,48 +158,32 @@ pub struct Args {
     #[clap(long, value_enum, default_value = "Concatenation")]
     aggregate_signature_type: AggregateSignatureType,
 
-    /// Enable run only mode
-    #[clap(long)]
-    run_only: bool,
-
-    /// Will check the ledger snapshot conversion step using utxo-hd snapshot-converter
-    #[clap(long)]
-    check_client_cli_snapshot_converter: bool,
-
-    /// Use Mithril relays
-    #[clap(long)]
-    use_relays: bool,
-
-    /// Signer registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
-    #[clap(long, default_value = "passthrough")]
-    relay_signer_registration_mode: String,
-
-    /// Signature registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
-    #[clap(long, default_value = "p2p")]
-    relay_signature_registration_mode: String,
-
-    /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
-    #[clap(long, default_value = "false")]
-    use_p2p_passive_relays: bool,
-
-    /// Skip the signature delayer
+    /// Skip the signature delayer in mithril-signer
     #[clap(long)]
     skip_signature_delayer: bool,
+}
 
-    /// Use DMQ protocol (used to broadcast signatures)
-    #[clap(long)]
-    use_dmq: bool,
+#[derive(Args, Debug, Clone)]
+struct CardanoDevnetArgs {
+    /// Directory containing scripts to bootstrap a devnet
+    #[clap(long, default_value = "./devnet")]
+    devnet_scripts_directory: PathBuf,
 
-    /// DMQ node flavor (used only when 'use_dmq' is set, can be 'haskell' or 'fake')
-    ///
-    /// 'haskell': will use the DMQ network created within the 'cardano-devnet'
-    /// 'fake': will use a fake DMQ network within created with the Mithril relay
-    #[arg(long, value_enum, default_value = "haskell")]
-    dmq_node_flavor: Option<DmqNodeFlavor>,
+    /// Length of a Cardano slot in the devnet (in s)
+    #[clap(long, default_value_t = 0.10)]
+    cardano_slot_length: f64,
 
-    /// Haskell DMQ node version
-    #[clap(long)]
-    dmq_node_version: Option<String>,
+    /// Length of a Cardano epoch in the devnet (in s)
+    #[clap(long, default_value_t = 30.0)]
+    cardano_epoch_length: f64,
+
+    /// Cardano node version, must be a valid semver version
+    #[clap(long, default_value = "11.0.1")]
+    cardano_node_version: semver::Version,
+
+    /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
+    #[clap(long, default_value_t = 0)]
+    cardano_hard_fork_latest_era_at_epoch: u16,
 
     /// Skip cardano binaries download
     /// (will use the ones in the `bin` folder of the `Args::devnet_scripts_directory`, which defaults to `./devnet/bin`)
@@ -160,18 +193,9 @@ pub struct Args {
     /// URL to download cardano binaries from (if not set, it will default to the official cardano releases)
     #[clap(long)]
     cardano_binary_url: Option<String>,
-
-    /// Verbosity level
-    #[clap(
-        short,
-        long,
-        action = clap::ArgAction::Count,
-        help = "Verbosity level, add more v to increase"
-    )]
-    verbose: u8,
 }
 
-impl Args {
+impl Cli {
     fn log_level(&self) -> Level {
         match self.verbose {
             0 => Level::Error,
@@ -183,7 +207,7 @@ impl Args {
     }
 
     fn validate(&self) -> StdResult<()> {
-        if !self.use_relays && self.number_of_aggregators >= 2 {
+        if !self.network_topology.use_relays && self.network_topology.number_of_aggregators >= 2 {
             return Err(anyhow!(
                 "The 'use_relays' parameter must be activated to run more than one aggregator"
             ));
@@ -209,11 +233,11 @@ fn main() -> AppResult {
 }
 
 async fn main_exec() -> StdResult<()> {
-    let args = Args::parse();
+    let args = Cli::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
-        return cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message));
+        return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
     }
 
     let work_dir = {
@@ -360,21 +384,22 @@ impl App {
 
     pub async fn run(
         &mut self,
-        args: Args,
+        args: Cli,
         work_dir: PathBuf,
         store_dir: PathBuf,
         artifacts_dir: PathBuf,
     ) -> StdResult<()> {
         let server_port = 8080;
         args.validate()?;
-        let run_only_mode = args.run_only;
-        let check_client_cli_snapshot_converter = args.check_client_cli_snapshot_converter;
-        let use_relays = args.use_relays;
-        let relay_signer_registration_mode = args.relay_signer_registration_mode;
-        let relay_signature_registration_mode = args.relay_signature_registration_mode;
-        let use_dmq = args.use_dmq;
+        let run_only_mode = args.scenario.run_only;
+        let check_client_cli_snapshot_converter = args.scenario.check_client_cli_snapshot_converter;
+        let use_relays = args.network_topology.use_relays;
+        let relay_signer_registration_mode = args.network_topology.relay_signer_registration_mode;
+        let relay_signature_registration_mode =
+            args.network_topology.relay_signature_registration_mode;
+        let use_dmq = args.network_topology.use_dmq;
 
-        let use_p2p_passive_relays = args.use_p2p_passive_relays;
+        let use_p2p_passive_relays = args.network_topology.use_p2p_passive_relays;
 
         CompatibilityChecker::default().check(BTreeMap::from([
             (
@@ -393,51 +418,56 @@ impl App {
                 RelaySigner::BIN_NAME,
                 NodeVersion::fetch_semver(RelaySigner::BIN_NAME, &args.bin_directory)?,
             ),
-            ("cardano-node", args.cardano_node_version.to_owned()),
+            (
+                "cardano-node",
+                args.cardano_devnet.cardano_node_version.to_owned(),
+            ),
         ]))?;
 
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
-            devnet_scripts_dir: args.devnet_scripts_directory,
+            devnet_scripts_dir: args.cardano_devnet.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
-            number_of_pool_nodes: args.number_of_signers,
-            number_of_full_nodes: args.number_of_aggregators,
-            cardano_slot_length: args.cardano_slot_length,
-            cardano_epoch_length: args.cardano_epoch_length,
-            cardano_node_version: args.cardano_node_version.to_owned(),
-            dmq_node_version: args.dmq_node_version.clone(),
-            cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
-            skip_cardano_bin_download: args.skip_cardano_bin_download,
-            cardano_binary_url: args.cardano_binary_url.clone(),
+            number_of_pool_nodes: args.network_topology.number_of_signers,
+            number_of_full_nodes: args.network_topology.number_of_aggregators,
+            cardano_slot_length: args.cardano_devnet.cardano_slot_length,
+            cardano_epoch_length: args.cardano_devnet.cardano_epoch_length,
+            cardano_node_version: args.cardano_devnet.cardano_node_version.to_owned(),
+            dmq_node_version: args.network_topology.dmq_node_version.clone(),
+            cardano_hard_fork_latest_era_at_epoch: args
+                .cardano_devnet
+                .cardano_hard_fork_latest_era_at_epoch,
+            skip_cardano_bin_download: args.cardano_devnet.skip_cardano_bin_download,
+            cardano_binary_url: args.cardano_devnet.cardano_binary_url.clone(),
         })
         .await?;
         *self.devnet.lock().await = Some(devnet.clone());
 
         let infrastructure = Arc::new(
             MithrilInfrastructure::start(&MithrilInfrastructureConfig {
-                number_of_aggregators: args.number_of_aggregators,
-                number_of_signers: args.number_of_signers,
+                number_of_aggregators: args.network_topology.number_of_aggregators,
+                number_of_signers: args.network_topology.number_of_signers,
                 server_port,
                 devnet: devnet.clone(),
                 work_dir,
                 store_dir,
                 artifacts_dir,
                 bin_dir: args.bin_directory,
-                cardano_node_version: args.cardano_node_version,
-                mithril_run_interval: args.mithril_run_interval,
-                mithril_era: args.mithril_era,
-                mithril_era_reader_adapter: args.mithril_era_reader_adapter,
-                signed_entity_types: args.signed_entity_types.clone(),
-                aggregate_signature_type: args.aggregate_signature_type,
+                cardano_node_version: args.cardano_devnet.cardano_node_version,
+                mithril_run_interval: args.mithril.mithril_run_interval,
+                mithril_era: args.mithril.mithril_era,
+                mithril_era_reader_adapter: args.mithril.mithril_era_reader_adapter,
+                signed_entity_types: args.mithril.signed_entity_types.clone(),
+                aggregate_signature_type: args.mithril.aggregate_signature_type,
                 run_only_mode,
                 check_client_cli_snapshot_converter,
                 use_dmq,
-                dmq_node_flavor: args.dmq_node_flavor,
+                dmq_node_flavor: args.network_topology.dmq_node_flavor,
                 use_relays,
                 relay_signer_registration_mode,
                 relay_signature_registration_mode,
-                skip_signature_delayer: args.skip_signature_delayer,
+                skip_signature_delayer: args.mithril.skip_signature_delayer,
                 use_p2p_passive_relays,
-                use_era_specific_work_dir: args.mithril_next_era.is_some(),
+                use_era_specific_work_dir: args.mithril.mithril_next_era.is_some(),
             })
             .await?,
         );
@@ -448,9 +478,9 @@ impl App {
             false => {
                 Spec::new(
                     infrastructure,
-                    args.signed_entity_types,
-                    args.mithril_next_era,
-                    args.mithril_era_regenesis_on_switch,
+                    args.mithril.signed_entity_types,
+                    args.mithril.mithril_next_era,
+                    args.mithril.mithril_era_regenesis_on_switch,
                 )
                 .run()
                 .await
@@ -501,7 +531,7 @@ impl AppStopper {
     }
 }
 
-fn build_logger(args: &Args) -> Logger {
+fn build_logger(args: &Cli) -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();
@@ -589,12 +619,12 @@ mod tests {
 
     #[test]
     fn args_fails_validation() {
-        let args = Args::parse_from(["", "--number-of-aggregators", "2"]);
+        let args = Cli::parse_from(["", "--number-of-aggregators", "2"]);
         args.validate().expect_err(
             "validate should fail with more than one aggregator if p2p network is not used",
         );
 
-        let args = Args::parse_from(["", "--use-relays", "--number-of-aggregators", "2"]);
+        let args = Cli::parse_from(["", "--use-relays", "--number-of-aggregators", "2"]);
         args.validate()
             .expect("validate should succeed with more than one aggregator if p2p network is used");
     }
