@@ -39,3 +39,6 @@ pub(crate) use halo2_snark::{
     SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, SnarkProver,
     compute_target_value_for_snark_lottery,
 };
+
+#[cfg(all(test, feature = "future_snark"))]
+pub(crate) use halo2_snark::RIGID_SLOT_BYTES as SNARK_AGGREGATE_VERIFICATION_KEY_RIGID_SLOT_BYTES;

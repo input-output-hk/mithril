@@ -11,7 +11,7 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
 use crate::circuits::halo2_ivc::protocol_message::{
-    ProtocolMessage, ProtocolMessagePartKey, aggregate_verification_key_message_part,
+    DynamicProtocolMessagePartKey, ProtocolMessage,
 };
 use crate::circuits::halo2_ivc::state::{State, Witness, fixed_bases_and_names};
 use crate::circuits::halo2_ivc::types::{
@@ -35,39 +35,30 @@ use super::setup::{AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE};
 /// the protocol-message layout by hand.
 pub(super) fn build_genesis_protocol_message(
     aggregate_verification_key: &AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-    params_hex: &str,
+    protocol_parameters: [u8; 32],
     genesis_epoch: u64,
 ) -> ProtocolMessage {
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    protocol_message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode([2u8; 32]),
     );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        aggregate_verification_key_message_part(aggregate_verification_key)
-            .expect("aggregate verification key message part should be produced"),
-    );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        params_hex.to_owned(),
-    );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::CurrentEpoch,
-        genesis_epoch.to_string(),
-    );
+    protocol_message
+        .set_next_snark_aggregate_verification_key(aggregate_verification_key)
+        .expect("aggregate verification key rigid slot should be produced");
+    protocol_message.set_next_protocol_parameters(protocol_parameters);
+    protocol_message.set_current_epoch(genesis_epoch);
     protocol_message
 }
 
 /// Returns the raw genesis protocol-message preimage bytes produced by the serializer.
 pub(crate) fn build_genesis_protocol_message_preimage(setup: &AssetGenerationSetup) -> Vec<u8> {
-    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
     build_genesis_protocol_message(
         &setup.aggregate_verification_key,
-        &params_hex,
+        setup.genesis_next_protocol_params.to_bytes_le(),
         GENESIS_EPOCH,
     )
-    .try_rigid_preimage::<MithrilMembershipDigest>()
+    .try_rigid_preimage()
     .expect("genesis protocol message preimage should succeed")
     .to_vec()
 }
@@ -293,26 +284,20 @@ pub(crate) fn next_message_and_preimage_for_step(
 ) -> (F, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
-    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
 
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    protocol_message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode(vec![(step as u8) + 2; 32]),
     );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        aggregate_verification_key_message_part(&setup.aggregate_verification_key)
-            .expect("aggregate verification key message part should be produced"),
-    );
-    protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::CurrentEpoch,
-        (current_epoch + 1).to_string(),
-    );
+    protocol_message
+        .set_next_snark_aggregate_verification_key(&setup.aggregate_verification_key)
+        .expect("aggregate verification key rigid slot should be produced");
+    protocol_message.set_next_protocol_parameters(setup.genesis_next_protocol_params.to_bytes_le());
+    protocol_message.set_current_epoch(current_epoch + 1);
 
     let preimage = protocol_message
-        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .try_rigid_preimage()
         .expect("protocol message preimage should succeed");
     let message_hash = Sha256::digest(preimage);
     (
@@ -329,26 +314,20 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
 ) -> (F, Vec<u8>) {
     let current_epoch = current_epoch_from_state(previous_state);
     let step = step_index_from_state(previous_state);
-    let params_hex = hex::encode(setup.genesis_next_protocol_params.to_bytes_le());
 
     let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    protocol_message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode(vec![(step as u8) + 2; 32]),
     );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        aggregate_verification_key_message_part(&setup.aggregate_verification_key)
-            .expect("aggregate verification key message part should be produced"),
-    );
-    protocol_message.set_message_part(ProtocolMessagePartKey::NextProtocolParameters, params_hex);
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::CurrentEpoch,
-        current_epoch.to_string(),
-    );
+    protocol_message
+        .set_next_snark_aggregate_verification_key(&setup.aggregate_verification_key)
+        .expect("aggregate verification key rigid slot should be produced");
+    protocol_message.set_next_protocol_parameters(setup.genesis_next_protocol_params.to_bytes_le());
+    protocol_message.set_current_epoch(current_epoch);
 
     let preimage = protocol_message
-        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .try_rigid_preimage()
         .expect("protocol message preimage should succeed");
     let message_hash = Sha256::digest(preimage);
     (

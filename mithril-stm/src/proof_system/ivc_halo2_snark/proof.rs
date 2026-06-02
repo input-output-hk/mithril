@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// Per-session IVC prover handle.
-// TODO: remove this allow dead_code directive when the IVC prover is wired into STM
+// Kept until the IVC prover is wired into STM.
 #[allow(dead_code)]
 pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     /// Shared, cached setup (SRS, verifying keys, proving key, fixed-base maps).
@@ -21,7 +21,7 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 }
 
 /// IVC proof emitted at the end of a proving step.
-// TODO: remove this allow dead_code directive when the IVC prover emits this proof
+// Kept until the IVC prover emits recursive proofs.
 #[allow(dead_code)]
 pub(crate) struct IvcProof {
     /// Externally-verifiable proof bytes (Blake2b transcript).

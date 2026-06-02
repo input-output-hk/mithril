@@ -13,7 +13,7 @@ use crate::{
 use super::proof::IvcProof;
 
 /// Caller-owned bridge between consecutive IVC proving steps.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
+// Kept until the IVC prover carries state between proving steps.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct IvcRollingState {
@@ -84,7 +84,7 @@ impl IvcRollingState {
         &self.state
     }
 
-    /// Returns the bytes of the last IVC proof.
+    /// Returns the last IVC proof bytes wrapper.
     pub(crate) fn ivc_proof(&self) -> &IvcProofBytes {
         &self.ivc_proof
     }

@@ -28,7 +28,7 @@ use crate::{
 /// and values must agree across the three maps for any shared key. The in-circuit IVC
 /// verifier gadget builds a single merged fixed-base list from these names; any mismatch
 /// here produces folded accumulators the circuit will reject.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this setup
+// Kept until the IVC prover loads production setup artifacts.
 #[allow(dead_code)]
 pub(crate) struct IvcSetup {
     /// KZG structured reference string.

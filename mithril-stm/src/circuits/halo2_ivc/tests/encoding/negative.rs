@@ -7,9 +7,7 @@ use midnight_circuits::types::Instantiable;
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
     PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
-    protocol_message::{
-        ProtocolMessage, ProtocolMessagePartKey, aggregate_verification_key_message_part,
-    },
+    protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
     state::State,
     tests::common::{
         asset_readers::{
@@ -29,36 +27,17 @@ use crate::circuits::halo2_ivc::{
 };
 use crate::{AggregateVerificationKeyForSnark, MithrilMembershipDigest};
 
-fn valid_snark_aggregate_verification_key_hex() -> String {
+fn valid_snark_aggregate_verification_key()
+-> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
     let mut avk_input = [0u8; 40];
     avk_input[39] = 1;
-    let avk = AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_input)
-        .expect("valid test aggregate verification key should decode");
-    aggregate_verification_key_message_part(&avk)
-        .expect("test aggregate verification key should serialize")
-}
-
-fn valid_rigid_protocol_message() -> ProtocolMessage {
-    let mut message = ProtocolMessage::new();
-    message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
-        hex::encode([2u8; 32]),
-    );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        valid_snark_aggregate_verification_key_hex(),
-    );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        hex::encode([7u8; 32]),
-    );
-    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
-    message
+    AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_input)
+        .expect("valid test aggregate verification key should decode")
 }
 
 fn assert_rigid_preimage_rejects_with_message(message: ProtocolMessage, expected: &str) {
     let error = message
-        .try_rigid_preimage::<MithrilMembershipDigest>()
+        .try_rigid_preimage()
         .expect_err("rigid preimage should reject invalid message");
 
     assert!(
@@ -70,15 +49,12 @@ fn assert_rigid_preimage_rejects_with_message(message: ProtocolMessage, expected
 #[test]
 fn rigid_preimage_rejects_missing_next_snark_aggregate_verification_key() {
     let mut message = ProtocolMessage::new();
-    message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode([2u8; 32]),
     );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        hex::encode([7u8; 32]),
-    );
-    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+    message.set_next_protocol_parameters([7u8; 32]);
+    message.set_current_epoch(42);
 
     assert_rigid_preimage_rejects_with_message(
         message,
@@ -87,45 +63,16 @@ fn rigid_preimage_rejects_missing_next_snark_aggregate_verification_key() {
 }
 
 #[test]
-fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_hex() {
-    let mut message = valid_rigid_protocol_message();
-    message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        "not-hex".to_string(),
-    );
-
-    assert_rigid_preimage_rejects_with_message(
-        message,
-        "invalid next SNARK aggregate verification key hex",
-    );
-}
-
-#[test]
-fn rigid_preimage_rejects_invalid_next_snark_aggregate_verification_key_bytes() {
-    let mut message = valid_rigid_protocol_message();
-    message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        hex::encode([0u8; 7]),
-    );
-
-    assert_rigid_preimage_rejects_with_message(
-        message,
-        "invalid next SNARK aggregate verification key bytes",
-    );
-}
-
-#[test]
 fn rigid_preimage_rejects_missing_next_protocol_parameters() {
     let mut message = ProtocolMessage::new();
-    message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode([2u8; 32]),
     );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        valid_snark_aggregate_verification_key_hex(),
-    );
-    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "42".to_string());
+    message
+        .set_next_snark_aggregate_verification_key(&valid_snark_aggregate_verification_key())
+        .expect("test aggregate verification key should project to rigid slot");
+    message.set_current_epoch(42);
 
     assert_rigid_preimage_rejects_with_message(
         message,
@@ -134,55 +81,18 @@ fn rigid_preimage_rejects_missing_next_protocol_parameters() {
 }
 
 #[test]
-fn rigid_preimage_rejects_invalid_next_protocol_parameters_hex() {
-    let mut message = valid_rigid_protocol_message();
-    message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        "not-hex".to_string(),
-    );
-
-    assert_rigid_preimage_rejects_with_message(message, "invalid next protocol parameters hex");
-}
-
-#[test]
-fn rigid_preimage_rejects_wrong_next_protocol_parameters_width() {
-    let mut message = valid_rigid_protocol_message();
-    message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        hex::encode([7u8; 31]),
-    );
-
-    assert_rigid_preimage_rejects_with_message(
-        message,
-        "next protocol parameters slot must be exactly 32 bytes, got 31",
-    );
-}
-
-#[test]
 fn rigid_preimage_rejects_missing_current_epoch() {
     let mut message = ProtocolMessage::new();
-    message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
+    message.set_dynamic_message_part(
+        DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode([2u8; 32]),
     );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-        valid_snark_aggregate_verification_key_hex(),
-    );
-    message.set_message_part(
-        ProtocolMessagePartKey::NextProtocolParameters,
-        hex::encode([7u8; 32]),
-    );
+    message
+        .set_next_snark_aggregate_verification_key(&valid_snark_aggregate_verification_key())
+        .expect("test aggregate verification key should project to rigid slot");
+    message.set_next_protocol_parameters([7u8; 32]);
 
     assert_rigid_preimage_rejects_with_message(message, "current epoch slot is required");
-}
-
-#[test]
-fn rigid_preimage_rejects_invalid_current_epoch() {
-    let mut message = valid_rigid_protocol_message();
-    message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "oops".to_string());
-
-    assert_rigid_preimage_rejects_with_message(message, "invalid current epoch slot");
 }
 
 #[test]

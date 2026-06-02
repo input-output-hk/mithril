@@ -11,7 +11,7 @@ use crate::{
 
 /// Per-call external input carrying the certificate's epoch identifier and the
 /// upcoming epoch's announcements.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this epoch data
+// Kept until the IVC prover consumes epoch data.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub(crate) struct EpochData {

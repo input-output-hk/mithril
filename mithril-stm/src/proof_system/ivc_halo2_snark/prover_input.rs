@@ -8,7 +8,7 @@ use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use crate::circuits::halo2_ivc::state::{State, Witness};
 
 /// Pre-circuit inputs consumed by the IVC prover's circuit-construction and proof-generation steps.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this input
+// Kept until the IVC prover builds circuit inputs.
 #[allow(dead_code)]
 pub(crate) struct IvcProverInput {
     /// In-circuit witness for the new step.

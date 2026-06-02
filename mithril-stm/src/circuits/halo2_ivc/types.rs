@@ -53,10 +53,9 @@ macro_rules! u64_wrapper {
         pub(crate) struct $name(u64);
 
         impl $name {
-            pub(crate) const ZERO: Self = Self(0);
+            pub(crate) const ZERO: Self = Self::new(0);
 
-            #[cfg(test)]
-            pub(crate) fn new(value: u64) -> Self {
+            pub(crate) const fn new(value: u64) -> Self {
                 Self(value)
             }
 
@@ -76,18 +75,6 @@ macro_rules! u64_wrapper {
                     .try_into()
                     .expect("field byte representation should contain at least 8 bytes");
                 Self(u64::from_le_bytes(low_bytes))
-            }
-        }
-
-        impl From<u64> for $name {
-            fn from(value: u64) -> Self {
-                Self(value)
-            }
-        }
-
-        impl From<$name> for u64 {
-            fn from(value: $name) -> Self {
-                value.0
             }
         }
     };
