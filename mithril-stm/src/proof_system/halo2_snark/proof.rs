@@ -89,7 +89,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         })
     }
 
-    // Kept until certificate SNARK proofs are fed into the IVC prover.
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
     #[allow(dead_code)]
     pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
         CertificateProofBytes::from_certificate_circuit_proof_bytes(self.circuit_proof)

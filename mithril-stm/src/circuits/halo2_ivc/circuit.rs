@@ -36,7 +36,7 @@ pub struct IvcCircuit {
 
 impl IvcCircuit {
     /// Validates that the self VK degree matches the IVC circuit degree constant K.
-    // TODO: remove this allow dead_code directive when the IVC prover consumes this circuit
+    // Kept until the IVC prover validates recursive circuit keys.
     #[allow(dead_code)]
     pub(crate) fn validate_self_vk_degree(
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
@@ -91,7 +91,7 @@ impl IvcCircuit {
     /// `configure_ivc_circuit` is sufficient for all chips. Returns an error containing
     /// [`IvcCircuitError::SelfVkDegreeMismatch`] or [`IvcCircuitError::InsufficientAdviceColumns`]
     /// / [`IvcCircuitError::InsufficientFixedColumns`] if either check fails.
-    // TODO: remove this allow dead_code directive when the IVC prover consumes this circuit
+    // Kept until the IVC prover constructs recursive circuit instances.
     #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn try_new(

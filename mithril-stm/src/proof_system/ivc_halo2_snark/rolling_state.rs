@@ -84,7 +84,7 @@ impl IvcRollingState {
         &self.state
     }
 
-    /// Returns the bytes of the last IVC proof.
+    /// Returns the last IVC proof bytes wrapper.
     pub(crate) fn ivc_proof(&self) -> &IvcProofBytes {
         &self.ivc_proof
     }

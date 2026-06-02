@@ -309,11 +309,13 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_next_protocol_params = F::from(7u64);
 
     let genesis_message = {
-        let params_hex = hex::encode(genesis_next_protocol_params.to_bytes_le());
-        let protocol_message =
-            build_genesis_protocol_message(&aggregate_verification_key, &params_hex, genesis_epoch);
+        let protocol_message = build_genesis_protocol_message(
+            &aggregate_verification_key,
+            genesis_next_protocol_params.to_bytes_le(),
+            genesis_epoch,
+        );
         let preimage = protocol_message
-            .try_rigid_preimage::<MithrilMembershipDigest>()
+            .try_rigid_preimage()
             .expect("genesis protocol message preimage should succeed");
         let message_hash = Sha256::digest(preimage);
         jubjub_base_from_raw_le_bytes(message_hash.as_ref())
