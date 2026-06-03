@@ -131,6 +131,7 @@ impl GenesisSigner {
             SupportedEra::Lagrange => {
                 let schnorr_signer =
                     self.schnorr.as_ref().ok_or(GenesisBundleError::LegacySigningKey)?;
+                protocol_message.check_rigid_integrity()?;
                 let preimage = protocol_message.rigid_preimage();
                 if preimage.len() != PREIMAGE_SIZE {
                     return Err(anyhow!(

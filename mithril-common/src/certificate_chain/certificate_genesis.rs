@@ -95,6 +95,10 @@ impl CertificateGenesisProducer {
             ProtocolMessagePartKey::CurrentEpoch,
             genesis_epoch.to_string(),
         );
+
+        #[cfg(feature = "future_snark")]
+        protocol_message.check_rigid_integrity()?;
+
         Ok(protocol_message)
     }
 
@@ -241,8 +245,9 @@ mod tests {
     mod era_dispatched_genesis_certificate {
         use crate::crypto_helper::{
             GenesisBundleError, GenesisEd25519Signer, GenesisSchnorrVerifier, GenesisSigner,
-            PREIMAGE_SIZE, sha256_digest,
+            PREIMAGE_SIZE, ProtocolAggregateVerificationKeyForConcatenation, sha256_digest,
         };
+        use crate::entities::RigidProtocolMessageIntegrityError;
 
         use super::*;
 
@@ -277,6 +282,36 @@ mod tests {
             assert!(matches!(
                 certificate.signature,
                 CertificateSignature::GenesisSignature(_)
+            ));
+        }
+
+        #[test]
+        fn lagrange_genesis_rejects_an_aggregate_verification_key_without_its_snark_half() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
+            let aggregate_verification_key_without_snark = ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[0],
+                )
+                .unwrap()
+                .into(),
+                None,
+            );
+
+            let error = producer
+                .create_genesis_protocol_message(
+                    &fixture.protocol_parameters(),
+                    &aggregate_verification_key_without_snark,
+                    &Epoch(1),
+                    SupportedEra::Lagrange,
+                )
+                .expect_err(
+                    "Lagrange genesis must reject an aggregate verification key without its SNARK half",
+                );
+
+            assert!(matches!(
+                error.downcast_ref::<RigidProtocolMessageIntegrityError>(),
+                Some(RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey)
             ));
         }
 
