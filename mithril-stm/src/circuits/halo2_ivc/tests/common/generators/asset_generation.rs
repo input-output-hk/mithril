@@ -317,9 +317,11 @@ fn build_recursive_step_output_proof(
 ) -> Vec<u8> {
     let mut recursive_step_output_random_generator = OsRng;
 
-    // 4.1 (prover). Build the recursive circuit for this step. The witness
-    // includes the old chain state, the new certificate proof, the previous IVC
-    // proof, and the accumulator carried by the old chain state.
+    // 4.1 (prover). Prepare the recursive proof input for this step. This does
+    // not define the constraint system; `try_new` fills an `IvcCircuit` instance
+    // with the concrete data that `prove_blake2b_ivc` will synthesize below:
+    // old chain state, new certificate proof, previous IVC proof, and the
+    // accumulator carried by the old chain state.
     let circuit = IvcCircuit::try_new(
         global.clone(),
         recursive_chain_state.state.clone(),
