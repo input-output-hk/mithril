@@ -7,9 +7,9 @@ use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::circuits::halo2_ivc::{
     Accumulator, E, F, KZGCommitmentScheme, PREIMAGE_CURRENT_EPOCH_BYTES,
-    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE, S,
-    VerifyingKey,
-    circuit::IvcCircuit,
+    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
+    PREIMAGE_SIZE, S, VerifyingKey,
+    circuit::IvcCircuitData,
     io::{Read as IvcRead, Write as IvcWrite},
     protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
     state::State,
@@ -45,7 +45,8 @@ fn build_test_message() -> (ProtocolMessage, [u8; 44]) {
         DynamicProtocolMessagePartKey::SnapshotDigest,
         hex::encode([2u8; 32]),
     );
-    message.set_next_snark_aggregate_verification_key(&avk)
+    message
+        .set_next_snark_aggregate_verification_key(&avk)
         .expect("test aggregate verification key should project to rigid slot");
     message.set_next_protocol_parameters([7u8; 32]);
     message.set_current_epoch(42);
@@ -186,7 +187,7 @@ fn vk_serialization_round_trip() {
         .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
         .expect("verifying key serialization should succeed");
 
-    let deserialized = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuit>(
+    let deserialized = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
         &mut bytes.as_slice(),
         SerdeFormat::RawBytesUnchecked,
         (),
@@ -217,14 +218,18 @@ fn rigid_preimage_length_is_190_bytes() {
 #[test]
 fn rigid_preimage_digest_label_is_at_offset_0() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(&preimage[0..6], b"digest");
 }
 
 #[test]
 fn rigid_preimage_dynamic_hash_is_at_offset_6() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     // Dynamic parts: only SnapshotDigest is non-fixed; SHA256("snapshot_digest" || hex([2u8;32]))
     let mut hasher = Sha256::new();
     hasher.update(b"snapshot_digest");
@@ -236,14 +241,18 @@ fn rigid_preimage_dynamic_hash_is_at_offset_6() {
 #[test]
 fn rigid_preimage_avk_label_is_at_offset_38() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(&preimage[38..69], b"next_aggregate_verification_key");
 }
 
 #[test]
 fn rigid_preimage_avk_slot_matches_expected_output() {
     let (message, avk_slot) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, 69..101);
     // AVK slot occupies 69..113: root(32) || zeros(4) || stake_LE(8).
     assert_eq!(&preimage[69..113], &avk_slot);
@@ -252,14 +261,18 @@ fn rigid_preimage_avk_slot_matches_expected_output() {
 #[test]
 fn rigid_preimage_params_label_is_at_offset_113() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(&preimage[113..137], b"next_protocol_parameters");
 }
 
 #[test]
 fn rigid_preimage_params_slot_matches_input() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, 137..169);
     assert_eq!(&preimage[137..169], &[7u8; 32]);
 }
@@ -267,14 +280,18 @@ fn rigid_preimage_params_slot_matches_input() {
 #[test]
 fn rigid_preimage_epoch_label_is_at_offset_169() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(&preimage[169..182], b"current_epoch");
 }
 
 #[test]
 fn rigid_preimage_epoch_slot_is_42_le() {
     let (message, _) = build_test_message();
-    let preimage = message.try_rigid_preimage().expect("try_rigid_preimage should succeed");
+    let preimage = message
+        .try_rigid_preimage()
+        .expect("try_rigid_preimage should succeed");
     assert_eq!(PREIMAGE_CURRENT_EPOCH_BYTES, 182..190);
     assert_eq!(&preimage[182..190], &42u64.to_le_bytes());
 }

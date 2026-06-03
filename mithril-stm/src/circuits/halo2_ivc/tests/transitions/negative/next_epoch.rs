@@ -122,10 +122,11 @@ mod slow {
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
         tampered_state.protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "protocol_parameters set to ONE (next-epoch: must advance to prev.next_protocol_parameters)",
         );
@@ -153,10 +154,11 @@ mod slow {
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
         tampered_state.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "merkle_tree_commitment set to ONE (next-epoch: must advance to prev.next_merkle_tree_commitment)",
         );
@@ -184,10 +186,11 @@ mod slow {
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
         tampered_state.current_epoch = EpochNumber::new(tampered_state.current_epoch.as_u64() - 1);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "current_epoch decremented (next-epoch: must increment by exactly one)",
         );

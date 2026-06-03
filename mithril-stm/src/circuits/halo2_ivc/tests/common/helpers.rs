@@ -14,7 +14,7 @@ use midnight_zk_stdlib::MidnightVK;
 
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
-    circuit::IvcCircuit,
+    circuit::IvcCircuitData,
     state::{Global, State, Witness, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
 };
@@ -131,8 +131,11 @@ pub(crate) fn build_recursive_mock_prover_setup(
 }
 
 /// Runs `MockProver` on the recursive circuit and asserts that at least one constraint fails.
-pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_inputs: Vec<F>) {
-    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+pub(crate) fn assert_recursive_mock_prover_rejects(
+    ivc_circuit_data: IvcCircuitData,
+    public_inputs: Vec<F>,
+) {
+    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
         .expect("recursive MockProver setup should succeed");
     prover
         .verify()
@@ -142,11 +145,11 @@ pub(crate) fn assert_recursive_mock_prover_rejects(circuit: IvcCircuit, public_i
 /// Runs `MockProver` and asserts all constraints hold, printing `label` on failure so
 /// the failing case is identifiable when multiple scenarios share one `#[test]` function.
 pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
-    circuit: IvcCircuit,
+    ivc_circuit_data: IvcCircuitData,
     public_inputs: Vec<F>,
     label: &str,
 ) {
-    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
         .expect("recursive MockProver setup should succeed");
     prover.verify().unwrap_or_else(|errors| {
         panic!(
@@ -159,11 +162,11 @@ pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
 /// Runs `MockProver` and asserts at least one constraint fails, printing `label` on failure
 /// so the scenario that unexpectedly passed is identifiable when multiple scenarios share one `#[test]` function.
 pub(crate) fn assert_recursive_mock_prover_rejects_with_label(
-    circuit: IvcCircuit,
+    ivc_circuit_data: IvcCircuitData,
     public_inputs: Vec<F>,
     label: &str,
 ) {
-    let prover = MockProver::run(K, &circuit, vec![vec![], public_inputs])
+    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
         .expect("recursive MockProver setup should succeed");
     assert!(
         prover.verify().is_err(),
@@ -190,7 +193,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
 
     let previous_dual_msm = verify_prepare_poseidon_recursive_proof(
         &setup.recursive_verifying_key,
-        recursive_chain_state.proof.as_bytes(),
+        recursive_chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(
@@ -263,7 +266,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
     certificate_accumulator
 }
 
-/// Builds an `IvcCircuit` with empty proof slots and a trivial accumulator for
+/// Builds an `IvcCircuitData` with empty proof slots and a trivial accumulator for
 /// MockProver-based constraint checks.
 ///
 /// MockProver evaluates algebraic constraints directly without running the
@@ -272,8 +275,8 @@ pub(crate) fn build_trivial_mock_prover_circuit(
     setup: &MockProverSetup,
     prev_state: State,
     witness: Witness,
-) -> IvcCircuit {
-    IvcCircuit::try_new(
+) -> IvcCircuitData {
+    IvcCircuitData::try_new(
         setup.global.clone(),
         prev_state,
         witness,
@@ -283,7 +286,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
         setup.certificate_verifying_key.vk(),
         &setup.recursive_verifying_key,
     )
-    .expect("valid IvcCircuit construction")
+    .expect("valid IvcCircuitData construction")
 }
 
 /// Builds the public-input vector for a MockProver-based negative test.
@@ -364,7 +367,7 @@ pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets()
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_chain_state.proof.as_bytes(),
+        recursive_chain_state.ivc_proof.as_bytes(),
         &public_inputs,
     )
     .into();

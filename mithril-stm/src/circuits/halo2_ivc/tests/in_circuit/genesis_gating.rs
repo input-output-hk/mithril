@@ -9,7 +9,7 @@ use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
-    circuit::IvcCircuit,
+    circuit::IvcCircuitData,
     state::State,
     tests::common::{
         generators::{
@@ -39,7 +39,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -49,9 +49,9 @@ mod slow {
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
         assert_recursive_mock_prover_accepts_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "garbage certificate proof bytes (64 × 0x00)",
         );
@@ -70,7 +70,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -80,9 +80,9 @@ mod slow {
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
         assert_recursive_mock_prover_accepts_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "garbage IVC proof bytes (64 × 0x00)",
         );

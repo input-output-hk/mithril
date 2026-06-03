@@ -86,8 +86,12 @@ pub const PREIMAGE_CURRENT_EPOCH_BYTES: std::ops::Range<usize> = 182..190;
 pub const PREIMAGE_NEXT_MERKLE_ROOT_BYTES: std::ops::Range<usize> = 69..101;
 pub const PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES: std::ops::Range<usize> = 137..169;
 
-pub(crate) const CERT_VK_NAME: &str = "cert_vk";
-pub(crate) const IVC_ONE_NAME: &str = "ivc_one_vk";
+pub(crate) const CERTIFICATE_VERIFICATION_KEY_NAME: &str = "cert_vk";
+pub(crate) const IVC_VERIFICATION_KEY_NAME: &str = "ivc_one_vk";
+
+// Backward-compatible aliases for non-circuit callers; circuit-local code uses the aligned names.
+pub(crate) const CERT_VK_NAME: &str = CERTIFICATE_VERIFICATION_KEY_NAME;
+pub(crate) const IVC_ONE_NAME: &str = IVC_VERIFICATION_KEY_NAME;
 
 /// Circuit verification key of the recursive circuit used for production.
 /// It is created using the circuit verification key of the non-recursive

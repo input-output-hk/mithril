@@ -5,8 +5,8 @@ use ff::Field;
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
+    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES,
+    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
     protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
     state::State,
     tests::common::{
@@ -117,7 +117,7 @@ fn next_merkle_tree_commitment_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_step_output.proof.as_bytes(),
+        recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -149,7 +149,7 @@ fn next_protocol_parameters_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_step_output.proof.as_bytes(),
+        recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -181,7 +181,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_step_output.proof.as_bytes(),
+        recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -204,11 +204,12 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.message_preimage.as_mut_bytes()[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].fill(0xff);
-        let circuit =
+        witness.message_preimage.as_mut_bytes()[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES]
+            .fill(0xff);
+        let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES] filled with 0xff",
         );
@@ -225,10 +226,10 @@ mod slow {
 
         let mut witness = build_genesis_base_case_witness(&setup);
         witness.message_preimage.as_mut_bytes()[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].fill(0xff);
-        let circuit =
+        let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES] filled with 0xff",
         );
@@ -245,10 +246,10 @@ mod slow {
 
         let mut witness = build_genesis_base_case_witness(&setup);
         witness.message_preimage.as_mut_bytes()[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
-        let circuit =
+        let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] filled with 0xff",
         );

@@ -49,7 +49,7 @@ fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
 
     let dual_msm = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_chain_state.proof.as_bytes(),
+        recursive_chain_state.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -78,7 +78,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_step_output.proof.as_bytes(),
+        recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -109,14 +109,14 @@ mod slow {
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let next_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
-        let circuit = build_trivial_mock_prover_circuit(
+        let ivc_circuit_data = build_trivial_mock_prover_circuit(
             &mock_prover_setup,
             State::genesis(),
             build_genesis_base_case_witness(&setup),
         );
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
         assert_recursive_mock_prover_accepts_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "genesis base case",
         );

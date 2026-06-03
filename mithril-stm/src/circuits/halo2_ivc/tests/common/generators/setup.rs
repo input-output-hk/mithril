@@ -20,7 +20,8 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
-    C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
+    C, CERTIFICATE_VERIFICATION_KEY_NAME, E, F, IVC_VERIFICATION_KEY_NAME, circuit::IvcCircuitData,
+    state::Global,
 };
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
@@ -154,10 +155,10 @@ fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTr
         .root
         .as_slice()
         .try_into()
-        .expect("STM Poseidon Merkle-tree commitment should be 32 bytes");
+        .expect("STM Merkle-tree commitment should be 32 bytes");
     F::from_bytes_le(&root_bytes)
         .into_option()
-        .expect("STM Poseidon Merkle-tree commitment should be a canonical field element")
+        .expect("STM Merkle-tree commitment should be a canonical field element")
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
@@ -201,8 +202,8 @@ pub(crate) fn build_shared_recursive_context(
         &certificate_commitment_parameters,
         &setup.certificate_relation,
     );
-    let default_ivc_circuit =
-        IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
+    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
+        .expect("valid IvcCircuitData unknown");
     let recursive_verifying_key = keygen_vk_with_k(
         &recursive_commitment_parameters,
         &default_ivc_circuit,
@@ -224,8 +225,8 @@ pub(crate) fn build_shared_recursive_context(
 pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
-    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk())
-        .expect("valid IvcCircuit unknown");
+    let default_ivc_circuit = IvcCircuitData::unknown(context.certificate_verifying_key.vk())
+        .expect("valid IvcCircuitData unknown");
     keygen_pk(
         context.recursive_verifying_key.clone(),
         &default_ivc_circuit,
@@ -242,9 +243,12 @@ pub(crate) fn build_recursive_fixed_bases(
     BTreeMap<String, C>,
     BTreeMap<String, C>,
 ) {
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
-    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, recursive_verifying_key);
+    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        certificate_verifying_key.vk(),
+    );
+    let (recursive_fixed_bases, _) =
+        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key);
     let mut combined_fixed_bases = certificate_fixed_bases.clone();
     combined_fixed_bases.extend(recursive_fixed_bases.clone());
 

@@ -43,7 +43,7 @@ fn assert_valid_previous_ivc_proof_is_accepted(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.proof.as_bytes(),
+        step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -93,7 +93,7 @@ fn tampered_previous_ivc_proof_produces_invalid_accumulator() {
     ]
     .concat();
 
-    let mut tampered_ivc_proof = recursive_chain_state.proof.clone().into_vec();
+    let mut tampered_ivc_proof = recursive_chain_state.ivc_proof.clone().into_vec();
     tampered_ivc_proof[0] ^= 0xFF;
 
     // Try to parse the tampered IVC proof off-circuit. Returns None if the bytes

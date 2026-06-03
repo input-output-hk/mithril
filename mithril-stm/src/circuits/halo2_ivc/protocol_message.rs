@@ -117,7 +117,7 @@ impl ProtocolMessage {
             .copy_from_slice(RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL);
         cursor += RIGID_NEXT_AGGREGATE_VERIFICATION_KEY_LABEL.len();
 
-        // offset 69..113 — AVK slot; circuit reads Merkle-tree commitment from PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES (69..101)
+        // offset 69..113 — AVK slot; circuit reads the next Merkle-tree commitment from PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES (69..101)
         preimage[cursor..cursor + avk_slot.len()].copy_from_slice(&avk_slot);
         cursor += avk_slot.len();
 

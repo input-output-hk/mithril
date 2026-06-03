@@ -110,30 +110,33 @@ impl AssignedState {
 pub(crate) struct Global {
     // Persistent values that do not change through an ivc stream
     pub(crate) genesis_message: MessageHash,
-    pub(crate) genesis_vk: SchnorrVerificationKey,
-    // cert_vk hash
-    pub(crate) cert_vk_repr: CertificateCircuitVerificationKeyRepresentation,
-    // ivc_vk hash
-    pub(crate) self_vk_repr: IvcCircuitVerificationKeyRepresentation,
+    pub(crate) genesis_verification_key: SchnorrVerificationKey,
+    // Certificate circuit verification key transcript representation.
+    pub(crate) certificate_circuit_verification_key_representation:
+        CertificateCircuitVerificationKeyRepresentation,
+    // IVC circuit verification key transcript representation.
+    pub(crate) ivc_circuit_verification_key_representation: IvcCircuitVerificationKeyRepresentation,
 }
 
 impl Global {
     #[allow(dead_code)]
     pub(crate) fn new(
         genesis_message: MessageHash,
-        genesis_vk: SchnorrVerificationKey,
-        cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-        self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        genesis_verification_key: SchnorrVerificationKey,
+        certificate_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     ) -> Self {
         Global {
             genesis_message,
-            genesis_vk,
-            cert_vk_repr: CertificateCircuitVerificationKeyRepresentation::from_field(
-                cert_vk.transcript_repr(),
-            ),
-            self_vk_repr: IvcCircuitVerificationKeyRepresentation::from_field(
-                self_vk.transcript_repr(),
-            ),
+            genesis_verification_key,
+            certificate_circuit_verification_key_representation:
+                CertificateCircuitVerificationKeyRepresentation::from_field(
+                    certificate_verification_key.transcript_repr(),
+                ),
+            ivc_circuit_verification_key_representation:
+                IvcCircuitVerificationKeyRepresentation::from_field(
+                    ivc_verification_key.transcript_repr(),
+                ),
         }
     }
 
@@ -141,8 +144,13 @@ impl Global {
     pub(crate) fn as_public_input(&self) -> Vec<F> {
         [
             vec![self.genesis_message.as_field()],
-            AssignedNativePoint::<Jubjub>::as_public_input(self.genesis_vk.as_jubjub_subgroup()),
-            vec![self.cert_vk_repr.as_field(), self.self_vk_repr.as_field()],
+            AssignedNativePoint::<Jubjub>::as_public_input(
+                self.genesis_verification_key.as_jubjub_subgroup(),
+            ),
+            vec![
+                self.certificate_circuit_verification_key_representation.as_field(),
+                self.ivc_circuit_verification_key_representation.as_field(),
+            ],
         ]
         .concat()
     }
@@ -152,16 +160,16 @@ impl Global {
 pub(crate) struct AssignedGlobal {
     //Persistent values that do not change through an ivc stream
     pub(crate) genesis_message: AssignedNative<F>,
-    pub(crate) genesis_vk: AssignedNativePoint<Jubjub>,
-    pub(crate) cert_vk: AssignedVk<S>,
-    pub(crate) self_vk: AssignedVk<S>,
-    // Combined fixed base names for cert_vk and ivc_vk
+    pub(crate) genesis_verification_key: AssignedNativePoint<Jubjub>,
+    pub(crate) certificate_verification_key: AssignedVk<S>,
+    pub(crate) ivc_verification_key: AssignedVk<S>,
+    // Combined fixed base names for certificate and IVC verification keys.
     pub(crate) fixed_base_names: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct Witness {
-    pub(crate) genesis_sig: StandardSchnorrSignature,
+    pub(crate) genesis_signature: StandardSchnorrSignature,
     pub(crate) certificate_message: MessageHash,
     pub(crate) certificate_merkle_tree_commitment: MerkleTreeCommitment,
     // Protocol message preimage bytes
@@ -171,13 +179,13 @@ pub(crate) struct Witness {
 impl Witness {
     #[allow(dead_code)]
     pub(crate) fn new(
-        genesis_sig: StandardSchnorrSignature,
+        genesis_signature: StandardSchnorrSignature,
         certificate_merkle_tree_commitment: MerkleTreeCommitment,
         certificate_message: MessageHash,
         message_preimage: ProtocolMessagePreimage,
     ) -> Self {
         Witness {
-            genesis_sig,
+            genesis_signature,
             certificate_merkle_tree_commitment,
             certificate_message,
             message_preimage,
@@ -187,7 +195,7 @@ impl Witness {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedWitness {
-    pub(crate) genesis_sig: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
+    pub(crate) genesis_signature: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
     pub(crate) certificate_merkle_tree_commitment: AssignedNative<F>,
     pub(crate) certificate_message: AssignedNative<F>,
     // Protocol message preimage bytes

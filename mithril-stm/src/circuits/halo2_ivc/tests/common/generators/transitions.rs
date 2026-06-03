@@ -18,7 +18,9 @@ use crate::circuits::halo2_ivc::types::{
     CertificateProofBytes, EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
     ProtocolParametersHash, StepCounter,
 };
-use crate::circuits::halo2_ivc::{Accumulator, CERT_VK_NAME, F, PREIMAGE_SIZE, S};
+use crate::circuits::halo2_ivc::{
+    Accumulator, CERTIFICATE_VERIFICATION_KEY_NAME, F, PREIMAGE_SIZE, S,
+};
 use crate::signature_scheme::{
     BaseFieldElement, SchnorrVerificationKey as StmSchnorrVerificationKey,
 };
@@ -162,8 +164,10 @@ fn build_certificate_asset_data_inner(
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
     let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
+    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        certificate_verifying_key.vk(),
+    );
 
     assert_eq!(
         merkle_tree_commitment, setup.genesis_next_merkle_tree_commitment,
@@ -174,7 +178,10 @@ fn build_certificate_asset_data_inner(
     for j in 0..QUORUM_SIZE as usize {
         let unique_schnorr_signature = setup.signing_keys[j]
             .sign_unique(
-                &[BaseFieldElement::from(merkle_tree_commitment), BaseFieldElement::from(message)],
+                &[
+                    BaseFieldElement::from(merkle_tree_commitment),
+                    BaseFieldElement::from(message),
+                ],
                 random_generator,
             )
             .expect("certificate witness signature should not fail");
@@ -195,7 +202,10 @@ fn build_certificate_asset_data_inner(
         );
         unique_schnorr_signature
             .verify(
-                &[BaseFieldElement::from(merkle_tree_commitment), BaseFieldElement::from(message)],
+                &[
+                    BaseFieldElement::from(merkle_tree_commitment),
+                    BaseFieldElement::from(message),
+                ],
                 &schnorr_vk,
             )
             .expect("fresh certificate signature should verify");
@@ -210,7 +220,8 @@ fn build_certificate_asset_data_inner(
         });
     }
 
-    let certificate_instance = certificate_public_inputs(merkle_tree_commitment, next_state.message.as_field());
+    let certificate_instance =
+        certificate_public_inputs(merkle_tree_commitment, next_state.message.as_field());
 
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
         zk_lib::prove::<StmCertificateCircuit, PoseidonState<F>>(
@@ -293,7 +304,8 @@ pub(crate) fn next_message_and_preimage_for_step(
     protocol_message
         .set_next_snark_aggregate_verification_key(&setup.aggregate_verification_key)
         .expect("aggregate verification key rigid slot should be produced");
-    protocol_message.set_next_protocol_parameters(setup.genesis_next_protocol_parameters.to_bytes_le());
+    protocol_message
+        .set_next_protocol_parameters(setup.genesis_next_protocol_parameters.to_bytes_le());
     protocol_message.set_current_epoch(current_epoch + 1);
 
     let preimage = protocol_message
@@ -323,7 +335,8 @@ pub(crate) fn same_epoch_message_and_preimage_for_step(
     protocol_message
         .set_next_snark_aggregate_verification_key(&setup.aggregate_verification_key)
         .expect("aggregate verification key rigid slot should be produced");
-    protocol_message.set_next_protocol_parameters(setup.genesis_next_protocol_parameters.to_bytes_le());
+    protocol_message
+        .set_next_protocol_parameters(setup.genesis_next_protocol_parameters.to_bytes_le());
     protocol_message.set_current_epoch(current_epoch);
 
     let preimage = protocol_message

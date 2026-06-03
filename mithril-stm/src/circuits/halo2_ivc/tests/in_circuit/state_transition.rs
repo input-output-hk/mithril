@@ -56,9 +56,10 @@ mod slow {
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
             "next_merkle_tree_commitment set to ONE (must equal prev_state.next_merkle_tree_commitment)",
         );
@@ -87,9 +88,10 @@ mod slow {
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
             "next_protocol_parameters set to ONE (must equal prev_state.next_protocol_parameters)",
         );
@@ -119,9 +121,10 @@ mod slow {
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
         tampered_state.message = MessageHash::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
             "message set to ONE (must equal Blake2b(message_preimage))",
         );

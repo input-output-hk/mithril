@@ -109,11 +109,11 @@ mod slow {
         let mut tampered_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
         tamper(&mut tampered_state);
 
-        let circuit =
+        let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
 
-        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+        assert_recursive_mock_prover_rejects(ivc_circuit_data, public_inputs);
     }
 
     #[test]

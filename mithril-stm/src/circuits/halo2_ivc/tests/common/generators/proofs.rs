@@ -12,13 +12,13 @@ use midnight_proofs::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::circuits::halo2_ivc::{C, E, F, circuit::IvcCircuit};
+use crate::circuits::halo2_ivc::{C, E, F, circuit::IvcCircuitData};
 
 /// Generates a recursive proof using the chosen transcript hash.
 fn prove_ivc_with_transcript<H: TranscriptHash>(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
-    circuit: &IvcCircuit,
+    ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),
     proof_generation_error: &str,
@@ -28,10 +28,10 @@ where
     <KZGCommitmentScheme<E> as PolynomialCommitmentScheme<F>>::Commitment: Hashable<H>,
 {
     let mut transcript = CircuitTranscript::<H>::init();
-    create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>, IvcCircuit>(
+    create_proof::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>, IvcCircuitData>(
         commitment_parameters,
         proving_key,
-        std::slice::from_ref(circuit),
+        std::slice::from_ref(ivc_circuit_data),
         1,
         &[&[&[], public_inputs]],
         random_generator,
@@ -69,14 +69,14 @@ where
 pub(crate) fn prove_poseidon_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
-    circuit: &IvcCircuit,
+    ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> Vec<u8> {
     prove_ivc_with_transcript::<PoseidonState<F>>(
         commitment_parameters,
         proving_key,
-        circuit,
+        ivc_circuit_data,
         public_inputs,
         random_generator,
         "IVC proof generation should not fail",
@@ -102,14 +102,14 @@ pub(crate) fn verify_prepare_poseidon_ivc(
 pub(crate) fn prove_blake2b_ivc(
     commitment_parameters: &ParamsKZG<Bls12>,
     proving_key: &ProvingKey<F, KZGCommitmentScheme<E>>,
-    circuit: &IvcCircuit,
+    ivc_circuit_data: &IvcCircuitData,
     public_inputs: &[F],
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> Vec<u8> {
     prove_ivc_with_transcript::<blake2b_simd::State>(
         commitment_parameters,
         proving_key,
-        circuit,
+        ivc_circuit_data,
         public_inputs,
         random_generator,
         "IVC Blake2b proof generation should not fail",

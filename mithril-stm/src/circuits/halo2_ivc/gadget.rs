@@ -9,13 +9,13 @@ use crate::signature_scheme::DOMAIN_SEPARATION_TAG_STANDARD_SIGNATURE;
 use super::{
     Accumulator, ArithInstructions, AssertionInstructions, AssignedAccumulator, AssignedBit,
     AssignedForeignPoint, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, AssignmentInstructions, BinaryInstructions, C, CERT_VK_NAME, CircuitCurve,
-    ComposableChip, ConstraintSystem, ControlFlowInstructions, ConversionInstructions, EccChip,
-    EccInstructions, EqualityInstructions, Error, EvaluationDomain, F, ForeignEccChip,
-    HashInstructions, IVC_ONE_NAME, Jubjub, K, Layouter, NG, NativeChip, NativeGadget,
-    P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions, S, Value,
-    VerifierGadget, ZeroInstructions,
+    AssignedVk, AssignmentInstructions, BinaryInstructions, C, CERTIFICATE_VERIFICATION_KEY_NAME,
+    CircuitCurve, ComposableChip, ConstraintSystem, ControlFlowInstructions,
+    ConversionInstructions, EccChip, EccInstructions, EqualityInstructions, Error,
+    EvaluationDomain, F, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, Jubjub, K,
+    Layouter, NG, NativeChip, NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
+    PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
+    PoseidonChip, PublicInputInstructions, S, Value, VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
     state::{
@@ -63,39 +63,59 @@ impl IvcGadget {
         &self,
         layouter: &mut impl Layouter<F>,
         global: &Value<Global>,
-        cert_domain_cs: &(EvaluationDomain<F>, ConstraintSystem<F>),
-        self_domain_cs: &(EvaluationDomain<F>, ConstraintSystem<F>),
+        certificate_circuit_domain_and_constraint_system: &(
+            EvaluationDomain<F>,
+            ConstraintSystem<F>,
+        ),
+        ivc_circuit_domain_and_constraint_system: &(EvaluationDomain<F>, ConstraintSystem<F>),
     ) -> Result<AssignedGlobal, Error> {
-        let genesis_message: AssignedNative<_> = self
-            .native_gadget
-            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_message.as_field()))?;
-        let genesis_vk: AssignedNativePoint<_> = self.jubjub_chip.assign_as_public_input(
+        let genesis_message: AssignedNative<_> = self.native_gadget.assign_as_public_input(
             layouter,
-            global.clone().map(|gl| *gl.genesis_vk.as_jubjub_subgroup()),
+            global.clone().map(|gl| gl.genesis_message.as_field()),
         )?;
+        let genesis_verification_key: AssignedNativePoint<_> =
+            self.jubjub_chip.assign_as_public_input(
+                layouter,
+                global
+                    .clone()
+                    .map(|gl| *gl.genesis_verification_key.as_jubjub_subgroup()),
+            )?;
 
-        let (cert_domain, cert_cs) = &cert_domain_cs;
-        let cert_vk: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(
-            layouter,
-            CERT_VK_NAME,
-            cert_domain,
-            cert_cs,
-            global.clone().map(|gl| gl.cert_vk_repr.as_field()),
-        )?;
+        let (certificate_circuit_domain, certificate_circuit_constraint_system) =
+            &certificate_circuit_domain_and_constraint_system;
+        let certificate_verification_key: AssignedVk<S> =
+            self.verifier_gadget.assign_vk_as_public_input(
+                layouter,
+                CERTIFICATE_VERIFICATION_KEY_NAME,
+                certificate_circuit_domain,
+                certificate_circuit_constraint_system,
+                global
+                    .clone()
+                    .map(|gl| gl.certificate_circuit_verification_key_representation.as_field()),
+            )?;
 
-        // Assign for self-proof verification
-        let (self_domain, self_cs) = &self_domain_cs;
-        let self_vk: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(
+        // Assign for IVC proof verification
+        let (ivc_circuit_domain, ivc_circuit_constraint_system) =
+            &ivc_circuit_domain_and_constraint_system;
+        let ivc_verification_key: AssignedVk<S> = self.verifier_gadget.assign_vk_as_public_input(
             layouter,
-            IVC_ONE_NAME,
-            self_domain,
-            self_cs,
-            global.clone().map(|gl| gl.self_vk_repr.as_field()),
+            IVC_VERIFICATION_KEY_NAME,
+            ivc_circuit_domain,
+            ivc_circuit_constraint_system,
+            global
+                .clone()
+                .map(|gl| gl.ivc_circuit_verification_key_representation.as_field()),
         )?;
 
         let fixed_base_names = {
-            let mut names = fixed_base_names(CERT_VK_NAME, cert_cs);
-            names.extend(fixed_base_names(IVC_ONE_NAME, self_cs));
+            let mut names = fixed_base_names(
+                CERTIFICATE_VERIFICATION_KEY_NAME,
+                certificate_circuit_constraint_system,
+            );
+            names.extend(fixed_base_names(
+                IVC_VERIFICATION_KEY_NAME,
+                ivc_circuit_constraint_system,
+            ));
             // Remove repeated names for committed_instance and the generator
             let mut seen = HashSet::new();
             names.retain(|x| seen.insert(x.clone()));
@@ -104,9 +124,9 @@ impl IvcGadget {
 
         Ok(AssignedGlobal {
             genesis_message,
-            genesis_vk,
-            cert_vk,
-            self_vk,
+            genesis_verification_key,
+            certificate_verification_key,
+            ivc_verification_key,
             fixed_base_names,
         })
     }
@@ -187,20 +207,27 @@ impl IvcGadget {
         layouter: &mut impl Layouter<F>,
         witness: &Value<Witness>,
     ) -> Result<AssignedWitness, Error> {
-        let genesis_sig = {
-            let s: AssignedScalarOfNativeCurve<_> = self
-                .jubjub_chip
-                .assign(layouter, witness.clone().map(|w| w.genesis_sig.response.0))?;
-            let c: AssignedNative<_> = self
-                .native_gadget
-                .assign(layouter, witness.clone().map(|w| w.genesis_sig.challenge.0))?;
+        let genesis_signature = {
+            let s: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.assign(
+                layouter,
+                witness.clone().map(|w| w.genesis_signature.response.0),
+            )?;
+            let c: AssignedNative<_> = self.native_gadget.assign(
+                layouter,
+                witness.clone().map(|w| w.genesis_signature.challenge.0),
+            )?;
             (s, c)
         };
 
         let [certificate_message, certificate_merkle_tree_commitment]: [AssignedNative<F>; 2] = {
             let values = witness
                 .clone()
-                .map(|w| vec![w.certificate_message.as_field(), w.certificate_merkle_tree_commitment.as_field()])
+                .map(|w| {
+                    vec![
+                        w.certificate_message.as_field(),
+                        w.certificate_merkle_tree_commitment.as_field(),
+                    ]
+                })
                 .transpose_vec(2);
             self.native_gadget
                 .assign_many(layouter, &values)?
@@ -214,12 +241,15 @@ impl IvcGadget {
         };
 
         let message_preimage = {
-            let preimage = witness.clone().map(|w| w.message_preimage.into_inner()).transpose_array();
+            let preimage = witness
+                .clone()
+                .map(|w| w.message_preimage.into_inner())
+                .transpose_array();
             self.native_gadget.assign_many(layouter, &preimage)?
         };
 
         Ok(AssignedWitness {
-            genesis_sig,
+            genesis_signature,
             certificate_merkle_tree_commitment,
             certificate_message,
             message_preimage,
@@ -234,14 +264,14 @@ impl IvcGadget {
         self.native_gadget.is_zero(layouter, &state.step_counter)
     }
 
-    pub fn is_genesis_sig_valid(
+    pub fn is_genesis_signature_valid(
         &self,
         layouter: &mut impl Layouter<F>,
         global: &AssignedGlobal,
         witness: &AssignedWitness,
     ) -> Result<AssignedBit<F>, Error> {
-        let s = witness.genesis_sig.0.clone();
-        let c_native = witness.genesis_sig.1.clone();
+        let s = witness.genesis_signature.0.clone();
+        let c_native = witness.genesis_signature.1.clone();
         let c: AssignedScalarOfNativeCurve<_> = self.jubjub_chip.convert(layouter, &c_native)?;
 
         let dst_signature: AssignedNative<_> = self
@@ -255,11 +285,11 @@ impl IvcGadget {
         let cap_r = self.jubjub_chip.msm(
             layouter,
             &[s, c.clone()],
-            &[generator.clone(), global.genesis_vk.clone()],
+            &[generator.clone(), global.genesis_verification_key.clone()],
         )?;
 
-        let vk_x = self.jubjub_chip.x_coordinate(&global.genesis_vk);
-        let vk_y = self.jubjub_chip.y_coordinate(&global.genesis_vk);
+        let vk_x = self.jubjub_chip.x_coordinate(&global.genesis_verification_key);
+        let vk_y = self.jubjub_chip.y_coordinate(&global.genesis_verification_key);
         let cap_r_x = self.jubjub_chip.x_coordinate(&cap_r);
         let cap_r_y = self.jubjub_chip.y_coordinate(&cap_r);
 
@@ -286,12 +316,14 @@ impl IvcGadget {
         witness: &AssignedWitness,
     ) -> Result<(), Error> {
         // Verify the genesis signature
-        let is_genesis_sig_valid = self.is_genesis_sig_valid(layouter, global, witness)?;
+        let is_genesis_signature_valid =
+            self.is_genesis_signature_valid(layouter, global, witness)?;
 
         // Skip the genesis signature verification if it is not genesis
-        let check_genesis = self
-            .native_gadget
-            .or(layouter, &[is_genesis_sig_valid, is_not_genesis.clone()])?;
+        let check_genesis = self.native_gadget.or(
+            layouter,
+            &[is_genesis_signature_valid, is_not_genesis.clone()],
+        )?;
         self.native_gadget
             .assert_equal_to_fixed(layouter, &check_genesis, true)
     }
@@ -304,11 +336,13 @@ impl IvcGadget {
         let pi = [
             vec![
                 global.genesis_message.clone(),
-                self.jubjub_chip.x_coordinate(&global.genesis_vk),
-                self.jubjub_chip.y_coordinate(&global.genesis_vk),
+                self.jubjub_chip.x_coordinate(&global.genesis_verification_key),
+                self.jubjub_chip.y_coordinate(&global.genesis_verification_key),
             ],
-            self.verifier_gadget.as_public_input(layouter, &global.cert_vk)?,
-            self.verifier_gadget.as_public_input(layouter, &global.self_vk)?,
+            self.verifier_gadget
+                .as_public_input(layouter, &global.certificate_verification_key)?,
+            self.verifier_gadget
+                .as_public_input(layouter, &global.ivc_verification_key)?,
         ]
         .concat();
         Ok(pi)
@@ -338,16 +372,23 @@ impl IvcGadget {
         state: &AssignedState,
         witness: &AssignedWitness,
     ) -> Result<AssignedState, Error> {
-        let step_counter = self.native_gadget.add_constant(layouter, &state.step_counter, F::ONE)?;
+        let step_counter =
+            self.native_gadget
+                .add_constant(layouter, &state.step_counter, F::ONE)?;
 
-        let (certificate_message, certificate_merkle_tree_commitment) =
-            (witness.certificate_message.clone(), witness.certificate_merkle_tree_commitment.clone());
+        let (certificate_message, certificate_merkle_tree_commitment) = (
+            witness.certificate_message.clone(),
+            witness.certificate_merkle_tree_commitment.clone(),
+        );
 
         // Open message hash to check the link between certificates
         // If it is genesis, select genesis message as message; otherwise, select cert message as message.
-        let message =
-            self.native_gadget
-                .select(layouter, is_genesis, &global.genesis_message, &certificate_message)?;
+        let message = self.native_gadget.select(
+            layouter,
+            is_genesis,
+            &global.genesis_message,
+            &certificate_message,
+        )?;
 
         let hash = self.sha2_256_chip.hash(layouter, &witness.message_preimage)?;
 
@@ -368,25 +409,34 @@ impl IvcGadget {
 
         // If it is genesis, merkle_tree_commitment = 0; otherwise, merkle_tree_commitment = certificate_merkle_tree_commitment.
         let zero = self.native_gadget.assign_fixed(layouter, F::ZERO)?;
-        let merkle_tree_commitment =
-            self.native_gadget
-                .select(layouter, is_genesis, &zero, &certificate_merkle_tree_commitment)?;
+        let merkle_tree_commitment = self.native_gadget.select(
+            layouter,
+            is_genesis,
+            &zero,
+            &certificate_merkle_tree_commitment,
+        )?;
 
-        // Read the value of next Merkle-tree commitment, next protocol parameters and current epoch from protocol message preimage
+        // Read the next Merkle-tree commitment, next protocol parameters, and current epoch from the protocol message preimage.
         // digest(6) | bytes(32) | next_aggregate_verification_key(31) | bytes(44) | next_protocol_parameters(24) | bytes(32) | current_epoch(13) | bytes(8)
         // todo: check field keywords(?)
-        let next_merkle_tree_commitment_bytes = witness.message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].to_vec();
+        let next_merkle_tree_commitment_bytes =
+            witness.message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].to_vec();
         let next_protocol_parameters_bytes =
             witness.message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].to_vec();
         let current_epoch_bytes = witness.message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].to_vec();
 
         // Get the field elements by linearly combining the bytes
         let (next_merkle_tree_commitment, next_protocol_parameters, current_epoch) = {
-            let next_merkle_tree_commitment = self.combine_bytes(layouter, next_merkle_tree_commitment_bytes, &bases)?;
+            let next_merkle_tree_commitment =
+                self.combine_bytes(layouter, next_merkle_tree_commitment_bytes, &bases)?;
             let next_protocol_parameters =
                 self.combine_bytes(layouter, next_protocol_parameters_bytes, &bases)?;
             let current_epoch = self.combine_bytes(layouter, current_epoch_bytes, &bases)?;
-            (next_merkle_tree_commitment, next_protocol_parameters, current_epoch)
+            (
+                next_merkle_tree_commitment,
+                next_protocol_parameters,
+                current_epoch,
+            )
         };
 
         let (is_same_epoch, is_next_epoch) = {
@@ -421,18 +471,22 @@ impl IvcGadget {
         }
 
         {
-            // Check the link on the current Merkle-tree commitment; if it is genesis, skip the checking
+            // Check the current Merkle-tree commitment link; if it is genesis, skip the check.
             // Assert true: is_genesis or (is_same_epoch && merkle_tree_commitment == state.merkle_tree_commitment) or (is_next_epoch && merkle_tree_commitment == state.next_merkle_tree_commitment)
-            let mut is_equal_current =
-                self.native_gadget
-                    .is_equal(layouter, &merkle_tree_commitment, &state.merkle_tree_commitment)?;
+            let mut is_equal_current = self.native_gadget.is_equal(
+                layouter,
+                &merkle_tree_commitment,
+                &state.merkle_tree_commitment,
+            )?;
             is_equal_current = self
                 .native_gadget
                 .and(layouter, &[is_equal_current, is_same_epoch.clone()])?;
 
-            let mut is_equal_next =
-                self.native_gadget
-                    .is_equal(layouter, &merkle_tree_commitment, &state.next_merkle_tree_commitment)?;
+            let mut is_equal_next = self.native_gadget.is_equal(
+                layouter,
+                &merkle_tree_commitment,
+                &state.next_merkle_tree_commitment,
+            )?;
             is_equal_next = self
                 .native_gadget
                 .and(layouter, &[is_equal_next, is_next_epoch.clone()])?;
@@ -511,7 +565,7 @@ impl IvcGadget {
         state: &AssignedState,
         witness: &AssignedWitness,
         certificate_proof: &Value<Vec<u8>>,
-        self_proof: &Value<Vec<u8>>,
+        ivc_proof: &Value<Vec<u8>>,
         acc_value: &Value<Accumulator<S>>,
     ) -> Result<AssignedAccumulator<S>, Error> {
         let id_point: AssignedForeignPoint<_, _, _> =
@@ -519,9 +573,12 @@ impl IvcGadget {
 
         let mut certificate_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
-            &global.cert_vk,
+            &global.certificate_verification_key,
             &[("com_instance", id_point.clone())],
-            &[&[witness.certificate_merkle_tree_commitment.clone(), witness.certificate_message.clone()]],
+            &[&[
+                witness.certificate_merkle_tree_commitment.clone(),
+                witness.certificate_message.clone(),
+            ]],
             certificate_proof.clone(),
         )?;
 
@@ -533,7 +590,11 @@ impl IvcGadget {
             is_not_genesis,
             &mut certificate_proof_accumulator,
         )?;
-        certificate_proof_accumulator.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
+        certificate_proof_accumulator.collapse(
+            layouter,
+            &self.bls12_381_chip,
+            &self.native_gadget,
+        )?;
 
         let acc = AssignedAccumulator::assign(
             layouter,
@@ -555,14 +616,14 @@ impl IvcGadget {
         ]
         .concat();
 
-        // Verify a witnessed proof that ensures the validity of previous state.
-        // The proof is valid iff `proof_acc` satisfies the invariant.
-        let mut self_proof_acc = self.verifier_gadget.prepare(
+        // Verify a witnessed proof that ensures the validity of the previous state.
+        // The proof is valid iff `ivc_proof_accumulator` satisfies the invariant.
+        let mut ivc_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
-            &global.self_vk,
+            &global.ivc_verification_key,
             &[("com_instance", id_point)],
             &[&assigned_pi],
-            self_proof.clone(),
+            ivc_proof.clone(),
         )?;
 
         // If the previous state is genesis, we allow the prover to change the (probably
@@ -571,17 +632,17 @@ impl IvcGadget {
             layouter,
             &self.native_gadget,
             is_not_genesis,
-            &mut self_proof_acc,
+            &mut ivc_proof_accumulator,
         )?;
-        self_proof_acc.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
+        ivc_proof_accumulator.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 
-        // Accumulate the certificate_proof_accumulator
+        // Accumulate the certificate and IVC proof accumulators.
         let mut next_acc = AssignedAccumulator::<S>::accumulate(
             layouter,
             &self.verifier_gadget,
             &self.native_gadget,
             &self.poseidon_chip,
-            &[acc, certificate_proof_accumulator, self_proof_acc],
+            &[acc, certificate_proof_accumulator, ivc_proof_accumulator],
         )?;
         next_acc.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 

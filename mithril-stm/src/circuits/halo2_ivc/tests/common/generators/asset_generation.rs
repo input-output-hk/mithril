@@ -23,7 +23,7 @@ use crate::circuits::halo2_ivc::tests::common::asset_readers::{
 };
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, S,
-    circuit::IvcCircuit,
+    circuit::IvcCircuitData,
     state::{Global, State, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
 };
@@ -37,7 +37,7 @@ struct CertificateChainArtifacts {
 
 struct RecursiveChainSnapshot {
     state: State,
-    proof: IvcProofBytes,
+    ivc_proof: IvcProofBytes,
     accumulator: Accumulator<S>,
 }
 
@@ -121,7 +121,7 @@ fn build_recursive_chain_snapshot(
             INITIAL_CHAIN_LENGTH + 1
         );
         let recursive_step_start = Instant::now();
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             global.clone(),
             current_state.clone(),
             artifacts.recursive_witnesses[i].clone(),
@@ -131,7 +131,7 @@ fn build_recursive_chain_snapshot(
             context.certificate_verifying_key.vk(),
             &context.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
 
         let public_inputs = [
             global.as_public_input(),
@@ -143,7 +143,7 @@ fn build_recursive_chain_snapshot(
         let proof = prove_poseidon_ivc(
             &context.recursive_commitment_parameters,
             recursive_proving_key,
-            &circuit,
+            &ivc_circuit_data,
             &public_inputs,
             &mut recursive_random_generator,
         );
@@ -192,7 +192,7 @@ fn build_recursive_chain_snapshot(
 
     RecursiveChainSnapshot {
         state: current_state,
-        proof: recursive_proof,
+        ivc_proof: recursive_proof,
         accumulator: current_accumulator,
     }
 }
@@ -210,7 +210,7 @@ fn store_recursive_chain_snapshot(
     let asset = RecursiveChainStateAsset {
         global_field_elements: global.as_public_input(),
         state: snapshot.state.clone(),
-        proof: snapshot.proof.clone(),
+        ivc_proof: snapshot.ivc_proof.clone(),
         accumulator: snapshot.accumulator.clone(),
     };
     store_recursive_chain_state_asset(&paths.recursive_chain_state, &asset)
@@ -258,7 +258,7 @@ fn build_next_recursive_step_inputs(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        recursive_chain_state.proof.as_bytes(),
+        recursive_chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
@@ -297,17 +297,17 @@ fn build_recursive_step_output_proof(
     next_step_inputs: &NextRecursiveStepInputs,
 ) -> Vec<u8> {
     let mut recursive_step_output_random_generator = OsRng;
-    let circuit = IvcCircuit::try_new(
+    let ivc_circuit_data = IvcCircuitData::try_new(
         global.clone(),
         recursive_chain_state.state.clone(),
         next_step_inputs.recursive_witness.clone(),
         next_step_inputs.certificate_proof.clone(),
-        recursive_chain_state.proof.clone(),
+        recursive_chain_state.ivc_proof.clone(),
         recursive_chain_state.accumulator.clone(),
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
     )
-    .expect("valid IvcCircuit construction");
+    .expect("valid IvcCircuitData construction");
     let public_inputs = [
         global.as_public_input(),
         next_step_inputs.next_state.as_public_input(),
@@ -320,7 +320,7 @@ fn build_recursive_step_output_proof(
     let final_proof = prove_blake2b_ivc(
         &context.recursive_commitment_parameters,
         recursive_proving_key,
-        &circuit,
+        &ivc_circuit_data,
         &public_inputs,
         &mut recursive_step_output_random_generator,
     );
@@ -347,7 +347,7 @@ fn store_recursive_step_output(
         paths.recursive_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof: IvcProofBytes::new(proof),
+        ivc_proof: IvcProofBytes::new(proof),
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
         certificate_proof: next_step_inputs.certificate_proof,
@@ -517,7 +517,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
     let current_accumulator = trivial_acc(&combined_fixed_base_names);
     let next_accumulator = current_accumulator.clone();
 
-    let circuit = IvcCircuit::try_new(
+    let ivc_circuit_data = IvcCircuitData::try_new(
         global.clone(),
         State::genesis(),
         genesis_witness,
@@ -527,7 +527,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
     )
-    .expect("valid IvcCircuit construction");
+    .expect("valid IvcCircuitData construction");
 
     let public_inputs = [
         global.as_public_input(),
@@ -542,7 +542,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
     let proof = prove_blake2b_ivc(
         &context.recursive_commitment_parameters,
         &recursive_proving_key,
-        &circuit,
+        &ivc_circuit_data,
         &public_inputs,
         &mut rng,
     );
@@ -562,7 +562,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         paths.genesis_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof: IvcProofBytes::new(proof),
+        ivc_proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state: genesis_next_state,
         certificate_proof: CertificateProofBytes::empty(),
@@ -631,7 +631,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        chain_state.proof.as_bytes(),
+        chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(
@@ -656,17 +656,17 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         "same-epoch next accumulator check failed"
     );
 
-    let circuit = IvcCircuit::try_new(
+    let ivc_circuit_data = IvcCircuitData::try_new(
         global.clone(),
         chain_state.state.clone(),
         ivc_witness,
         certificate_proof.clone(),
-        chain_state.proof.clone(),
+        chain_state.ivc_proof.clone(),
         chain_state.accumulator.clone(),
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
     )
-    .expect("valid IvcCircuit construction");
+    .expect("valid IvcCircuitData construction");
 
     let public_inputs = [
         global.as_public_input(),
@@ -680,7 +680,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     let proof = prove_blake2b_ivc(
         &context.recursive_commitment_parameters,
         &recursive_proving_key,
-        &circuit,
+        &ivc_circuit_data,
         &public_inputs,
         &mut rng,
     );
@@ -700,7 +700,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         paths.same_epoch_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof: IvcProofBytes::new(proof),
+        ivc_proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state,
         certificate_proof,
@@ -719,8 +719,8 @@ pub(crate) fn generate_same_epoch_step_output_asset(
 //
 // Committed assets:
 //   verification_context.bin               — VKs, combined fixed bases, verifier params, tau_g2
-//   recursive_chain_state.bin              — chain checkpoint: Poseidon proof, state, folded accumulator
-//   recursive_step_output.bin              — next-epoch step: proof, next_state, next_accumulator, cert proof
+//   recursive_chain_state.bin              — chain checkpoint: Poseidon IVC proof, state, folded accumulator
+//   recursive_step_output.bin              — next-epoch step: IVC proof, next_state, next_accumulator, certificate proof
 //   genesis_step_output.bin                — genesis step output
 //   same_epoch_step_output.bin             — same-epoch step output
 //   recursive_step_output_accumulator_bytes.bin — raw serialized bytes of recursive_step_output.next_accumulator
