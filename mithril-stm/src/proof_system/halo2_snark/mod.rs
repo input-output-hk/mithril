@@ -10,6 +10,8 @@ mod single_signature;
 mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
+#[cfg(test)]
+pub(crate) use aggregate_key::RIGID_SLOT_BYTES;
 pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,

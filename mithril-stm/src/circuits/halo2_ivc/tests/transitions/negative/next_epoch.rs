@@ -14,6 +14,10 @@ use crate::circuits::halo2_ivc::{
             build_mock_prover_setup_from_assets, build_trivial_mock_prover_circuit,
         },
     },
+    types::{
+        EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
+        ProtocolParametersHash, StepCounter,
+    },
 };
 
 #[test]
@@ -22,7 +26,7 @@ fn merkle_root_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.merkle_root = F::ONE,
+        |s| s.merkle_root = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered merkle_root should be rejected by the verifier",
     );
 }
@@ -33,7 +37,7 @@ fn protocol_params_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.protocol_params = F::ONE,
+        |s| s.protocol_params = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered protocol_params should be rejected by the verifier",
     );
 }
@@ -44,7 +48,7 @@ fn next_merkle_root_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.next_merkle_root = F::ONE,
+        |s| s.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered next_merkle_root should be rejected by the verifier",
     );
 }
@@ -55,7 +59,7 @@ fn next_protocol_params_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.next_protocol_params = F::ONE,
+        |s| s.next_protocol_params = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered next_protocol_params should be rejected by the verifier",
     );
 }
@@ -66,7 +70,7 @@ fn counter_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.counter = F::ONE,
+        |s| s.counter = StepCounter::from_field(F::ONE),
         "proof with tampered counter should be rejected by the verifier",
     );
 }
@@ -77,7 +81,7 @@ fn current_epoch_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.current_epoch = F::ZERO,
+        |s| s.current_epoch = EpochNumber::ZERO,
         "proof with tampered current_epoch should be rejected by the verifier",
     );
 }
@@ -88,7 +92,7 @@ fn msg_tampered_is_rejected() {
     assert_step_output_rejects_tampered_state(
         load_embedded_recursive_step_output_asset,
         "recursive step output",
-        |s| s.msg = F::ONE,
+        |s| s.msg = MessageHash::from_field(F::ONE),
         "proof with tampered msg should be rejected by the verifier",
     );
 }
@@ -109,13 +113,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.next_merkle_root,
-            message,
-            preimage_bytes
-                .try_into()
-                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(message),
+            ProtocolMessagePreimage::new(
+                preimage_bytes
+                    .try_into()
+                    .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
-        tampered_state.protocol_params = F::ONE;
+        tampered_state.protocol_params = ProtocolParametersHash::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
@@ -138,13 +144,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.next_merkle_root,
-            message,
-            preimage_bytes
-                .try_into()
-                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(message),
+            ProtocolMessagePreimage::new(
+                preimage_bytes
+                    .try_into()
+                    .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
-        tampered_state.merkle_root = F::ONE;
+        tampered_state.merkle_root = MerkleTreeCommitment::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
@@ -167,13 +175,15 @@ mod slow {
         let witness = Witness::new(
             setup.genesis_signature,
             prev_state.next_merkle_root,
-            message,
-            preimage_bytes
-                .try_into()
-                .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            MessageHash::from_field(message),
+            ProtocolMessagePreimage::new(
+                preimage_bytes
+                    .try_into()
+                    .expect("next-epoch preimage should be PREIMAGE_SIZE bytes"),
+            ),
         );
         let mut tampered_state = next_state_for_step(&prev_state, message);
-        tampered_state.current_epoch -= F::ONE;
+        tampered_state.current_epoch = EpochNumber::new(tampered_state.current_epoch.as_u64() - 1);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(

@@ -2,9 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use anyhow::{Context, anyhow};
+use anyhow::anyhow;
 use sha2::{Digest as Sha2Digest, Sha256};
 
+use crate::proof_system::SNARK_AGGREGATE_VERIFICATION_KEY_RIGID_SLOT_BYTES;
 use crate::{AggregateVerificationKeyForSnark, MembershipDigest, StmResult};
 
 use super::PREIMAGE_SIZE;
@@ -18,50 +19,59 @@ const RIGID_NEXT_PROTOCOL_PARAMETERS_LABEL: &[u8] = b"next_protocol_parameters";
 const RIGID_CURRENT_EPOCH_LABEL: &[u8] = b"current_epoch";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum ProtocolMessagePartKey {
+pub(crate) enum DynamicProtocolMessagePartKey {
     SnapshotDigest,
-    NextSnarkAggregateVerificationKey,
-    NextProtocolParameters,
-    CurrentEpoch,
 }
 
-impl std::fmt::Display for ProtocolMessagePartKey {
+impl std::fmt::Display for DynamicProtocolMessagePartKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
-            Self::NextSnarkAggregateVerificationKey => {
-                write!(f, "next_aggregate_verification_key_snark")
-            }
-            Self::NextProtocolParameters => write!(f, "next_protocol_parameters"),
-            Self::CurrentEpoch => write!(f, "current_epoch"),
         }
     }
 }
 
 pub(crate) struct ProtocolMessage {
-    message_parts: BTreeMap<ProtocolMessagePartKey, String>,
+    dynamic_message_parts: BTreeMap<DynamicProtocolMessagePartKey, String>,
+    next_snark_aggregate_verification_key:
+        Option<[u8; SNARK_AGGREGATE_VERIFICATION_KEY_RIGID_SLOT_BYTES]>,
+    next_protocol_parameters: Option<[u8; 32]>,
+    current_epoch: Option<u64>,
 }
 
 impl ProtocolMessage {
     pub(crate) fn new() -> Self {
         Self {
-            message_parts: BTreeMap::new(),
+            dynamic_message_parts: BTreeMap::new(),
+            next_snark_aggregate_verification_key: None,
+            next_protocol_parameters: None,
+            current_epoch: None,
         }
     }
 
-    pub(crate) fn set_message_part(&mut self, key: ProtocolMessagePartKey, value: String) {
-        self.message_parts.insert(key, value);
+    pub(crate) fn set_dynamic_message_part(
+        &mut self,
+        key: DynamicProtocolMessagePartKey,
+        value: String,
+    ) {
+        self.dynamic_message_parts.insert(key, value);
     }
 
-    fn required_message_part(
-        &self,
-        key: ProtocolMessagePartKey,
-        name: &'static str,
-    ) -> StmResult<&str> {
-        self.message_parts
-            .get(&key)
-            .map(String::as_str)
-            .ok_or_else(|| anyhow!("{name} slot is required"))
+    pub(crate) fn set_next_snark_aggregate_verification_key<D: MembershipDigest>(
+        &mut self,
+        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
+    ) -> StmResult<()> {
+        self.next_snark_aggregate_verification_key =
+            Some(aggregate_verification_key.to_rigid_slot_bytes()?);
+        Ok(())
+    }
+
+    pub(crate) fn set_next_protocol_parameters(&mut self, protocol_parameters: [u8; 32]) {
+        self.next_protocol_parameters = Some(protocol_parameters);
+    }
+
+    pub(crate) fn set_current_epoch(&mut self, current_epoch: u64) {
+        self.current_epoch = Some(current_epoch);
     }
 
     /// Assembles the 190-byte rigid preimage that matches `mithril-common::ProtocolMessage::rigid_preimage()`.
@@ -78,11 +88,18 @@ impl ProtocolMessage {
     /// || epoch_slot                      (8 bytes)
     /// = 190 bytes
     /// ```
-    pub(crate) fn try_rigid_preimage<D: MembershipDigest>(&self) -> StmResult<[u8; PREIMAGE_SIZE]> {
+    pub(crate) fn try_rigid_preimage(&self) -> StmResult<[u8; PREIMAGE_SIZE]> {
         let dynamic_hash = self.compute_dynamic_parts_hash();
-        let avk_slot = self.avk_slot_from_key::<D>()?;
-        let params_slot = self.params_slot_from_key()?;
-        let epoch_slot = self.epoch_slot_from_key()?;
+        let avk_slot = self
+            .next_snark_aggregate_verification_key
+            .ok_or_else(|| anyhow!("next SNARK aggregate verification key slot is required"))?;
+        let params_slot = self
+            .next_protocol_parameters
+            .ok_or_else(|| anyhow!("next protocol parameters slot is required"))?;
+        let epoch_slot = self
+            .current_epoch
+            .ok_or_else(|| anyhow!("current epoch slot is required"))?
+            .to_le_bytes();
 
         let mut preimage = [0u8; PREIMAGE_SIZE];
         let mut cursor = 0;
@@ -124,53 +141,14 @@ impl ProtocolMessage {
         Ok(preimage)
     }
 
-    /// SHA256 of the dynamic parts: all keys except the three rigid fixed-slot keys,
-    /// in BTreeMap order: `SHA256(key.to_string() || value)` for each remaining entry.
+    /// SHA256 of the dynamic parts in BTreeMap order:
+    /// `SHA256(key.to_string() || value)` for each entry.
     fn compute_dynamic_parts_hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        for (key, value) in &self.message_parts {
-            if matches!(
-                key,
-                ProtocolMessagePartKey::NextSnarkAggregateVerificationKey
-                    | ProtocolMessagePartKey::NextProtocolParameters
-                    | ProtocolMessagePartKey::CurrentEpoch
-            ) {
-                continue;
-            }
+        for (key, value) in &self.dynamic_message_parts {
             hasher.update(key.to_string().as_bytes());
             hasher.update(value.as_bytes());
         }
         hasher.finalize().into()
-    }
-
-    fn avk_slot_from_key<D: MembershipDigest>(&self) -> StmResult<[u8; 44]> {
-        let value = self.required_message_part(
-            ProtocolMessagePartKey::NextSnarkAggregateVerificationKey,
-            "next SNARK aggregate verification key",
-        )?;
-        let bytes =
-            hex::decode(value).context("invalid next SNARK aggregate verification key hex")?;
-        let avk = AggregateVerificationKeyForSnark::<D>::from_bytes(&bytes)
-            .context("invalid next SNARK aggregate verification key bytes")?;
-        avk.to_rigid_slot_bytes()
-    }
-
-    fn params_slot_from_key(&self) -> StmResult<[u8; 32]> {
-        let value = self.required_message_part(
-            ProtocolMessagePartKey::NextProtocolParameters,
-            "next protocol parameters",
-        )?;
-        let bytes = hex::decode(value).context("invalid next protocol parameters hex")?;
-        let actual = bytes.len();
-        bytes.try_into().map_err(|_| {
-            anyhow!("next protocol parameters slot must be exactly 32 bytes, got {actual}")
-        })
-    }
-
-    fn epoch_slot_from_key(&self) -> StmResult<[u8; 8]> {
-        let value =
-            self.required_message_part(ProtocolMessagePartKey::CurrentEpoch, "current epoch")?;
-        let epoch: u64 = value.parse().context("invalid current epoch slot")?;
-        Ok(epoch.to_le_bytes())
     }
 }

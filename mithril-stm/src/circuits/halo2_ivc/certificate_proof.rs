@@ -31,7 +31,7 @@ use crate::{
 /// on a clone gives cheap early abort; the original `DualMSM` is returned on
 /// success for downstream reuse (e.g. wrapping into a certificate accumulator
 /// for recursive aggregation).
-// TODO: remove this allow dead_code directive when the IVC prover consumes this helper
+// Kept until the IVC prover prepares certificate proof accumulators.
 #[allow(dead_code)]
 pub(crate) fn verify_and_prepare_accumulator(
     proof_bytes: &[u8],

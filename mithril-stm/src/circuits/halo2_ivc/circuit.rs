@@ -11,30 +11,33 @@ use super::{
     gadget::IvcGadget,
     nb_foreign_ecc_chip_columns,
     state::{Global, State, Witness},
+    types::{CertificateProofBytes, IvcProofBytes},
 };
 
 #[derive(Clone, Debug)]
 pub struct IvcCircuit {
     // Persistent values throughout an ivc stream. This is the root of trust for an ivc stream.
-    pub global: Value<Global>,
+    global: Value<Global>,
     // State values from the last aggregated certificate
-    pub state: Value<State>,
+    state: Value<State>,
     // Witness (mainly the next certificate to be aggregated) for deriving the next state
-    pub witness: Value<Witness>,
+    witness: Value<Witness>,
     // Snark proof of the next certificate
-    pub cert_proof: Value<Vec<u8>>,
+    cert_proof: Value<Vec<u8>>,
     // Latest IVC proof
-    pub self_proof: Value<Vec<u8>>,
+    self_proof: Value<Vec<u8>>,
     // Latest Accumulator
-    pub acc: Value<Accumulator<S>>,
+    acc: Value<Accumulator<S>>,
     // Domain and ConstraintSystem associated with certificate circuit VerifyingKey
-    pub cert_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
+    cert_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
     // Domain and ConstraintSystem associated with ivc circuit VerifyingKey
-    pub self_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
+    self_domain_cs: (EvaluationDomain<F>, ConstraintSystem<F>),
 }
 
 impl IvcCircuit {
     /// Validates that the self VK degree matches the IVC circuit degree constant K.
+    // Kept until the IVC prover validates recursive circuit keys.
+    #[allow(dead_code)]
     pub(crate) fn validate_self_vk_degree(
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     ) -> StmResult<()> {
@@ -88,13 +91,15 @@ impl IvcCircuit {
     /// `configure_ivc_circuit` is sufficient for all chips. Returns an error containing
     /// [`IvcCircuitError::SelfVkDegreeMismatch`] or [`IvcCircuitError::InsufficientAdviceColumns`]
     /// / [`IvcCircuitError::InsufficientFixedColumns`] if either check fails.
+    // Kept until the IVC prover constructs recursive circuit instances.
+    #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
-    pub fn try_new(
+    pub(crate) fn try_new(
         global: Global,
         state: State,
         witness: Witness,
-        cert_proof: Vec<u8>,
-        self_proof: Vec<u8>,
+        cert_proof: CertificateProofBytes,
+        self_proof: IvcProofBytes,
         acc: Accumulator<S>,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
@@ -105,8 +110,8 @@ impl IvcCircuit {
             global: Value::known(global),
             state: Value::known(state),
             witness: Value::known(witness),
-            cert_proof: Value::known(cert_proof),
-            self_proof: Value::known(self_proof),
+            cert_proof: Value::known(cert_proof.into_vec()),
+            self_proof: Value::known(self_proof.into_vec()),
             acc: Value::known(acc),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
             self_domain_cs: (self_vk.get_domain().clone(), self_vk.cs().clone()),

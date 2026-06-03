@@ -25,10 +25,11 @@ use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, S,
     circuit::IvcCircuit,
     state::{Global, State, trivial_acc},
+    types::{CertificateProofBytes, IvcProofBytes},
 };
 
 struct CertificateChainArtifacts {
-    certificate_proofs: Vec<Vec<u8>>,
+    certificate_proofs: Vec<CertificateProofBytes>,
     certificate_accumulators: Vec<Accumulator<S>>,
     recursive_next_states: Vec<State>,
     recursive_witnesses: Vec<crate::circuits::halo2_ivc::state::Witness>,
@@ -36,12 +37,12 @@ struct CertificateChainArtifacts {
 
 struct RecursiveChainSnapshot {
     state: State,
-    proof: Vec<u8>,
+    proof: IvcProofBytes,
     accumulator: Accumulator<S>,
 }
 
 struct NextRecursiveStepInputs {
-    certificate_proof: Vec<u8>,
+    certificate_proof: CertificateProofBytes,
     next_state: State,
     recursive_witness: crate::circuits::halo2_ivc::state::Witness,
     next_accumulator: Accumulator<S>,
@@ -52,7 +53,7 @@ fn build_certificate_chain_artifacts(
     context: &super::setup::SharedRecursiveContext,
     recursive_fixed_base_names: &[String],
 ) -> CertificateChainArtifacts {
-    let mut certificate_proofs = vec![vec![]];
+    let mut certificate_proofs = vec![CertificateProofBytes::empty()];
     let mut certificate_accumulators = vec![trivial_acc(recursive_fixed_base_names)];
     let mut recursive_next_states = vec![build_genesis_base_case_next_state(setup, GENESIS_EPOCH)];
     let mut recursive_witnesses = vec![build_genesis_base_case_witness(setup)];
@@ -108,7 +109,7 @@ fn build_recursive_chain_snapshot(
 ) -> RecursiveChainSnapshot {
     let combined_fixed_base_names = combined_fixed_bases.keys().cloned().collect::<Vec<_>>();
     let mut current_state = State::genesis();
-    let mut recursive_proof = vec![];
+    let mut recursive_proof = IvcProofBytes::empty();
     let mut current_accumulator = trivial_acc(&combined_fixed_base_names);
     let mut next_accumulator = current_accumulator.clone();
     let mut recursive_random_generator = OsRng;
@@ -163,7 +164,7 @@ fn build_recursive_chain_snapshot(
 
         current_state = artifacts.recursive_next_states[i].clone();
         current_accumulator = next_accumulator.clone();
-        recursive_proof = proof;
+        recursive_proof = IvcProofBytes::new(proof);
 
         if i < INITIAL_CHAIN_LENGTH {
             let mut accumulated_accumulator = Accumulator::accumulate(&[
@@ -184,7 +185,8 @@ fn build_recursive_chain_snapshot(
     }
 
     assert_eq!(
-        current_state.next_merkle_root, setup.genesis_next_merkle_root,
+        current_state.next_merkle_root.as_field(),
+        setup.genesis_next_merkle_root,
         "recursive_chain_state writer is about to persist a next_merkle_root that does not match setup"
     );
 
@@ -217,7 +219,8 @@ fn store_recursive_chain_snapshot(
     let reloaded = load_recursive_chain_state_asset(&paths.recursive_chain_state)
         .expect("failed to reload recursive_chain_state asset after writing");
     assert_eq!(
-        reloaded.state.next_merkle_root, setup.genesis_next_merkle_root,
+        reloaded.state.next_merkle_root.as_field(),
+        setup.genesis_next_merkle_root,
         "reloaded recursive_chain_state next_merkle_root does not match setup"
     );
 }
@@ -255,7 +258,7 @@ fn build_next_recursive_step_inputs(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        &recursive_chain_state.proof,
+        recursive_chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
@@ -344,7 +347,7 @@ fn store_recursive_step_output(
         paths.recursive_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
         certificate_proof: next_step_inputs.certificate_proof,
@@ -518,8 +521,8 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         global.clone(),
         State::genesis(),
         genesis_witness,
-        vec![],
-        vec![],
+        CertificateProofBytes::empty(),
+        IvcProofBytes::empty(),
         current_accumulator,
         context.certificate_verifying_key.vk(),
         &context.recursive_verifying_key,
@@ -559,10 +562,10 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         paths.genesis_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state: genesis_next_state,
-        certificate_proof: vec![],
+        certificate_proof: CertificateProofBytes::empty(),
     };
     store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
         .expect("failed to write genesis_step_output asset");
@@ -628,7 +631,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     .concat();
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
-        &chain_state.proof,
+        chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(
@@ -697,7 +700,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         paths.same_epoch_step_output.display()
     );
     let asset = RecursiveStepOutputAsset {
-        proof,
+        proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state,
         certificate_proof,

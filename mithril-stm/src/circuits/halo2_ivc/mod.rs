@@ -49,17 +49,19 @@ pub(crate) use midnight_proofs::{
 };
 
 pub(crate) mod certificate_proof;
-pub mod circuit;
-pub mod config;
-pub mod errors;
-pub mod gadget;
-pub mod io;
+pub(crate) mod circuit;
+pub(crate) mod config;
+pub(crate) mod errors;
+pub(crate) mod gadget;
+#[cfg(test)]
+pub(crate) mod io;
 #[cfg(test)]
 pub(crate) mod protocol_message;
-pub mod state;
+pub(crate) mod state;
+pub(crate) mod types;
 
 #[cfg(test)]
-pub mod tests;
+pub(crate) mod tests;
 
 type S = BlstrsEmulation;
 type F = <S as SelfEmulation>::F;

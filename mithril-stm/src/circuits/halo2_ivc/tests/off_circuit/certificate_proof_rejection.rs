@@ -48,7 +48,7 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
     let wrong_inputs = vec![CircuitBase::ZERO, CircuitBase::ZERO];
 
     let result = verify_and_prepare_accumulator(
-        &step_output.certificate_proof,
+        step_output.certificate_proof.as_bytes(),
         &wrong_inputs,
         &ctx.certificate_verifying_key,
         &ctx.verifier_params,

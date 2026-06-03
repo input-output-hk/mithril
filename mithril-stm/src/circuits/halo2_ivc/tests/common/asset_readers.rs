@@ -19,6 +19,10 @@ use crate::circuits::halo2_ivc::{
     circuit::IvcCircuit,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
+    types::{
+        CertificateProofBytes, EpochNumber, IvcProofBytes, MerkleTreeCommitment, MessageHash,
+        ProtocolParametersHash, StepCounter,
+    },
 };
 
 use super::field_encoding::jubjub_base_from_raw_le_bytes;
@@ -31,7 +35,7 @@ pub(crate) struct RecursiveChainStateAsset {
     /// Stored recursive state checkpoint.
     pub(crate) state: State,
     /// Stored previous recursive proof bytes.
-    pub(crate) proof: Vec<u8>,
+    pub(crate) proof: IvcProofBytes,
     /// Stored folded accumulator for the checkpoint.
     pub(crate) accumulator: Accumulator<S>,
 }
@@ -57,13 +61,13 @@ pub(crate) struct VerificationContextAsset {
 #[derive(Debug)]
 pub(crate) struct RecursiveStepOutputAsset {
     /// Stored final recursive proof bytes for the next step.
-    pub(crate) proof: Vec<u8>,
+    pub(crate) proof: IvcProofBytes,
     /// Stored folded accumulator after extending the chain by one step.
     pub(crate) next_accumulator: Accumulator<S>,
     /// Stored next recursive state.
     pub(crate) next_state: State,
     /// Stored certificate proof consumed by the recursive step.
-    pub(crate) certificate_proof: Vec<u8>,
+    pub(crate) certificate_proof: CertificateProofBytes,
 }
 
 const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] =
@@ -105,13 +109,13 @@ fn write_field_element<W: Write>(writer: &mut W, value: &F) -> StmResult<()> {
 /// Reads the seven public-input field elements that define a recursive state.
 fn read_state_public_input<R: Read>(reader: &mut R) -> StmResult<State> {
     Ok(State::new(
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
-        read_field_element(reader)?,
+        StepCounter::from_field(read_field_element(reader)?),
+        MessageHash::from_field(read_field_element(reader)?),
+        MerkleTreeCommitment::from_field(read_field_element(reader)?),
+        MerkleTreeCommitment::from_field(read_field_element(reader)?),
+        ProtocolParametersHash::from_field(read_field_element(reader)?),
+        ProtocolParametersHash::from_field(read_field_element(reader)?),
+        EpochNumber::from_field(read_field_element(reader)?),
     ))
 }
 
@@ -189,7 +193,7 @@ fn load_recursive_chain_state_asset_from_reader<R: Read>(
         .map(|_| read_field_element(reader))
         .collect::<Result<Vec<_>, _>>()?;
     let state = read_state_public_input(reader)?;
-    let proof = read_length_prefixed_proof(reader)?;
+    let proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
 
     Ok(RecursiveChainStateAsset {
@@ -239,7 +243,7 @@ pub(crate) fn store_recursive_chain_state_asset(
         write_field_element(&mut writer, value)?;
     }
     write_state_public_input(&mut writer, &asset.state)?;
-    write_length_prefixed_proof(&mut writer, &asset.proof)?;
+    write_length_prefixed_proof(&mut writer, asset.proof.as_bytes())?;
     asset.accumulator.write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     writer.flush().with_context(|| {
         format!(
@@ -352,10 +356,12 @@ pub(crate) fn store_verification_context_asset(
 fn load_recursive_step_output_asset_from_reader<R: Read>(
     reader: &mut R,
 ) -> StmResult<RecursiveStepOutputAsset> {
-    let proof = read_length_prefixed_proof(reader)?;
+    let proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let next_accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
     let next_state = read_state_public_input(reader)?;
-    let certificate_proof = read_length_prefixed_proof(reader)?;
+    let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
+        read_length_prefixed_proof(reader)?,
+    );
 
     Ok(RecursiveStepOutputAsset {
         proof,
@@ -398,12 +404,12 @@ pub(crate) fn store_recursive_step_output_asset(
         )
     })?;
 
-    write_length_prefixed_proof(&mut writer, &asset.proof)?;
+    write_length_prefixed_proof(&mut writer, asset.proof.as_bytes())?;
     asset
         .next_accumulator
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_state_public_input(&mut writer, &asset.next_state)?;
-    write_length_prefixed_proof(&mut writer, &asset.certificate_proof)?;
+    write_length_prefixed_proof(&mut writer, asset.certificate_proof.as_bytes())?;
     writer.flush().with_context(|| {
         format!(
             "failed to flush recursive step output asset: {}",
