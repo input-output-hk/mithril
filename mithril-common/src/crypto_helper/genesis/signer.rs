@@ -131,6 +131,11 @@ impl GenesisSigner {
             SupportedEra::Lagrange => {
                 let schnorr_signer =
                     self.schnorr.as_ref().ok_or(GenesisBundleError::LegacySigningKey)?;
+                if !protocol_message.is_rigid() {
+                    return Err(anyhow!(
+                        "Lagrange genesis signing requires a rigid protocol message"
+                    ));
+                }
                 protocol_message.check_rigid_integrity()?;
                 let preimage = protocol_message.rigid_preimage();
                 if preimage.len() != PREIMAGE_SIZE {
@@ -274,6 +279,18 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([7u8; 32]);
             let schnorr = GenesisSchnorrSigner::generate(&mut rng);
             GenesisSigningKeyBundle::new(ed25519.secret_key(), schnorr.secret_key())
+        }
+
+        #[test]
+        fn sign_lagrange_rejects_a_non_rigid_protocol_message() {
+            let signer = GenesisSigner::from_bundle(build_bundle());
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+
+            let error = signer
+                .sign(&ProtocolMessage::new(), SupportedEra::Lagrange, &mut rng)
+                .expect_err("Lagrange signing must reject a non-rigid protocol message");
+
+            assert!(error.to_string().contains("rigid protocol message"));
         }
 
         #[test]
