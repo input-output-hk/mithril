@@ -22,46 +22,46 @@ use crate::circuits::halo2_ivc::{
 };
 
 #[test]
-fn merkle_root_tampered_is_rejected() {
-    // Asset-based check: circuit enforces merkle_root = prev.merkle_root in a same-epoch transition.
+fn merkle_tree_commitment_tampered_is_rejected() {
+    // Asset-based check: circuit enforces merkle_tree_commitment = prev.merkle_tree_commitment in a same-epoch transition.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.merkle_root = MerkleTreeCommitment::from_field(F::ONE),
-        "proof with tampered merkle_root should be rejected by the verifier",
+        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        "proof with tampered merkle_tree_commitment should be rejected by the verifier",
     );
 }
 
 #[test]
-fn next_merkle_root_tampered_is_rejected() {
-    // Asset-based check: circuit enforces next_merkle_root is extracted from the certificate message preimage.
+fn next_merkle_tree_commitment_tampered_is_rejected() {
+    // Asset-based check: circuit enforces next_merkle_tree_commitment is extracted from the certificate message preimage.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE),
-        "proof with tampered next_merkle_root should be rejected by the verifier",
+        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        "proof with tampered next_merkle_tree_commitment should be rejected by the verifier",
     );
 }
 
 #[test]
-fn protocol_params_tampered_is_rejected() {
-    // Asset-based check: circuit enforces protocol_params = prev.protocol_params in a same-epoch transition.
+fn protocol_parameters_tampered_is_rejected() {
+    // Asset-based check: circuit enforces protocol_parameters = prev.protocol_parameters in a same-epoch transition.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.protocol_params = ProtocolParametersHash::from_field(F::ONE),
-        "proof with tampered protocol_params should be rejected by the verifier",
+        |s| s.protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        "proof with tampered protocol_parameters should be rejected by the verifier",
     );
 }
 
 #[test]
-fn next_protocol_params_tampered_is_rejected() {
-    // Asset-based check: circuit enforces next_protocol_params is extracted from the certificate message preimage.
+fn next_protocol_parameters_tampered_is_rejected() {
+    // Asset-based check: circuit enforces next_protocol_parameters is extracted from the certificate message preimage.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.next_protocol_params = ProtocolParametersHash::from_field(F::ONE),
-        "proof with tampered next_protocol_params should be rejected by the verifier",
+        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        "proof with tampered next_protocol_parameters should be rejected by the verifier",
     );
 }
 
@@ -78,23 +78,23 @@ fn current_epoch_tampered_is_rejected() {
 
 #[test]
 fn counter_tampered_is_rejected() {
-    // Asset-based check: circuit enforces counter increments by 1 at every recursive step.
+    // Asset-based check: circuit enforces step_counter increments by 1 at every recursive step.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.counter = StepCounter::from_field(F::ONE),
-        "proof with tampered counter should be rejected by the verifier",
+        |s| s.step_counter = StepCounter::from_field(F::ONE),
+        "proof with tampered step_counter should be rejected by the verifier",
     );
 }
 
 #[test]
 fn msg_tampered_is_rejected() {
-    // Asset-based check: circuit enforces msg equals the certificate message hash verified in-circuit.
+    // Asset-based check: circuit enforces message equals the certificate message hash verified in-circuit.
     assert_step_output_rejects_tampered_state(
         load_embedded_same_epoch_step_output_asset,
         "same-epoch step output",
-        |s| s.msg = MessageHash::from_field(F::ONE),
-        "proof with tampered msg should be rejected by the verifier",
+        |s| s.message = MessageHash::from_field(F::ONE),
+        "proof with tampered message should be rejected by the verifier",
     );
 }
 
@@ -102,9 +102,9 @@ mod slow {
     use super::*;
 
     #[test]
-    fn circuit_rejects_merkle_root_carry_violation_in_same_epoch_step() {
+    fn circuit_rejects_merkle_tree_commitment_carry_violation_in_same_epoch_step() {
         // MockProver constraint check: in a same-epoch transition the circuit must carry
-        // merkle_root unchanged from prev_state. Setting it to ONE violates that constraint.
+        // merkle_tree_commitment unchanged from prev_state. Setting it to ONE violates that constraint.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
@@ -114,7 +114,7 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
+            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
             ProtocolMessagePreimage::new(
                 preimage_bytes
@@ -123,20 +123,20 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-        tampered_state.merkle_root = MerkleTreeCommitment::from_field(F::ONE);
+        tampered_state.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             public_inputs,
-            "merkle_root set to ONE (same-epoch: must carry prev.merkle_root unchanged)",
+            "merkle_tree_commitment set to ONE (same-epoch: must carry prev.merkle_tree_commitment unchanged)",
         );
     }
 
     #[test]
-    fn circuit_rejects_protocol_params_carry_violation_in_same_epoch_step() {
+    fn circuit_rejects_protocol_parameters_carry_violation_in_same_epoch_step() {
         // MockProver constraint check: in a same-epoch transition the circuit must carry
-        // protocol_params unchanged from prev_state. Setting it to ONE violates that constraint.
+        // protocol_parameters unchanged from prev_state. Setting it to ONE violates that constraint.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
@@ -146,7 +146,7 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
+            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
             ProtocolMessagePreimage::new(
                 preimage_bytes
@@ -155,13 +155,13 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, message);
-        tampered_state.protocol_params = ProtocolParametersHash::from_field(F::ONE);
+        tampered_state.protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
         let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             public_inputs,
-            "protocol_params set to ONE (same-epoch: must carry prev.protocol_params unchanged)",
+            "protocol_parameters set to ONE (same-epoch: must carry prev.protocol_parameters unchanged)",
         );
     }
 
@@ -178,7 +178,7 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
+            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
             ProtocolMessagePreimage::new(
                 preimage_bytes

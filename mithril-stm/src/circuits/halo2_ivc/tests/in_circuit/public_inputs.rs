@@ -25,7 +25,7 @@ use crate::circuits::halo2_ivc::{
 /// Loads the genesis assets, applies `tamper` to the three public-input sections
 /// (`global`, `state`, `accumulator`), then asserts the verifier rejects the result.
 ///
-/// `global` layout: `[genesis_msg, genesis_verification_key.x, genesis_verification_key.y,
+/// `global` layout: `[genesis_message, genesis_verification_key.x, genesis_verification_key.y,
 /// certificate_verifying_key_repr, ivc_verifying_key_repr]`.
 fn assert_genesis_step_output_rejects_tampered_public_inputs(
     tamper: impl FnOnce(&mut Vec<F>, &mut Vec<F>, &mut Vec<F>),
@@ -58,12 +58,12 @@ fn assert_genesis_step_output_rejects_tampered_public_inputs(
 }
 
 #[test]
-fn genesis_msg_tampered_public_input_is_rejected() {
-    // Asset-based check that the verifier rejects a stored proof when genesis_msg
+fn genesis_message_tampered_public_input_is_rejected() {
+    // Asset-based check that the verifier rejects a stored proof when genesis_message
     // is replaced in the global public inputs, confirming it is committed at index 0.
     assert_genesis_step_output_rejects_tampered_public_inputs(
         |global, _, _| global[0] = F::ONE,
-        "proof with tampered genesis_msg should be rejected by the verifier",
+        "proof with tampered genesis_message should be rejected by the verifier",
     );
 }
 
@@ -123,8 +123,8 @@ mod slow {
     use super::*;
 
     #[test]
-    fn circuit_rejects_wrong_genesis_msg_global_field() {
-        // MockProver constraint check: global[0] (genesis_msg) set to ONE must violate
+    fn circuit_rejects_wrong_genesis_message_global_field() {
+        // MockProver constraint check: global[0] (genesis_message) set to ONE must violate
         // the in-circuit constraint that pins the genesis message to the global public input.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
@@ -140,7 +140,7 @@ mod slow {
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             [global, state, accumulator_encoding].concat(),
-            "global[0] (genesis_msg) set to ONE",
+            "global[0] (genesis_message) set to ONE",
         );
     }
 

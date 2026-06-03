@@ -13,8 +13,8 @@ use super::{
     ComposableChip, ConstraintSystem, ControlFlowInstructions, ConversionInstructions, EccChip,
     EccInstructions, EqualityInstructions, Error, EvaluationDomain, F, ForeignEccChip,
     HashInstructions, IVC_ONE_NAME, Jubjub, K, Layouter, NG, NativeChip, NativeGadget,
-    P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PoseidonChip, PublicInputInstructions, S, Value,
+    P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PoseidonChip, PublicInputInstructions, S, Value,
     VerifierGadget, ZeroInstructions,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
@@ -66,9 +66,9 @@ impl IvcGadget {
         cert_domain_cs: &(EvaluationDomain<F>, ConstraintSystem<F>),
         self_domain_cs: &(EvaluationDomain<F>, ConstraintSystem<F>),
     ) -> Result<AssignedGlobal, Error> {
-        let genesis_msg: AssignedNative<_> = self
+        let genesis_message: AssignedNative<_> = self
             .native_gadget
-            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_msg.as_field()))?;
+            .assign_as_public_input(layouter, global.clone().map(|gl| gl.genesis_message.as_field()))?;
         let genesis_vk: AssignedNativePoint<_> = self.jubjub_chip.assign_as_public_input(
             layouter,
             global.clone().map(|gl| *gl.genesis_vk.as_jubjub_subgroup()),
@@ -103,7 +103,7 @@ impl IvcGadget {
         };
 
         Ok(AssignedGlobal {
-            genesis_msg,
+            genesis_message,
             genesis_vk,
             cert_vk,
             self_vk,
@@ -120,24 +120,24 @@ impl IvcGadget {
             .clone()
             .map(|s| {
                 vec![
-                    s.counter.as_field(),
-                    s.msg.as_field(),
-                    s.merkle_root.as_field(),
-                    s.next_merkle_root.as_field(),
-                    s.protocol_params.as_field(),
-                    s.next_protocol_params.as_field(),
+                    s.step_counter.as_field(),
+                    s.message.as_field(),
+                    s.merkle_tree_commitment.as_field(),
+                    s.next_merkle_tree_commitment.as_field(),
+                    s.protocol_parameters.as_field(),
+                    s.next_protocol_parameters.as_field(),
                     s.current_epoch.as_field(),
                 ]
             })
             .transpose_vec(7);
 
         let [
-            counter,
-            msg,
-            merkle_root,
-            next_merkle_root,
-            protocol_params,
-            next_protocol_params,
+            step_counter,
+            message,
+            merkle_tree_commitment,
+            next_merkle_tree_commitment,
+            protocol_parameters,
+            next_protocol_parameters,
             current_epoch,
         ]: [AssignedNative<_>; 7] = {
             self.native_gadget
@@ -152,12 +152,12 @@ impl IvcGadget {
         };
 
         Ok(AssignedState {
-            counter,
-            msg,
-            merkle_root,
-            next_merkle_root,
-            protocol_params,
-            next_protocol_params,
+            step_counter,
+            message,
+            merkle_tree_commitment,
+            next_merkle_tree_commitment,
+            protocol_parameters,
+            next_protocol_parameters,
             current_epoch,
         })
     }
@@ -168,12 +168,12 @@ impl IvcGadget {
         state: &AssignedState,
     ) -> Result<(), Error> {
         for value in [
-            &state.counter,
-            &state.msg,
-            &state.merkle_root,
-            &state.next_merkle_root,
-            &state.protocol_params,
-            &state.next_protocol_params,
+            &state.step_counter,
+            &state.message,
+            &state.merkle_tree_commitment,
+            &state.next_merkle_tree_commitment,
+            &state.protocol_parameters,
+            &state.next_protocol_parameters,
             &state.current_epoch,
         ] {
             self.native_gadget.constrain_as_public_input(layouter, value)?;
@@ -197,10 +197,10 @@ impl IvcGadget {
             (s, c)
         };
 
-        let [cert_msg, cert_merkle_root]: [AssignedNative<F>; 2] = {
+        let [certificate_message, certificate_merkle_tree_commitment]: [AssignedNative<F>; 2] = {
             let values = witness
                 .clone()
-                .map(|w| vec![w.cert_msg.as_field(), w.cert_merkle_root.as_field()])
+                .map(|w| vec![w.certificate_message.as_field(), w.certificate_merkle_tree_commitment.as_field()])
                 .transpose_vec(2);
             self.native_gadget
                 .assign_many(layouter, &values)?
@@ -213,16 +213,16 @@ impl IvcGadget {
                 })?
         };
 
-        let msg_preimage = {
-            let preimage = witness.clone().map(|w| w.msg_preimage.into_inner()).transpose_array();
+        let message_preimage = {
+            let preimage = witness.clone().map(|w| w.message_preimage.into_inner()).transpose_array();
             self.native_gadget.assign_many(layouter, &preimage)?
         };
 
         Ok(AssignedWitness {
             genesis_sig,
-            cert_merkle_root,
-            cert_msg,
-            msg_preimage,
+            certificate_merkle_tree_commitment,
+            certificate_message,
+            message_preimage,
         })
     }
 
@@ -231,7 +231,7 @@ impl IvcGadget {
         layouter: &mut impl Layouter<F>,
         state: &AssignedState,
     ) -> Result<AssignedBit<F>, Error> {
-        self.native_gadget.is_zero(layouter, &state.counter)
+        self.native_gadget.is_zero(layouter, &state.step_counter)
     }
 
     pub fn is_genesis_sig_valid(
@@ -271,7 +271,7 @@ impl IvcGadget {
                 vk_y,
                 cap_r_x,
                 cap_r_y,
-                global.genesis_msg.clone(),
+                global.genesis_message.clone(),
             ],
         )?;
 
@@ -303,7 +303,7 @@ impl IvcGadget {
     ) -> Result<Vec<AssignedNative<F>>, Error> {
         let pi = [
             vec![
-                global.genesis_msg.clone(),
+                global.genesis_message.clone(),
                 self.jubjub_chip.x_coordinate(&global.genesis_vk),
                 self.jubjub_chip.y_coordinate(&global.genesis_vk),
             ],
@@ -338,18 +338,18 @@ impl IvcGadget {
         state: &AssignedState,
         witness: &AssignedWitness,
     ) -> Result<AssignedState, Error> {
-        let counter = self.native_gadget.add_constant(layouter, &state.counter, F::ONE)?;
+        let step_counter = self.native_gadget.add_constant(layouter, &state.step_counter, F::ONE)?;
 
-        let (cert_msg, cert_merkle_root) =
-            (witness.cert_msg.clone(), witness.cert_merkle_root.clone());
+        let (certificate_message, certificate_merkle_tree_commitment) =
+            (witness.certificate_message.clone(), witness.certificate_merkle_tree_commitment.clone());
 
-        // Open msg hash to check the link between certificates
-        // If it is genesis, select genesis msg as msg; otherwise, select cert msg as msg.
-        let msg =
+        // Open message hash to check the link between certificates
+        // If it is genesis, select genesis message as message; otherwise, select cert message as message.
+        let message =
             self.native_gadget
-                .select(layouter, is_genesis, &global.genesis_msg, &cert_msg)?;
+                .select(layouter, is_genesis, &global.genesis_message, &certificate_message)?;
 
-        let hash = self.sha2_256_chip.hash(layouter, &witness.msg_preimage)?;
+        let hash = self.sha2_256_chip.hash(layouter, &witness.message_preimage)?;
 
         let factor = F::from(256u64);
         let bases: Vec<_> = (0..32)
@@ -361,32 +361,32 @@ impl IvcGadget {
             .collect();
 
         {
-            // Compare msg and hash
+            // Compare message and hash
             let hash_native = self.combine_bytes(layouter, &hash, &bases)?;
-            self.native_gadget.assert_equal(layouter, &msg, &hash_native)?;
+            self.native_gadget.assert_equal(layouter, &message, &hash_native)?;
         }
 
-        // If it is genesis, merkle_root = 0; otherwise, merkle_root = cert_merkle_root.
+        // If it is genesis, merkle_tree_commitment = 0; otherwise, merkle_tree_commitment = certificate_merkle_tree_commitment.
         let zero = self.native_gadget.assign_fixed(layouter, F::ZERO)?;
-        let merkle_root =
+        let merkle_tree_commitment =
             self.native_gadget
-                .select(layouter, is_genesis, &zero, &cert_merkle_root)?;
+                .select(layouter, is_genesis, &zero, &certificate_merkle_tree_commitment)?;
 
-        // Read the value of next merkle root, next protocol parameters and current epoch from protocol message preimage
+        // Read the value of next Merkle-tree commitment, next protocol parameters and current epoch from protocol message preimage
         // digest(6) | bytes(32) | next_aggregate_verification_key(31) | bytes(44) | next_protocol_parameters(24) | bytes(32) | current_epoch(13) | bytes(8)
         // todo: check field keywords(?)
-        let next_merkle_root_bytes = witness.msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].to_vec();
-        let next_protocol_params_bytes =
-            witness.msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].to_vec();
-        let current_epoch_bytes = witness.msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].to_vec();
+        let next_merkle_tree_commitment_bytes = witness.message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].to_vec();
+        let next_protocol_parameters_bytes =
+            witness.message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].to_vec();
+        let current_epoch_bytes = witness.message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].to_vec();
 
         // Get the field elements by linearly combining the bytes
-        let (next_merkle_root, next_protocol_params, current_epoch) = {
-            let next_merkle_root = self.combine_bytes(layouter, next_merkle_root_bytes, &bases)?;
-            let next_protocol_params =
-                self.combine_bytes(layouter, next_protocol_params_bytes, &bases)?;
+        let (next_merkle_tree_commitment, next_protocol_parameters, current_epoch) = {
+            let next_merkle_tree_commitment = self.combine_bytes(layouter, next_merkle_tree_commitment_bytes, &bases)?;
+            let next_protocol_parameters =
+                self.combine_bytes(layouter, next_protocol_parameters_bytes, &bases)?;
             let current_epoch = self.combine_bytes(layouter, current_epoch_bytes, &bases)?;
-            (next_merkle_root, next_protocol_params, current_epoch)
+            (next_merkle_tree_commitment, next_protocol_parameters, current_epoch)
         };
 
         let (is_same_epoch, is_next_epoch) = {
@@ -405,13 +405,13 @@ impl IvcGadget {
         };
 
         {
-            // If state.counter == 1, the previous certificate is a genesis certificate and
+            // If state.step_counter == 1, the previous certificate is a genesis certificate and
             // the current certificate is the first certificate after the genesis and
             // its epoch number must be the next epoch number.
             // Assert true: is_not_first or is_next_epoch
             let is_first =
                 self.native_gadget
-                    .is_equal_to_fixed(layouter, &state.counter, F::ONE)?;
+                    .is_equal_to_fixed(layouter, &state.step_counter, F::ONE)?;
             let is_not_first = self.native_gadget.not(layouter, &is_first)?;
 
             let is_valid = self
@@ -421,18 +421,18 @@ impl IvcGadget {
         }
 
         {
-            // Check the link on the current merkle root; if it is genesis, skip the checking
-            // Assert true: is_genesis or (is_same_epoch && merkle_root == state.merkle_root) or (is_next_epoch && merkle_root == state.next_merkle_root)
+            // Check the link on the current Merkle-tree commitment; if it is genesis, skip the checking
+            // Assert true: is_genesis or (is_same_epoch && merkle_tree_commitment == state.merkle_tree_commitment) or (is_next_epoch && merkle_tree_commitment == state.next_merkle_tree_commitment)
             let mut is_equal_current =
                 self.native_gadget
-                    .is_equal(layouter, &merkle_root, &state.merkle_root)?;
+                    .is_equal(layouter, &merkle_tree_commitment, &state.merkle_tree_commitment)?;
             is_equal_current = self
                 .native_gadget
                 .and(layouter, &[is_equal_current, is_same_epoch.clone()])?;
 
             let mut is_equal_next =
                 self.native_gadget
-                    .is_equal(layouter, &merkle_root, &state.next_merkle_root)?;
+                    .is_equal(layouter, &merkle_tree_commitment, &state.next_merkle_tree_commitment)?;
             is_equal_next = self
                 .native_gadget
                 .and(layouter, &[is_equal_next, is_next_epoch.clone()])?;
@@ -445,41 +445,41 @@ impl IvcGadget {
                 .assert_equal_to_fixed(layouter, &is_link_valid, true)?;
         }
 
-        let protocol_params = {
-            // If genesis: protocol_params = 0
+        let protocol_parameters = {
+            // If genesis: protocol_parameters = 0
             // Else:
-            //     if same_epoch: protocol_params = state.protocol_params;
-            //     else: protocol_params = state.next_protocol_params
-            let mut protocol_params = self.native_gadget.select(
+            //     if same_epoch: protocol_parameters = state.protocol_parameters;
+            //     else: protocol_parameters = state.next_protocol_parameters
+            let mut protocol_parameters = self.native_gadget.select(
                 layouter,
                 is_genesis,
                 &zero,
-                &state.next_protocol_params,
+                &state.next_protocol_parameters,
             )?;
             let is_same_epoch_not_genesis = self
                 .native_gadget
                 .and(layouter, &[is_same_epoch.clone(), is_not_genesis.clone()])?;
-            protocol_params = self.native_gadget.select(
+            protocol_parameters = self.native_gadget.select(
                 layouter,
                 &is_same_epoch_not_genesis,
-                &state.protocol_params,
-                &protocol_params,
+                &state.protocol_parameters,
+                &protocol_parameters,
             )?;
-            protocol_params
+            protocol_parameters
         };
 
         {
-            // Check the consistence on next_merkle_root and next_protocol_params for certificates of the same epoch
-            // Assert true: is_genesis or (is_same_epoch && next_merkle_root == state.next_merkle_root && next_protocol_params == state.next_protocol_params) or is_next_epoch
+            // Check the consistence on next_merkle_tree_commitment and next_protocol_parameters for certificates of the same epoch
+            // Assert true: is_genesis or (is_same_epoch && next_merkle_tree_commitment == state.next_merkle_tree_commitment && next_protocol_parameters == state.next_protocol_parameters) or is_next_epoch
             let is_equal_mt = self.native_gadget.is_equal(
                 layouter,
-                &next_merkle_root,
-                &state.next_merkle_root,
+                &next_merkle_tree_commitment,
+                &state.next_merkle_tree_commitment,
             )?;
             let is_equal_pp = self.native_gadget.is_equal(
                 layouter,
-                &next_protocol_params,
-                &state.next_protocol_params,
+                &next_protocol_parameters,
+                &state.next_protocol_parameters,
             )?;
             let mut is_valid = self
                 .native_gadget
@@ -492,12 +492,12 @@ impl IvcGadget {
 
         // Return the next state
         Ok(AssignedState {
-            counter,
-            msg,
-            merkle_root,
-            next_merkle_root,
-            protocol_params,
-            next_protocol_params,
+            step_counter,
+            message,
+            merkle_tree_commitment,
+            next_merkle_tree_commitment,
+            protocol_parameters,
+            next_protocol_parameters,
             current_epoch,
         })
     }
@@ -510,19 +510,19 @@ impl IvcGadget {
         is_not_genesis: &AssignedBit<F>,
         state: &AssignedState,
         witness: &AssignedWitness,
-        cert_proof: &Value<Vec<u8>>,
+        certificate_proof: &Value<Vec<u8>>,
         self_proof: &Value<Vec<u8>>,
         acc_value: &Value<Accumulator<S>>,
     ) -> Result<AssignedAccumulator<S>, Error> {
         let id_point: AssignedForeignPoint<_, _, _> =
             self.bls12_381_chip.assign_fixed(layouter, C::identity())?;
 
-        let mut cert_proof_acc = self.verifier_gadget.prepare(
+        let mut certificate_proof_accumulator = self.verifier_gadget.prepare(
             layouter,
             &global.cert_vk,
             &[("com_instance", id_point.clone())],
-            &[&[witness.cert_merkle_root.clone(), witness.cert_msg.clone()]],
-            cert_proof.clone(),
+            &[&[witness.certificate_merkle_tree_commitment.clone(), witness.certificate_message.clone()]],
+            certificate_proof.clone(),
         )?;
 
         // If it is genesis, we allow the prover to change the (probably
@@ -531,9 +531,9 @@ impl IvcGadget {
             layouter,
             &self.native_gadget,
             is_not_genesis,
-            &mut cert_proof_acc,
+            &mut certificate_proof_accumulator,
         )?;
-        cert_proof_acc.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
+        certificate_proof_accumulator.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 
         let acc = AssignedAccumulator::assign(
             layouter,
@@ -575,13 +575,13 @@ impl IvcGadget {
         )?;
         self_proof_acc.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 
-        // Accumulate the cert_proof_acc
+        // Accumulate the certificate_proof_accumulator
         let mut next_acc = AssignedAccumulator::<S>::accumulate(
             layouter,
             &self.verifier_gadget,
             &self.native_gadget,
             &self.poseidon_chip,
-            &[acc, cert_proof_acc, self_proof_acc],
+            &[acc, certificate_proof_accumulator, self_proof_acc],
         )?;
         next_acc.collapse(layouter, &self.bls12_381_chip, &self.native_gadget)?;
 

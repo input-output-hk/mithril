@@ -114,7 +114,7 @@ mod slow {
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let (cert_proof, cert_accumulator, next_state, ivc_witness) =
+        let (certificate_proof, cert_accumulator, next_state, ivc_witness) =
             build_same_epoch_certificate_asset_data(
                 &setup,
                 &mock_prover_setup.certificate_commitment_parameters,
@@ -134,7 +134,7 @@ mod slow {
             mock_prover_setup.global.clone(),
             recursive_chain_state.state.clone(),
             ivc_witness,
-            cert_proof,
+            certificate_proof,
             recursive_chain_state.proof.clone(),
             recursive_chain_state.accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),

@@ -234,8 +234,8 @@ pub(crate) fn compute_expected_next_accumulator(
 ///
 /// The certificate proof is verified against the public inputs implied by the
 /// stored chain transition:
-/// - `merkle_root` comes from the previous state's `next_merkle_root`
-/// - `message` is the committed `next_state.msg`
+/// - `merkle_tree_commitment` comes from the previous state's `next_merkle_tree_commitment`
+/// - `message` is the committed `next_state.message`
 pub(crate) fn prepare_stored_step_certificate_accumulator(
     setup: &RecursiveMockProverSetup,
     recursive_chain_state: &RecursiveChainStateAsset,

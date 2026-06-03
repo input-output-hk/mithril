@@ -28,7 +28,7 @@ mod slow {
 
     #[test]
     fn genesis_step_accepts_garbage_certificate_proof_bytes() {
-        // MockProver constraint check: at genesis (counter = 0) the circuit gates the
+        // MockProver constraint check: at genesis (step_counter = 0) the circuit gates the
         // certificate accumulator contribution to the group identity via scale_by_bit(0, acc),
         // so 64 garbage bytes in the certificate slot must not violate any constraint.
         let setup = build_asset_generation_setup();
@@ -59,7 +59,7 @@ mod slow {
 
     #[test]
     fn genesis_step_accepts_garbage_ivc_proof_bytes() {
-        // MockProver constraint check: at genesis (counter = 0) the circuit gates the
+        // MockProver constraint check: at genesis (step_counter = 0) the circuit gates the
         // IVC accumulator contribution to the group identity via scale_by_bit(0, acc),
         // so 64 garbage bytes in the IVC slot must not violate any constraint.
         let setup = build_asset_generation_setup();

@@ -99,10 +99,10 @@ pub(crate) struct AssetGenerationSetup {
     /// Deterministic aggregate verification key committed by generated protocol messages.
     pub(crate) aggregate_verification_key:
         AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-    /// Deterministic next Merkle root committed by the genesis message.
-    pub(crate) genesis_next_merkle_root: F,
+    /// Deterministic next Merkle-tree commitment committed by the genesis message.
+    pub(crate) genesis_next_merkle_tree_commitment: F,
     /// Deterministic next protocol parameters committed by the genesis message.
-    pub(crate) genesis_next_protocol_params: F,
+    pub(crate) genesis_next_protocol_parameters: F,
 }
 
 /// Shared recursive verifier-side setup reused by generators and golden helpers.
@@ -146,7 +146,7 @@ fn build_merkle_tree(
     (signing_keys, merkle_tree_leaves, merkle_tree)
 }
 
-fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
+fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
     let commitment = merkle_tree.to_merkle_tree_commitment();
     // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
     // the recursive state stores the same root as the circuit field element.
@@ -154,10 +154,10 @@ fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
         .root
         .as_slice()
         .try_into()
-        .expect("STM Poseidon Merkle root should be 32 bytes");
+        .expect("STM Poseidon Merkle-tree commitment should be 32 bytes");
     F::from_bytes_le(&root_bytes)
         .into_option()
-        .expect("STM Poseidon Merkle root should be a canonical field element")
+        .expect("STM Poseidon Merkle-tree commitment should be a canonical field element")
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
@@ -287,7 +287,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     )
     .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
-    let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
+    let genesis_next_merkle_tree_commitment = merkle_tree_commitment_from_stm_tree(&merkle_tree);
 
     let aggregate_verification_key = {
         let commitment = merkle_tree.to_merkle_tree_commitment();
@@ -306,12 +306,12 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_verification_key =
         SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
-    let genesis_next_protocol_params = F::from(7u64);
+    let genesis_next_protocol_parameters = F::from(7u64);
 
     let genesis_message = {
         let protocol_message = build_genesis_protocol_message(
             &aggregate_verification_key,
-            genesis_next_protocol_params.to_bytes_le(),
+            genesis_next_protocol_parameters.to_bytes_le(),
             genesis_epoch,
         );
         let preimage = protocol_message
@@ -338,7 +338,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         merkle_tree_leaves,
         signing_keys,
         aggregate_verification_key,
-        genesis_next_merkle_root,
-        genesis_next_protocol_params,
+        genesis_next_merkle_tree_commitment,
+        genesis_next_protocol_parameters,
     }
 }

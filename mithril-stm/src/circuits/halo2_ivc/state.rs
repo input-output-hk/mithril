@@ -19,45 +19,45 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub(crate) struct State {
-    pub(crate) counter: StepCounter,
-    pub(crate) msg: MessageHash,
-    pub(crate) merkle_root: MerkleTreeCommitment,
-    pub(crate) next_merkle_root: MerkleTreeCommitment,
-    pub(crate) protocol_params: ProtocolParametersHash,
-    pub(crate) next_protocol_params: ProtocolParametersHash,
+    pub(crate) step_counter: StepCounter,
+    pub(crate) message: MessageHash,
+    pub(crate) merkle_tree_commitment: MerkleTreeCommitment,
+    pub(crate) next_merkle_tree_commitment: MerkleTreeCommitment,
+    pub(crate) protocol_parameters: ProtocolParametersHash,
+    pub(crate) next_protocol_parameters: ProtocolParametersHash,
     pub(crate) current_epoch: EpochNumber,
 }
 
 impl State {
     #[allow(dead_code)]
     pub(crate) fn new(
-        counter: StepCounter,
-        msg: MessageHash,
-        merkle_root: MerkleTreeCommitment,
-        next_merkle_root: MerkleTreeCommitment,
-        protocol_params: ProtocolParametersHash,
-        next_protocol_params: ProtocolParametersHash,
+        step_counter: StepCounter,
+        message: MessageHash,
+        merkle_tree_commitment: MerkleTreeCommitment,
+        next_merkle_tree_commitment: MerkleTreeCommitment,
+        protocol_parameters: ProtocolParametersHash,
+        next_protocol_parameters: ProtocolParametersHash,
         current_epoch: EpochNumber,
     ) -> Self {
         State {
-            counter,
-            msg,
-            merkle_root,
-            next_merkle_root,
-            protocol_params,
-            next_protocol_params,
+            step_counter,
+            message,
+            merkle_tree_commitment,
+            next_merkle_tree_commitment,
+            protocol_parameters,
+            next_protocol_parameters,
             current_epoch,
         }
     }
 
     pub(crate) fn genesis() -> Self {
         State {
-            counter: StepCounter::ZERO,
-            msg: MessageHash::ZERO,
-            merkle_root: MerkleTreeCommitment::ZERO,
-            next_merkle_root: MerkleTreeCommitment::ZERO,
-            protocol_params: ProtocolParametersHash::ZERO,
-            next_protocol_params: ProtocolParametersHash::ZERO,
+            step_counter: StepCounter::ZERO,
+            message: MessageHash::ZERO,
+            merkle_tree_commitment: MerkleTreeCommitment::ZERO,
+            next_merkle_tree_commitment: MerkleTreeCommitment::ZERO,
+            protocol_parameters: ProtocolParametersHash::ZERO,
+            next_protocol_parameters: ProtocolParametersHash::ZERO,
             current_epoch: EpochNumber::ZERO,
         }
     }
@@ -66,14 +66,14 @@ impl State {
     pub(crate) fn as_public_input(&self) -> Vec<F> {
         let state = self.clone();
         // Public-input order is part of the recursive circuit statement contract:
-        // [counter, msg, merkle_root, next_merkle_root, protocol_params, next_protocol_params, current_epoch].
+        // [step_counter, message, merkle_tree_commitment, next_merkle_tree_commitment, protocol_parameters, next_protocol_parameters, current_epoch].
         vec![
-            state.counter.as_field(),
-            state.msg.as_field(),
-            state.merkle_root.as_field(),
-            state.next_merkle_root.as_field(),
-            state.protocol_params.as_field(),
-            state.next_protocol_params.as_field(),
+            state.step_counter.as_field(),
+            state.message.as_field(),
+            state.merkle_tree_commitment.as_field(),
+            state.next_merkle_tree_commitment.as_field(),
+            state.protocol_parameters.as_field(),
+            state.next_protocol_parameters.as_field(),
             state.current_epoch.as_field(),
         ]
     }
@@ -82,12 +82,12 @@ impl State {
 /// In-circuit counterpart of [`State`].
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedState {
-    pub(crate) counter: AssignedNative<F>,
-    pub(crate) msg: AssignedNative<F>,
-    pub(crate) merkle_root: AssignedNative<F>,
-    pub(crate) next_merkle_root: AssignedNative<F>,
-    pub(crate) protocol_params: AssignedNative<F>,
-    pub(crate) next_protocol_params: AssignedNative<F>,
+    pub(crate) step_counter: AssignedNative<F>,
+    pub(crate) message: AssignedNative<F>,
+    pub(crate) merkle_tree_commitment: AssignedNative<F>,
+    pub(crate) next_merkle_tree_commitment: AssignedNative<F>,
+    pub(crate) protocol_parameters: AssignedNative<F>,
+    pub(crate) next_protocol_parameters: AssignedNative<F>,
     pub(crate) current_epoch: AssignedNative<F>,
 }
 
@@ -95,12 +95,12 @@ impl AssignedState {
     pub(crate) fn as_public_input(&self) -> Vec<AssignedNative<F>> {
         let state = self.clone();
         vec![
-            state.counter,
-            state.msg,
-            state.merkle_root,
-            state.next_merkle_root,
-            state.protocol_params,
-            state.next_protocol_params,
+            state.step_counter,
+            state.message,
+            state.merkle_tree_commitment,
+            state.next_merkle_tree_commitment,
+            state.protocol_parameters,
+            state.next_protocol_parameters,
             state.current_epoch,
         ]
     }
@@ -109,7 +109,7 @@ impl AssignedState {
 #[derive(Clone, Debug)]
 pub(crate) struct Global {
     // Persistent values that do not change through an ivc stream
-    pub(crate) genesis_msg: MessageHash,
+    pub(crate) genesis_message: MessageHash,
     pub(crate) genesis_vk: SchnorrVerificationKey,
     // cert_vk hash
     pub(crate) cert_vk_repr: CertificateCircuitVerificationKeyRepresentation,
@@ -120,13 +120,13 @@ pub(crate) struct Global {
 impl Global {
     #[allow(dead_code)]
     pub(crate) fn new(
-        genesis_msg: MessageHash,
+        genesis_message: MessageHash,
         genesis_vk: SchnorrVerificationKey,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
         self_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     ) -> Self {
         Global {
-            genesis_msg,
+            genesis_message,
             genesis_vk,
             cert_vk_repr: CertificateCircuitVerificationKeyRepresentation::from_field(
                 cert_vk.transcript_repr(),
@@ -140,7 +140,7 @@ impl Global {
     #[allow(dead_code)]
     pub(crate) fn as_public_input(&self) -> Vec<F> {
         [
-            vec![self.genesis_msg.as_field()],
+            vec![self.genesis_message.as_field()],
             AssignedNativePoint::<Jubjub>::as_public_input(self.genesis_vk.as_jubjub_subgroup()),
             vec![self.cert_vk_repr.as_field(), self.self_vk_repr.as_field()],
         ]
@@ -151,7 +151,7 @@ impl Global {
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedGlobal {
     //Persistent values that do not change through an ivc stream
-    pub(crate) genesis_msg: AssignedNative<F>,
+    pub(crate) genesis_message: AssignedNative<F>,
     pub(crate) genesis_vk: AssignedNativePoint<Jubjub>,
     pub(crate) cert_vk: AssignedVk<S>,
     pub(crate) self_vk: AssignedVk<S>,
@@ -162,25 +162,25 @@ pub(crate) struct AssignedGlobal {
 #[derive(Clone, Debug)]
 pub(crate) struct Witness {
     pub(crate) genesis_sig: StandardSchnorrSignature,
-    pub(crate) cert_msg: MessageHash,
-    pub(crate) cert_merkle_root: MerkleTreeCommitment,
-    // Protocol msg preimage bytes
-    pub(crate) msg_preimage: ProtocolMessagePreimage,
+    pub(crate) certificate_message: MessageHash,
+    pub(crate) certificate_merkle_tree_commitment: MerkleTreeCommitment,
+    // Protocol message preimage bytes
+    pub(crate) message_preimage: ProtocolMessagePreimage,
 }
 
 impl Witness {
     #[allow(dead_code)]
     pub(crate) fn new(
         genesis_sig: StandardSchnorrSignature,
-        cert_merkle_root: MerkleTreeCommitment,
-        cert_msg: MessageHash,
-        msg_preimage: ProtocolMessagePreimage,
+        certificate_merkle_tree_commitment: MerkleTreeCommitment,
+        certificate_message: MessageHash,
+        message_preimage: ProtocolMessagePreimage,
     ) -> Self {
         Witness {
             genesis_sig,
-            cert_merkle_root,
-            cert_msg,
-            msg_preimage,
+            certificate_merkle_tree_commitment,
+            certificate_message,
+            message_preimage,
         }
     }
 }
@@ -188,10 +188,10 @@ impl Witness {
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedWitness {
     pub(crate) genesis_sig: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
-    pub(crate) cert_merkle_root: AssignedNative<F>,
-    pub(crate) cert_msg: AssignedNative<F>,
-    // Protocol msg preimage bytes
-    pub(crate) msg_preimage: Vec<AssignedByte<F>>,
+    pub(crate) certificate_merkle_tree_commitment: AssignedNative<F>,
+    pub(crate) certificate_message: AssignedNative<F>,
+    // Protocol message preimage bytes
+    pub(crate) message_preimage: Vec<AssignedByte<F>>,
 }
 
 pub(crate) fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {

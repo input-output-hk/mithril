@@ -23,7 +23,7 @@ pub struct IvcCircuit {
     // Witness (mainly the next certificate to be aggregated) for deriving the next state
     witness: Value<Witness>,
     // Snark proof of the next certificate
-    cert_proof: Value<Vec<u8>>,
+    certificate_proof: Value<Vec<u8>>,
     // Latest IVC proof
     self_proof: Value<Vec<u8>>,
     // Latest Accumulator
@@ -98,7 +98,7 @@ impl IvcCircuit {
         global: Global,
         state: State,
         witness: Witness,
-        cert_proof: CertificateProofBytes,
+        certificate_proof: CertificateProofBytes,
         self_proof: IvcProofBytes,
         acc: Accumulator<S>,
         cert_vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
@@ -110,7 +110,7 @@ impl IvcCircuit {
             global: Value::known(global),
             state: Value::known(state),
             witness: Value::known(witness),
-            cert_proof: Value::known(cert_proof.into_vec()),
+            certificate_proof: Value::known(certificate_proof.into_vec()),
             self_proof: Value::known(self_proof.into_vec()),
             acc: Value::known(acc),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
@@ -129,7 +129,7 @@ impl IvcCircuit {
             global: Value::unknown(),
             state: Value::unknown(),
             witness: Value::unknown(),
-            cert_proof: Value::unknown(),
+            certificate_proof: Value::unknown(),
             self_proof: Value::unknown(),
             acc: Value::unknown(),
             cert_domain_cs: (cert_vk.get_domain().clone(), cert_vk.cs().clone()),
@@ -148,7 +148,7 @@ impl Circuit<F> for IvcCircuit {
             global: Value::unknown(),
             state: Value::unknown(),
             witness: Value::unknown(),
-            cert_proof: Value::unknown(),
+            certificate_proof: Value::unknown(),
             self_proof: Value::unknown(),
             acc: Value::unknown(),
             cert_domain_cs: self.cert_domain_cs.clone(),
@@ -179,7 +179,7 @@ impl Circuit<F> for IvcCircuit {
         // Assign witness for the new certificate to be aggregated
         let witness = ivc_gadget.assign_witness(&mut layouter, &self.witness)?;
 
-        // If state.counter = 0, we are aggregating the genesis certificate
+        // If state.step_counter = 0, we are aggregating the genesis certificate
         let is_genesis = ivc_gadget.is_genesis(&mut layouter, &state)?;
         let is_not_genesis = ivc_gadget.native_gadget.not(&mut layouter, &is_genesis)?;
 
@@ -198,14 +198,14 @@ impl Circuit<F> for IvcCircuit {
         // Constrain the next state as public input
         ivc_gadget.constrain_state_as_public_input(&mut layouter, &next_state)?;
 
-        // Verify (prepare) cert_proof and previous ivc_proof and update accumulator
+        // Verify (prepare) certificate_proof and previous ivc_proof and update accumulator
         let next_acc = ivc_gadget.verify_prepare(
             &mut layouter,
             &global,
             &is_not_genesis,
             &state,
             &witness,
-            &self.cert_proof,
+            &self.certificate_proof,
             &self.self_proof,
             &self.acc,
         )?;

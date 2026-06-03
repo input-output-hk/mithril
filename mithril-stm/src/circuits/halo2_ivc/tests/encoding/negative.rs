@@ -5,8 +5,8 @@ use ff::Field;
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
-    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
-    PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES,
+    AssignedAccumulator, F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
     protocol_message::{DynamicProtocolMessagePartKey, ProtocolMessage},
     state::State,
     tests::common::{
@@ -96,17 +96,17 @@ fn rigid_preimage_rejects_missing_current_epoch() {
 }
 
 #[test]
-fn next_merkle_root_tampered_public_input_is_rejected() {
+fn next_merkle_tree_commitment_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
-    // next_merkle_root is replaced in the public inputs, confirming the field
-    // extracted from PREIMAGE_NEXT_MERKLE_ROOT_BYTES is enforced as a public input.
+    // next_merkle_tree_commitment is replaced in the public inputs, confirming the field
+    // extracted from PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES is enforced as a public input.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE);
+    tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -123,22 +123,22 @@ fn next_merkle_root_tampered_public_input_is_rejected() {
 
     assert!(
         !dual_msm.check(&verification_context.verifier_params),
-        "proof with tampered next_merkle_root should be rejected by the verifier"
+        "proof with tampered next_merkle_tree_commitment should be rejected by the verifier"
     );
 }
 
 #[test]
-fn next_protocol_params_tampered_public_input_is_rejected() {
+fn next_protocol_parameters_tampered_public_input_is_rejected() {
     // Asset-based check that the verifier rejects a stored proof when
-    // next_protocol_params is replaced in the public inputs, confirming the
-    // field extracted from PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES is enforced as a public input.
+    // next_protocol_parameters is replaced in the public inputs, confirming the
+    // field extracted from PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES is enforced as a public input.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
-    tampered_state.next_protocol_params = ProtocolParametersHash::from_field(F::ONE);
+    tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
@@ -155,7 +155,7 @@ fn next_protocol_params_tampered_public_input_is_rejected() {
 
     assert!(
         !dual_msm.check(&verification_context.verifier_params),
-        "proof with tampered next_protocol_params should be rejected by the verifier"
+        "proof with tampered next_protocol_parameters should be rejected by the verifier"
     );
 }
 
@@ -195,8 +195,8 @@ mod slow {
     use super::*;
 
     #[test]
-    fn circuit_rejects_wrong_next_merkle_root_byte_range() {
-        // MockProver constraint check: filling PREIMAGE_NEXT_MERKLE_ROOT_BYTES with 0xff
+    fn circuit_rejects_wrong_next_merkle_tree_commitment_byte_range() {
+        // MockProver constraint check: filling PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES with 0xff
         // must violate the in-circuit byte-extraction constraint for that preimage region.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
@@ -204,19 +204,19 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage.as_mut_bytes()[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].fill(0xff);
+        witness.message_preimage.as_mut_bytes()[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             public_inputs,
-            "msg_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES] filled with 0xff",
+            "message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES] filled with 0xff",
         );
     }
 
     #[test]
-    fn circuit_rejects_wrong_next_protocol_params_byte_range() {
-        // MockProver constraint check: filling PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES with 0xff
+    fn circuit_rejects_wrong_next_protocol_parameters_byte_range() {
+        // MockProver constraint check: filling PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES with 0xff
         // must violate the in-circuit byte-extraction constraint for that preimage region.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
@@ -224,13 +224,13 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage.as_mut_bytes()[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].fill(0xff);
+        witness.message_preimage.as_mut_bytes()[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             public_inputs,
-            "msg_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES] filled with 0xff",
+            "message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES] filled with 0xff",
         );
     }
 
@@ -244,13 +244,13 @@ mod slow {
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &next_state);
 
         let mut witness = build_genesis_base_case_witness(&setup);
-        witness.msg_preimage.as_mut_bytes()[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
+        witness.message_preimage.as_mut_bytes()[PREIMAGE_CURRENT_EPOCH_BYTES].fill(0xff);
         let circuit =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         assert_recursive_mock_prover_rejects_with_label(
             circuit,
             public_inputs,
-            "msg_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] filled with 0xff",
+            "message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES] filled with 0xff",
         );
     }
 }
