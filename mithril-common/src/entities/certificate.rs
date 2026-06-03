@@ -112,15 +112,15 @@ pub struct Certificate {
 }
 
 impl Certificate {
-    /// Certificate factory
-    pub fn new<T: Into<String>>(
+    /// Builds a certificate and computes its hash, returning an error if hashing fails.
+    pub fn try_new<T: Into<String>>(
         previous_hash: T,
         epoch: Epoch,
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
         signature: CertificateSignature,
-    ) -> Certificate {
+    ) -> crate::StdResult<Certificate> {
         let signed_message = protocol_message.compute_hash();
 
         #[cfg(feature = "future_snark")]
@@ -143,8 +143,8 @@ impl Certificate {
             aggregate_verification_key_snark,
             signature,
         };
-        certificate.hash = certificate.compute_hash();
-        certificate
+        certificate.hash = certificate.try_compute_hash()?;
+        Ok(certificate)
     }
 
     /// Computes the hash of a Certificate, propagating any serialization failure.
@@ -335,7 +335,7 @@ mod tests {
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(10));
 
-        let certificate = Certificate::new(
+        let certificate = Certificate::try_new(
             "previous_hash".to_string(),
             Epoch(10),
             CertificateMetadata::new(
@@ -360,7 +360,8 @@ mod tests {
                 signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         assert_eq!(HASH_EXPECTED, certificate.compute_hash());
 
@@ -482,7 +483,7 @@ mod tests {
             .with_timezone(&Utc);
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
 
-        let genesis_certificate = Certificate::new(
+        let genesis_certificate = Certificate::try_new(
             "previous_hash",
             Epoch(10),
             CertificateMetadata::new(
@@ -506,7 +507,8 @@ mod tests {
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         assert_eq!(HASH_EXPECTED, genesis_certificate.compute_hash());
 
@@ -532,7 +534,7 @@ mod tests {
         let ed_signature: GenesisEd25519Signature =
             fake_keys::genesis_signature()[0].try_into().unwrap();
 
-        let legacy = Certificate::new(
+        let legacy = Certificate::try_new(
             "previous_hash",
             Epoch(10),
             CertificateMetadata::new(
@@ -553,13 +555,14 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisSignature(ed_signature),
-        );
+        )
+        .unwrap();
 
         let mut rng = ChaCha20Rng::from_seed([9u8; 32]);
         let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
         let schnorr_signature = schnorr_signer.sign(&[0u8; 32], &mut rng).unwrap();
 
-        let dual = Certificate::new(
+        let dual = Certificate::try_new(
             "previous_hash",
             Epoch(10),
             CertificateMetadata::new(
@@ -580,7 +583,8 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             legacy.compute_hash(),
@@ -614,7 +618,7 @@ mod tests {
         for seed in 0u8..6 {
             let digest = [seed; 32];
             let schnorr_signature = schnorr_signer.sign(&digest, &mut rng).unwrap();
-            let certificate = Certificate::new(
+            let certificate = Certificate::try_new(
                 "previous_hash",
                 Epoch(10),
                 metadata.clone(),
@@ -628,7 +632,8 @@ mod tests {
                     None,
                 ),
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
-            );
+            )
+            .unwrap();
             hashes.insert(certificate.compute_hash());
         }
         assert_eq!(
@@ -644,7 +649,7 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
-        Certificate::new(
+        Certificate::try_new(
             "previous_hash",
             Epoch(10),
             CertificateMetadata::new(
@@ -666,6 +671,7 @@ mod tests {
             ),
             signature,
         )
+        .unwrap()
     }
 
     #[cfg(feature = "future_snark")]

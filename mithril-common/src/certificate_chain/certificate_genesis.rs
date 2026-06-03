@@ -132,14 +132,14 @@ impl CertificateGenesisProducer {
             &epoch,
             mithril_era,
         )?;
-        Ok(Certificate::new(
+        Certificate::try_new(
             "".to_string(),
             epoch,
             metadata,
             genesis_protocol_message,
             genesis_avk,
             signature,
-        ))
+        )
     }
 }
 

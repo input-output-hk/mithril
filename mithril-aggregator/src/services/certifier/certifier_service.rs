@@ -339,14 +339,14 @@ impl CertifierService for MithrilCertifierService {
             .map(|cert| cert.hash)
             .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
 
-        let certificate = Certificate::new(
+        let certificate = Certificate::try_new(
             parent_certificate_hash,
             open_message.epoch,
             metadata,
             open_message.protocol_message.clone(),
             epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
-        );
+        )?;
 
         self.certificate_verifier
             .verify_certificate(
