@@ -211,7 +211,6 @@ mod tests {
     // on the same directory. If these tests ever become flaky, switch to make_test_cache to
     // isolate each run into a unique subdirectory.
     #[test]
-    #[ignore = "races on shared temp_dir paths under parallel test execution"]
     fn for_non_recursive_circuit_has_correct_path_and_uses_production_vk() {
         let cache = CircuitKeyCache::for_non_recursive_circuit();
 
@@ -245,7 +244,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "races on shared temp_dir paths under parallel test execution"]
     fn for_recursive_circuit_has_correct_path_and_uses_production_vk() {
         let cache = CircuitKeyCache::for_recursive_circuit();
 

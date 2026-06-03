@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.29 (06-02-2026)
+
+### Changed
+
+- Fixed flakiness in the unit test of the SNARK prover due to race condition on SRS generation.
+- Update the signature of the `SnarkProof::verify` to take the SRS verifier parametes as input.
+
 ## 0.10.26 (05-28-2026)
 
 ### Changed
