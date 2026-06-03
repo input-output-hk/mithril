@@ -10,7 +10,7 @@ cd ${ARTIFACTS_DIR}
 
 # Stop devnet
 echo "====================================================================="
-echo " Stop Mithril/Cardano devnet"
+echo " Stop Cardano devnet"
 echo "====================================================================="
 echo
 ./stop.sh

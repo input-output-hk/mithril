@@ -1,13 +1,11 @@
-# Cardano/Mithril Private Devnet
+# Cardano Private Devnet
 
 **This is a work in progress** :hammer_and_wrench:
 
-It scaffolds a private compound devnet with Cardano and Mithril nodes:
+It scaffolds a private compound devnet with Cardano nodes:
 
 - `N` Cardano Full nodes
 - `P` Cardano SPO nodes
-- `1` Mithril Aggregator node (attached to the first Cardano Full node)
-- `P` Mithril Signer nodes (attached to each Cardano SPO nodes)
 
 ## Credits
 
@@ -25,7 +23,7 @@ This cli is inspired by this [script](https://github.com/IntersectMBO/cardano-no
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril/mithril-test-lab/mithril-devnet
+cd mithril/mithril-test-lab/cardano-devnet
 
 # Chmod scripts
 chmod u+x *.sh
@@ -33,31 +31,15 @@ chmod u+x *.sh
 
 ## One step run with default configuration
 
-```bash
-# Run devnet with 1 Full node and 2 SPO nodes (with local docker images)
+````bash
+# Run devnet with 1 Full node and 2 SPO nodes (with local docker images) and DMQ network
 ./devnet-run.sh
-
-# Run devnet with 1 Full node and 2 SPO nodes (with remote docker images)
-MITHRIL_IMAGE_ID=main-c9213ca ./devnet-run.sh
 
 # Run devnet with Cardano nodes only
 NODES=cardano ./devnet-run.sh
 
-# Run devnet with Mithril nodes only
-NODES=mithril ./devnet-run.sh
-
-# Build Mithril Docker images available options
-## from locally built binaries (fast build times, enabled by default)
-./devnet-run.sh
-### or
-MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
-
-## from locally built binaries with a custom slim image used as Docker image source
-### 'debian:13-slim': default value, works on Ubuntu 24.04
-MITHRIL_NODE_DOCKER_CI_IMAGE_FROM=debian:13-slim MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
-
-## from rust builder in Docker (slower build times, always works)
-MITHRIL_NODE_DOCKER_BUILD_TYPE=legacy ./devnet-run.sh
+# Run Mithril from the E2E test with --run-only argument
+cargo run -p mithril-end-to-end -- -vvv --bin-directory binaries_location/ --devnet-scripts-directory=mithril-test-lab/mithril-devnet/ --run-only
 
 # Logs devnet
 ./devnet-log.sh
@@ -65,24 +47,11 @@ MITHRIL_NODE_DOCKER_BUILD_TYPE=legacy ./devnet-run.sh
 # Logs Cardano nodes only on devnet
 NODES=cardano ./devnet-log.sh
 
-# Logs Mithril nodes only on devnet
-NODES=mithril ./devnet-log.sh
-
 # Query devnet
 ./devnet-query.sh
 
-# Query Cardano nodes only on devnet
-NODES=cardano ./devnet-query.sh
-
-# Query Mithril nodes only on devnet
-NODES=mithril ./devnet-query.sh
-
 # Stop devnet
 ./devnet-stop.sh
-
-# Visualize devnet
-./devnet-visualize.sh
-```
 
 ## One step run with custom configuration
 
@@ -95,30 +64,6 @@ ARTIFACTS_DIR=artifacts NUM_FULL_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
 # Epoch Length: the duration of a Cardano Epoch
 ARTIFACTS_DIR=artifacts SLOT_LENGTH=0.5 EPOCH_LENGTH=120 ./devnet-run.sh
 
-# Run devnet with custom Mithril run interval (500ms)
-# Mithril Run Interval: how often (in ms) the Mithril aggregator and signers run their state machines
-MITHRIL_RUN_INTERVAL=500 ./devnet-run.sh
-
-# Run devnet with a specific Mithril era
-# Mithril Era: the era advertised to aggregator and signers (e.g. 'pythagoras' or 'lagrange', case insensitive, defaults to 'pythagoras')
-MITHRIL_ERA=lagrange ./devnet-run.sh
-
-# Run devnet with a specific Mithril aggregate signature type
-# Mithril Aggregate Signature Type: the aggregate signature scheme used by the aggregator ('Concatenation' or 'Snark', case insensitive, defaults to 'Concatenation')
-# Note: 'Snark' requires the Mithril binaries to be built with the 'future_snark' Cargo feature.
-MITHRIL_AGGREGATE_SIGNATURE_TYPE=Snark ./devnet-run.sh
-
-# Run devnet with custom Mithril STM protocol parameters
-# K: minimum number of valid individual signatures required to aggregate a multi signature (defaults to 5)
-# M: total number of lotteries each signer plays per signing round (defaults to 100)
-# Phi_f: probability that a single lottery succeeds, in [0, 1] (defaults to 0.65)
-MITHRIL_PROTOCOL_PARAMETERS_K=5 MITHRIL_PROTOCOL_PARAMETERS_M=100 MITHRIL_PROTOCOL_PARAMETERS_PHI_F=0.65 ./devnet-run.sh
-
-# Run devnet with custom signed entity types
-# Mithril Signed Entity Types: comma separated list of signed entity types the aggregator must sign
-# (defaults to 'CardanoTransactions,CardanoStakeDistribution,CardanoDatabase')
-MITHRIL_SIGNED_ENTITY_TYPES=CardanoTransactions,CardanoStakeDistribution,CardanoDatabase ./devnet-run.sh
-
 # Logs devnet
 ARTIFACTS_DIR=artifacts LINES=10 ./devnet-log.sh
 
@@ -127,10 +72,7 @@ ARTIFACTS_DIR=artifacts ./devnet-query.sh
 
 # Stop devnet
 ARTIFACTS_DIR=artifacts ./devnet-stop.sh
-
-# Visualize devnet
-ARTIFACTS_DIR=artifacts ./devnet-visualize.sh
-```
+````
 
 ## Step by step run with custom configuration
 
@@ -148,9 +90,6 @@ cd ${ARTIFACTS_DIR}
 
 # Start devnet Cardano nodes
 ./start-cardano.sh
-
-# Start devnet Mithril nodes
-./start-mithril.sh
 
 # Query devnet
 ./query.sh
@@ -244,7 +183,6 @@ artifacts
 │   └── tx
 ├── query.sh
 ├── start-cardano.sh
-├── start-mithril.sh
 └── stop.sh
 ```
 
@@ -252,25 +190,8 @@ artifacts
 
 ```bash
 =====================================================================
- Query Mithril/Cardano devnet
+ Query Cardano devnet
 =====================================================================
-
-=====================================================================
-=== Mithril Network
-=====================================================================
-
->> Query snapshots
-[
-  {
-    "digest": "4bb710c0788711bae384edad1f0a5aaa6f004e8911db7acfc78471a6bea41154",
-    "certificate_hash": "128bd468b48395bf62d9b88fcccff60b147433374c134efaf579c6faa7b04d9f",
-    "size": 7979,
-    "created_at": "2022-06-16T09:32:37.084429383Z",
-    "locations": [
-      "http://0.0.0.0:8080/aggregator/snapshot/4bb710c0788711bae384edad1f0a5aaa6f004e8911db7acfc78471a6bea41154/download"
-    ]
-  }
-]
 
 =====================================================================
 === Cardano Network

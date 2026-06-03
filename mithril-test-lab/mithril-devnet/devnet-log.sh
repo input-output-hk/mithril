@@ -16,38 +16,19 @@ cd ${ARTIFACTS_DIR}
 
 # Logs devnet
 echo "====================================================================="
-echo " Logs Mithril/Cardano devnet"
+echo " Logs Cardano devnet"
+echo "====================================================================="
+echo "====================================================================="
+echo "=== Cardano Network"
 echo "====================================================================="
 echo
-if [ "${NODES}" = "*" ]; then 
-    echo "====================================================================="
-    echo "=== Mithril Network"
-    echo "====================================================================="
-    echo
-fi
-if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
-    LINES=${LINES} ./log-mithril.sh
-    echo
-fi
-if [ "${NODES}" = "*" ]; then 
-    echo "====================================================================="
-    echo "=== Cardano Network"
-    echo "====================================================================="
-    echo
-fi
-if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
-    
-    LINES=${LINES} ./log-cardano.sh
-    echo
-fi
-if [ "${NODES}" = "*" ]; then 
+LINES=${LINES} ./log-cardano.sh
+echo
+if [ "${NODES}" = "dmq" ] || [ "${NODES}" = "*" ]; then 
     echo "====================================================================="
     echo "=== DMQ Network"
     echo "====================================================================="
     echo
-fi
-if [ "${NODES}" = "dmq" ] || [ "${NODES}" = "*" ]; then 
-
     LINES=${LINES} ./log-dmq.sh
     echo
 fi

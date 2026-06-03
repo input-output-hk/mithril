@@ -43,9 +43,6 @@ SCRIPT_DIRECTORY=$(dirname $0)
 # Generate the query scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-query.sh
 
-# Generate the docker files
-. $SCRIPT_DIRECTORY/mkfiles/mkfiles-docker.sh
-
 # Cleanup
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-cleanup.sh
 
