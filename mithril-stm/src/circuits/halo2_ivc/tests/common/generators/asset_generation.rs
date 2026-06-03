@@ -234,6 +234,10 @@ fn build_next_recursive_step_inputs(
     combined_fixed_bases: &std::collections::BTreeMap<String, C>,
 ) -> NextRecursiveStepInputs {
     let mut recursive_step_output_random_generator = OsRng;
+
+    // 3.1 (prover). Create the STM certificate proof for this new step. The
+    // generator also returns the certificate accumulator and the next circuit
+    // state.
     println!("generate_recursive_step_output: building next certificate");
     let certificate_start = Instant::now();
     let (certificate_proof, certificate_accumulator, next_state, recursive_witness) =
@@ -250,28 +254,43 @@ fn build_next_recursive_step_inputs(
         certificate_start.elapsed()
     );
 
+    // 3.2 (prover). Rebuild the public inputs that were used by the previous
+    // recursive proof. The verifier preparation below must use exactly these
+    // values.
     let previous_public_inputs = [
         global.as_public_input(),
         recursive_chain_state.state.as_public_input(),
         AssignedAccumulator::as_public_input(&recursive_chain_state.accumulator),
     ]
     .concat();
+    // 3.3 (prover/verifier). Prepare the previous recursive proof. This gives
+    // the dual MSM object that can be checked directly, then folded into the
+    // next accumulator.
     let previous_dual_msm = verify_prepare_poseidon_ivc(
         &context.recursive_verifying_key,
         recursive_chain_state.proof.as_bytes(),
         &previous_public_inputs,
     );
     assert!(previous_dual_msm.clone().check(&context.universal_verifier_params));
+
+    // 3.4 (prover). Turn the prepared previous proof into its accumulator
+    // contribution, then normalize it against the recursive fixed-base map.
     let mut previous_proof_accumulator: Accumulator<S> = previous_dual_msm.into();
     previous_proof_accumulator.extract_fixed_bases(recursive_fixed_bases);
     previous_proof_accumulator.collapse();
 
+    // 3.5 (prover). Fold together the chain accumulator so far, the new
+    // certificate accumulator, and the accumulator extracted from the previous
+    // proof.
     let mut next_accumulator = Accumulator::accumulate(&[
         recursive_chain_state.accumulator.clone(),
         certificate_accumulator,
         previous_proof_accumulator,
     ]);
     next_accumulator.collapse();
+
+    // 3.6 (prover/verifier). Check the folded accumulator before it becomes
+    // a public input of the next recursive proof.
     assert!(
         next_accumulator.check(
             &context.universal_kzg_parameters.s_g2().into(),
@@ -297,6 +316,10 @@ fn build_recursive_step_output_proof(
     next_step_inputs: &NextRecursiveStepInputs,
 ) -> Vec<u8> {
     let mut recursive_step_output_random_generator = OsRng;
+
+    // 4.1 (prover). Build the recursive circuit for this step. The witness
+    // includes the old chain state, the new certificate proof, the previous IVC
+    // proof, and the accumulator carried by the old chain state.
     let circuit = IvcCircuit::try_new(
         global.clone(),
         recursive_chain_state.state.clone(),
@@ -308,6 +331,9 @@ fn build_recursive_step_output_proof(
         &context.recursive_verifying_key,
     )
     .expect("valid IvcCircuit construction");
+
+    // 4.2 (prover). These public inputs are what the new proof commits to:
+    // global values, next state, and the freshly folded accumulator.
     let public_inputs = [
         global.as_public_input(),
         next_step_inputs.next_state.as_public_input(),
@@ -317,6 +343,9 @@ fn build_recursive_step_output_proof(
 
     println!("generate_recursive_step_output: final blake2b recursive proof starting");
     let final_proof_start = Instant::now();
+
+    // 4.3 (prover). Prove the recursive step with the Blake2b transcript used
+    // for the final externally verified proof.
     let final_proof = prove_blake2b_ivc(
         &context.recursive_commitment_parameters,
         recursive_proving_key,
@@ -324,6 +353,9 @@ fn build_recursive_step_output_proof(
         &public_inputs,
         &mut recursive_step_output_random_generator,
     );
+
+    // 4.4 (prover/verifier). Verify the proof immediately against the same
+    // public inputs a real verifier will receive from the stored asset.
     let final_dual_msm = verify_prepare_blake2b_ivc(
         &context.recursive_verifying_key,
         &final_proof,
@@ -451,23 +483,32 @@ pub(crate) fn generate_recursive_step_output_asset(
         "generate_recursive_step_output: loading recursive chain state <- {}",
         paths.recursive_chain_state.display()
     );
+    // 1 (prover). Start from the committed chain checkpoint: previous state,
+    // previous proof, and the accumulator accumulated so far.
     let recursive_chain_state = load_recursive_chain_state_asset(&paths.recursive_chain_state)
         .expect("failed to load recursive_chain_state asset");
 
+    // 2 (prover). Rebuild the proving and verification context used by both the
+    // certificate proof and the recursive IVC proof.
     let context = build_shared_recursive_context(setup);
     let recursive_proving_key = build_recursive_proving_key(&context);
     println!("generate_recursive_step_output: certificate and recursive keys ready");
 
+    // These fixed-base maps are needed to normalize and check the accumulator
+    // contributions used in the next step.
     let (_, recursive_fixed_bases, combined_fixed_bases) = build_recursive_fixed_bases(
         &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     );
 
+    // The global values are public inputs shared by this recursive circuit.
     let global = build_recursive_global(
         setup,
         &context.certificate_verifying_key,
         &context.recursive_verifying_key,
     );
+    // 3 (prover). Build the next state, the next certificate proof, and the folded
+    // accumulator that the new recursive proof will commit to.
     let next_step_inputs = build_next_recursive_step_inputs(
         setup,
         &context,
@@ -476,6 +517,8 @@ pub(crate) fn generate_recursive_step_output_asset(
         &recursive_fixed_bases,
         &combined_fixed_bases,
     );
+    // 4 (prover/verifier). Create the recursive proof for this new step and
+    // verify it immediately.
     let final_proof = build_recursive_step_output_proof(
         &context,
         &global,
@@ -483,6 +526,8 @@ pub(crate) fn generate_recursive_step_output_asset(
         &recursive_chain_state,
         &next_step_inputs,
     );
+    // 5 (prover). Store the resulting asset: proof, next state, next
+    // accumulator, and certificate proof bytes.
     store_recursive_step_output(paths, next_step_inputs, final_proof);
     println!(
         "generate_recursive_step_output: done in {:?}",

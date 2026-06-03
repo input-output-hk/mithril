@@ -64,11 +64,15 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     // Asset-based check that the stored next recursive checkpoint remains
     // valid in isolation, including both the final proof and the folded
     // accumulator.
+    // 1 (verifier). Load the verification context and the stored recursive
+    // step output.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_step_output = load_embedded_recursive_step_output_asset()
         .expect("recursive step output asset should load");
 
+    // 2 (verifier). Rebuild the public inputs committed by the stored proof:
+    // global values, next state, and next accumulator.
     let public_inputs = [
         verification_context.global_field_elements.clone(),
         recursive_step_output.next_state.as_public_input(),
@@ -76,16 +80,21 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     ]
     .concat();
 
+    // 3 (verifier). Verify/prepare the stored recursive proof with the
+    // recursive verifying key.
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
         recursive_step_output.proof.as_bytes(),
         &public_inputs,
     );
 
+    // 4 (verifier). Check that the proof verification result is valid.
     assert!(
         dual_msm.clone().check(&verification_context.verifier_params),
         "stored recursive step output proof should verify"
     );
+    // 5 (verifier). Check the folded accumulator stored with the same step
+    // output.
     assert!(
         recursive_step_output.next_accumulator.check(
             &verification_context.verifier_tau_in_g2,
