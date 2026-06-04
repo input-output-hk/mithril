@@ -15,7 +15,6 @@ macro_rules! field_wrapper {
         impl $name {
             pub(crate) const ZERO: Self = Self(F::ZERO);
 
-            #[cfg(test)]
             pub(crate) fn from_field(value: F) -> Self {
                 Self(value)
             }
@@ -81,7 +80,19 @@ macro_rules! u64_wrapper {
 }
 
 u64_wrapper!(EpochNumber);
+
+// `StepCounter::as_u64` is used in production (state transition arithmetic).
 u64_wrapper!(StepCounter);
+
+impl StepCounter {
+    // In test mode the macro already generates `#[cfg(test)] fn as_u64`; this
+    // unconditional definition is only compiled outside of tests to avoid a
+    // duplicate-definition error.
+    #[cfg(not(test))]
+    pub(crate) fn as_u64(self) -> u64 {
+        self.0
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ProtocolMessagePreimage([u8; PREIMAGE_SIZE]);
@@ -116,8 +127,8 @@ impl CertificateProofBytes {
         Self(bytes)
     }
 
-    // Used for the genesis IVC step. This can be un-gated when the production IVC prover is wired.
-    #[cfg(test)]
+    // TODO: remove this allow dead_code directive when the IVC prover uses this for the genesis step
+    #[allow(dead_code)]
     pub(crate) fn empty() -> Self {
         Self(Vec::new())
     }
@@ -127,7 +138,6 @@ impl CertificateProofBytes {
         Self(bytes)
     }
 
-    #[cfg(test)]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -151,7 +161,6 @@ impl IvcProofBytes {
         Self(Vec::new())
     }
 
-    #[cfg(test)]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.0
     }

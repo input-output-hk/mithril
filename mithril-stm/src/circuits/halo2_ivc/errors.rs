@@ -9,6 +9,18 @@ pub enum IvcCircuitError {
     #[error("Certificate proof verification rejected")]
     CertificateProofRejected,
 
+    /// Off-circuit verifier rejected a previous IVC proof.
+    #[error("Previous IVC proof verification rejected")]
+    IvcProofRejected,
+
+    /// Step counter would overflow u64.
+    #[error("IVC step counter overflow")]
+    StepCounterOverflow,
+
+    /// Certificate epoch is neither the current epoch nor the next epoch.
+    #[error("Certificate epoch is invalid: must equal current_epoch or current_epoch + 1")]
+    InvalidEpoch,
+
     /// Self VK degree does not match the IVC circuit degree constant K.
     #[error("IvcCircuit::validate_self_vk_degree failed: expected k={expected}, got k={actual}")]
     SelfVkDegreeMismatch { expected: u32, actual: u32 },

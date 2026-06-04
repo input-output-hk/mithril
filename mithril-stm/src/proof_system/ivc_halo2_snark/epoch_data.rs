@@ -6,6 +6,7 @@ use crate::{
     circuits::halo2_ivc::{
         PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
         PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE,
+        types::{EpochNumber, MerkleTreeCommitment, ProtocolParametersHash},
     },
 };
 
@@ -18,7 +19,7 @@ pub(crate) struct EpochData {
     /// Raw protocol-message preimage.
     message_preimage: [u8; PREIMAGE_SIZE],
     /// Certificate's epoch, decoded from `PREIMAGE_CURRENT_EPOCH_BYTES`.
-    current_epoch: BaseFieldElement,
+    current_epoch: u64,
     /// Next epoch's Merkle-tree commitment, decoded from `PREIMAGE_NEXT_MERKLE_ROOT_BYTES`.
     next_merkle_root: BaseFieldElement,
     /// Next epoch's protocol parameters, decoded from `PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES`.
@@ -35,7 +36,7 @@ impl EpochData {
     pub(crate) fn new(message_preimage: [u8; PREIMAGE_SIZE]) -> StmResult<Self> {
         let current_epoch_bytes: [u8; 8] =
             message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].try_into()?;
-        let current_epoch = BaseFieldElement::from(u64::from_le_bytes(current_epoch_bytes));
+        let current_epoch = u64::from_le_bytes(current_epoch_bytes);
 
         let next_merkle_root_bytes: [u8; 32] =
             message_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].try_into()?;
@@ -58,19 +59,34 @@ impl EpochData {
         &self.message_preimage
     }
 
-    /// Returns the certificate's epoch.
+    /// Returns the certificate's epoch as a base field element.
     pub(crate) fn current_epoch(&self) -> BaseFieldElement {
-        self.current_epoch
+        BaseFieldElement::from(self.current_epoch)
     }
 
-    /// Returns the next epoch's Merkle-tree commitment.
+    /// Returns the certificate's epoch as an `EpochNumber`.
+    pub(crate) fn epoch_number(&self) -> EpochNumber {
+        EpochNumber::new(self.current_epoch)
+    }
+
+    /// Returns the next epoch's Merkle-tree commitment as a base field element.
     pub(crate) fn next_merkle_root(&self) -> BaseFieldElement {
         self.next_merkle_root
     }
 
-    /// Returns the next epoch's protocol parameters.
+    /// Returns the next epoch's Merkle-tree commitment as a typed IVC wrapper.
+    pub(crate) fn next_merkle_tree_commitment(&self) -> MerkleTreeCommitment {
+        MerkleTreeCommitment::from_field(self.next_merkle_root.0)
+    }
+
+    /// Returns the next epoch's protocol parameters as a base field element.
     pub(crate) fn next_protocol_parameters(&self) -> BaseFieldElement {
         self.next_protocol_parameters
+    }
+
+    /// Returns the next epoch's protocol parameters as a typed IVC wrapper.
+    pub(crate) fn next_protocol_parameters_hash(&self) -> ProtocolParametersHash {
+        ProtocolParametersHash::from_field(self.next_protocol_parameters.0)
     }
 }
 
