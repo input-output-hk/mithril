@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { initStore } from "./helpers";
+import { dummyAggregator, initStore } from "./helpers";
 import { Provider } from "react-redux";
 import PoolTicker from "#/PoolTicker";
 import { settingsSlice } from "@/store/settingsSlice";
@@ -31,13 +31,13 @@ describe("PoolTicker", () => {
     renderPoolTickerComponent(partyId, {
       settings: {
         ...settingsSlice.getInitialState(),
-        selectedAggregator: "myaggregator",
+        selectedAggregator: dummyAggregator("my_aggregator", "my://aggregator.url"),
       },
       pools: {
         ...poolsSlice.getInitialState(),
         list: [
           {
-            aggregator: "myaggregator",
+            aggregator: "my://aggregator.url",
             network: "devnet",
             pools: [
               {
@@ -63,13 +63,13 @@ describe("PoolTicker", () => {
       renderPoolTickerComponent(partyId, {
         settings: {
           ...settingsSlice.getInitialState(),
-          selectedAggregator: "myaggregator",
+          selectedAggregator: dummyAggregator("my_aggregator", "my://aggregator.url"),
         },
         pools: {
           ...poolsSlice.getInitialState(),
           list: [
             {
-              aggregator: "myaggregator",
+              aggregator: "my://aggregator.url",
               network: network,
               pools: [
                 {
@@ -98,13 +98,13 @@ describe("PoolTicker", () => {
       renderPoolTickerComponent(partyId, {
         settings: {
           ...settingsSlice.getInitialState(),
-          selectedAggregator: "myaggregator",
+          selectedAggregator: dummyAggregator("my_aggregator", "my://aggregator.url"),
         },
         pools: {
           ...poolsSlice.getInitialState(),
           list: [
             {
-              aggregator: "myaggregator",
+              aggregator: "my://aggregator.url",
               network: network,
               pools: [
                 {
@@ -132,13 +132,13 @@ describe("PoolTicker", () => {
       renderPoolTickerComponent(partyId, {
         settings: {
           ...settingsSlice.getInitialState(),
-          selectedAggregator: "myaggregator",
+          selectedAggregator: dummyAggregator("my_aggregator", "my://aggregator.url"),
         },
         pools: {
           ...poolsSlice.getInitialState(),
           list: [
             {
-              aggregator: "myaggregator",
+              aggregator: "my://aggregator.url",
               network: network,
               pools: [],
             },

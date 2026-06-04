@@ -3,6 +3,8 @@ import * as mockRouter from "next-router-mock";
 
 const baseLocation = "http://localhost";
 
+const dummyAggregator = (name, url) => ({ name, url, genesisVerificationKey: "whatever" });
+
 function initStore(default_state = undefined) {
   if (default_state) {
     saveToLocalStorage(default_state);
@@ -71,6 +73,7 @@ function reg(party_id, stake) {
 }
 
 module.exports = {
+  dummyAggregator,
   initStore,
   mockNextNavigation,
   setLocation,
