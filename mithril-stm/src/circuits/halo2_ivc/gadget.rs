@@ -250,8 +250,8 @@ impl IvcGadget {
 
         Ok(AssignedWitness {
             genesis_signature,
-            certificate_merkle_tree_commitment,
             certificate_message,
+            certificate_merkle_tree_commitment,
             message_preimage,
         })
     }

@@ -114,8 +114,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 preimage_bytes
                     .try_into()
@@ -147,8 +147,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 preimage_bytes
                     .try_into()
@@ -180,8 +180,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_tree_commitment,
             MessageHash::from_field(message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 preimage_bytes
                     .try_into()

@@ -180,14 +180,14 @@ impl Witness {
     #[allow(dead_code)]
     pub(crate) fn new(
         genesis_signature: StandardSchnorrSignature,
-        certificate_merkle_tree_commitment: MerkleTreeCommitment,
         certificate_message: MessageHash,
+        certificate_merkle_tree_commitment: MerkleTreeCommitment,
         message_preimage: ProtocolMessagePreimage,
     ) -> Self {
         Witness {
             genesis_signature,
-            certificate_merkle_tree_commitment,
             certificate_message,
+            certificate_merkle_tree_commitment,
             message_preimage,
         }
     }
@@ -196,8 +196,8 @@ impl Witness {
 #[derive(Clone, Debug)]
 pub(crate) struct AssignedWitness {
     pub(crate) genesis_signature: (AssignedScalarOfNativeCurve<Jubjub>, AssignedNative<F>),
-    pub(crate) certificate_merkle_tree_commitment: AssignedNative<F>,
     pub(crate) certificate_message: AssignedNative<F>,
+    pub(crate) certificate_merkle_tree_commitment: AssignedNative<F>,
     // Protocol message preimage bytes
     pub(crate) message_preimage: Vec<AssignedByte<F>>,
 }

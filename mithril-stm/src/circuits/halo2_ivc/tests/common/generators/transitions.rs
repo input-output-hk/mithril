@@ -72,8 +72,8 @@ pub(crate) fn build_genesis_base_case_witness(setup: &AssetGenerationSetup) -> W
         .expect("genesis protocol message preimage should be PREIMAGE_SIZE bytes");
     Witness::new(
         setup.genesis_signature,
-        MerkleTreeCommitment::ZERO,
         MessageHash::ZERO,
+        MerkleTreeCommitment::ZERO,
         ProtocolMessagePreimage::new(preimage),
     )
 }
@@ -254,8 +254,8 @@ fn build_certificate_asset_data_inner(
 
     let ivc_witness = Witness::new(
         setup.genesis_signature,
-        MerkleTreeCommitment::from_field(merkle_tree_commitment),
         MessageHash::from_field(message),
+        MerkleTreeCommitment::from_field(merkle_tree_commitment),
         ProtocolMessagePreimage::new(message_preimage.try_into().unwrap()),
     );
 
