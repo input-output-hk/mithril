@@ -34,9 +34,6 @@ pub struct IvcCircuitData {
     ivc_circuit_domain_and_constraint_system: (EvaluationDomain<F>, ConstraintSystem<F>),
 }
 
-// Backward-compatible alias for non-circuit callers; circuit-local code uses `IvcCircuitData`.
-pub(crate) type IvcCircuit = IvcCircuitData;
-
 impl IvcCircuitData {
     /// Validates that the IVC verification key degree matches the IVC circuit degree constant K.
     // Kept until the IVC prover validates recursive circuit keys.

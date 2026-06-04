@@ -25,7 +25,7 @@ use crate::{
     Parameters, StmResult,
     circuits::{
         halo2::circuit::StmCertificateCircuit,
-        halo2_ivc::{K, circuit::IvcCircuit},
+        halo2_ivc::{K, circuit::IvcCircuitData},
     },
     proof_system::ivc_halo2_snark::{CircuitProvingKey, CircuitVerifyingKey},
 };
@@ -109,15 +109,15 @@ impl TempIvcKeyProvider {
     /// Builds an unknown-witness IVC circuit parameterized by the certificate VK
     /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `K`.
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
-        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key)?;
-        Ok(keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit, K)?)
+        let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
+        Ok(keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit_data, K)?)
     }
 
     /// Recomputes the IVC verifying key (the temp layer has no cache, so the VK
     /// is re-derived here) and runs `keygen_pk` to produce the proving key.
     pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
-        let ivc_circuit = IvcCircuit::unknown(&self.certificate_verifying_key)?;
-        let ivc_verifying_key = keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit, K)?;
-        Ok(keygen_pk(ivc_verifying_key, &ivc_circuit)?)
+        let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
+        let ivc_verifying_key = keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit_data, K)?;
+        Ok(keygen_pk(ivc_verifying_key, &ivc_circuit_data)?)
     }
 }

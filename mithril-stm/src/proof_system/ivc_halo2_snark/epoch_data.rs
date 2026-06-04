@@ -4,8 +4,8 @@
 use crate::{
     BaseFieldElement, StmResult,
     circuits::halo2_ivc::{
-        PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_ROOT_BYTES,
-        PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES, PREIMAGE_SIZE,
+        PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+        PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
     },
 };
 
@@ -19,9 +19,9 @@ pub(crate) struct EpochData {
     message_preimage: [u8; PREIMAGE_SIZE],
     /// Certificate's epoch, decoded from `PREIMAGE_CURRENT_EPOCH_BYTES`.
     current_epoch: BaseFieldElement,
-    /// Next epoch's Merkle-tree commitment, decoded from `PREIMAGE_NEXT_MERKLE_ROOT_BYTES`.
-    next_merkle_root: BaseFieldElement,
-    /// Next epoch's protocol parameters, decoded from `PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES`.
+    /// Next epoch's Merkle-tree commitment, decoded from `PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES`.
+    next_merkle_tree_commitment: BaseFieldElement,
+    /// Next epoch's protocol parameters, decoded from `PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES`.
     next_protocol_parameters: BaseFieldElement,
 }
 
@@ -37,18 +37,19 @@ impl EpochData {
             message_preimage[PREIMAGE_CURRENT_EPOCH_BYTES].try_into()?;
         let current_epoch = BaseFieldElement::from(u64::from_le_bytes(current_epoch_bytes));
 
-        let next_merkle_root_bytes: [u8; 32] =
-            message_preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].try_into()?;
-        let next_merkle_root = BaseFieldElement::from_raw(&next_merkle_root_bytes)?;
+        let next_merkle_tree_commitment_bytes: [u8; 32] =
+            message_preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].try_into()?;
+        let next_merkle_tree_commitment =
+            BaseFieldElement::from_raw(&next_merkle_tree_commitment_bytes)?;
 
-        let next_protocol_params_bytes: [u8; 32] =
-            message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].try_into()?;
-        let next_protocol_parameters = BaseFieldElement::from_raw(&next_protocol_params_bytes)?;
+        let next_protocol_parameters_bytes: [u8; 32] =
+            message_preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].try_into()?;
+        let next_protocol_parameters = BaseFieldElement::from_raw(&next_protocol_parameters_bytes)?;
 
         Ok(Self {
             message_preimage,
             current_epoch,
-            next_merkle_root,
+            next_merkle_tree_commitment,
             next_protocol_parameters,
         })
     }
@@ -64,8 +65,8 @@ impl EpochData {
     }
 
     /// Returns the next epoch's Merkle-tree commitment.
-    pub(crate) fn next_merkle_root(&self) -> BaseFieldElement {
-        self.next_merkle_root
+    pub(crate) fn next_merkle_tree_commitment(&self) -> BaseFieldElement {
+        self.next_merkle_tree_commitment
     }
 
     /// Returns the next epoch's protocol parameters.
@@ -81,15 +82,15 @@ mod tests {
     #[test]
     fn new_decodes_each_field_from_correct_range() {
         let mut preimage = [0u8; PREIMAGE_SIZE];
-        preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].copy_from_slice(&[0x11; 32]);
-        preimage[PREIMAGE_NEXT_PROTOCOL_PARAMS_BYTES].copy_from_slice(&[0x22; 32]);
+        preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].copy_from_slice(&[0x11; 32]);
+        preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].copy_from_slice(&[0x22; 32]);
         preimage[PREIMAGE_CURRENT_EPOCH_BYTES].copy_from_slice(&42u64.to_le_bytes());
 
         let epoch_data = EpochData::new(preimage).unwrap();
 
         assert_eq!(epoch_data.current_epoch(), BaseFieldElement::from(42u64));
         assert_eq!(
-            epoch_data.next_merkle_root(),
+            epoch_data.next_merkle_tree_commitment(),
             BaseFieldElement::from_raw(&[0x11; 32]).unwrap()
         );
         assert_eq!(
@@ -106,19 +107,19 @@ mod tests {
 
         let zero = BaseFieldElement::from(0u64);
         assert_eq!(epoch_data.current_epoch(), zero);
-        assert_eq!(epoch_data.next_merkle_root(), zero);
+        assert_eq!(epoch_data.next_merkle_tree_commitment(), zero);
         assert_eq!(epoch_data.next_protocol_parameters(), zero);
     }
 
     #[test]
     fn new_reduces_max_value_modulo_field() {
         let mut preimage = [0u8; PREIMAGE_SIZE];
-        preimage[PREIMAGE_NEXT_MERKLE_ROOT_BYTES].copy_from_slice(&[0xFF; 32]);
+        preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].copy_from_slice(&[0xFF; 32]);
 
         let epoch_data = EpochData::new(preimage).unwrap();
 
         assert_eq!(
-            epoch_data.next_merkle_root(),
+            epoch_data.next_merkle_tree_commitment(),
             BaseFieldElement::from_raw(&[0xFF; 32]).unwrap()
         );
     }
