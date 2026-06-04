@@ -22,8 +22,20 @@ use crate::{
     Aggregator, CardanoBlockCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
     CardanoTransactionCommand, CardanoTransactionV2Command, Client, ClientCommand, FullNode,
     MithrilStakeDistributionCommand, NodeVersion, ToolsCommand, UtxoHdCommand, attempt,
+    toolkit::ScenarioToolkitContext,
     utils::{AttemptResult, file_utils::copy_dir_all},
 };
+
+#[derive(Debug, Clone, Default)]
+pub struct CheckToolkit {
+    context: ScenarioToolkitContext,
+}
+
+impl CheckToolkit {
+    pub fn new(context: ScenarioToolkitContext) -> Self {
+        Self { context }
+    }
+}
 
 async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
     match reqwest::get(url.clone()).await {

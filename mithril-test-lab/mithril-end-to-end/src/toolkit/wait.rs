@@ -6,7 +6,18 @@ use std::time::Duration;
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use mithril_common::{StdResult, entities::Epoch, messages::EpochSettingsMessage};
 
-use crate::{Aggregator, attempt, utils::AttemptResult};
+use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
+
+#[derive(Debug, Clone, Default)]
+pub struct WaitToolkit {
+    context: ScenarioToolkitContext,
+}
+
+impl WaitToolkit {
+    pub fn new(context: ScenarioToolkitContext) -> Self {
+        Self { context }
+    }
+}
 
 pub async fn wait_for_enough_immutable(aggregator: &Aggregator) -> StdResult<()> {
     info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());

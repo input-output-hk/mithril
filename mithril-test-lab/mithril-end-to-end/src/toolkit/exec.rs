@@ -1,11 +1,25 @@
 use std::path::PathBuf;
 
-use crate::{AggregateSignatureType, Aggregator, Devnet};
 use anyhow::Context;
+use slog_scope::info;
+
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::messages::AggregatorStatusMessage;
-use slog_scope::info;
+
+use crate::toolkit::ScenarioToolkitContext;
+use crate::{AggregateSignatureType, Aggregator, Devnet};
+
+#[derive(Debug, Clone, Default)]
+pub struct ExecToolkit {
+    context: ScenarioToolkitContext,
+}
+
+impl ExecToolkit {
+    pub fn new(context: ScenarioToolkitContext) -> Self {
+        Self { context }
+    }
+}
 
 /// Retrieve the current Mithril era from a running aggregator by querying its `/status` route.
 pub async fn retrieve_current_era(aggregator: &Aggregator) -> StdResult<String> {
