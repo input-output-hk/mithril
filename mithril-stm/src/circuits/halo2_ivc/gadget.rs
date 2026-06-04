@@ -264,6 +264,12 @@ impl IvcGadget {
         self.native_gadget.is_zero(layouter, &state.step_counter)
     }
 
+    /// Verifies the genesis Schnorr signature in-circuit.
+    ///
+    /// Reconstructs the challenge via Poseidon hash over the genesis verification key,
+    /// the nonce commitment R, and the genesis message, then checks equality against
+    /// the committed challenge scalar from `witness.genesis_signature`.
+    /// Returns an `AssignedBit` that is `true` when the signature is valid.
     pub fn is_genesis_signature_valid(
         &self,
         layouter: &mut impl Layouter<F>,
@@ -523,7 +529,7 @@ impl IvcGadget {
         };
 
         {
-            // Check the consistence on next_merkle_tree_commitment and next_protocol_parameters for certificates of the same epoch
+            // Check the consistency on next_merkle_tree_commitment and next_protocol_parameters for certificates of the same epoch
             // Assert true: is_genesis or (is_same_epoch && next_merkle_tree_commitment == state.next_merkle_tree_commitment && next_protocol_parameters == state.next_protocol_parameters) or is_next_epoch
             let is_equal_mt = self.native_gadget.is_equal(
                 layouter,

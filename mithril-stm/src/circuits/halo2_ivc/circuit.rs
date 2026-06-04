@@ -14,6 +14,11 @@ use super::{
     types::{CertificateProofBytes, IvcProofBytes},
 };
 
+/// Data required to run one step of the IVC (Incrementally Verifiable Computation) circuit.
+///
+/// Holds the global root-of-trust, the current state, the next certificate witness,
+/// the associated SNARK proofs, the latest accumulator, and the verification-key metadata
+/// for both the certificate circuit and the IVC circuit itself.
 #[derive(Clone, Debug)]
 pub struct IvcCircuitData {
     // Persistent values throughout an ivc stream. This is the root of trust for an ivc stream.
