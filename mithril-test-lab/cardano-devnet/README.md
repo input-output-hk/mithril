@@ -31,15 +31,12 @@ chmod u+x *.sh
 
 ## One step run with default configuration
 
-````bash
+```bash
 # Run devnet with 1 Full node and 2 SPO nodes (with local docker images) and DMQ network
 ./devnet-run.sh
 
 # Run devnet with Cardano nodes only
 NODES=cardano ./devnet-run.sh
-
-# Run Mithril from the E2E test with --run-only argument
-cargo run -p mithril-end-to-end -- -vvv --bin-directory binaries_location/ --devnet-scripts-directory=mithril-test-lab/mithril-devnet/ --run-only
 
 # Logs devnet
 ./devnet-log.sh
@@ -52,6 +49,8 @@ NODES=cardano ./devnet-log.sh
 
 # Stop devnet
 ./devnet-stop.sh
+
+```
 
 ## One step run with custom configuration
 
@@ -72,7 +71,7 @@ ARTIFACTS_DIR=artifacts ./devnet-query.sh
 
 # Stop devnet
 ARTIFACTS_DIR=artifacts ./devnet-stop.sh
-````
+```
 
 ## Step by step run with custom configuration
 
@@ -226,3 +225,11 @@ pool1n6sxl7cfe9j9mf6jv228nluvy3k3xdu62chqk2wfaazrsenz4jz
 pool1vu2kd36hm9wp5hrzczp5ahdh0j2ls59srq5s8ju542zyqr5qd6j   1.052e-3
 pool1n6sxl7cfe9j9mf6jv228nluvy3k3xdu62chqk2wfaazrsenz4jz   5.258e-4
 ```
+
+# Running Mihtril
+
+Mithril can be run from the E2E test with --run-only argument
+
+`cargo run -p mithril-end-to-end -- -vvv --bin-directory binaries_location/ --devnet-scripts-directory=mithril-test-lab/cardano-devnet/ --run-only`
+
+See more about Mithril E2E testing in mithril-end-to-end [README.md](../mithril-end-to-end/README.md)

@@ -444,7 +444,7 @@ jobs:
             ./mithril-end-to-end -vvv \\
                     --bin-directory ./bin \\
                     --work-directory=./artifacts \\
-                    --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+                    --devnet-scripts-directory=./mithril-test-lab/cardano-devnet \\
                     --mithril-era=${{ matrix.era }} \\
                     --cardano-node-version ${{ matrix.cardano_node_version }} \\
                     --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\

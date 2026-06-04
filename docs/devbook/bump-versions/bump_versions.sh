@@ -43,7 +43,7 @@ readonly INFRA_VERSION_FILE=mithril-infra/assets/infra.version
 declare INFRA_UPDATE=""
 declare INFRA_UPDATE_MESSAGE=""
 
-readonly DEVNET_VERSION_FILE=mithril-test-lab/mithril-devnet/VERSION
+readonly DEVNET_VERSION_FILE=mithril-test-lab/cardano-devnet/VERSION
 declare DEVNET_UPDATE=""
 declare DEVNET_UPDATE_MESSAGE=""
 
@@ -208,7 +208,7 @@ then
     update_plain_version_file $DRY_RUN "$INFRA_VERSION_FILE" "INFRA"
 fi
 
-if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/mithril-devnet/.*\.sh$")" -gt 0 ]
+if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/cardano-devnet/.*\.sh$")" -gt 0 ]
 then
     update_plain_version_file $DRY_RUN "$DEVNET_VERSION_FILE" "DEVNET"
 fi

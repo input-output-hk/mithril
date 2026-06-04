@@ -40,7 +40,7 @@ make build
 ./mithril-end-to-end --help
 
 # Run
-./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet
+./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../cardano-devnet
 ```
 
 To run `mithril-end-to-end` command, you must first compile the Mithril nodes:
@@ -86,7 +86,7 @@ Sometimes, the default parameter values used to run the end to end test may not 
 The default value of the **Cardano slot length** parameter can prevent the Cardano nodes to work properly in the `devnet`. Increasing the value helps improve the stability: you can add `--cardano-slot-length 0.25` to the run command:
 
 ```bash
-./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet --cardano-slot-length 0.25
+./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../cardano-devnet --cardano-slot-length 0.25
 ```
 
 ### Use your own cardano binaries
@@ -98,8 +98,8 @@ You can use your own compiled cardano binaries to run the end to end test:
 - From the root of the repository, copy the `cardano-node` and `cardano-cli` binaries in the `devnet/bin` directory:
 
 ```bash
-cp $HOME/.local/bin/cardano-node mithril-test-lab/mithril-devnet/bin/cardano-node
-cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/bin/cardano-cli
+cp $HOME/.local/bin/cardano-node mithril-test-lab/cardano-devnet/bin/cardano-node
+cp $HOME/.local/bin/cardano-cli mithril-test-lab/cardano-devnet/bin/cardano-cli
 ```
 
 - Use the `--skip-cardano-bin-download` option to run the end to end test:
