@@ -11,8 +11,7 @@ use mithril_common::{CardanoNetwork, StdResult};
 use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::{
     AggregateSignatureType, Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet,
-    DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer,
-    assertions,
+    DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer, toolkit,
 };
 
 use super::signer::SignerConfig;
@@ -183,7 +182,7 @@ impl MithrilInfrastructure {
     ) -> StdResult<()> {
         let era_epoch = Epoch(0);
         if config.mithril_era_reader_adapter == "cardano-chain" {
-            assertions::register_era_marker(
+            toolkit::register_era_marker(
                 aggregator,
                 &config.devnet,
                 &config.mithril_era,
@@ -204,7 +203,7 @@ impl MithrilInfrastructure {
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
-            assertions::register_era_marker(
+            toolkit::register_era_marker(
                 self.leader_aggregator(),
                 &devnet,
                 next_era,

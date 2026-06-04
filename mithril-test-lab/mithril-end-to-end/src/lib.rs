@@ -1,8 +1,8 @@
-pub mod assertions;
 mod devnet;
 mod mithril;
 pub mod scenario;
 pub mod stress_test;
+pub mod toolkit;
 mod utils;
 
 pub use devnet::*;
