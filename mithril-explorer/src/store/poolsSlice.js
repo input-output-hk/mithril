@@ -57,7 +57,7 @@ export const updatePoolsForAggregator = createAsyncThunk(
 );
 
 const poolsForAggregator = (poolsSlice, aggregator) => {
-  return poolsSlice.list.find((poolsData) => poolsData.aggregator === aggregator);
+  return poolsSlice.list.find((poolsData) => poolsData.aggregator === aggregator.url);
 };
 
 export const getPoolForSelectedAggregator = createSelector(

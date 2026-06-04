@@ -10,13 +10,11 @@ import {
 } from "@/store/settingsSlice";
 import { getPreloadedStateFromLocalStorage, saveToLocalStorage, storeBuilder } from "@/store/store";
 import { waitFor } from "@testing-library/react";
-import { initStore } from "./helpers";
+import { dummyAggregator, initStore } from "./helpers";
 
 const expectedCapabilities = {
   signed_entity_types: [signedEntityType.CardanoTransactions],
 };
-
-const dummyAggregator = (name, url) => ({ name, url, genesisVerificationKey: "whatever" });
 
 jest.mock("../src/aggregator-api", () => {
   return {
