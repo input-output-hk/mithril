@@ -1,0 +1,67 @@
+use anyhow::{Context, anyhow};
+use slog_scope::info;
+use std::time::Duration;
+
+use mithril_common::{StdResult, messages::CertificateMessage};
+
+use crate::{
+    Aggregator, attempt,
+    toolkit::{ScenarioToolkitContext, check::get_json_response},
+    utils::AttemptResult,
+};
+
+#[derive(Debug, Clone, Default)]
+pub struct CheckCertificateToolkit {
+    context: ScenarioToolkitContext,
+}
+
+impl CheckCertificateToolkit {
+    pub fn new(context: ScenarioToolkitContext) -> Self {
+        Self { context }
+    }
+
+    pub async fn is_creating_certificate_with_enough_signers(
+        &self,
+        aggregator: &Aggregator,
+        certificate_hash: &str,
+        total_signers_expected: usize,
+    ) -> StdResult<()> {
+        let url = format!("{}/certificate/{certificate_hash}", aggregator.endpoint());
+        info!("Waiting for the aggregator to create a certificate with enough signers"; "aggregator" => &aggregator.name());
+
+        async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
+            match get_json_response::<CertificateMessage>(url).await? {
+                Ok(certificate) => Ok(Some(certificate)),
+                Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
+            }
+        }
+
+        match attempt!(10, Duration::from_millis(1000), {
+            fetch_certificate_message(url.clone()).await
+        }) {
+            AttemptResult::Ok(certificate) => {
+                info!("Aggregator produced a certificate"; "certificate" => ?certificate);
+                if certificate.metadata.signers.len() == total_signers_expected {
+                    info!(
+                        "Certificate is signed by expected number of signers: {} >= {} ",
+                        certificate.metadata.signers.len(),
+                        total_signers_expected ;
+                        "aggregator" => &aggregator.name()
+                    );
+                    Ok(())
+                } else {
+                    Err(anyhow!(
+                        "Certificate is not signed by expected number of signers: {} < {} ",
+                        certificate.metadata.signers.len(),
+                        total_signers_expected
+                    ))
+                }
+            }
+            AttemptResult::Err(error) => Err(error),
+            AttemptResult::Timeout() => Err(anyhow!(
+                "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
+            )),
+        }
+        .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
+    }
+}
