@@ -28,6 +28,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - **UNSTABLE**:
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
+  - Support for SNARK-friendly genesis certificate primitives.
 
 | Crate | Version |
 | ----- | ------- |
