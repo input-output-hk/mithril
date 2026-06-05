@@ -4,11 +4,11 @@
 //! All tests are slow MockProver checks confirming the arithmetic constraint
 //! wiring for the following in-circuit invariants:
 //!
-//! `next_merkle_root` consistency    — must equal `prev_state.next_merkle_root`.
-//! `next_protocol_params` consistency — must equal `prev_state.next_protocol_params`.
-//! `msg = Blake2b(preimage)`          — must equal the Blake2b hash of the message preimage.
+//! `next_merkle_tree_commitment` consistency    — must equal `prev_state.next_merkle_tree_commitment`.
+//! `next_protocol_parameters` consistency — must equal `prev_state.next_protocol_parameters`.
+//! `message = Blake2b(preimage)`          — must equal the Blake2b hash of the message preimage.
 //!
-//! The `msg = Blake2b(preimage)` constraint is the same gate for same-epoch and
+//! The `message = Blake2b(preimage)` constraint is the same gate for same-epoch and
 //! next-epoch paths, so only the same-epoch witness is exercised here.
 
 mod slow {
@@ -34,9 +34,9 @@ mod slow {
     };
 
     #[test]
-    fn circuit_rejects_wrong_same_epoch_next_merkle_root() {
-        // MockProver constraint check: next_merkle_root set to ONE must violate the
-        // in-circuit constraint that pins it to prev_state.next_merkle_root.
+    fn circuit_rejects_wrong_same_epoch_next_merkle_tree_commitment() {
+        // MockProver constraint check: next_merkle_tree_commitment set to ONE must violate the
+        // in-circuit constraint that pins it to prev_state.next_merkle_tree_commitment.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
@@ -46,8 +46,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
             MessageHash::from_field(same_epoch_message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 same_epoch_message_preimage_bytes
                     .try_into()
@@ -55,19 +55,20 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        tampered_state.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
-            "next_merkle_root set to ONE (must equal prev_state.next_merkle_root)",
+            "next_merkle_tree_commitment set to ONE (must equal prev_state.next_merkle_tree_commitment)",
         );
     }
 
     #[test]
-    fn circuit_rejects_wrong_same_epoch_next_protocol_params() {
-        // MockProver constraint check: next_protocol_params set to ONE must violate the
-        // in-circuit constraint that pins it to prev_state.next_protocol_params.
+    fn circuit_rejects_wrong_same_epoch_next_protocol_parameters() {
+        // MockProver constraint check: next_protocol_parameters set to ONE must violate the
+        // in-circuit constraint that pins it to prev_state.next_protocol_parameters.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
         let prev_state = load_embedded_recursive_chain_state_asset()
@@ -77,8 +78,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
             MessageHash::from_field(same_epoch_message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 same_epoch_message_preimage_bytes
                     .try_into()
@@ -86,19 +87,20 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.next_protocol_params = ProtocolParametersHash::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        tampered_state.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
-            "next_protocol_params set to ONE (must equal prev_state.next_protocol_params)",
+            "next_protocol_parameters set to ONE (must equal prev_state.next_protocol_parameters)",
         );
     }
 
     #[test]
     fn circuit_rejects_wrong_same_epoch_msg_blake2b_constraint() {
-        // MockProver constraint check: msg set to ONE must violate the in-circuit
-        // Blake2b constraint enforcing msg = Blake2b(msg_preimage). The same gate
+        // MockProver constraint check: message set to ONE must violate the in-circuit
+        // Blake2b constraint enforcing message = Blake2b(message_preimage). The same gate
         // is exercised by both same-epoch and next-epoch paths, so testing it once suffices.
         let setup = build_asset_generation_setup();
         let mock_prover_setup = build_mock_prover_setup_from_assets(&setup);
@@ -109,8 +111,8 @@ mod slow {
             same_epoch_message_and_preimage_for_step(&setup, &prev_state);
         let witness = Witness::new(
             setup.genesis_signature,
-            prev_state.merkle_root,
             MessageHash::from_field(same_epoch_message),
+            prev_state.merkle_tree_commitment,
             ProtocolMessagePreimage::new(
                 same_epoch_message_preimage_bytes
                     .try_into()
@@ -118,12 +120,13 @@ mod slow {
             ),
         );
         let mut tampered_state = same_epoch_next_state_for_step(&prev_state, same_epoch_message);
-        tampered_state.msg = MessageHash::from_field(F::ONE);
-        let circuit = build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
+        tampered_state.message = MessageHash::from_field(F::ONE);
+        let ivc_circuit_data =
+            build_trivial_mock_prover_circuit(&mock_prover_setup, prev_state, witness);
         assert_recursive_mock_prover_rejects_with_label(
-            circuit,
+            ivc_circuit_data,
             build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state),
-            "msg set to ONE (must equal Blake2b(msg_preimage))",
+            "message set to ONE (must equal Blake2b(message_preimage))",
         );
     }
 }

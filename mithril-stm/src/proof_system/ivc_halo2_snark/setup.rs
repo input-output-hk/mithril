@@ -8,7 +8,10 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use crate::{
     StmResult,
     circuits::{
-        halo2_ivc::{CERT_VK_NAME, IVC_ONE_NAME, state::fixed_bases_and_names},
+        halo2_ivc::{
+            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
+            state::fixed_bases_and_names,
+        },
         trusted_setup::TrustedSetupProvider,
     },
     proof_system::ivc_halo2_snark::{
@@ -41,9 +44,9 @@ pub(crate) struct IvcSetup {
     pub(crate) ivc_proving_key: CircuitProvingKey,
     /// Fixed-base map used to normalize the certificate accumulator.
     pub(crate) certificate_fixed_bases: BTreeMap<String, G1Projective>,
-    /// Fixed-base map used to normalize the IVC self-proof accumulator.
+    /// Fixed-base map used to normalize the IVC proof accumulator.
     pub(crate) ivc_fixed_bases: BTreeMap<String, G1Projective>,
-    /// Fixed-base map used when folding the certificate and self-proof accumulators
+    /// Fixed-base map used when folding the certificate and IVC proof accumulators
     /// into the new IVC folded accumulator.
     pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
@@ -84,9 +87,12 @@ impl IvcSetup {
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
         let ivc_proving_key = ivc_key_provider.get_proving_key()?;
 
-        let (certificate_fixed_bases, _) =
-            fixed_bases_and_names(CERT_VK_NAME, &certificate_verifying_key);
-        let (ivc_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, &ivc_verifying_key);
+        let (certificate_fixed_bases, _) = fixed_bases_and_names(
+            CERTIFICATE_VERIFICATION_KEY_NAME,
+            &certificate_verifying_key,
+        );
+        let (ivc_fixed_bases, _) =
+            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, &ivc_verifying_key);
         let mut combined_fixed_bases = certificate_fixed_bases.clone();
         combined_fixed_bases.extend(ivc_fixed_bases.clone());
 

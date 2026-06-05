@@ -11,7 +11,9 @@ use crate::{
     StmResult,
     circuits::{
         halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        halo2_ivc::{K, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuit},
+        halo2_ivc::{
+            K, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuitData,
+        },
         trusted_setup::TrustedSetupProvider,
     },
 };
@@ -31,8 +33,8 @@ fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
         MidnightVK::read(&mut non_recursive_verification_key, SerdeFormat::RawBytes)
             .with_context(|| "Failed to deserialize the circuit verification key.")?;
 
-    let default_ivc_circuit =
-        IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
+    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
+        .expect("valid IvcCircuitData unknown");
     let recursive_verification_key: VerifyingKey<
         <BlstrsEmulation as SelfEmulation>::F,
         KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,

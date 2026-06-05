@@ -9,9 +9,11 @@ pub enum IvcCircuitError {
     #[error("Certificate proof verification rejected")]
     CertificateProofRejected,
 
-    /// Self VK degree does not match the IVC circuit degree constant K.
-    #[error("IvcCircuit::validate_self_vk_degree failed: expected k={expected}, got k={actual}")]
-    SelfVkDegreeMismatch { expected: u32, actual: u32 },
+    /// IVC verification key degree does not match the IVC circuit degree constant K.
+    #[error(
+        "IvcCircuitData::validate_ivc_verification_key_degree failed: expected k={expected}, got k={actual}"
+    )]
+    IvcVerificationKeyDegreeMismatch { expected: u32, actual: u32 },
 
     /// `assign_many` returned a different number of values than expected.
     #[error("IvcGadget: expected {expected} assigned values, got {actual}")]
@@ -19,13 +21,13 @@ pub enum IvcCircuitError {
 
     /// Not enough advice columns were allocated to satisfy chip requirements.
     #[error(
-        "IvcCircuit::validate_column_counts failed: need {needed} advice columns, only {available} allocated"
+        "IvcCircuitData::validate_column_counts failed: need {needed} advice columns, only {available} allocated"
     )]
     InsufficientAdviceColumns { needed: usize, available: usize },
 
     /// Not enough fixed columns were allocated to satisfy chip requirements.
     #[error(
-        "IvcCircuit::validate_column_counts failed: need {needed} fixed columns, only {available} allocated"
+        "IvcCircuitData::validate_column_counts failed: need {needed} fixed columns, only {available} allocated"
     )]
     InsufficientFixedColumns { needed: usize, available: usize },
 }

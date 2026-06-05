@@ -165,9 +165,3 @@ impl IvcProofBytes {
         self.0
     }
 }
-
-impl From<Vec<u8>> for IvcProofBytes {
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-}

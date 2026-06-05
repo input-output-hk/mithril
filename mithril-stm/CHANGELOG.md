@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.30 (06-05-2026)
+
+### Changed
+
+- Aligned `halo2_ivc` APIs with STM and domain-specific types, including typed state and witness fields, certificate and recursive proof byte wrappers, and aggregate verification key protocol-message handling.
+- Aligned `halo2_ivc` naming with STM and certificate-circuit terminology across circuit data, state, witness, protocol-message, proof-system callers, and test/generator identifiers.
+
 ## 0.10.29 (06-02-2026)
 
 ### Changed

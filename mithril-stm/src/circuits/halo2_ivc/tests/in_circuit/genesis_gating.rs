@@ -9,7 +9,7 @@ use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
-    circuit::IvcCircuit,
+    circuit::IvcCircuitData,
     state::State,
     tests::common::{
         generators::{
@@ -28,7 +28,7 @@ mod slow {
 
     #[test]
     fn genesis_step_accepts_garbage_certificate_proof_bytes() {
-        // MockProver constraint check: at genesis (counter = 0) the circuit gates the
+        // MockProver constraint check: at genesis (step_counter = 0) the circuit gates the
         // certificate accumulator contribution to the group identity via scale_by_bit(0, acc),
         // so 64 garbage bytes in the certificate slot must not violate any constraint.
         let setup = build_asset_generation_setup();
@@ -39,7 +39,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -49,9 +49,9 @@ mod slow {
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
         assert_recursive_mock_prover_accepts_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "garbage certificate proof bytes (64 × 0x00)",
         );
@@ -59,7 +59,7 @@ mod slow {
 
     #[test]
     fn genesis_step_accepts_garbage_ivc_proof_bytes() {
-        // MockProver constraint check: at genesis (counter = 0) the circuit gates the
+        // MockProver constraint check: at genesis (step_counter = 0) the circuit gates the
         // IVC accumulator contribution to the group identity via scale_by_bit(0, acc),
         // so 64 garbage bytes in the IVC slot must not violate any constraint.
         let setup = build_asset_generation_setup();
@@ -70,7 +70,7 @@ mod slow {
             AssignedAccumulator::as_public_input(&mock_prover_setup.trivial_accumulator),
         ]
         .concat();
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             mock_prover_setup.global.clone(),
             State::genesis(),
             build_genesis_base_case_witness(&setup),
@@ -80,9 +80,9 @@ mod slow {
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
         assert_recursive_mock_prover_accepts_with_label(
-            circuit,
+            ivc_circuit_data,
             public_inputs,
             "garbage IVC proof bytes (64 × 0x00)",
         );

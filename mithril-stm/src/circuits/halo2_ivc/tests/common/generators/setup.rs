@@ -20,7 +20,8 @@ use crate::circuits::halo2::circuit::StmCertificateCircuit;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
-    C, CERT_VK_NAME, E, F, IVC_ONE_NAME, circuit::IvcCircuit, state::Global,
+    C, CERTIFICATE_VERIFICATION_KEY_NAME, E, F, IVC_VERIFICATION_KEY_NAME, circuit::IvcCircuitData,
+    state::Global,
 };
 use crate::membership_commitment::{MerkleTree as StmMerkleTree, MerkleTreeSnarkLeaf};
 use crate::signature_scheme::{
@@ -99,10 +100,10 @@ pub(crate) struct AssetGenerationSetup {
     /// Deterministic aggregate verification key committed by generated protocol messages.
     pub(crate) aggregate_verification_key:
         AggregateVerificationKeyForSnark<MithrilMembershipDigest>,
-    /// Deterministic next Merkle root committed by the genesis message.
-    pub(crate) genesis_next_merkle_root: F,
+    /// Deterministic next Merkle-tree commitment committed by the genesis message.
+    pub(crate) genesis_next_merkle_tree_commitment: F,
     /// Deterministic next protocol parameters committed by the genesis message.
-    pub(crate) genesis_next_protocol_params: F,
+    pub(crate) genesis_next_protocol_parameters: F,
 }
 
 /// Shared recursive verifier-side setup reused by generators and golden helpers.
@@ -146,7 +147,7 @@ fn build_merkle_tree(
     (signing_keys, merkle_tree_leaves, merkle_tree)
 }
 
-fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
+fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
     let commitment = merkle_tree.to_merkle_tree_commitment();
     // `MidnightPoseidonDigest` emits Jubjub base-field roots with `to_bytes_le()`;
     // the recursive state stores the same root as the circuit field element.
@@ -154,10 +155,10 @@ fn merkle_root_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTree) -> F {
         .root
         .as_slice()
         .try_into()
-        .expect("STM Poseidon Merkle root should be 32 bytes");
+        .expect("STM Merkle-tree commitment should be 32 bytes");
     F::from_bytes_le(&root_bytes)
         .into_option()
-        .expect("STM Poseidon Merkle root should be a canonical field element")
+        .expect("STM Merkle-tree commitment should be a canonical field element")
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
@@ -201,8 +202,8 @@ pub(crate) fn build_shared_recursive_context(
         &certificate_commitment_parameters,
         &setup.certificate_relation,
     );
-    let default_ivc_circuit =
-        IvcCircuit::unknown(certificate_verifying_key.vk()).expect("valid IvcCircuit unknown");
+    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
+        .expect("valid IvcCircuitData unknown");
     let recursive_verifying_key = keygen_vk_with_k(
         &recursive_commitment_parameters,
         &default_ivc_circuit,
@@ -224,8 +225,8 @@ pub(crate) fn build_shared_recursive_context(
 pub(crate) fn build_recursive_proving_key(
     context: &SharedRecursiveContext,
 ) -> ProvingKey<F, KZGCommitmentScheme<E>> {
-    let default_ivc_circuit = IvcCircuit::unknown(context.certificate_verifying_key.vk())
-        .expect("valid IvcCircuit unknown");
+    let default_ivc_circuit = IvcCircuitData::unknown(context.certificate_verifying_key.vk())
+        .expect("valid IvcCircuitData unknown");
     keygen_pk(
         context.recursive_verifying_key.clone(),
         &default_ivc_circuit,
@@ -242,9 +243,12 @@ pub(crate) fn build_recursive_fixed_bases(
     BTreeMap<String, C>,
     BTreeMap<String, C>,
 ) {
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERT_VK_NAME, certificate_verifying_key.vk());
-    let (recursive_fixed_bases, _) = fixed_bases_and_names(IVC_ONE_NAME, recursive_verifying_key);
+    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        certificate_verifying_key.vk(),
+    );
+    let (recursive_fixed_bases, _) =
+        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key);
     let mut combined_fixed_bases = certificate_fixed_bases.clone();
     combined_fixed_bases.extend(recursive_fixed_bases.clone());
 
@@ -287,7 +291,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     )
     .expect("certificate relation construction should not fail");
     let (signing_keys, merkle_tree_leaves, merkle_tree) = build_merkle_tree(&mut rng, SIGNER_COUNT);
-    let genesis_next_merkle_root = merkle_root_from_stm_tree(&merkle_tree);
+    let genesis_next_merkle_tree_commitment = merkle_tree_commitment_from_stm_tree(&merkle_tree);
 
     let aggregate_verification_key = {
         let commitment = merkle_tree.to_merkle_tree_commitment();
@@ -306,12 +310,12 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
     let genesis_verification_key =
         SchnorrVerificationKey::new_from_signing_key(genesis_signing_key.clone());
     let genesis_epoch = GENESIS_EPOCH;
-    let genesis_next_protocol_params = F::from(7u64);
+    let genesis_next_protocol_parameters = F::from(7u64);
 
     let genesis_message = {
         let protocol_message = build_genesis_protocol_message(
             &aggregate_verification_key,
-            genesis_next_protocol_params.to_bytes_le(),
+            genesis_next_protocol_parameters.to_bytes_le(),
             genesis_epoch,
         );
         let preimage = protocol_message
@@ -338,7 +342,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
         merkle_tree_leaves,
         signing_keys,
         aggregate_verification_key,
-        genesis_next_merkle_root,
-        genesis_next_protocol_params,
+        genesis_next_merkle_tree_commitment,
+        genesis_next_protocol_parameters,
     }
 }

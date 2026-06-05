@@ -17,57 +17,57 @@ use crate::circuits::halo2_ivc::{
 };
 
 #[test]
-fn merkle_root_tampered_is_rejected() {
-    // Asset-based check: circuit enforces merkle_root = 0 at the genesis base case.
+fn merkle_tree_commitment_tampered_is_rejected() {
+    // Asset-based check: circuit enforces merkle_tree_commitment = 0 at the genesis base case.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.merkle_root = MerkleTreeCommitment::from_field(F::ONE),
-        "proof with tampered merkle_root should be rejected by the verifier",
+        |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        "proof with tampered merkle_tree_commitment should be rejected by the verifier",
     );
 }
 
 #[test]
-fn protocol_params_tampered_is_rejected() {
-    // Asset-based check: circuit enforces protocol_params = 0 at the genesis base case.
+fn protocol_parameters_tampered_is_rejected() {
+    // Asset-based check: circuit enforces protocol_parameters = 0 at the genesis base case.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.protocol_params = ProtocolParametersHash::from_field(F::ONE),
-        "proof with tampered protocol_params should be rejected by the verifier",
+        |s| s.protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        "proof with tampered protocol_parameters should be rejected by the verifier",
     );
 }
 
 #[test]
-fn next_merkle_root_tampered_is_rejected() {
-    // Asset-based check: circuit enforces next_merkle_root is extracted from the genesis message preimage.
+fn next_merkle_tree_commitment_tampered_is_rejected() {
+    // Asset-based check: circuit enforces next_merkle_tree_commitment is extracted from the genesis message preimage.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_merkle_root = MerkleTreeCommitment::from_field(F::ONE),
-        "proof with tampered next_merkle_root should be rejected by the verifier",
+        |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
+        "proof with tampered next_merkle_tree_commitment should be rejected by the verifier",
     );
 }
 
 #[test]
-fn next_protocol_params_tampered_is_rejected() {
-    // Asset-based check: circuit enforces next_protocol_params is extracted from the genesis message preimage.
+fn next_protocol_parameters_tampered_is_rejected() {
+    // Asset-based check: circuit enforces next_protocol_parameters is extracted from the genesis message preimage.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.next_protocol_params = ProtocolParametersHash::from_field(F::ONE),
-        "proof with tampered next_protocol_params should be rejected by the verifier",
+        |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
+        "proof with tampered next_protocol_parameters should be rejected by the verifier",
     );
 }
 
 #[test]
 fn counter_tampered_is_rejected() {
-    // Asset-based check: circuit enforces counter transitions 0 → 1 at the genesis base case.
+    // Asset-based check: circuit enforces step_counter transitions 0 → 1 at the genesis base case.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.counter = StepCounter::new(2),
-        "proof with tampered counter should be rejected by the verifier",
+        |s| s.step_counter = StepCounter::new(2),
+        "proof with tampered step_counter should be rejected by the verifier",
     );
 }
 
@@ -84,12 +84,12 @@ fn current_epoch_tampered_is_rejected() {
 
 #[test]
 fn msg_tampered_is_rejected() {
-    // Asset-based check: circuit enforces msg equals the genesis message committed in the Global public inputs.
+    // Asset-based check: circuit enforces message equals the genesis message committed in the Global public inputs.
     assert_step_output_rejects_tampered_state(
         load_embedded_genesis_step_output_asset,
         "genesis step output",
-        |s| s.msg = MessageHash::from_field(F::ONE),
-        "proof with tampered msg should be rejected by the verifier",
+        |s| s.message = MessageHash::from_field(F::ONE),
+        "proof with tampered message should be rejected by the verifier",
     );
 }
 
@@ -109,19 +109,19 @@ mod slow {
         let mut tampered_state = build_genesis_base_case_next_state(&setup, GENESIS_EPOCH);
         tamper(&mut tampered_state);
 
-        let circuit =
+        let ivc_circuit_data =
             build_trivial_mock_prover_circuit(&mock_prover_setup, State::genesis(), witness);
         let public_inputs = build_mock_prover_public_inputs(&mock_prover_setup, &tampered_state);
 
-        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+        assert_recursive_mock_prover_rejects(ivc_circuit_data, public_inputs);
     }
 
     #[test]
     fn circuit_rejects_msg_inconsistent_with_preimage() {
         // MockProver check that the in-circuit Blake2b hash constraint between
-        // msg_preimage bytes and the resulting msg field is wired correctly.
+        // message_preimage bytes and the resulting message field is wired correctly.
         assert_genesis_circuit_rejects_tampered_next_state(|s| {
-            s.msg = MessageHash::from_field(F::ONE)
+            s.message = MessageHash::from_field(F::ONE)
         });
     }
 }

@@ -42,7 +42,7 @@ fn same_epoch_proof_passes_dual_msm_check_and_accumulator_check() {
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        same_epoch_step_output.proof.as_bytes(),
+        same_epoch_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -78,7 +78,7 @@ fn chain_state_proof_passes_dual_msm_check_and_accumulator_check() {
 
     let dual_msm = verify_prepare_poseidon_recursive_proof(
         &verification_context.recursive_verifying_key,
-        recursive_chain_state.proof.as_bytes(),
+        recursive_chain_state.ivc_proof.as_bytes(),
         &public_inputs,
     );
 

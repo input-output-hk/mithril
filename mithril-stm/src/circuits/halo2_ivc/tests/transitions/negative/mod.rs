@@ -43,7 +43,7 @@ fn assert_step_output_rejects_tampered_state(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.proof.as_bytes(),
+        step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 

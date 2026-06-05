@@ -16,7 +16,7 @@ use midnight_zk_stdlib::MidnightVK;
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
     Accumulator, C, E, F, KZGCommitmentScheme, S, VerifyingKey,
-    circuit::IvcCircuit,
+    circuit::IvcCircuitData,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
     types::{
@@ -35,7 +35,7 @@ pub(crate) struct RecursiveChainStateAsset {
     /// Stored recursive state checkpoint.
     pub(crate) state: State,
     /// Stored previous recursive proof bytes.
-    pub(crate) proof: IvcProofBytes,
+    pub(crate) ivc_proof: IvcProofBytes,
     /// Stored folded accumulator for the checkpoint.
     pub(crate) accumulator: Accumulator<S>,
 }
@@ -61,7 +61,7 @@ pub(crate) struct VerificationContextAsset {
 #[derive(Debug)]
 pub(crate) struct RecursiveStepOutputAsset {
     /// Stored final recursive proof bytes for the next step.
-    pub(crate) proof: IvcProofBytes,
+    pub(crate) ivc_proof: IvcProofBytes,
     /// Stored folded accumulator after extending the chain by one step.
     pub(crate) next_accumulator: Accumulator<S>,
     /// Stored next recursive state.
@@ -193,13 +193,13 @@ fn load_recursive_chain_state_asset_from_reader<R: Read>(
         .map(|_| read_field_element(reader))
         .collect::<Result<Vec<_>, _>>()?;
     let state = read_state_public_input(reader)?;
-    let proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
+    let ivc_proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
 
     Ok(RecursiveChainStateAsset {
         global_field_elements,
         state,
-        proof,
+        ivc_proof,
         accumulator,
     })
 }
@@ -243,7 +243,7 @@ pub(crate) fn store_recursive_chain_state_asset(
         write_field_element(&mut writer, value)?;
     }
     write_state_public_input(&mut writer, &asset.state)?;
-    write_length_prefixed_proof(&mut writer, asset.proof.as_bytes())?;
+    write_length_prefixed_proof(&mut writer, asset.ivc_proof.as_bytes())?;
     asset.accumulator.write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     writer.flush().with_context(|| {
         format!(
@@ -266,14 +266,13 @@ fn load_verification_context_asset_from_reader<R: Read>(
     let global_field_elements = (0..5)
         .map(|_| read_field_element(reader))
         .collect::<Result<Vec<_>, _>>()?;
-    let recursive_verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuit>(
-        reader,
-        SerdeFormat::RawBytesUnchecked,
-        (),
-    )?;
+    let recursive_verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<
+        _,
+        IvcCircuitData,
+    >(reader, SerdeFormat::RawBytesUnchecked, ())?;
     let combined_fixed_bases = read_named_fixed_bases(reader)?;
 
-    // verifier_params is length-prefixed so certificate_vk can follow it.
+    // verifier_params is length-prefixed so the certificate verification key can follow it.
     let verifier_param_bytes = read_length_prefixed_proof(reader)?;
 
     let mut verifier_params_reader = Cursor::new(&verifier_param_bytes);
@@ -287,9 +286,11 @@ fn load_verification_context_asset_from_reader<R: Read>(
     let verifier_tau_in_g2 =
         <E as Engine>::G2::read(&mut verifier_tau_reader, SerdeFormat::RawBytesUnchecked)?.into();
 
-    let cert_vk_bytes = read_length_prefixed_proof(reader)?;
-    let certificate_verifying_key =
-        MidnightVK::read(&mut cert_vk_bytes.as_slice(), SerdeFormat::RawBytes)?;
+    let certificate_verification_key_bytes = read_length_prefixed_proof(reader)?;
+    let certificate_verifying_key = MidnightVK::read(
+        &mut certificate_verification_key_bytes.as_slice(),
+        SerdeFormat::RawBytes,
+    )?;
 
     Ok(VerificationContextAsset {
         global_field_elements,
@@ -330,18 +331,18 @@ pub(crate) fn store_verification_context_asset(
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_named_fixed_bases(&mut writer, &asset.combined_fixed_bases)?;
 
-    // Buffer verifier_params to write with a length prefix so certificate_vk can follow.
+    // Buffer verifier_params to write with a length prefix so the certificate verification key can follow.
     let mut verifier_params_buf = Vec::new();
     asset
         .verifier_params
         .write(&mut verifier_params_buf, SerdeFormat::RawBytesUnchecked)?;
     write_length_prefixed_proof(&mut writer, &verifier_params_buf)?;
 
-    let mut cert_vk_buf = Vec::new();
+    let mut certificate_verification_key_buf = Vec::new();
     asset
         .certificate_verifying_key
-        .write(&mut cert_vk_buf, SerdeFormat::RawBytes)?;
-    write_length_prefixed_proof(&mut writer, &cert_vk_buf)?;
+        .write(&mut certificate_verification_key_buf, SerdeFormat::RawBytes)?;
+    write_length_prefixed_proof(&mut writer, &certificate_verification_key_buf)?;
 
     writer.flush().with_context(|| {
         format!(
@@ -356,7 +357,7 @@ pub(crate) fn store_verification_context_asset(
 fn load_recursive_step_output_asset_from_reader<R: Read>(
     reader: &mut R,
 ) -> StmResult<RecursiveStepOutputAsset> {
-    let proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
+    let ivc_proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let next_accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
     let next_state = read_state_public_input(reader)?;
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
@@ -364,7 +365,7 @@ fn load_recursive_step_output_asset_from_reader<R: Read>(
     );
 
     Ok(RecursiveStepOutputAsset {
-        proof,
+        ivc_proof,
         next_accumulator,
         next_state,
         certificate_proof,
@@ -404,7 +405,7 @@ pub(crate) fn store_recursive_step_output_asset(
         )
     })?;
 
-    write_length_prefixed_proof(&mut writer, asset.proof.as_bytes())?;
+    write_length_prefixed_proof(&mut writer, asset.ivc_proof.as_bytes())?;
     asset
         .next_accumulator
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;

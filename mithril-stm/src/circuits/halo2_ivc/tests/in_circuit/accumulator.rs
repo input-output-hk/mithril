@@ -43,7 +43,7 @@ fn assert_step_output_rejects_tampered_next_accumulator(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.proof.as_bytes(),
+        step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );
 
@@ -92,7 +92,7 @@ mod slow {
 
     use crate::circuits::halo2_ivc::{
         AssignedAccumulator, F,
-        circuit::IvcCircuit,
+        circuit::IvcCircuitData,
         tests::common::{
             asset_readers::load_embedded_recursive_chain_state_asset,
             generators::{build_asset_generation_setup, build_same_epoch_certificate_asset_data},
@@ -114,7 +114,7 @@ mod slow {
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let (cert_proof, cert_accumulator, next_state, ivc_witness) =
+        let (certificate_proof, cert_accumulator, next_state, ivc_witness) =
             build_same_epoch_certificate_asset_data(
                 &setup,
                 &mock_prover_setup.certificate_commitment_parameters,
@@ -130,17 +130,17 @@ mod slow {
             cert_accumulator,
         );
 
-        let circuit = IvcCircuit::try_new(
+        let ivc_circuit_data = IvcCircuitData::try_new(
             mock_prover_setup.global.clone(),
             recursive_chain_state.state.clone(),
             ivc_witness,
-            cert_proof,
-            recursive_chain_state.proof.clone(),
+            certificate_proof,
+            recursive_chain_state.ivc_proof.clone(),
             recursive_chain_state.accumulator.clone(),
             mock_prover_setup.certificate_verifying_key.vk(),
             &mock_prover_setup.recursive_verifying_key,
         )
-        .expect("valid IvcCircuit construction");
+        .expect("valid IvcCircuitData construction");
 
         let mut accumulator_encoding = AssignedAccumulator::as_public_input(&next_accumulator);
         accumulator_encoding[0] = F::ONE;
@@ -152,6 +152,6 @@ mod slow {
         ]
         .concat();
 
-        assert_recursive_mock_prover_rejects(circuit, public_inputs);
+        assert_recursive_mock_prover_rejects(ivc_circuit_data, public_inputs);
     }
 }
