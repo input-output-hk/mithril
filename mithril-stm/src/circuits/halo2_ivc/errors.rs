@@ -30,6 +30,20 @@ pub enum IvcCircuitError {
         "IvcCircuitData::validate_column_counts failed: need {needed} fixed columns, only {available} allocated"
     )]
     InsufficientFixedColumns { needed: usize, available: usize },
+
+    /// Off-circuit step transition: the certificate's epoch is neither equal to nor exactly
+    /// one greater than the chain's current epoch.
+    #[error(
+        "IvcProverInput::prepare: certificate epoch {certificate_epoch} is not same-epoch or next-epoch of chain epoch {chain_epoch}"
+    )]
+    InvalidEpochTransition {
+        certificate_epoch: u64,
+        chain_epoch: u64,
+    },
+
+    /// Off-circuit step transition: the chain's step counter would overflow u64.
+    #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
+    StepCounterOverflow { current: u64 },
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.

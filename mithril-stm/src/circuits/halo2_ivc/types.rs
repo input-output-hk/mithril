@@ -15,7 +15,6 @@ macro_rules! field_wrapper {
         impl $name {
             pub(crate) const ZERO: Self = Self(F::ZERO);
 
-            #[cfg(test)]
             pub(crate) fn from_field(value: F) -> Self {
                 Self(value)
             }
@@ -59,7 +58,6 @@ macro_rules! u64_wrapper {
                 Self(value)
             }
 
-            #[cfg(test)]
             pub(crate) fn as_u64(self) -> u64 {
                 self.0
             }
@@ -68,7 +66,7 @@ macro_rules! u64_wrapper {
                 F::from(self.0)
             }
 
-            #[cfg(test)]
+            #[allow(dead_code)]
             pub(crate) fn from_field(value: F) -> Self {
                 let bytes = value.to_bytes_le();
                 let low_bytes = bytes[0..8]
@@ -151,7 +149,6 @@ impl IvcProofBytes {
         Self(Vec::new())
     }
 
-    #[cfg(test)]
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.0
     }
