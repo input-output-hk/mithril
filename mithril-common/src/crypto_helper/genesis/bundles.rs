@@ -11,40 +11,28 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::StdResult;
-use crate::crypto_helper::GenesisEd25519VerificationKey;
-#[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    GenesisEd25519SecretKey, GenesisSchnorrSecretKey, GenesisSchnorrVerificationKey, ProtocolKey,
-    ProtocolKeyCodec, TryFromBytes, TryToBytes,
+    GenesisEd25519SecretKey, GenesisEd25519VerificationKey, GenesisSchnorrSecretKey,
+    GenesisSchnorrVerificationKey, ProtocolKey, ProtocolKeyCodec, TryFromBytes, TryToBytes,
 };
-use crate::entities::SupportedEra;
 
 /// Current (only) supported bundle version.
-#[cfg(feature = "future_snark")]
 pub const GENESIS_BUNDLE_VERSION: u8 = 1;
 
 /// Expected raw Ed25519 verification-key byte length.
-#[cfg(feature = "future_snark")]
 pub const ED25519_VERIFICATION_KEY_BYTES: u8 = 32;
 
 /// Expected raw Schnorr verification-key byte length (two Jubjub base field coordinates).
-#[cfg(feature = "future_snark")]
 pub const SCHNORR_VERIFICATION_KEY_BYTES: u8 = 64;
 
 /// Expected raw Ed25519 signing-key byte length.
-#[cfg(feature = "future_snark")]
 pub const ED25519_SIGNING_KEY_BYTES: u8 = 32;
 
 /// Expected raw Schnorr signing-key byte length (one Jubjub scalar).
-#[cfg(feature = "future_snark")]
 pub const SCHNORR_SIGNING_KEY_BYTES: u8 = 32;
 
 /// First hex character of a version-1 bundle (`0` from the leading `0x01` version byte).
-#[cfg(feature = "future_snark")]
 pub const BUNDLE_FIRST_HEX_CHAR: u8 = b'0';
-
-/// First hex character of the legacy single-Ed25519 file (`5` from the JSON `[` array opener).
-pub const LEGACY_FIRST_HEX_CHAR: u8 = b'5';
 
 /// Errors raised when parsing or serialising a genesis key bundle.
 #[derive(Error, Debug)]
@@ -52,13 +40,6 @@ pub enum GenesisBundleError {
     /// The bundle hex string is empty.
     #[error("genesis bundle input is empty")]
     EmptyInput,
-
-    /// Verification-key input does not match either the legacy single-Ed25519 file format or a
-    /// dual-signature bundle (no recognised sniff prefix).
-    #[error(
-        "unrecognised genesis verification key format: expected the legacy Ed25519-only file (first hex character `5`) or a dual-signature bundle (first hex character `0`, version 1)"
-    )]
-    UnrecognisedVerificationKeyFormat,
 
     /// Signing-key input is the legacy single-Ed25519 format. Operators must convert it offline.
     #[error(
@@ -103,100 +84,47 @@ pub enum GenesisBundleError {
         /// Number of unconsumed bytes after the bundle layout.
         extra: usize,
     },
-
-    /// A verification-key bundle without a Schnorr key was passed to a writer.
-    #[error("cannot serialise a verification-key bundle without a Schnorr key")]
-    MissingSchnorrKey,
-
-    /// SNARK operation requested but the bundle holds only the legacy Ed25519 key.
-    #[error(
-        "this operation requires the Schnorr genesis verification key; the bundle holds only the legacy Ed25519 key, fetch the dual-signature bundle from the URL listed in `docs/website/root/networks-matrix.md`"
-    )]
-    SchnorrVerificationKeyRequired,
 }
 
-/// Dual genesis verification-key bundle: a legacy Ed25519 key (always present) paired with an
-/// optional SNARK-friendly Schnorr key.
+/// Dual genesis verification-key bundle: a legacy Ed25519 key paired with the SNARK-friendly
+/// Schnorr key. Both are always present; the legacy single-Ed25519 layout is handled by the
+/// [`GenesisVerifier`](super::GenesisVerifier), not by this type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenesisVerificationKeyBundle {
     /// Ed25519-genesis verification key (legacy Ed25519).
     pub ed25519: GenesisEd25519VerificationKey,
 
-    /// Schnorr-genesis verification key (Schnorr over Jubjub). `None` when the operator supplies the
-    /// legacy single-key file; SNARK operations fail with an actionable error in that case.
-    #[cfg(feature = "future_snark")]
-    pub schnorr: Option<GenesisSchnorrVerificationKey>,
+    /// Schnorr-genesis verification key (Schnorr over Jubjub).
+    pub schnorr: GenesisSchnorrVerificationKey,
 }
 
 impl GenesisVerificationKeyBundle {
-    /// Build a bundle from the ed25519 verification key alone (legacy single-Ed25519 layout).
-    pub fn from_ed25519(ed25519: GenesisEd25519VerificationKey) -> Self {
-        Self {
-            ed25519,
-            #[cfg(feature = "future_snark")]
-            schnorr: None,
-        }
-    }
-
     /// Build a fresh bundle from the two raw verification keys.
-    #[cfg(feature = "future_snark")]
     pub fn new(
         ed25519: GenesisEd25519VerificationKey,
         schnorr: GenesisSchnorrVerificationKey,
     ) -> Self {
-        Self {
-            ed25519,
-            schnorr: Some(schnorr),
-        }
+        Self { ed25519, schnorr }
     }
 
-    /// Parse a verification-key hex string, auto-detecting bundle vs legacy via the first hex
-    /// character. Legacy inputs yield a bundle with `schnorr: None`.
-    pub fn try_from_hex_or_legacy(raw: &str) -> StdResult<Self> {
-        let trimmed = raw.trim();
-        match trimmed.as_bytes().first() {
-            None => Err(GenesisBundleError::EmptyInput.into()),
-            #[cfg(feature = "future_snark")]
-            Some(&BUNDLE_FIRST_HEX_CHAR) => {
-                let key = ProtocolKey::<Self>::from_bytes_hex(trimmed)?;
-                Ok(key.into_inner())
-            }
-            Some(&LEGACY_FIRST_HEX_CHAR) => {
-                let ed25519 = GenesisEd25519VerificationKey::try_from(trimmed)?;
-                Ok(Self::from_ed25519(ed25519))
-            }
-            _ => Err(GenesisBundleError::UnrecognisedVerificationKeyFormat.into()),
-        }
-    }
-
-    /// Reject verification-key/era combinations the producer cannot satisfy. Lagrange requires
-    /// the SNARK half to be present; Pythagoras tolerates either layout.
-    pub fn ensure_supports_era(&self, era: SupportedEra) -> StdResult<()> {
-        #[cfg(feature = "future_snark")]
-        if matches!(era, SupportedEra::Lagrange) && self.schnorr.is_none() {
-            return Err(GenesisBundleError::SchnorrVerificationKeyRequired.into());
-        }
-        #[cfg(not(feature = "future_snark"))]
-        let _ = era;
-        Ok(())
+    /// Parse a v1 dual bundle from its bytes-hex encoding.
+    pub fn try_from_hex(raw: &str) -> StdResult<Self> {
+        Ok(ProtocolKey::<Self>::from_bytes_hex(raw.trim())?.into_inner())
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl TryToBytes for GenesisVerificationKeyBundle {
     fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-        let schnorr = self.schnorr.as_ref().ok_or(GenesisBundleError::MissingSchnorrKey)?;
         let mut bytes = Vec::with_capacity(2 + 32 + 1 + 64);
         bytes.push(GENESIS_BUNDLE_VERSION);
         bytes.push(ED25519_VERIFICATION_KEY_BYTES);
         bytes.extend_from_slice(self.ed25519.as_bytes());
         bytes.push(SCHNORR_VERIFICATION_KEY_BYTES);
-        bytes.extend_from_slice(&schnorr.to_bytes());
+        bytes.extend_from_slice(&self.schnorr.to_bytes());
         Ok(bytes)
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl TryFromBytes for GenesisVerificationKeyBundle {
     fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
         let mut reader = GenesisBundleReader::new(bytes);
@@ -214,14 +142,10 @@ impl TryFromBytes for GenesisVerificationKeyBundle {
         reader.check_no_trailing()?;
         let ed25519 = GenesisEd25519VerificationKey::from_bytes(ed25519_bytes)?;
         let schnorr = GenesisSchnorrVerificationKey::from_bytes(schnorr_bytes)?;
-        Ok(Self {
-            ed25519,
-            schnorr: Some(schnorr),
-        })
+        Ok(Self { ed25519, schnorr })
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl ProtocolKeyCodec<GenesisVerificationKeyBundle> for GenesisVerificationKeyBundle {
     fn decode_key(encoded: &str) -> StdResult<ProtocolKey<GenesisVerificationKeyBundle>> {
         ProtocolKey::from_bytes_hex(encoded)
@@ -232,14 +156,12 @@ impl ProtocolKeyCodec<GenesisVerificationKeyBundle> for GenesisVerificationKeyBu
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl From<ProtocolKey<GenesisVerificationKeyBundle>> for GenesisVerificationKeyBundle {
     fn from(value: ProtocolKey<GenesisVerificationKeyBundle>) -> Self {
         value.into_inner()
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl From<GenesisVerificationKeyBundle> for ProtocolKey<GenesisVerificationKeyBundle> {
     fn from(value: GenesisVerificationKeyBundle) -> Self {
         ProtocolKey::new(value)
@@ -248,7 +170,6 @@ impl From<GenesisVerificationKeyBundle> for ProtocolKey<GenesisVerificationKeyBu
 
 /// Dual genesis signing-key bundle: legacy Ed25519 secret paired with the SNARK-friendly Schnorr
 /// secret. Both are required; the era setting on the aggregator decides which one is used.
-#[cfg(feature = "future_snark")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenesisSigningKeyBundle {
     /// Ed25519-genesis signing key (legacy Ed25519).
@@ -258,7 +179,6 @@ pub struct GenesisSigningKeyBundle {
     pub schnorr: GenesisSchnorrSecretKey,
 }
 
-#[cfg(feature = "future_snark")]
 impl GenesisSigningKeyBundle {
     /// Build a fresh bundle from two existing secrets.
     pub fn new(ed25519: GenesisEd25519SecretKey, schnorr: GenesisSchnorrSecretKey) -> Self {
@@ -271,7 +191,7 @@ impl GenesisSigningKeyBundle {
         let trimmed = raw.trim();
         match trimmed.as_bytes().first() {
             None => Err(GenesisBundleError::EmptyInput.into()),
-            Some(&LEGACY_FIRST_HEX_CHAR) => Err(GenesisBundleError::LegacySigningKey.into()),
+            Some(&super::LEGACY_FIRST_HEX_CHAR) => Err(GenesisBundleError::LegacySigningKey.into()),
             Some(&BUNDLE_FIRST_HEX_CHAR) => {
                 let key = ProtocolKey::<Self>::from_bytes_hex(trimmed)?;
                 Ok(key.into_inner())
@@ -281,7 +201,6 @@ impl GenesisSigningKeyBundle {
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl TryToBytes for GenesisSigningKeyBundle {
     fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
         let mut bytes = Vec::with_capacity(2 + 32 + 1 + 32);
@@ -294,7 +213,6 @@ impl TryToBytes for GenesisSigningKeyBundle {
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl TryFromBytes for GenesisSigningKeyBundle {
     fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
         let mut reader = GenesisBundleReader::new(bytes);
@@ -316,7 +234,6 @@ impl TryFromBytes for GenesisSigningKeyBundle {
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl ProtocolKeyCodec<GenesisSigningKeyBundle> for GenesisSigningKeyBundle {
     fn decode_key(encoded: &str) -> StdResult<ProtocolKey<GenesisSigningKeyBundle>> {
         ProtocolKey::from_bytes_hex(encoded)
@@ -327,14 +244,12 @@ impl ProtocolKeyCodec<GenesisSigningKeyBundle> for GenesisSigningKeyBundle {
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl From<ProtocolKey<GenesisSigningKeyBundle>> for GenesisSigningKeyBundle {
     fn from(value: ProtocolKey<GenesisSigningKeyBundle>) -> Self {
         value.into_inner()
     }
 }
 
-#[cfg(feature = "future_snark")]
 impl From<GenesisSigningKeyBundle> for ProtocolKey<GenesisSigningKeyBundle> {
     fn from(value: GenesisSigningKeyBundle) -> Self {
         ProtocolKey::new(value)
@@ -342,12 +257,10 @@ impl From<GenesisSigningKeyBundle> for ProtocolKey<GenesisSigningKeyBundle> {
 }
 
 /// Cursor over a genesis bundle byte buffer, advancing as each segment is consumed.
-#[cfg(feature = "future_snark")]
 struct GenesisBundleReader<'a> {
     cursor: &'a [u8],
 }
 
-#[cfg(feature = "future_snark")]
 impl<'a> GenesisBundleReader<'a> {
     /// Build a reader positioned at the start of the buffer.
     fn new(bytes: &'a [u8]) -> Self {
@@ -417,7 +330,7 @@ impl<'a> GenesisBundleReader<'a> {
     }
 }
 
-#[cfg(all(test, feature = "future_snark"))]
+#[cfg(test)]
 mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
@@ -470,10 +383,7 @@ mod tests {
             .into_inner();
 
         assert_eq!(bundle.ed25519.as_bytes(), restored.ed25519.as_bytes());
-        assert_eq!(
-            bundle.schnorr.unwrap().to_bytes(),
-            restored.schnorr.unwrap().to_bytes(),
-        );
+        assert_eq!(bundle.schnorr.to_bytes(), restored.schnorr.to_bytes());
     }
 
     #[test]
@@ -486,44 +396,6 @@ mod tests {
 
         assert_eq!(bundle.ed25519.to_bytes(), restored.ed25519.to_bytes());
         assert_eq!(bundle.schnorr.to_bytes(), restored.schnorr.to_bytes());
-    }
-
-    #[test]
-    fn verification_bundle_sniffs_legacy_format_via_first_character() {
-        let signer = GenesisEd25519Signer::create_deterministic_signer();
-        let legacy_hex = signer.verification_key().to_json_hex().unwrap();
-        assert_eq!(legacy_hex.as_bytes()[0], LEGACY_FIRST_HEX_CHAR);
-
-        let parsed = GenesisVerificationKeyBundle::try_from_hex_or_legacy(&legacy_hex).unwrap();
-
-        assert!(
-            parsed.schnorr.is_none(),
-            "legacy input must yield no Schnorr key"
-        );
-        assert_eq!(
-            parsed.ed25519.as_bytes(),
-            signer.verification_key().as_bytes()
-        );
-    }
-
-    #[test]
-    fn verification_bundle_rejects_empty_input() {
-        let error = GenesisVerificationKeyBundle::try_from_hex_or_legacy("   ").unwrap_err();
-
-        assert!(matches!(
-            downcast_bundle_error(&error),
-            GenesisBundleError::EmptyInput
-        ));
-    }
-
-    #[test]
-    fn verification_bundle_rejects_unknown_first_character() {
-        let error = GenesisVerificationKeyBundle::try_from_hex_or_legacy("abc").unwrap_err();
-
-        assert!(matches!(
-            downcast_bundle_error(&error),
-            GenesisBundleError::UnrecognisedVerificationKeyFormat
-        ));
     }
 
     #[test]
@@ -613,44 +485,6 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn ensure_supports_era_lagrange_rejects_legacy_only_bundle() {
-        let signer = GenesisEd25519Signer::create_deterministic_signer();
-        let bundle = GenesisVerificationKeyBundle {
-            ed25519: signer.verification_key(),
-            schnorr: None,
-        };
-
-        let error = bundle.ensure_supports_era(SupportedEra::Lagrange).unwrap_err();
-
-        assert!(matches!(
-            downcast_bundle_error(&error),
-            GenesisBundleError::SchnorrVerificationKeyRequired
-        ));
-    }
-
-    #[test]
-    fn ensure_supports_era_pythagoras_accepts_legacy_only_bundle() {
-        let signer = GenesisEd25519Signer::create_deterministic_signer();
-        let bundle = GenesisVerificationKeyBundle {
-            ed25519: signer.verification_key(),
-            schnorr: None,
-        };
-
-        bundle
-            .ensure_supports_era(SupportedEra::Pythagoras)
-            .expect("Pythagoras must accept a legacy-only verification bundle");
-    }
-
-    #[test]
-    fn ensure_supports_era_lagrange_accepts_dual_bundle() {
-        let (bundle, _, _, _) = deterministic_bundle();
-
-        bundle
-            .ensure_supports_era(SupportedEra::Lagrange)
-            .expect("Lagrange must accept a dual verification bundle");
-    }
-
     mod golden {
         use super::*;
 
@@ -686,10 +520,7 @@ mod tests {
 
             assert_eq!(encoded, GOLDEN_VERIFICATION_BUNDLE_HEX);
             assert_eq!(bundle.ed25519.as_bytes(), restored.ed25519.as_bytes());
-            assert_eq!(
-                bundle.schnorr.unwrap().to_bytes(),
-                restored.schnorr.unwrap().to_bytes(),
-            );
+            assert_eq!(bundle.schnorr.to_bytes(), restored.schnorr.to_bytes());
         }
 
         #[test]

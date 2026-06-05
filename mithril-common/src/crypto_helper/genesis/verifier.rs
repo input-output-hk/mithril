@@ -3,20 +3,24 @@
 
 use std::path::Path;
 
-#[cfg(feature = "future_snark")]
 use anyhow::anyhow;
 
 use crate::StdResult;
+#[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    GenesisEd25519Signature, GenesisEd25519VerificationKey, GenesisEd25519Verifier, GenesisSigner,
+    BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSignature, GenesisSchnorrVerifier,
     GenesisVerificationKeyBundle,
 };
-#[cfg(feature = "future_snark")]
-use crate::crypto_helper::{GenesisSchnorrSignature, GenesisSchnorrVerifier};
-use crate::entities::SupportedEra;
+use crate::crypto_helper::{
+    GenesisEd25519Signature, GenesisEd25519VerificationKey, GenesisEd25519Verifier, GenesisSigner,
+};
 
-/// Wraps the two genesis verifiers and the bundle plumbing required to verify a genesis
-/// certificate across legacy and dual-signature eras.
+/// First hex character of the legacy single-Ed25519 file (`5` from the JSON `[` array opener).
+pub const LEGACY_FIRST_HEX_CHAR: u8 = b'5';
+
+/// Wraps the two genesis verifiers required to verify a genesis certificate across legacy and
+/// dual-signature eras. The optional Schnorr half carries the legacy/dual distinction: it is
+/// `None` when the operator loaded a legacy single-Ed25519 verification key.
 #[derive(Debug, Clone)]
 pub struct GenesisVerifier {
     /// Ed25519-genesis verifier (legacy Ed25519).
@@ -44,35 +48,43 @@ impl GenesisVerifier {
     /// verification keys, so a deterministically signed genesis certificate verifies. Never use it
     /// for a long-lived genesis key.
     pub fn create_deterministic_verifier() -> Self {
-        Self::from_bundle(GenesisSigner::create_deterministic_signer().verification_key_bundle())
+        GenesisSigner::create_deterministic_signer().create_verifier()
     }
 
     /// Build a verifier wrapper from a dual verification-key bundle.
+    #[cfg(feature = "future_snark")]
     pub fn from_bundle(bundle: GenesisVerificationKeyBundle) -> Self {
         Self {
             ed25519: GenesisEd25519Verifier::from_verification_key(bundle.ed25519),
-            #[cfg(feature = "future_snark")]
-            schnorr: bundle.schnorr.map(GenesisSchnorrVerifier::from_verification_key),
+            schnorr: Some(GenesisSchnorrVerifier::from_verification_key(
+                bundle.schnorr,
+            )),
         }
     }
 
-    /// Parse a verification-key hex string, auto-detecting bundle vs legacy via the first hex
-    /// character (delegates to [`GenesisVerificationKeyBundle::try_from_hex_or_legacy`]).
+    /// Parse a verification-key hex string, auto-detecting a dual bundle vs the legacy single-Ed25519
+    /// file via the first hex character. Legacy inputs yield an ed25519-only verifier.
     pub fn try_from_hex(raw: &str) -> StdResult<Self> {
-        let bundle = GenesisVerificationKeyBundle::try_from_hex_or_legacy(raw)?;
-        Ok(Self::from_bundle(bundle))
+        let trimmed = raw.trim();
+        match trimmed.as_bytes().first() {
+            None => Err(anyhow!("genesis verification key input is empty")),
+            #[cfg(feature = "future_snark")]
+            Some(&BUNDLE_FIRST_HEX_CHAR) => Ok(Self::from_bundle(
+                GenesisVerificationKeyBundle::try_from_hex(trimmed)?,
+            )),
+            Some(&LEGACY_FIRST_HEX_CHAR) => Ok(Self::from_ed25519(
+                GenesisEd25519VerificationKey::try_from(trimmed)?,
+            )),
+            _ => Err(anyhow!(
+                "unrecognised genesis verification key format: expected the legacy Ed25519-only file (first hex character `5`) or a dual-signature bundle (first hex character `0`, version 1)"
+            )),
+        }
     }
 
     /// Read [Self::try_from_hex] from disk.
     pub fn read_from_file(path: &Path) -> StdResult<Self> {
         let raw = std::fs::read_to_string(path)?;
         Self::try_from_hex(&raw)
-    }
-
-    /// Reject verifier/era combinations the chain cannot satisfy. Delegates to
-    /// [`GenesisVerificationKeyBundle::ensure_supports_era`].
-    pub fn ensure_supports_era(&self, era: SupportedEra) -> StdResult<()> {
-        self.verification_key_bundle().ensure_supports_era(era)
     }
 
     /// Verify the ed25519 (Ed25519) signature carried by a genesis certificate.
@@ -105,14 +117,15 @@ impl GenesisVerifier {
         self.ed25519.to_verification_key()
     }
 
-    /// Derive the matching verification-key bundle, suitable for serialisation to disk by the
-    /// genesis import and `upgrade-key-to-dual` aggregator subcommands.
-    pub fn verification_key_bundle(&self) -> GenesisVerificationKeyBundle {
-        GenesisVerificationKeyBundle {
+    /// Derive the matching dual verification-key bundle, suitable for serialisation to disk by the
+    /// genesis import and `upgrade-key-to-dual` aggregator subcommands. Returns `None` for a legacy
+    /// single-Ed25519 verifier, which has no Schnorr half to bundle.
+    #[cfg(feature = "future_snark")]
+    pub fn verification_key_bundle(&self) -> Option<GenesisVerificationKeyBundle> {
+        self.schnorr.as_ref().map(|schnorr| GenesisVerificationKeyBundle {
             ed25519: self.ed25519.to_verification_key(),
-            #[cfg(feature = "future_snark")]
-            schnorr: self.schnorr.as_ref().map(|v| v.to_verification_key()),
-        }
+            schnorr: schnorr.to_verification_key(),
+        })
     }
 }
 
@@ -176,6 +189,11 @@ mod tests {
     }
 
     #[test]
+    fn try_from_hex_rejects_unrecognised_format() {
+        GenesisVerifier::try_from_hex("abc").expect_err("unrecognised format must be rejected");
+    }
+
+    #[test]
     fn read_from_file_round_trips_legacy() {
         let temp = temp_dir_create!();
         let signer = deterministic_signer();
@@ -213,37 +231,12 @@ mod tests {
             .expect_err("tampered message must be rejected");
     }
 
-    #[test]
-    fn ensure_supports_era_pythagoras_accepts_ed25519_only() {
-        let verifier = GenesisVerifier::from_ed25519(deterministic_signer().verification_key());
-
-        verifier
-            .ensure_supports_era(SupportedEra::Pythagoras)
-            .expect("Pythagoras must accept a ed25519-only verifier");
-    }
-
-    #[test]
-    fn verification_key_bundle_mirrors_ed25519_only() {
-        let signer = deterministic_signer();
-        let verifier = GenesisVerifier::from_ed25519(signer.verification_key());
-
-        let bundle = verifier.verification_key_bundle();
-
-        assert_eq!(
-            bundle.ed25519.as_bytes(),
-            signer.verification_key().as_bytes()
-        );
-        #[cfg(feature = "future_snark")]
-        assert!(bundle.schnorr.is_none());
-    }
-
     #[cfg(feature = "future_snark")]
     mod schnorr {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
         use super::*;
-        use crate::crypto_helper::{GenesisBundleError, GenesisSchnorrSigner};
 
         fn build_bundle() -> GenesisVerificationKeyBundle {
             let ed25519 = deterministic_signer().verification_key();
@@ -256,7 +249,7 @@ mod tests {
         fn from_bundle_pairs_both_halves() {
             let bundle = build_bundle();
             let expected_ed25519 = bundle.ed25519.as_bytes().to_vec();
-            let expected_schnorr = bundle.schnorr.as_ref().unwrap().to_bytes();
+            let expected_schnorr = bundle.schnorr.to_bytes();
 
             let verifier = GenesisVerifier::from_bundle(bundle);
 
@@ -264,6 +257,20 @@ mod tests {
                 verifier.ed25519.to_verification_key().as_bytes(),
                 expected_ed25519.as_slice()
             );
+            assert_eq!(
+                verifier.schnorr.as_ref().unwrap().to_verification_key().to_bytes(),
+                expected_schnorr
+            );
+        }
+
+        #[test]
+        fn try_from_hex_accepts_dual_bundle() {
+            let bundle = build_bundle();
+            let expected_schnorr = bundle.schnorr.to_bytes();
+            let hex_string = crate::crypto_helper::ProtocolKey::new(bundle).to_bytes_hex().unwrap();
+
+            let verifier = GenesisVerifier::try_from_hex(&hex_string).unwrap();
+
             assert_eq!(
                 verifier.schnorr.as_ref().unwrap().to_verification_key().to_bytes(),
                 expected_schnorr
@@ -286,41 +293,18 @@ mod tests {
         }
 
         #[test]
-        fn ensure_supports_era_lagrange_rejects_ed25519_only() {
-            let verifier = GenesisVerifier::from_ed25519(deterministic_signer().verification_key());
-
-            let error = verifier
-                .ensure_supports_era(SupportedEra::Lagrange)
-                .expect_err("Lagrange must reject a ed25519-only verifier");
-
-            assert!(matches!(
-                error.downcast_ref::<GenesisBundleError>(),
-                Some(GenesisBundleError::SchnorrVerificationKeyRequired)
-            ));
-        }
-
-        #[test]
-        fn ensure_supports_era_lagrange_accepts_dual_verifier() {
-            let verifier = GenesisVerifier::from_bundle(build_bundle());
-
-            verifier
-                .ensure_supports_era(SupportedEra::Lagrange)
-                .expect("Lagrange must accept a dual verifier");
-        }
-
-        #[test]
         fn verification_key_bundle_mirrors_verifier_halves() {
             let verifier = GenesisVerifier::from_bundle(build_bundle());
             let expected_schnorr =
                 verifier.schnorr.as_ref().unwrap().to_verification_key().to_bytes();
 
-            let bundle = verifier.verification_key_bundle();
+            let bundle = verifier.verification_key_bundle().unwrap();
 
             assert_eq!(
                 bundle.ed25519.as_bytes(),
                 verifier.ed25519.to_verification_key().as_bytes()
             );
-            assert_eq!(bundle.schnorr.unwrap().to_bytes(), expected_schnorr);
+            assert_eq!(bundle.schnorr.to_bytes(), expected_schnorr);
         }
     }
 }
