@@ -38,8 +38,10 @@ type SignerRegistrationMerkleTree = StmMerkleTree<SnarkHash, MerkleTreeSnarkLeaf
 
 pub(super) const INITIAL_CHAIN_LENGTH: usize = 3;
 pub(crate) const GENESIS_EPOCH: u64 = 5;
-pub(super) const QUORUM_SIZE: u32 = 2;
-const SIGNER_COUNT: usize = 3000;
+pub(crate) const QUORUM_SIZE: u32 = 2;
+pub(crate) const SIGNER_COUNT: usize = 3000;
+/// Total stake committed by the deterministic AVK used in asset generation.
+pub(crate) const TOTAL_STAKE: u64 = 1_000_000;
 
 /// Paths for the minimal stored asset set used by asset-based golden tests.
 #[derive(Debug, Clone)]
@@ -54,10 +56,12 @@ pub(super) struct AssetPaths {
     pub(super) genesis_step_output: PathBuf,
     /// Path to the stored same-epoch step output asset.
     pub(super) same_epoch_step_output: PathBuf,
+    /// Path to the stored first-step certificate asset.
+    pub(super) first_step_cert: PathBuf,
 }
 
 impl AssetPaths {
-    /// Builds the five committed asset paths rooted at `base_dir`.
+    /// Builds the committed asset paths rooted at `base_dir`.
     pub(super) fn new(base_dir: PathBuf) -> Self {
         Self {
             recursive_chain_state: base_dir.join("recursive_chain_state.bin"),
@@ -65,6 +69,7 @@ impl AssetPaths {
             recursive_step_output: base_dir.join("recursive_step_output.bin"),
             genesis_step_output: base_dir.join("genesis_step_output.bin"),
             same_epoch_step_output: base_dir.join("same_epoch_step_output.bin"),
+            first_step_cert: base_dir.join("first_step_cert.bin"),
         }
     }
 }
@@ -279,7 +284,7 @@ pub(crate) fn build_asset_generation_setup() -> AssetGenerationSetup {
 
     let depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
     let number_of_lotteries = QUORUM_SIZE * 10;
-    let total_stake = 1_000_000u64;
+    let total_stake = TOTAL_STAKE;
 
     let certificate_relation = StmCertificateCircuit::try_new(
         &Parameters {

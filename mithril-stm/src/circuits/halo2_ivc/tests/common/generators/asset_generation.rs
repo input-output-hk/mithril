@@ -3,6 +3,7 @@ use std::time::Instant;
 use midnight_circuits::types::Instantiable;
 use midnight_proofs::{plonk::ProvingKey, poly::kzg::KZGCommitmentScheme};
 use rand_core::OsRng;
+use sha2::{Digest as Sha2Digest, Sha256};
 
 use super::proofs::{
     prove_blake2b_ivc, prove_poseidon_ivc, verify_prepare_blake2b_ivc, verify_prepare_poseidon_ivc,
@@ -17,9 +18,10 @@ use super::transitions::{
     build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
-    RecursiveChainStateAsset, RecursiveStepOutputAsset, VerificationContextAsset,
-    load_recursive_chain_state_asset, store_recursive_chain_state_asset,
-    store_recursive_step_output_asset, store_verification_context_asset,
+    FirstStepCertAsset, RecursiveChainStateAsset, RecursiveStepOutputAsset,
+    VerificationContextAsset, load_recursive_chain_state_asset, store_first_step_cert_asset,
+    store_recursive_chain_state_asset, store_recursive_step_output_asset,
+    store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
     Accumulator, AssignedAccumulator, C, E, F, S,
@@ -212,6 +214,7 @@ fn store_recursive_chain_snapshot(
         state: snapshot.state.clone(),
         ivc_proof: snapshot.ivc_proof.clone(),
         accumulator: snapshot.accumulator.clone(),
+        genesis_signature: setup.genesis_signature,
     };
     store_recursive_chain_state_asset(&paths.recursive_chain_state, &asset)
         .expect("failed to write recursive_chain_state asset");
@@ -346,11 +349,22 @@ fn store_recursive_step_output(
         "generate_recursive_step_output: writing asset -> {}",
         paths.recursive_step_output.display()
     );
+    let preimage_array = next_step_inputs.recursive_witness.message_preimage.into_inner();
+    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
+    let message_preimage = preimage_array.to_vec();
+    let avk_merkle_root: [u8; 32] = next_step_inputs
+        .recursive_witness
+        .certificate_merkle_tree_commitment
+        .as_field()
+        .to_bytes_le();
     let asset = RecursiveStepOutputAsset {
         ivc_proof: IvcProofBytes::new(proof),
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
         certificate_proof: next_step_inputs.certificate_proof,
+        message,
+        message_preimage,
+        avk_merkle_root,
     };
     store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
         .expect("failed to write recursive_step_output asset");
@@ -566,6 +580,10 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         next_accumulator,
         next_state: genesis_next_state,
         certificate_proof: CertificateProofBytes::empty(),
+        // Genesis base case carries no certificate proof; the prepare-side tests bypass this asset.
+        message: Vec::new(),
+        message_preimage: Vec::new(),
+        avk_merkle_root: [0u8; 32],
     };
     store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
         .expect("failed to write genesis_step_output asset");
@@ -659,7 +677,7 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     let ivc_circuit_data = IvcCircuitData::try_new(
         global.clone(),
         chain_state.state.clone(),
-        ivc_witness,
+        ivc_witness.clone(),
         certificate_proof.clone(),
         chain_state.ivc_proof.clone(),
         chain_state.accumulator.clone(),
@@ -699,16 +717,89 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         "generate_same_epoch_step_output: writing asset -> {}",
         paths.same_epoch_step_output.display()
     );
+    let preimage_array = ivc_witness.message_preimage.into_inner();
+    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
+    let message_preimage = preimage_array.to_vec();
+    let avk_merkle_root: [u8; 32] = ivc_witness
+        .certificate_merkle_tree_commitment
+        .as_field()
+        .to_bytes_le();
     let asset = RecursiveStepOutputAsset {
         ivc_proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state,
         certificate_proof,
+        message,
+        message_preimage,
+        avk_merkle_root,
     };
     store_recursive_step_output_asset(&paths.same_epoch_step_output, &asset)
         .expect("failed to write same_epoch_step_output asset");
     println!(
         "generate_same_epoch_step_output: done in {:?}",
+        total_start.elapsed()
+    );
+}
+
+/// Generates and writes the first-step certificate asset. The certificate is produced
+/// against `previous_state = State::genesis()`, so the asset captures the very first
+/// non-genesis cert in the chain — the input scenario for `IvcProverInput::prepare` at
+/// `step_counter == 0`.
+pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths: &AssetPaths) {
+    println!(
+        "generate_first_step_cert: start -> {}",
+        paths.first_step_cert.display()
+    );
+    let total_start = Instant::now();
+    let context = build_shared_recursive_context(setup);
+    println!("generate_first_step_cert: shared recursive context ready");
+
+    let mut rng = OsRng;
+    println!("generate_first_step_cert: building first certificate from genesis-base-case state");
+    let cert_start = Instant::now();
+    // Use the genesis-base-case next-state as the cert's "previous state": this is the same
+    // starting point the main asset chain uses for its first cert, and its
+    // `next_merkle_tree_commitment` field equals the deterministic AVK root the cert proof
+    // commits to.
+    let previous_state = build_genesis_base_case_next_state(setup, GENESIS_EPOCH);
+    let (certificate_proof, _certificate_accumulator, next_state, ivc_witness) =
+        build_next_certificate_asset_data(
+            setup,
+            &context.certificate_commitment_parameters,
+            &setup.certificate_relation,
+            &context.certificate_verifying_key,
+            &previous_state,
+            &mut rng,
+        );
+    println!(
+        "generate_first_step_cert: certificate done in {:?}",
+        cert_start.elapsed()
+    );
+
+    let preimage_array = ivc_witness.message_preimage.into_inner();
+    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
+    let message_preimage = preimage_array.to_vec();
+    let avk_merkle_root: [u8; 32] = ivc_witness
+        .certificate_merkle_tree_commitment
+        .as_field()
+        .to_bytes_le();
+
+    let asset = FirstStepCertAsset {
+        certificate_proof,
+        next_state,
+        message,
+        message_preimage,
+        avk_merkle_root,
+    };
+
+    println!(
+        "generate_first_step_cert: writing asset -> {}",
+        paths.first_step_cert.display()
+    );
+    store_first_step_cert_asset(&paths.first_step_cert, &asset)
+        .expect("failed to write first_step_cert asset");
+    println!(
+        "generate_first_step_cert: done in {:?}",
         total_start.elapsed()
     );
 }
@@ -760,6 +851,13 @@ fn generate_genesis_step_output_only() {
 fn generate_same_epoch_step_output_only() {
     use super::setup::{AssetPaths, build_asset_generation_setup};
     generate_same_epoch_step_output_asset(&build_asset_generation_setup(), &AssetPaths::default());
+}
+
+#[test]
+#[ignore]
+fn generate_first_step_cert_only() {
+    use super::setup::{AssetPaths, build_asset_generation_setup};
+    generate_first_step_cert_asset(&build_asset_generation_setup(), &AssetPaths::default());
 }
 
 #[test]

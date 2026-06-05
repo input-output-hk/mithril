@@ -24,6 +24,7 @@ use crate::circuits::halo2_ivc::{
         ProtocolParametersHash, StepCounter,
     },
 };
+use crate::signature_scheme::StandardSchnorrSignature;
 
 use super::field_encoding::jubjub_base_from_raw_le_bytes;
 
@@ -38,6 +39,8 @@ pub(crate) struct RecursiveChainStateAsset {
     pub(crate) ivc_proof: IvcProofBytes,
     /// Stored folded accumulator for the checkpoint.
     pub(crate) accumulator: Accumulator<S>,
+    /// Stored chain-specific Schnorr signature over the genesis state.
+    pub(crate) genesis_signature: StandardSchnorrSignature,
 }
 
 /// Stored verifier-side context shared by the golden assets.
@@ -57,6 +60,25 @@ pub(crate) struct VerificationContextAsset {
     pub(crate) certificate_verifying_key: MidnightVK,
 }
 
+/// Stored data of the first certificate produced from `State::genesis()`. Used to test
+/// `IvcProverInput::prepare` at the genesis transition (where the rolling state's
+/// `step_counter` is zero and no previous IVC proof exists).
+#[derive(Debug)]
+pub(crate) struct FirstStepCertAsset {
+    /// Certificate proof bytes (consumed by `prepare` via `SnarkProof`).
+    pub(crate) certificate_proof: CertificateProofBytes,
+    /// Expected next state after `prepare` advances by one step.
+    pub(crate) next_state: State,
+    /// 32-byte SHA-256 hash that the certificate proof committed to.
+    pub(crate) message: Vec<u8>,
+    /// 190-byte protocol-message preimage; `EpochData::new(preimage)` decodes the four
+    /// epoch fields.
+    pub(crate) message_preimage: Vec<u8>,
+    /// 32-byte canonical encoding of the AVK merkle root the certificate proof
+    /// committed to.
+    pub(crate) avk_merkle_root: [u8; 32],
+}
+
 /// Stored output of extending the recursive chain by one more step.
 #[derive(Debug)]
 pub(crate) struct RecursiveStepOutputAsset {
@@ -68,6 +90,14 @@ pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) next_state: State,
     /// Stored certificate proof consumed by the recursive step.
     pub(crate) certificate_proof: CertificateProofBytes,
+    /// 32-byte SHA-256 hash that the certificate proof committed to. Empty at genesis.
+    pub(crate) message: Vec<u8>,
+    /// 190-byte protocol-message preimage; `EpochData::new(preimage)` decodes the four
+    /// epoch fields. Empty at genesis.
+    pub(crate) message_preimage: Vec<u8>,
+    /// 32-byte canonical encoding of the AVK merkle root the certificate proof
+    /// committed to. All-zero at genesis.
+    pub(crate) avk_merkle_root: [u8; 32],
 }
 
 const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] =
@@ -124,6 +154,22 @@ fn write_state_public_input<W: Write>(writer: &mut W, state: &State) -> StmResul
     for value in state.as_public_input() {
         write_field_element(writer, &value)?;
     }
+    Ok(())
+}
+
+/// Reads a 64-byte `StandardSchnorrSignature` (response | challenge).
+fn read_schnorr_signature<R: Read>(reader: &mut R) -> StmResult<StandardSchnorrSignature> {
+    let mut bytes = [0u8; 64];
+    reader.read_exact(&mut bytes)?;
+    StandardSchnorrSignature::from_bytes(&bytes)
+}
+
+/// Writes a 64-byte `StandardSchnorrSignature` (response | challenge).
+fn write_schnorr_signature<W: Write>(
+    writer: &mut W,
+    signature: &StandardSchnorrSignature,
+) -> StmResult<()> {
+    writer.write_all(&signature.to_bytes())?;
     Ok(())
 }
 
@@ -195,12 +241,14 @@ fn load_recursive_chain_state_asset_from_reader<R: Read>(
     let state = read_state_public_input(reader)?;
     let ivc_proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
+    let genesis_signature = read_schnorr_signature(reader)?;
 
     Ok(RecursiveChainStateAsset {
         global_field_elements,
         state,
         ivc_proof,
         accumulator,
+        genesis_signature,
     })
 }
 
@@ -245,6 +293,7 @@ pub(crate) fn store_recursive_chain_state_asset(
     write_state_public_input(&mut writer, &asset.state)?;
     write_length_prefixed_proof(&mut writer, asset.ivc_proof.as_bytes())?;
     asset.accumulator.write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
+    write_schnorr_signature(&mut writer, &asset.genesis_signature)?;
     writer.flush().with_context(|| {
         format!(
             "failed to flush recursive chain state asset: {}",
@@ -363,12 +412,19 @@ fn load_recursive_step_output_asset_from_reader<R: Read>(
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
         read_length_prefixed_proof(reader)?,
     );
+    let message = read_length_prefixed_proof(reader)?;
+    let message_preimage = read_length_prefixed_proof(reader)?;
+    let mut avk_merkle_root = [0u8; 32];
+    reader.read_exact(&mut avk_merkle_root)?;
 
     Ok(RecursiveStepOutputAsset {
         ivc_proof,
         next_accumulator,
         next_state,
         certificate_proof,
+        message,
+        message_preimage,
+        avk_merkle_root,
     })
 }
 
@@ -411,11 +467,63 @@ pub(crate) fn store_recursive_step_output_asset(
         .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
     write_state_public_input(&mut writer, &asset.next_state)?;
     write_length_prefixed_proof(&mut writer, asset.certificate_proof.as_bytes())?;
+    write_length_prefixed_proof(&mut writer, &asset.message)?;
+    write_length_prefixed_proof(&mut writer, &asset.message_preimage)?;
+    writer.write_all(&asset.avk_merkle_root)?;
     writer.flush().with_context(|| {
         format!(
             "failed to flush recursive step output asset: {}",
             path.display()
         )
     })?;
+    Ok(())
+}
+
+// TODO: drop `allow(dead_code)` once the first-step cert generator and embedded loader
+// are wired up.
+/// Loads a first-step certificate asset from the committed binary asset layout.
+#[allow(dead_code)]
+fn load_first_step_cert_asset_from_reader<R: Read>(
+    reader: &mut R,
+) -> StmResult<FirstStepCertAsset> {
+    let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
+        read_length_prefixed_proof(reader)?,
+    );
+    let next_state = read_state_public_input(reader)?;
+    let message = read_length_prefixed_proof(reader)?;
+    let message_preimage = read_length_prefixed_proof(reader)?;
+    let mut avk_merkle_root = [0u8; 32];
+    reader.read_exact(&mut avk_merkle_root)?;
+
+    Ok(FirstStepCertAsset {
+        certificate_proof,
+        next_state,
+        message,
+        message_preimage,
+        avk_merkle_root,
+    })
+}
+
+/// Writes the first-step certificate asset using the committed binary layout.
+#[allow(dead_code)]
+pub(crate) fn store_first_step_cert_asset(
+    path: &Path,
+    asset: &FirstStepCertAsset,
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create first step cert asset file: {}",
+            path.display()
+        )
+    })?;
+
+    write_length_prefixed_proof(&mut writer, asset.certificate_proof.as_bytes())?;
+    write_state_public_input(&mut writer, &asset.next_state)?;
+    write_length_prefixed_proof(&mut writer, &asset.message)?;
+    write_length_prefixed_proof(&mut writer, &asset.message_preimage)?;
+    writer.write_all(&asset.avk_merkle_root)?;
+    writer
+        .flush()
+        .with_context(|| format!("failed to flush first step cert asset: {}", path.display()))?;
     Ok(())
 }

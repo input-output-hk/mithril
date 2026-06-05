@@ -10,7 +10,7 @@
 //! `in_circuit` covers Layer C1 in-circuit verification mechanics.
 //! `off_circuit` covers Layer C2 off-circuit accumulator and verification mechanics.
 
-mod common;
+pub(crate) mod common;
 mod encoding;
 mod golden;
 mod in_circuit;

@@ -89,6 +89,27 @@ impl<D: MembershipDigest> SnarkProof<D> {
         })
     }
 
+    /// Test-only constructor that takes an already-derived `CircuitVerificationKey` directly.
+    ///
+    /// Unlike [`Self::try_new`] and [`Self::try_new_with_srs`], this skips keygen entirely.
+    /// Used by asset-driven tests that load both the proof bytes and the verifying key from
+    /// committed fixtures.
+    #[cfg(test)]
+    pub(crate) fn from_parts(
+        circuit_proof: Vec<u8>,
+        params: Parameters,
+        merkle_tree_depth: u32,
+        circuit_verification_key: CircuitVerificationKey,
+    ) -> Self {
+        Self {
+            circuit_proof,
+            circuit_verification_key,
+            params,
+            merkle_tree_depth,
+            phantom: PhantomData,
+        }
+    }
+
     // TODO: remove this allow dead_code directive when the IVC prover consumes this method
     #[allow(dead_code)]
     pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
