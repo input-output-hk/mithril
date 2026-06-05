@@ -132,10 +132,6 @@ const config = {
             from: ["/manual/getting-started/run-signer-node"],
           },
           {
-            to: "/manual/develop/run-mithril-devnet",
-            from: ["/manual/getting-started/run-mithril-devnet"],
-          },
-          {
             to: "/manual/develop/",
             from: ["/category/developer-docs"],
           },

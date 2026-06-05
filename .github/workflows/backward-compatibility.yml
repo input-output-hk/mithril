@@ -151,7 +151,7 @@ jobs:
             ./mithril-binaries/e2e/mithril-end-to-end -vvv \
               --bin-directory ./mithril-binaries/e2e \
               --work-directory=./artifacts \
-              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+              --devnet-scripts-directory=./mithril-test-lab/cardano-devnet \
               --cardano-node-version ${{ matrix.cardano_node_version }} \
               --cardano-slot-length 0.25 \
               --cardano-epoch-length 45.0 \

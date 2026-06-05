@@ -143,7 +143,7 @@ pub struct Args {
 
     /// DMQ node flavor (used only when 'use_dmq' is set, can be 'haskell' or 'fake')
     ///
-    /// 'haskell': will use the DMQ network created within the 'mithril-devnet'
+    /// 'haskell': will use the DMQ network created within the 'cardano-devnet'
     /// 'fake': will use a fake DMQ network within created with the Mithril relay
     #[arg(long, value_enum, default_value = "haskell")]
     dmq_node_flavor: Option<DmqNodeFlavor>,

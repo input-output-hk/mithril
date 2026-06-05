@@ -120,7 +120,7 @@ This repository consists of the following parts:
     - [**Mithril test http server**](internal/tests/mithril-test-http-server): provides a test http server, used by **Mithril network** nodes.
 
 - [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
-  - [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.
+  - [**Cardano devnet**](./mithril-test-lab/cardano-devnet): the private **Cardano network** used to test a **Mithril network**.
 
   - [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool used to run test scenarios against a **Mithril devnet**.
 

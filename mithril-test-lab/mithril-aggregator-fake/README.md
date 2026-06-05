@@ -82,7 +82,7 @@ Note: WORKING_DIR_END_TO_END should be short to be used as a socket path (less t
 ```
 WORKING_DIR_END_TO_END=[SELECT A PATH]
 mkdir -p $WORKING_DIR_END_TO_END
-./mithril-end-to-end -vvv --work-directory $WORKING_DIR_END_TO_END --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet --run-only
+./mithril-end-to-end -vvv --work-directory $WORKING_DIR_END_TO_END --bin-directory ../../target/release --devnet-scripts-directory=../cardano-devnet --run-only
 ```
 
 Waiting some but not too much following lines

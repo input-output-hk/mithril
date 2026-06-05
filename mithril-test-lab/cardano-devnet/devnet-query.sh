@@ -8,12 +8,10 @@ fi
 # Change directory
 cd ${ARTIFACTS_DIR}
 
-# Stop devnet
+# Query devnet
 echo "====================================================================="
-echo " Visualize Mithril/Cardano devnet"
+echo " Query Cardano devnet"
 echo "====================================================================="
 echo
-docker run --rm -it --name dcv -v ${PWD}:/input pmsipilot/docker-compose-viz render -m image docker-compose.yaml -r --output-file=network.png --force
-mimeopen -d network.png
+./query-cardano.sh
 echo
-
