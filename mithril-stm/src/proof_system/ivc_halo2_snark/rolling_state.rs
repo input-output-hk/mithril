@@ -1,13 +1,22 @@
 //! `IvcRollingState`: caller-owned bridge between consecutive IVC proving steps.
 
-use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
+use midnight_circuits::{
+    types::Instantiable,
+    verifier::{Accumulator, BlstrsEmulation},
+};
 
 use crate::{
-    circuits::halo2_ivc::{
-        state::{State, trivial_acc},
-        types::IvcProofBytes,
+    StmResult,
+    circuits::{
+        halo2::types::CircuitBase,
+        halo2_ivc::{
+            AssignedAccumulator,
+            errors::IvcCircuitError,
+            state::{Global, State, trivial_acc},
+            types::{IvcProofBytes, StepCounter},
+        },
     },
-    signature_scheme::StandardSchnorrSignature,
+    signature_scheme::{BaseFieldElement, StandardSchnorrSignature},
 };
 
 use super::proof::IvcProof;
@@ -97,6 +106,37 @@ impl IvcRollingState {
     /// Returns the chain-specific Schnorr signature over the genesis state.
     pub(crate) fn genesis_signature(&self) -> StandardSchnorrSignature {
         self.genesis_signature
+    }
+
+    /// Verifies the chain's genesis Schnorr signature against the genesis message and
+    /// verification key carried in `global`. Called at the first proving step only.
+    pub(crate) fn verify_genesis_signature(&self, global: &Global) -> StmResult<()> {
+        self.genesis_signature.verify(
+            &[BaseFieldElement::from(global.genesis_message.as_field())],
+            &global.genesis_verification_key,
+        )?;
+        Ok(())
+    }
+
+    /// Returns the public inputs expected by the IVC verifier gadget for the previous
+    /// step's IVC proof: `[global | previous state | previous folded accumulator]`.
+    pub(crate) fn previous_ivc_proof_public_inputs(&self, global: &Global) -> Vec<CircuitBase> {
+        [
+            global.as_public_input(),
+            self.state.as_public_input(),
+            AssignedAccumulator::as_public_input(&self.accumulator),
+        ]
+        .concat()
+    }
+
+    /// Returns the step counter for the next step (current + 1). Errors if the counter
+    /// would overflow `u64`.
+    pub(crate) fn new_step_counter(&self) -> StmResult<StepCounter> {
+        let current = self.state.step_counter.as_u64();
+        let next = current
+            .checked_add(1)
+            .ok_or(IvcCircuitError::StepCounterOverflow { current })?;
+        Ok(StepCounter::new(next))
     }
 }
 

@@ -2,15 +2,18 @@
 
 use std::collections::BTreeMap;
 
+use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use midnight_curves::{Bls12, G1Projective};
-use midnight_proofs::poly::kzg::params::ParamsKZG;
+use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsKZG};
 
 use crate::{
     StmResult,
     circuits::{
+        halo2::types::CircuitBase,
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
-            state::fixed_bases_and_names,
+            certificate_proof::verify_and_prepare_accumulator,
+            state::{fixed_bases_and_names, trivial_acc},
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -105,6 +108,47 @@ impl IvcSetup {
             ivc_fixed_bases,
             combined_fixed_bases,
         })
+    }
+
+    /// Wrap the certificate proof's prepared `DualMSM` into a collapsed accumulator on
+    /// the certificate circuit's fixed bases.
+    pub(crate) fn certificate_accumulator(
+        &self,
+        dual_msm: DualMSM<Bls12>,
+    ) -> Accumulator<BlstrsEmulation> {
+        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
+        accumulator.extract_fixed_bases(&self.certificate_fixed_bases);
+        accumulator.collapse();
+        accumulator
+    }
+
+    /// Trivial previous-IVC-proof accumulator used at genesis. The in-circuit gadget
+    /// zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`; off-circuit
+    /// we construct a fresh trivial accumulator over the combined fixed-base names.
+    pub(crate) fn trivial_previous_ivc_proof_accumulator(&self) -> Accumulator<BlstrsEmulation> {
+        let combined_fixed_base_names: Vec<String> =
+            self.combined_fixed_bases.keys().cloned().collect();
+        trivial_acc(&combined_fixed_base_names)
+    }
+
+    /// Off-circuit verify of the previous step's IVC proof, returning the collapsed
+    /// accumulator the in-circuit IVC verifier gadget would have produced on the same
+    /// proof. Used at every non-genesis step.
+    pub(crate) fn previous_ivc_proof_accumulator(
+        &self,
+        proof_bytes: &[u8],
+        public_inputs: &[CircuitBase],
+    ) -> StmResult<Accumulator<BlstrsEmulation>> {
+        let dual_msm = verify_and_prepare_accumulator(
+            proof_bytes,
+            public_inputs,
+            &self.ivc_verifying_key,
+            &self.srs.verifier_params(),
+        )?;
+        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
+        accumulator.extract_fixed_bases(&self.ivc_fixed_bases);
+        accumulator.collapse();
+        Ok(accumulator)
     }
 }
 
