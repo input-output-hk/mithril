@@ -287,7 +287,7 @@ impl ImportGenesisSubCommand {
         debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
-            self.signed_payload_path.to_string_lossy()
+            self.signed_payload_path.display()
         );
         let mithril_era = resolve_mithril_era(self.mithril_era)?;
         let mut dependencies_builder =
@@ -373,8 +373,8 @@ impl SignGenesisSubCommand {
         debug!(root_logger, "SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
-            self.to_sign_payload_path.to_string_lossy(),
-            self.target_signed_payload_path.to_string_lossy()
+            self.to_sign_payload_path.display(),
+            self.target_signed_payload_path.display()
         );
         let mithril_era = resolve_mithril_era(self.mithril_era)?;
 
@@ -464,10 +464,7 @@ pub struct GenerateKeypairGenesisSubCommand {
 impl GenerateKeypairGenesisSubCommand {
     pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
-        println!(
-            "Genesis generate keypair to {}",
-            self.target_path.to_string_lossy()
-        );
+        println!("Genesis generate keypair to {}", self.target_path.display());
         let mithril_era = resolve_mithril_era(self.mithril_era)?;
 
         GenesisTools::create_and_save_genesis_keypair(&self.target_path, mithril_era)
@@ -500,8 +497,8 @@ impl UpgradeKeyToDualGenesisSubCommand {
         debug!(root_logger, "UPGRADE-KEY-TO-DUAL GENESIS command");
         println!(
             "Upgrade legacy genesis keypair from {} to dual bundle at {}",
-            self.legacy_secret_key_path.to_string_lossy(),
-            self.target_path.to_string_lossy()
+            self.legacy_secret_key_path.display(),
+            self.target_path.display()
         );
 
         GenesisTools::upgrade_legacy_keypair_to_dual(
