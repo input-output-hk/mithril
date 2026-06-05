@@ -123,21 +123,3 @@ impl WaitToolkit {
         Ok(())
     }
 }
-
-pub async fn wait_for_enough_immutable(aggregator: &Aggregator) -> StdResult<()> {
-    WaitToolkit::default().wait_for_enough_immutable(aggregator).await
-}
-
-pub async fn wait_for_epoch_settings(aggregator: &Aggregator) -> StdResult<EpochSettingsMessage> {
-    WaitToolkit::default().wait_for_epoch_settings(aggregator).await
-}
-
-pub async fn wait_for_aggregator_at_target_epoch(
-    aggregator: &Aggregator,
-    target_epoch: Epoch,
-    wait_reason: String,
-) -> StdResult<()> {
-    WaitToolkit::default()
-        .wait_for_aggregator_at_target_epoch(aggregator, target_epoch, wait_reason)
-        .await
-}

@@ -37,7 +37,7 @@ impl ExecToolkit {
     pub async fn bootstrap_genesis_certificate(&self, aggregator: &Aggregator) -> StdResult<()> {
         info!("Bootstrap genesis certificate"; "aggregator" => &aggregator.name());
         info!("> retrieving current era from aggregator"; "aggregator" => &aggregator.name());
-        let mithril_era = retrieve_current_era(aggregator).await?;
+        let mithril_era = self.retrieve_current_era(aggregator).await?;
         info!("> stopping aggregator"; "aggregator" => &aggregator.name());
         aggregator.stop().await?;
         info!("> bootstrapping genesis using signers registered two epochs ago..."; "aggregator" => &aggregator.name());
@@ -122,43 +122,4 @@ impl ExecToolkit {
 
         Ok(())
     }
-}
-
-/// Retrieve the current Mithril era from a running aggregator by querying its `/status` route.
-pub async fn retrieve_current_era(aggregator: &Aggregator) -> StdResult<String> {
-    ExecToolkit::default().retrieve_current_era(aggregator).await
-}
-
-pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
-    ExecToolkit::default().bootstrap_genesis_certificate(aggregator).await
-}
-
-pub async fn register_era_marker(
-    aggregator: &Aggregator,
-    devnet: &Devnet,
-    mithril_era: &str,
-    era_epoch: Epoch,
-) -> StdResult<()> {
-    ExecToolkit::default()
-        .register_era_marker(aggregator, devnet, mithril_era, era_epoch)
-        .await
-}
-
-pub async fn delegate_stakes_to_pools(devnet: &Devnet, delegation_round: u16) -> StdResult<()> {
-    ExecToolkit::default()
-        .delegate_stakes_to_pools(devnet, delegation_round)
-        .await
-}
-
-pub async fn transfer_funds(devnet: &Devnet) -> StdResult<()> {
-    ExecToolkit::default().transfer_funds(devnet).await
-}
-
-pub async fn update_protocol_parameters(
-    aggregator: &Aggregator,
-    aggregate_signature_type: AggregateSignatureType,
-) -> StdResult<()> {
-    ExecToolkit::default()
-        .update_protocol_parameters(aggregator, aggregate_signature_type)
-        .await
 }

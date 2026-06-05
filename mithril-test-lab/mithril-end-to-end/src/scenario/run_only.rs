@@ -4,15 +4,19 @@ use slog_scope::info;
 
 use mithril_common::StdResult;
 
-use crate::{MithrilInfrastructure, toolkit};
+use crate::{MithrilInfrastructure, toolkit::ScenarioToolkit};
 
 pub struct RunOnlyScenario {
-    pub infrastructure: Arc<MithrilInfrastructure>,
+    toolkit: ScenarioToolkit,
+    infrastructure: Arc<MithrilInfrastructure>,
 }
 
 impl RunOnlyScenario {
-    pub fn new(infrastructure: Arc<MithrilInfrastructure>) -> Self {
-        Self { infrastructure }
+    pub fn new(toolkit: ScenarioToolkit, infrastructure: Arc<MithrilInfrastructure>) -> Self {
+        Self {
+            toolkit,
+            infrastructure,
+        }
     }
 
     pub async fn run(self) -> StdResult<()> {
@@ -34,24 +38,29 @@ impl RunOnlyScenario {
     ) -> StdResult<()> {
         let leader_aggregator = infrastructure.leader_aggregator();
 
-        toolkit::wait_for_enough_immutable(leader_aggregator).await?;
+        self.toolkit.wait.wait_for_enough_immutable(leader_aggregator).await?;
         let chain_observer = leader_aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let target_epoch = start_epoch + 3;
-        toolkit::wait_for_aggregator_at_target_epoch(
-            leader_aggregator,
-            target_epoch,
-            "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
-                .to_string(),
-        )
-        .await?;
-        toolkit::bootstrap_genesis_certificate(leader_aggregator).await?;
-        toolkit::wait_for_epoch_settings(leader_aggregator).await?;
+        self.toolkit
+            .wait
+            .wait_for_aggregator_at_target_epoch(
+                leader_aggregator,
+                target_epoch,
+                "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
+                    .to_string(),
+            )
+            .await?;
+        self.toolkit
+            .exec
+            .bootstrap_genesis_certificate(leader_aggregator)
+            .await?;
+        self.toolkit.wait.wait_for_epoch_settings(leader_aggregator).await?;
 
         // Transfer some funds on the devnet to have some Cardano transactions to sign
-        toolkit::transfer_funds(infrastructure.devnet()).await?;
+        self.toolkit.exec.transfer_funds(infrastructure.devnet()).await?;
 
         Ok(())
     }

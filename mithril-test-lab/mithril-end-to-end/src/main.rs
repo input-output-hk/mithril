@@ -20,6 +20,7 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::scenario::{FullScenario, RunOnlyScenario};
+use mithril_end_to_end::toolkit::ScenarioToolkit;
 use mithril_end_to_end::{
     AggregateSignatureType, Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError,
     Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
@@ -425,6 +426,8 @@ impl App {
             ),
         ]))?;
 
+        let toolkit = ScenarioToolkit::default();
+
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.cardano_devnet.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
@@ -444,40 +447,44 @@ impl App {
         *self.devnet.lock().await = Some(devnet.clone());
 
         let infrastructure = Arc::new(
-            MithrilInfrastructure::start(&MithrilInfrastructureConfig {
-                number_of_aggregators: args.network_topology.number_of_aggregators,
-                number_of_signers: args.network_topology.number_of_signers,
-                server_port,
-                devnet: devnet.clone(),
-                work_dir,
-                store_dir,
-                artifacts_dir,
-                bin_dir: args.bin_directory,
-                cardano_node_version: args.cardano_devnet.cardano_node_version,
-                mithril_run_interval: args.mithril.mithril_run_interval,
-                mithril_era: args.mithril.mithril_era,
-                mithril_era_reader_adapter: args.mithril.mithril_era_reader_adapter,
-                signed_entity_types: args.mithril.signed_entity_types.clone(),
-                aggregate_signature_type: args.mithril.aggregate_signature_type,
-                run_only_mode,
-                check_client_cli_snapshot_converter,
-                use_dmq,
-                dmq_node_flavor: args.network_topology.dmq_node_flavor,
-                use_relays,
-                relay_signer_registration_mode,
-                relay_signature_registration_mode,
-                skip_signature_delayer: args.mithril.skip_signature_delayer,
-                use_p2p_passive_relays,
-                use_era_specific_work_dir: args.mithril.mithril_next_era.is_some(),
-            })
+            MithrilInfrastructure::start(
+                toolkit.clone(),
+                &MithrilInfrastructureConfig {
+                    number_of_aggregators: args.network_topology.number_of_aggregators,
+                    number_of_signers: args.network_topology.number_of_signers,
+                    server_port,
+                    devnet: devnet.clone(),
+                    work_dir,
+                    store_dir,
+                    artifacts_dir,
+                    bin_dir: args.bin_directory,
+                    cardano_node_version: args.cardano_devnet.cardano_node_version,
+                    mithril_run_interval: args.mithril.mithril_run_interval,
+                    mithril_era: args.mithril.mithril_era,
+                    mithril_era_reader_adapter: args.mithril.mithril_era_reader_adapter,
+                    signed_entity_types: args.mithril.signed_entity_types.clone(),
+                    aggregate_signature_type: args.mithril.aggregate_signature_type,
+                    run_only_mode,
+                    check_client_cli_snapshot_converter,
+                    use_dmq,
+                    dmq_node_flavor: args.network_topology.dmq_node_flavor,
+                    use_relays,
+                    relay_signer_registration_mode,
+                    relay_signature_registration_mode,
+                    skip_signature_delayer: args.mithril.skip_signature_delayer,
+                    use_p2p_passive_relays,
+                    use_era_specific_work_dir: args.mithril.mithril_next_era.is_some(),
+                },
+            )
             .await?,
         );
         *self.infrastructure.lock().await = Some(infrastructure.clone());
 
         let runner: StdResult<()> = match run_only_mode {
-            true => RunOnlyScenario::new(infrastructure).run().await,
+            true => RunOnlyScenario::new(toolkit, infrastructure).run().await,
             false => {
                 FullScenario::new(
+                    toolkit,
                     infrastructure,
                     args.mithril.signed_entity_types,
                     args.mithril.mithril_next_era,

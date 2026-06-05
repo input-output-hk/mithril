@@ -9,7 +9,8 @@ use mithril_common::{
 };
 
 use crate::{
-    Aggregator, MithrilInfrastructure, NodeVersion, toolkit,
+    Aggregator, MithrilInfrastructure, NodeVersion,
+    toolkit::ScenarioToolkit,
     utils::{
         randomly_take_blocks_hashes, randomly_take_transactions_hashes,
         retrieve_blocks_transactions_from_immutable_files,
@@ -17,7 +18,8 @@ use crate::{
 };
 
 pub struct FullScenario {
-    pub infrastructure: Arc<MithrilInfrastructure>,
+    toolkit: ScenarioToolkit,
+    infrastructure: Arc<MithrilInfrastructure>,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_blocks_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
@@ -28,6 +30,7 @@ pub struct FullScenario {
 
 impl FullScenario {
     pub fn new(
+        toolkit: ScenarioToolkit,
         infrastructure: Arc<MithrilInfrastructure>,
         signed_entity_types: Vec<String>,
         next_era: Option<String>,
@@ -51,6 +54,7 @@ impl FullScenario {
 
         Self {
             infrastructure,
+            toolkit,
             is_signing_cardano_transactions: signed_entity_types
                 .contains(&SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
             is_signing_cardano_blocks_transactions,
@@ -71,7 +75,7 @@ impl FullScenario {
         // This step needs to be executed early in the process so that the transactions are available
         // for signing in the penultimate immutable chunk before the end of the test.
         // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
-        toolkit::transfer_funds(spec.infrastructure.devnet()).await?;
+        spec.toolkit.exec.transfer_funds(spec.infrastructure.devnet()).await?;
 
         info!("Bootstrapping leader aggregator");
         spec.bootstrap_leader_aggregator(&spec.infrastructure).await?;
@@ -106,34 +110,44 @@ impl FullScenario {
     ) -> StdResult<()> {
         let leader_aggregator = infrastructure.leader_aggregator();
 
-        toolkit::wait_for_enough_immutable(leader_aggregator).await?;
+        self.toolkit.wait.wait_for_enough_immutable(leader_aggregator).await?;
         let chain_observer = leader_aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
-        toolkit::wait_for_aggregator_at_target_epoch(
-            leader_aggregator,
-            target_epoch,
-            "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
-                .to_string(),
-        )
-        .await?;
-        toolkit::bootstrap_genesis_certificate(leader_aggregator).await?;
-        toolkit::wait_for_epoch_settings(leader_aggregator).await?;
+        self.toolkit
+            .wait
+            .wait_for_aggregator_at_target_epoch(
+                leader_aggregator,
+                target_epoch,
+                "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
+                    .to_string(),
+            )
+            .await?;
+        self.toolkit
+            .exec
+            .bootstrap_genesis_certificate(leader_aggregator)
+            .await?;
+        self.toolkit.wait.wait_for_epoch_settings(leader_aggregator).await?;
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
-        toolkit::wait_for_aggregator_at_target_epoch(
-            leader_aggregator,
-            target_epoch,
-            "epoch after which the stake distribution will change".to_string(),
-        )
-        .await?;
+        self.toolkit
+            .wait
+            .wait_for_aggregator_at_target_epoch(
+                leader_aggregator,
+                target_epoch,
+                "epoch after which the stake distribution will change".to_string(),
+            )
+            .await?;
 
         // Delegate some stakes to pools
         let delegation_round = 1;
-        toolkit::delegate_stakes_to_pools(infrastructure.devnet(), delegation_round).await?;
+        self.toolkit
+            .exec
+            .delegate_stakes_to_pools(infrastructure.devnet(), delegation_round)
+            .await?;
 
         Ok(())
     }
@@ -148,24 +162,25 @@ impl FullScenario {
 
         // Wait 2 epochs before changing protocol parameters
         let mut target_epoch = start_epoch + 2;
-        toolkit::wait_for_aggregator_at_target_epoch(
-            aggregator,
-            target_epoch,
-            "epoch after which the protocol parameters will change".to_string(),
-        )
-        .await?;
-
-        if aggregator.is_first() || aggregator.version().is_below("0.7.94") {
-            toolkit::update_protocol_parameters(
+        self.toolkit
+            .wait
+            .wait_for_aggregator_at_target_epoch(
                 aggregator,
-                infrastructure.aggregate_signature_type(),
+                target_epoch,
+                "epoch after which the protocol parameters will change".to_string(),
             )
             .await?;
+
+        if aggregator.is_first() || aggregator.version().is_below("0.7.94") {
+            self.toolkit
+                .exec
+                .update_protocol_parameters(aggregator, infrastructure.aggregate_signature_type())
+                .await?;
         }
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
-        toolkit::wait_for_aggregator_at_target_epoch(
+        self.toolkit.wait.wait_for_aggregator_at_target_epoch(
             aggregator,
             target_epoch,
             "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
@@ -184,23 +199,28 @@ impl FullScenario {
                 infrastructure.register_switch_to_next_era(next_era).await?;
             }
             target_epoch += 5;
-            toolkit::wait_for_aggregator_at_target_epoch(
-                aggregator,
-                target_epoch,
-                "epoch after which the era switch will have triggered".to_string(),
-            )
-            .await?;
+            self.toolkit
+                .wait
+                .wait_for_aggregator_at_target_epoch(
+                    aggregator,
+                    target_epoch,
+                    "epoch after which the era switch will have triggered".to_string(),
+                )
+                .await?;
 
             // Proceed to a re-genesis of the certificate chain
             if self.regenesis_on_era_switch {
-                toolkit::bootstrap_genesis_certificate(aggregator).await?;
+                self.toolkit.exec.bootstrap_genesis_certificate(aggregator).await?;
                 target_epoch += 5;
-                toolkit::wait_for_aggregator_at_target_epoch(
-                    aggregator,
-                    target_epoch,
-                    "epoch after which the re-genesis on era switch will be completed".to_string(),
-                )
-                .await?;
+                self.toolkit
+                    .wait
+                    .wait_for_aggregator_at_target_epoch(
+                        aggregator,
+                        target_epoch,
+                        "epoch after which the re-genesis on era switch will be completed"
+                            .to_string(),
+                    )
+                    .await?;
             }
 
             // Verify that artifacts are produced and signed correctly
@@ -211,13 +231,15 @@ impl FullScenario {
         // Check the ledger snapshot conversion step using utxo-hd snapshot-converter
         if infrastructure.check_client_cli_snapshot_converter() {
             let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_convert_the_ledger_snapshot(
-                &mut client,
-                aggregator.full_node(),
-                infrastructure.devnet().artifacts_dir(),
-                NodeVersion::new(infrastructure.cardano_node_version().clone()),
-            )
-            .await?;
+            self.toolkit
+                .check
+                .client_can_convert_the_ledger_snapshot(
+                    &mut client,
+                    aggregator.full_node(),
+                    infrastructure.devnet().artifacts_dir(),
+                    NodeVersion::new(infrastructure.cardano_node_version().clone()),
+                )
+                .await?;
         }
 
         Ok(())
@@ -229,6 +251,8 @@ impl FullScenario {
         aggregator: &Aggregator,
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<Epoch> {
+        let mut client = infrastructure.build_client(aggregator).await?;
+
         let expected_epoch_min = target_epoch - 3;
         let immutable_files_directory = aggregator.db_directory().join("immutable");
         let blocks_transactions =
@@ -239,122 +263,76 @@ impl FullScenario {
 
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {
-            let hash =
-                toolkit::assert_node_producing_mithril_stake_distribution(aggregator).await?;
-            let certificate_hash = toolkit::assert_signer_is_signing_mithril_stake_distribution(
-                aggregator,
-                &hash,
-                expected_epoch_min,
-            )
-            .await?;
-            toolkit::assert_is_creating_certificate_with_enough_signers(
-                aggregator,
-                &certificate_hash,
-                infrastructure.signers().len(),
-            )
-            .await?;
-            let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_verify_mithril_stake_distribution(&mut client, &hash)
+            self.toolkit
+                .check
+                .mithril_stake_distribution
+                .is_certified_and_verified(
+                    aggregator,
+                    &mut client,
+                    expected_epoch_min,
+                    infrastructure.signers().len(),
+                )
                 .await?;
         }
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
         if self.is_signing_cardano_database {
-            let hash = toolkit::assert_node_producing_cardano_database_snapshot(aggregator).await?;
-            let certificate_hash = toolkit::assert_signer_is_signing_cardano_database_snapshot(
-                aggregator,
-                &hash,
-                expected_epoch_min,
-            )
-            .await?;
-
-            toolkit::assert_is_creating_certificate_with_enough_signers(
-                aggregator,
-                &certificate_hash,
-                infrastructure.signers().len(),
-            )
-            .await?;
-
-            toolkit::assert_node_producing_cardano_database_digests_map(aggregator).await?;
-
-            let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_verify_cardano_database(&mut client, &hash).await?;
+            self.toolkit
+                .check
+                .cardano_database
+                .is_certified_and_verified(
+                    aggregator,
+                    &mut client,
+                    expected_epoch_min,
+                    infrastructure.signers().len(),
+                )
+                .await?;
         }
 
         // Verify that Cardano transactions artifacts are produced and signed correctly
         if self.is_signing_cardano_transactions {
-            let hash = toolkit::assert_node_producing_cardano_transactions(aggregator).await?;
-            let certificate_hash = toolkit::assert_signer_is_signing_cardano_transactions(
-                aggregator,
-                &hash,
-                expected_epoch_min,
-            )
-            .await?;
-
-            toolkit::assert_is_creating_certificate_with_enough_signers(
-                aggregator,
-                &certificate_hash,
-                infrastructure.signers().len(),
-            )
-            .await?;
-
-            let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_verify_transactions(&mut client, transaction_hashes.clone())
+            self.toolkit
+                .check
+                .cardano_transactions
+                .is_certified_and_verified(
+                    aggregator,
+                    &mut client,
+                    expected_epoch_min,
+                    infrastructure.signers().len(),
+                    transaction_hashes.clone(),
+                )
                 .await?;
         }
 
         // Verify that Cardano blocks transactions artifacts are produced and signed correctly
         if self.is_signing_cardano_blocks_transactions {
-            let hash =
-                toolkit::assert_node_producing_cardano_blocks_transactions(aggregator).await?;
-            let certificate_hash = toolkit::assert_signer_is_signing_cardano_blocks_transactions(
-                aggregator,
-                &hash,
-                expected_epoch_min,
-            )
-            .await?;
-
-            toolkit::assert_is_creating_certificate_with_enough_signers(
-                aggregator,
-                &certificate_hash,
-                infrastructure.signers().len(),
-            )
-            .await?;
-
-            let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_verify_transactions_v2(&mut client, transaction_hashes)
+            self.toolkit
+                .check
+                .cardano_blocks_transactions
+                .is_certified_and_verified(
+                    aggregator,
+                    &mut client,
+                    expected_epoch_min,
+                    infrastructure.signers().len(),
+                    block_hashes.clone(),
+                    transaction_hashes.clone(),
+                )
                 .await?;
-
-            let mut client = infrastructure.build_client(aggregator).await?;
-            toolkit::assert_client_can_verify_blocks(&mut client, block_hashes).await?;
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
         if self.is_signing_cardano_stake_distribution {
             {
-                let (hash, epoch) =
-                    toolkit::assert_node_producing_cardano_stake_distribution(aggregator).await?;
-                let certificate_hash =
-                    toolkit::assert_signer_is_signing_cardano_stake_distribution(
+                self.toolkit
+                    .check
+                    .cardano_stake_distribution
+                    .is_certified_and_verified(
                         aggregator,
-                        &hash,
+                        &mut client,
                         expected_epoch_min,
+                        infrastructure.signers().len(),
                     )
                     .await?;
-                toolkit::assert_is_creating_certificate_with_enough_signers(
-                    aggregator,
-                    &certificate_hash,
-                    infrastructure.signers().len(),
-                )
-                .await?;
-
-                let mut client = infrastructure.build_client(aggregator).await?;
-                toolkit::assert_client_can_verify_cardano_stake_distribution(
-                    &mut client,
-                    &hash,
-                    epoch,
-                )
-                .await?;
             }
         }
 

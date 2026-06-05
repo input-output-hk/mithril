@@ -9,9 +9,10 @@ use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::mithril::relay_signer::RelaySignerConfiguration;
+use crate::toolkit::ScenarioToolkit;
 use crate::{
     AggregateSignatureType, Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet,
-    DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer, toolkit,
+    DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer,
 };
 
 use super::signer::SignerConfig;
@@ -84,6 +85,7 @@ impl MithrilInfrastructureConfig {
 }
 
 pub struct MithrilInfrastructure {
+    toolkit: ScenarioToolkit,
     artifacts_dir: PathBuf,
     bin_dir: PathBuf,
     devnet: Devnet,
@@ -103,7 +105,10 @@ pub struct MithrilInfrastructure {
 }
 
 impl MithrilInfrastructure {
-    pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
+    pub async fn start(
+        toolkit: ScenarioToolkit,
+        config: &MithrilInfrastructureConfig,
+    ) -> StdResult<Self> {
         let chain_observer_type = "pallas";
         config.devnet.run().await?;
         if config.use_dmq && config.dmq_node_flavor == Some(DmqNodeFlavor::Haskell) {
@@ -123,7 +128,7 @@ impl MithrilInfrastructure {
             Self::prepare_aggregators(config, aggregator_cardano_nodes, chain_observer_type)
                 .await?;
 
-        Self::register_startup_era(&leader_aggregator, config).await?;
+        Self::register_startup_era(&toolkit, &leader_aggregator, config).await?;
         leader_aggregator.serve().await?;
 
         let follower_aggregator_endpoints = follower_aggregators
@@ -157,6 +162,7 @@ impl MithrilInfrastructure {
         all_aggregators.extend(follower_aggregators);
 
         Ok(Self {
+            toolkit,
             bin_dir: config.bin_dir.to_path_buf(),
             artifacts_dir: config.artifacts_dir.to_path_buf(),
             devnet: config.devnet.clone(),
@@ -177,18 +183,16 @@ impl MithrilInfrastructure {
     }
 
     async fn register_startup_era(
+        toolkit: &ScenarioToolkit,
         aggregator: &Aggregator,
         config: &MithrilInfrastructureConfig,
     ) -> StdResult<()> {
         let era_epoch = Epoch(0);
         if config.mithril_era_reader_adapter == "cardano-chain" {
-            toolkit::register_era_marker(
-                aggregator,
-                &config.devnet,
-                &config.mithril_era,
-                era_epoch,
-            )
-            .await?;
+            toolkit
+                .exec
+                .register_era_marker(aggregator, &config.devnet, &config.mithril_era, era_epoch)
+                .await?;
         }
 
         Ok(())
@@ -203,13 +207,10 @@ impl MithrilInfrastructure {
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
-            toolkit::register_era_marker(
-                self.leader_aggregator(),
-                &devnet,
-                next_era,
-                next_era_epoch,
-            )
-            .await?;
+            self.toolkit
+                .exec
+                .register_era_marker(self.leader_aggregator(), &devnet, next_era, next_era_epoch)
+                .await?;
         }
         let mut current_era = self.current_era.write().await;
         *current_era = next_era.to_owned();
