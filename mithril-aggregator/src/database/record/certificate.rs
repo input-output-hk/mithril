@@ -71,18 +71,22 @@ impl PersistedDualGenesisSignature {
         Ok(CertificateSignature::GenesisSignature(raw.try_into()?))
     }
 
-    /// Split a stored certificate record into its wire-format signature.
+    /// Classify a stored signature column value into its wire-format shape.
     ///
     /// Recovers the SNARK half from the JSON wrapper when present; otherwise treats the value as
-    /// a legacy Ed25519-only genesis signature or a multi-signature, depending on the record.
-    fn split_message_signatures(record: &CertificateRecord) -> PersistedRecordSignatures {
-        if record.parent_certificate_id.is_some() {
-            return PersistedRecordSignatures::MultiSignature(record.signature.clone());
+    /// a legacy Ed25519-only genesis signature, or a multi-signature when the record has a parent.
+    /// Takes the signature by value so the caller can move it in, avoiding a clone per certificate.
+    fn split_message_signatures(
+        have_parent: bool,
+        signature: HexEncodedKey,
+    ) -> PersistedRecordSignatures {
+        if have_parent {
+            PersistedRecordSignatures::MultiSignature(signature)
+        } else if let Ok(payload) = serde_json::from_str::<Self>(&signature) {
+            PersistedRecordSignatures::GenesisDual(payload)
+        } else {
+            PersistedRecordSignatures::Genesis(signature)
         }
-        if let Ok(payload) = serde_json::from_str::<Self>(&record.signature) {
-            return PersistedRecordSignatures::GenesisDual(payload);
-        }
-        PersistedRecordSignatures::Genesis(record.signature.clone())
     }
 }
 
@@ -306,7 +310,10 @@ impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
         #[cfg(feature = "future_snark")]
         let (multi_signature, genesis_signature, genesis_schnorr_signature) =
-            match PersistedDualGenesisSignature::split_message_signatures(&value) {
+            match PersistedDualGenesisSignature::split_message_signatures(
+                value.parent_certificate_id.is_some(),
+                value.signature,
+            ) {
                 PersistedRecordSignatures::MultiSignature(signature) => {
                     (signature, String::new(), String::new())
                 }
@@ -319,9 +326,9 @@ impl From<CertificateRecord> for CertificateMessage {
             };
         #[cfg(not(feature = "future_snark"))]
         let (multi_signature, genesis_signature) = if value.parent_certificate_id.is_none() {
-            (String::new(), value.signature.clone())
+            (String::new(), value.signature)
         } else {
-            (value.signature.clone(), String::new())
+            (value.signature, String::new())
         };
         let metadata = CertificateMetadataMessagePart {
             network: value.network,
