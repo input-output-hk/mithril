@@ -135,7 +135,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
 ) -> StdResult<String> {
     CheckToolkit::default()
         .mithril_stake_distribution
-        .node_producing_mithril_stake_distribution(aggregator)
+        .wait_for_artifact(aggregator)
         .await
 }
 
@@ -155,7 +155,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
 ) -> StdResult<String> {
     CheckToolkit::default()
         .cardano_database
-        .node_producing_cardano_database_snapshot(aggregator)
+        .wait_for_artifact(aggregator)
         .await
 }
 
@@ -184,7 +184,7 @@ pub async fn assert_node_producing_cardano_transactions(
 ) -> StdResult<String> {
     CheckToolkit::default()
         .cardano_transactions
-        .node_producing_cardano_transactions(aggregator)
+        .wait_for_artifact(aggregator)
         .await
 }
 
@@ -204,7 +204,7 @@ pub async fn assert_node_producing_cardano_blocks_transactions(
 ) -> StdResult<String> {
     CheckToolkit::default()
         .cardano_blocks_transactions
-        .node_producing_cardano_blocks_transactions(aggregator)
+        .wait_for_artifact(aggregator)
         .await
 }
 
@@ -224,7 +224,7 @@ pub async fn assert_node_producing_cardano_stake_distribution(
 ) -> StdResult<(String, Epoch)> {
     CheckToolkit::default()
         .cardano_stake_distribution
-        .node_producing_cardano_stake_distribution(aggregator)
+        .wait_for_artifact(aggregator)
         .await
 }
 
@@ -260,7 +260,7 @@ pub async fn assert_client_can_verify_cardano_database(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .cardano_database
-        .client_can_verify_cardano_database(client, hash)
+        .verify_with_client(client, hash)
         .await
 }
 
@@ -270,7 +270,7 @@ pub async fn assert_client_can_verify_mithril_stake_distribution(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .mithril_stake_distribution
-        .client_can_verify_mithril_stake_distribution(client, hash)
+        .verify_with_client(client, hash)
         .await
 }
 
@@ -280,7 +280,7 @@ pub async fn assert_client_can_verify_transactions(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .cardano_transactions
-        .client_can_verify_transactions(client, tx_hashes)
+        .verify_with_client(client, tx_hashes)
         .await
 }
 
@@ -290,7 +290,7 @@ pub async fn assert_client_can_verify_transactions_v2(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .cardano_blocks_transactions
-        .client_verify_transactions(client, tx_hashes)
+        .verify_transactions_with_client(client, tx_hashes)
         .await
 }
 
@@ -300,7 +300,7 @@ pub async fn assert_client_can_verify_blocks(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .cardano_blocks_transactions
-        .client_verify_blocks(client, block_hashes)
+        .verify_blocks_with_client(client, block_hashes)
         .await
 }
 
@@ -311,7 +311,7 @@ pub async fn assert_client_can_verify_cardano_stake_distribution(
 ) -> StdResult<()> {
     CheckToolkit::default()
         .cardano_stake_distribution
-        .client_can_verify_cardano_stake_distribution(client, hash, epoch)
+        .verify_with_client(client, hash, epoch)
         .await
 }
 

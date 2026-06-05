@@ -2,16 +2,16 @@ use anyhow::{Context, anyhow};
 use slog_scope::info;
 use std::time::Duration;
 
+use crate::{
+    Aggregator, CardanoTransactionCommand, Client, ClientCommand, attempt,
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext, check::get_json_response},
+    utils::AttemptResult,
+};
+use mithril_common::test::double::fake_data::transaction_hashes;
 use mithril_common::{
     StdResult,
     entities::{Epoch, TransactionHash},
     messages::{CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage},
-};
-
-use crate::{
-    Aggregator, CardanoTransactionCommand, Client, ClientCommand, attempt,
-    toolkit::{ScenarioToolkitContext, check::get_json_response},
-    utils::AttemptResult,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -24,10 +24,35 @@ impl CheckCardanoTransactionsToolkit {
         Self { context }
     }
 
-    pub async fn node_producing_cardano_transactions(
+    pub async fn is_certified_and_verified(
         &self,
         aggregator: &Aggregator,
-    ) -> StdResult<String> {
+        client: &mut Client,
+        expected_epoch_min: Epoch,
+        total_signers_expected: usize,
+        tx_hashes: Vec<TransactionHash>,
+    ) -> StdResult<()> {
+        let certificate_toolkit = CheckCertificateToolkit::new(self.context.clone());
+
+        let hash = self.wait_for_artifact(aggregator).await?;
+        let certificate_hash = self
+            .signer_is_signing_cardano_transactions(aggregator, &hash, expected_epoch_min)
+            .await?;
+
+        certificate_toolkit
+            .is_creating_certificate_with_enough_signers(
+                aggregator,
+                &certificate_hash,
+                total_signers_expected,
+            )
+            .await?;
+
+        self.verify_with_client(client, tx_hashes).await?;
+
+        Ok(())
+    }
+
+    pub async fn wait_for_artifact(&self, aggregator: &Aggregator) -> StdResult<String> {
         let url = format!("{}/artifact/cardano-transactions", aggregator.endpoint());
         info!("Waiting for the aggregator to produce a Cardano transactions artifact"; "aggregator" => &aggregator.name(), "aggregator" => &aggregator.name());
 
@@ -110,7 +135,7 @@ impl CheckCardanoTransactionsToolkit {
         })
     }
 
-    pub async fn client_can_verify_transactions(
+    pub async fn verify_with_client(
         &self,
         client: &mut Client,
         tx_hashes: Vec<TransactionHash>,

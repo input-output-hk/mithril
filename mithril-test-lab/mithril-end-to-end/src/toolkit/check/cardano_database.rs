@@ -13,7 +13,7 @@ use mithril_common::{
 
 use crate::{
     Aggregator, CardanoDbV2Command, Client, ClientCommand, attempt,
-    toolkit::{ScenarioToolkitContext, check::get_json_response},
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext, check::get_json_response},
     utils::AttemptResult,
 };
 
@@ -27,10 +27,36 @@ impl CheckCardanoDatabaseToolkit {
         Self { context }
     }
 
-    pub async fn node_producing_cardano_database_snapshot(
+    pub async fn is_certified_and_verified(
         &self,
         aggregator: &Aggregator,
-    ) -> StdResult<String> {
+        client: &mut Client,
+        expected_epoch_min: Epoch,
+        total_signers_expected: usize,
+    ) -> StdResult<()> {
+        let certificate_toolkit = CheckCertificateToolkit::new(self.context.clone());
+
+        let hash = self.wait_for_artifact(aggregator).await?;
+        let certificate_hash = self
+            .signer_is_signing_cardano_database_snapshot(aggregator, &hash, expected_epoch_min)
+            .await?;
+
+        certificate_toolkit
+            .is_creating_certificate_with_enough_signers(
+                aggregator,
+                &certificate_hash,
+                total_signers_expected,
+            )
+            .await?;
+
+        self.node_producing_cardano_database_digests_map(aggregator).await?;
+
+        self.verify_with_client(client, &hash).await?;
+
+        Ok(())
+    }
+
+    pub async fn wait_for_artifact(&self, aggregator: &Aggregator) -> StdResult<String> {
         let url = format!("{}/artifact/cardano-database", aggregator.endpoint());
         info!("Waiting for the aggregator to produce a Cardano database snapshot"; "aggregator" => &aggregator.name());
 
@@ -155,11 +181,7 @@ impl CheckCardanoDatabaseToolkit {
         })
     }
 
-    pub async fn client_can_verify_cardano_database(
-        &self,
-        client: &mut Client,
-        hash: &str,
-    ) -> StdResult<()> {
+    pub async fn verify_with_client(&self, client: &mut Client, hash: &str) -> StdResult<()> {
         client
             .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::List))
             .await?;
