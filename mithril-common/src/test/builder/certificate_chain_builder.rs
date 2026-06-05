@@ -581,7 +581,7 @@ impl<'a> CertificateChainBuilder<'a> {
         let mut certificate = certificate;
         certificate.previous_hash =
             previous_certificate.map(|c| c.hash.to_string()).unwrap_or_default();
-        certificate.hash = certificate.compute_hash();
+        certificate.hash = certificate.try_compute_hash().unwrap();
 
         certificate
     }

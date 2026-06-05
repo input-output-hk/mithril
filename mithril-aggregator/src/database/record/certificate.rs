@@ -592,7 +592,7 @@ mod tests {
                 .expect("Chain should have at least one certificate")
                 .clone();
             certificate.aggregate_verification_key_snark = None;
-            certificate.hash = certificate.compute_hash();
+            certificate.hash = certificate.try_compute_hash().unwrap();
 
             let record: CertificateRecord = certificate.clone().try_into().unwrap();
             assert!(record.aggregate_verification_key_snark.is_none());
@@ -646,7 +646,7 @@ mod tests {
                 .expect("Schnorr sign should not fail");
             certificate.signature =
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature);
-            certificate.hash = certificate.compute_hash();
+            certificate.hash = certificate.try_compute_hash().unwrap();
             certificate
         }
 

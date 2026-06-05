@@ -52,7 +52,7 @@ impl CertificateSignature {
     }
 
     /// Return the bytes-hex of the signature payload that is included in
-    /// [Certificate::compute_hash]. For the dual-genesis variant this is the Ed25519 bytes only,
+    /// [Certificate::try_compute_hash]. For the dual-genesis variant this is the Ed25519 bytes only,
     /// keeping the certificate hash byte-identical to today's so legacy clients can keep walking
     /// the chain backwards across the Lagrange boundary.
     pub fn to_bytes_hex_for_certificate_hash(&self) -> crate::StdResult<String> {
@@ -170,14 +170,6 @@ impl Certificate {
         }
         hasher.update(self.signature.to_bytes_hex_for_certificate_hash()?);
         Ok(hex::encode(hasher.finalize()))
-    }
-
-    /// Infallible [Self::try_compute_hash] for construction-time hashing, where the inputs were
-    /// just built and validated. Panics only on a genuinely impossible serialization bug; the
-    /// verification path uses [Self::try_compute_hash] so it cannot crash the process.
-    pub fn compute_hash(&self) -> String {
-        self.try_compute_hash()
-            .expect("certificate hashing is infallible for a well-formed certificate")
     }
 
     /// Tell if the certificate is a genesis certificate (covers both the legacy and the
@@ -363,7 +355,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(HASH_EXPECTED, certificate.compute_hash());
+        assert_eq!(HASH_EXPECTED, certificate.try_compute_hash().unwrap());
 
         assert_ne!(
             HASH_EXPECTED,
@@ -371,7 +363,8 @@ mod tests {
                 previous_hash: "previous_hash-modified".to_string(),
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -380,7 +373,8 @@ mod tests {
                 epoch: certificate.epoch + 10,
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -392,7 +386,8 @@ mod tests {
                 },
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -409,7 +404,8 @@ mod tests {
                 },
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -421,7 +417,8 @@ mod tests {
                         .unwrap(),
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -433,7 +430,8 @@ mod tests {
                 ),
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
 
         assert_ne!(
@@ -445,7 +443,8 @@ mod tests {
                 ),
                 ..certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
     }
 
@@ -456,7 +455,7 @@ mod tests {
 
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let certificate = fixture.create_genesis_certificate("testnet", Epoch(1));
-        let original_hash = certificate.compute_hash();
+        let original_hash = certificate.try_compute_hash().unwrap();
 
         assert!(
             certificate.aggregate_verification_key_snark.is_some(),
@@ -468,7 +467,7 @@ mod tests {
 
         assert_eq!(
             original_hash,
-            certificate_without_snark_avk.compute_hash(),
+            certificate_without_snark_avk.try_compute_hash().unwrap(),
             "SNARK AVK should not affect the certificate hash for backward compatibility"
         );
     }
@@ -510,7 +509,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(HASH_EXPECTED, genesis_certificate.compute_hash());
+        assert_eq!(
+            HASH_EXPECTED,
+            genesis_certificate.try_compute_hash().unwrap()
+        );
 
         assert_ne!(
             HASH_EXPECTED,
@@ -520,7 +522,8 @@ mod tests {
                 ),
                 ..genesis_certificate.clone()
             }
-            .compute_hash(),
+            .try_compute_hash()
+            .unwrap(),
         );
     }
 
@@ -587,8 +590,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            legacy.compute_hash(),
-            dual.compute_hash(),
+            legacy.try_compute_hash().unwrap(),
+            dual.try_compute_hash().unwrap(),
             "dual-signature variant must hash identically to the legacy single-Ed25519 variant"
         );
     }
@@ -634,7 +637,7 @@ mod tests {
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
             )
             .unwrap();
-            hashes.insert(certificate.compute_hash());
+            hashes.insert(certificate.try_compute_hash().unwrap());
         }
         assert_eq!(
             hashes.len(),
