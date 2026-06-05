@@ -592,18 +592,27 @@ mod tests {
         assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
     }
 
-    #[tokio::test]
-    async fn generate_keypair_subcommand_parses_era_flag() {
-        let target = temp_dir!().join("keys");
-        std::fs::create_dir_all(&target).unwrap();
+    #[test]
+    fn generate_keypair_subcommand_parses_era_flag() {
         let cmd = GenerateKeypairGenesisSubCommand::try_parse_from([
             "generate-keypair",
             "--target-path",
-            target.to_str().unwrap(),
+            "/tmp/keys",
             "--mithril-era",
             &SupportedEra::Pythagoras.to_string(),
         ])
-        .unwrap();
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Pythagoras));
+    }
+
+    #[tokio::test]
+    async fn generate_keypair_subcommand_writes_key_files() {
+        let target = temp_dir!().join("keys");
+        std::fs::create_dir_all(&target).unwrap();
+        let cmd = GenerateKeypairGenesisSubCommand {
+            target_path: target.clone(),
+            mithril_era: Some(SupportedEra::Pythagoras),
+        };
 
         cmd.execute(TestLogger::stdout())
             .await
@@ -622,14 +631,10 @@ mod tests {
         let target = temp.join("out");
         std::fs::create_dir_all(&target).unwrap();
 
-        let cmd = UpgradeKeyToDualGenesisSubCommand::try_parse_from([
-            "upgrade-key-to-dual",
-            "--legacy-secret-key-path",
-            legacy_path.to_str().unwrap(),
-            "--target-path",
-            target.to_str().unwrap(),
-        ])
-        .unwrap();
+        let cmd = UpgradeKeyToDualGenesisSubCommand {
+            legacy_secret_key_path: legacy_path,
+            target_path: target.clone(),
+        };
 
         cmd.execute(TestLogger::stdout())
             .await
