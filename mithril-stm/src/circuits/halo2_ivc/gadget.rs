@@ -267,8 +267,8 @@ impl IvcGadget {
     /// Verifies the genesis Schnorr signature in-circuit.
     ///
     /// Reconstructs the challenge via Poseidon hash over the genesis verification key,
-    /// the nonce commitment R, and the genesis message, then checks equality against
-    /// the committed challenge scalar from `witness.genesis_signature`.
+    /// the reconstructed nonce commitment, and the genesis message, then checks
+    /// equality against the committed challenge scalar from `witness.genesis_signature`.
     /// Returns an `AssignedBit` that is `true` when the signature is valid.
     pub fn is_genesis_signature_valid(
         &self,
