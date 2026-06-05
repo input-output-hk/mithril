@@ -406,8 +406,7 @@ impl<'a> CertificateChainBuilder<'a> {
 
     fn setup_genesis() -> (GenesisSigner, GenesisVerifier) {
         let genesis_signer = GenesisSigner::create_deterministic_signer();
-        let genesis_verifier =
-            GenesisVerifier::from_bundle(genesis_signer.verification_key_bundle());
+        let genesis_verifier = genesis_signer.create_verifier();
 
         (genesis_signer, genesis_verifier)
     }

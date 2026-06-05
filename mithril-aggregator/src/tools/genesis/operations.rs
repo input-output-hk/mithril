@@ -27,7 +27,7 @@ use crate::{
 };
 #[cfg(feature = "future_snark")]
 use mithril_common::crypto_helper::{
-    GenesisEd25519SecretKey, GenesisSchnorrSigner, GenesisSigningKeyBundle,
+    GenesisBundleError, GenesisEd25519SecretKey, GenesisSchnorrSigner, GenesisSigningKeyBundle,
     GenesisVerificationKeyBundle, ProtocolKey, sha256_digest, signed_message_from_digest,
 };
 
@@ -168,7 +168,6 @@ impl GenesisTools {
         signed_payload_path: &Path,
         genesis_verifier: &GenesisVerifier,
     ) -> StdResult<()> {
-        genesis_verifier.ensure_supports_era(self.configuration.mithril_era)?;
         let signed_payload_buffer = std::fs::read(signed_payload_path)?;
         let envelope = GenesisSignedPayload::try_from_bytes(&signed_payload_buffer)?;
         let genesis_producer = CertificateGenesisProducer::new().with_logger(self.logger.clone());
@@ -216,7 +215,6 @@ impl GenesisTools {
         } else {
             genesis_signer
         };
-        genesis_signer.ensure_supports_era(self.configuration.mithril_era)?;
         let ed25519_verification_key = genesis_signer.ed25519.verification_key();
         #[cfg(feature = "future_snark")]
         let schnorr_verification_key =
@@ -275,7 +273,6 @@ impl GenesisTools {
         mithril_era: SupportedEra,
     ) -> StdResult<()> {
         let genesis_signer = GenesisSigner::read_from_file(genesis_secret_key_path)?;
-        genesis_signer.ensure_supports_era(mithril_era)?;
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path)?;
         let mut to_sign_payload_buffer = Vec::new();
@@ -290,9 +287,7 @@ impl GenesisTools {
                 let schnorr = genesis_signer
                     .schnorr
                     .as_ref()
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("Lagrange genesis sign requires a SNARK signer")
-                    })?
+                    .ok_or(GenesisBundleError::LegacySigningKey)?
                     .sign_non_deterministic(&digest)?;
                 GenesisSignedPayload::new(ed25519, schnorr).to_bytes()?
             }
@@ -633,14 +628,13 @@ mod tests {
 
         let signing_bundle = GenesisSigningKeyBundle::try_from_hex(&signing_hex)
             .expect("signing bundle hex must round-trip");
-        let verification_bundle =
-            GenesisVerificationKeyBundle::try_from_hex_or_legacy(&verification_hex)
-                .expect("verification bundle hex must round-trip");
+        let verification_bundle = GenesisVerificationKeyBundle::try_from_hex(&verification_hex)
+            .expect("verification bundle hex must round-trip");
         let expected_schnorr_verification_key =
             GenesisSchnorrSigner::from_secret_key(signing_bundle.schnorr).verification_key();
 
         assert_eq!(
-            verification_bundle.schnorr.unwrap().to_bytes(),
+            verification_bundle.schnorr.to_bytes(),
             expected_schnorr_verification_key.to_bytes()
         );
     }
@@ -887,34 +881,6 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn lagrange_rejects_legacy_verification_key_bundle() {
-            let temp = get_temp_dir("import_lagrange_rejects_legacy_vk");
-            let signed_path = temp.join("signed.bin");
-            fs::write(&signed_path, vec![0u8; 8]).unwrap();
-
-            let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
-            let legacy_bundle = GenesisVerificationKeyBundle {
-                ed25519: ed25519_signer.verification_key(),
-                schnorr: None,
-            };
-            let (genesis_tools, _, _, _) =
-                build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
-
-            let error = genesis_tools
-                .import_dual_payload_signature(
-                    &signed_path,
-                    &GenesisVerifier::from_bundle(legacy_bundle),
-                )
-                .await
-                .unwrap_err();
-
-            assert!(matches!(
-                error.downcast_ref::<mithril_common::crypto_helper::GenesisBundleError>(),
-                Some(mithril_common::crypto_helper::GenesisBundleError::SchnorrVerificationKeyRequired)
-            ));
-        }
-
-        #[tokio::test]
         async fn lagrange_rejects_tampered_schnorr_signature() {
             let temp = get_temp_dir("import_lagrange_rejects_tampered_schnorr");
             let preimage_path = temp.join("preimage.bin");
@@ -1007,7 +973,7 @@ mod tests {
 
             let signing_bundle = GenesisSigningKeyBundle::try_from_hex(&signing_hex).unwrap();
             let verification_bundle =
-                GenesisVerificationKeyBundle::try_from_hex_or_legacy(&verification_hex).unwrap();
+                GenesisVerificationKeyBundle::try_from_hex(&verification_hex).unwrap();
 
             assert_eq!(
                 signing_bundle.ed25519.to_bytes(),
@@ -1020,7 +986,7 @@ mod tests {
             let derived_schnorr_vk =
                 GenesisSchnorrSigner::from_secret_key(signing_bundle.schnorr).verification_key();
             assert_eq!(
-                verification_bundle.schnorr.unwrap().to_bytes(),
+                verification_bundle.schnorr.to_bytes(),
                 derived_schnorr_vk.to_bytes()
             );
         }
@@ -1102,11 +1068,10 @@ mod tests {
             let payload = b"upgrade-key-drift-canary";
             let legacy_signature = legacy_signer.sign(payload);
 
-            let upgraded_verification_bundle =
-                GenesisVerificationKeyBundle::try_from_hex_or_legacy(
-                    &fs::read_to_string(&verification_key_path).unwrap(),
-                )
-                .unwrap();
+            let upgraded_verification_bundle = GenesisVerificationKeyBundle::try_from_hex(
+                &fs::read_to_string(&verification_key_path).unwrap(),
+            )
+            .unwrap();
             GenesisEd25519Verifier::from_verification_key(
                 upgraded_verification_bundle.ed25519,
             )

@@ -327,7 +327,6 @@ impl ImportGenesisSubCommand {
         mithril_era: SupportedEra,
     ) -> StdResult<()> {
         let verifier = GenesisVerifier::try_from_hex(&self.genesis_verification_key)?;
-        verifier.ensure_supports_era(mithril_era)?;
         match mithril_era {
             SupportedEra::Lagrange => genesis_tools
                 .import_dual_payload_signature(&self.signed_payload_path, &verifier)
