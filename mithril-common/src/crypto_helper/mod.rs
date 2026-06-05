@@ -6,6 +6,8 @@ mod conversions;
 pub mod ed25519;
 mod ed25519_alias;
 mod genesis;
+#[cfg(feature = "future_snark")]
+pub mod schnorr;
 mod types;
 
 pub use cardano::ColdKeyGenerator;
