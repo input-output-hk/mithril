@@ -526,16 +526,34 @@ impl<'a> CertificateChainBuilder<'a> {
             .sign_deterministic(&genesis_protocol_message, mithril_era)
             .unwrap();
 
-        genesis_producer
-            .create_genesis_certificate(
+        match signature {
+            CertificateSignature::GenesisSignature(genesis_signature) => genesis_producer
+                .create_legacy_genesis_certificate(
+                    certificate.metadata.protocol_parameters,
+                    certificate.metadata.network,
+                    certificate.epoch,
+                    next_avk,
+                    genesis_signature,
+                    mithril_era,
+                ),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(
+                genesis_signature,
+                genesis_signature_snark,
+            ) => genesis_producer.create_genesis_certificate(
                 certificate.metadata.protocol_parameters,
                 certificate.metadata.network,
                 certificate.epoch,
                 next_avk,
-                signature,
+                genesis_signature,
+                genesis_signature_snark,
                 mithril_era,
-            )
-            .unwrap()
+            ),
+            CertificateSignature::MultiSignature(..) => {
+                unreachable!("the genesis signer never produces a multi-signature")
+            }
+        }
+        .unwrap()
     }
 
     fn build_standard_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {

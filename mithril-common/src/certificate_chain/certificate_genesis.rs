@@ -1,16 +1,17 @@
 //! A module used to create a Genesis Certificate
 //!
-use anyhow::anyhow;
 use chrono::prelude::*;
 #[cfg(feature = "future_snark")]
 use slog::warn;
 use slog::{Logger, o};
 
 #[cfg(feature = "future_snark")]
-use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
+use crate::crypto_helper::{GenesisSchnorrSignature, ProtocolAggregateVerificationKeyForSnark};
 use crate::{
     StdResult,
-    crypto_helper::{PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolKey},
+    crypto_helper::{
+        GenesisEd25519Signature, PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolKey,
+    },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters, SupportedEra,
@@ -102,13 +103,62 @@ impl CertificateGenesisProducer {
         Ok(protocol_message)
     }
 
-    /// Assemble a Genesis Certificate from an already-produced [CertificateSignature].
+    /// Assemble a legacy (Pythagoras) Genesis Certificate from an Ed25519 genesis signature.
     ///
     /// Signing is performed upstream by [`GenesisSigner`][crate::crypto_helper::GenesisSigner];
-    /// this only builds the certificate body. Accepts both the single Ed25519 and the dual
-    /// (Ed25519 + Schnorr) genesis signatures, and rejects a multi-signature to preserve the
-    /// genesis-certificate invariant relied upon by chain verification.
+    /// this only builds the certificate body.
+    pub fn create_legacy_genesis_certificate<T: Into<String>>(
+        &self,
+        protocol_parameters: ProtocolParameters,
+        network: T,
+        epoch: Epoch,
+        genesis_avk: ProtocolAggregateVerificationKey,
+        genesis_signature: GenesisEd25519Signature,
+        mithril_era: SupportedEra,
+    ) -> StdResult<Certificate> {
+        self.create_genesis_certificate_internal(
+            protocol_parameters,
+            network,
+            epoch,
+            genesis_avk,
+            CertificateSignature::GenesisSignature(genesis_signature),
+            mithril_era,
+        )
+    }
+
+    /// Assemble a dual (Lagrange) Genesis Certificate from the Ed25519 and Schnorr genesis
+    /// signatures.
+    ///
+    /// Signing is performed upstream by [`GenesisSigner`][crate::crypto_helper::GenesisSigner];
+    /// this only builds the certificate body.
+    #[cfg(feature = "future_snark")]
+    #[allow(clippy::too_many_arguments)]
     pub fn create_genesis_certificate<T: Into<String>>(
+        &self,
+        protocol_parameters: ProtocolParameters,
+        network: T,
+        epoch: Epoch,
+        genesis_avk: ProtocolAggregateVerificationKey,
+        genesis_signature: GenesisEd25519Signature,
+        genesis_signature_snark: GenesisSchnorrSignature,
+        mithril_era: SupportedEra,
+    ) -> StdResult<Certificate> {
+        self.create_genesis_certificate_internal(
+            protocol_parameters,
+            network,
+            epoch,
+            genesis_avk,
+            CertificateSignature::GenesisDualSignature(genesis_signature, genesis_signature_snark),
+            mithril_era,
+        )
+    }
+
+    /// Assemble a Genesis Certificate body around an already-produced genesis signature.
+    ///
+    /// Private so the public entry points ([Self::create_legacy_genesis_certificate],
+    /// [Self::create_genesis_certificate]) own the signature shape, making a multi-signature
+    /// genesis certificate unrepresentable.
+    fn create_genesis_certificate_internal<T: Into<String>>(
         &self,
         protocol_parameters: ProtocolParameters,
         network: T,
@@ -117,11 +167,6 @@ impl CertificateGenesisProducer {
         signature: CertificateSignature,
         mithril_era: SupportedEra,
     ) -> StdResult<Certificate> {
-        if matches!(signature, CertificateSignature::MultiSignature(..)) {
-            return Err(anyhow!(
-                "Can not create a genesis certificate from a multi-signature"
-            ));
-        }
         let metadata = CertificateMetadata::new(
             network,
             PROTOCOL_VERSION.to_string(),
@@ -151,31 +196,11 @@ impl CertificateGenesisProducer {
 mod tests {
     use super::*;
 
-    use crate::entities::{ProtocolMessagePartKey, SignedEntityType};
+    use crate::entities::ProtocolMessagePartKey;
     use crate::test::TestLogger;
     use crate::test::builder::MithrilFixtureBuilder;
+    #[cfg(feature = "future_snark")]
     use crate::test::double::fake_keys;
-
-    #[test]
-    fn create_genesis_certificate_rejects_a_multi_signature() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
-        let multi_signature = CertificateSignature::MultiSignature(
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            fake_keys::multi_signature()[0].try_into().unwrap(),
-        );
-
-        producer
-            .create_genesis_certificate(
-                fixture.protocol_parameters(),
-                "testnet",
-                Epoch(1),
-                fixture.compute_aggregate_verification_key(),
-                multi_signature,
-                SupportedEra::Pythagoras,
-            )
-            .expect_err("a multi-signature must be rejected as a genesis signature");
-    }
 
     #[test]
     fn genesis_protocol_message_has_expected_keys_and_values() {
@@ -269,7 +294,7 @@ mod tests {
                 .unwrap();
 
             let certificate = producer
-                .create_genesis_certificate(
+                .create_genesis_certificate_internal(
                     fixture.protocol_parameters(),
                     "testnet",
                     Epoch(1),
@@ -333,7 +358,7 @@ mod tests {
                 .unwrap();
 
             let certificate = producer
-                .create_genesis_certificate(
+                .create_genesis_certificate_internal(
                     fixture.protocol_parameters(),
                     "testnet",
                     Epoch(1),

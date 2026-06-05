@@ -171,14 +171,13 @@ impl GenesisTools {
         let signed_payload_buffer = std::fs::read(signed_payload_path)?;
         let envelope = GenesisSignedPayload::try_from_bytes(&signed_payload_buffer)?;
         let genesis_producer = CertificateGenesisProducer::new().with_logger(self.logger.clone());
-        let signature =
-            CertificateSignature::GenesisDualSignature(envelope.ed25519, envelope.schnorr);
         let certificate = genesis_producer.create_genesis_certificate(
             self.configuration.genesis_protocol_parameters.clone(),
             self.configuration.network,
             self.configuration.epoch,
             self.configuration.genesis_avk.clone(),
-            signature,
+            envelope.ed25519,
+            envelope.schnorr,
             SupportedEra::Lagrange,
         )?;
         self.certificate_verifier
@@ -228,14 +227,33 @@ impl GenesisTools {
         )?;
         let signature = genesis_signer
             .sign_non_deterministic(&genesis_protocol_message, self.configuration.mithril_era)?;
-        let genesis_certificate = genesis_producer.create_genesis_certificate(
-            self.configuration.genesis_protocol_parameters.clone(),
-            self.configuration.network,
-            self.configuration.epoch,
-            self.configuration.genesis_avk.clone(),
-            signature,
-            self.configuration.mithril_era,
-        )?;
+        let genesis_certificate = match signature {
+            CertificateSignature::GenesisSignature(genesis_signature) => genesis_producer
+                .create_legacy_genesis_certificate(
+                    self.configuration.genesis_protocol_parameters.clone(),
+                    self.configuration.network,
+                    self.configuration.epoch,
+                    self.configuration.genesis_avk.clone(),
+                    genesis_signature,
+                    self.configuration.mithril_era,
+                )?,
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(
+                genesis_signature,
+                genesis_signature_snark,
+            ) => genesis_producer.create_genesis_certificate(
+                self.configuration.genesis_protocol_parameters.clone(),
+                self.configuration.network,
+                self.configuration.epoch,
+                self.configuration.genesis_avk.clone(),
+                genesis_signature,
+                genesis_signature_snark,
+                self.configuration.mithril_era,
+            )?,
+            CertificateSignature::MultiSignature(..) => {
+                unreachable!("the genesis signer never produces a multi-signature")
+            }
+        };
         #[cfg(not(feature = "future_snark"))]
         let genesis_verifier = GenesisVerifier::from_ed25519(ed25519_verification_key);
         #[cfg(feature = "future_snark")]
@@ -310,12 +328,12 @@ impl GenesisTools {
         genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
         let genesis_producer = CertificateGenesisProducer::new().with_logger(self.logger.clone());
-        let genesis_certificate = genesis_producer.create_genesis_certificate(
+        let genesis_certificate = genesis_producer.create_legacy_genesis_certificate(
             self.configuration.genesis_protocol_parameters.clone(),
             self.configuration.network,
             self.configuration.epoch,
             self.configuration.genesis_avk.clone(),
-            CertificateSignature::GenesisSignature(genesis_signature),
+            genesis_signature,
             self.configuration.mithril_era,
         )?;
         self.certificate_verifier

@@ -21,9 +21,9 @@ use crate::{
         ProtocolSignerVerificationKeySignatureForConcatenation, ProtocolStakeDistribution,
     },
     entities::{
-        Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
-        Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution, StakeDistributionParty,
-        SupportedEra,
+        Certificate, CertificateSignature, Epoch, HexEncodedAggregateVerificationKey, PartyId,
+        ProtocolParameters, Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution,
+        StakeDistributionParty, SupportedEra,
     },
     protocol::{SignerBuilder, ToMessage},
     test::crypto_helper::ProtocolInitializerTestExtension,
@@ -246,16 +246,34 @@ impl MithrilFixture {
             .sign_deterministic(&genesis_protocol_message, mithril_era)
             .unwrap();
 
-        genesis_producer
-            .create_genesis_certificate(
+        match signature {
+            CertificateSignature::GenesisSignature(genesis_signature) => genesis_producer
+                .create_legacy_genesis_certificate(
+                    self.protocol_parameters.clone(),
+                    network,
+                    epoch,
+                    genesis_avk,
+                    genesis_signature,
+                    mithril_era,
+                ),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(
+                genesis_signature,
+                genesis_signature_snark,
+            ) => genesis_producer.create_genesis_certificate(
                 self.protocol_parameters.clone(),
                 network,
                 epoch,
                 genesis_avk,
-                signature,
+                genesis_signature,
+                genesis_signature_snark,
                 mithril_era,
-            )
-            .unwrap()
+            ),
+            CertificateSignature::MultiSignature(..) => {
+                unreachable!("the genesis signer never produces a multi-signature")
+            }
+        }
+        .unwrap()
     }
 
     /// Make all underlying signers sign the given message, filter the resulting list to remove
