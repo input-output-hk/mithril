@@ -109,6 +109,7 @@ const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] =
 const GENESIS_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("../assets/genesis_step_output.bin");
 const SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/same_epoch_step_output.bin");
+const FIRST_STEP_CERT_ASSET_BYTES: &[u8] = include_bytes!("../assets/first_step_cert.bin");
 
 /// Opens a committed golden asset for buffered reading.
 fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {
@@ -479,10 +480,7 @@ pub(crate) fn store_recursive_step_output_asset(
     Ok(())
 }
 
-// TODO: drop `allow(dead_code)` once the first-step cert generator and embedded loader
-// are wired up.
 /// Loads a first-step certificate asset from the committed binary asset layout.
-#[allow(dead_code)]
 fn load_first_step_cert_asset_from_reader<R: Read>(
     reader: &mut R,
 ) -> StmResult<FirstStepCertAsset> {
@@ -504,8 +502,14 @@ fn load_first_step_cert_asset_from_reader<R: Read>(
     })
 }
 
+/// Loads the embedded first-step certificate asset compiled into the test binary.
+pub(crate) fn load_embedded_first_step_cert_asset() -> StmResult<FirstStepCertAsset> {
+    let mut reader = Cursor::new(FIRST_STEP_CERT_ASSET_BYTES);
+    load_first_step_cert_asset_from_reader(&mut reader)
+        .context("failed to decode embedded first step cert asset")
+}
+
 /// Writes the first-step certificate asset using the committed binary layout.
-#[allow(dead_code)]
 pub(crate) fn store_first_step_cert_asset(
     path: &Path,
     asset: &FirstStepCertAsset,
