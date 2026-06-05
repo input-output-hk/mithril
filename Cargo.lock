@@ -4055,7 +4055,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4262,7 +4262,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.12"
+version = "0.14.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4358,7 +4358,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4653,7 +4653,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.10.30"
+version = "0.10.31"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
