@@ -1,5 +1,3 @@
-#![allow(unused_imports)]
-
 mod cardano_blocks_transactions;
 mod cardano_database;
 mod cardano_stake_distribution;
@@ -21,23 +19,10 @@ use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use slog_scope::{info, warn};
 
-use mithril_common::{
-    StdResult,
-    entities::{BlockHash, Epoch, EpochSpecifier, TransactionHash},
-    messages::{
-        CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
-        CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
-        CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
-        CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
-        CardanoTransactionSnapshotMessage, CertificateMessage, MithrilStakeDistributionListMessage,
-        MithrilStakeDistributionMessage,
-    },
-};
+use mithril_common::{StdResult, entities::Epoch};
 
 use crate::{
-    Aggregator, CardanoBlockCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
-    CardanoTransactionCommand, CardanoTransactionV2Command, Client, ClientCommand, FullNode,
-    MithrilStakeDistributionCommand, NodeVersion, ToolsCommand, UtxoHdCommand, attempt,
+    Aggregator, Client, ClientCommand, FullNode, NodeVersion, ToolsCommand, UtxoHdCommand, attempt,
     toolkit::ScenarioToolkitContext,
     utils::{AttemptResult, file_utils::copy_dir_all},
 };
@@ -52,6 +37,58 @@ async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwes
             }
         }
         Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+    }
+}
+
+/// Wait until the aggregator produces an artifact, returning the latest one
+///
+/// Note: the `artifact_list_url` must start with a `/`
+async fn wait_for_artifact<T: DeserializeOwned>(
+    artifact_name: &str,
+    artifact_list_url: &str,
+    hash_extractor: fn(&T) -> String,
+    _context: &ScenarioToolkitContext,
+    aggregator: &Aggregator,
+) -> StdResult<T> {
+    let url = format!("{}{artifact_list_url}", aggregator.endpoint());
+    info!("Waiting for the aggregator to produce a {artifact_name} artifact"; "aggregator" => &aggregator.name());
+
+    async fn fetch_last_artifact<T: DeserializeOwned>(
+        artifact_name: &str,
+        url: String,
+    ) -> StdResult<Option<T>> {
+        match get_json_response::<Vec<T>>(url).await? {
+            // Artifact lists are sorted from newest to oldest, so the first item is the latest
+            Ok(list) => Ok(list.into_iter().next()),
+            Err(err) => Err(anyhow!("Invalid {artifact_name} artifact body: {err}",)),
+        }
+    }
+
+    match attempt!(30, Duration::from_millis(2000), {
+        fetch_last_artifact(artifact_name, url.clone()).await
+    }) {
+        AttemptResult::Ok(last_artifact) => {
+            info!("Aggregator produced a {artifact_name} artifact"; "hash" => hash_extractor(&last_artifact), "aggregator" => &aggregator.name());
+            Ok(last_artifact)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted waiting for {artifact_name}, no response from `{url}`"
+        )),
+    }
+        .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
+}
+
+fn assert_minimal_epoch<T>(
+    artifact: &T,
+    epoch_extractor: fn(&T) -> Epoch,
+    expected_epoch_min: Epoch,
+) -> StdResult<()> {
+    match epoch_extractor(artifact) {
+        epoch if epoch >= expected_epoch_min => Ok(()),
+        epoch => Err(anyhow!(
+            "Minimum expected artifact epoch not reached: {epoch} < {expected_epoch_min}"
+        )),
     }
 }
 

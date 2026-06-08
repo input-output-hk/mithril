@@ -1,19 +1,18 @@
 use anyhow::{Context, anyhow};
 use slog_scope::{info, warn};
-use std::time::Duration;
 
 use mithril_common::{
     StdResult,
     entities::{BlockHash, Epoch, TransactionHash},
-    messages::{
-        CardanoBlocksTransactionsSnapshotListMessage, CardanoBlocksTransactionsSnapshotMessage,
-    },
+    messages::CardanoBlocksTransactionsSnapshotListItemMessage,
 };
 
 use crate::{
-    Aggregator, CardanoBlockCommand, CardanoTransactionV2Command, Client, ClientCommand, attempt,
-    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext, check::get_json_response},
-    utils::AttemptResult,
+    Aggregator, CardanoBlockCommand, CardanoTransactionV2Command, Client, ClientCommand,
+    toolkit::{
+        CheckCertificateToolkit, ScenarioToolkitContext,
+        check::{assert_minimal_epoch, wait_for_artifact},
+    },
 };
 
 #[derive(Debug, Clone, Default)]
@@ -37,114 +36,41 @@ impl CheckCardanoBlocksTransactionsToolkit {
     ) -> StdResult<()> {
         let certificate_toolkit = CheckCertificateToolkit::new(self.context.clone());
 
-        let hash = self.wait_for_artifact(aggregator).await?;
-        let certificate_hash = self
-            .signer_is_signing_cardano_blocks_transactions(aggregator, &hash, expected_epoch_min)
-            .await?;
-
+        let artifact = self.wait_for_artifact(aggregator).await?;
+        self.check_artifact(&artifact, expected_epoch_min)?;
         certificate_toolkit
             .is_creating_certificate_with_enough_signers(
                 aggregator,
-                &certificate_hash,
+                &artifact.certificate_hash,
                 total_signers_expected,
             )
             .await?;
-
         self.verify_transactions_with_client(client, tx_hashes).await?;
-
         self.verify_blocks_with_client(client, block_hashes).await?;
 
         Ok(())
     }
 
-    pub async fn wait_for_artifact(&self, aggregator: &Aggregator) -> StdResult<String> {
-        let url = format!(
-            "{}/artifact/cardano-blocks-transactions",
-            aggregator.endpoint()
-        );
-        info!("Waiting for the aggregator to produce a Cardano blocks transactions artifact"; "aggregator" => &aggregator.name());
-
-        async fn fetch_last_cardano_blocks_transactions_snapshot_hash(
-            url: String,
-        ) -> StdResult<Option<String>> {
-            match get_json_response::<CardanoBlocksTransactionsSnapshotListMessage>(url)
-                .await?
-                .as_deref()
-            {
-                Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
-                Ok(&[]) => Ok(None),
-                Err(err) => Err(anyhow!(
-                    "Invalid Cardano blocks transactions artifact body: {err}",
-                )),
-            }
-        }
-
-        match attempt!(30, Duration::from_millis(2000), {
-        fetch_last_cardano_blocks_transactions_snapshot_hash(url.clone()).await
-    }) {
-            AttemptResult::Ok(hash) => {
-                info!("Aggregator produced a Cardano blocks transactions artifact"; "hash" => &hash, "aggregator" => &aggregator.name());
-                Ok(hash)
-            }
-            AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
-            "Timeout exhausted assert_node_producing_cardano_blocks_transactions, no response from `{url}`"
-        )),
-        }
-            .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
-    }
-
-    pub async fn signer_is_signing_cardano_blocks_transactions(
+    pub async fn wait_for_artifact(
         &self,
         aggregator: &Aggregator,
-        hash: &str,
+    ) -> StdResult<CardanoBlocksTransactionsSnapshotListItemMessage> {
+        wait_for_artifact::<CardanoBlocksTransactionsSnapshotListItemMessage>(
+            "Cardano blocks transactions",
+            "/artifact/cardano-blocks-transactions",
+            |a| a.hash.clone(),
+            &self.context,
+            aggregator,
+        )
+        .await
+    }
+
+    pub fn check_artifact(
+        &self,
+        artifact: &CardanoBlocksTransactionsSnapshotListItemMessage,
         expected_epoch_min: Epoch,
-    ) -> StdResult<String> {
-        let url = format!(
-            "{}/artifact/cardano-blocks-transactions/{hash}",
-            aggregator.endpoint()
-        );
-        info!(
-            "Asserting the aggregator is signing the Cardano blocks transactions artifact `{}` with an expected min epoch of `{}`",
-            hash,
-            expected_epoch_min;
-            "aggregator" => &aggregator.name()
-        );
-
-        async fn fetch_cardano_blocks_transactions_snapshot_message(
-            url: String,
-            expected_epoch_min: Epoch,
-        ) -> StdResult<Option<CardanoBlocksTransactionsSnapshotMessage>> {
-            match get_json_response::<CardanoBlocksTransactionsSnapshotMessage>(url).await? {
-                Ok(artifact) => match artifact.epoch {
-                    epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
-                    epoch => Err(anyhow!(
-                        "Minimum expected artifact epoch not reached: {epoch} < {expected_epoch_min}"
-                    )),
-                },
-                Err(err) => {
-                    Err(anyhow!(err).context("Invalid Cardano blocks transactions artifact body"))
-                }
-            }
-        }
-
-        match attempt!(10, Duration::from_millis(1000), {
-        fetch_cardano_blocks_transactions_snapshot_message(url.clone(), expected_epoch_min).await
-    }) {
-            AttemptResult::Ok(artifact) => {
-                info!("Signer signed a Cardano blocks transactions artifact"; "certificate_hash" => &artifact.certificate_hash, "aggregator" => &aggregator.name());
-                Ok(artifact.certificate_hash)
-            }
-            AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
-            "Timeout exhausted assert_signer_is_signing_cardano_blocks_transactions, no response from `{url}`"
-        )),
-        }.with_context(|| {
-            format!(
-                "Requesting aggregator `{}`",
-                aggregator.name()
-            )
-        })
+    ) -> StdResult<()> {
+        assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
     }
 
     pub async fn verify_transactions_with_client(
