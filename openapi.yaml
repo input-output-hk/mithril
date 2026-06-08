@@ -1761,6 +1761,18 @@ components:
             remain compatible with the pre-Lagrange wire format.
           type: string
           format: bytes
+        ancillary_prover_data:
+          description: |
+            Hex-encoded ancillary data used by the prover to produce the next certificate. Omitted
+            when absent. Its shape depends on the aggregate signature type.
+          type: string
+          format: bytes
+        ancillary_verifier_data:
+          description: |
+            Hex-encoded ancillary data used to verify the certificate. Omitted when absent. Its
+            shape depends on the aggregate signature type.
+          type: string
+          format: bytes
         multi_signature:
           description: STM multi signature created from a quorum of single signatures from the signers
           type: string
