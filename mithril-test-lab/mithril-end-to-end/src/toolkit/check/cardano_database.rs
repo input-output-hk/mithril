@@ -10,12 +10,11 @@ use mithril_common::{
 
 use crate::{
     Aggregator, CardanoDbV2Command, Client, ClientCommand, attempt,
-    toolkit::{
-        CheckCertificateToolkit, ScenarioToolkitContext,
-        check::{assert_minimal_epoch, get_json_response, wait_for_artifact},
-    },
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
     utils::AttemptResult,
 };
+
+use super::utils;
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckCardanoDatabaseToolkit {
@@ -55,7 +54,7 @@ impl CheckCardanoDatabaseToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoDatabaseSnapshotListItemMessage> {
-        wait_for_artifact::<CardanoDatabaseSnapshotListItemMessage>(
+        utils::wait_for_artifact::<CardanoDatabaseSnapshotListItemMessage>(
             "Cardano database snapshot",
             "/artifact/cardano-database",
             |a| a.hash.clone(),
@@ -70,7 +69,7 @@ impl CheckCardanoDatabaseToolkit {
         artifact: &CardanoDatabaseSnapshotListItemMessage,
         expected_epoch_min: Epoch,
     ) -> StdResult<()> {
-        assert_minimal_epoch(artifact, |a| a.beacon.epoch, expected_epoch_min)
+        utils::assert_minimal_epoch(artifact, |a| a.beacon.epoch, expected_epoch_min)
     }
 
     pub async fn node_producing_cardano_database_digests_map(
@@ -86,7 +85,7 @@ impl CheckCardanoDatabaseToolkit {
         async fn fetch_cardano_database_digests_map(
             url: String,
         ) -> StdResult<Option<Vec<(String, String)>>> {
-            match get_json_response::<CardanoDatabaseDigestListMessage>(url)
+            match utils::get_json_response::<CardanoDatabaseDigestListMessage>(url)
                 .await?
                 .as_deref()
             {

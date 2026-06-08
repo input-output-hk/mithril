@@ -6,11 +6,10 @@ use mithril_common::{
 
 use crate::{
     Aggregator, CardanoStakeDistributionCommand, Client, ClientCommand,
-    toolkit::{
-        CheckCertificateToolkit, ScenarioToolkitContext,
-        check::{assert_minimal_epoch, wait_for_artifact},
-    },
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
 };
+
+use super::utils;
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckCardanoStakeDistributionToolkit {
@@ -50,7 +49,7 @@ impl CheckCardanoStakeDistributionToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoStakeDistributionListItemMessage> {
-        wait_for_artifact::<CardanoStakeDistributionListItemMessage>(
+        utils::wait_for_artifact::<CardanoStakeDistributionListItemMessage>(
             "Cardano stake distribution",
             "/artifact/cardano-stake-distributions",
             |a| a.hash.clone(),
@@ -65,7 +64,7 @@ impl CheckCardanoStakeDistributionToolkit {
         artifact: &CardanoStakeDistributionListItemMessage,
         expected_epoch_min: Epoch,
     ) -> StdResult<()> {
-        assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
+        utils::assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
     }
 
     pub async fn verify_with_client(

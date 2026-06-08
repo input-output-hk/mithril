@@ -6,11 +6,10 @@ use mithril_common::{
 
 use crate::{
     Aggregator, Client, ClientCommand, MithrilStakeDistributionCommand,
-    toolkit::{
-        CheckCertificateToolkit, ScenarioToolkitContext,
-        check::{assert_minimal_epoch, wait_for_artifact},
-    },
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
 };
+
+use super::utils;
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckMithrilStakeDistributionToolkit {
@@ -49,7 +48,7 @@ impl CheckMithrilStakeDistributionToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<MithrilStakeDistributionListItemMessage> {
-        wait_for_artifact::<MithrilStakeDistributionListItemMessage>(
+        utils::wait_for_artifact::<MithrilStakeDistributionListItemMessage>(
             "Mithril stake distribution",
             "/artifact/mithril-stake-distributions",
             |a| a.hash.clone(),
@@ -64,7 +63,7 @@ impl CheckMithrilStakeDistributionToolkit {
         artifact: &MithrilStakeDistributionListItemMessage,
         expected_epoch_min: Epoch,
     ) -> StdResult<()> {
-        assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
+        utils::assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
     }
 
     pub async fn verify_with_client(&self, client: &mut Client, hash: &str) -> StdResult<()> {

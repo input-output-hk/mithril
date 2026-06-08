@@ -4,11 +4,9 @@ use std::time::Duration;
 
 use mithril_common::{StdResult, messages::CertificateMessage};
 
-use crate::{
-    Aggregator, attempt,
-    toolkit::{ScenarioToolkitContext, check::get_json_response},
-    utils::AttemptResult,
-};
+use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
+
+use super::utils;
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckCertificateToolkit {
@@ -30,7 +28,7 @@ impl CheckCertificateToolkit {
         info!("Waiting for the aggregator to create a certificate with enough signers"; "aggregator" => &aggregator.name());
 
         async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
-            match get_json_response::<CertificateMessage>(url).await? {
+            match utils::get_json_response::<CertificateMessage>(url).await? {
                 Ok(certificate) => Ok(Some(certificate)),
                 Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
             }

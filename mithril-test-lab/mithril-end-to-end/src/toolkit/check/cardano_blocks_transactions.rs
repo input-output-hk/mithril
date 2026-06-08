@@ -9,11 +9,10 @@ use mithril_common::{
 
 use crate::{
     Aggregator, CardanoBlockCommand, CardanoTransactionV2Command, Client, ClientCommand,
-    toolkit::{
-        CheckCertificateToolkit, ScenarioToolkitContext,
-        check::{assert_minimal_epoch, wait_for_artifact},
-    },
+    toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
 };
+
+use super::utils;
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckCardanoBlocksTransactionsToolkit {
@@ -55,7 +54,7 @@ impl CheckCardanoBlocksTransactionsToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoBlocksTransactionsSnapshotListItemMessage> {
-        wait_for_artifact::<CardanoBlocksTransactionsSnapshotListItemMessage>(
+        utils::wait_for_artifact::<CardanoBlocksTransactionsSnapshotListItemMessage>(
             "Cardano blocks transactions",
             "/artifact/cardano-blocks-transactions",
             |a| a.hash.clone(),
@@ -70,7 +69,7 @@ impl CheckCardanoBlocksTransactionsToolkit {
         artifact: &CardanoBlocksTransactionsSnapshotListItemMessage,
         expected_epoch_min: Epoch,
     ) -> StdResult<()> {
-        assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
+        utils::assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
     }
 
     pub async fn verify_transactions_with_client(
