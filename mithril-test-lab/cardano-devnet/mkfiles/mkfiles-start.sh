@@ -152,7 +152,7 @@ echo ">> Stop Cardano network"
 killall cardano-node
 
 echo ">> Stop DMQ network"
-killall dmq-node
+killall -q dmq-node || true
 
 EOF
 chmod u+x stop.sh
