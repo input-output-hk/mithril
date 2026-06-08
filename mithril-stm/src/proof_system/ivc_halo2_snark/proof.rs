@@ -7,7 +7,7 @@ use midnight_circuits::{
     types::Instantiable,
     verifier::{Accumulator, AssignedAccumulator, BlstrsEmulation},
 };
-use midnight_curves::{Bls12, G1Projective, G2Affine};
+use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{
     plonk::prepare,
     poly::kzg::KZGCommitmentScheme,
@@ -25,7 +25,7 @@ use crate::{
             types::IvcProofBytes,
         },
     },
-    proof_system::ivc_halo2_snark::setup::IvcSetup,
+    proof_system::ivc_halo2_snark::{setup::IvcSetup, verifier_setup::IvcVerifierSetup},
 };
 
 /// Per-session IVC prover handle.
@@ -59,7 +59,11 @@ impl IvcProof {
     /// each proving step. It checks:
     /// 1. The Blake2b KZG opening equations against the IVC verifying key.
     /// 2. The folded accumulator pairing equation.
-    pub(crate) fn verify_blake2b(&self, global: &Global, ivc_setup: &IvcSetup) -> StmResult<()> {
+    pub(crate) fn verify_blake2b(
+        &self,
+        global: &Global,
+        verifier_setup: &IvcVerifierSetup,
+    ) -> StmResult<()> {
         let public_inputs: Vec<CircuitBase> = [
             global.as_public_input(),
             self.state.as_public_input(),
@@ -75,7 +79,7 @@ impl IvcProof {
             KZGCommitmentScheme<Bls12>,
             CircuitTranscript<blake2b_simd::State>,
         >(
-            &ivc_setup.ivc_verifying_key,
+            &verifier_setup.ivc_verifying_key,
             &[&[G1Projective::identity()]],
             &[&[&public_inputs]],
             &mut transcript,
@@ -86,12 +90,11 @@ impl IvcProof {
             .assert_empty()
             .map_err(|_| IvcCircuitError::RecursiveProofTranscriptNotFullyConsumed)?;
 
-        if !dual_msm.check(&ivc_setup.srs_verifier_params) {
+        if !dual_msm.check(&verifier_setup.verifier_params) {
             return Err(IvcCircuitError::RecursiveProofKzgOpeningFailed.into());
         }
 
-        let tau_g2: G2Affine = ivc_setup.srs_verifier_params.s_g2().into();
-        if !self.accumulator.check(&tau_g2, &ivc_setup.combined_fixed_bases) {
+        if !self.accumulator.check(&verifier_setup.tau_g2, &verifier_setup.combined_fixed_bases) {
             return Err(IvcCircuitError::RecursiveProofAccumulatorFailed.into());
         }
 

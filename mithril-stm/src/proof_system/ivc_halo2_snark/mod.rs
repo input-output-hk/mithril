@@ -6,11 +6,12 @@ use midnight_proofs::{
 
 use crate::circuits::halo2::types::CircuitBase;
 
-mod proof;
+pub(crate) mod proof;
 mod prover_input;
 mod rolling_state;
 mod setup;
 mod unsafe_setup_helpers;
+pub(crate) mod verifier_setup;
 
 /// PLONK verifying key used across the IVC setup
 /// (certificate and recursive circuits share the same field/curve parameterization).

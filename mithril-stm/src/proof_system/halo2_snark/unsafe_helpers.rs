@@ -103,30 +103,11 @@ pub(crate) struct SnarkVerifierSetup {
     pub(crate) verifier_params: ParamsVerifierKZG<Bls12>,
 }
 
-/// Serialized `s_g2` (the only material the KZG verifier needs) extracted from the Midnight
-/// production trusted SRS.
-///
-/// Regenerate by running the `verifier_setup_matches_trusted_srs` test with a print statement,
-/// or by extracting `srs.verifier_params()` from `TrustedSetupProvider` and serializing with
-/// `SerdeFormat::RawBytesUnchecked`.
-const SNARK_VERIFIER_PARAMS_BYTES: [u8; 192] = [
-    4, 187, 225, 162, 79, 204, 79, 152, 140, 110, 242, 104, 208, 193, 22, 14, 172, 10, 12, 79, 83,
-    216, 11, 215, 79, 61, 46, 70, 103, 190, 39, 64, 134, 37, 168, 56, 37, 53, 78, 39, 199, 8, 89,
-    136, 49, 2, 235, 67, 7, 172, 181, 105, 179, 24, 124, 15, 209, 153, 57, 128, 170, 82, 166, 233,
-    226, 8, 11, 150, 151, 250, 185, 106, 189, 92, 95, 28, 59, 152, 130, 86, 242, 217, 147, 102,
-    241, 187, 204, 241, 60, 240, 226, 7, 2, 254, 225, 140, 15, 8, 23, 150, 4, 171, 232, 193, 130,
-    11, 190, 209, 17, 39, 64, 141, 203, 80, 114, 173, 202, 184, 87, 116, 163, 45, 81, 139, 104, 35,
-    80, 176, 106, 34, 168, 123, 241, 120, 135, 115, 42, 10, 244, 93, 223, 204, 191, 248, 16, 225,
-    178, 33, 226, 165, 145, 29, 111, 150, 131, 163, 111, 78, 127, 231, 212, 66, 129, 222, 134, 161,
-    134, 204, 16, 108, 51, 54, 245, 143, 236, 224, 30, 118, 109, 196, 20, 125, 56, 227, 25, 54, 16,
-    90, 73, 68, 203, 89,
-];
-
 impl SnarkVerifierSetup {
     /// Build the verifier setup from the embedded constant verifier params bytes.
     pub(crate) fn try_new() -> StmResult<Self> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
-            &mut &SNARK_VERIFIER_PARAMS_BYTES[..],
+            &mut &crate::proof_system::KZG_VERIFIER_PARAMS[..],
             SerdeFormat::RawBytesUnchecked,
         )
         .with_context(|| "Failed to read embedded SNARK verifier params bytes")?;
