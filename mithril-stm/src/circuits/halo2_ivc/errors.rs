@@ -8,6 +8,22 @@ pub enum IvcCircuitError {
     #[error("Certificate proof verification rejected")]
     CertificateProofRejected,
 
+    /// Blake2b transcript could not be prepared for KZG opening verification.
+    #[error("Recursive IVC proof rejected: Blake2b transcript preparation failed")]
+    RecursiveProofTranscriptPreparationFailed,
+
+    /// Blake2b transcript contained unexpected trailing bytes after preparation.
+    #[error("Recursive IVC proof rejected: Blake2b transcript was not fully consumed")]
+    RecursiveProofTranscriptNotFullyConsumed,
+
+    /// KZG opening equations (dual MSM check) did not verify.
+    #[error("Recursive IVC proof rejected: KZG opening check failed")]
+    RecursiveProofKzgOpeningFailed,
+
+    /// Folded accumulator pairing equation did not verify.
+    #[error("Recursive IVC proof rejected: accumulator pairing check failed")]
+    RecursiveProofAccumulatorFailed,
+
     /// IVC verification key degree does not match the IVC circuit degree constant K.
     #[error(
         "IvcCircuitData::validate_ivc_verification_key_degree failed: expected k={expected}, got k={actual}"
