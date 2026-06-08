@@ -50,7 +50,7 @@ impl IvcProverInput {
         let dual_msm = snark_proof.prepare_and_check(
             message,
             aggregate_verification_key_for_snark,
-            &setup.srs.verifier_params(),
+            &setup.srs_verifier_params,
         )?;
 
         let chain_epoch = rolling_state.state().current_epoch.as_field();
@@ -72,6 +72,24 @@ impl IvcProverInput {
                 chain_epoch: rolling_state.state().current_epoch.as_u64(),
             }
             .into());
+        }
+
+        // Within an epoch, every cert's preimage must announce the same next-epoch
+        // lookahead as the chain's previous state. The cert circuit doesn't enforce this
+        // across certs (it's a chain-level invariant), so we check it here.
+        if is_same_epoch && !is_genesis {
+            let chain_next_merkle_tree_commitment =
+                rolling_state.state().next_merkle_tree_commitment.as_field();
+            let chain_next_protocol_parameters =
+                rolling_state.state().next_protocol_parameters.as_field();
+            if epoch_data.next_merkle_tree_commitment().0 != chain_next_merkle_tree_commitment
+                || epoch_data.next_protocol_parameters().0 != chain_next_protocol_parameters
+            {
+                return Err(IvcCircuitError::SameEpochLookaheadMismatch {
+                    chain_epoch: rolling_state.state().current_epoch.as_u64(),
+                }
+                .into());
+            }
         }
 
         // Build the SNARK message and extract the certificate message and Merkle tree commitment.

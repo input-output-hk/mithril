@@ -44,6 +44,15 @@ pub enum IvcCircuitError {
     /// Off-circuit step transition: the chain's step counter would overflow u64.
     #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
     StepCounterOverflow { current: u64 },
+
+    /// Off-circuit step transition: a same-epoch certificate's preimage announces a
+    /// next-epoch lookahead that disagrees with the chain's previous state. All certs
+    /// in the same epoch must encode the same next-epoch fields.
+    #[error(
+        "IvcProverInput::prepare: same-epoch cert at chain epoch {chain_epoch} announces \
+         a next-epoch lookahead that does not match the chain state"
+    )]
+    SameEpochLookaheadMismatch { chain_epoch: u64 },
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.
