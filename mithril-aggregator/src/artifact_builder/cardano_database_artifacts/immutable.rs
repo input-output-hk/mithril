@@ -282,6 +282,7 @@ mod tests {
         entities::TemplateUri,
         test::{TempDir, assert_equivalent, equivalent_to},
     };
+    use semver::Version;
 
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
@@ -289,6 +290,8 @@ mod tests {
     use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
+
+    const DUMMY_CARDANO_NODE_VERSION: Version = Version::new(1, 2, 3);
 
     fn fake_uploader(
         archive_paths: Vec<&str>,
@@ -353,6 +356,7 @@ mod tests {
 
         let db_directory = cardano_db.get_dir().to_path_buf();
         let snapshotter = CompressedArchiveSnapshotter::new(
+            DUMMY_CARDANO_NODE_VERSION,
             db_directory.clone(),
             db_directory.parent().unwrap().join("snapshot_dest"),
             CompressionAlgorithm::Gzip,
@@ -446,6 +450,7 @@ mod tests {
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
@@ -492,6 +497,7 @@ mod tests {
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
@@ -526,6 +532,7 @@ mod tests {
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
@@ -558,6 +565,7 @@ mod tests {
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
@@ -614,6 +622,7 @@ mod tests {
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,

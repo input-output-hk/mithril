@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use semver::Version;
 use slog::{Logger, debug, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,8 +21,13 @@ use crate::tools::file_size;
 
 use super::{Snapshotter, ancillary_signer::AncillarySigner};
 
+const CARDANO_NODE_VERSION_WITH_UTXO_HD_SUPPORT: Version = Version::new(10, 4, 1);
+
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
+    /// Cardano node version to adapt the snapshot content if needed
+    cardano_node_version: Version,
+
     /// DB directory to snapshot
     db_directory: PathBuf,
 
@@ -125,6 +131,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
 impl CompressedArchiveSnapshotter {
     /// Snapshotter factory
     pub fn new(
+        cardano_node_version: Version,
         db_directory: PathBuf,
         ongoing_snapshot_directory: PathBuf,
         compression_algorithm: CompressionAlgorithm,
@@ -152,6 +159,7 @@ impl CompressedArchiveSnapshotter {
         })?;
 
         Ok(Self {
+            cardano_node_version,
             db_directory,
             ongoing_snapshot_directory,
             compression_algorithm,
@@ -232,10 +240,17 @@ impl CompressedArchiveSnapshotter {
 
         let db_ledger_dir = self.db_directory.join(LEDGER_DIR);
         let ledger_files = LedgerStateSnapshot::list_all_in_dir(&db_ledger_dir)?;
+
+        let number_of_ledger_to_snapshot =
+            if self.cardano_node_version < CARDANO_NODE_VERSION_WITH_UTXO_HD_SUPPORT {
+                2
+            } else {
+                1
+            };
         let latest_ledger_files: Vec<PathBuf> = ledger_files
             .iter()
             .rev()
-            .take(2)
+            .take(number_of_ledger_to_snapshot)
             .flat_map(|ledger_state_snapshot| ledger_state_snapshot.get_files_relative_path())
             .map(|path| PathBuf::from(LEDGER_DIR).join(path))
             .collect();
@@ -309,6 +324,8 @@ mod tests {
 
     use super::*;
 
+    const DUMMY_CARDANO_NODE_VERSION: Version = Version::new(1, 2, 3);
+
     fn list_files(test_dir: &Path) -> Vec<String> {
         fs::read_dir(test_dir)
             .unwrap()
@@ -322,6 +339,7 @@ mod tests {
         compression_algorithm: CompressionAlgorithm,
     ) -> CompressedArchiveSnapshotter {
         CompressedArchiveSnapshotter::new(
+            DUMMY_CARDANO_NODE_VERSION,
             db_directory.to_path_buf(),
             test_directory.join("ongoing_snapshot"),
             compression_algorithm,
@@ -356,6 +374,7 @@ mod tests {
         let db_directory = test_dir.join("whatever");
 
         CompressedArchiveSnapshotter::new(
+            DUMMY_CARDANO_NODE_VERSION,
             db_directory,
             ongoing_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
@@ -379,6 +398,7 @@ mod tests {
         File::create(ongoing_snapshot_directory.join("whatever.txt")).unwrap();
 
         CompressedArchiveSnapshotter::new(
+            DUMMY_CARDANO_NODE_VERSION,
             db_directory,
             ongoing_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
@@ -401,6 +421,7 @@ mod tests {
             .build();
 
         let snapshotter = CompressedArchiveSnapshotter::new(
+            DUMMY_CARDANO_NODE_VERSION,
             cardano_db.get_dir().clone(),
             pending_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
@@ -592,7 +613,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn create_archive_should_embed_only_two_last_ledgers_and_last_immutables() {
+        async fn create_archive_should_embed_only_two_last_ledgers_and_last_immutables_for_cardano_node_below_10_4_1()
+         {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
@@ -603,6 +625,7 @@ mod tests {
             fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
 
             let snapshotter = CompressedArchiveSnapshotter {
+                cardano_node_version: Version::new(10, 4, 0),
                 ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
                     fake_keys::signable_manifest_signature()[0],
                 )),
@@ -622,6 +645,45 @@ mod tests {
                      ** 00003.secondary
                      * {LEDGER_DIR}/
                      ** 637
+                     ** 737
+                     * {}",
+                    AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME
+                )
+            );
+        }
+
+        #[tokio::test]
+        async fn create_archive_should_embed_only_the_last_ledger_and_last_immutables_for_cardano_node_greater_or_equal_to_10_4_1()
+         {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .with_legacy_ledger_snapshots(&[437, 537, 637, 737])
+                .with_non_ledger_files(&["9not_included"])
+                .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+                .build();
+            fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
+
+            let snapshotter = CompressedArchiveSnapshotter {
+                cardano_node_version: CARDANO_NODE_VERSION_WITH_UTXO_HD_SUPPORT,
+                ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    fake_keys::signable_manifest_signature()[0],
+                )),
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
+            };
+
+            let snapshot = snapshotter.snapshot_ancillary(2, "ancillary").await.unwrap();
+
+            let unpack_dir = snapshot.unpack_gzip(&test_dir);
+            assert_dir_eq!(
+                &unpack_dir,
+                // Only the last ledger files should be included
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00003.chunk
+                     ** 00003.primary
+                     ** 00003.secondary
+                     * {LEDGER_DIR}/
                      ** 737
                      * {}",
                     AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME

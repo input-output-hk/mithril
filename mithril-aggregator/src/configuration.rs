@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use semver::Version;
 use serde::Deserialize;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
@@ -364,6 +365,12 @@ pub trait ConfigurationSource {
         }
 
         Ok(self.snapshot_directory())
+    }
+
+    /// Get the parsed Cardano node version.
+    fn parsed_cardano_node_version(&self) -> StdResult<semver::Version> {
+        Version::parse(&self.cardano_node_version())
+        .with_context(||format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.cardano_node_version()) )
     }
 
     /// Get the safe epoch retention limit.

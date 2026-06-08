@@ -131,6 +131,8 @@ mod tests {
 
     use super::*;
 
+    const DUMMY_CARDANO_NODE_VERSION: Version = Version::new(1, 2, 3);
+
     fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("cardano_database", dir_name)
     }
@@ -195,6 +197,7 @@ mod tests {
 
         let snapshotter = Arc::new(
             CompressedArchiveSnapshotter::new(
+                DUMMY_CARDANO_NODE_VERSION,
                 cardano_db.get_dir().to_path_buf(),
                 test_dir.join("ongoing_snapshots"),
                 CompressionAlgorithm::Gzip,
