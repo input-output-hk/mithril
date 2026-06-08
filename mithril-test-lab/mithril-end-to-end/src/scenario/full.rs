@@ -113,7 +113,7 @@ impl FullScenario {
     ) -> StdResult<()> {
         let leader_aggregator = infrastructure.leader_aggregator();
 
-        self.toolkit.wait.wait_for_enough_immutable(leader_aggregator).await?;
+        self.toolkit.wait.for_enough_immutable(leader_aggregator).await?;
         let chain_observer = leader_aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
@@ -121,7 +121,7 @@ impl FullScenario {
         let mut target_epoch = start_epoch + 4;
         self.toolkit
             .wait
-            .wait_for_aggregator_at_target_epoch(
+            .for_aggregator_at_target_epoch(
                 leader_aggregator,
                 target_epoch,
                 "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
@@ -132,13 +132,13 @@ impl FullScenario {
             .exec
             .bootstrap_genesis_certificate(leader_aggregator)
             .await?;
-        self.toolkit.wait.wait_for_epoch_settings(leader_aggregator).await?;
+        self.toolkit.wait.for_epoch_settings(leader_aggregator).await?;
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
         self.toolkit
             .wait
-            .wait_for_aggregator_at_target_epoch(
+            .for_aggregator_at_target_epoch(
                 leader_aggregator,
                 target_epoch,
                 "epoch after which the stake distribution will change".to_string(),
@@ -167,7 +167,7 @@ impl FullScenario {
         let mut target_epoch = start_epoch + 2;
         self.toolkit
             .wait
-            .wait_for_aggregator_at_target_epoch(
+            .for_aggregator_at_target_epoch(
                 aggregator,
                 target_epoch,
                 "epoch after which the protocol parameters will change".to_string(),
@@ -183,7 +183,7 @@ impl FullScenario {
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
-        self.toolkit.wait.wait_for_aggregator_at_target_epoch(
+        self.toolkit.wait.for_aggregator_at_target_epoch(
             aggregator,
             target_epoch,
             "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
@@ -204,7 +204,7 @@ impl FullScenario {
             target_epoch += 5;
             self.toolkit
                 .wait
-                .wait_for_aggregator_at_target_epoch(
+                .for_aggregator_at_target_epoch(
                     aggregator,
                     target_epoch,
                     "epoch after which the era switch will have triggered".to_string(),
@@ -217,7 +217,7 @@ impl FullScenario {
                 target_epoch += 5;
                 self.toolkit
                     .wait
-                    .wait_for_aggregator_at_target_epoch(
+                    .for_aggregator_at_target_epoch(
                         aggregator,
                         target_epoch,
                         "epoch after which the re-genesis on era switch will be completed"

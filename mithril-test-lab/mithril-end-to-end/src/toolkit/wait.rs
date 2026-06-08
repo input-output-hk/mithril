@@ -17,7 +17,7 @@ impl WaitToolkit {
         Self { context }
     }
 
-    pub async fn wait_for_enough_immutable(&self, aggregator: &Aggregator) -> StdResult<()> {
+    pub async fn for_enough_immutable(&self, aggregator: &Aggregator) -> StdResult<()> {
         info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());
 
         let db_directory = aggregator.db_directory();
@@ -44,7 +44,7 @@ impl WaitToolkit {
         }
     }
 
-    pub async fn wait_for_epoch_settings(
+    pub async fn for_epoch_settings(
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<EpochSettingsMessage> {
@@ -80,7 +80,7 @@ impl WaitToolkit {
         }
     }
 
-    pub async fn wait_for_aggregator_at_target_epoch(
+    pub async fn for_aggregator_at_target_epoch(
         &self,
         aggregator: &Aggregator,
         target_epoch: Epoch,
