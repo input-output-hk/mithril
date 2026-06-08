@@ -582,6 +582,7 @@ Here is a list of the available parameters for the serve command:
 | -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------ | ------------- | ---------------------------------- | :----------------: |
 | `signed_payload_path`      | `--signed-payload-path`      |          -           | -                          | Path of the payload to import.                                     | -             | -                                  | :heavy_check_mark: |
 | `genesis_verification_key` | `--genesis-verification-key` |          -           | -                          | Genesis verification key                                           | -             | -                                  | :heavy_check_mark: |
+| `mithril_era`              | `--mithril-era`              |          -           | -                          | Mithril era to use for the genesis certificate                     | -             | -                                  |         -          |
 | `data_stores_directory`    | -                            |          -           | `DATA_STORES_DIRECTORY`    | Directory to store aggregator databases                            | -             | `./mithril-aggregator/stores`      | :heavy_check_mark: |
 | `cardano_node_socket_path` | -                            |          -           | `CARDANO_NODE_SOCKET_PATH` | Path of the socket opened by the Cardano node                      | -             | `/ipc/node.socket`                 | :heavy_check_mark: |
 | `cardano_cli_path`         | -                            |          -           | `CARDANO_CLI_PATH`         | Cardano CLI tool path                                              | -             | `cardano-cli`                      |         -          |
@@ -591,11 +592,12 @@ Here is a list of the available parameters for the serve command:
 
 `genesis sign` command:
 
-| Parameter                    | Command line (long)            | Command line (short) | Environment variable | Description                           | Default value | Example | Mandatory |
-| ---------------------------- | ------------------------------ | :------------------: | -------------------- | ------------------------------------- | ------------- | ------- | :-------: |
-| `to_sign_payload_path`       | `--to-sign-payload-path`       |          -           | -                    | Path of the payload to sign.          | -             | -       |     -     |
-| `target_signed_payload_path` | `--target-signed-payload-path` |          -           | -                    | Path of the signed payload to export. | -             | -       |     -     |
-| `genesis_secret_key_path`    | `--genesis-secret-key-path`    |          -           | -                    | Path of the genesis secret key.       | -             | -       |     -     |
+| Parameter                    | Command line (long)            | Command line (short) | Environment variable | Description                                    | Default value | Example | Mandatory |
+| ---------------------------- | ------------------------------ | :------------------: | -------------------- | ---------------------------------------------- | ------------- | ------- | :-------: |
+| `to_sign_payload_path`       | `--to-sign-payload-path`       |          -           | -                    | Path of the payload to sign.                   | -             | -       |     -     |
+| `target_signed_payload_path` | `--target-signed-payload-path` |          -           | -                    | Path of the signed payload to export.          | -             | -       |     -     |
+| `genesis_secret_key_path`    | `--genesis-secret-key-path`    |          -           | -                    | Path of the genesis secret key.                | -             | -       |     -     |
+| `mithril_era`                | `--mithril-era`                |          -           | -                    | Mithril era to use for the genesis certificate | -             | -       |     -     |
 
 `genesis generate-keypair` command:
 
