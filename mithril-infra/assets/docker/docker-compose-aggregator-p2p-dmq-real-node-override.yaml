@@ -18,6 +18,7 @@ services:
       - ../data/${NETWORK}/mithril-aggregator/dmq/config:/config
       - ../data/${NETWORK}/mithril-aggregator/dmq/ipc:/ipc
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc-cardano
+      - ../data/${NETWORK}/mithril-aggregator/cardano/config/${NETWORK}:/config-cardano:ro
     ports:
       - "${AGGREGATOR_DMQ_PORT}:${AGGREGATOR_DMQ_PORT}"
     logging:
