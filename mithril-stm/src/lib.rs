@@ -147,9 +147,9 @@ mod signature_scheme;
 pub use proof_system::AggregateVerificationKeyForConcatenation;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
-    AggregationError, Clerk, ClosedKeyRegistration, ClosedRegistrationEntry, Initializer,
-    KeyRegistration, Parameters, RegisterError, RegistrationEntry,
-    RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
+    AggregationError, AncillaryProverData, AncillaryVerifierData, Clerk, ClosedKeyRegistration,
+    ClosedRegistrationEntry, Initializer, KeyRegistration, Parameters, RegisterError,
+    RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
     SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };

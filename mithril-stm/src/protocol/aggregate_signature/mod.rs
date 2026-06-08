@@ -1,9 +1,11 @@
 mod aggregate_key;
+mod ancillary_data;
 mod clerk;
 mod error;
 mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
+pub use ancillary_data::{AncillaryProverData, AncillaryVerifierData};
 pub use clerk::Clerk;
 pub use error::{AggregateSignatureError, AggregationError};
 pub use signature::{AggregateSignature, AggregateSignatureType};
