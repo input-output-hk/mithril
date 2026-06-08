@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use mithril_common::certificate_chain::{CertificateVerifier, MithrilCertificateVerifier};
 use mithril_common::crypto_helper::{
-    ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
+    GenesisEd25519Signer, GenesisEd25519VerificationKey, GenesisEd25519Verifier,
 };
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
@@ -136,10 +136,10 @@ impl DependenciesBuilder {
         get_dependency!(self.certificate_verifier)
     }
 
-    async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment() {
-            ExecutionEnvironment::Production => ProtocolGenesisVerifier::from_verification_key(
-                ProtocolGenesisVerificationKey::from_json_hex(
+    async fn build_genesis_verifier(&mut self) -> Result<Arc<GenesisEd25519Verifier>> {
+        let genesis_verifier: GenesisEd25519Verifier = match self.configuration.environment() {
+            ExecutionEnvironment::Production => GenesisEd25519Verifier::from_verification_key(
+                GenesisEd25519VerificationKey::from_json_hex(
                     &self.configuration.genesis_verification_key(),
                 )
                 .map_err(|e| DependenciesBuilderError::Initialization {
@@ -150,14 +150,14 @@ impl DependenciesBuilder {
                     error: Some(e),
                 })?,
             ),
-            _ => ProtocolGenesisSigner::create_deterministic_signer().create_verifier(),
+            _ => GenesisEd25519Signer::create_deterministic_signer().create_verifier(),
         };
 
         Ok(Arc::new(genesis_verifier))
     }
 
-    /// Return a [ProtocolGenesisVerifier]
-    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
+    /// Return a [GenesisEd25519Verifier]
+    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<GenesisEd25519Verifier>> {
         get_dependency!(self.genesis_verifier)
     }
 

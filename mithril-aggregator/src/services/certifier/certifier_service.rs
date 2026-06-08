@@ -5,7 +5,7 @@ use slog::{Logger, debug, info, trace, warn};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{PROTOCOL_VERSION, ProtocolGenesisVerifier};
+use mithril_common::crypto_helper::{GenesisEd25519Verifier, PROTOCOL_VERSION};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignature, StakeDistributionParty,
@@ -30,7 +30,7 @@ pub struct MithrilCertifierService {
     single_signature_repository: Arc<SingleSignatureRepository>,
     certificate_repository: Arc<CertificateRepository>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
-    genesis_verifier: Arc<ProtocolGenesisVerifier>,
+    genesis_verifier: Arc<GenesisEd25519Verifier>,
     multi_signer: Arc<dyn MultiSigner>,
     epoch_service: EpochServiceWrapper,
     logger: Logger,
@@ -45,7 +45,7 @@ impl MithrilCertifierService {
         single_signature_repository: Arc<SingleSignatureRepository>,
         certificate_repository: Arc<CertificateRepository>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<ProtocolGenesisVerifier>,
+        genesis_verifier: Arc<GenesisEd25519Verifier>,
         multi_signer: Arc<dyn MultiSigner>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,

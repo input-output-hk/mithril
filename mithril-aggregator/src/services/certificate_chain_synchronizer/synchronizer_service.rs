@@ -29,7 +29,7 @@ use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::ProtocolGenesisVerifier;
+use mithril_common::crypto_helper::GenesisEd25519Verifier;
 use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
@@ -46,7 +46,7 @@ pub struct MithrilCertificateChainSynchronizer {
     remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
     certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
-    genesis_verifier: Arc<ProtocolGenesisVerifier>,
+    genesis_verifier: Arc<GenesisEd25519Verifier>,
     open_message_storer: Arc<dyn OpenMessageStorer>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     logger: Logger,
@@ -77,7 +77,7 @@ impl MithrilCertificateChainSynchronizer {
         remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
         certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<ProtocolGenesisVerifier>,
+        genesis_verifier: Arc<GenesisEd25519Verifier>,
         open_message_storer: Arc<dyn OpenMessageStorer>,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         logger: Logger,
@@ -280,7 +280,7 @@ mod tests {
                 Arc::new(MockRemoteCertificateRetriever::new()),
                 Arc::new(MockSynchronizedCertificateStorer::new()),
                 Arc::new(MockCertificateVerifier::new()),
-                Arc::new(ProtocolGenesisVerifier::from_verification_key(
+                Arc::new(GenesisEd25519Verifier::from_verification_key(
                     genesis_verification_key,
                 )),
                 Arc::new(MockOpenMessageStorer::new()),

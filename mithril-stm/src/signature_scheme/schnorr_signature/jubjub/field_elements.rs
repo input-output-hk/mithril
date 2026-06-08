@@ -52,7 +52,7 @@ impl BaseFieldElement {
 
     /// Constructs a base field element from bytes by applying modulus reduction
     /// The underlying JubjubBase conversion function used cannot fail
-    pub(crate) fn from_raw(bytes: &[u8; 32]) -> StmResult<Self> {
+    pub fn from_raw(bytes: &[u8; 32]) -> StmResult<Self> {
         Ok(BaseFieldElement(JubjubBase::from_raw([
             u64::from_le_bytes(bytes[0..8].try_into()?),
             u64::from_le_bytes(bytes[8..16].try_into()?),

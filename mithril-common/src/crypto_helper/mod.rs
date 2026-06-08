@@ -5,6 +5,9 @@ mod codec;
 mod conversions;
 pub mod ed25519;
 mod ed25519_alias;
+mod genesis;
+#[cfg(feature = "future_snark")]
+pub mod schnorr;
 mod types;
 
 pub use cardano::ColdKeyGenerator;
@@ -16,7 +19,8 @@ pub use cardano::{
     Sum6KesBytes,
 };
 pub use codec::*;
-pub use ed25519_alias::{era::*, genesis::*, manifest::*};
+pub use ed25519_alias::{era::*, manifest::*};
+pub use genesis::*;
 pub use mithril_merkle_tree::{
     Bytes, MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue, MKProof, MKTree, MKTreeLeafIndexer,
     MKTreeLeafPosition, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,

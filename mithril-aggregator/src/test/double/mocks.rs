@@ -11,7 +11,7 @@ use mithril_common::{
     StdResult,
     certificate_chain::CertificateVerifier,
     crypto_helper::{
-        KesPeriod, MKMap, MKMapNode, MKTreeNode, MKTreeStorer, ProtocolGenesisVerificationKey,
+        GenesisEd25519VerificationKey, KesPeriod, MKMap, MKMapNode, MKTreeNode, MKTreeStorer,
     },
     entities::{
         BlockNumber, BlockRange, CardanoBlockTransactionMkTreeNode, Certificate, ChainPoint, Epoch,
@@ -29,7 +29,7 @@ mock! {
         async fn verify_genesis_certificate(
             &self,
             genesis_certificate: &Certificate,
-            genesis_verification_key: &ProtocolGenesisVerificationKey,
+            genesis_verification_key: &GenesisEd25519VerificationKey,
         ) -> StdResult<()>;
 
         async fn verify_standard_certificate(
@@ -41,13 +41,13 @@ mock! {
         async fn verify_certificate(
             &self,
             certificate: &Certificate,
-            genesis_verification_key: &ProtocolGenesisVerificationKey,
+            genesis_verification_key: &GenesisEd25519VerificationKey,
         ) -> StdResult<Option<Certificate>>;
 
         async fn verify_certificate_chain(
             &self,
             certificate: Certificate,
-            genesis_verification_key: &ProtocolGenesisVerificationKey,
+            genesis_verification_key: &GenesisEd25519VerificationKey,
         ) -> StdResult<()>;
     }
 }

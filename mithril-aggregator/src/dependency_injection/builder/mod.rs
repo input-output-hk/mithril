@@ -28,7 +28,7 @@ use mithril_cardano_node_internal_database::{
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
-    crypto_helper::ProtocolGenesisVerifier,
+    crypto_helper::GenesisEd25519Verifier,
     entities::SupportedEra,
     signable_builder::{SignableBuilderService, SignableSeedBuilder},
 };
@@ -189,7 +189,7 @@ pub struct DependenciesBuilder {
     pub certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
 
     /// Genesis signature verifier service.
-    pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
+    pub genesis_verifier: Option<Arc<GenesisEd25519Verifier>>,
 
     /// Certificate chain synchronizer service
     pub certificate_chain_synchronizer: Option<Arc<dyn CertificateChainSynchronizer>>,

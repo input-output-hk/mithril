@@ -167,7 +167,8 @@ pub use signature_scheme::{
 
 #[cfg(feature = "future_snark")]
 pub use signature_scheme::{
-    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, UniqueSchnorrSignature,
+    BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey, StandardSchnorrSignature,
+    UniqueSchnorrSignature,
 };
 
 #[cfg(all(feature = "future_snark", not(feature = "benchmark-internals")))]

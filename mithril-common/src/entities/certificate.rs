@@ -7,8 +7,8 @@ use mithril_stm::AggregateSignatureType;
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
-    ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
-    ProtocolGenesisSignature, ProtocolMultiSignature,
+    GenesisEd25519Signature, ProtocolAggregateVerificationKey,
+    ProtocolAggregateVerificationKeyForConcatenation, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 
@@ -17,7 +17,7 @@ use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityT
 pub enum CertificateSignature {
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
-    GenesisSignature(ProtocolGenesisSignature),
+    GenesisSignature(GenesisEd25519Signature),
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka (BEACON(p,n), MULTI_SIG(H(MSG(p,n) || AVK(n-1))))

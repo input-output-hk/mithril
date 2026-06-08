@@ -9,8 +9,8 @@ use mithril_stm::AggregateSignatureType;
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolGenesisSigner,
-        ProtocolGenesisVerifier, ProtocolParameters,
+        GenesisEd25519Signer, GenesisEd25519Verifier, ProtocolAggregateVerificationKey,
+        ProtocolClerk, ProtocolParameters,
     },
     entities::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
@@ -24,7 +24,7 @@ use crate::{
 
 /// Genesis certificate processor function type. For tests only.
 type GenesisCertificateProcessorFunc =
-    dyn Fn(Certificate, &CertificateChainBuilderContext, &ProtocolGenesisSigner) -> Certificate;
+    dyn Fn(Certificate, &CertificateChainBuilderContext, &GenesisEd25519Signer) -> Certificate;
 
 /// Standard certificate processor function type. For tests only.
 type StandardCertificateProcessorFunc =
@@ -121,7 +121,7 @@ pub struct CertificateChainFixture {
     /// The full certificates list, ordered from latest to genesis
     pub certificates_chained: Vec<Certificate>,
     /// The genesis verifier associated with this chain genesis certificate
-    pub genesis_verifier: ProtocolGenesisVerifier,
+    pub genesis_verifier: GenesisEd25519Verifier,
 }
 
 impl Deref for CertificateChainFixture {
@@ -405,8 +405,8 @@ impl<'a> CertificateChainBuilder<'a> {
         clerk.compute_aggregate_verification_key()
     }
 
-    fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
+    fn setup_genesis() -> (GenesisEd25519Signer, GenesisEd25519Verifier) {
+        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
         let genesis_verifier = genesis_signer.create_verifier();
 
         (genesis_signer, genesis_verifier)
@@ -506,7 +506,7 @@ impl<'a> CertificateChainBuilder<'a> {
     fn build_genesis_certificate(
         &self,
         context: &CertificateChainBuilderContext,
-        genesis_signer: &ProtocolGenesisSigner,
+        genesis_signer: &GenesisEd25519Signer,
         mithril_era: SupportedEra,
     ) -> Certificate {
         let epoch = context.epoch;

@@ -12,8 +12,8 @@ use mithril_common::{
     CardanoNetwork, StdResult,
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
-        ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
+        GenesisEd25519SecretKey, GenesisEd25519Signature, GenesisEd25519Signer,
+        GenesisEd25519VerificationKey, ProtocolAggregateVerificationKey,
     },
     entities::{Epoch, ProtocolParameters, SupportedEra},
     protocol::SignerBuilder,
@@ -131,12 +131,12 @@ impl GenesisTools {
     pub async fn import_payload_signature(
         &self,
         signed_payload_path: &Path,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
         let mut signed_payload_file = File::open(signed_payload_path).unwrap();
         let mut signed_payload_buffer = Vec::new();
         signed_payload_file.read_to_end(&mut signed_payload_buffer)?;
-        let genesis_signature = ProtocolGenesisSignature::from_bytes(&signed_payload_buffer)?;
+        let genesis_signature = GenesisEd25519Signature::from_bytes(&signed_payload_buffer)?;
 
         self.create_and_save_genesis_certificate(genesis_signature, genesis_verification_key)
             .await
@@ -145,7 +145,7 @@ impl GenesisTools {
     /// Automatic bootstrap of the genesis certificate (test only)
     pub async fn bootstrap_test_genesis_certificate(
         &self,
-        genesis_signer: ProtocolGenesisSigner,
+        genesis_signer: GenesisEd25519Signer,
     ) -> StdResult<()> {
         let genesis_verification_key = &genesis_signer.verification_key();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)))
@@ -169,8 +169,8 @@ impl GenesisTools {
         genesis_secret_key_path: &Path,
     ) -> StdResult<()> {
         let genesis_secret_key =
-            ProtocolGenesisSecretKey::read_json_hex_from_file(genesis_secret_key_path)?;
-        let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
+            GenesisEd25519SecretKey::read_json_hex_from_file(genesis_secret_key_path)?;
+        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();
         let mut to_sign_payload_buffer = Vec::new();
@@ -187,8 +187,8 @@ impl GenesisTools {
 
     async fn create_and_save_genesis_certificate(
         &self,
-        genesis_signature: ProtocolGenesisSignature,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_signature: GenesisEd25519Signature,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
         let genesis_producer =
             CertificateGenesisProducer::new(None).with_logger(self.logger.clone());
@@ -216,7 +216,7 @@ impl GenesisTools {
 
     /// Export the genesis keypair to a folder and returns the paths to the files (secret key, verification_key)
     pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
-        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_signer();
+        let genesis_signer = GenesisEd25519Signer::create_non_deterministic_signer();
         let genesis_secret_key_path = keypair_path.join("genesis.sk");
         genesis_signer
             .secret_key()
@@ -237,8 +237,8 @@ mod tests {
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{
-            ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
-            ProtocolGenesisVerifier,
+            GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey,
+            GenesisEd25519Verifier,
         },
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
@@ -259,11 +259,11 @@ mod tests {
     }
 
     fn build_tools(
-        genesis_signer: &ProtocolGenesisSigner,
+        genesis_signer: &GenesisEd25519Signer,
     ) -> (
         GenesisTools,
         Arc<CertificateRepository>,
-        Arc<ProtocolGenesisVerifier>,
+        Arc<GenesisEd25519Verifier>,
         Arc<dyn CertificateVerifier>,
     ) {
         let connection = main_db_connection().unwrap();
@@ -303,12 +303,12 @@ mod tests {
         let signed_payload_path = test_dir.join("payload-signed.txt");
         let (genesis_secret_key_path, _) = GenesisTools::create_and_save_genesis_keypair(&test_dir)
             .expect("exporting the keypair should not fail");
-        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(
+        let genesis_secret_key = GenesisEd25519SecretKey::from_json_hex(
             &read_to_string(&genesis_secret_key_path)
                 .expect("reading genesis secret key file should not fail"),
         )
         .expect("parsing genesis secret key should not fail");
-        let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
+        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
 
@@ -346,7 +346,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_test_genesis_certificate_works() {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
+        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
 
@@ -375,18 +375,18 @@ mod tests {
         let (genesis_secret_key_path, genesis_verification_key_path) =
             GenesisTools::create_and_save_genesis_keypair(&temp_dir)
                 .expect("Failed to create and save genesis keypair");
-        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(
+        let genesis_secret_key = GenesisEd25519SecretKey::from_json_hex(
             &read_to_string(&genesis_secret_key_path)
                 .expect("Failed to read genesis secret key file"),
         )
         .expect("Failed to parse genesis secret key");
-        let genesis_verification_key = ProtocolGenesisVerificationKey::from_json_hex(
+        let genesis_verification_key = GenesisEd25519VerificationKey::from_json_hex(
             &read_to_string(&genesis_verification_key_path)
                 .expect("Failed to read genesis verification key file"),
         )
         .expect("Failed to parse genesis verification key");
         let genesis_verifier =
-            ProtocolGenesisSigner::from_secret_key(genesis_secret_key).create_verifier();
+            GenesisEd25519Signer::from_secret_key(genesis_secret_key).create_verifier();
 
         let expected_genesis_verification_key = genesis_verifier.to_verification_key();
         assert_eq!(expected_genesis_verification_key, genesis_verification_key);

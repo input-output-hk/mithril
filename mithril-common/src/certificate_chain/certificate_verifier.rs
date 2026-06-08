@@ -13,8 +13,8 @@ use crate::StdResult;
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
-    ProtocolAggregateVerificationKey, ProtocolAggregateVerificationKeyForConcatenation,
-    ProtocolGenesisError, ProtocolGenesisVerificationKey, ProtocolMultiSignature,
+    GenesisEd25519Error, GenesisEd25519VerificationKey, ProtocolAggregateVerificationKey,
+    ProtocolAggregateVerificationKeyForConcatenation, ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
@@ -35,7 +35,7 @@ pub enum CertificateVerifierError {
 
     /// Error raised when the Genesis Signature stored in a [Certificate] is invalid.
     #[error("certificate genesis error")]
-    CertificateGenesis(#[from] ProtocolGenesisError),
+    CertificateGenesis(#[from] GenesisEd25519Error),
 
     /// Error raised when the hash stored in a [Certificate] doesn't match a recomputed hash.
     #[error("certificate hash unmatch error")]
@@ -100,7 +100,7 @@ pub trait CertificateVerifier: Send + Sync {
     async fn verify_genesis_certificate(
         &self,
         genesis_certificate: &Certificate,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()>;
 
     /// Verify Standard certificate
@@ -114,14 +114,14 @@ pub trait CertificateVerifier: Send + Sync {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<Option<Certificate>>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
         let mut certificate = certificate;
         while let Some(previous_certificate) = self
@@ -400,7 +400,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_genesis_certificate(
         &self,
         genesis_certificate: &Certificate,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<()> {
         let genesis_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
@@ -453,7 +453,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
-        genesis_verification_key: &ProtocolGenesisVerificationKey,
+        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger, "Verifying certificate";
@@ -1030,7 +1030,7 @@ mod tests {
             async fn verify_genesis_certificate(
                 &self,
                 _genesis_certificate: &Certificate,
-                _genesis_verification_key: &ProtocolGenesisVerificationKey,
+                _genesis_verification_key: &GenesisEd25519VerificationKey,
             ) -> StdResult<()> {
                 unimplemented!()
             }
@@ -1046,7 +1046,7 @@ mod tests {
             async fn verify_certificate(
                 &self,
                 certificate: &Certificate,
-                _genesis_verification_key: &ProtocolGenesisVerificationKey,
+                _genesis_verification_key: &GenesisEd25519VerificationKey,
             ) -> StdResult<Option<Certificate>> {
                 let mut certificates_unverified = self.certificates_unverified.lock().await;
                 let _verified_certificate = (*certificates_unverified).remove(&certificate.hash);

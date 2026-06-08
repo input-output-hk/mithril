@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use anyhow::{Context, anyhow};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -12,8 +14,16 @@ use super::{
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SchnorrSigningKey(pub(crate) ScalarFieldElement);
+
+impl Debug for SchnorrSigningKey {
+    /// Redacts the secret scalar so it cannot leak through `{:?}` on the key or any type that
+    /// embeds it (signer, signing-key bundle).
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("SchnorrSigningKey").field(&"<redacted>").finish()
+    }
+}
 
 impl SchnorrSigningKey {
     /// Generate a random scalar value to use as signing key
@@ -185,6 +195,14 @@ mod tests {
 
         // Keys should be different
         assert_ne!(sk1, sk2, "Different keys should be generated");
+    }
+
+    #[test]
+    fn debug_redacts_the_secret_scalar() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        assert_eq!(format!("{sk:?}"), "SchnorrSigningKey(\"<redacted>\")");
     }
 
     #[test]
