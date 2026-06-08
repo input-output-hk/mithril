@@ -25,7 +25,7 @@ impl CheckCertificateToolkit {
         total_signers_expected: usize,
     ) -> StdResult<()> {
         let url = format!("{}/certificate/{certificate_hash}", aggregator.endpoint());
-        info!("Waiting for the aggregator to create a certificate with enough signers"; "aggregator" => &aggregator.name());
+        info!("Waiting for the aggregator to create a certificate"; "aggregator" => &aggregator.name());
 
         async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
             match utils::get_json_response::<CertificateMessage>(url).await? {
