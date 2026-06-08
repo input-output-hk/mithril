@@ -54,7 +54,7 @@ impl CheckCardanoDatabaseToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoDatabaseSnapshotListItemMessage> {
-        utils::wait_for_artifact::<CardanoDatabaseSnapshotListItemMessage>(
+        utils::wait_for_latest_artifact::<CardanoDatabaseSnapshotListItemMessage>(
             "Cardano database snapshot",
             "/artifact/cardano-database",
             |a| a.hash.clone(),

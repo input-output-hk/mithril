@@ -49,7 +49,7 @@ impl CheckCardanoStakeDistributionToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoStakeDistributionListItemMessage> {
-        utils::wait_for_artifact::<CardanoStakeDistributionListItemMessage>(
+        utils::wait_for_latest_artifact::<CardanoStakeDistributionListItemMessage>(
             "Cardano stake distribution",
             "/artifact/cardano-stake-distributions",
             |a| a.hash.clone(),

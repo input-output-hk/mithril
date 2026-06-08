@@ -54,7 +54,7 @@ impl CheckCardanoBlocksTransactionsToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoBlocksTransactionsSnapshotListItemMessage> {
-        utils::wait_for_artifact::<CardanoBlocksTransactionsSnapshotListItemMessage>(
+        utils::wait_for_latest_artifact::<CardanoBlocksTransactionsSnapshotListItemMessage>(
             "Cardano blocks transactions",
             "/artifact/cardano-blocks-transactions",
             |a| a.hash.clone(),

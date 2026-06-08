@@ -52,7 +52,7 @@ impl CheckCardanoTransactionsToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<CardanoTransactionSnapshotListItemMessage> {
-        utils::wait_for_artifact::<CardanoTransactionSnapshotListItemMessage>(
+        utils::wait_for_latest_artifact::<CardanoTransactionSnapshotListItemMessage>(
             "Cardano transactions",
             "/artifact/cardano-transactions",
             |a| a.hash.clone(),

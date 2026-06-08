@@ -48,7 +48,7 @@ impl CheckMithrilStakeDistributionToolkit {
         &self,
         aggregator: &Aggregator,
     ) -> StdResult<MithrilStakeDistributionListItemMessage> {
-        utils::wait_for_artifact::<MithrilStakeDistributionListItemMessage>(
+        utils::wait_for_latest_artifact::<MithrilStakeDistributionListItemMessage>(
             "Mithril stake distribution",
             "/artifact/mithril-stake-distributions",
             |a| a.hash.clone(),

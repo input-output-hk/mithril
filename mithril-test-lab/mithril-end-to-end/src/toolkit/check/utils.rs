@@ -25,7 +25,7 @@ pub async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<re
 /// Wait until the aggregator produces an artifact, returning the latest one
 ///
 /// Note: the `artifact_list_url` must start with a `/`
-pub async fn wait_for_artifact<T: DeserializeOwned>(
+pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
     artifact_name: &str,
     artifact_list_url: &str,
     hash_extractor: fn(&T) -> String,
