@@ -27,12 +27,16 @@ use mithril_end_to_end::{
     NodeVersion, RelaySigner, RetryableDevnetError, Signer,
 };
 
+/// Default signed entity types used by scenarios that support multiple entities, such as Full and RunOnly.
+const DEFAULT_SIGNED_ENTITY_TYPES: &str =
+    "CardanoTransactions,CardanoBlocksTransactions,CardanoStakeDistribution,CardanoDatabase";
+
 /// Tests args
 #[derive(Parser, Debug, Clone)]
 pub struct Cli {
-    /// Available commands
+    /// Test scenario to run
     #[command(subcommand)]
-    command: Option<EndToEndCommands>,
+    scenario: Option<ScenarioArgs>,
 
     /// A directory where all logs, generated devnet artifacts, snapshots and store folder
     /// will be located.
@@ -60,9 +64,6 @@ pub struct Cli {
     #[command(flatten)]
     network_topology: NetworkTopologyArgs,
 
-    #[command(flatten)]
-    scenario: ScenarioArgs,
-
     /// Verbosity level
     #[clap(
         short,
@@ -73,15 +74,60 @@ pub struct Cli {
     verbose: u8,
 }
 
-#[derive(Args, Debug, Clone)]
-struct ScenarioArgs {
-    /// Enable 'run-only' mode
-    #[clap(long)]
-    run_only: bool,
+#[derive(Subcommand, Debug, Clone, PartialEq)]
+enum ScenarioArgs {
+    /// Run the full scenario (bootstrap, run, shutdown) [default]
+    Full {
+        /// Will check the ledger snapshot conversion step using utxo-hd snapshot-converter
+        #[clap(long)]
+        check_client_cli_snapshot_converter: bool,
 
-    /// Will check the ledger snapshot conversion step using utxo-hd snapshot-converter
-    #[clap(long)]
-    check_client_cli_snapshot_converter: bool,
+        /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+        #[clap(
+            long,
+            value_delimiter = ',',
+            default_value = DEFAULT_SIGNED_ENTITY_TYPES
+        )]
+        signed_entity_types: Vec<String>,
+    },
+    /// Bootstrap a Cardano devnet, Mithril Aggregators and Signers, and run continuously
+    RunOnly {
+        /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+        #[clap(
+            long,
+            value_delimiter = ',',
+            default_value = DEFAULT_SIGNED_ENTITY_TYPES
+        )]
+        signed_entity_types: Vec<String>,
+    },
+    // Note: not a scenario, but clap doesn't support more than one subcommand per command
+    #[clap(alias("doc"), hide(true))]
+    GenerateDoc(GenerateDocCommands),
+}
+
+impl Default for ScenarioArgs {
+    fn default() -> Self {
+        Self::Full {
+            check_client_cli_snapshot_converter: false,
+            signed_entity_types: DEFAULT_SIGNED_ENTITY_TYPES.split(',').map(String::from).collect(),
+        }
+    }
+}
+
+impl ScenarioArgs {
+    fn signed_entity_types(&self) -> Vec<String> {
+        match self {
+            ScenarioArgs::Full {
+                signed_entity_types,
+                ..
+            } => signed_entity_types.clone(),
+            ScenarioArgs::RunOnly {
+                signed_entity_types,
+                ..
+            } => signed_entity_types.clone(),
+            ScenarioArgs::GenerateDoc(..) => vec![],
+        }
+    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -148,14 +194,6 @@ struct MithrilArgs {
     #[clap(long, default_value = "cardano-chain")]
     mithril_era_reader_adapter: String,
 
-    /// Signed entity types parameters (discriminants names in an ordered comma separated list).
-    #[clap(
-        long,
-        value_delimiter = ',',
-        default_value = "CardanoTransactions,CardanoBlocksTransactions,CardanoStakeDistribution,CardanoDatabase"
-    )]
-    signed_entity_types: Vec<String>,
-
     /// Aggregate signature type used to create the certificates
     #[clap(long, value_enum, default_value = "Concatenation")]
     aggregate_signature_type: AggregateSignatureType,
@@ -219,12 +257,6 @@ impl Cli {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
-enum EndToEndCommands {
-    #[clap(alias("doc"), hide(true))]
-    GenerateDoc(GenerateDocCommands),
-}
-
 fn main() -> AppResult {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -238,7 +270,7 @@ async fn main_exec() -> StdResult<()> {
     let args = Cli::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
-    if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
+    if let Some(ScenarioArgs::GenerateDoc(cmd)) = &args.scenario {
         return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
     }
 
@@ -393,8 +425,7 @@ impl App {
     ) -> StdResult<()> {
         let server_port = 8080;
         args.validate()?;
-        let run_only_mode = args.scenario.run_only;
-        let check_client_cli_snapshot_converter = args.scenario.check_client_cli_snapshot_converter;
+        let scenario = args.scenario.unwrap_or_default();
         let use_relays = args.network_topology.use_relays;
         let relay_signer_registration_mode = args.network_topology.relay_signer_registration_mode;
         let relay_signature_registration_mode =
@@ -465,10 +496,8 @@ impl App {
                     mithril_run_interval: args.mithril.mithril_run_interval,
                     mithril_era: args.mithril.mithril_era,
                     mithril_era_reader_adapter: args.mithril.mithril_era_reader_adapter,
-                    signed_entity_types: args.mithril.signed_entity_types.clone(),
+                    signed_entity_types: scenario.signed_entity_types(),
                     aggregate_signature_type: args.mithril.aggregate_signature_type,
-                    run_only_mode,
-                    check_client_cli_snapshot_converter,
                     use_dmq,
                     dmq_node_flavor: args.network_topology.dmq_node_flavor,
                     use_relays,
@@ -483,23 +512,34 @@ impl App {
         );
         *self.infrastructure.lock().await = Some(infrastructure.clone());
 
-        let runner: StdResult<()> = match run_only_mode {
-            true => RunOnlyScenario::new(toolkit, infrastructure).run().await,
-            false => {
-                FullScenario::new(
+        let (runner, run_forever): (StdResult<()>, bool) = match scenario {
+            ScenarioArgs::Full {
+                check_client_cli_snapshot_converter,
+                signed_entity_types,
+            } => {
+                let runner = FullScenario::new(
                     toolkit,
                     infrastructure,
-                    args.mithril.signed_entity_types,
+                    signed_entity_types,
+                    check_client_cli_snapshot_converter,
                     args.mithril.mithril_next_era,
                     args.mithril.mithril_era_regenesis_on_switch,
                 )
                 .run()
-                .await
+                .await;
+                (runner, false)
+            }
+            ScenarioArgs::RunOnly { .. } => (
+                RunOnlyScenario::new(toolkit, infrastructure).run().await,
+                true,
+            ),
+            ScenarioArgs::GenerateDoc(_) => {
+                unreachable!("ScenarioArgs::GenerateDoc should not be used here")
             }
         };
 
         match runner.with_context(|| "Mithril End to End test failed") {
-            Ok(()) if run_only_mode => loop {
+            Ok(()) if run_forever => loop {
                 info!(
                     "Mithril end to end is running and will remain active until manually stopped..."
                 );
@@ -588,6 +628,20 @@ fn with_graceful_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_scenario_is_full_with_expected_signed_entity_types() {
+        assert_eq!(
+            ScenarioArgs::default(),
+            ScenarioArgs::Full {
+                check_client_cli_snapshot_converter: false,
+                signed_entity_types: DEFAULT_SIGNED_ENTITY_TYPES
+                    .split(',')
+                    .map(String::from)
+                    .collect(),
+            }
+        )
+    }
 
     #[test]
     fn app_result_exit_code() {

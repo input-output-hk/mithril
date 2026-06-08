@@ -155,6 +155,7 @@ jobs:
               --cardano-node-version ${{ matrix.cardano_node_version }} \
               --cardano-slot-length 0.25 \
               --cardano-epoch-length 45.0 \
+              full \
               --signed-entity-types ${{ inputs.signed-entity-types }}
             EXIT_CODE=$?
             if [ $EXIT_CODE -eq 0 ]; then

@@ -32,8 +32,6 @@ pub struct MithrilInfrastructureConfig {
     pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub aggregate_signature_type: AggregateSignatureType,
-    pub run_only_mode: bool,
-    pub check_client_cli_snapshot_converter: bool,
     pub use_relays: bool,
     pub relay_signer_registration_mode: String,
     pub relay_signature_registration_mode: String,
@@ -70,8 +68,6 @@ impl MithrilInfrastructureConfig {
             mithril_era_reader_adapter: "adapter1".to_string(),
             signed_entity_types: vec!["type1".to_string()],
             aggregate_signature_type: AggregateSignatureType::Concatenation,
-            run_only_mode: false,
-            check_client_cli_snapshot_converter: false,
             use_relays: false,
             relay_signer_registration_mode: "passthrough".to_string(),
             relay_signature_registration_mode: "passthrough".to_string(),
@@ -96,8 +92,6 @@ pub struct MithrilInfrastructure {
     relay_passives: Vec<RelayPassive>,
     cardano_node_version: semver::Version,
     cardano_chain_observer: Arc<dyn ChainObserver>,
-    run_only_mode: bool,
-    check_client_cli_snapshot_converter: bool,
     current_era: RwLock<String>,
     era_reader_adapter: String,
     use_era_specific_work_dir: bool,
@@ -173,8 +167,6 @@ impl MithrilInfrastructure {
             relay_passives,
             cardano_chain_observer,
             cardano_node_version: config.cardano_node_version.clone(),
-            run_only_mode: config.run_only_mode,
-            check_client_cli_snapshot_converter: config.check_client_cli_snapshot_converter,
             current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
             use_era_specific_work_dir: config.use_era_specific_work_dir,
@@ -434,7 +426,7 @@ impl MithrilInfrastructure {
     }
 
     pub async fn stop_nodes(&self) -> StdResult<()> {
-        // Note: The aggregators should be stopped *last* since signers depends on it
+        // Note: The aggregators should be stopped *last* since signers depend on it
         info!("Stopping Mithril infrastructure");
         for signer in &self.signers {
             signer.stop().await?;
@@ -526,14 +518,6 @@ impl MithrilInfrastructure {
         };
 
         Client::new(aggregator.endpoint(), &work_dir, &self.bin_dir)
-    }
-
-    pub fn run_only_mode(&self) -> bool {
-        self.run_only_mode
-    }
-
-    pub fn check_client_cli_snapshot_converter(&self) -> bool {
-        self.check_client_cli_snapshot_converter
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {

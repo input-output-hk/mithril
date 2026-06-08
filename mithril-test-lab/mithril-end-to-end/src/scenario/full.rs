@@ -24,6 +24,7 @@ pub struct FullScenario {
     is_signing_cardano_blocks_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
     is_signing_cardano_database: bool,
+    check_client_cli_snapshot_converter: bool,
     next_era: Option<String>,
     regenesis_on_era_switch: bool,
 }
@@ -33,6 +34,7 @@ impl FullScenario {
         toolkit: ScenarioToolkit,
         infrastructure: Arc<MithrilInfrastructure>,
         signed_entity_types: Vec<String>,
+        check_client_cli_snapshot_converter: bool,
         next_era: Option<String>,
         regenesis_on_era_switch: bool,
     ) -> Self {
@@ -62,6 +64,7 @@ impl FullScenario {
                 .contains(&SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string()),
             is_signing_cardano_database: signed_entity_types
                 .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
+            check_client_cli_snapshot_converter,
             next_era,
             regenesis_on_era_switch,
         }
@@ -229,7 +232,7 @@ impl FullScenario {
         }
 
         // Check the ledger snapshot conversion step using utxo-hd snapshot-converter
-        if infrastructure.check_client_cli_snapshot_converter() {
+        if self.check_client_cli_snapshot_converter {
             let mut client = infrastructure.build_client(aggregator).await?;
             self.toolkit
                 .check
