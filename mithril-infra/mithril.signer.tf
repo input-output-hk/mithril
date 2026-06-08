@@ -174,6 +174,13 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
     rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
     mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
 
+    # Enable DMQ relay ledger peers (CIP-155 SRV records)
+    if [ "${var.mithril_p2p_dmq_use_ledger_peers}" = "true" ]; then
+      cat $DMQ_RELAY_CONFIG_DIRECTORY/topology.json | jq '. + {"useLedgerAfterSlot": 0}' > $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new
+      rm -f $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+      mv $DMQ_RELAY_CONFIG_DIRECTORY/topology.json.new $DMQ_RELAY_CONFIG_DIRECTORY/topology.json
+    fi
+
     # Update DMQ block-producer topology valency
     cat $DMQ_BP_CONFIG_DIRECTORY/topology.json | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $DMQ_BP_CONFIG_DIRECTORY/topology.json.new
     rm -f $DMQ_BP_CONFIG_DIRECTORY/topology.json

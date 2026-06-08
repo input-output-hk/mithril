@@ -234,6 +234,12 @@ variable "mithril_p2p_dmq_dense_topology" {
   default     = false
 }
 
+variable "mithril_p2p_dmq_use_ledger_peers" {
+  type        = bool
+  description = "Use ledger peers declared with SRV records (CIP-155) for DMQ nodes. When true, the public facing DMQ nodes (aggregator and signer relays) discover peers from the Cardano ledger. Disabled by default to isolate Mithril networks sharing the same Cardano network. (experimental, for test only)"
+  default     = false
+}
+
 variable "dmq_image_id" {
   type        = string
   description = "The DMQ image tag of service to deploy"
