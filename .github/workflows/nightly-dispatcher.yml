@@ -11,9 +11,6 @@ jobs:
   backward-compatibility:
     uses: ./.github/workflows/backward-compatibility.yml
 
-  docker-builds:
-    uses: ./.github/workflows/docker-builds.yml
-
   aggregator-stress-test:
     uses: ./.github/workflows/aggregator-stress-test.yml
 
@@ -29,12 +26,6 @@ jobs:
   notify-on-failure:
     uses: ./.github/workflows/test-notify-on-failure.yml
     needs:
-      [
-        backward-compatibility,
-        docker-builds,
-        aggregator-stress-test,
-        test-client,
-        test-rust,
-      ]
+      [backward-compatibility, aggregator-stress-test, test-client, test-rust]
     if: failure()
     secrets: inherit
