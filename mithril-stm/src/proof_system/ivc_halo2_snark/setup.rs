@@ -57,6 +57,7 @@ pub(crate) struct IvcSetup {
     pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
 
+// TODO: remove this allow dead_code directive when the IVC prover uses this setup
 #[allow(dead_code)]
 impl IvcSetup {
     /// Derives the full IVC setup by orchestrating the key providers.

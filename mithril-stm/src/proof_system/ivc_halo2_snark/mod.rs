@@ -6,7 +6,7 @@ use midnight_proofs::{
 
 use crate::circuits::halo2::types::CircuitBase;
 
-mod epoch_data;
+mod decoded_protocol_message;
 mod proof;
 mod prover_input;
 mod rolling_state;

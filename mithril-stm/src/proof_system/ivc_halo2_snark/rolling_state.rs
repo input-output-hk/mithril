@@ -36,6 +36,7 @@ pub(crate) struct IvcRollingState {
     genesis_signature: StandardSchnorrSignature,
 }
 
+// TODO: remove this allow dead_code directive when the IVC prover uses this rolling state
 #[allow(dead_code)]
 impl IvcRollingState {
     /// Builds a rolling state from the four fields produced by an IVC proving step.

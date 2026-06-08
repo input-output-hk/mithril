@@ -71,7 +71,7 @@ pub(crate) struct FirstStepCertAsset {
     pub(crate) next_state: State,
     /// 32-byte SHA-256 hash that the certificate proof committed to.
     pub(crate) message: Vec<u8>,
-    /// 190-byte protocol-message preimage; `EpochData::new(preimage)` decodes the four
+    /// 190-byte protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
     /// epoch fields.
     pub(crate) message_preimage: Vec<u8>,
     /// 32-byte canonical encoding of the AVK merkle root the certificate proof
@@ -92,7 +92,7 @@ pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) certificate_proof: CertificateProofBytes,
     /// 32-byte SHA-256 hash that the certificate proof committed to. Empty at genesis.
     pub(crate) message: Vec<u8>,
-    /// 190-byte protocol-message preimage; `EpochData::new(preimage)` decodes the four
+    /// 190-byte protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
     /// epoch fields. Empty at genesis.
     pub(crate) message_preimage: Vec<u8>,
     /// 32-byte canonical encoding of the AVK merkle root the certificate proof

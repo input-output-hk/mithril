@@ -1,5 +1,6 @@
-//! `EpochData`: per-call external input carrying the certificate's epoch identifier
-//! and the upcoming epoch's announcements.
+//! `DecodedProtocolMessage`: the certificate's protocol-message preimage together with
+//! the three fields decoded from its fixed byte ranges. Consumed as a per-call external
+//! input by the IVC prover input preparation step.
 
 use crate::{
     BaseFieldElement, StmResult,
@@ -9,12 +10,11 @@ use crate::{
     },
 };
 
-/// Per-call external input carrying the certificate's epoch identifier and the
-/// upcoming epoch's announcements.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this epoch data
-#[allow(dead_code)]
+/// The certificate's protocol-message preimage together with the three fields decoded
+/// from its fixed byte ranges. Consumed as a per-call external input by the IVC prover
+/// input preparation step.
 #[derive(Clone)]
-pub(crate) struct EpochData {
+pub(crate) struct DecodedProtocolMessage {
     /// Raw protocol-message preimage.
     message_preimage: [u8; PREIMAGE_SIZE],
     /// Certificate's epoch, decoded from `PREIMAGE_CURRENT_EPOCH_BYTES`.
@@ -26,11 +26,11 @@ pub(crate) struct EpochData {
 }
 
 #[allow(dead_code)]
-impl EpochData {
-    /// Builds an `EpochData` by decoding the three announced fields from the
-    /// protocol-message preimage. The decoding mirrors the circuit's
-    /// `combine_bytes` step: bytes are interpreted little-endian against
-    /// powers-of-256, reducing modulo the base field for the 32-byte ranges.
+impl DecodedProtocolMessage {
+    /// Builds a `DecodedProtocolMessage` by decoding the three announced fields from the
+    /// protocol-message preimage. The decoding mirrors the circuit's `combine_bytes`
+    /// step: bytes are interpreted little-endian against powers-of-256, reducing modulo
+    /// the base field for the 32-byte ranges.
     // TODO: Replace with the protocol message functions introduced in PR 3288, when merged.
     pub(crate) fn new(message_preimage: [u8; PREIMAGE_SIZE]) -> StmResult<Self> {
         let current_epoch_bytes: [u8; 8] =
@@ -86,29 +86,32 @@ mod tests {
         preimage[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].copy_from_slice(&[0x22; 32]);
         preimage[PREIMAGE_CURRENT_EPOCH_BYTES].copy_from_slice(&42u64.to_le_bytes());
 
-        let epoch_data = EpochData::new(preimage).unwrap();
+        let decoded_protocol_message = DecodedProtocolMessage::new(preimage).unwrap();
 
-        assert_eq!(epoch_data.current_epoch(), BaseFieldElement::from(42u64));
         assert_eq!(
-            epoch_data.next_merkle_tree_commitment(),
+            decoded_protocol_message.current_epoch(),
+            BaseFieldElement::from(42u64)
+        );
+        assert_eq!(
+            decoded_protocol_message.next_merkle_tree_commitment(),
             BaseFieldElement::from_raw(&[0x11; 32]).unwrap()
         );
         assert_eq!(
-            epoch_data.next_protocol_parameters(),
+            decoded_protocol_message.next_protocol_parameters(),
             BaseFieldElement::from_raw(&[0x22; 32]).unwrap()
         );
-        assert_eq!(epoch_data.message_preimage(), &preimage);
+        assert_eq!(decoded_protocol_message.message_preimage(), &preimage);
     }
 
     #[test]
     fn new_decodes_genesis_zero_preimage_to_zero_fields() {
         let preimage = [0u8; PREIMAGE_SIZE];
-        let epoch_data = EpochData::new(preimage).unwrap();
+        let decoded_protocol_message = DecodedProtocolMessage::new(preimage).unwrap();
 
         let zero = BaseFieldElement::from(0u64);
-        assert_eq!(epoch_data.current_epoch(), zero);
-        assert_eq!(epoch_data.next_merkle_tree_commitment(), zero);
-        assert_eq!(epoch_data.next_protocol_parameters(), zero);
+        assert_eq!(decoded_protocol_message.current_epoch(), zero);
+        assert_eq!(decoded_protocol_message.next_merkle_tree_commitment(), zero);
+        assert_eq!(decoded_protocol_message.next_protocol_parameters(), zero);
     }
 
     #[test]
@@ -116,10 +119,10 @@ mod tests {
         let mut preimage = [0u8; PREIMAGE_SIZE];
         preimage[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].copy_from_slice(&[0xFF; 32]);
 
-        let epoch_data = EpochData::new(preimage).unwrap();
+        let decoded_protocol_message = DecodedProtocolMessage::new(preimage).unwrap();
 
         assert_eq!(
-            epoch_data.next_merkle_tree_commitment(),
+            decoded_protocol_message.next_merkle_tree_commitment(),
             BaseFieldElement::from_raw(&[0xFF; 32]).unwrap()
         );
     }
