@@ -8,7 +8,7 @@ use mithril_common::{StdResult, entities::Epoch, messages::EpochSettingsMessage}
 
 use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct WaitToolkit {
     context: ScenarioToolkitContext,
 }

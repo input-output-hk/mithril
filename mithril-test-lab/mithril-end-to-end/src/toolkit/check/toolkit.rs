@@ -12,7 +12,7 @@ use crate::toolkit::{
 use crate::utils::file_utils::copy_dir_all;
 use crate::{Client, ClientCommand, FullNode, NodeVersion, ToolsCommand, UtxoHdCommand};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CheckToolkit {
     pub cardano_blocks_transactions: CheckCardanoBlocksTransactionsToolkit,
     pub cardano_database: CheckCardanoDatabaseToolkit,

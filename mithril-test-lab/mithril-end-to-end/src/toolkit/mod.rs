@@ -8,9 +8,7 @@ pub use context::*;
 pub use exec::*;
 pub use wait::*;
 
-use std::time::Duration;
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ScenarioToolkit {
     pub check: CheckToolkit,
     pub exec: ExecToolkit,
@@ -24,9 +22,5 @@ impl ScenarioToolkit {
             exec: ExecToolkit::new(context.clone()),
             wait: WaitToolkit::new(context),
         }
-    }
-
-    pub fn with_base_duration(base_duration: Duration) -> Self {
-        Self::new(ScenarioToolkitContext::with_base_duration(base_duration))
     }
 }

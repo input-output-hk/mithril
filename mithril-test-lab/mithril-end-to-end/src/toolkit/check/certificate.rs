@@ -8,7 +8,7 @@ use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::Attempt
 
 use super::utils;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CheckCertificateToolkit {
     context: ScenarioToolkitContext,
 }

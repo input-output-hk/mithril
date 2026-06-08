@@ -10,7 +10,7 @@ use mithril_common::messages::AggregatorStatusMessage;
 use crate::toolkit::ScenarioToolkitContext;
 use crate::{AggregateSignatureType, Aggregator, Devnet};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ExecToolkit {
     _context: ScenarioToolkitContext,
 }

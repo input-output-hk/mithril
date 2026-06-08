@@ -16,7 +16,7 @@ use crate::{
 
 use super::utils;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CheckCardanoDatabaseToolkit {
     context: ScenarioToolkitContext,
 }

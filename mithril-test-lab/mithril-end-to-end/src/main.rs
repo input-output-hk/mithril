@@ -20,7 +20,7 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::scenario::{FullScenario, RunOnlyScenario};
-use mithril_end_to_end::toolkit::ScenarioToolkit;
+use mithril_end_to_end::toolkit::{ScenarioToolkit, ScenarioToolkitContext};
 use mithril_end_to_end::{
     AggregateSignatureType, Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError,
     Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
@@ -175,7 +175,7 @@ struct CardanoDevnetArgs {
     #[clap(long, default_value_t = 0.10)]
     cardano_slot_length: f64,
 
-    /// Length of a Cardano epoch in the devnet (in s)
+    /// Length of a Cardano epoch in the devnet (multiple of the slot length)
     #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
@@ -426,7 +426,10 @@ impl App {
             ),
         ]))?;
 
-        let toolkit = ScenarioToolkit::default();
+        let toolkit = ScenarioToolkit::new(ScenarioToolkitContext::new_from_cardano_epoch(
+            args.cardano_devnet.cardano_slot_length,
+            args.cardano_devnet.cardano_epoch_length,
+        ));
 
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.cardano_devnet.devnet_scripts_directory,
