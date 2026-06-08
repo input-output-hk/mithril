@@ -1,7 +1,6 @@
 use anyhow::{Context, anyhow};
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
-use std::time::Duration;
 
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use mithril_common::{StdResult, entities::Epoch, messages::EpochSettingsMessage};
@@ -22,7 +21,7 @@ impl WaitToolkit {
         info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());
 
         let db_directory = aggregator.db_directory();
-        match attempt!(24, Duration::from_secs(5), {
+        match attempt!(20, self.context.half_epoch_delay(), {
             match ImmutableFile::list_completed_in_dir(db_directory)
                 .with_context(|| {
                     format!(
@@ -53,7 +52,7 @@ impl WaitToolkit {
         let url = format!("{aggregator_endpoint}/epoch-settings");
         info!("Waiting for the aggregator to expose epoch settings"; "aggregator" => aggregator.name());
 
-        match attempt!(20, Duration::from_millis(1000), {
+        match attempt!(20, self.context.half_epoch_delay(), {
             match reqwest::get(url.clone()).await {
                 Ok(response) => match response.status() {
                     StatusCode::OK => {
@@ -93,7 +92,7 @@ impl WaitToolkit {
             "target_epoch" => ?target_epoch
         );
 
-        match attempt!(90, Duration::from_millis(1000), {
+        match attempt!(90, self.context.half_epoch_delay(), {
             match aggregator
                 .chain_observer()
                 .get_current_epoch()

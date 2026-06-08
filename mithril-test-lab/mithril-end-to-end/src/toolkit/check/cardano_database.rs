@@ -1,6 +1,5 @@
 use anyhow::{Context, anyhow};
 use slog_scope::{info, warn};
-use std::time::Duration;
 
 use mithril_common::{
     StdResult,
@@ -100,7 +99,7 @@ impl CheckCardanoDatabaseToolkit {
             }
         }
 
-        match attempt!(30, Duration::from_millis(2000), {
+        match attempt!(30, self.context.tenth_epoch_delay(), {
             fetch_cardano_database_digests_map(url.clone()).await
         }) {
             AttemptResult::Ok(cardano_database_digests_map) => {

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::{Context, anyhow};
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
@@ -29,7 +27,7 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
     artifact_name: &str,
     artifact_list_url: &str,
     hash_extractor: fn(&T) -> String,
-    _context: &ScenarioToolkitContext,
+    context: &ScenarioToolkitContext,
     aggregator: &Aggregator,
 ) -> StdResult<T> {
     let url = format!("{}{artifact_list_url}", aggregator.endpoint());
@@ -46,7 +44,7 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
         }
     }
 
-    match attempt!(30, Duration::from_millis(2000), {
+    match attempt!(30, context.tenth_epoch_delay(), {
         fetch_last_artifact(artifact_name, url.clone()).await
     }) {
         AttemptResult::Ok(last_artifact) => {

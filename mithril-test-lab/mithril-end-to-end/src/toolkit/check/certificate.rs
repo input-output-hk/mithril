@@ -1,6 +1,5 @@
 use anyhow::{Context, anyhow};
 use slog_scope::info;
-use std::time::Duration;
 
 use mithril_common::{StdResult, messages::CertificateMessage};
 
@@ -34,7 +33,7 @@ impl CheckCertificateToolkit {
             }
         }
 
-        match attempt!(10, Duration::from_millis(1000), {
+        match attempt!(10, self.context.tenth_epoch_delay(), {
             fetch_certificate_message(url.clone()).await
         }) {
             AttemptResult::Ok(certificate) => {
