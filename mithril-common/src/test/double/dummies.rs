@@ -539,6 +539,8 @@ mod messages {
                     fake_keys::aggregate_verification_key_for_concatenation()[0].to_owned(),
                 #[cfg(feature = "future_snark")]
                 aggregate_verification_key_snark: None,
+                ancillary_prover_data: None,
+                ancillary_verifier_data: None,
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
                 #[cfg(feature = "future_snark")]

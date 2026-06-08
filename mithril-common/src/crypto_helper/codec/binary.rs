@@ -31,9 +31,10 @@ pub trait TryFromBytes: Sized {
 mod binary_mithril_stm {
 
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKeyForConcatenation, Initializer,
-        MithrilMembershipDigest, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
-        VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
+        AggregateSignature, AggregateVerificationKeyForConcatenation, AncillaryProverData,
+        AncillaryVerifierData, Initializer, MithrilMembershipDigest, Parameters, SingleSignature,
+        SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
+        VerificationKeyProofOfPossessionForConcatenation,
     };
     #[cfg(feature = "future_snark")]
     use mithril_stm::{AggregateVerificationKeyForSnark, VerificationKeyForSnark};
@@ -162,6 +163,30 @@ mod binary_mithril_stm {
     }
 
     impl TryFromBytes for Initializer {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes)
+        }
+    }
+
+    impl TryToBytes for AncillaryProverData {
+        fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+            self.to_bytes()
+        }
+    }
+
+    impl TryFromBytes for AncillaryProverData {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes)
+        }
+    }
+
+    impl TryToBytes for AncillaryVerifierData {
+        fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+            self.to_bytes()
+        }
+    }
+
+    impl TryFromBytes for AncillaryVerifierData {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes)
         }

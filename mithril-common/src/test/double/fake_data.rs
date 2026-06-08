@@ -142,6 +142,8 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
         aggregate_verification_key,
         #[cfg(feature = "future_snark")]
         aggregate_verification_key_snark: None,
+        ancillary_prover_data: None,
+        ancillary_verifier_data: None,
         signature: CertificateSignature::MultiSignature(
             SignedEntityType::CardanoDatabase(beacon),
             multi_signature,
