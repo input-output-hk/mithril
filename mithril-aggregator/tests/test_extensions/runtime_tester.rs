@@ -22,7 +22,7 @@ use mithril_cardano_node_internal_database::test::double::{
 };
 use mithril_common::{
     StdResult,
-    crypto_helper::GenesisEd25519Signer,
+    crypto_helper::GenesisSigner,
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
         SignedEntityType, SignedEntityTypeDiscriminants, SingleSignatureAuthenticationStatus,
@@ -130,7 +130,7 @@ pub struct RuntimeTester {
     pub chain_observer: Arc<FakeChainObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
-    pub genesis_signer: Arc<GenesisEd25519Signer>,
+    pub genesis_signer: Arc<GenesisSigner>,
     pub dependencies: ServeCommandDependenciesContainer,
     pub runtime: AggregatorRuntime,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
@@ -167,7 +167,7 @@ impl RuntimeTester {
         let snapshotter = Arc::new(FakeSnapshotter::new(
             configuration.get_snapshot_dir().unwrap().join("fake_snapshots"),
         ));
-        let genesis_signer = Arc::new(GenesisEd25519Signer::create_deterministic_signer());
+        let genesis_signer = Arc::new(GenesisSigner::create_deterministic_signer());
         let era_reader_adapter =
             Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),
@@ -583,6 +583,8 @@ impl RuntimeTester {
     ) -> StdResult<Option<SignedEntityRecord>> {
         let signed_entity = match &certificate.signature {
             CertificateSignature::GenesisSignature(..) => None,
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(..) => None,
             CertificateSignature::MultiSignature(..) => {
                 let record = self
                     .dependencies

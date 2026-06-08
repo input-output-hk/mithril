@@ -29,7 +29,7 @@ use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::GenesisEd25519Verifier;
+use mithril_common::crypto_helper::GenesisVerifier;
 use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
@@ -46,7 +46,7 @@ pub struct MithrilCertificateChainSynchronizer {
     remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
     certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
-    genesis_verifier: Arc<GenesisEd25519Verifier>,
+    genesis_verifier: Arc<GenesisVerifier>,
     open_message_storer: Arc<dyn OpenMessageStorer>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     logger: Logger,
@@ -77,7 +77,7 @@ impl MithrilCertificateChainSynchronizer {
         remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
         certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<GenesisEd25519Verifier>,
+        genesis_verifier: Arc<GenesisVerifier>,
         open_message_storer: Arc<dyn OpenMessageStorer>,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         logger: Logger,
@@ -129,7 +129,10 @@ impl MithrilCertificateChainSynchronizer {
         loop {
             let parent_certificate = self
                 .certificate_verifier
-                .verify_certificate(&certificate, &self.genesis_verifier.to_verification_key())
+                .verify_certificate(
+                    &certificate,
+                    &self.genesis_verifier.to_ed25519_verification_key(),
+                )
                 .await
                 .with_context(
                     || format!("Failed to verify certificate: `{}`", certificate.hash,),
@@ -280,9 +283,7 @@ mod tests {
                 Arc::new(MockRemoteCertificateRetriever::new()),
                 Arc::new(MockSynchronizedCertificateStorer::new()),
                 Arc::new(MockCertificateVerifier::new()),
-                Arc::new(GenesisEd25519Verifier::from_verification_key(
-                    genesis_verification_key,
-                )),
+                Arc::new(GenesisVerifier::from_ed25519(genesis_verification_key)),
                 Arc::new(MockOpenMessageStorer::new()),
                 Arc::new(FakeEpochSettingsStorer::new(epoch_settings)),
                 TestLogger::stdout(),

@@ -145,10 +145,7 @@ pub struct GenerateKeypairEraSubCommand {
 impl GenerateKeypairEraSubCommand {
     pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR ERA command");
-        println!(
-            "Era generate keypair to {}",
-            self.target_path.to_string_lossy()
-        );
+        println!("Era generate keypair to {}", self.target_path.display());
 
         EraTools::create_and_save_era_keypair(&self.target_path)
             .with_context(|| "era-tools: keypair generation error")?;

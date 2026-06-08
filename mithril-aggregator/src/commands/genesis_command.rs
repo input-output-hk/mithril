@@ -7,9 +7,13 @@ use serde::Deserialize;
 use slog::{Logger, debug};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
+#[cfg(not(feature = "future_snark"))]
+use mithril_common::crypto_helper::GenesisEd25519VerificationKey;
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::GenesisVerifier;
 use mithril_common::{
     StdResult,
-    crypto_helper::{GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey},
+    crypto_helper::GenesisSigner,
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey, SupportedEra},
 };
 use mithril_doc::{Documenter, StructDoc};
@@ -129,15 +133,31 @@ impl GenesisCommand {
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
-        extract_all!(
-            command_path,
-            GenesisSubCommand,
-            Export = { ExportGenesisSubCommand },
-            Import = { ImportGenesisSubCommand },
-            Sign = { SignGenesisSubCommand },
-            Bootstrap = { BootstrapGenesisSubCommand },
-            GenerateKeypair = { GenerateKeypairGenesisSubCommand },
-        )
+        #[cfg(feature = "future_snark")]
+        {
+            extract_all!(
+                command_path,
+                GenesisSubCommand,
+                Export = { ExportGenesisSubCommand },
+                Import = { ImportGenesisSubCommand },
+                Sign = { SignGenesisSubCommand },
+                Bootstrap = { BootstrapGenesisSubCommand },
+                GenerateKeypair = { GenerateKeypairGenesisSubCommand },
+                UpgradeKeyToDual = { UpgradeKeyToDualGenesisSubCommand },
+            )
+        }
+        #[cfg(not(feature = "future_snark"))]
+        {
+            extract_all!(
+                command_path,
+                GenesisSubCommand,
+                Export = { ExportGenesisSubCommand },
+                Import = { ImportGenesisSubCommand },
+                Sign = { SignGenesisSubCommand },
+                Bootstrap = { BootstrapGenesisSubCommand },
+                GenerateKeypair = { GenerateKeypairGenesisSubCommand },
+            )
+        }
     }
 }
 
@@ -158,6 +178,10 @@ pub enum GenesisSubCommand {
 
     /// Genesis keypair generation command.
     GenerateKeypair(GenerateKeypairGenesisSubCommand),
+
+    /// Upgrade a legacy single-Ed25519 genesis keypair into a dual signing/verification bundle.
+    #[cfg(feature = "future_snark")]
+    UpgradeKeyToDual(UpgradeKeyToDualGenesisSubCommand),
 }
 
 impl GenesisSubCommand {
@@ -172,6 +196,8 @@ impl GenesisSubCommand {
             Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Sign(cmd) => cmd.execute(root_logger).await,
             Self::GenerateKeypair(cmd) => cmd.execute(root_logger).await,
+            #[cfg(feature = "future_snark")]
+            Self::UpgradeKeyToDual(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -239,6 +265,12 @@ pub struct ImportGenesisSubCommand {
     /// Genesis Verification Key
     #[clap(long)]
     genesis_verification_key: HexEncodedGenesisVerificationKey,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl ImportGenesisSubCommand {
@@ -255,9 +287,9 @@ impl ImportGenesisSubCommand {
         debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
-            self.signed_payload_path.to_string_lossy()
+            self.signed_payload_path.display()
         );
-        let mithril_era = resolve_mithril_era(None)?;
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
@@ -270,14 +302,44 @@ impl ImportGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
+
+        self.run_import(&genesis_tools, mithril_era).await
+    }
+
+    #[cfg(not(feature = "future_snark"))]
+    async fn run_import(
+        &self,
+        genesis_tools: &GenesisTools,
+        _mithril_era: SupportedEra,
+    ) -> StdResult<()> {
+        let verification_key =
+            GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?;
         genesis_tools
-            .import_payload_signature(
-                &self.signed_payload_path,
-                &GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?,
-            )
+            .import_payload_signature(&self.signed_payload_path, &verification_key)
             .await
-            .with_context(|| "genesis-tools: import error")?;
-        Ok(())
+            .with_context(|| "genesis-tools: import error")
+    }
+
+    #[cfg(feature = "future_snark")]
+    async fn run_import(
+        &self,
+        genesis_tools: &GenesisTools,
+        mithril_era: SupportedEra,
+    ) -> StdResult<()> {
+        let verifier = GenesisVerifier::try_from_hex(&self.genesis_verification_key)?;
+        match mithril_era {
+            SupportedEra::Lagrange => genesis_tools
+                .import_dual_payload_signature(&self.signed_payload_path, &verifier)
+                .await
+                .with_context(|| "genesis-tools: import error"),
+            _ => genesis_tools
+                .import_payload_signature(
+                    &self.signed_payload_path,
+                    &verifier.ed25519.to_verification_key(),
+                )
+                .await
+                .with_context(|| "genesis-tools: import error"),
+        }
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
@@ -298,6 +360,12 @@ pub struct SignGenesisSubCommand {
     /// Genesis Secret Key Path
     #[clap(long)]
     genesis_secret_key_path: PathBuf,
+
+    /// Mithril era to use for the genesis certificate
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl SignGenesisSubCommand {
@@ -305,14 +373,16 @@ impl SignGenesisSubCommand {
         debug!(root_logger, "SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
-            self.to_sign_payload_path.to_string_lossy(),
-            self.target_signed_payload_path.to_string_lossy()
+            self.to_sign_payload_path.display(),
+            self.target_signed_payload_path.display()
         );
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
 
         GenesisTools::sign_genesis_certificate(
             &self.to_sign_payload_path,
             &self.target_signed_payload_path,
             &self.genesis_secret_key_path,
+            mithril_era,
         )
         .await
         .with_context(|| "genesis-tools: sign error")?;
@@ -363,10 +433,8 @@ impl BootstrapGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
-        let genesis_secret_key =
-            GenesisEd25519SecretKey::from_json_hex(&self.genesis_secret_key)
-                .with_context(|| "json hex decode of genesis secret key failure")?;
-        let genesis_signer = GenesisEd25519Signer::from_secret_key(genesis_secret_key);
+        let genesis_signer = GenesisSigner::try_from_hex(&self.genesis_secret_key)
+            .with_context(|| "hex decode of genesis secret key failure")?;
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
@@ -385,18 +453,59 @@ pub struct GenerateKeypairGenesisSubCommand {
     /// Target path for the generated keypair
     #[clap(long)]
     target_path: PathBuf,
+
+    /// Mithril era to use for the generated keypair
+    ///
+    /// Optional when only one era exists, required when multiple eras are supported.
+    #[clap(long)]
+    mithril_era: Option<SupportedEra>,
 }
 
 impl GenerateKeypairGenesisSubCommand {
     pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
+        println!("Genesis generate keypair to {}", self.target_path.display());
+        let mithril_era = resolve_mithril_era(self.mithril_era)?;
+
+        GenesisTools::create_and_save_genesis_keypair(&self.target_path, mithril_era)
+            .with_context(|| "genesis-tools: keypair generation error")?;
+
+        Ok(())
+    }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
+    }
+}
+
+/// Upgrade a legacy single-Ed25519 genesis keypair into a dual signing/verification bundle.
+#[cfg(feature = "future_snark")]
+#[derive(Parser, Debug, Clone)]
+pub struct UpgradeKeyToDualGenesisSubCommand {
+    /// Legacy single-Ed25519 secret key file (genesis.sk).
+    #[clap(long)]
+    legacy_secret_key_path: PathBuf,
+
+    /// Target path for the dual signing/verification bundle files.
+    #[clap(long)]
+    target_path: PathBuf,
+}
+
+#[cfg(feature = "future_snark")]
+impl UpgradeKeyToDualGenesisSubCommand {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
+        debug!(root_logger, "UPGRADE-KEY-TO-DUAL GENESIS command");
         println!(
-            "Genesis generate keypair to {}",
-            self.target_path.to_string_lossy()
+            "Upgrade legacy genesis keypair from {} to dual bundle at {}",
+            self.legacy_secret_key_path.display(),
+            self.target_path.display()
         );
 
-        GenesisTools::create_and_save_genesis_keypair(&self.target_path)
-            .with_context(|| "genesis-tools: keypair generation error")?;
+        GenesisTools::upgrade_legacy_keypair_to_dual(
+            &self.legacy_secret_key_path,
+            &self.target_path,
+        )
+        .with_context(|| "genesis-tools: upgrade-key-to-dual error")?;
 
         Ok(())
     }
@@ -410,7 +519,11 @@ impl GenerateKeypairGenesisSubCommand {
 mod tests {
     use std::sync::Arc;
 
+    #[cfg(feature = "future_snark")]
+    use mithril_common::crypto_helper::GenesisEd25519Signer;
     use mithril_common::temp_dir;
+    #[cfg(feature = "future_snark")]
+    use mithril_common::temp_dir_create;
 
     use crate::test::TestLogger;
 
@@ -432,6 +545,102 @@ mod tests {
                 "Should error when multiple eras exist and none is provided"
             );
         }
+    }
+
+    #[test]
+    fn import_subcommand_parses_era_flag() {
+        let cmd = ImportGenesisSubCommand::try_parse_from([
+            "import",
+            "--signed-payload-path",
+            "/tmp/signed",
+            "--genesis-verification-key",
+            "deadbeef",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
+    }
+
+    #[test]
+    fn bootstrap_subcommand_parses_era_flag() {
+        let cmd = BootstrapGenesisSubCommand::try_parse_from([
+            "bootstrap",
+            "--genesis-secret-key",
+            "deadbeef",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
+    }
+
+    #[test]
+    fn sign_subcommand_parses_era_flag() {
+        let cmd = SignGenesisSubCommand::try_parse_from([
+            "sign",
+            "--to-sign-payload-path",
+            "/tmp/to-sign",
+            "--target-signed-payload-path",
+            "/tmp/signed",
+            "--genesis-secret-key-path",
+            "/tmp/genesis.sk",
+            "--mithril-era",
+            &SupportedEra::Lagrange.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Lagrange));
+    }
+
+    #[test]
+    fn generate_keypair_subcommand_parses_era_flag() {
+        let cmd = GenerateKeypairGenesisSubCommand::try_parse_from([
+            "generate-keypair",
+            "--target-path",
+            "/tmp/keys",
+            "--mithril-era",
+            &SupportedEra::Pythagoras.to_string(),
+        ])
+        .expect("CLI parse should succeed");
+        assert_eq!(cmd.mithril_era, Some(SupportedEra::Pythagoras));
+    }
+
+    #[tokio::test]
+    async fn generate_keypair_subcommand_writes_key_files() {
+        let target = temp_dir!().join("keys");
+        std::fs::create_dir_all(&target).unwrap();
+        let cmd = GenerateKeypairGenesisSubCommand {
+            target_path: target.clone(),
+            mithril_era: Some(SupportedEra::Pythagoras),
+        };
+
+        cmd.execute(TestLogger::stdout())
+            .await
+            .expect("generate-keypair should succeed with explicit era");
+        assert!(target.join("genesis.sk").exists());
+        assert!(target.join("genesis.vk").exists());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[tokio::test]
+    async fn upgrade_key_to_dual_subcommand_writes_bundle_files() {
+        let temp = temp_dir_create!();
+        let legacy_path = temp.join("genesis.sk");
+        let signer = GenesisEd25519Signer::create_deterministic_signer();
+        signer.secret_key().write_json_hex_to_file(&legacy_path).unwrap();
+        let target = temp.join("out");
+        std::fs::create_dir_all(&target).unwrap();
+
+        let cmd = UpgradeKeyToDualGenesisSubCommand {
+            legacy_secret_key_path: legacy_path,
+            target_path: target.clone(),
+        };
+
+        cmd.execute(TestLogger::stdout())
+            .await
+            .expect("upgrade should succeed");
+        assert!(target.join("genesis.sk").exists());
+        assert!(target.join("genesis.vk").exists());
     }
 
     #[tokio::test]

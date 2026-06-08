@@ -2,15 +2,14 @@ use std::cmp::min;
 use std::collections::{BTreeSet, HashMap};
 use std::iter::repeat_n;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 
 use mithril_stm::AggregateSignatureType;
 
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        GenesisEd25519Signer, GenesisEd25519Verifier, ProtocolAggregateVerificationKey,
-        ProtocolClerk, ProtocolParameters,
+        GenesisSigner, GenesisVerifier, ProtocolAggregateVerificationKey, ProtocolClerk,
+        ProtocolParameters,
     },
     entities::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
@@ -24,7 +23,7 @@ use crate::{
 
 /// Genesis certificate processor function type. For tests only.
 type GenesisCertificateProcessorFunc =
-    dyn Fn(Certificate, &CertificateChainBuilderContext, &GenesisEd25519Signer) -> Certificate;
+    dyn Fn(Certificate, &CertificateChainBuilderContext, &GenesisSigner) -> Certificate;
 
 /// Standard certificate processor function type. For tests only.
 type StandardCertificateProcessorFunc =
@@ -121,7 +120,7 @@ pub struct CertificateChainFixture {
     /// The full certificates list, ordered from latest to genesis
     pub certificates_chained: Vec<Certificate>,
     /// The genesis verifier associated with this chain genesis certificate
-    pub genesis_verifier: GenesisEd25519Verifier,
+    pub genesis_verifier: GenesisVerifier,
 }
 
 impl Deref for CertificateChainFixture {
@@ -405,8 +404,8 @@ impl<'a> CertificateChainBuilder<'a> {
         clerk.compute_aggregate_verification_key()
     }
 
-    fn setup_genesis() -> (GenesisEd25519Signer, GenesisEd25519Verifier) {
-        let genesis_signer = GenesisEd25519Signer::create_deterministic_signer();
+    fn setup_genesis() -> (GenesisSigner, GenesisVerifier) {
+        let genesis_signer = GenesisSigner::create_deterministic_signer();
         let genesis_verifier = genesis_signer.create_verifier();
 
         (genesis_signer, genesis_verifier)
@@ -506,15 +505,15 @@ impl<'a> CertificateChainBuilder<'a> {
     fn build_genesis_certificate(
         &self,
         context: &CertificateChainBuilderContext,
-        genesis_signer: &GenesisEd25519Signer,
+        genesis_signer: &GenesisSigner,
         mithril_era: SupportedEra,
     ) -> Certificate {
         let epoch = context.epoch;
         let certificate = self.build_base_certificate(context);
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
-        let genesis_producer =
-            CertificateGenesisProducer::new(Some(Arc::new(genesis_signer.to_owned())));
+        let genesis_producer = CertificateGenesisProducer::new();
+
         let genesis_protocol_message = genesis_producer
             .create_genesis_protocol_message(
                 next_protocol_parameters,
@@ -523,20 +522,38 @@ impl<'a> CertificateChainBuilder<'a> {
                 mithril_era,
             )
             .unwrap();
-        let genesis_signature = genesis_producer
-            .sign_genesis_protocol_message(genesis_protocol_message)
+        let signature = genesis_signer
+            .sign_deterministic(&genesis_protocol_message, mithril_era)
             .unwrap();
 
-        genesis_producer
-            .create_genesis_certificate(
+        match signature {
+            CertificateSignature::GenesisSignature(genesis_signature) => genesis_producer
+                .create_legacy_genesis_certificate(
+                    certificate.metadata.protocol_parameters,
+                    certificate.metadata.network,
+                    certificate.epoch,
+                    next_avk,
+                    genesis_signature,
+                    mithril_era,
+                ),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(
+                genesis_signature,
+                genesis_signature_snark,
+            ) => genesis_producer.create_genesis_certificate(
                 certificate.metadata.protocol_parameters,
                 certificate.metadata.network,
                 certificate.epoch,
                 next_avk,
                 genesis_signature,
+                genesis_signature_snark,
                 mithril_era,
-            )
-            .unwrap()
+            ),
+            CertificateSignature::MultiSignature(..) => {
+                unreachable!("the genesis signer never produces a multi-signature")
+            }
+        }
+        .unwrap()
     }
 
     fn build_standard_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {
@@ -582,7 +599,7 @@ impl<'a> CertificateChainBuilder<'a> {
         let mut certificate = certificate;
         certificate.previous_hash =
             previous_certificate.map(|c| c.hash.to_string()).unwrap_or_default();
-        certificate.hash = certificate.compute_hash();
+        certificate.hash = certificate.try_compute_hash().unwrap();
 
         certificate
     }
@@ -889,8 +906,7 @@ mod test {
             fixture: &fixture,
             next_fixture: &next_fixture,
         };
-        let expected_protocol_message = context.compute_protocol_message_seed();
-        let expected_signed_message = expected_protocol_message.compute_hash();
+        let expected_protocol_message_legacy = context.compute_protocol_message_seed();
         let (protocol_genesis_signer, _) = CertificateChainBuilder::setup_genesis();
 
         let mithril_era = if cfg!(feature = "future_snark") {
@@ -901,6 +917,21 @@ mod test {
         let genesis_certificate = CertificateChainBuilder::default()
             .with_protocol_parameters(expected_protocol_parameters)
             .build_genesis_certificate(&context, &protocol_genesis_signer, mithril_era);
+
+        let expected_protocol_message = match mithril_era {
+            SupportedEra::Pythagoras => expected_protocol_message_legacy,
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                let mut message = ProtocolMessage::new_rigid();
+                for (key, value) in &expected_protocol_message_legacy.message_parts {
+                    message.set_message_part(*key, value.clone());
+                }
+                message
+            }
+            #[cfg(not(feature = "future_snark"))]
+            SupportedEra::Lagrange => expected_protocol_message_legacy,
+        };
+        let expected_signed_message = expected_protocol_message.compute_hash();
 
         assert!(genesis_certificate.is_genesis());
         assert_eq!(

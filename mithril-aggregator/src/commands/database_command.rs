@@ -106,7 +106,7 @@ impl MigrateCommand {
         debug!(root_logger, "DATABASE MIGRATE command"; "config" => format!("{config:?}"));
         println!(
             "Migrating databases from stores directory: {}",
-            self.stores_directory.to_string_lossy()
+            self.stores_directory.display()
         );
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config));
@@ -160,7 +160,7 @@ impl VacuumCommand {
         debug!(root_logger, "DATABASE VACUUM command"; "config" => format!("{config:?}"));
         println!(
             "Vacuuming database from stores directory: {}",
-            self.stores_directory.to_string_lossy()
+            self.stores_directory.display()
         );
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));

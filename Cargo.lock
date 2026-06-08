@@ -4055,7 +4055,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4063,6 +4063,7 @@ dependencies = [
  "axum-test",
  "blockfrost",
  "chrono",
+ "ciborium",
  "clap",
  "config",
  "criterion",
@@ -4119,7 +4120,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4140,7 +4141,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-discovery"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4231,7 +4232,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4262,7 +4263,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.14.13"
+version = "0.14.14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4301,7 +4302,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.13.14"
+version = "0.13.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4358,7 +4359,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4653,7 +4654,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.10.31"
+version = "0.10.32"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",

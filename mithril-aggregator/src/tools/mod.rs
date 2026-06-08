@@ -10,6 +10,8 @@ mod vacuum_tracker;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use era::EraTools;
+#[cfg(feature = "future_snark")]
+pub use genesis::GenesisSignedPayload;
 pub use genesis::GenesisTools;
 pub use single_signature_authenticator::*;
 pub use vacuum_tracker::VacuumTracker;

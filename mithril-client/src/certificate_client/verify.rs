@@ -3,12 +3,14 @@ use async_trait::async_trait;
 use slog::{Logger, trace};
 use std::sync::Arc;
 
+#[cfg(all(test, feature = "unstable"))]
+use mithril_common::crypto_helper::GenesisEd25519VerificationKey;
 use mithril_common::{
     certificate_chain::{
         CertificateRetriever, CertificateVerifier as CommonCertificateVerifier,
         MithrilCertificateVerifier as CommonMithrilCertificateVerifier,
     },
-    crypto_helper::GenesisEd25519VerificationKey,
+    crypto_helper::GenesisVerifier,
     entities::Certificate,
     logging::LoggerExtensions,
 };
@@ -45,7 +47,7 @@ pub(super) async fn verify_chain(
 pub struct MithrilCertificateVerifier {
     retriever: Arc<InternalCertificateRetriever>,
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
-    genesis_verification_key: GenesisEd25519VerificationKey,
+    genesis_verifier: GenesisVerifier,
     feedback_sender: FeedbackSender,
     #[cfg(feature = "unstable")]
     verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
@@ -67,14 +69,13 @@ impl MithrilCertificateVerifier {
             logger.clone(),
             retriever.clone(),
         ));
-        let genesis_verification_key =
-            GenesisEd25519VerificationKey::try_from(genesis_verification_key)
-                .with_context(|| "Invalid genesis verification key")?;
+        let genesis_verifier = GenesisVerifier::try_from_hex(genesis_verification_key)
+            .with_context(|| "Invalid genesis verification key")?;
 
         Ok(Self {
             retriever,
             internal_verifier,
-            genesis_verification_key,
+            genesis_verifier,
             feedback_sender,
             #[cfg(feature = "unstable")]
             verifier_cache,
@@ -136,7 +137,10 @@ impl MithrilCertificateVerifier {
     ) -> MithrilResult<Option<Certificate>> {
         let previous_certificate = self
             .internal_verifier
-            .verify_certificate(&certificate, &self.genesis_verification_key)
+            .verify_certificate(
+                &certificate,
+                &self.genesis_verifier.to_ed25519_verification_key(),
+            )
             .await?;
 
         #[cfg(feature = "unstable")]
@@ -247,9 +251,17 @@ mod tests {
     use mithril_common::test::builder::CertificateChainBuilder;
 
     use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
+    use crate::certificate_client::{
+        CertificateAggregatorRequest, MockCertificateAggregatorRequest,
+    };
     use crate::feedback::StackFeedbackReceiver;
+    use crate::test_utils::TestLogger;
 
     use super::*;
+
+    fn ed25519_verification_key_hex(genesis_verifier: &GenesisVerifier) -> String {
+        genesis_verifier.to_ed25519_verification_key().try_into().unwrap()
+    }
 
     #[tokio::test]
     async fn validating_chain_send_feedbacks() {
@@ -264,7 +276,7 @@ mod tests {
             .config_aggregator_requester_mock(|mock| {
                 mock.expect_certificate_chain(chain.certificates_chained.clone())
             })
-            .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
+            .with_genesis_verification_key(ed25519_verification_key_hex(&chain.genesis_verifier))
             .add_feedback_receiver(feedback_receiver.clone())
             .build();
 
@@ -307,7 +319,7 @@ mod tests {
             .config_aggregator_requester_mock(|mock| {
                 mock.expect_certificate_chain(chain.certificates_chained.clone())
             })
-            .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
+            .with_genesis_verification_key(ed25519_verification_key_hex(&chain.genesis_verifier))
             .build();
 
         let certificate = certificate_client
@@ -316,6 +328,123 @@ mod tests {
             .expect("Chain validation should succeed");
 
         assert_eq!(certificate.hash, last_certificate_hash);
+    }
+
+    fn build_verifier_from_genesis_key_string(genesis_verification_key: &str) -> MithrilResult<()> {
+        let aggregator_client: Arc<dyn CertificateAggregatorRequest> =
+            Arc::new(MockCertificateAggregatorRequest::new());
+        MithrilCertificateVerifier::new(
+            aggregator_client,
+            genesis_verification_key,
+            FeedbackSender::new(&[]),
+            #[cfg(feature = "unstable")]
+            None,
+            TestLogger::stdout(),
+        )
+        .map(|_| ())
+    }
+
+    #[test]
+    fn constructor_accepts_legacy_single_ed25519_verification_key() {
+        let chain = CertificateChainBuilder::new()
+            .with_total_certificates(1)
+            .with_certificates_per_epoch(1)
+            .build();
+        let legacy_hex = ed25519_verification_key_hex(&chain.genesis_verifier);
+
+        build_verifier_from_genesis_key_string(&legacy_hex)
+            .expect("legacy single-Ed25519 verification key must be accepted");
+    }
+
+    #[test]
+    fn constructor_rejects_empty_verification_key() {
+        build_verifier_from_genesis_key_string("")
+            .expect_err("empty verification key must be rejected");
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod verification_key_formats {
+        use mithril_common::crypto_helper::{
+            GenesisSchnorrSigner, GenesisVerificationKeyBundle, ProtocolKey,
+        };
+
+        use super::*;
+
+        fn dual_verification_key_hex(
+            genesis_verifier: &GenesisVerifier,
+            schnorr_signer: &GenesisSchnorrSigner,
+        ) -> String {
+            let bundle = GenesisVerificationKeyBundle::new(
+                genesis_verifier.to_ed25519_verification_key(),
+                schnorr_signer.verification_key(),
+            );
+            ProtocolKey::new(bundle).to_bytes_hex().unwrap()
+        }
+
+        #[test]
+        fn constructor_accepts_dual_verification_key_bundle() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(1)
+                .with_certificates_per_epoch(1)
+                .build();
+            let schnorr_signer = GenesisSchnorrSigner::create_non_deterministic_signer();
+            let dual_hex = dual_verification_key_hex(&chain.genesis_verifier, &schnorr_signer);
+
+            build_verifier_from_genesis_key_string(&dual_hex)
+                .expect("dual verification key bundle must be accepted");
+        }
+
+        #[tokio::test]
+        async fn verify_chain_succeeds_with_dual_bundle_on_pythagoras_chain() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(3)
+                .with_certificates_per_epoch(1)
+                .build();
+            let last_certificate_hash = chain.first().unwrap().hash.clone();
+            let schnorr_signer = GenesisSchnorrSigner::create_non_deterministic_signer();
+            let dual_hex = dual_verification_key_hex(&chain.genesis_verifier, &schnorr_signer);
+
+            let certificate_client = CertificateClientTestBuilder::default()
+                .config_aggregator_requester_mock(|mock| {
+                    mock.expect_certificate_chain(chain.certificates_chained.clone())
+                })
+                .with_genesis_verification_key(dual_hex)
+                .build();
+
+            certificate_client
+                .verify_chain(&last_certificate_hash)
+                .await
+                .expect(
+                    "dual verification key bundle must validate a chain whose genesis is the legacy single-signature variant",
+                );
+        }
+
+        #[tokio::test]
+        async fn verify_chain_succeeds_with_legacy_verification_key_on_lagrange_chain() {
+            use mithril_common::entities::SupportedEra;
+
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(3)
+                .with_certificates_per_epoch(1)
+                .with_mithril_era(SupportedEra::Lagrange)
+                .build();
+            let last_certificate_hash = chain.first().unwrap().hash.clone();
+            let legacy_hex = ed25519_verification_key_hex(&chain.genesis_verifier);
+
+            let certificate_client = CertificateClientTestBuilder::default()
+                .config_aggregator_requester_mock(|mock| {
+                    mock.expect_certificate_chain(chain.certificates_chained.clone())
+                })
+                .with_genesis_verification_key(legacy_hex)
+                .build();
+
+            certificate_client
+                .verify_chain(&last_certificate_hash)
+                .await
+                .expect(
+                    "legacy single-Ed25519 verification key must validate a Lagrange-era chain (SNARK half silently skipped per the dual-bundle policy)",
+                );
+        }
     }
 
     #[cfg(feature = "unstable")]
@@ -363,7 +492,7 @@ mod tests {
             let cache = Arc::new(MemoryCertificateVerifierCache::new(TimeDelta::hours(1)));
             let verifier = build_verifier_with_cache(
                 |_mock| {},
-                chain.genesis_verifier.to_verification_key(),
+                chain.genesis_verifier.to_ed25519_verification_key(),
                 cache.clone(),
             );
 
@@ -396,7 +525,7 @@ mod tests {
             let cache = Arc::new(MemoryCertificateVerifierCache::new(TimeDelta::hours(1)));
             let verifier = build_verifier_with_cache(
                 |mock| mock.expect_certificate_chain(vec![genesis_certificate.clone()]),
-                chain.genesis_verifier.to_verification_key(),
+                chain.genesis_verifier.to_ed25519_verification_key(),
                 cache.clone(),
             );
 
@@ -434,7 +563,9 @@ mod tests {
                     // Expect to fetch the first certificate from the network
                     mock.expect_certificate_chain(chain.certificates_chained.clone());
                 })
-                .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
+                .with_genesis_verification_key(ed25519_verification_key_hex(
+                    &chain.genesis_verifier,
+                ))
                 .with_verifier_cache(cache.clone())
                 .build();
 
@@ -493,7 +624,9 @@ mod tests {
                 .config_aggregator_requester_mock(|mock| {
                     mock.expect_certificate_chain(certificates_that_must_be_fully_verified);
                 })
-                .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
+                .with_genesis_verification_key(ed25519_verification_key_hex(
+                    &chain.genesis_verifier,
+                ))
                 .with_verifier_cache(cache)
                 .build();
 
@@ -521,7 +654,9 @@ mod tests {
                         [chain[0..3].to_vec(), vec![chain.last().unwrap().clone()]].concat(),
                     )
                 })
-                .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
+                .with_genesis_verification_key(ed25519_verification_key_hex(
+                    &chain.genesis_verifier,
+                ))
                 .with_verifier_cache(Arc::new(cache))
                 .build();
 

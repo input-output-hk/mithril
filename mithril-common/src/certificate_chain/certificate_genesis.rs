@@ -1,48 +1,39 @@
 //! A module used to create a Genesis Certificate
 //!
-use std::sync::Arc;
-
 use chrono::prelude::*;
 #[cfg(feature = "future_snark")]
 use slog::warn;
 use slog::{Logger, o};
-use thiserror::Error;
 
 #[cfg(feature = "future_snark")]
-use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
+use crate::crypto_helper::{GenesisSchnorrSignature, ProtocolAggregateVerificationKeyForSnark};
 use crate::{
     StdResult,
     crypto_helper::{
-        GenesisEd25519Signature, GenesisEd25519Signer, PROTOCOL_VERSION,
-        ProtocolAggregateVerificationKey, ProtocolKey,
+        GenesisEd25519Signature, PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolKey,
     },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters, SupportedEra,
     },
-    protocol::ToMessage,
 };
-
-/// [CertificateGenesisProducer] related errors.
-#[derive(Error, Debug)]
-pub enum CertificateGenesisProducerError {
-    /// Error raised when there is no genesis signer available
-    #[error("missing genesis signer error")]
-    MissingGenesisSigner(),
-}
 
 /// CertificateGenesisProducer is in charge of producing a Genesis Certificate
 #[derive(Debug)]
 pub struct CertificateGenesisProducer {
-    genesis_signer: Option<Arc<GenesisEd25519Signer>>,
     logger: Logger,
+}
+
+impl Default for CertificateGenesisProducer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CertificateGenesisProducer {
     /// CertificateGenesisProducer factory
-    pub fn new(genesis_signer: Option<Arc<GenesisEd25519Signer>>) -> Self {
+    pub fn new() -> Self {
         Self {
-            genesis_signer,
             logger: Logger::root(slog::Discard, o!()),
         }
     }
@@ -65,7 +56,13 @@ impl CertificateGenesisProducer {
             ProtocolKey::new(genesis_avk.to_concatenation_aggregate_verification_key().to_owned());
         let genesis_concatenation_avk =
             genesis_aggregate_verification_key_for_concatenation.to_json_hex()?;
-        let mut protocol_message = ProtocolMessage::new();
+        let mut protocol_message = match mithril_era {
+            SupportedEra::Pythagoras => ProtocolMessage::new(),
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => ProtocolMessage::new_rigid(),
+            #[cfg(not(feature = "future_snark"))]
+            SupportedEra::Lagrange => ProtocolMessage::new(),
+        };
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             genesis_concatenation_avk,
@@ -99,23 +96,18 @@ impl CertificateGenesisProducer {
             ProtocolMessagePartKey::CurrentEpoch,
             genesis_epoch.to_string(),
         );
+
+        #[cfg(feature = "future_snark")]
+        protocol_message.check_rigid_integrity()?;
+
         Ok(protocol_message)
     }
 
-    /// Sign the Genesis protocol message (test only)
-    pub fn sign_genesis_protocol_message<T: ToMessage>(
-        &self,
-        genesis_message: T,
-    ) -> Result<GenesisEd25519Signature, CertificateGenesisProducerError> {
-        Ok(self
-            .genesis_signer
-            .as_ref()
-            .ok_or_else(CertificateGenesisProducerError::MissingGenesisSigner)?
-            .sign(genesis_message.to_message().as_bytes()))
-    }
-
-    /// Create a Genesis Certificate
-    pub fn create_genesis_certificate<T: Into<String>>(
+    /// Assemble a legacy (Pythagoras) Genesis Certificate from an Ed25519 genesis signature.
+    ///
+    /// Signing is performed upstream by [`GenesisSigner`][crate::crypto_helper::GenesisSigner];
+    /// this only builds the certificate body.
+    pub fn create_legacy_genesis_certificate<T: Into<String>>(
         &self,
         protocol_parameters: ProtocolParameters,
         network: T,
@@ -124,33 +116,79 @@ impl CertificateGenesisProducer {
         genesis_signature: GenesisEd25519Signature,
         mithril_era: SupportedEra,
     ) -> StdResult<Certificate> {
-        let protocol_version = PROTOCOL_VERSION.to_string();
-        let initiated_at = Utc::now();
-        let sealed_at = Utc::now();
-        let signers = vec![];
+        self.create_genesis_certificate_internal(
+            protocol_parameters,
+            network,
+            epoch,
+            genesis_avk,
+            CertificateSignature::GenesisSignature(genesis_signature),
+            mithril_era,
+        )
+    }
+
+    /// Assemble a dual (Lagrange) Genesis Certificate from the Ed25519 and Schnorr genesis
+    /// signatures.
+    ///
+    /// Signing is performed upstream by [`GenesisSigner`][crate::crypto_helper::GenesisSigner];
+    /// this only builds the certificate body.
+    #[cfg(feature = "future_snark")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_genesis_certificate<T: Into<String>>(
+        &self,
+        protocol_parameters: ProtocolParameters,
+        network: T,
+        epoch: Epoch,
+        genesis_avk: ProtocolAggregateVerificationKey,
+        genesis_signature: GenesisEd25519Signature,
+        genesis_signature_snark: GenesisSchnorrSignature,
+        mithril_era: SupportedEra,
+    ) -> StdResult<Certificate> {
+        self.create_genesis_certificate_internal(
+            protocol_parameters,
+            network,
+            epoch,
+            genesis_avk,
+            CertificateSignature::GenesisDualSignature(genesis_signature, genesis_signature_snark),
+            mithril_era,
+        )
+    }
+
+    /// Assemble a Genesis Certificate body around an already-produced genesis signature.
+    ///
+    /// Private so the public entry points ([Self::create_legacy_genesis_certificate],
+    /// [Self::create_genesis_certificate]) own the signature shape, making a multi-signature
+    /// genesis certificate unrepresentable.
+    fn create_genesis_certificate_internal<T: Into<String>>(
+        &self,
+        protocol_parameters: ProtocolParameters,
+        network: T,
+        epoch: Epoch,
+        genesis_avk: ProtocolAggregateVerificationKey,
+        signature: CertificateSignature,
+        mithril_era: SupportedEra,
+    ) -> StdResult<Certificate> {
         let metadata = CertificateMetadata::new(
             network,
-            protocol_version,
+            PROTOCOL_VERSION.to_string(),
             protocol_parameters.clone(),
-            initiated_at,
-            sealed_at,
-            signers,
+            Utc::now(),
+            Utc::now(),
+            vec![],
         );
-        let previous_hash = "".to_string();
         let genesis_protocol_message = self.create_genesis_protocol_message(
             &protocol_parameters,
             &genesis_avk,
             &epoch,
             mithril_era,
         )?;
-        Ok(Certificate::new(
-            previous_hash,
+        Certificate::try_new(
+            "".to_string(),
             epoch,
             metadata,
             genesis_protocol_message,
             genesis_avk,
-            CertificateSignature::GenesisSignature(genesis_signature),
-        ))
+            signature,
+        )
     }
 }
 
@@ -161,6 +199,8 @@ mod tests {
     use crate::entities::ProtocolMessagePartKey;
     use crate::test::TestLogger;
     use crate::test::builder::MithrilFixtureBuilder;
+    #[cfg(feature = "future_snark")]
+    use crate::test::double::fake_keys;
 
     #[test]
     fn genesis_protocol_message_has_expected_keys_and_values() {
@@ -168,8 +208,7 @@ mod tests {
         let genesis_protocol_parameters = fixture.protocol_parameters();
         let genesis_avk = fixture.compute_aggregate_verification_key();
         let genesis_epoch = Epoch(123);
-        let genesis_producer =
-            CertificateGenesisProducer::new(None).with_logger(TestLogger::stdout());
+        let genesis_producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
         let protocol_message = genesis_producer
             .create_genesis_protocol_message(
                 &genesis_protocol_parameters,
@@ -207,8 +246,7 @@ mod tests {
         let genesis_protocol_parameters = fixture.protocol_parameters();
         let genesis_avk = fixture.compute_aggregate_verification_key();
         let genesis_epoch = Epoch(123);
-        let genesis_producer =
-            CertificateGenesisProducer::new(None).with_logger(TestLogger::stdout());
+        let genesis_producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
         let protocol_message = genesis_producer
             .create_genesis_protocol_message(
                 &genesis_protocol_parameters,
@@ -226,5 +264,172 @@ mod tests {
                 .get_message_part(&ProtocolMessagePartKey::NextSnarkAggregateVerificationKey),
             Some(&expected_snark_avk_value)
         );
+    }
+
+    #[cfg(feature = "future_snark")]
+    mod era_dispatched_genesis_certificate {
+        use crate::crypto_helper::{
+            GenesisBundleError, GenesisEd25519Signer, GenesisSchnorrVerifier, GenesisSigner,
+            PREIMAGE_SIZE, ProtocolAggregateVerificationKeyForConcatenation, sha256_digest,
+        };
+        use crate::entities::RigidProtocolMessageIntegrityError;
+
+        use super::*;
+
+        #[test]
+        fn pythagoras_creates_a_single_signature_variant() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let genesis_signer = GenesisSigner::create_deterministic_signer();
+            let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
+            let protocol_message = producer
+                .create_genesis_protocol_message(
+                    &fixture.protocol_parameters(),
+                    &fixture.compute_aggregate_verification_key(),
+                    &Epoch(1),
+                    SupportedEra::Pythagoras,
+                )
+                .unwrap();
+            let signature = genesis_signer
+                .sign_deterministic(&protocol_message, SupportedEra::Pythagoras)
+                .unwrap();
+
+            let certificate = producer
+                .create_genesis_certificate_internal(
+                    fixture.protocol_parameters(),
+                    "testnet",
+                    Epoch(1),
+                    fixture.compute_aggregate_verification_key(),
+                    signature,
+                    SupportedEra::Pythagoras,
+                )
+                .unwrap();
+
+            assert!(matches!(
+                certificate.signature,
+                CertificateSignature::GenesisSignature(_)
+            ));
+        }
+
+        #[test]
+        fn lagrange_genesis_rejects_an_aggregate_verification_key_without_its_snark_half() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
+            let aggregate_verification_key_without_snark = ProtocolAggregateVerificationKey::new(
+                ProtocolAggregateVerificationKeyForConcatenation::try_from(
+                    fake_keys::aggregate_verification_key_for_concatenation()[0],
+                )
+                .unwrap()
+                .into(),
+                None,
+            );
+
+            let error = producer
+                .create_genesis_protocol_message(
+                    &fixture.protocol_parameters(),
+                    &aggregate_verification_key_without_snark,
+                    &Epoch(1),
+                    SupportedEra::Lagrange,
+                )
+                .expect_err(
+                    "Lagrange genesis must reject an aggregate verification key without its SNARK half",
+                );
+
+            assert!(matches!(
+                error.downcast_ref::<RigidProtocolMessageIntegrityError>(),
+                Some(RigidProtocolMessageIntegrityError::MissingNextSnarkAggregateVerificationKey)
+            ));
+        }
+
+        #[test]
+        fn lagrange_creates_a_dual_signature_variant() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let genesis_signer = GenesisSigner::create_deterministic_signer();
+            let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
+            let protocol_message = producer
+                .create_genesis_protocol_message(
+                    &fixture.protocol_parameters(),
+                    &fixture.compute_aggregate_verification_key(),
+                    &Epoch(1),
+                    SupportedEra::Lagrange,
+                )
+                .unwrap();
+            let signature = genesis_signer
+                .sign_deterministic(&protocol_message, SupportedEra::Lagrange)
+                .unwrap();
+
+            let certificate = producer
+                .create_genesis_certificate_internal(
+                    fixture.protocol_parameters(),
+                    "testnet",
+                    Epoch(1),
+                    fixture.compute_aggregate_verification_key(),
+                    signature,
+                    SupportedEra::Lagrange,
+                )
+                .unwrap();
+
+            let (genesis_ed25519_signature, genesis_schnorr_signature) = match certificate.signature
+            {
+                CertificateSignature::GenesisDualSignature(ed25519, schnorr) => (ed25519, schnorr),
+                other => panic!("expected GenesisDualSignature, got {other:?}"),
+            };
+
+            let verifier = GenesisSchnorrVerifier::from_verification_key(
+                genesis_signer.schnorr.as_ref().unwrap().verification_key(),
+            );
+            let preimage = certificate.protocol_message.rigid_preimage();
+            assert_eq!(preimage.len(), PREIMAGE_SIZE);
+            let digest = sha256_digest(&preimage);
+            verifier.verify(&digest, &genesis_schnorr_signature).expect(
+                "Schnorr signature produced by the dual-genesis path must verify against the same digest",
+            );
+            genesis_signer
+                .ed25519
+                .create_verifier()
+                .verify(
+                    certificate.signed_message.as_bytes(),
+                    &genesis_ed25519_signature,
+                )
+                .expect("Ed25519 signature must verify against the legacy signed_message bytes");
+        }
+
+        #[test]
+        fn preimage_size_constant_matches_rigid_protocol_message_preimage_length() {
+            let mut rigid = ProtocolMessage::new_rigid();
+            rigid.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
+
+            assert_eq!(
+                rigid.rigid_preimage().len(),
+                PREIMAGE_SIZE,
+                "Rigid protocol-message preimage length must match the PREIMAGE_SIZE constant \
+                 pinned by the IVC gadget; any drift here is the regression the signer's \
+                 preimage-size guard exists to catch"
+            );
+        }
+
+        #[test]
+        fn lagrange_fails_without_a_schnorr_signer() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let genesis_signer =
+                GenesisSigner::from_ed25519(GenesisEd25519Signer::create_deterministic_signer());
+            let producer = CertificateGenesisProducer::new().with_logger(TestLogger::stdout());
+            let protocol_message = producer
+                .create_genesis_protocol_message(
+                    &fixture.protocol_parameters(),
+                    &fixture.compute_aggregate_verification_key(),
+                    &Epoch(1),
+                    SupportedEra::Lagrange,
+                )
+                .unwrap();
+
+            let error = genesis_signer
+                .sign_deterministic(&protocol_message, SupportedEra::Lagrange)
+                .unwrap_err();
+
+            assert!(matches!(
+                error.downcast_ref::<GenesisBundleError>(),
+                Some(GenesisBundleError::LegacySigningKey)
+            ));
+        }
     }
 }

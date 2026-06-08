@@ -4,6 +4,8 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::StdError;
+#[cfg(feature = "future_snark")]
+use crate::crypto_helper::GenesisSchnorrSignature;
 use crate::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
 };
@@ -61,12 +63,73 @@ pub struct CertificateMessage {
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
     pub genesis_signature: String,
+
+    /// SNARK-friendly Schnorr genesis signature carried alongside [Self::genesis_signature]
+    /// on Lagrange-era genesis certificates.
+    ///
+    /// Empty string for Pythagoras and non-genesis certificates. Legacy clients deserialising
+    /// this message ignore the field entirely (default to empty), so the wire format remains a
+    /// strict superset of the pre-Lagrange one.
+    #[cfg(feature = "future_snark")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub genesis_schnorr_signature: String,
 }
 
 impl CertificateMessage {
     /// Check that the certificate signed message match the given protocol message.
     pub fn match_message(&self, message: &ProtocolMessage) -> bool {
         message.compute_hash() == self.signed_message
+    }
+
+    /// Build a standard certificate's multi-signature from its wire-format parts.
+    fn multi_signature_from_message(
+        signed_entity_type: SignedEntityTypeMessage,
+        multi_signature: String,
+    ) -> Result<CertificateSignature, StdError> {
+        Ok(CertificateSignature::MultiSignature(
+            signed_entity_type.try_into()?,
+            multi_signature.try_into().with_context(
+                || "Can not convert message to certificate: can not decode the multi-signature",
+            )?,
+        ))
+    }
+
+    /// Build a genesis certificate's signature from its wire-format parts.
+    ///
+    /// Yields a dual signature when the SNARK half is present, a single Ed25519 signature otherwise.
+    fn genesis_signature_from_message(
+        genesis_signature: String,
+        #[cfg(feature = "future_snark")] genesis_schnorr_signature: String,
+    ) -> Result<CertificateSignature, StdError> {
+        let concatenation_signature = genesis_signature.try_into().with_context(
+            || "Can not convert message to certificate: can not decode the genesis signature",
+        )?;
+        #[cfg(feature = "future_snark")]
+        {
+            if genesis_schnorr_signature.is_empty() {
+                Ok(CertificateSignature::GenesisSignature(
+                    concatenation_signature,
+                ))
+            } else {
+                let snark_bytes = hex::decode(&genesis_schnorr_signature).with_context(|| {
+                    "Can not convert message to certificate: SNARK genesis signature is not valid hex"
+                })?;
+                let snark_signature =
+                    GenesisSchnorrSignature::from_bytes(&snark_bytes).with_context(|| {
+                        "Can not convert message to certificate: can not decode the SNARK genesis signature"
+                    })?;
+                Ok(CertificateSignature::GenesisDualSignature(
+                    concatenation_signature,
+                    snark_signature,
+                ))
+            }
+        }
+        #[cfg(not(feature = "future_snark"))]
+        {
+            Ok(CertificateSignature::GenesisSignature(
+                concatenation_signature,
+            ))
+        }
     }
 }
 
@@ -102,8 +165,10 @@ impl Debug for CertificateMessage {
                 );
                 debug
                     .field("multi_signature", &self.multi_signature)
-                    .field("genesis_signature", &self.genesis_signature)
-                    .finish()
+                    .field("genesis_signature", &self.genesis_signature);
+                #[cfg(feature = "future_snark")]
+                debug.field("genesis_schnorr_signature", &self.genesis_schnorr_signature);
+                debug.finish()
             }
             false => debug.finish_non_exhaustive(),
         }
@@ -145,24 +210,16 @@ impl TryFrom<CertificateMessage> for Certificate {
                 "Can not convert message to certificate: can not decode the aggregate verification key for SNARK"
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
-                CertificateSignature::MultiSignature(
-                    certificate_message.signed_entity_type.try_into()?,
-                    certificate_message
-                        .multi_signature
-                        .try_into()
-                        .with_context(|| {
-                            "Can not convert message to certificate: can not decode the multi-signature"
-                        })?,
-                )
+                CertificateMessage::multi_signature_from_message(
+                    certificate_message.signed_entity_type,
+                    certificate_message.multi_signature,
+                )?
             } else {
-                CertificateSignature::GenesisSignature(
-                    certificate_message
-                        .genesis_signature
-                        .try_into()
-                        .with_context(|| {
-                            "Can not convert message to certificate: can not decode the genesis signature"
-                        })?,
-                )
+                CertificateMessage::genesis_signature_from_message(
+                    certificate_message.genesis_signature,
+                    #[cfg(feature = "future_snark")]
+                    certificate_message.genesis_schnorr_signature,
+                )?
             },
         };
 
@@ -184,6 +241,8 @@ impl TryFrom<Certificate> for CertificateMessage {
             signers: certificate.metadata.signers,
         };
 
+        #[cfg(feature = "future_snark")]
+        let mut genesis_schnorr_signature = String::new();
         let (multi_signature, genesis_signature) = match certificate.signature {
             CertificateSignature::GenesisSignature(signature) => (
                 String::new(),
@@ -191,6 +250,16 @@ impl TryFrom<Certificate> for CertificateMessage {
                     "Can not convert certificate to message: can not encode the genesis signature"
                 })?,
             ),
+            #[cfg(feature = "future_snark")]
+            CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature) => {
+                genesis_schnorr_signature = hex::encode(schnorr_signature.to_bytes());
+                (
+                    String::new(),
+                    ed_signature.to_bytes_hex().with_context(|| {
+                        "Can not convert certificate to message: can not encode the genesis signature"
+                    })?,
+                )
+            }
             CertificateSignature::MultiSignature(_, signature) => (
                 signature.to_json_hex().with_context(|| {
                     "Can not convert certificate to message: can not encode the multi-signature"
@@ -223,6 +292,8 @@ impl TryFrom<Certificate> for CertificateMessage {
                 })?,
             multi_signature,
             genesis_signature,
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_signature,
         };
 
         Ok(message)
@@ -288,6 +359,8 @@ mod tests {
             aggregate_verification_key_snark: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_signature: String::new(),
         }
     }
 
@@ -448,6 +521,134 @@ mod tests {
                 let deserialized: CertificateMessage = serde_json::from_str(&json).unwrap();
 
                 assert_eq!(deserialized.aggregate_verification_key_snark, None);
+            }
+        }
+
+        #[cfg(feature = "future_snark")]
+        mod dual_genesis_certificate {
+            use rand_chacha::ChaCha20Rng;
+            use rand_core::SeedableRng;
+
+            use crate::crypto_helper::GenesisSchnorrSigner;
+
+            use super::*;
+
+            fn golden_dual_genesis_message() -> CertificateMessage {
+                let mut rng = ChaCha20Rng::from_seed([99u8; 32]);
+                let schnorr_signer = GenesisSchnorrSigner::generate(&mut rng);
+                let snark_signature = schnorr_signer.sign(&[0u8; 32], &mut rng).unwrap();
+
+                CertificateMessage {
+                    aggregate_verification_key: "00000000000000000404036cb79141a645faca33405ae82d67388a663fd1f55116781006608cccd2370000000000000006".to_string(),
+                    multi_signature: "".to_string(),
+                    genesis_signature: "c21f77fb812a8111b547c2145d765f854ca224b17e883d6483b668a8c4d095fd893efd2a2ba1d41da9f49d82bf02d8ee603791998b64436000e49184c000170b".to_string(),
+                    genesis_schnorr_signature: hex::encode(snark_signature.to_bytes()),
+                    ..golden_certificate_message()
+                }
+            }
+
+            #[test]
+            fn dual_signature_message_decodes_into_dual_certificate_variant() {
+                let message = golden_dual_genesis_message();
+                let certificate: Certificate = message.try_into().unwrap();
+
+                assert!(matches!(
+                    certificate.signature,
+                    CertificateSignature::GenesisDualSignature(_, _)
+                ));
+            }
+
+            #[test]
+            fn empty_genesis_schnorr_signature_yields_legacy_genesis_variant() {
+                let mut message = golden_dual_genesis_message();
+                message.genesis_schnorr_signature.clear();
+                let certificate: Certificate = message.try_into().unwrap();
+
+                assert!(matches!(
+                    certificate.signature,
+                    CertificateSignature::GenesisSignature(_)
+                ));
+            }
+
+            #[test]
+            fn round_trip_preserves_dual_signature_variant() {
+                let original = golden_dual_genesis_message();
+                let certificate: Certificate = original.clone().try_into().unwrap();
+                let restored: CertificateMessage = certificate.try_into().unwrap();
+
+                assert_eq!(original.genesis_signature, restored.genesis_signature);
+                assert_eq!(
+                    original.genesis_schnorr_signature,
+                    restored.genesis_schnorr_signature,
+                );
+            }
+
+            #[test]
+            fn archived_pre_lagrange_json_without_snark_field_still_deserialises() {
+                let archived_json = serde_json::json!({
+                    "hash": "hash",
+                    "previous_hash": "previous_hash",
+                    "epoch": 10,
+                    "signed_entity_type": {
+                        "MithrilStakeDistribution": 10,
+                    },
+                    "metadata": {
+                        "network": "testnet",
+                        "version": "0.1.0",
+                        "parameters": {"k": 1000, "m": 100, "phi_f": 0.123},
+                        "initiated_at": "2024-02-12T13:11:47Z",
+                        "sealed_at": "2024-02-12T13:12:57Z",
+                        "signers": []
+                    },
+                    "protocol_message": { "message_parts": {} },
+                    "signed_message": "signed_message",
+                    "aggregate_verification_key": "agg",
+                    "multi_signature": "ms",
+                    "genesis_signature": "gs",
+                });
+
+                let message: CertificateMessage =
+                    serde_json::from_value(archived_json).expect("archived JSON must deserialise");
+
+                assert_eq!(message.genesis_schnorr_signature, "");
+            }
+
+            mod golden_json_serialization {
+                use super::*;
+
+                const GOLDEN_DUAL_JSON: &str = r#"{"hash":"hash","previous_hash":"previous_hash","epoch":10,"signed_entity_type":{"CardanoDatabase":{"epoch":10,"immutable_file_number":1728}},"metadata":{"network":"testnet","version":"0.1.0","parameters":{"k":1000,"m":100,"phi_f":0.123},"initiated_at":"2024-02-12T13:11:47Z","sealed_at":"2024-02-12T13:12:57Z","signers":[{"party_id":"1","stake":10},{"party_id":"2","stake":20}]},"protocol_message":{"message_parts":{"snapshot_digest":"snapshot-digest-123","next_aggregate_verification_key":"next-avk-123"}},"signed_message":"signed_message","aggregate_verification_key":"aggregate_verification_key","multi_signature":"","genesis_signature":"c21f77fb812a8111b547c2145d765f854ca224b17e883d6483b668a8c4d095fd893efd2a2ba1d41da9f49d82bf02d8ee603791998b64436000e49184c000170b","genesis_schnorr_signature":"4e62a6e0432f63da06d9c2b7e3aeed4f0e1cd0f6b06e5dabb7d96fe33b3cdc1e1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"}"#;
+
+                fn golden_dual_message_with_fixed_snark() -> CertificateMessage {
+                    CertificateMessage {
+                        multi_signature: "".to_string(),
+                        genesis_signature: "c21f77fb812a8111b547c2145d765f854ca224b17e883d6483b668a8c4d095fd893efd2a2ba1d41da9f49d82bf02d8ee603791998b64436000e49184c000170b".to_string(),
+                        genesis_schnorr_signature: "4e62a6e0432f63da06d9c2b7e3aeed4f0e1cd0f6b06e5dabb7d96fe33b3cdc1e1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
+                        ..golden_certificate_message()
+                    }
+                }
+
+                #[test]
+                fn pinned_dual_signature_json_round_trips_into_message_and_back() {
+                    let json = GOLDEN_DUAL_JSON;
+                    let deserialized: CertificateMessage = serde_json::from_str(json).unwrap();
+
+                    assert_eq!(golden_dual_message_with_fixed_snark(), deserialized);
+                    let reserialized = serde_json::to_string(&deserialized).unwrap();
+                    assert_eq!(reserialized, json);
+                }
+
+                #[test]
+                fn dual_signature_field_is_present_in_serialised_wire_form() {
+                    let message = golden_dual_message_with_fixed_snark();
+
+                    let json_value: serde_json::Value = serde_json::to_value(&message).unwrap();
+
+                    assert_eq!(
+                        json_value.get("genesis_schnorr_signature").and_then(|v| v.as_str()),
+                        Some(message.genesis_schnorr_signature.as_str()),
+                        "genesis_schnorr_signature field must appear in the wire form when set",
+                    );
+                }
             }
         }
     }

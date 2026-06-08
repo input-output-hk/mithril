@@ -5,7 +5,7 @@ use slog::{Logger, debug, info, trace, warn};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{GenesisEd25519Verifier, PROTOCOL_VERSION};
+use mithril_common::crypto_helper::{GenesisVerifier, PROTOCOL_VERSION};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignature, StakeDistributionParty,
@@ -30,7 +30,7 @@ pub struct MithrilCertifierService {
     single_signature_repository: Arc<SingleSignatureRepository>,
     certificate_repository: Arc<CertificateRepository>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
-    genesis_verifier: Arc<GenesisEd25519Verifier>,
+    genesis_verifier: Arc<GenesisVerifier>,
     multi_signer: Arc<dyn MultiSigner>,
     epoch_service: EpochServiceWrapper,
     logger: Logger,
@@ -45,7 +45,7 @@ impl MithrilCertifierService {
         single_signature_repository: Arc<SingleSignatureRepository>,
         certificate_repository: Arc<CertificateRepository>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<GenesisEd25519Verifier>,
+        genesis_verifier: Arc<GenesisVerifier>,
         multi_signer: Arc<dyn MultiSigner>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,
@@ -339,17 +339,20 @@ impl CertifierService for MithrilCertifierService {
             .map(|cert| cert.hash)
             .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
 
-        let certificate = Certificate::new(
+        let certificate = Certificate::try_new(
             parent_certificate_hash,
             open_message.epoch,
             metadata,
             open_message.protocol_message.clone(),
             epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
-        );
+        )?;
 
         self.certificate_verifier
-            .verify_certificate(&certificate, &self.genesis_verifier.to_verification_key())
+            .verify_certificate(
+                &certificate,
+                &self.genesis_verifier.to_ed25519_verification_key(),
+            )
             .await
             .with_context(|| {
                 format!(
@@ -406,7 +409,7 @@ impl CertifierService for MithrilCertifierService {
             self.certificate_verifier
                 .verify_certificate_chain(
                     certificate.to_owned(),
-                    &self.genesis_verifier.to_verification_key(),
+                    &self.genesis_verifier.to_ed25519_verification_key(),
                 )
                 .await
                 .with_context(|| "CertificateVerifier can not verify certificate chain")?;
@@ -774,7 +777,7 @@ mod tests {
             .certificate_verifier
             .verify_certificate(
                 &certificate_created,
-                &certifier_service.genesis_verifier.to_verification_key(),
+                &certifier_service.genesis_verifier.to_ed25519_verification_key(),
             )
             .await
             .unwrap();

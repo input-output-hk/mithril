@@ -2,9 +2,7 @@ use anyhow::Context;
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::{CertificateVerifier, MithrilCertificateVerifier};
-use mithril_common::crypto_helper::{
-    GenesisEd25519Signer, GenesisEd25519VerificationKey, GenesisEd25519Verifier,
-};
+use mithril_common::crypto_helper::GenesisVerifier;
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
@@ -136,28 +134,27 @@ impl DependenciesBuilder {
         get_dependency!(self.certificate_verifier)
     }
 
-    async fn build_genesis_verifier(&mut self) -> Result<Arc<GenesisEd25519Verifier>> {
-        let genesis_verifier: GenesisEd25519Verifier = match self.configuration.environment() {
-            ExecutionEnvironment::Production => GenesisEd25519Verifier::from_verification_key(
-                GenesisEd25519VerificationKey::from_json_hex(
-                    &self.configuration.genesis_verification_key(),
-                )
-                .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: format!(
-                        "Could not decode hex key to build genesis verifier: '{}'",
-                        self.configuration.genesis_verification_key()
-                    ),
-                    error: Some(e),
-                })?,
-            ),
-            _ => GenesisEd25519Signer::create_deterministic_signer().create_verifier(),
+    async fn build_genesis_verifier(&mut self) -> Result<Arc<GenesisVerifier>> {
+        let genesis_verifier = match self.configuration.environment() {
+            ExecutionEnvironment::Production => {
+                let raw_verification_key = self.configuration.genesis_verification_key();
+                GenesisVerifier::try_from_hex(&raw_verification_key).map_err(|e| {
+                    DependenciesBuilderError::Initialization {
+                        message: format!(
+                            "Could not decode genesis verification key bundle: '{raw_verification_key}'"
+                        ),
+                        error: Some(e),
+                    }
+                })?
+            }
+            _ => GenesisVerifier::create_deterministic_verifier(),
         };
 
         Ok(Arc::new(genesis_verifier))
     }
 
-    /// Return a [GenesisEd25519Verifier]
-    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<GenesisEd25519Verifier>> {
+    /// Return the [GenesisVerifier]
+    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<GenesisVerifier>> {
         get_dependency!(self.genesis_verifier)
     }
 

@@ -304,6 +304,8 @@ mod tests {
             aggregate_verification_key_snark: None,
             multi_signature: String::new(),
             genesis_signature: String::new(),
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_signature: String::new(),
         }
     }
 

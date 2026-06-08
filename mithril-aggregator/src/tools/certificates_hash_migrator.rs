@@ -84,7 +84,7 @@ impl CertificatesHashMigrator {
             };
 
             if let Some(new_hash) = {
-                let computed_hash = certificate.compute_hash();
+                let computed_hash = certificate.try_compute_hash()?;
                 // return none if the hash did not change
                 (computed_hash != certificate.hash).then_some(computed_hash)
             } {
@@ -367,7 +367,7 @@ mod test {
                 certificate.previous_hash.clone_from(hash);
             }
 
-            let new_hash = certificate.compute_hash();
+            let new_hash = certificate.try_compute_hash().unwrap();
             old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
             certificate.hash = new_hash;
 
@@ -631,7 +631,7 @@ mod test {
         let connection = Arc::new(connection_without_foreign_key_support());
         let certificate = {
             let mut cert = dummy_genesis("whatever", time_at(1, 2));
-            cert.hash = cert.compute_hash();
+            cert.hash = cert.try_compute_hash().unwrap();
             cert
         };
         fill_certificates_and_signed_entities_in_db(connection.clone(), &[certificate])

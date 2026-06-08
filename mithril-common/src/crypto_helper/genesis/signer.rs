@@ -4,6 +4,8 @@
 use std::path::Path;
 
 use anyhow::anyhow;
+use rand_chacha::ChaCha20Rng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 use crate::StdResult;
 use crate::crypto_helper::GenesisEd25519SecretKey;
@@ -11,9 +13,11 @@ use crate::crypto_helper::GenesisEd25519Signer;
 use crate::crypto_helper::GenesisVerifier;
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSigner, GenesisSigningKeyBundle,
-    GenesisVerificationKeyBundle, LEGACY_FIRST_HEX_CHAR, ProtocolKey,
+    BUNDLE_FIRST_HEX_CHAR, GenesisBundleError, GenesisSchnorrSigner, GenesisSigningKeyBundle,
+    GenesisVerificationKeyBundle, LEGACY_FIRST_HEX_CHAR, PREIMAGE_SIZE, ProtocolKey, sha256_digest,
 };
+use crate::entities::{CertificateSignature, ProtocolMessage, SupportedEra};
+use crate::protocol::ToMessage;
 
 /// Wraps the two genesis signers and the bundle plumbing required by the offline ceremony.
 #[derive(Debug, Clone)]
@@ -58,6 +62,15 @@ impl GenesisSigner {
         }
     }
 
+    /// Build the matching [GenesisVerifier] for this signer, pairing each present half.
+    pub fn create_verifier(&self) -> GenesisVerifier {
+        GenesisVerifier {
+            ed25519: self.ed25519.create_verifier(),
+            #[cfg(feature = "future_snark")]
+            schnorr: self.schnorr.as_ref().map(|schnorr| schnorr.create_verifier()),
+        }
+    }
+
     /// Parse a hex blob, preferring the dual signing-key bundle and falling back to the legacy
     /// single-Ed25519 JSON-hex format.
     pub fn try_from_hex(raw: &str) -> StdResult<Self> {
@@ -92,19 +105,76 @@ impl GenesisSigner {
         }
     }
 
-    /// Build the matching [GenesisVerifier] for this signer, pairing each present half.
-    pub fn create_verifier(&self) -> GenesisVerifier {
-        GenesisVerifier {
-            ed25519: self.ed25519.create_verifier(),
-            #[cfg(feature = "future_snark")]
-            schnorr: self.schnorr.as_ref().map(|schnorr| schnorr.create_verifier()),
-        }
-    }
-
     /// Read [Self::try_from_hex] from disk.
     pub fn read_from_file(path: &Path) -> StdResult<Self> {
         let raw = std::fs::read_to_string(path)?;
         Self::try_from_hex(&raw)
+    }
+
+    /// Sign a genesis protocol message, producing the era-appropriate [CertificateSignature].
+    ///
+    /// Pythagoras yields a single Ed25519 signature; Lagrange yields a dual signature pairing the
+    /// Ed25519 half with a SNARK-friendly Schnorr signature over the rigid preimage digest. The
+    /// `rng` seeds the Schnorr per-signature nonce (unused under Pythagoras).
+    pub fn sign<R: CryptoRng + RngCore>(
+        &self,
+        protocol_message: &ProtocolMessage,
+        mithril_era: SupportedEra,
+        #[cfg_attr(not(feature = "future_snark"), allow(unused_variables))] rng: &mut R,
+    ) -> StdResult<CertificateSignature> {
+        let ed25519_signature = self.ed25519.sign(protocol_message.to_message().as_bytes());
+        match mithril_era {
+            SupportedEra::Pythagoras => {
+                Ok(CertificateSignature::GenesisSignature(ed25519_signature))
+            }
+            #[cfg(feature = "future_snark")]
+            SupportedEra::Lagrange => {
+                let schnorr_signer =
+                    self.schnorr.as_ref().ok_or(GenesisBundleError::LegacySigningKey)?;
+                if !protocol_message.is_rigid() {
+                    return Err(anyhow!(
+                        "Lagrange genesis signing requires a rigid protocol message"
+                    ));
+                }
+                protocol_message.check_rigid_integrity()?;
+                let preimage = protocol_message.rigid_preimage();
+                if preimage.len() != PREIMAGE_SIZE {
+                    return Err(anyhow!(
+                        "rigid protocol-message preimage must be exactly {PREIMAGE_SIZE} bytes (got {})",
+                        preimage.len()
+                    ));
+                }
+                let schnorr_signature = schnorr_signer.sign(&sha256_digest(&preimage), rng)?;
+                Ok(CertificateSignature::GenesisDualSignature(
+                    ed25519_signature,
+                    schnorr_signature,
+                ))
+            }
+            #[cfg(not(feature = "future_snark"))]
+            SupportedEra::Lagrange => Ok(CertificateSignature::GenesisSignature(ed25519_signature)),
+        }
+    }
+
+    /// Sign with a fixed-seed deterministic RNG, for non-production use (devnet, tests).
+    pub(crate) fn sign_deterministic(
+        &self,
+        protocol_message: &ProtocolMessage,
+        mithril_era: SupportedEra,
+    ) -> StdResult<CertificateSignature> {
+        self.sign(
+            protocol_message,
+            mithril_era,
+            &mut ChaCha20Rng::from_seed([0u8; 32]),
+        )
+    }
+
+    /// Sign with the OS-backed CSPRNG ([rand_core::OsRng]).
+    pub fn sign_non_deterministic(
+        &self,
+        protocol_message: &ProtocolMessage,
+        mithril_era: SupportedEra,
+    ) -> StdResult<CertificateSignature> {
+        self.sign(protocol_message, mithril_era, &mut rand_core::OsRng)
     }
 
     /// Derive the matching dual verification-key bundle. Returns `None` for a legacy single-Ed25519
@@ -209,6 +279,18 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([7u8; 32]);
             let schnorr = GenesisSchnorrSigner::generate(&mut rng);
             GenesisSigningKeyBundle::new(ed25519.secret_key(), schnorr.secret_key())
+        }
+
+        #[test]
+        fn sign_lagrange_rejects_a_non_rigid_protocol_message() {
+            let signer = GenesisSigner::from_bundle(build_bundle());
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+
+            let error = signer
+                .sign(&ProtocolMessage::new(), SupportedEra::Lagrange, &mut rng)
+                .expect_err("Lagrange signing must reject a non-rigid protocol message");
+
+            assert!(error.to_string().contains("rigid protocol message"));
         }
 
         #[test]
