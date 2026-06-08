@@ -926,6 +926,7 @@ The DMQ node supports the implementation of a **Decentralized Message Queue** (D
 - Here is the needed information to set up a DMQ node:
   - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
+  - `**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**`: replace with the path to the Shelley genesis file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
   - `**YOUR_DMQ_NODE_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node
   - `**YOUR_DMQ_NODE_PORT**`: replace with the listening port of your DMQ node
@@ -940,6 +941,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 
 - **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
 - **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
+- **YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**: `/cardano/config/shelley-genesis.json`
 - **YOUR_CARDANO_NETWORK_MAGIC**: `2`
 - **YOUR_DMQ_NODE_PUBLIC_ADDRESS**: `34.14.65.160`
 - **YOUR_DMQ_NODE_PORT**: `6161`
@@ -1026,6 +1028,7 @@ bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
+  "ShelleyGenesisFile": "**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
@@ -1050,6 +1053,7 @@ bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
+  "ShelleyGenesisFile": "/cardano/config/shelley-genesis.json",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
