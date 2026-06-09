@@ -67,23 +67,23 @@ inputs:
     description: Google Cloud VM SSH keys environment (`testing` or `production`).
     required: true
   mithril_use_p2p_network:
-    description: Mithril use P2P network (experimental, for test only).
+    description: Mithril use P2P network (experimental).
     required: false
     default: "false"
   mithril_p2p_use_dmq_protocol:
-    description: Mithril P2P network use DMQ protocol (experimental, for test only).
+    description: Mithril P2P network use DMQ protocol (experimental).
     required: false
     default: "false"
   mithril_p2p_use_real_dmq_node:
-    description: Use the real Decentralized Message Queue (DMQ) node (experimental, for test only).
+    description: Use the real Decentralized Message Queue (DMQ) node (experimental).
     required: false
     default: "false"
   mithril_p2p_dmq_use_ledger_peers:
-    description: Use ledger peers declared with SRV records (CIP-155) for DMQ nodes (experimental, for test only).
+    description: Use ledger peers declared with SRV records (CIP-155) for DMQ nodes (experimental).
     required: false
     default: "false"
   mithril_p2p_network_bootstrap_peer:
-    description: Mithril P2P network bootstrap peer (experimental, for test only).
+    description: Mithril P2P network bootstrap peer (experimental).
     required: false
     default: ""
   mithril_p2p_signer_relay_signer_registration_mode:
