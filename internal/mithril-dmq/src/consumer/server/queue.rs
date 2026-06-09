@@ -133,8 +133,8 @@ mod tests {
 
     fn fake_msg() -> DmqMsg {
         DmqMsg {
+            msg_id: vec![0, 1],
             msg_payload: DmqMsgPayload {
-                msg_id: vec![0, 1],
                 msg_body: vec![0, 1, 2],
                 kes_period: 10,
                 expires_at: 100,
@@ -154,7 +154,7 @@ mod tests {
         range
             .map(|i| {
                 let mut message = fake_msg();
-                message.msg_payload.msg_id = vec![i];
+                message.msg_id = vec![i];
                 message.msg_payload.expires_at = expires_at;
                 message.into()
             })

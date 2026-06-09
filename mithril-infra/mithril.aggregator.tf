@@ -93,7 +93,7 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
     mkdir -p $AGGREGATOR_CONFIG_DIRECTORY/ipc
 
     # Setup dmq node config
-    cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
+    cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "ShelleyGenesisFile": "/config-cardano/cardano-node/shelley-genesis.json"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
     rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 

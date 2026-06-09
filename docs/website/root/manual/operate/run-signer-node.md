@@ -941,6 +941,7 @@ The Mithril signer must connect to the DMQ node socket that is on the **same mac
 - Here is the needed information to set up a DMQ node:
   - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
+  - `**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**`: replace with the path to the Shelley genesis file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
   - `**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the relay machine
   - `**YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node on the relay machine
@@ -958,6 +959,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 
 - **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
 - **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
+- **YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**: `/cardano/config/shelley-genesis.json`
 - **YOUR_CARDANO_NETWORK_MAGIC**: `2`
 - **YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**: `192.168.1.30`
 - **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**: `34.14.65.160`
@@ -977,7 +979,7 @@ As we are still in a testing stage, we only support the `pre-release-preview` ne
 
 You can use these parameters for the **pre-release-preview** network:
 
-- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.4.2.0/dmq-node-linux.tar.gz`
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.6.0.0/dmq-node-linux.tar.gz`
 
 _These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
 
@@ -1047,6 +1049,7 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
+  "ShelleyGenesisFile": "**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
@@ -1071,6 +1074,7 @@ bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
+  "ShelleyGenesisFile": "/cardano/config/shelley-genesis.json",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
@@ -1095,6 +1099,7 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
+  "ShelleyGenesisFile": "**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**",
   "PeerSharing": false,
   "PeerSelectionCounters": true,
   "TraceOptions": {
@@ -1119,6 +1124,7 @@ bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
+  "ShelleyGenesisFile": "/cardano/config/shelley-genesis.json",
   "PeerSharing": false,
   "PeerSelectionCounters": true,
   "TraceOptions": {

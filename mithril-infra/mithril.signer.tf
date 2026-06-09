@@ -128,10 +128,10 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
       # Setup config.json with network magic and type-specific settings
       if [ "$SIGNER__TYPE" = "block-producer" ]; then
         # Block-producer: disable PeerSharing
-        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "PeerSharing": false}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "ShelleyGenesisFile": "/config-cardano/cardano-node/shelley-genesis.json", "PeerSharing": false}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
       else
         # Relay: keep default PeerSharing
-        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
+        cat $SIGNER__TYPE_CONFIG_DIRECTORY/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket", "ShelleyGenesisFile": "/config-cardano/cardano-node/shelley-genesis.json"}' > $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new
       fi
       rm -f $SIGNER__TYPE_CONFIG_DIRECTORY/config.json
       mv $SIGNER__TYPE_CONFIG_DIRECTORY/config.json.new $SIGNER__TYPE_CONFIG_DIRECTORY/config.json

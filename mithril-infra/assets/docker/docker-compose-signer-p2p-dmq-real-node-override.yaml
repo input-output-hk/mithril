@@ -22,6 +22,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/config:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/block-producer/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc-cardano
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/block-producer/${NETWORK}:/config-cardano:ro
     logging:
       driver: "${LOGGING_DRIVER}"
       options:
@@ -54,6 +55,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/config:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/relay/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc-cardano
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/relay/${NETWORK}:/config-cardano:ro
     ports:
       - "${SIGNER_DMQ_RELAY_PORT}:${SIGNER_DMQ_RELAY_PORT}"
     logging:

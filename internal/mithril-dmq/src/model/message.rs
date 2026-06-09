@@ -76,7 +76,7 @@ impl Debug for DmqMessage {
         let is_pretty_printing = f.alternate();
         let mut debug = f.debug_struct("DmqMessage");
         debug
-            .field("id", &hex::encode(&self.msg_payload.msg_id))
+            .field("id", &hex::encode(&self.msg_id))
             .field("kes_period", &self.msg_payload.kes_period)
             .field("expires_at", &self.msg_payload.expires_at);
 
@@ -100,8 +100,8 @@ mod tests {
     #[test]
     fn test_dmq_message_serialize_deserialize() {
         let dmq_msg = DmqMsg {
+            msg_id: vec![0, 1],
             msg_payload: DmqMsgPayload {
-                msg_id: vec![0, 1],
                 msg_body: vec![0, 1, 2],
                 kes_period: 10,
                 expires_at: 100,
