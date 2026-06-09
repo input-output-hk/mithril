@@ -18,9 +18,11 @@ use super::transitions::{
     build_next_certificate_asset_data, build_same_epoch_certificate_asset_data,
 };
 use crate::circuits::halo2_ivc::tests::common::asset_readers::{
-    FirstStepCertAsset, RecursiveChainStateAsset, RecursiveStepOutputAsset,
-    VerificationContextAsset, load_recursive_chain_state_asset, store_first_step_cert_asset,
-    store_recursive_chain_state_asset, store_recursive_step_output_asset,
+    FirstCertificateInEpochAsset, FollowingCertificateInEpochAsset, GenesisStepOutputAsset,
+    NextEpochStepOutputAsset, RecursiveChainStateAsset, VerificationContextAsset,
+    load_recursive_chain_state_asset, store_first_certificate_in_epoch_asset,
+    store_following_certificate_in_epoch_asset, store_genesis_step_output_asset,
+    store_next_epoch_step_output_asset, store_recursive_chain_state_asset,
     store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
@@ -351,22 +353,22 @@ fn store_recursive_step_output(
     );
     let message_preimage = next_step_inputs.recursive_witness.message_preimage.into_inner();
     let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
-    let avk_merkle_root: [u8; 32] = next_step_inputs
+    let aggregate_verification_key_merkle_root: [u8; 32] = next_step_inputs
         .recursive_witness
         .certificate_merkle_tree_commitment
         .as_field()
         .to_bytes_le();
-    let asset = RecursiveStepOutputAsset {
+    let asset = NextEpochStepOutputAsset {
         ivc_proof: IvcProofBytes::new(proof),
         next_accumulator: next_step_inputs.next_accumulator,
         next_state: next_step_inputs.next_state,
         certificate_proof: next_step_inputs.certificate_proof,
         message,
         message_preimage,
-        avk_merkle_root,
+        aggregate_verification_key_merkle_root,
     };
-    store_recursive_step_output_asset(&paths.recursive_step_output, &asset)
-        .expect("failed to write recursive_step_output asset");
+    store_next_epoch_step_output_asset(&paths.recursive_step_output, &asset)
+        .expect("failed to write next-epoch step output asset");
 }
 
 /// Generates and writes the stored recursive chain snapshot asset.
@@ -574,7 +576,7 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         "generate_genesis_step_output: writing asset -> {}",
         paths.genesis_step_output.display()
     );
-    let asset = RecursiveStepOutputAsset {
+    let asset = GenesisStepOutputAsset {
         ivc_proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state: genesis_next_state,
@@ -583,9 +585,9 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         // Zero-byte placeholders keep the field types fixed-size across genesis and non-genesis.
         message: [0u8; 32],
         message_preimage: [0u8; PREIMAGE_SIZE],
-        avk_merkle_root: [0u8; 32],
+        aggregate_verification_key_merkle_root: [0u8; 32],
     };
-    store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
+    store_genesis_step_output_asset(&paths.genesis_step_output, &asset)
         .expect("failed to write genesis_step_output asset");
     println!(
         "generate_genesis_step_output: done in {:?}",
@@ -719,21 +721,21 @@ pub(crate) fn generate_same_epoch_step_output_asset(
     );
     let message_preimage = ivc_witness.message_preimage.into_inner();
     let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
-    let avk_merkle_root: [u8; 32] = ivc_witness
+    let aggregate_verification_key_merkle_root: [u8; 32] = ivc_witness
         .certificate_merkle_tree_commitment
         .as_field()
         .to_bytes_le();
-    let asset = RecursiveStepOutputAsset {
+    let asset = FollowingCertificateInEpochAsset {
         ivc_proof: IvcProofBytes::new(proof),
         next_accumulator,
         next_state,
         certificate_proof,
         message,
         message_preimage,
-        avk_merkle_root,
+        aggregate_verification_key_merkle_root,
     };
-    store_recursive_step_output_asset(&paths.same_epoch_step_output, &asset)
-        .expect("failed to write same_epoch_step_output asset");
+    store_following_certificate_in_epoch_asset(&paths.same_epoch_step_output, &asset)
+        .expect("failed to write following-certificate-in-epoch asset");
     println!(
         "generate_same_epoch_step_output: done in {:?}",
         total_start.elapsed()
@@ -777,25 +779,25 @@ pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths
 
     let message_preimage = ivc_witness.message_preimage.into_inner();
     let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
-    let avk_merkle_root: [u8; 32] = ivc_witness
+    let aggregate_verification_key_merkle_root: [u8; 32] = ivc_witness
         .certificate_merkle_tree_commitment
         .as_field()
         .to_bytes_le();
 
-    let asset = FirstStepCertAsset {
+    let asset = FirstCertificateInEpochAsset {
         certificate_proof,
         next_state,
         message,
         message_preimage,
-        avk_merkle_root,
+        aggregate_verification_key_merkle_root,
     };
 
     println!(
         "generate_first_step_cert: writing asset -> {}",
         paths.first_step_cert.display()
     );
-    store_first_step_cert_asset(&paths.first_step_cert, &asset)
-        .expect("failed to write first_step_cert asset");
+    store_first_certificate_in_epoch_asset(&paths.first_step_cert, &asset)
+        .expect("failed to write first-certificate-in-epoch asset");
     println!(
         "generate_first_step_cert: done in {:?}",
         total_start.elapsed()
@@ -863,10 +865,10 @@ fn generate_first_step_cert_only() {
 fn generate_recursive_step_output_accumulator_bytes_only() {
     use crate::circuits::halo2_ivc::{
         io::Write as IvcWrite,
-        tests::common::asset_readers::load_embedded_recursive_step_output_asset,
+        tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
     };
     use midnight_proofs::utils::SerdeFormat;
-    let step_output = load_embedded_recursive_step_output_asset()
+    let step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
     let mut bytes = Vec::new();
     step_output

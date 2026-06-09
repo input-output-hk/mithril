@@ -7,8 +7,8 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     tests::common::{
         asset_readers::{
-            RecursiveStepOutputAsset, load_embedded_genesis_step_output_asset,
-            load_embedded_recursive_step_output_asset, load_embedded_same_epoch_step_output_asset,
+            StepOutputAsset, load_embedded_following_certificate_in_epoch_asset,
+            load_embedded_genesis_step_output_asset, load_embedded_next_epoch_step_output_asset,
             load_embedded_verification_context_asset,
         },
         helpers::verify_prepare_blake2b_recursive_proof,
@@ -17,8 +17,8 @@ use crate::circuits::halo2_ivc::{
 
 /// Loads a step output via `load_step_output` and asserts the verifier accepts
 /// the proof against the correct public inputs.
-fn assert_step_proof_verifies(
-    load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
+fn assert_step_proof_verifies<T: StepOutputAsset>(
+    load_step_output: impl FnOnce() -> StmResult<T>,
     load_label: &str,
     acceptance_message: &str,
 ) {
@@ -29,14 +29,14 @@ fn assert_step_proof_verifies(
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
-        step_output.next_state.as_public_input(),
-        AssignedAccumulator::as_public_input(&step_output.next_accumulator),
+        step_output.next_state().as_public_input(),
+        AssignedAccumulator::as_public_input(step_output.next_accumulator()),
     ]
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.ivc_proof.as_bytes(),
+        step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
 
@@ -62,7 +62,7 @@ fn same_epoch_step_proof_verifies() {
     // Asset-based check that the stored same-epoch Blake2b proof verifies against the correct
     // public inputs, confirming the same-epoch asset is valid.
     assert_step_proof_verifies(
-        load_embedded_same_epoch_step_output_asset,
+        load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
         "same-epoch step proof should verify against the correct public inputs",
     );
@@ -73,7 +73,7 @@ fn next_epoch_step_proof_verifies() {
     // Asset-based check that the stored next-epoch Blake2b proof verifies against the correct
     // public inputs, confirming the next-epoch asset is valid.
     assert_step_proof_verifies(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         "next-epoch step proof should verify against the correct public inputs",
     );

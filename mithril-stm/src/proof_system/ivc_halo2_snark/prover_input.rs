@@ -143,19 +143,19 @@ impl IvcProverInput {
         // Compute the new folded accumulator the IVC proof will commit to, by accumulating the
         // previous folded accumulator with the certificate proof and the previous IVC proof
         // (unless at genesis, where we skip the previous IVC proof and use a trivial accumulator instead).
-        let certificate_accumulator = setup.certificate_accumulator(dual_msm);
-        let previous_ivc_proof_accumulator = if is_genesis {
-            setup.trivial_previous_ivc_proof_accumulator()
+        let certificate_collapsed_accumulator = setup.certificate_collapsed_accumulator(dual_msm);
+        let previous_ivc_proof_collapsed_accumulator = if is_genesis {
+            setup.trivial_previous_ivc_proof_collapsed_accumulator()
         } else {
-            setup.previous_ivc_proof_accumulator(
+            setup.previous_ivc_proof_collapsed_accumulator(
                 rolling_state.ivc_proof().as_bytes(),
                 &rolling_state.previous_ivc_proof_public_inputs(global),
             )?
         };
         let mut next_accumulator = Accumulator::accumulate(&[
             rolling_state.accumulator().clone(),
-            certificate_accumulator,
-            previous_ivc_proof_accumulator,
+            certificate_collapsed_accumulator,
+            previous_ivc_proof_collapsed_accumulator,
         ]);
         next_accumulator.collapse();
 
@@ -195,10 +195,11 @@ mod tests {
                     errors::IvcCircuitError,
                     tests::common::{
                         asset_readers::{
-                            VerificationContextAsset, load_embedded_first_step_cert_asset,
+                            VerificationContextAsset,
+                            load_embedded_first_certificate_in_epoch_asset,
+                            load_embedded_following_certificate_in_epoch_asset,
+                            load_embedded_next_epoch_step_output_asset,
                             load_embedded_recursive_chain_state_asset,
-                            load_embedded_recursive_step_output_asset,
-                            load_embedded_same_epoch_step_output_asset,
                             load_embedded_verification_context_asset,
                         },
                         generators::{
@@ -309,10 +310,10 @@ mod tests {
         /// `AggregateVerificationKeyForSnark`. Uses `TOTAL_STAKE` so the encoded AVK
         /// matches the one committed to by the cert proofs.
         fn wrap_avk(
-            avk_merkle_root: &[u8; 32],
+            aggregate_verification_key_merkle_root: &[u8; 32],
         ) -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
             let mut avk_bytes = [0u8; 40];
-            avk_bytes[0..32].copy_from_slice(avk_merkle_root);
+            avk_bytes[0..32].copy_from_slice(aggregate_verification_key_merkle_root);
             avk_bytes[32..40].copy_from_slice(&TOTAL_STAKE.to_be_bytes());
             AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_bytes)
                 .expect("AVK should decode from asset bytes")
@@ -345,8 +346,8 @@ mod tests {
         fn prepare_at_genesis_produces_advanced_state_and_witness() {
             let setup = shared_ivc_setup();
             let asset_setup = shared_asset_setup();
-            let first_step =
-                load_embedded_first_step_cert_asset().expect("first step cert asset should load");
+            let first_step = load_embedded_first_certificate_in_epoch_asset()
+                .expect("first step cert asset should load");
 
             let global = build_global();
             let combined_names: Vec<String> = setup.combined_fixed_bases.keys().cloned().collect();
@@ -354,7 +355,7 @@ mod tests {
                 IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
 
             let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&first_step.avk_merkle_root);
+            let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message =
                 wrap_decoded_protocol_message(&first_step.message_preimage);
 
@@ -408,12 +409,12 @@ mod tests {
             let setup = shared_ivc_setup();
             let chain_state = load_embedded_recursive_chain_state_asset()
                 .expect("recursive chain state asset should load");
-            let step = load_embedded_same_epoch_step_output_asset()
+            let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&step.avk_merkle_root);
+            let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
 
             let previous_step_counter = chain_state.state.step_counter.as_u64();
@@ -458,12 +459,12 @@ mod tests {
             let setup = shared_ivc_setup();
             let chain_state = load_embedded_recursive_chain_state_asset()
                 .expect("recursive chain state asset should load");
-            let step = load_embedded_recursive_step_output_asset()
+            let step = load_embedded_next_epoch_step_output_asset()
                 .expect("recursive step output asset should load");
 
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&step.avk_merkle_root);
+            let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
 
             let previous_step_counter = chain_state.state.step_counter.as_u64();
@@ -508,7 +509,7 @@ mod tests {
             let setup = shared_ivc_setup();
             let chain_state = load_embedded_recursive_chain_state_asset()
                 .expect("recursive chain state asset should load");
-            let step = load_embedded_same_epoch_step_output_asset()
+            let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
             let global = build_global();
@@ -517,7 +518,7 @@ mod tests {
             corrupted[0] ^= 0xFF;
 
             let snark_proof = wrap_snark_proof(corrupted);
-            let avk = wrap_avk(&step.avk_merkle_root);
+            let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
             let rolling_state = build_rolling_state(
                 chain_state.state,
@@ -549,8 +550,8 @@ mod tests {
         fn prepare_rejects_invalid_genesis_signature() {
             let setup = shared_ivc_setup();
             let asset_setup = shared_asset_setup();
-            let first_step =
-                load_embedded_first_step_cert_asset().expect("first step cert asset should load");
+            let first_step = load_embedded_first_certificate_in_epoch_asset()
+                .expect("first step cert asset should load");
 
             let global = build_global();
             // Flip a low-order bit in the signature's challenge bytes to make it fail
@@ -564,7 +565,7 @@ mod tests {
             let rolling_state = IvcRollingState::genesis(bad_signature, &combined_names);
 
             let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&first_step.avk_merkle_root);
+            let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message =
                 wrap_decoded_protocol_message(&first_step.message_preimage);
 
@@ -591,7 +592,7 @@ mod tests {
             let setup = shared_ivc_setup();
             let chain_state = load_embedded_recursive_chain_state_asset()
                 .expect("recursive chain state asset should load");
-            let step = load_embedded_same_epoch_step_output_asset()
+            let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
             // Force the chain's current epoch to be far away from the cert's epoch.
@@ -615,7 +616,7 @@ mod tests {
 
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&step.avk_merkle_root);
+            let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
 
             let result = IvcProverInput::prepare(
@@ -645,7 +646,7 @@ mod tests {
             let setup = shared_ivc_setup();
             let chain_state = load_embedded_recursive_chain_state_asset()
                 .expect("recursive chain state asset should load");
-            let step = load_embedded_same_epoch_step_output_asset()
+            let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
             // Force the chain's step counter to u64::MAX so the +1 advance overflows.
@@ -667,7 +668,7 @@ mod tests {
 
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
-            let avk = wrap_avk(&step.avk_merkle_root);
+            let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
             let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
 
             let result = IvcProverInput::prepare(

@@ -64,7 +64,7 @@ pub(crate) struct VerificationContextAsset {
 /// `IvcProverInput::prepare` at the genesis transition (where the rolling state's
 /// `step_counter` is zero and no previous IVC proof exists).
 #[derive(Debug)]
-pub(crate) struct FirstStepCertAsset {
+pub(crate) struct FirstCertificateInEpochAsset {
     /// Certificate proof bytes (consumed by `prepare` via `SnarkProof`).
     pub(crate) certificate_proof: CertificateProofBytes,
     /// Expected next state after `prepare` advances by one step.
@@ -74,41 +74,86 @@ pub(crate) struct FirstStepCertAsset {
     /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
     /// epoch fields.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
-    /// Canonical encoding of the AVK merkle root the certificate proof committed to.
-    pub(crate) avk_merkle_root: [u8; 32],
+    /// Canonical encoding of the aggregate verification key merkle root the certificate
+    /// proof committed to.
+    pub(crate) aggregate_verification_key_merkle_root: [u8; 32],
 }
 
-/// Stored output of extending the recursive chain by one more step.
+/// Stored output of the genesis base-case step. Carries no certificate; the message,
+/// preimage, and aggregate-verification-key fields are zero-byte placeholders.
 #[derive(Debug)]
-pub(crate) struct RecursiveStepOutputAsset {
-    /// Stored final recursive proof bytes for the next step.
+pub(crate) struct GenesisStepOutputAsset {
+    /// Stored final recursive proof bytes for the genesis step.
     pub(crate) ivc_proof: IvcProofBytes,
-    /// Stored folded accumulator after extending the chain by one step.
+    /// Stored folded accumulator after the genesis step.
     pub(crate) next_accumulator: Accumulator<S>,
     /// Stored next recursive state.
     pub(crate) next_state: State,
-    /// Stored certificate proof consumed by the recursive step.
+    /// Empty: genesis carries no certificate proof.
     pub(crate) certificate_proof: CertificateProofBytes,
-    /// SHA-256 hash that the certificate proof committed to. All-zero at genesis.
+    /// Zero placeholder; no certificate exists at genesis.
+    pub(crate) message: [u8; 32],
+    /// Zero placeholder; no protocol-message preimage exists at genesis.
+    pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
+    /// Zero placeholder; no aggregate verification key merkle root exists at genesis.
+    pub(crate) aggregate_verification_key_merkle_root: [u8; 32],
+}
+
+/// Stored output of extending the recursive chain by one next-epoch step (the cert
+/// is the first cert of a new epoch, transitioning the chain from epoch N to N+1).
+#[derive(Debug)]
+pub(crate) struct NextEpochStepOutputAsset {
+    /// Stored final recursive proof bytes for the next-epoch step.
+    pub(crate) ivc_proof: IvcProofBytes,
+    /// Stored folded accumulator after the next-epoch step.
+    pub(crate) next_accumulator: Accumulator<S>,
+    /// Stored next recursive state.
+    pub(crate) next_state: State,
+    /// Stored certificate proof consumed by the next-epoch step.
+    pub(crate) certificate_proof: CertificateProofBytes,
+    /// SHA-256 hash that the certificate proof committed to.
     pub(crate) message: [u8; 32],
     /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
-    /// epoch fields. All-zero at genesis.
+    /// epoch fields.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
-    /// Canonical encoding of the AVK merkle root the certificate proof committed to.
-    /// All-zero at genesis.
-    pub(crate) avk_merkle_root: [u8; 32],
+    /// Canonical encoding of the aggregate verification key merkle root the certificate
+    /// proof committed to.
+    pub(crate) aggregate_verification_key_merkle_root: [u8; 32],
+}
+
+/// Stored output of extending the recursive chain by one same-epoch step (the cert
+/// follows in the current epoch and does not change the epoch boundary).
+#[derive(Debug)]
+pub(crate) struct FollowingCertificateInEpochAsset {
+    /// Stored final recursive proof bytes for the same-epoch step.
+    pub(crate) ivc_proof: IvcProofBytes,
+    /// Stored folded accumulator after the same-epoch step.
+    pub(crate) next_accumulator: Accumulator<S>,
+    /// Stored next recursive state.
+    pub(crate) next_state: State,
+    /// Stored certificate proof consumed by the same-epoch step.
+    pub(crate) certificate_proof: CertificateProofBytes,
+    /// SHA-256 hash that the certificate proof committed to.
+    pub(crate) message: [u8; 32],
+    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// epoch fields.
+    pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
+    /// Canonical encoding of the aggregate verification key merkle root the certificate
+    /// proof committed to.
+    pub(crate) aggregate_verification_key_merkle_root: [u8; 32],
 }
 
 const RECURSIVE_CHAIN_STATE_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/recursive_chain_state.bin");
 const VERIFICATION_CONTEXT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/verification_context.bin");
-const RECURSIVE_STEP_OUTPUT_ASSET_BYTES: &[u8] =
+const NEXT_EPOCH_STEP_OUTPUT_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/recursive_step_output.bin");
 const GENESIS_STEP_OUTPUT_ASSET_BYTES: &[u8] = include_bytes!("../assets/genesis_step_output.bin");
-const SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES: &[u8] =
+const FOLLOWING_CERTIFICATE_IN_EPOCH_ASSET_BYTES: &[u8] =
     include_bytes!("../assets/same_epoch_step_output.bin");
-const FIRST_STEP_CERT_ASSET_BYTES: &[u8] = include_bytes!("../assets/first_step_cert.bin");
+const FIRST_CERTIFICATE_IN_EPOCH_ASSET_BYTES: &[u8] =
+    include_bytes!("../assets/first_step_cert.bin");
 
 /// Opens a committed golden asset for buffered reading.
 fn open_asset_file(path: &Path) -> StmResult<BufReader<File>> {
@@ -414,10 +459,107 @@ pub(crate) fn store_verification_context_asset(
     Ok(())
 }
 
-/// Loads a recursive step output from the committed binary asset layout.
-fn load_recursive_step_output_asset_from_reader<R: Read>(
-    reader: &mut R,
-) -> StmResult<RecursiveStepOutputAsset> {
+/// Read-only view of the fields that generic test helpers need across the three
+/// step output asset variants. Implemented by `GenesisStepOutputAsset`,
+/// `NextEpochStepOutputAsset`, and `FollowingCertificateInEpochAsset`.
+pub(crate) trait StepOutputAsset {
+    fn next_state(&self) -> &State;
+    fn next_accumulator(&self) -> &Accumulator<S>;
+    fn ivc_proof(&self) -> &IvcProofBytes;
+}
+
+impl StepOutputAsset for GenesisStepOutputAsset {
+    fn next_state(&self) -> &State {
+        &self.next_state
+    }
+    fn next_accumulator(&self) -> &Accumulator<S> {
+        &self.next_accumulator
+    }
+    fn ivc_proof(&self) -> &IvcProofBytes {
+        &self.ivc_proof
+    }
+}
+
+impl StepOutputAsset for NextEpochStepOutputAsset {
+    fn next_state(&self) -> &State {
+        &self.next_state
+    }
+    fn next_accumulator(&self) -> &Accumulator<S> {
+        &self.next_accumulator
+    }
+    fn ivc_proof(&self) -> &IvcProofBytes {
+        &self.ivc_proof
+    }
+}
+
+impl StepOutputAsset for FollowingCertificateInEpochAsset {
+    fn next_state(&self) -> &State {
+        &self.next_state
+    }
+    fn next_accumulator(&self) -> &Accumulator<S> {
+        &self.next_accumulator
+    }
+    fn ivc_proof(&self) -> &IvcProofBytes {
+        &self.ivc_proof
+    }
+}
+
+/// Shared on-the-wire shape for the three step output asset variants. Used as a
+/// transport struct between the byte-level codec and the typed public assets.
+struct StepOutputFields {
+    ivc_proof: IvcProofBytes,
+    next_accumulator: Accumulator<S>,
+    next_state: State,
+    certificate_proof: CertificateProofBytes,
+    message: [u8; 32],
+    message_preimage: [u8; PREIMAGE_SIZE],
+    aggregate_verification_key_merkle_root: [u8; 32],
+}
+
+impl From<StepOutputFields> for GenesisStepOutputAsset {
+    fn from(f: StepOutputFields) -> Self {
+        Self {
+            ivc_proof: f.ivc_proof,
+            next_accumulator: f.next_accumulator,
+            next_state: f.next_state,
+            certificate_proof: f.certificate_proof,
+            message: f.message,
+            message_preimage: f.message_preimage,
+            aggregate_verification_key_merkle_root: f.aggregate_verification_key_merkle_root,
+        }
+    }
+}
+
+impl From<StepOutputFields> for NextEpochStepOutputAsset {
+    fn from(f: StepOutputFields) -> Self {
+        Self {
+            ivc_proof: f.ivc_proof,
+            next_accumulator: f.next_accumulator,
+            next_state: f.next_state,
+            certificate_proof: f.certificate_proof,
+            message: f.message,
+            message_preimage: f.message_preimage,
+            aggregate_verification_key_merkle_root: f.aggregate_verification_key_merkle_root,
+        }
+    }
+}
+
+impl From<StepOutputFields> for FollowingCertificateInEpochAsset {
+    fn from(f: StepOutputFields) -> Self {
+        Self {
+            ivc_proof: f.ivc_proof,
+            next_accumulator: f.next_accumulator,
+            next_state: f.next_state,
+            certificate_proof: f.certificate_proof,
+            message: f.message,
+            message_preimage: f.message_preimage,
+            aggregate_verification_key_merkle_root: f.aggregate_verification_key_merkle_root,
+        }
+    }
+}
+
+/// Reads the step-output common shape from the committed binary asset layout.
+fn read_step_output_fields_from_reader<R: Read>(reader: &mut R) -> StmResult<StepOutputFields> {
     let ivc_proof = IvcProofBytes::new(read_length_prefixed_proof(reader)?);
     let next_accumulator = Accumulator::<S>::read(reader, SerdeFormat::RawBytesUnchecked)?;
     let next_state = read_state_public_input(reader)?;
@@ -427,75 +569,163 @@ fn load_recursive_step_output_asset_from_reader<R: Read>(
     let message = read_fixed_length_prefixed::<32, _>(reader, "message")?;
     let message_preimage =
         read_fixed_length_prefixed::<PREIMAGE_SIZE, _>(reader, "message_preimage")?;
-    let mut avk_merkle_root = [0u8; 32];
-    reader.read_exact(&mut avk_merkle_root)?;
-
-    Ok(RecursiveStepOutputAsset {
+    let mut aggregate_verification_key_merkle_root = [0u8; 32];
+    reader.read_exact(&mut aggregate_verification_key_merkle_root)?;
+    Ok(StepOutputFields {
         ivc_proof,
         next_accumulator,
         next_state,
         certificate_proof,
         message,
         message_preimage,
-        avk_merkle_root,
+        aggregate_verification_key_merkle_root,
     })
 }
 
-/// Loads the embedded recursive step output compiled into the test binary.
-pub(crate) fn load_embedded_recursive_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
-    let mut reader = Cursor::new(RECURSIVE_STEP_OUTPUT_ASSET_BYTES);
-    load_recursive_step_output_asset_from_reader(&mut reader)
-        .context("failed to decode embedded recursive step output asset")
+/// Writes the step-output common shape using the committed binary layout. Shared
+/// across the three step output asset writers.
+#[allow(clippy::too_many_arguments)]
+fn write_step_output_fields<W: Write>(
+    writer: &mut W,
+    ivc_proof: &IvcProofBytes,
+    next_accumulator: &Accumulator<S>,
+    next_state: &State,
+    certificate_proof: &CertificateProofBytes,
+    message: &[u8; 32],
+    message_preimage: &[u8; PREIMAGE_SIZE],
+    aggregate_verification_key_merkle_root: &[u8; 32],
+) -> StmResult<()> {
+    write_length_prefixed_proof(writer, ivc_proof.as_bytes())?;
+    next_accumulator.write(writer, SerdeFormat::RawBytesUnchecked)?;
+    write_state_public_input(writer, next_state)?;
+    write_length_prefixed_proof(writer, certificate_proof.as_bytes())?;
+    write_length_prefixed_proof(writer, message)?;
+    write_length_prefixed_proof(writer, message_preimage)?;
+    writer.write_all(aggregate_verification_key_merkle_root)?;
+    Ok(())
+}
+
+/// Loads the embedded next-epoch step output compiled into the test binary.
+pub(crate) fn load_embedded_next_epoch_step_output_asset() -> StmResult<NextEpochStepOutputAsset> {
+    let mut reader = Cursor::new(NEXT_EPOCH_STEP_OUTPUT_ASSET_BYTES);
+    Ok(read_step_output_fields_from_reader(&mut reader)
+        .context("failed to decode embedded next-epoch step output asset")?
+        .into())
 }
 
 /// Loads the embedded genesis step output compiled into the test binary.
-pub(crate) fn load_embedded_genesis_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
+pub(crate) fn load_embedded_genesis_step_output_asset() -> StmResult<GenesisStepOutputAsset> {
     let mut reader = Cursor::new(GENESIS_STEP_OUTPUT_ASSET_BYTES);
-    load_recursive_step_output_asset_from_reader(&mut reader)
-        .context("failed to decode embedded genesis step output asset")
+    Ok(read_step_output_fields_from_reader(&mut reader)
+        .context("failed to decode embedded genesis step output asset")?
+        .into())
 }
 
-/// Loads the embedded same-epoch step output compiled into the test binary.
-pub(crate) fn load_embedded_same_epoch_step_output_asset() -> StmResult<RecursiveStepOutputAsset> {
-    let mut reader = Cursor::new(SAME_EPOCH_STEP_OUTPUT_ASSET_BYTES);
-    load_recursive_step_output_asset_from_reader(&mut reader)
-        .context("failed to decode embedded same-epoch step output asset")
+/// Loads the embedded following-certificate-in-epoch (same-epoch) step output compiled
+/// into the test binary.
+pub(crate) fn load_embedded_following_certificate_in_epoch_asset()
+-> StmResult<FollowingCertificateInEpochAsset> {
+    let mut reader = Cursor::new(FOLLOWING_CERTIFICATE_IN_EPOCH_ASSET_BYTES);
+    Ok(read_step_output_fields_from_reader(&mut reader)
+        .context("failed to decode embedded following-certificate-in-epoch asset")?
+        .into())
 }
 
-/// Writes the recursive step output asset using the committed binary layout.
-pub(crate) fn store_recursive_step_output_asset(
+/// Writes the next-epoch step output asset using the committed binary layout.
+pub(crate) fn store_next_epoch_step_output_asset(
     path: &Path,
-    asset: &RecursiveStepOutputAsset,
+    asset: &NextEpochStepOutputAsset,
 ) -> StmResult<()> {
     let mut writer = create_asset_file(path).with_context(|| {
         format!(
-            "failed to create recursive step output asset file: {}",
+            "failed to create next-epoch step output asset file: {}",
             path.display()
         )
     })?;
-
-    write_length_prefixed_proof(&mut writer, asset.ivc_proof.as_bytes())?;
-    asset
-        .next_accumulator
-        .write(&mut writer, SerdeFormat::RawBytesUnchecked)?;
-    write_state_public_input(&mut writer, &asset.next_state)?;
-    write_length_prefixed_proof(&mut writer, asset.certificate_proof.as_bytes())?;
-    write_length_prefixed_proof(&mut writer, &asset.message)?;
-    write_length_prefixed_proof(&mut writer, &asset.message_preimage)?;
-    writer.write_all(&asset.avk_merkle_root)?;
+    write_step_output_fields(
+        &mut writer,
+        &asset.ivc_proof,
+        &asset.next_accumulator,
+        &asset.next_state,
+        &asset.certificate_proof,
+        &asset.message,
+        &asset.message_preimage,
+        &asset.aggregate_verification_key_merkle_root,
+    )?;
     writer.flush().with_context(|| {
         format!(
-            "failed to flush recursive step output asset: {}",
+            "failed to flush next-epoch step output asset: {}",
             path.display()
         )
     })?;
     Ok(())
 }
 
-/// Loads a first-step certificate asset from the committed binary asset layout.
-fn load_first_step_cert_asset_from_reader<R: Read>(
+/// Writes the genesis step output asset using the committed binary layout.
+pub(crate) fn store_genesis_step_output_asset(
+    path: &Path,
+    asset: &GenesisStepOutputAsset,
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create genesis step output asset file: {}",
+            path.display()
+        )
+    })?;
+    write_step_output_fields(
+        &mut writer,
+        &asset.ivc_proof,
+        &asset.next_accumulator,
+        &asset.next_state,
+        &asset.certificate_proof,
+        &asset.message,
+        &asset.message_preimage,
+        &asset.aggregate_verification_key_merkle_root,
+    )?;
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush genesis step output asset: {}",
+            path.display()
+        )
+    })?;
+    Ok(())
+}
+
+/// Writes the following-certificate-in-epoch step output asset using the committed
+/// binary layout.
+pub(crate) fn store_following_certificate_in_epoch_asset(
+    path: &Path,
+    asset: &FollowingCertificateInEpochAsset,
+) -> StmResult<()> {
+    let mut writer = create_asset_file(path).with_context(|| {
+        format!(
+            "failed to create following-certificate-in-epoch asset file: {}",
+            path.display()
+        )
+    })?;
+    write_step_output_fields(
+        &mut writer,
+        &asset.ivc_proof,
+        &asset.next_accumulator,
+        &asset.next_state,
+        &asset.certificate_proof,
+        &asset.message,
+        &asset.message_preimage,
+        &asset.aggregate_verification_key_merkle_root,
+    )?;
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush following-certificate-in-epoch asset: {}",
+            path.display()
+        )
+    })?;
+    Ok(())
+}
+
+/// Loads the first-certificate-in-epoch asset from the committed binary asset layout.
+fn load_first_certificate_in_epoch_asset_from_reader<R: Read>(
     reader: &mut R,
-) -> StmResult<FirstStepCertAsset> {
+) -> StmResult<FirstCertificateInEpochAsset> {
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
         read_length_prefixed_proof(reader)?,
     );
@@ -503,33 +733,34 @@ fn load_first_step_cert_asset_from_reader<R: Read>(
     let message = read_fixed_length_prefixed::<32, _>(reader, "message")?;
     let message_preimage =
         read_fixed_length_prefixed::<PREIMAGE_SIZE, _>(reader, "message_preimage")?;
-    let mut avk_merkle_root = [0u8; 32];
-    reader.read_exact(&mut avk_merkle_root)?;
+    let mut aggregate_verification_key_merkle_root = [0u8; 32];
+    reader.read_exact(&mut aggregate_verification_key_merkle_root)?;
 
-    Ok(FirstStepCertAsset {
+    Ok(FirstCertificateInEpochAsset {
         certificate_proof,
         next_state,
         message,
         message_preimage,
-        avk_merkle_root,
+        aggregate_verification_key_merkle_root,
     })
 }
 
-/// Loads the embedded first-step certificate asset compiled into the test binary.
-pub(crate) fn load_embedded_first_step_cert_asset() -> StmResult<FirstStepCertAsset> {
-    let mut reader = Cursor::new(FIRST_STEP_CERT_ASSET_BYTES);
-    load_first_step_cert_asset_from_reader(&mut reader)
-        .context("failed to decode embedded first step cert asset")
+/// Loads the embedded first-certificate-in-epoch asset compiled into the test binary.
+pub(crate) fn load_embedded_first_certificate_in_epoch_asset()
+-> StmResult<FirstCertificateInEpochAsset> {
+    let mut reader = Cursor::new(FIRST_CERTIFICATE_IN_EPOCH_ASSET_BYTES);
+    load_first_certificate_in_epoch_asset_from_reader(&mut reader)
+        .context("failed to decode embedded first-certificate-in-epoch asset")
 }
 
-/// Writes the first-step certificate asset using the committed binary layout.
-pub(crate) fn store_first_step_cert_asset(
+/// Writes the first-certificate-in-epoch asset using the committed binary layout.
+pub(crate) fn store_first_certificate_in_epoch_asset(
     path: &Path,
-    asset: &FirstStepCertAsset,
+    asset: &FirstCertificateInEpochAsset,
 ) -> StmResult<()> {
     let mut writer = create_asset_file(path).with_context(|| {
         format!(
-            "failed to create first step cert asset file: {}",
+            "failed to create first-certificate-in-epoch asset file: {}",
             path.display()
         )
     })?;
@@ -538,9 +769,12 @@ pub(crate) fn store_first_step_cert_asset(
     write_state_public_input(&mut writer, &asset.next_state)?;
     write_length_prefixed_proof(&mut writer, &asset.message)?;
     write_length_prefixed_proof(&mut writer, &asset.message_preimage)?;
-    writer.write_all(&asset.avk_merkle_root)?;
-    writer
-        .flush()
-        .with_context(|| format!("failed to flush first step cert asset: {}", path.display()))?;
+    writer.write_all(&asset.aggregate_verification_key_merkle_root)?;
+    writer.flush().with_context(|| {
+        format!(
+            "failed to flush first-certificate-in-epoch asset: {}",
+            path.display()
+        )
+    })?;
     Ok(())
 }

@@ -10,7 +10,7 @@ use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::tests::common::{
     asset_readers::{
-        load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
         load_embedded_verification_context_asset,
     },
     generators::{
@@ -66,7 +66,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     // accumulator.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let public_inputs = [
@@ -132,7 +132,7 @@ mod slow {
         let mock_prover_setup = build_recursive_mock_prover_setup(&setup);
         let recursive_chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
-        let recursive_step_output = load_embedded_recursive_step_output_asset()
+        let recursive_step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
         let (expected_message, _) =
             next_message_and_preimage_for_step(&setup, &recursive_chain_state.state);

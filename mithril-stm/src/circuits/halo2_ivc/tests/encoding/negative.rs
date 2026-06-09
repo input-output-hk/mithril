@@ -11,7 +11,7 @@ use crate::circuits::halo2_ivc::{
     state::State,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+            load_embedded_next_epoch_step_output_asset, load_embedded_verification_context_asset,
         },
         generators::{
             GENESIS_EPOCH, build_asset_generation_setup, build_genesis_base_case_next_state,
@@ -102,7 +102,7 @@ fn next_merkle_tree_commitment_tampered_public_input_is_rejected() {
     // extracted from PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES is enforced as a public input.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
@@ -134,7 +134,7 @@ fn next_protocol_parameters_tampered_public_input_is_rejected() {
     // field extracted from PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES is enforced as a public input.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();
@@ -166,7 +166,7 @@ fn current_epoch_tampered_public_input_is_rejected() {
     // extracted from PREIMAGE_CURRENT_EPOCH_BYTES is enforced as a public input.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut tampered_state = recursive_step_output.next_state.clone();

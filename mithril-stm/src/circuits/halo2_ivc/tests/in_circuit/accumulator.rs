@@ -12,8 +12,8 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F,
     tests::common::{
         asset_readers::{
-            RecursiveStepOutputAsset, load_embedded_genesis_step_output_asset,
-            load_embedded_recursive_step_output_asset, load_embedded_same_epoch_step_output_asset,
+            StepOutputAsset, load_embedded_following_certificate_in_epoch_asset,
+            load_embedded_genesis_step_output_asset, load_embedded_next_epoch_step_output_asset,
             load_embedded_verification_context_asset,
         },
         helpers::verify_prepare_blake2b_recursive_proof,
@@ -22,8 +22,8 @@ use crate::circuits::halo2_ivc::{
 
 /// Loads a step output via `load_step_output`, replaces `acc[0]` with `F::ONE`
 /// in the public inputs, then asserts the verifier rejects the resulting proof.
-fn assert_step_output_rejects_tampered_next_accumulator(
-    load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
+fn assert_step_output_rejects_tampered_next_accumulator<T: StepOutputAsset>(
+    load_step_output: impl FnOnce() -> StmResult<T>,
     load_label: &str,
     rejection_message: &str,
 ) {
@@ -33,9 +33,9 @@ fn assert_step_output_rejects_tampered_next_accumulator(
         load_step_output().unwrap_or_else(|_| panic!("{load_label} asset should load"));
 
     let global = verification_context.global_field_elements.clone();
-    let state = step_output.next_state.as_public_input();
+    let state = step_output.next_state().as_public_input();
     let mut accumulator_encoding =
-        AssignedAccumulator::as_public_input(&step_output.next_accumulator);
+        AssignedAccumulator::as_public_input(step_output.next_accumulator());
 
     accumulator_encoding[0] = F::ONE;
 
@@ -43,7 +43,7 @@ fn assert_step_output_rejects_tampered_next_accumulator(
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.ivc_proof.as_bytes(),
+        step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
 
@@ -69,7 +69,7 @@ fn same_epoch_step_rejects_tampered_next_accumulator() {
     // Asset-based check that the verifier rejects the stored same-epoch proof when
     // next_accumulator is replaced in the public inputs.
     assert_step_output_rejects_tampered_next_accumulator(
-        load_embedded_same_epoch_step_output_asset,
+        load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
         "same-epoch step with a tampered next_accumulator should be rejected by the verifier",
     );
@@ -80,7 +80,7 @@ fn next_epoch_step_rejects_tampered_next_accumulator() {
     // Asset-based check that the verifier rejects the stored next-epoch proof when
     // next_accumulator is replaced in the public inputs.
     assert_step_output_rejects_tampered_next_accumulator(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         "next-epoch step with a tampered next_accumulator should be rejected by the verifier",
     );

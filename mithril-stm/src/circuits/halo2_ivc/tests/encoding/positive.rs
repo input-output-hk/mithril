@@ -15,7 +15,7 @@ use crate::circuits::halo2_ivc::{
     state::State,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+            load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
             load_embedded_verification_context_asset,
         },
         generators::{build_asset_generation_setup, build_genesis_protocol_message_preimage},
@@ -61,7 +61,7 @@ fn folded_accumulator_serialized_bytes_are_stable() {
     // length-changing format shifts (different fixed-base count, encoding width,
     // length-prefix logic) and length-preserving ones (field reordering,
     // same-width field swap) that a round-trip test cannot detect.
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let mut bytes = Vec::new();

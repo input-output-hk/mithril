@@ -13,8 +13,9 @@ use ff::Field;
 use crate::circuits::halo2_ivc::{
     Accumulator, C, Msm, S,
     tests::common::asset_readers::{
-        load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
-        load_embedded_same_epoch_step_output_asset, load_embedded_verification_context_asset,
+        load_embedded_following_certificate_in_epoch_asset,
+        load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
+        load_embedded_verification_context_asset,
     },
 };
 
@@ -24,7 +25,7 @@ fn same_epoch_accumulator_passes_check() {
     // one intra-epoch recursive step. It must satisfy the pairing equation.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let same_epoch_step_output = load_embedded_same_epoch_step_output_asset()
+    let same_epoch_step_output = load_embedded_following_certificate_in_epoch_asset()
         .expect("same-epoch step output asset should load");
 
     assert!(
@@ -43,7 +44,7 @@ fn next_epoch_accumulator_passes_check() {
     // pairing equation.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     assert!(
@@ -84,7 +85,7 @@ fn tampered_accumulator_fails_check() {
     // be a non-trivial curve point. Either violation leaves the MSM unchanged.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let original_accumulator = &recursive_step_output.next_accumulator;

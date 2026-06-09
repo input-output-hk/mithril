@@ -118,7 +118,7 @@ impl IvcSetup {
 
     /// Wrap the certificate proof's prepared `DualMSM` into a collapsed accumulator on
     /// the certificate circuit's fixed bases.
-    pub(crate) fn certificate_accumulator(
+    pub(crate) fn certificate_collapsed_accumulator(
         &self,
         dual_msm: DualMSM<Bls12>,
     ) -> Accumulator<BlstrsEmulation> {
@@ -128,10 +128,13 @@ impl IvcSetup {
         accumulator
     }
 
-    /// Trivial previous-IVC-proof accumulator used at genesis. The in-circuit gadget
-    /// zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`; off-circuit
-    /// we construct a fresh trivial accumulator over the combined fixed-base names.
-    pub(crate) fn trivial_previous_ivc_proof_accumulator(&self) -> Accumulator<BlstrsEmulation> {
+    /// Trivial previous-IVC-proof collapsed accumulator used at genesis. The in-circuit
+    /// gadget zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`;
+    /// off-circuit we construct a fresh trivial accumulator over the combined fixed-base
+    /// names.
+    pub(crate) fn trivial_previous_ivc_proof_collapsed_accumulator(
+        &self,
+    ) -> Accumulator<BlstrsEmulation> {
         let combined_fixed_base_names: Vec<String> =
             self.combined_fixed_bases.keys().cloned().collect();
         trivial_acc(&combined_fixed_base_names)
@@ -140,13 +143,13 @@ impl IvcSetup {
     /// Off-circuit verify of the previous step's IVC proof, returning the collapsed
     /// accumulator the in-circuit IVC verifier gadget would have produced on the same
     /// proof. Used at every non-genesis step.
-    pub(crate) fn previous_ivc_proof_accumulator(
+    pub(crate) fn previous_ivc_proof_collapsed_accumulator(
         &self,
-        proof_bytes: &[u8],
+        ivc_proof_bytes: &[u8],
         public_inputs: &[CircuitBase],
     ) -> StmResult<Accumulator<BlstrsEmulation>> {
         let dual_msm = verify_and_prepare_accumulator(
-            proof_bytes,
+            ivc_proof_bytes,
             public_inputs,
             &self.ivc_verifying_key,
             &self.srs_verifier_params,
