@@ -274,6 +274,8 @@ async fn main_exec() -> StdResult<()> {
         return cmd.execute(&mut Cli::command()).map_err(|message| anyhow!(message));
     }
 
+    info!("Starting Mithril End-to-End test suite"; "args" => ?args);
+
     let work_dir = {
         let dir = match &args.work_directory {
             Some(path) => path.to_owned(),
