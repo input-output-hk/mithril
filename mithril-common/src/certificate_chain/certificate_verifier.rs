@@ -179,6 +179,7 @@ impl MithrilCertificateVerifier {
                 message,
                 aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
+                None,
             )
             .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
     }
@@ -490,13 +491,13 @@ mod tests {
     use async_trait::async_trait;
     use tokio::sync::Mutex;
 
-    use mithril_stm::AggregateSignatureType;
+    use mithril_stm::{AggregateSignatureType, AncillaryProofInput};
 
     use crate::test::{
         TestLogger,
         builder::{CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder},
         crypto_helper::{setup_certificate_chain, setup_message, setup_protocol_parameters},
-        double::FakeCertificaterRetriever,
+        double::{Dummy, FakeCertificaterRetriever},
     };
     use crate::{
         certificate_chain::certificate_retriever::MockCertificateRetriever,
@@ -563,14 +564,15 @@ mod tests {
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_aggregate_verification_key();
-        let multi_signature = clerk
+        let (aggregate_signature, _ancillary_verifier_data) = clerk
             .aggregate_signatures_with_type(
                 &single_signatures,
                 &message_hash,
                 AggregateSignatureType::default(),
+                AncillaryProofInput::dummy(),
             )
-            .unwrap()
-            .into();
+            .unwrap();
+        let multi_signature = aggregate_signature.into();
 
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
@@ -890,11 +892,12 @@ mod tests {
                 .collect::<Vec<_>>();
             let clerk =
                 ProtocolClerk::new_clerk_from_signer(&fixture.signers_fixture()[0].protocol_signer);
-            let modified_multi_signature = clerk
+            let (modified_multi_signature, _ancillary_verifier_data) = clerk
                 .aggregate_signatures_with_type(
                     &single_signatures,
                     signed_message.as_bytes(),
                     AggregateSignatureType::default(),
+                    AncillaryProofInput::dummy(),
                 )
                 .unwrap();
             modified_certificate.signature = CertificateSignature::MultiSignature(
@@ -1198,11 +1201,12 @@ mod tests {
                 &forged_protocol_parameters.clone().into(),
                 &fixture.signers_fixture()[0].protocol_closed_key_registration,
             );
-            let forged_multi_signature = forged_clerk
+            let (forged_multi_signature, _ancillary_verifier_data) = forged_clerk
                 .aggregate_signatures_with_type(
                     &forged_single_signatures,
                     signed_message.as_bytes(),
                     AggregateSignatureType::default(),
+                    AncillaryProofInput::dummy(),
                 )
                 .unwrap();
             forged_certificate.signature = CertificateSignature::MultiSignature(

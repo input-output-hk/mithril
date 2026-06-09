@@ -4,11 +4,13 @@
 //! such as issuing single signatures, aggregating them as multi-signatures or computing
 //! aggregate verification keys.
 
+mod ancillary;
 mod multi_signer;
 mod signer_builder;
 mod single_signer;
 
-pub use multi_signer::MultiSigner;
+pub use ancillary::build_ancillary_proof_input;
+pub use multi_signer::{MultiSignatureWithAncillaryVerifierData, MultiSigner};
 pub use signer_builder::{SignerBuilder, SignerBuilderError};
 pub use single_signer::SingleSigner;
 

@@ -2,6 +2,26 @@ use chrono::{DateTime, Utc};
 
 use crate::test::double::{Dummy, fake_data, fake_keys};
 
+mod stm {
+    use mithril_stm::{AncillaryGenesisData, AncillaryProofInput};
+
+    use super::*;
+
+    impl Dummy for AncillaryProofInput {
+        /// Return a dummy [AncillaryProofInput] carrying no data (test-only).
+        fn dummy() -> Self {
+            Self::new(
+                None,
+                AncillaryGenesisData::new(
+                    Vec::new(),
+                    #[cfg(feature = "future_snark")]
+                    None,
+                ),
+            )
+        }
+    }
+}
+
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;

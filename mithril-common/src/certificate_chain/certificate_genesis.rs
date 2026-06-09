@@ -188,6 +188,7 @@ impl CertificateGenesisProducer {
             genesis_protocol_message,
             genesis_avk,
             signature,
+            None,
         )
     }
 }

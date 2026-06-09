@@ -127,6 +127,7 @@ impl Certificate {
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
         signature: CertificateSignature,
+        ancillary_verifier_data: Option<ProtocolAncillaryVerifierData>,
     ) -> crate::StdResult<Certificate> {
         let signed_message = protocol_message.compute_hash();
 
@@ -149,7 +150,7 @@ impl Certificate {
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark,
             ancillary_prover_data: None,
-            ancillary_verifier_data: None,
+            ancillary_verifier_data,
             signature,
         };
         certificate.hash = certificate.try_compute_hash()?;
@@ -369,6 +370,7 @@ mod tests {
                 signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
+            None,
         )
         .unwrap();
 
@@ -523,6 +525,7 @@ mod tests {
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),
+            None,
         )
         .unwrap();
 
@@ -575,6 +578,7 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisSignature(ed_signature),
+            None,
         )
         .unwrap();
 
@@ -603,6 +607,7 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+            None,
         )
         .unwrap();
 
@@ -652,6 +657,7 @@ mod tests {
                     None,
                 ),
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+                None,
             )
             .unwrap();
             hashes.insert(certificate.try_compute_hash().unwrap());
@@ -690,6 +696,7 @@ mod tests {
                 None,
             ),
             signature,
+            None,
         )
         .unwrap()
     }
