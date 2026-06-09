@@ -345,7 +345,7 @@ jobs:
         run_id: ["#1"]
         extra_args:
           [
-            "--aggregate-signature-type=Concatenation --check-client-cli-snapshot-converter",
+            "--aggregate-signature-type=Concatenation full --check-client-cli-snapshot-converter",
           ]
 
         include:

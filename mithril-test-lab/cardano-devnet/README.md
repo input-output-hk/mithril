@@ -228,8 +228,8 @@ pool1n6sxl7cfe9j9mf6jv228nluvy3k3xdu62chqk2wfaazrsenz4jz   5.258e-4
 
 # Running Mihtril
 
-Mithril can be run from the E2E test with --run-only argument
+Mithril can be run from the E2E test with the `run-only` command
 
-`cargo run -p mithril-end-to-end -- -vvv --bin-directory binaries_location/ --devnet-scripts-directory=mithril-test-lab/cardano-devnet/ --run-only`
+`cargo run -p mithril-end-to-end -- -vvv --bin-directory binaries_location/ --devnet-scripts-directory=mithril-test-lab/cardano-devnet/ run-only`
 
 See more about Mithril E2E testing in mithril-end-to-end [README.md](../mithril-end-to-end/README.md)

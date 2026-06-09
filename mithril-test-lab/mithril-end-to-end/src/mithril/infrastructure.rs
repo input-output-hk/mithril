@@ -9,10 +9,10 @@ use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::mithril::relay_signer::RelaySignerConfiguration;
+use crate::toolkit::ScenarioToolkit;
 use crate::{
     AggregateSignatureType, Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet,
     DmqNodeFlavor, FullNode, PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer,
-    assertions,
 };
 
 use super::signer::SignerConfig;
@@ -32,8 +32,6 @@ pub struct MithrilInfrastructureConfig {
     pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub aggregate_signature_type: AggregateSignatureType,
-    pub run_only_mode: bool,
-    pub check_client_cli_snapshot_converter: bool,
     pub use_relays: bool,
     pub relay_signer_registration_mode: String,
     pub relay_signature_registration_mode: String,
@@ -70,8 +68,6 @@ impl MithrilInfrastructureConfig {
             mithril_era_reader_adapter: "adapter1".to_string(),
             signed_entity_types: vec!["type1".to_string()],
             aggregate_signature_type: AggregateSignatureType::Concatenation,
-            run_only_mode: false,
-            check_client_cli_snapshot_converter: false,
             use_relays: false,
             relay_signer_registration_mode: "passthrough".to_string(),
             relay_signature_registration_mode: "passthrough".to_string(),
@@ -85,6 +81,7 @@ impl MithrilInfrastructureConfig {
 }
 
 pub struct MithrilInfrastructure {
+    toolkit: ScenarioToolkit,
     artifacts_dir: PathBuf,
     bin_dir: PathBuf,
     devnet: Devnet,
@@ -95,8 +92,6 @@ pub struct MithrilInfrastructure {
     relay_passives: Vec<RelayPassive>,
     cardano_node_version: semver::Version,
     cardano_chain_observer: Arc<dyn ChainObserver>,
-    run_only_mode: bool,
-    check_client_cli_snapshot_converter: bool,
     current_era: RwLock<String>,
     era_reader_adapter: String,
     use_era_specific_work_dir: bool,
@@ -104,7 +99,10 @@ pub struct MithrilInfrastructure {
 }
 
 impl MithrilInfrastructure {
-    pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
+    pub async fn start(
+        toolkit: ScenarioToolkit,
+        config: &MithrilInfrastructureConfig,
+    ) -> StdResult<Self> {
         let chain_observer_type = "pallas";
         config.devnet.run().await?;
         if config.use_dmq && config.dmq_node_flavor == Some(DmqNodeFlavor::Haskell) {
@@ -124,7 +122,7 @@ impl MithrilInfrastructure {
             Self::prepare_aggregators(config, aggregator_cardano_nodes, chain_observer_type)
                 .await?;
 
-        Self::register_startup_era(&leader_aggregator, config).await?;
+        Self::register_startup_era(&toolkit, &leader_aggregator, config).await?;
         leader_aggregator.serve().await?;
 
         let follower_aggregator_endpoints = follower_aggregators
@@ -158,6 +156,7 @@ impl MithrilInfrastructure {
         all_aggregators.extend(follower_aggregators);
 
         Ok(Self {
+            toolkit,
             bin_dir: config.bin_dir.to_path_buf(),
             artifacts_dir: config.artifacts_dir.to_path_buf(),
             devnet: config.devnet.clone(),
@@ -168,8 +167,6 @@ impl MithrilInfrastructure {
             relay_passives,
             cardano_chain_observer,
             cardano_node_version: config.cardano_node_version.clone(),
-            run_only_mode: config.run_only_mode,
-            check_client_cli_snapshot_converter: config.check_client_cli_snapshot_converter,
             current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
             use_era_specific_work_dir: config.use_era_specific_work_dir,
@@ -178,18 +175,16 @@ impl MithrilInfrastructure {
     }
 
     async fn register_startup_era(
+        toolkit: &ScenarioToolkit,
         aggregator: &Aggregator,
         config: &MithrilInfrastructureConfig,
     ) -> StdResult<()> {
         let era_epoch = Epoch(0);
         if config.mithril_era_reader_adapter == "cardano-chain" {
-            assertions::register_era_marker(
-                aggregator,
-                &config.devnet,
-                &config.mithril_era,
-                era_epoch,
-            )
-            .await?;
+            toolkit
+                .exec
+                .register_era_marker(aggregator, &config.devnet, &config.mithril_era, era_epoch)
+                .await?;
         }
 
         Ok(())
@@ -204,13 +199,10 @@ impl MithrilInfrastructure {
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
-            assertions::register_era_marker(
-                self.leader_aggregator(),
-                &devnet,
-                next_era,
-                next_era_epoch,
-            )
-            .await?;
+            self.toolkit
+                .exec
+                .register_era_marker(self.leader_aggregator(), &devnet, next_era, next_era_epoch)
+                .await?;
         }
         let mut current_era = self.current_era.write().await;
         *current_era = next_era.to_owned();
@@ -434,7 +426,7 @@ impl MithrilInfrastructure {
     }
 
     pub async fn stop_nodes(&self) -> StdResult<()> {
-        // Note: The aggregators should be stopped *last* since signers depends on it
+        // Note: The aggregators should be stopped *last* since signers depend on it
         info!("Stopping Mithril infrastructure");
         for signer in &self.signers {
             signer.stop().await?;
@@ -526,14 +518,6 @@ impl MithrilInfrastructure {
         };
 
         Client::new(aggregator.endpoint(), &work_dir, &self.bin_dir)
-    }
-
-    pub fn run_only_mode(&self) -> bool {
-        self.run_only_mode
-    }
-
-    pub fn check_client_cli_snapshot_converter(&self) -> bool {
-        self.check_client_cli_snapshot_converter
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
