@@ -8,7 +8,7 @@ use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, SnarkProof, StmResult,
     circuits::halo2_ivc::{
-        errors::IvcCircuitError,
+        errors::{EpochTransitionErrorKind, IvcCircuitError},
         state::{Global, State, Witness},
         types::{
             EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
@@ -17,10 +17,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{
-            decoded_protocol_message::DecodedProtocolMessage, rolling_state::IvcRollingState,
-            setup::IvcSetup,
-        },
+        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcSetup},
     },
 };
 
@@ -45,7 +42,7 @@ impl IvcProverInput {
         message: &[u8],
         aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
-        decoded_protocol_message: &DecodedProtocolMessage,
+        protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
         setup: &IvcSetup,
     ) -> StmResult<Self> {
@@ -56,11 +53,12 @@ impl IvcProverInput {
             &setup.srs_verifier_params,
         )?;
 
-        let chain_epoch = rolling_state.state().current_epoch.as_field();
-        let certificate_epoch = decoded_protocol_message.current_epoch().0;
+        let chain_epoch = rolling_state.state().current_epoch;
+        let certificate_epoch = protocol_message_preimage.current_epoch();
 
         let is_same_epoch = certificate_epoch == chain_epoch;
-        let is_next_epoch = certificate_epoch == chain_epoch + EpochNumber::new(1).as_field();
+        let is_next_epoch =
+            certificate_epoch.as_field() == chain_epoch.as_field() + EpochNumber::new(1).as_field();
         let is_genesis = rolling_state.state().step_counter == StepCounter::ZERO;
 
         // Verify the genesis signature if at genesis.
@@ -71,8 +69,10 @@ impl IvcProverInput {
         // Non-genesis steps must advance by zero or one epoch. Genesis bypasses this check.
         if !is_genesis && !is_same_epoch && !is_next_epoch {
             return Err(IvcCircuitError::InvalidEpochTransition {
-                certificate_epoch: EpochNumber::from_field(certificate_epoch).as_u64(),
-                chain_epoch: rolling_state.state().current_epoch.as_u64(),
+                kind: EpochTransitionErrorKind::OutOfRange {
+                    certificate_epoch: certificate_epoch.as_u64(),
+                },
+                chain_epoch: chain_epoch.as_u64(),
             }
             .into());
         }
@@ -80,21 +80,18 @@ impl IvcProverInput {
         // Within an epoch, every cert's preimage must announce the same next-epoch
         // lookahead as the chain's previous state. The cert circuit doesn't enforce this
         // across certs (it's a chain-level invariant), so we check it here.
-        if is_same_epoch && !is_genesis {
-            let chain_next_merkle_tree_commitment =
-                rolling_state.state().next_merkle_tree_commitment.as_field();
-            let chain_next_protocol_parameters =
-                rolling_state.state().next_protocol_parameters.as_field();
-            if decoded_protocol_message.next_merkle_tree_commitment().0
-                != chain_next_merkle_tree_commitment
-                || decoded_protocol_message.next_protocol_parameters().0
-                    != chain_next_protocol_parameters
-            {
-                return Err(IvcCircuitError::SameEpochLookaheadMismatch {
-                    chain_epoch: rolling_state.state().current_epoch.as_u64(),
-                }
-                .into());
+        if is_same_epoch
+            && !is_genesis
+            && (protocol_message_preimage.next_merkle_tree_commitment()
+                != rolling_state.state().next_merkle_tree_commitment
+                || protocol_message_preimage.next_protocol_parameters()
+                    != rolling_state.state().next_protocol_parameters)
+        {
+            return Err(IvcCircuitError::InvalidEpochTransition {
+                kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
+                chain_epoch: chain_epoch.as_u64(),
             }
+            .into());
         }
 
         // Build the SNARK message and extract the certificate message and Merkle tree commitment.
@@ -130,14 +127,10 @@ impl IvcProverInput {
             new_step_counter,
             new_message,
             new_merkle_tree_commitment,
-            MerkleTreeCommitment::from_field(
-                decoded_protocol_message.next_merkle_tree_commitment().0,
-            ),
+            protocol_message_preimage.next_merkle_tree_commitment(),
             new_protocol_parameters,
-            ProtocolParametersHash::from_field(
-                decoded_protocol_message.next_protocol_parameters().0,
-            ),
-            EpochNumber::from_field(certificate_epoch),
+            protocol_message_preimage.next_protocol_parameters(),
+            certificate_epoch,
         );
 
         // Compute the new folded accumulator the IVC proof will commit to, by accumulating the
@@ -164,7 +157,7 @@ impl IvcProverInput {
             rolling_state.genesis_signature(),
             certificate_message,
             certificate_merkle_tree_commitment,
-            ProtocolMessagePreimage::from(*decoded_protocol_message.message_preimage()),
+            protocol_message_preimage.clone(),
         );
 
         Ok(IvcProverInput {
@@ -192,7 +185,7 @@ mod tests {
             circuits::{
                 halo2_ivc::{
                     K,
-                    errors::IvcCircuitError,
+                    errors::{EpochTransitionErrorKind, IvcCircuitError},
                     tests::common::{
                         asset_readers::{
                             VerificationContextAsset,
@@ -319,14 +312,13 @@ mod tests {
                 .expect("AVK should decode from asset bytes")
         }
 
-        /// Builds an `DecodedProtocolMessage` from a stored protocol-message preimage.
-        fn wrap_decoded_protocol_message(preimage: &[u8]) -> DecodedProtocolMessage {
+        /// Builds a `ProtocolMessagePreimage` from a stored protocol-message preimage byte slice.
+        fn wrap_protocol_message_preimage(preimage: &[u8]) -> ProtocolMessagePreimage {
             use crate::circuits::halo2_ivc::PREIMAGE_SIZE;
             let preimage_array: [u8; PREIMAGE_SIZE] = preimage
                 .try_into()
                 .expect("preimage should be exactly PREIMAGE_SIZE bytes");
-            DecodedProtocolMessage::new(preimage_array)
-                .expect("epoch data should decode from preimage")
+            ProtocolMessagePreimage::new(preimage_array)
         }
 
         /// Builds the `IvcRollingState` carrying the previous-step pieces a non-genesis
@@ -356,15 +348,15 @@ mod tests {
 
             let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message =
-                wrap_decoded_protocol_message(&first_step.message_preimage);
+            let protocol_message_preimage =
+                wrap_protocol_message_preimage(&first_step.message_preimage);
 
             let input = IvcProverInput::prepare(
                 snark_proof,
                 &first_step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             )
@@ -382,18 +374,18 @@ mod tests {
                 input.next_state.protocol_parameters,
                 ProtocolParametersHash::ZERO
             );
-            // Lookahead fields come from decoded_protocol_message.
+            // Lookahead fields come from protocol_message_preimage.
             assert_eq!(
-                input.next_state.next_merkle_tree_commitment.as_field(),
-                decoded_protocol_message.next_merkle_tree_commitment().0
+                input.next_state.next_merkle_tree_commitment,
+                protocol_message_preimage.next_merkle_tree_commitment()
             );
             assert_eq!(
-                input.next_state.next_protocol_parameters.as_field(),
-                decoded_protocol_message.next_protocol_parameters().0
+                input.next_state.next_protocol_parameters,
+                protocol_message_preimage.next_protocol_parameters()
             );
             assert_eq!(
-                input.next_state.current_epoch.as_field(),
-                decoded_protocol_message.current_epoch().0
+                input.next_state.current_epoch,
+                protocol_message_preimage.current_epoch()
             );
             // Witness carries the chain's genesis signature.
             assert_eq!(
@@ -415,7 +407,7 @@ mod tests {
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
+            let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let previous_step_counter = chain_state.state.step_counter.as_u64();
             let previous_protocol_parameters = chain_state.state.protocol_parameters;
@@ -431,7 +423,7 @@ mod tests {
                 &step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             )
@@ -447,8 +439,8 @@ mod tests {
                 previous_protocol_parameters
             );
             assert_eq!(
-                input.next_state.current_epoch.as_field(),
-                decoded_protocol_message.current_epoch().0
+                input.next_state.current_epoch,
+                protocol_message_preimage.current_epoch()
             );
         }
 
@@ -465,7 +457,7 @@ mod tests {
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
+            let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let previous_step_counter = chain_state.state.step_counter.as_u64();
             let previous_next_protocol_parameters = chain_state.state.next_protocol_parameters;
@@ -481,7 +473,7 @@ mod tests {
                 &step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             )
@@ -497,8 +489,8 @@ mod tests {
                 previous_next_protocol_parameters
             );
             assert_eq!(
-                input.next_state.current_epoch.as_field(),
-                decoded_protocol_message.current_epoch().0
+                input.next_state.current_epoch,
+                protocol_message_preimage.current_epoch()
             );
         }
 
@@ -519,7 +511,7 @@ mod tests {
 
             let snark_proof = wrap_snark_proof(corrupted);
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
+            let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
             let rolling_state = build_rolling_state(
                 chain_state.state,
                 chain_state.ivc_proof,
@@ -532,7 +524,7 @@ mod tests {
                 &step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             );
@@ -566,15 +558,15 @@ mod tests {
 
             let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message =
-                wrap_decoded_protocol_message(&first_step.message_preimage);
+            let protocol_message_preimage =
+                wrap_protocol_message_preimage(&first_step.message_preimage);
 
             let result = IvcProverInput::prepare(
                 snark_proof,
                 &first_step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             );
@@ -617,14 +609,14 @@ mod tests {
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
+            let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let result = IvcProverInput::prepare(
                 snark_proof,
                 &step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             );
@@ -634,8 +626,14 @@ mod tests {
                 .downcast::<IvcCircuitError>()
                 .expect("error should downcast to IvcCircuitError");
             assert!(
-                matches!(err, IvcCircuitError::InvalidEpochTransition { .. }),
-                "expected InvalidEpochTransition, got {err:?}"
+                matches!(
+                    err,
+                    IvcCircuitError::InvalidEpochTransition {
+                        kind: EpochTransitionErrorKind::OutOfRange { .. },
+                        ..
+                    }
+                ),
+                "expected InvalidEpochTransition with OutOfRange kind, got {err:?}"
             );
         }
 
@@ -669,14 +667,14 @@ mod tests {
             let global = build_global();
             let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let decoded_protocol_message = wrap_decoded_protocol_message(&step.message_preimage);
+            let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let result = IvcProverInput::prepare(
                 snark_proof,
                 &step.message,
                 &avk,
                 &global,
-                &decoded_protocol_message,
+                &protocol_message_preimage,
                 &rolling_state,
                 setup,
             );

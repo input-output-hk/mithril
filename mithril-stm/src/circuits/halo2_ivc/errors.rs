@@ -31,28 +31,39 @@ pub enum IvcCircuitError {
     )]
     InsufficientFixedColumns { needed: usize, available: usize },
 
-    /// Off-circuit step transition: the certificate's epoch is neither equal to nor exactly
-    /// one greater than the chain's current epoch.
+    /// Off-circuit step transition: the certificate's epoch does not advance the chain
+    /// correctly. `kind` distinguishes between an out-of-range epoch advance and a
+    /// same-epoch lookahead mismatch.
     #[error(
-        "IvcProverInput::prepare: certificate epoch {certificate_epoch} is not same-epoch or next-epoch of chain epoch {chain_epoch}"
+        "IvcProverInput::prepare: invalid epoch transition at chain epoch {chain_epoch}: {kind}"
     )]
     InvalidEpochTransition {
-        certificate_epoch: u64,
+        kind: EpochTransitionErrorKind,
         chain_epoch: u64,
     },
 
     /// Off-circuit step transition: the chain's step counter would overflow u64.
     #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
     StepCounterOverflow { current: u64 },
+}
 
-    /// Off-circuit step transition: a same-epoch certificate's preimage announces a
-    /// next-epoch lookahead that disagrees with the chain's previous state. All certs
-    /// in the same epoch must encode the same next-epoch fields.
+/// Subcategorization for `IvcCircuitError::InvalidEpochTransition`. Lets negative
+/// tests downcast on the specific transition violation.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum EpochTransitionErrorKind {
+    /// The certificate's epoch is neither equal to nor exactly one greater than the
+    /// chain's current epoch.
+    #[error("certificate epoch {certificate_epoch} is neither same-epoch nor next-epoch")]
+    OutOfRange { certificate_epoch: u64 },
+
+    /// A same-epoch certificate's preimage announces a next-epoch lookahead that
+    /// disagrees with the chain's previous state. All certificates in the same epoch
+    /// must encode the same next-epoch fields.
     #[error(
-        "IvcProverInput::prepare: same-epoch cert at chain epoch {chain_epoch} announces \
-         a next-epoch lookahead that does not match the chain state"
+        "same-epoch certificate announces a next-epoch lookahead that does not match the chain state"
     )]
-    SameEpochLookaheadMismatch { chain_epoch: u64 },
+    SameEpochLookaheadMismatch,
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.

@@ -5,7 +5,11 @@
 
 use ff::Field;
 
-use super::{F, PREIMAGE_SIZE};
+use super::{
+    F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
+    PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
+};
+use crate::BaseFieldElement;
 
 macro_rules! field_wrapper {
     ($name:ident, zero) => {
@@ -98,11 +102,105 @@ impl ProtocolMessagePreimage {
     pub(crate) fn into_inner(self) -> [u8; PREIMAGE_SIZE] {
         self.0
     }
+
+    /// Decodes the certificate's current epoch from `PREIMAGE_CURRENT_EPOCH_BYTES`. The
+    /// 8 bytes are interpreted little-endian as a `u64`.
+    pub(crate) fn current_epoch(&self) -> EpochNumber {
+        let bytes: [u8; 8] = self.0[PREIMAGE_CURRENT_EPOCH_BYTES]
+            .try_into()
+            .expect("PREIMAGE_CURRENT_EPOCH_BYTES range is exactly 8 bytes");
+        EpochNumber::new(u64::from_le_bytes(bytes))
+    }
+
+    /// Decodes the announced next-epoch Merkle-tree commitment from
+    /// `PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES`. The 32 bytes are reduced modulo the
+    /// base field, mirroring the circuit's `combine_bytes` decoding.
+    pub(crate) fn next_merkle_tree_commitment(&self) -> MerkleTreeCommitment {
+        let bytes: [u8; 32] = self.0[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES]
+            .try_into()
+            .expect("PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES range is exactly 32 bytes");
+        MerkleTreeCommitment::from_field(
+            BaseFieldElement::from_raw(&bytes)
+                .expect("BaseFieldElement::from_raw applies modulus reduction and cannot fail")
+                .0,
+        )
+    }
+
+    /// Decodes the announced next-epoch protocol parameters from
+    /// `PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES`. The 32 bytes are reduced modulo the
+    /// base field, mirroring the circuit's `combine_bytes` decoding.
+    pub(crate) fn next_protocol_parameters(&self) -> ProtocolParametersHash {
+        let bytes: [u8; 32] = self.0[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES]
+            .try_into()
+            .expect("PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES range is exactly 32 bytes");
+        ProtocolParametersHash::from_field(
+            BaseFieldElement::from_raw(&bytes)
+                .expect("BaseFieldElement::from_raw applies modulus reduction and cannot fail")
+                .0,
+        )
+    }
 }
 
 impl From<[u8; PREIMAGE_SIZE]> for ProtocolMessagePreimage {
     fn from(bytes: [u8; PREIMAGE_SIZE]) -> Self {
         Self(bytes)
+    }
+}
+
+#[cfg(test)]
+mod protocol_message_preimage_tests {
+    use super::*;
+
+    #[test]
+    fn current_epoch_decodes_from_correct_range() {
+        let mut bytes = [0u8; PREIMAGE_SIZE];
+        bytes[PREIMAGE_CURRENT_EPOCH_BYTES].copy_from_slice(&42u64.to_le_bytes());
+        let preimage = ProtocolMessagePreimage::new(bytes);
+        assert_eq!(preimage.current_epoch(), EpochNumber::new(42));
+    }
+
+    #[test]
+    fn next_merkle_tree_commitment_decodes_from_correct_range() {
+        let mut bytes = [0u8; PREIMAGE_SIZE];
+        bytes[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].copy_from_slice(&[0x11; 32]);
+        let preimage = ProtocolMessagePreimage::new(bytes);
+        let expected =
+            MerkleTreeCommitment::from_field(BaseFieldElement::from_raw(&[0x11; 32]).unwrap().0);
+        assert_eq!(preimage.next_merkle_tree_commitment(), expected);
+    }
+
+    #[test]
+    fn next_protocol_parameters_decodes_from_correct_range() {
+        let mut bytes = [0u8; PREIMAGE_SIZE];
+        bytes[PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES].copy_from_slice(&[0x22; 32]);
+        let preimage = ProtocolMessagePreimage::new(bytes);
+        let expected =
+            ProtocolParametersHash::from_field(BaseFieldElement::from_raw(&[0x22; 32]).unwrap().0);
+        assert_eq!(preimage.next_protocol_parameters(), expected);
+    }
+
+    #[test]
+    fn genesis_zero_preimage_decodes_to_zero_fields() {
+        let preimage = ProtocolMessagePreimage::new([0u8; PREIMAGE_SIZE]);
+        assert_eq!(preimage.current_epoch(), EpochNumber::ZERO);
+        assert_eq!(
+            preimage.next_merkle_tree_commitment(),
+            MerkleTreeCommitment::ZERO
+        );
+        assert_eq!(
+            preimage.next_protocol_parameters(),
+            ProtocolParametersHash::ZERO
+        );
+    }
+
+    #[test]
+    fn next_merkle_tree_commitment_reduces_max_value_modulo_field() {
+        let mut bytes = [0u8; PREIMAGE_SIZE];
+        bytes[PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES].copy_from_slice(&[0xFF; 32]);
+        let preimage = ProtocolMessagePreimage::new(bytes);
+        let expected =
+            MerkleTreeCommitment::from_field(BaseFieldElement::from_raw(&[0xFF; 32]).unwrap().0);
+        assert_eq!(preimage.next_merkle_tree_commitment(), expected);
     }
 }
 

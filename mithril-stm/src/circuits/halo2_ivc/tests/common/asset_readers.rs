@@ -71,7 +71,7 @@ pub(crate) struct FirstCertificateInEpochAsset {
     pub(crate) next_state: State,
     /// SHA-256 hash that the certificate proof committed to.
     pub(crate) message: [u8; 32],
-    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// Protocol-message preimage; `ProtocolMessagePreimage::current_epoch()` / `next_merkle_tree_commitment()` / `next_protocol_parameters()` decode the four
     /// epoch fields.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
     /// Canonical encoding of the aggregate verification key merkle root the certificate
@@ -113,7 +113,7 @@ pub(crate) struct NextEpochStepOutputAsset {
     pub(crate) certificate_proof: CertificateProofBytes,
     /// SHA-256 hash that the certificate proof committed to.
     pub(crate) message: [u8; 32],
-    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// Protocol-message preimage; `ProtocolMessagePreimage::current_epoch()` / `next_merkle_tree_commitment()` / `next_protocol_parameters()` decode the four
     /// epoch fields.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
     /// Canonical encoding of the aggregate verification key merkle root the certificate
@@ -135,7 +135,7 @@ pub(crate) struct FollowingCertificateInEpochAsset {
     pub(crate) certificate_proof: CertificateProofBytes,
     /// SHA-256 hash that the certificate proof committed to.
     pub(crate) message: [u8; 32],
-    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// Protocol-message preimage; `ProtocolMessagePreimage::current_epoch()` / `next_merkle_tree_commitment()` / `next_protocol_parameters()` decode the four
     /// epoch fields.
     pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
     /// Canonical encoding of the aggregate verification key merkle root the certificate
