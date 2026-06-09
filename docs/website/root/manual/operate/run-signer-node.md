@@ -893,16 +893,13 @@ sudo service netfilter-persistent save
 
 :::
 
-## Set up the DMQ node (unstable)
+## Set up the DMQ node (beta)
 
-:::danger
+:::info
 
-The DMQ node setup is currently **unstable** and not suitable for production use.
+The DMQ node setup is currently **beta** and suitable for production use by SPOs.
 
-During the stabilization and ramp-up phase of the DMQ network:
-
-- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
-- This section is subject to frequent changes.
+During the stabilization and ramp-up phase of the DMQ network, signatures are still sent to the leader aggregator (using the DMQ node is harmless).
 
 :::
 
@@ -1483,6 +1480,69 @@ You should use a configuration that is very similar to your Cardano nodes' confi
 :::tip
 
 More information about the recommended firewall configuration of the Cardano node is available at [Cardano firewall configuration](https://developers.cardano.org/docs/operate-a-stake-pool/deployment-scenarios/hardening-server/#7--firewall-configuration).
+
+:::
+
+### Declare your DMQ node as a ledger peer (CIP-155)
+
+:::info
+
+This step is **optional** but **recommended**. It allows other DMQ nodes of the Mithril network to discover your relay automatically through the Cardano ledger, instead of relying solely on the bootstrap peer.
+
+:::
+
+[CIP-155](https://cips.cardano.org/cip/CIP-0155) defines a registry of `SRV` record prefixes that decentralized protocols can use to publish their service endpoints on the Cardano ledger. By declaring an `SRV` record with the `_mithril._tcp` prefix on your pool relay domain, your DMQ relay node becomes discoverable as a **ledger peer** by any DMQ node that uses ledger peers.
+
+The declaration requires two steps:
+
+1. Publish an `SRV` record for your **relay** DMQ node under the `_mithril._tcp` prefix of your pool domain.
+2. Register your pool domain as a multi-host relay in your stake pool registration certificate.
+
+:::caution
+
+Only the **relay** DMQ node must be published as a ledger peer. The **block producer** DMQ node must **never** be exposed.
+
+Here is the needed information to declare your DMQ node as a ledger peer:
+
+- `**YOUR_SPO_DOMAIN_NAME**`: replace with the domain name registered as a multi-host relay in your stake pool registration certificate (for example `example.com`)
+- `**YOUR_DMQ_NODE_RELAY_PUBLIC_HOSTNAME**`: replace with the public hostname (A or AAAA record) of your DMQ relay node
+- `**YOUR_DMQ_NODE_RELAY_PORT**`: replace with the listening port of your DMQ relay node.
+
+:::
+
+#### Publish the SRV record
+
+Add an `SRV` record to the DNS zone of your pool domain so that `_mithril._tcp.**YOUR_SPO_DOMAIN_NAME**` points to your DMQ relay node:
+
+```
+_mithril._tcp.**YOUR_SPO_DOMAIN_NAME**. 86400 IN SRV 10 5 **YOUR_DMQ_NODE_RELAY_PORT** **YOUR_DMQ_NODE_RELAY_PUBLIC_HOSTNAME**.
+```
+
+:::tip
+
+Here is an example for the pool domain `example.com`, with the DMQ relay node reachable at `cardano.example.com` on port `6161`:
+
+```
+_mithril._tcp.example.com. 86400 IN SRV 10 5 6161 cardano.example.com.
+```
+
+The values after `SRV` are the standard priority (`10`), weight (`5`), port (`6161`), and target hostname (`cardano.example.com`). More information is available in [RFC 2782](https://datatracker.ietf.org/doc/html/rfc2782).
+
+:::
+
+#### Register the pool domain as a multi-host relay
+
+Register `**YOUR_SPO_DOMAIN_NAME**` as a multi-host relay of your stake pool so that it is published on the Cardano ledger:
+
+```bash
+cardano-cli latest stake-pool registration-certificate \
+  ... \
+  --multi-host-pool-relay **YOUR_SPO_DOMAIN_NAME**
+```
+
+:::info
+
+The `_cardano._tcp` prefix is used by the Cardano node to discover Cardano relays on the same domain, while the `_mithril._tcp` prefix is used by the DMQ node to discover Mithril DMQ relays. Both prefixes can coexist on the same pool domain.
 
 :::
 

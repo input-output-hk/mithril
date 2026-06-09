@@ -212,25 +212,31 @@ variable "mithril_container_logging_max_file" {
 
 variable "mithril_use_p2p_network" {
   type        = bool
-  description = "Use the P2P network layer (experimental, for test only)"
+  description = "Use the P2P network layer (experimental)"
   default     = false
 }
 
 variable "mithril_p2p_use_dmq_protocol" {
   type        = bool
-  description = "Use the Decentralized Message Queue protocol (DMQ) (experimental, for test only)"
+  description = "Use the Decentralized Message Queue protocol (DMQ) (experimental)"
   default     = false
 }
 
 variable "mithril_p2p_use_real_dmq_node" {
   type        = bool
-  description = "Use the real Decentralized Message Queue (DMQ) node (experimental, for test only)"
+  description = "Use the real Decentralized Message Queue (DMQ) node (experimental)"
   default     = false
 }
 
 variable "mithril_p2p_dmq_dense_topology" {
   type        = bool
   description = "Use a dense (fully-connected mesh) topology for DMQ nodes. When false, a sparse topology is used where nodes connect only to the bootstrap peer (local aggregator for signers). (experimental, for test only)"
+  default     = false
+}
+
+variable "mithril_p2p_dmq_use_ledger_peers" {
+  type        = bool
+  description = "Use ledger peers declared with SRV records (CIP-155) for DMQ nodes. When true, the public facing DMQ nodes (aggregator and signer relays) discover peers from the Cardano ledger. Disabled by default to isolate Mithril networks sharing the same Cardano network. (experimental)"
   default     = false
 }
 
@@ -248,7 +254,7 @@ variable "dmq_image_registry" {
 
 variable "mithril_p2p_network_bootstrap_peer" {
   type        = string
-  description = "The dial to address of a bootstrap peer of the P2P network layer. Useful when setting-up a follower aggregator and signers in a different VM. (experimental, for test only)"
+  description = "The dial to address of a bootstrap peer of the P2P network layer. Useful when setting-up a follower aggregator and signers in a different VM. (experimental)"
   default     = ""
 }
 

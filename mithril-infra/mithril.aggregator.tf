@@ -123,6 +123,13 @@ if [ "${var.mithril_use_p2p_network}" = "true" ] && [ "${var.mithril_p2p_use_dmq
     cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '.localRoots[0].advertise = true' | jq '.localRoots[0].valency = (.localRoots[0].accessPoints | length)' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
     rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
     mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+
+    # Enable dmq node ledger peers (CIP-155 SRV records)
+    if [ "${var.mithril_p2p_dmq_use_ledger_peers}" = "true" ]; then
+      cat $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json | jq '. + {"useLedgerAfterSlot": 0}' > $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new
+      rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+      mv $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/topology.json
+    fi
   fi
 fi
 EOT

@@ -906,16 +906,11 @@ Make sure your domain name points to your server's public IP address and that po
 
 :::
 
-## Set up the DMQ node (unstable)
+## Set up the DMQ node (beta)
 
-:::danger
+:::info
 
-The DMQ node setup is currently **unstable** and not suitable for production use.
-
-During the stabilization and ramp-up phase of the DMQ network:
-
-- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
-- This section is subject to frequent changes.
+The DMQ node setup is currently **beta**. During the stabilization and ramp-up phase of the DMQ network, signatures received through it may not be enough to reach the quorum and thus produce valid certificates.
 
 :::
 

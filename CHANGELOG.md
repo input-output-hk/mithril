@@ -24,6 +24,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Implemented new message id format for the DMQ message to follow specification of the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
   - Added support for the DMQ node `0.6.0.0` stable version.
   - Promoted the DMQ node as stable (beta) on `release-mainnet` and `release-preprod` networks.
+  - Added optional support for ledger peers declared with `SRV` records ([CIP-155](https://cips.cardano.org/cip/CIP-0155)).
 
 - Gracefully handle unknown signed entity types across Mithril nodes for improved forward compatibility.
 

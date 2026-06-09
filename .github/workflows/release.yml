@@ -107,6 +107,10 @@ jobs:
           - environment: release-preprod
             environment_prefix: release
             cardano_network: preprod
+            mithril_use_p2p_network: true
+            mithril_p2p_use_dmq_protocol: true
+            mithril_p2p_use_real_dmq_node: true
+            mithril_p2p_dmq_use_ledger_peers: true
             mithril_api_domain: api.mithril.network
             mithril_protocol_parameters: |
               {
@@ -132,6 +136,10 @@ jobs:
           - environment: release-mainnet
             environment_prefix: release
             cardano_network: mainnet
+            mithril_use_p2p_network: true
+            mithril_p2p_use_dmq_protocol: true
+            mithril_p2p_use_real_dmq_node: true
+            mithril_p2p_dmq_use_ledger_peers: true
             mithril_api_domain: api.mithril.network
             mithril_protocol_parameters: |
               {
@@ -193,6 +201,11 @@ jobs:
           google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
           google_compute_instance_ssh_keys_environment: production
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
+          mithril_p2p_use_dmq_protocol: ${{ matrix.mithril_p2p_use_dmq_protocol }}
+          mithril_p2p_use_real_dmq_node: ${{ matrix.mithril_p2p_use_real_dmq_node }}
+          mithril_p2p_dmq_use_ledger_peers: ${{ matrix.mithril_p2p_dmq_use_ledger_peers }}
+          mithril_p2p_network_bootstrap_peer: ${{ vars.MITHRIL_P2P_NETWORK_BOOTSTRAP_PEER }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
           mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
