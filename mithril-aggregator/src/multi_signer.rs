@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use slog::{Logger, debug, warn};
 
 use mithril_common::{
-    AggregateSignatureType, StdResult,
-    crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
+    AggregateSignatureType, AncillaryProofInput, StdResult,
+    crypto_helper::ProtocolAggregationError,
     entities::{self},
     logging::LoggerExtensions,
-    protocol::MultiSigner as ProtocolMultiSigner,
+    protocol::{MultiSignatureWithAncillaryVerifierData, MultiSigner as ProtocolMultiSigner},
 };
 
 use crate::dependency_injection::EpochServiceWrapper;
@@ -35,7 +35,8 @@ pub trait MultiSigner: Sync + Send {
     async fn create_multi_signature(
         &self,
         open_message: &OpenMessage,
-    ) -> StdResult<Option<ProtocolMultiSignature>>;
+        ancillary_input: AncillaryProofInput,
+    ) -> StdResult<Option<MultiSignatureWithAncillaryVerifierData>>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
@@ -115,7 +116,8 @@ impl MultiSigner for MultiSignerImpl {
     async fn create_multi_signature(
         &self,
         open_message: &OpenMessage,
-    ) -> StdResult<Option<ProtocolMultiSignature>> {
+        ancillary_input: AncillaryProofInput,
+    ) -> StdResult<Option<MultiSignatureWithAncillaryVerifierData>> {
         debug!(self.logger, ">> create_multi_signature"; "open_message" => ?open_message);
 
         let epoch_service = self.epoch_service.read().await;
@@ -127,8 +129,11 @@ impl MultiSigner for MultiSignerImpl {
             &open_message.single_signatures,
             &open_message.protocol_message,
             self.aggregate_signature_type,
+            ancillary_input,
         ) {
-            Ok(multi_signature) => Ok(Some(multi_signature)),
+            Ok(multi_signature_with_ancillary_verifier_data) => {
+                Ok(Some(multi_signature_with_ancillary_verifier_data))
+            }
             Err(err) => match err.downcast_ref::<ProtocolAggregationError>() {
                 Some(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
                     warn!(
@@ -300,7 +305,7 @@ mod tests {
         // No signatures registered: multi-signer can't create the multi-signature
         assert!(
             multi_signer
-                .create_multi_signature(&open_message)
+                .create_multi_signature(&open_message, AncillaryProofInput::dummy())
                 .await
                 .expect("create multi signature should not fail")
                 .is_none()
@@ -311,7 +316,7 @@ mod tests {
 
         assert!(
             multi_signer
-                .create_multi_signature(&open_message)
+                .create_multi_signature(&open_message, AncillaryProofInput::dummy())
                 .await
                 .expect("create multi signature should not fail")
                 .is_none()
@@ -322,7 +327,7 @@ mod tests {
 
         assert!(
             multi_signer
-                .create_multi_signature(&open_message)
+                .create_multi_signature(&open_message, AncillaryProofInput::dummy())
                 .await
                 .expect("create multi signature should not fail")
                 .is_some(),

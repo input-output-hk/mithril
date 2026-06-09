@@ -11,7 +11,9 @@ use mithril_common::entities::{
     SignedEntityType, SingleSignature, StakeDistributionParty,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::protocol::ToMessage;
+use mithril_common::protocol::{
+    MultiSignatureWithAncillaryVerifierData, ToMessage, build_ancillary_proof_input,
+};
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::MultiSigner;
@@ -289,7 +291,34 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signature = match self.multi_signer.create_multi_signature(&open_message).await? {
+        let parent_certificate = self
+            .certificate_repository
+            .get_master_certificate_for_epoch::<Certificate>(open_message.epoch)
+            .await
+            .with_context(|| {
+                format!(
+                    "Certifier can not get leader certificate for epoch: '{}'",
+                    open_message.epoch
+                )
+            })?
+            .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
+        let genesis_certificate = self
+            .certificate_repository
+            .get_latest_genesis_certificate::<Certificate>()
+            .await
+            .with_context(|| "Certifier can not get the latest genesis certificate")?
+            .ok_or_else(|| Box::new(CertifierServiceError::NoGenesisCertificateFound))?;
+        let ancillary_input =
+            build_ancillary_proof_input(&genesis_certificate, &parent_certificate);
+
+        let MultiSignatureWithAncillaryVerifierData {
+            multi_signature,
+            ancillary_verifier_data,
+        } = match self
+            .multi_signer
+            .create_multi_signature(&open_message, ancillary_input)
+            .await?
+        {
             None => {
                 debug!(
                     self.logger,
@@ -297,12 +326,12 @@ impl CertifierService for MithrilCertifierService {
                 );
                 return Ok(None);
             }
-            Some(signature) => {
+            Some(multi_signature_with_ancillary_verifier_data) => {
                 info!(
                     self.logger,
                     "create_certificate: multi-signature created for open message {signed_entity_type:?}"
                 );
-                signature
+                multi_signature_with_ancillary_verifier_data
             }
         };
 
@@ -326,18 +355,7 @@ impl CertifierService for MithrilCertifierService {
             sealed_at,
             StakeDistributionParty::from_signers(signers),
         );
-        let parent_certificate_hash = self
-            .certificate_repository
-            .get_master_certificate_for_epoch::<Certificate>(open_message.epoch)
-            .await
-            .with_context(|| {
-                format!(
-                    "Certifier can not get leader certificate for epoch: '{}'",
-                    open_message.epoch
-                )
-            })?
-            .map(|cert| cert.hash)
-            .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
+        let parent_certificate_hash = parent_certificate.hash;
 
         let certificate = Certificate::try_new(
             parent_certificate_hash,
@@ -346,6 +364,7 @@ impl CertifierService for MithrilCertifierService {
             open_message.protocol_message.clone(),
             epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
+            ancillary_verifier_data,
         )?;
 
         self.certificate_verifier
@@ -852,8 +871,8 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_create_multi_signature()
-            .return_once(move |_| Ok(None));
-        let beacon = CardanoDbBeacon::new(1, 1);
+            .return_once(move |_, _| Ok(None));
+        let beacon = CardanoDbBeacon::new(3, 1);
         let signed_entity_type = SignedEntityType::CardanoDatabase(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -864,6 +883,15 @@ mod tests {
             .create_open_message(&signed_entity_type, &protocol_message)
             .await
             .unwrap();
+
+        let genesis_certificate =
+            fixture.create_genesis_certificate(certifier_service.network, beacon.epoch - 1);
+        certifier_service
+            .certificate_repository
+            .create_certificate(genesis_certificate)
+            .await
+            .unwrap();
+
         let create_certificate_result = certifier_service
             .create_certificate(&signed_entity_type)
             .await
