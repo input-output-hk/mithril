@@ -15,7 +15,7 @@ use midnight_zk_stdlib::MidnightVK;
 
 use crate::StmResult;
 use crate::circuits::halo2_ivc::{
-    Accumulator, C, E, F, KZGCommitmentScheme, S, VerifyingKey,
+    Accumulator, C, E, F, KZGCommitmentScheme, PREIMAGE_SIZE, S, VerifyingKey,
     circuit::IvcCircuitData,
     io::{Read as IvcRead, Write as IvcWrite},
     state::State,
@@ -69,13 +69,12 @@ pub(crate) struct FirstStepCertAsset {
     pub(crate) certificate_proof: CertificateProofBytes,
     /// Expected next state after `prepare` advances by one step.
     pub(crate) next_state: State,
-    /// 32-byte SHA-256 hash that the certificate proof committed to.
-    pub(crate) message: Vec<u8>,
-    /// 190-byte protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// SHA-256 hash that the certificate proof committed to.
+    pub(crate) message: [u8; 32],
+    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
     /// epoch fields.
-    pub(crate) message_preimage: Vec<u8>,
-    /// 32-byte canonical encoding of the AVK merkle root the certificate proof
-    /// committed to.
+    pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
+    /// Canonical encoding of the AVK merkle root the certificate proof committed to.
     pub(crate) avk_merkle_root: [u8; 32],
 }
 
@@ -90,13 +89,13 @@ pub(crate) struct RecursiveStepOutputAsset {
     pub(crate) next_state: State,
     /// Stored certificate proof consumed by the recursive step.
     pub(crate) certificate_proof: CertificateProofBytes,
-    /// 32-byte SHA-256 hash that the certificate proof committed to. Empty at genesis.
-    pub(crate) message: Vec<u8>,
-    /// 190-byte protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
-    /// epoch fields. Empty at genesis.
-    pub(crate) message_preimage: Vec<u8>,
-    /// 32-byte canonical encoding of the AVK merkle root the certificate proof
-    /// committed to. All-zero at genesis.
+    /// SHA-256 hash that the certificate proof committed to. All-zero at genesis.
+    pub(crate) message: [u8; 32],
+    /// Protocol-message preimage; `DecodedProtocolMessage::new(preimage)` decodes the four
+    /// epoch fields. All-zero at genesis.
+    pub(crate) message_preimage: [u8; PREIMAGE_SIZE],
+    /// Canonical encoding of the AVK merkle root the certificate proof committed to.
+    /// All-zero at genesis.
     pub(crate) avk_merkle_root: [u8; 32],
 }
 
@@ -172,6 +171,18 @@ fn write_schnorr_signature<W: Write>(
 ) -> StmResult<()> {
     writer.write_all(&signature.to_bytes())?;
     Ok(())
+}
+
+/// Reads exactly `N` bytes stored behind a 32-bit little-endian length prefix. Returns
+/// an error if the prefix does not equal `N`.
+fn read_fixed_length_prefixed<const N: usize, R: Read>(
+    reader: &mut R,
+    field_name: &str,
+) -> StmResult<[u8; N]> {
+    let bytes = read_length_prefixed_proof(reader)?;
+    bytes
+        .try_into()
+        .map_err(|v: Vec<u8>| anyhow!("{field_name}: expected {N} bytes, got {} bytes", v.len()))
 }
 
 /// Reads proof bytes stored behind a 32-bit little-endian length prefix.
@@ -413,8 +424,9 @@ fn load_recursive_step_output_asset_from_reader<R: Read>(
     let certificate_proof = CertificateProofBytes::from_certificate_circuit_proof_bytes(
         read_length_prefixed_proof(reader)?,
     );
-    let message = read_length_prefixed_proof(reader)?;
-    let message_preimage = read_length_prefixed_proof(reader)?;
+    let message = read_fixed_length_prefixed::<32, _>(reader, "message")?;
+    let message_preimage =
+        read_fixed_length_prefixed::<PREIMAGE_SIZE, _>(reader, "message_preimage")?;
     let mut avk_merkle_root = [0u8; 32];
     reader.read_exact(&mut avk_merkle_root)?;
 
@@ -488,8 +500,9 @@ fn load_first_step_cert_asset_from_reader<R: Read>(
         read_length_prefixed_proof(reader)?,
     );
     let next_state = read_state_public_input(reader)?;
-    let message = read_length_prefixed_proof(reader)?;
-    let message_preimage = read_length_prefixed_proof(reader)?;
+    let message = read_fixed_length_prefixed::<32, _>(reader, "message")?;
+    let message_preimage =
+        read_fixed_length_prefixed::<PREIMAGE_SIZE, _>(reader, "message_preimage")?;
     let mut avk_merkle_root = [0u8; 32];
     reader.read_exact(&mut avk_merkle_root)?;
 

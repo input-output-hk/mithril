@@ -24,7 +24,7 @@ use crate::circuits::halo2_ivc::tests::common::asset_readers::{
     store_verification_context_asset,
 };
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, S,
+    Accumulator, AssignedAccumulator, C, E, F, PREIMAGE_SIZE, S,
     circuit::IvcCircuitData,
     state::{Global, State, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
@@ -349,9 +349,8 @@ fn store_recursive_step_output(
         "generate_recursive_step_output: writing asset -> {}",
         paths.recursive_step_output.display()
     );
-    let preimage_array = next_step_inputs.recursive_witness.message_preimage.into_inner();
-    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
-    let message_preimage = preimage_array.to_vec();
+    let message_preimage = next_step_inputs.recursive_witness.message_preimage.into_inner();
+    let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
     let avk_merkle_root: [u8; 32] = next_step_inputs
         .recursive_witness
         .certificate_merkle_tree_commitment
@@ -581,8 +580,9 @@ pub(crate) fn generate_genesis_step_output_asset(setup: &AssetGenerationSetup, p
         next_state: genesis_next_state,
         certificate_proof: CertificateProofBytes::empty(),
         // Genesis base case carries no certificate proof; the prepare-side tests bypass this asset.
-        message: Vec::new(),
-        message_preimage: Vec::new(),
+        // Zero-byte placeholders keep the field types fixed-size across genesis and non-genesis.
+        message: [0u8; 32],
+        message_preimage: [0u8; PREIMAGE_SIZE],
         avk_merkle_root: [0u8; 32],
     };
     store_recursive_step_output_asset(&paths.genesis_step_output, &asset)
@@ -717,9 +717,8 @@ pub(crate) fn generate_same_epoch_step_output_asset(
         "generate_same_epoch_step_output: writing asset -> {}",
         paths.same_epoch_step_output.display()
     );
-    let preimage_array = ivc_witness.message_preimage.into_inner();
-    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
-    let message_preimage = preimage_array.to_vec();
+    let message_preimage = ivc_witness.message_preimage.into_inner();
+    let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
     let avk_merkle_root: [u8; 32] = ivc_witness
         .certificate_merkle_tree_commitment
         .as_field()
@@ -776,9 +775,8 @@ pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths
         cert_start.elapsed()
     );
 
-    let preimage_array = ivc_witness.message_preimage.into_inner();
-    let message = Sha256::digest(preimage_array.as_slice()).to_vec();
-    let message_preimage = preimage_array.to_vec();
+    let message_preimage = ivc_witness.message_preimage.into_inner();
+    let message: [u8; 32] = Sha256::digest(message_preimage.as_slice()).into();
     let avk_merkle_root: [u8; 32] = ivc_witness
         .certificate_merkle_tree_commitment
         .as_field()

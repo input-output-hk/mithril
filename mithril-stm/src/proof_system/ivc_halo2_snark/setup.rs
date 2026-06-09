@@ -89,8 +89,6 @@ impl IvcSetup {
         certificate_key_provider: &TempCertificateKeyProvider,
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
-        // Pull the full SRS only long enough to derive the verifier-side params; the SRS
-        // itself drops at end of scope and never lives in the returned setup.
         let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
         let srs_verifier_params = srs.verifier_params();
 

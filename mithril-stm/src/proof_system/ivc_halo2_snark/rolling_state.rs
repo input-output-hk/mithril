@@ -115,8 +115,7 @@ impl IvcRollingState {
         self.genesis_signature.verify(
             &[BaseFieldElement::from(global.genesis_message.as_field())],
             &global.genesis_verification_key,
-        )?;
-        Ok(())
+        )
     }
 
     /// Returns the public inputs expected by the IVC verifier gadget for the previous
