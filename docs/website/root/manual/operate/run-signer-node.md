@@ -893,16 +893,13 @@ sudo service netfilter-persistent save
 
 :::
 
-## Set up the DMQ node (unstable)
+## Set up the DMQ node (beta)
 
-:::danger
+:::info
 
-The DMQ node setup is currently **unstable** and not suitable for production use.
+The DMQ node setup is currently **beta** and suitable for production use by SPOs.
 
-During the stabilization and ramp-up phase of the DMQ network:
-
-- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
-- This section is subject to frequent changes.
+During the stabilization and ramp-up phase of the DMQ network, signatures are still sent to the leader aggregator (using the DMQ node is harmless).
 
 :::
 
