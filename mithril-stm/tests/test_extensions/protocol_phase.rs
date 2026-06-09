@@ -3,9 +3,10 @@ use rand_core::RngCore;
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
-    KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake,
-    StmResult, VerificationKeyForConcatenation,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AncillaryGenesisData,
+    AncillaryProofInput, AncillaryVerifierData, Clerk, Initializer, KeyRegistration,
+    MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake, StmResult,
+    VerificationKeyForConcatenation,
 };
 
 type D = MithrilMembershipDigest;
@@ -19,7 +20,7 @@ pub struct InitializationPhaseResult {
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: StmResult<AggregateSignature<D>>,
+    pub msig: StmResult<(AggregateSignature<D>, Option<AncillaryVerifierData>)>,
     pub avk: AggregateVerificationKey<D>,
     pub sigs: Vec<SingleSignature>,
 }
@@ -95,7 +96,15 @@ pub fn operation_phase(
         );
     }
 
-    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+    let ancillary_input = AncillaryProofInput::new(
+        None,
+        AncillaryGenesisData::new(
+            Vec::new(),
+            #[cfg(feature = "future_snark")]
+            None,
+        ),
+    );
+    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, ancillary_input);
 
     OperationPhaseResult { msig, avk, sigs }
 }

@@ -82,7 +82,7 @@ fn test_binary_conversions() {
     let decoded = SingleSignature::from_bytes::<D>(&encoded).unwrap();
     assert_eq!(sig, &decoded);
 
-    let msig = msig.unwrap();
+    let (msig, _ancillary_verifier_data) = msig.unwrap();
     let encoded = msig
         .to_bytes()
         .expect("AggregateSignature serialization should not fail");

@@ -5,9 +5,9 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer,
-    KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Stake,
-    VerificationKeyProofOfPossessionForConcatenation,
+    AggregateSignature, AggregateSignatureType, AncillaryGenesisData, AncillaryProofInput, Clerk,
+    ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
+    RegistrationEntry, Stake, VerificationKeyProofOfPossessionForConcatenation,
 };
 
 type D = MithrilMembershipDigest;
@@ -129,33 +129,79 @@ fn main() {
 
     // Now we aggregate the signatures
     let aggr_sig_type = AggregateSignatureType::Concatenation;
-    let msig_1: AggregateSignature<MithrilMembershipDigest> =
-        match clerk.aggregate_signatures_with_type(&complete_sigs_1, &msg, aggr_sig_type) {
-            Ok(s) => s,
-            Err(e) => {
-                panic!("Aggregation failed: {e:?}")
-            }
-        };
+    let msig_1: AggregateSignature<MithrilMembershipDigest> = match clerk
+        .aggregate_signatures_with_type(
+            &complete_sigs_1,
+            &msg,
+            aggr_sig_type,
+            AncillaryProofInput::new(
+                None,
+                AncillaryGenesisData::new(
+                    Vec::new(),
+                    #[cfg(feature = "future_snark")]
+                    None,
+                ),
+            ),
+        ) {
+        Ok((s, _)) => s,
+        Err(e) => {
+            panic!("Aggregation failed: {e:?}")
+        }
+    };
     assert!(
         msig_1
-            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .verify(
+                &msg,
+                &clerk.compute_aggregate_verification_key(),
+                &params,
+                None
+            )
             .is_ok()
     );
 
-    let msig_2: AggregateSignature<MithrilMembershipDigest> =
-        match clerk.aggregate_signatures_with_type(&complete_sigs_2, &msg, aggr_sig_type) {
-            Ok(s) => s,
-            Err(e) => {
-                panic!("Aggregation failed: {e:?}")
-            }
-        };
+    let msig_2: AggregateSignature<MithrilMembershipDigest> = match clerk
+        .aggregate_signatures_with_type(
+            &complete_sigs_2,
+            &msg,
+            aggr_sig_type,
+            AncillaryProofInput::new(
+                None,
+                AncillaryGenesisData::new(
+                    Vec::new(),
+                    #[cfg(feature = "future_snark")]
+                    None,
+                ),
+            ),
+        ) {
+        Ok((s, _)) => s,
+        Err(e) => {
+            panic!("Aggregation failed: {e:?}")
+        }
+    };
     assert!(
         msig_2
-            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .verify(
+                &msg,
+                &clerk.compute_aggregate_verification_key(),
+                &params,
+                None
+            )
             .is_ok()
     );
 
-    let msig_3 = clerk.aggregate_signatures_with_type(&incomplete_sigs_3, &msg, aggr_sig_type);
+    let msig_3 = clerk.aggregate_signatures_with_type(
+        &incomplete_sigs_3,
+        &msg,
+        aggr_sig_type,
+        AncillaryProofInput::new(
+            None,
+            AncillaryGenesisData::new(
+                Vec::new(),
+                #[cfg(feature = "future_snark")]
+                None,
+            ),
+        ),
+    );
     assert!(msig_3.is_err());
 }
 

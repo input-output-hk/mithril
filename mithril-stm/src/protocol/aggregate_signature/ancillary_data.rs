@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "future_snark")]
+use crate::StandardSchnorrSignature;
 use crate::StmResult;
 use crate::codec;
 
@@ -61,6 +63,96 @@ impl AncillaryVerifierData {
                 "AncillaryVerifierData: unsupported encoding, expected a CBOR v1 prefix"
             ))
         }
+    }
+}
+
+/// Genesis-related data carried into aggregate signature creation.
+///
+/// Holds the genesis message and, under `future_snark`, the genesis Schnorr signature when the
+/// genesis certificate carries one. It is a transient input to proof creation, never stored on a
+/// certificate.
+#[derive(Clone, Debug)]
+pub struct AncillaryGenesisData {
+    genesis_message: Vec<u8>,
+    #[cfg(feature = "future_snark")]
+    genesis_schnorr_signature: Option<StandardSchnorrSignature>,
+}
+
+impl AncillaryGenesisData {
+    /// Build the genesis ancillary data from the genesis message and, under `future_snark`, the
+    /// genesis Schnorr signature (absent for a legacy, non-dual genesis certificate).
+    pub fn new(
+        genesis_message: Vec<u8>,
+        #[cfg(feature = "future_snark")] genesis_schnorr_signature: Option<
+            StandardSchnorrSignature,
+        >,
+    ) -> Self {
+        Self {
+            genesis_message,
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_signature,
+        }
+    }
+
+    /// Return the genesis message.
+    pub fn genesis_message(&self) -> &[u8] {
+        &self.genesis_message
+    }
+
+    /// Return the genesis Schnorr signature, absent for a legacy (non-dual) genesis certificate.
+    #[cfg(feature = "future_snark")]
+    pub fn genesis_schnorr_signature(&self) -> Option<&StandardSchnorrSignature> {
+        self.genesis_schnorr_signature.as_ref()
+    }
+
+    /// Build genesis ancillary data carrying no data, for use in tests.
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Self::new(
+            Vec::new(),
+            #[cfg(feature = "future_snark")]
+            None,
+        )
+    }
+}
+
+/// Ancillary input to one aggregate signature creation.
+///
+/// Carries the prover data from the previous certificate and the genesis data from the genesis
+/// certificate, the state the proof system needs at creation. It is always supplied to the clerk;
+/// each proof system decides whether to consume it.
+#[derive(Clone, Debug)]
+pub struct AncillaryProofInput {
+    prover_data: Option<AncillaryProverData>,
+    genesis_data: AncillaryGenesisData,
+}
+
+impl AncillaryProofInput {
+    /// Build the ancillary proof input from the prover and genesis data.
+    pub fn new(
+        prover_data: Option<AncillaryProverData>,
+        genesis_data: AncillaryGenesisData,
+    ) -> Self {
+        Self {
+            prover_data,
+            genesis_data,
+        }
+    }
+
+    /// Return the prover ancillary data carried from the previous certificate.
+    pub fn prover_data(&self) -> Option<&AncillaryProverData> {
+        self.prover_data.as_ref()
+    }
+
+    /// Return the genesis ancillary data.
+    pub fn genesis_data(&self) -> &AncillaryGenesisData {
+        &self.genesis_data
+    }
+
+    /// Build an ancillary proof input carrying no data, for use in tests.
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Self::new(None, AncillaryGenesisData::dummy())
     }
 }
 
