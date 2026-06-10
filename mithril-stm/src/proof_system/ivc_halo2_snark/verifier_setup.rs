@@ -26,6 +26,16 @@ use crate::proof_system::KZG_VERIFIER_PARAMS;
 /// verifier parameters are embedded as a compile-time constant and deserialized on
 /// construction. The caller must supply the verifying keys because the certificate VK varies
 /// per deployment.
+///
+/// # Invariant
+///
+/// The certificate and IVC verifying keys used to build this struct must match those used to
+/// build the [`Global`] passed to [`IvcProof::verify`]. A mismatch silently produces wrong
+/// public inputs and will cause verification to fail with
+/// [`IvcCircuitError::RecursiveProofKzgOpeningFailed`].
+///
+/// [`Global`]: crate::circuits::halo2_ivc::state::Global
+/// [`IvcProof::verify`]: crate::proof_system::ivc_halo2_snark::proof::IvcProof::verify
 // TODO: remove this allow dead_code directive when IvcVerifierSetup is wired into STM
 #[allow(dead_code)]
 pub(crate) struct IvcVerifierSetup {
