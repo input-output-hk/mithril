@@ -47,6 +47,20 @@ impl AggregateSignatureType {
             _ => None,
         }
     }
+
+    /// Whether a valid certificate carrying this aggregate signature type certifies the full
+    /// certificate chain back to the genesis certificate on its own.
+    ///
+    /// Returns `false` for the current proof systems. Recursive proof systems (e.g. IVC) return
+    /// `true`, which lets certificate chain verification stop at the first valid such certificate
+    /// instead of walking back to the genesis certificate.
+    pub fn certifies_full_certificate_chain(&self) -> bool {
+        match self {
+            AggregateSignatureType::Concatenation => false,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::Snark => false,
+        }
+    }
 }
 
 impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureType {
@@ -525,6 +539,21 @@ mod tests {
                 Some(AggregateSignatureType::Snark)
             );
         }
+    }
+
+    #[test]
+    fn golden_certifies_full_certificate_chain_per_aggregate_signature_type() {
+        fn assert_golden_value(aggregate_signature_type: AggregateSignatureType, expected: bool) {
+            assert_eq!(
+                expected,
+                aggregate_signature_type.certifies_full_certificate_chain(),
+                "golden 'certifies_full_certificate_chain' value changed for {aggregate_signature_type}, this alters certificate chain verification semantics"
+            );
+        }
+
+        assert_golden_value(AggregateSignatureType::Concatenation, false);
+        #[cfg(feature = "future_snark")]
+        assert_golden_value(AggregateSignatureType::Snark, false);
     }
 
     mod aggregate_signature_golden_concatenation {
