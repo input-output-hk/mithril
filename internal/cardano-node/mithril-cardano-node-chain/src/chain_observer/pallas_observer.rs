@@ -1,10 +1,12 @@
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_addresses::Address;
-use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
+use pallas_codec::minicbor;
+use pallas_codec::utils::Bytes;
+use pallas_network::miniprotocols::localstate::queries_v16::DatumOption;
+use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::{
@@ -13,7 +15,7 @@ use pallas_network::{
             Client,
             queries_v16::{
                 self, Addr, Addrs, ChainBlockNumber, GenesisConfig, PostAlonsoTransactionOutput,
-                StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
+                StakeSnapshots, Stakes, TransactionOutput, UTxOByAddress,
             },
         },
     },
@@ -101,22 +103,28 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
-    /// Returns inline datum tag from the given `Values` instance.
-    fn get_datum_tag(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TagWrap<Bytes, 24>> {
+    /// Returns the inline datum from the given transaction output.
+    fn get_inline_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<DatumOption> {
         Ok(utxo
             .inline_datum
             .as_ref()
             .with_context(|| "PallasChainObserver failed to get inline datum")?
-            .1
             .clone())
     }
 
-    /// Returns inline datums from the given `Values` instance.
+    /// Returns the decoded inline [Datum] from the given transaction output.
     fn inspect_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Datum> {
-        let datum = self.get_datum_tag(utxo)?;
-        let datum = CborWrap(datum).to_vec();
+        let plutus_data = match self.get_inline_datum(utxo)? {
+            DatumOption::Data(plutus_data) => plutus_data.0,
+            DatumOption::Hash(_) => {
+                return Err(anyhow!("PallasChainObserver does not support datum hash"))
+                    .with_context(|| "PallasChainObserver failed to inspect datum");
+            }
+        };
+        let datum_bytes = minicbor::to_vec(&plutus_data)
+            .with_context(|| "PallasChainObserver failed to encode inline datum")?;
 
-        try_inspect::<Datum>(datum)
+        try_inspect::<Datum>(datum_bytes)
     }
 
     /// Serializes datum to `TxDatum` instance.
@@ -131,7 +139,6 @@ impl PallasChainObserver {
     /// Maps the given `UTxOByAddress` instance to Datums.
     fn map_datums(&self, transaction: UTxOByAddress) -> StdResult<Datums> {
         transaction
-            .utxo
             .iter()
             .filter_map(|(_, utxo)| match utxo {
                 TransactionOutput::Current(output) => {
@@ -185,7 +192,7 @@ impl PallasChainObserver {
     async fn do_stake_snapshots_state_query(
         &self,
         statequery: &mut Client,
-    ) -> StdResult<StakeSnapshot> {
+    ) -> StdResult<StakeSnapshots> {
         statequery
             .acquire(None)
             .await
@@ -195,7 +202,7 @@ impl PallasChainObserver {
             .await
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
-        let state_snapshot = queries_v16::get_stake_snapshots(statequery, era, BTreeSet::new())
+        let state_snapshot = queries_v16::get_stake_snapshots(statequery, era, SMaybe::None)
             .await
             .with_context(|| "PallasChainObserver failed to get stake snapshot")?;
 
@@ -222,7 +229,6 @@ impl PallasChainObserver {
 
         let have_stakes_in_two_epochs = |stakes: &Stakes| stakes.snapshot_mark_pool > 0;
         for (key, stakes) in stake_snapshot
-            .snapshots
             .stake_snapshots
             .iter()
             .filter(|(_, stakes)| have_stakes_in_two_epochs(stakes))
@@ -301,7 +307,7 @@ impl PallasChainObserver {
     async fn do_get_genesis_config_state_query(
         &self,
         statequery: &mut Client,
-    ) -> StdResult<Vec<GenesisConfig>> {
+    ) -> StdResult<GenesisConfig> {
         let era = self.do_get_current_era_state_query(statequery).await?;
         let genesis_config = queries_v16::get_genesis_config(statequery, era)
             .await
@@ -350,12 +356,8 @@ impl PallasChainObserver {
 
         let genesis_config = self.do_get_genesis_config_state_query(statequery).await?;
 
-        let config = genesis_config
-            .first()
-            .with_context(|| "PallasChainObserver failed to extract the config")?;
-
         let current_kes_period = self
-            .calculate_kes_period(chain_point, config.slots_per_kes_period as u64)
+            .calculate_kes_period(chain_point, genesis_config.slots_per_kes_period as u64)
             .await?;
 
         Ok(Some(current_kes_period))
@@ -484,15 +486,16 @@ impl ChainObserver for PallasChainObserver {
 mod tests {
     use std::fs;
 
-    use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
+    use pallas_codec::utils::{AnyCbor, AnyUInt, CborWrap, KeyValuePairs};
     use pallas_network::facades::NodeServer;
+    use pallas_network::miniprotocols::localstate::queries_v16::{BigInt, PlutusData};
     use pallas_network::miniprotocols::{
         Point,
         localstate::{
             ClientQueryRequest,
             queries_v16::{
                 BlockQuery, ChainBlockNumber, Fraction, GenesisConfig, HardForkQuery, LedgerQuery,
-                Request, Snapshots, StakeSnapshot, SystemStart, Value,
+                Request, StakeSnapshots, SystemStart, Value,
             },
         },
     };
@@ -510,9 +513,8 @@ mod tests {
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
         let hex_datum = "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF";
-        let datum = hex::decode(hex_datum).unwrap().into();
-        let tag = TagWrap::<_, 24>::new(datum);
-        let inline_datum = Some((1_u16, tag));
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        let inline_datum = Some(DatumOption::Data(CborWrap(plutus_data)));
 
         let address: Address =
             Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
@@ -524,18 +526,17 @@ mod tests {
             inline_datum,
             script_ref: None,
         });
-        let utxo = KeyValuePairs::from(vec![(
+
+        KeyValuePairs::from(vec![(
             queries_v16::UTxO {
                 transaction_id,
                 index,
             },
             values,
-        )]);
-
-        UTxOByAddress { utxo }
+        )])
     }
 
-    fn get_fake_stake_snapshot() -> StakeSnapshot {
+    fn get_fake_stake_snapshot() -> StakeSnapshots {
         let stake_snapshots = KeyValuePairs::from(vec![
             (
                 Bytes::from(
@@ -583,22 +584,20 @@ mod tests {
             ),
         ]);
 
-        StakeSnapshot {
-            snapshots: Snapshots {
-                stake_snapshots,
-                snapshot_stake_mark_total: 2100000000003,
-                snapshot_stake_set_total: 2100000000006,
-                snapshot_stake_go_total: 2100000000000,
-            },
+        StakeSnapshots {
+            stake_snapshots,
+            snapshot_stake_mark_total: 2100000000003,
+            snapshot_stake_set_total: 2100000000006,
+            snapshot_stake_go_total: 2100000000000,
         }
     }
 
-    fn get_fake_genesis_config() -> Vec<GenesisConfig> {
-        let genesis = GenesisConfig {
+    fn get_fake_genesis_config() -> GenesisConfig {
+        GenesisConfig {
             system_start: SystemStart {
-                year: 2021,
+                year: BigInt::from(2021),
                 day_of_year: 150,
-                picoseconds_of_day: 0,
+                picoseconds_of_day: BigInt::from(0),
             },
             network_magic: 42,
             network_id: 42,
@@ -610,9 +609,7 @@ mod tests {
             slot_length: 1,
             update_quorum: 5,
             max_lovelace_supply: AnyUInt::MajorByte(2),
-        };
-
-        vec![genesis]
+        }
     }
 
     /// pallas responses mock server.
@@ -638,13 +635,13 @@ mod tests {
                 AnyCbor::from_encode([8])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetGenesisConfig)) => {
-                AnyCbor::from_encode(get_fake_genesis_config())
+                AnyCbor::from_encode([get_fake_genesis_config()])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetUTxOByAddress(_))) => {
-                AnyCbor::from_encode(get_fake_utxo_by_address())
+                AnyCbor::from_encode([get_fake_utxo_by_address()])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetStakeSnapshots(_))) => {
-                AnyCbor::from_encode(get_fake_stake_snapshot())
+                AnyCbor::from_encode([get_fake_stake_snapshot()])
             }
             _ => panic!("unexpected query from client: {query:?}"),
         }
