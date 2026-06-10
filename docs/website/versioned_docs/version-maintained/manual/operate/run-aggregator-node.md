@@ -254,7 +254,7 @@ The configuration values for the `/opt/mithril/mithril-aggregator.env` file are 
 
 **Base configuration** values are:
 
-- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (eg, `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
+- `SIGNED_ENTITY_TYPES`: Comma-separated list of signed entity types to certify (eg, `MithrilStakeDistribution,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`)
 - `SERVER_PORT`: Listening server port (default: `8080`)
 - `PUBLIC_SERVER_URL`: Public URL of your aggregator (eg, `https://aggregator.example.com/aggregator`)
 - `LEADER_AGGREGATOR_ENDPOINT`: Endpoint of the leader aggregator to synchronize with (required for follower aggregators, can be found in the [Network configurations](../getting-started/network-configurations.md))
@@ -906,16 +906,11 @@ Make sure your domain name points to your server's public IP address and that po
 
 :::
 
-## Set up the DMQ node (unstable)
+## Set up the DMQ node (beta)
 
-:::danger
+:::info
 
-The DMQ node setup is currently **unstable** and not suitable for production use.
-
-During the stabilization and ramp-up phase of the DMQ network:
-
-- Signatures are still sent to the central aggregator (using the DMQ node is harmless)
-- This section is subject to frequent changes.
+The DMQ node setup is currently **beta**. During the stabilization and ramp-up phase of the DMQ network, signatures received through it may not be enough to reach the quorum and thus produce valid certificates.
 
 :::
 
@@ -926,6 +921,7 @@ The DMQ node supports the implementation of a **Decentralized Message Queue** (D
 - Here is the needed information to set up a DMQ node:
   - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
+  - `**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**`: replace with the path to the Shelley genesis file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
   - `**YOUR_DMQ_NODE_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node
   - `**YOUR_DMQ_NODE_PORT**`: replace with the listening port of your DMQ node
@@ -940,6 +936,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 
 - **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
 - **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
+- **YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**: `/cardano/config/shelley-genesis.json`
 - **YOUR_CARDANO_NETWORK_MAGIC**: `2`
 - **YOUR_DMQ_NODE_PUBLIC_ADDRESS**: `34.14.65.160`
 - **YOUR_DMQ_NODE_PORT**: `6161`
@@ -956,7 +953,7 @@ As we are still in a testing stage, we only support the `pre-release-preview` ne
 
 You can use these parameters for the **pre-release-preview** network:
 
-- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.4.2.0/dmq-node-linux.tar.gz`
+- **DMQ_RELEASE_URL**: `https://github.com/IntersectMBO/dmq-node/releases/download/0.6.0.0/dmq-node-linux.tar.gz`
 
 _These URLs may change in the future; please refer to this page for the latest released version of the DMQ node binary._
 
@@ -1026,6 +1023,7 @@ bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
+  "ShelleyGenesisFile": "**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
@@ -1050,6 +1048,7 @@ bash -c 'cat > /opt/dmq/config.json << EOF
 {
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
+  "ShelleyGenesisFile": "/cardano/config/shelley-genesis.json",
   "PeerSharing": true,
   "PeerSelectionCounters": true,
   "TraceOptions": {
