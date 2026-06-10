@@ -7,7 +7,7 @@ use slog::{Logger, debug};
 use std::sync::Arc;
 use thiserror::Error;
 
-use mithril_stm::AggregateSignatureType;
+use mithril_stm::{AggregateSignatureType, AncillaryVerifierData};
 
 use crate::StdResult;
 #[cfg(feature = "future_snark")]
@@ -167,6 +167,7 @@ impl MithrilCertificateVerifier {
         multi_signature: &ProtocolMultiSignature,
         aggregate_verification_key: &ProtocolAggregateVerificationKey,
         protocol_parameters: &ProtocolParameters,
+        ancillary_verifier_data: Option<AncillaryVerifierData>,
     ) -> Result<(), CertificateVerifierError> {
         debug!(
             self.logger,
@@ -179,9 +180,34 @@ impl MithrilCertificateVerifier {
                 message,
                 aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
-                None,
+                ancillary_verifier_data,
             )
             .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
+    }
+
+    /// Verify the parts of a standard certificate that do not depend on its predecessor: its hash,
+    /// signed message, multi-signature and epoch.
+    fn verify_standard_certificate_integrity(&self, certificate: &Certificate) -> StdResult<()> {
+        let multi_signature = match &certificate.signature {
+            CertificateSignature::MultiSignature(_, signature) => Ok(signature),
+            _ => Err(CertificateVerifierError::InvalidStandardCertificateProvided),
+        }?;
+        self.verify_is_not_in_infinite_loop(certificate)?;
+        self.verify_hash_matches_content(certificate)?;
+        self.verify_signed_message_matches_hashed_protocol_message(certificate)?;
+        self.verify_multi_signature(
+            certificate.signed_message.as_bytes(),
+            multi_signature,
+            &certificate.create_aggregate_verification_key(),
+            &certificate.metadata.protocol_parameters,
+            certificate
+                .ancillary_verifier_data
+                .clone()
+                .map(|ancillary_verifier_data| ancillary_verifier_data.into_inner()),
+        )?;
+        self.verify_epoch_matches_protocol_message(certificate)?;
+
+        Ok(())
     }
 
     fn verify_is_not_in_infinite_loop(&self, certificate: &Certificate) -> StdResult<()> {
@@ -430,20 +456,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         certificate: &Certificate,
         previous_certificate: &Certificate,
     ) -> StdResult<()> {
-        let multi_signature = match &certificate.signature {
-            CertificateSignature::MultiSignature(_, signature) => Ok(signature),
-            _ => Err(CertificateVerifierError::InvalidStandardCertificateProvided),
-        }?;
-        self.verify_is_not_in_infinite_loop(certificate)?;
-        self.verify_hash_matches_content(certificate)?;
-        self.verify_signed_message_matches_hashed_protocol_message(certificate)?;
-        self.verify_multi_signature(
-            certificate.signed_message.as_bytes(),
-            multi_signature,
-            &certificate.create_aggregate_verification_key(),
-            &certificate.metadata.protocol_parameters,
-        )?;
-        self.verify_epoch_matches_protocol_message(certificate)?;
+        self.verify_standard_certificate_integrity(certificate)?;
         self.verify_epoch_chaining(certificate, previous_certificate)?;
         self.verify_previous_hash_matches_previous_certificate_hash(
             certificate,
@@ -472,6 +485,16 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         if certificate.is_genesis() {
             self.verify_genesis_certificate(certificate, genesis_verification_key)
                 .await?;
+
+            return Ok(None);
+        }
+
+        // Stopping here is sound only because such a signature's verification attests to the whole
+        // certificate chain back to the genesis certificate, so the integrity checks alone suffice.
+        if certificate.signature.aggregate_signature_type().is_some_and(
+            |aggregate_signature_type| aggregate_signature_type.certifies_full_certificate_chain(),
+        ) {
+            self.verify_standard_certificate_integrity(certificate)?;
 
             return Ok(None);
         }
@@ -564,7 +587,7 @@ mod tests {
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_aggregate_verification_key();
-        let (aggregate_signature, _ancillary_verifier_data) = clerk
+        let (aggregate_signature, ancillary_verifier_data) = clerk
             .aggregate_signatures_with_type(
                 &single_signatures,
                 &message_hash,
@@ -586,6 +609,7 @@ mod tests {
                     &multi_signature,
                     &aggregate_verification_key,
                     &fixture.protocol_parameters(),
+                    ancillary_verifier_data.clone(),
                 )
                 .is_err(),
             "multi signature verification should have failed"
@@ -596,6 +620,7 @@ mod tests {
                 &multi_signature,
                 &aggregate_verification_key,
                 &fixture.protocol_parameters(),
+                ancillary_verifier_data,
             )
             .expect("multi signature verification should have succeeded");
     }
@@ -764,6 +789,51 @@ mod tests {
             .await;
 
         verify.expect("verify_standard_certificate should not fail");
+    }
+
+    #[test]
+    fn verify_certificate_integrity_succeeds_for_a_valid_standard_certificate() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let certificate = fake_certificates[0].clone();
+
+        verifier
+            .verify_standard_certificate_integrity(&certificate)
+            .expect("verify_certificate_integrity should not fail for a valid certificate");
+    }
+
+    #[test]
+    fn verify_certificate_integrity_fails_for_a_tampered_certificate() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut certificate = fake_certificates[0].clone();
+        certificate.hash = "another-hash".to_string();
+
+        let error = verifier
+            .verify_standard_certificate_integrity(&certificate)
+            .expect_err("verify_certificate_integrity should fail for a tampered certificate");
+
+        assert_error_matches!(CertificateVerifierError::CertificateHashUnmatch, error)
+    }
+
+    #[test]
+    fn verify_certificate_integrity_does_not_check_the_previous_certificate_link() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut certificate = fake_certificates[0].clone();
+
+        // Break the link to the previous certificate while keeping the certificate self-consistent.
+        certificate.previous_hash = "unrelated-previous-hash".to_string();
+        certificate.hash = certificate.try_compute_hash().unwrap();
+
+        // The self-contained checks accept it because they never look at the previous certificate,
+        // which is exactly what lets a full-chain-certifying certificate stop the chain walk early.
+        verifier
+            .verify_standard_certificate_integrity(&certificate)
+            .expect("integrity verification must ignore the previous certificate link");
     }
 
     #[tokio::test]
