@@ -52,7 +52,7 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
             Ok(last_artifact)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(anyhow!(
+        AttemptResult::Timeout(..) => Err(anyhow!(
             "Timeout exhausted waiting for {artifact_name}, no response from `{url}`"
         )),
     }

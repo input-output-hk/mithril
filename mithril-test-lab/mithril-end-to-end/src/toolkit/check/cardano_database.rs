@@ -107,7 +107,7 @@ impl CheckCardanoDatabaseToolkit {
                 Ok(cardano_database_digests_map)
             }
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
             "Timeout exhausted assert_node_producing_cardano_database_digests_map, no response from `{url}`"
         )),
         }.with_context(|| {

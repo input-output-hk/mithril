@@ -55,7 +55,7 @@ impl CheckCertificateToolkit {
                 }
             }
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
                 "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
             )),
         }

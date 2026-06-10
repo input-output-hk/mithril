@@ -11,7 +11,7 @@ pub use compatibility_checker::*;
 pub use formatting::*;
 pub use immutable_files_utils::*;
 pub use mithril_command::MithrilCommand;
-pub use spec_utils::AttemptResult;
+pub use spec_utils::{AttemptResult, TimeoutReason};
 pub use version_req::NodeVersion;
 
 pub fn is_running_in_github_actions() -> bool {
