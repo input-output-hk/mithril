@@ -70,7 +70,7 @@ macro_rules! u64_wrapper {
                 F::from(self.0)
             }
 
-            #[allow(dead_code)]
+            #[cfg(test)]
             pub(crate) fn from_field(value: F) -> Self {
                 let bytes = value.to_bytes_le();
                 let low_bytes = bytes[0..8]

@@ -147,6 +147,13 @@ impl<D: MembershipDigest> SnarkProof<D> {
         verify_result.map_err(|_| SnarkError::VerifyProofFail.into())
     }
 
+    /// Returns a reference to the circuit verification key embedded in SNARK proof
+    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
+    #[allow(dead_code)]
+    pub(crate) fn circuit_verification_key(&self) -> &CircuitVerificationKey {
+        &self.circuit_verification_key
+    }
+
     /// Runs the off-circuit SNARK verifier and returns the verifier's intermediate
     /// `DualMSM`.
     ///

@@ -17,7 +17,7 @@ use super::{
     verifier,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct State {
     pub(crate) step_counter: StepCounter,
     pub(crate) message: MessageHash,
@@ -167,7 +167,7 @@ pub(crate) struct AssignedGlobal {
     pub(crate) fixed_base_names: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Witness {
     pub(crate) genesis_signature: StandardSchnorrSignature,
     pub(crate) certificate_message: MessageHash,

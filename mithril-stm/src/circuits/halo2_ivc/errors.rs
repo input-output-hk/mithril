@@ -2,7 +2,6 @@ use midnight_proofs::plonk::Error as PlonkError;
 use thiserror::Error;
 
 /// Circuit-scoped errors for the IVC recursive SNARK circuit and its off-circuit helpers.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum IvcCircuitError {
     /// Off-circuit verifier rejected a certificate proof.
@@ -45,11 +44,17 @@ pub enum IvcCircuitError {
     /// Off-circuit step transition: the chain's step counter would overflow u64.
     #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
     StepCounterOverflow { current: u64 },
+
+    /// Off-circuit step transition: the certificate proof's embedded verifying key does
+    /// not match the certificate verifying key carried by `IvcSetup`.
+    #[error(
+        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcSetup"
+    )]
+    CertificateVerifyingKeyMismatch,
 }
 
 /// Subcategorization for `IvcCircuitError::InvalidEpochTransition`. Lets negative
 /// tests downcast on the specific transition violation.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum EpochTransitionErrorKind {
     /// The certificate's epoch is neither equal to nor exactly one greater than the
@@ -64,6 +69,13 @@ pub enum EpochTransitionErrorKind {
         "same-epoch certificate announces a next-epoch lookahead that does not match the chain state"
     )]
     SameEpochLookaheadMismatch,
+
+    /// The first certificate after genesis (chain step counter equal to one) must be a
+    /// next-epoch certificate.
+    #[error(
+        "first certificate after genesis must be a next-epoch certificate, got a same-epoch certificate"
+    )]
+    FirstCertificateAfterGenesisMustBeNextEpoch,
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.
