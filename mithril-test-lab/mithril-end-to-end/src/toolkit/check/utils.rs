@@ -44,7 +44,7 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
         }
     }
 
-    match attempt!(30, context.tenth_epoch_delay(), {
+    match attempt!(20, context.tenth_epoch_delay(), {
         fetch_last_artifact(artifact_name, url.clone()).await
     }) {
         AttemptResult::Ok(last_artifact) => {
