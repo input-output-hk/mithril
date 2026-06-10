@@ -265,7 +265,7 @@ impl MithrilInfrastructure {
             mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
             mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
             signed_entity_types: &config.signed_entity_types,
-            aggregate_signature_type: &config.aggregate_signature_type.to_string(),
+            aggregate_signature_type: config.aggregate_signature_type,
             chain_observer_type,
             leader_aggregator_endpoint: &leader_aggregator_endpoint,
             use_dmq: config.use_dmq,

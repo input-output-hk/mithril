@@ -15,9 +15,9 @@ use mithril_common::{CardanoNetwork, StdResult, entities};
 
 use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{
-    ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor,
-    ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY,
-    GENESIS_VERIFICATION_KEY, RetryableDevnetError,
+    ANCILLARY_MANIFEST_SECRET_KEY, AggregateSignatureType, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID,
+    DmqNodeFlavor, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode,
+    GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY, RetryableDevnetError,
 };
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub struct AggregatorConfig<'a> {
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
-    pub aggregate_signature_type: &'a str,
+    pub aggregate_signature_type: AggregateSignatureType,
     pub chain_observer_type: &'a str,
     pub leader_aggregator_endpoint: &'a Option<String>,
     pub use_dmq: bool,

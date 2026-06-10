@@ -4,7 +4,7 @@ use std::time::Duration;
 use mithril_common::{StdResult, entities::Epoch, test::builder::MithrilFixture};
 
 use crate::{
-    Aggregator, AggregatorConfig,
+    AggregateSignatureType, Aggregator, AggregatorConfig,
     stress_test::{entities::AggregatorParameters, fake_chain, fake_signer, wait},
 };
 
@@ -34,7 +34,7 @@ pub async fn bootstrap_aggregator(
         mithril_era_marker_address: "",
         mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
-        aggregate_signature_type: "Concatenation",
+        aggregate_signature_type: AggregateSignatureType::Concatenation,
         chain_observer_type,
         leader_aggregator_endpoint: &None,
         use_dmq: false,
