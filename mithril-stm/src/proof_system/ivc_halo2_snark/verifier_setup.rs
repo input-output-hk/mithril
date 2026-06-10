@@ -79,6 +79,21 @@ impl IvcVerifierSetup {
         })
     }
 
+    /// Derive from an already-built [`IvcSetup`], extracting verifier params directly from its
+    /// SRS rather than the embedded constant. Only for tests — production code must not load the
+    /// full SRS just to verify a proof.
+    #[cfg(test)]
+    pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcSetup) -> Self {
+        let verifier_params = ivc_setup.srs_verifier_params.clone();
+        let tau_g2: G2Affine = verifier_params.s_g2().into();
+        Self {
+            verifier_params,
+            tau_g2,
+            ivc_verifying_key: ivc_setup.ivc_verifying_key.clone(),
+            combined_fixed_bases: ivc_setup.combined_fixed_bases.clone(),
+        }
+    }
+
     pub(crate) fn read_embedded_params() -> StmResult<(ParamsVerifierKZG<Bls12>, G2Affine)> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
             &mut &KZG_VERIFIER_PARAMS[..],
