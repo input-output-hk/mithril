@@ -12,6 +12,8 @@
 //! Negative tests for `IvcProof::verify` cover tampered proof bytes, a mismatched
 //! state, and a mismatched accumulator — each asserting that `verify()` returns `Err`.
 
+use std::marker::PhantomData;
+
 use midnight_circuits::types::Instantiable;
 
 use crate::circuits::halo2_ivc::{
@@ -147,14 +149,15 @@ fn ivc_proof_verify_accepts_stored_recursive_step_output() {
         combined_fixed_bases: verification_context.combined_fixed_bases,
     };
 
-    let proof = IvcProof {
+    let proof = IvcProof::<blake2b_simd::State> {
         proof_bytes: step_output.ivc_proof,
         state: step_output.next_state,
         accumulator: step_output.next_accumulator,
+        _hash: PhantomData,
     };
 
     proof
-        .verify_blake2b(&global, &verifier_setup)
+        .verify(&global, &verifier_setup)
         .expect("stored recursive step output should pass IvcProof::verify");
 }
 
@@ -171,14 +174,15 @@ fn ivc_proof_verify_rejects_tampered_proof_bytes() {
     let mid = tampered_bytes.len() / 2;
     tampered_bytes[mid] ^= 0xff;
 
-    let proof = IvcProof {
+    let proof = IvcProof::<blake2b_simd::State> {
         proof_bytes: IvcProofBytes::new(tampered_bytes),
         state: step_output.next_state,
         accumulator: step_output.next_accumulator,
+        _hash: PhantomData,
     };
 
     assert!(
-        proof.verify_blake2b(&global, &verifier_setup).is_err(),
+        proof.verify(&global, &verifier_setup).is_err(),
         "tampered proof bytes should be rejected by IvcProof::verify"
     );
 }
@@ -194,14 +198,15 @@ fn ivc_proof_verify_rejects_mismatched_state() {
     let same_epoch = load_embedded_following_certificate_in_epoch_asset()
         .expect("same-epoch step output asset should load");
 
-    let proof = IvcProof {
+    let proof = IvcProof::<blake2b_simd::State> {
         proof_bytes: step_output.ivc_proof,
         state: same_epoch.next_state,
         accumulator: step_output.next_accumulator,
+        _hash: PhantomData,
     };
 
     assert!(
-        proof.verify_blake2b(&global, &verifier_setup).is_err(),
+        proof.verify(&global, &verifier_setup).is_err(),
         "state from a different proof should be rejected by IvcProof::verify"
     );
 }
@@ -217,35 +222,37 @@ fn ivc_proof_verify_rejects_mismatched_accumulator() {
     let same_epoch = load_embedded_following_certificate_in_epoch_asset()
         .expect("same-epoch step output asset should load");
 
-    let proof = IvcProof {
+    let proof = IvcProof::<blake2b_simd::State> {
         proof_bytes: step_output.ivc_proof,
         state: step_output.next_state,
         accumulator: same_epoch.next_accumulator,
+        _hash: PhantomData,
     };
 
     assert!(
-        proof.verify_blake2b(&global, &verifier_setup).is_err(),
+        proof.verify(&global, &verifier_setup).is_err(),
         "accumulator from a different proof should be rejected by IvcProof::verify"
     );
 }
 
 #[test]
 fn ivc_proof_verify_rejects_poseidon_proof_bytes() {
-    // `IvcProof::verify` always reads the transcript with Blake2b. Feeding it
-    // Poseidon-transcript proof bytes (from `recursive_chain_state`) must fail
-    // because the two transcript formats are not interchangeable.
+    // Constructing an `IvcProof<blake2b_simd::State>` with Poseidon-transcript bytes
+    // and verifying it with the Blake2b path must fail: the two transcript formats
+    // are not interchangeable.
     let (global, verifier_setup) = build_proof_verifier_context();
     let chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
 
-    let proof = IvcProof {
+    let proof = IvcProof::<blake2b_simd::State> {
         proof_bytes: chain_state.ivc_proof,
         state: chain_state.state,
         accumulator: chain_state.accumulator,
+        _hash: PhantomData,
     };
 
     assert!(
-        proof.verify_blake2b(&global, &verifier_setup).is_err(),
-        "Poseidon proof bytes should be rejected by the Blake2b-based IvcProof::verify"
+        proof.verify(&global, &verifier_setup).is_err(),
+        "Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify"
     );
 }

@@ -1,6 +1,6 @@
 //! `IvcProver` and `IvcProof`: the proving-session handle and its emitted IVC proof.
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use group::Group;
 use midnight_circuits::{
@@ -10,8 +10,8 @@ use midnight_circuits::{
 use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{
     plonk::prepare,
-    poly::kzg::KZGCommitmentScheme,
-    transcript::{CircuitTranscript, Transcript},
+    poly::{commitment::PolynomialCommitmentScheme, kzg::KZGCommitmentScheme},
+    transcript::{CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
 };
 use rand_core::{CryptoRng, RngCore};
 
@@ -39,27 +39,38 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 }
 
 /// IVC proof emitted at the end of a proving step.
+///
+/// `H` is the transcript hash used to produce this proof and must be used to verify it.
+/// It is a zero-cost phantom: no `H`-dependent data is stored, but it prevents accidentally
+/// verifying a Poseidon-produced proof via the Blake2b path and vice versa.
 // TODO: remove this allow dead_code directive when the IVC prover emits this proof
 #[allow(dead_code)]
-pub(crate) struct IvcProof {
-    /// Externally-verifiable proof bytes (Blake2b transcript).
+pub(crate) struct IvcProof<H> {
+    /// Externally-verifiable proof bytes.
     pub(crate) proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.
     pub(crate) state: State,
     /// Folded accumulator the proof commits to.
     pub(crate) accumulator: Accumulator<BlstrsEmulation>,
+    /// Phantom marker tying the proof to its transcript hash type.
+    pub(crate) _hash: PhantomData<H>,
 }
 
 // TODO: remove this allow dead_code directive when IvcProof::verify is called
 #[allow(dead_code)]
-impl IvcProof {
-    /// Verifies the IVC proof (Blake2b transcript) and its folded accumulator.
+impl<H> IvcProof<H>
+where
+    H: TranscriptHash,
+    CircuitBase: Sampleable<H> + Hashable<H>,
+    <KZGCommitmentScheme<Bls12> as PolynomialCommitmentScheme<CircuitBase>>::Commitment:
+        Hashable<H>,
+{
+    /// Verifies the IVC proof and its folded accumulator using transcript hash `H`.
     ///
-    /// This is the externally-verifiable form of the proof emitted at the end of
-    /// each proving step. It checks:
-    /// 1. The Blake2b KZG opening equations against the IVC verifying key.
+    /// Checks:
+    /// 1. The KZG opening equations against the IVC verifying key.
     /// 2. The folded accumulator pairing equation.
-    pub(crate) fn verify_blake2b(
+    pub(crate) fn verify(
         &self,
         global: &Global,
         verifier_setup: &IvcVerifierSetup,
@@ -71,14 +82,9 @@ impl IvcProof {
         ]
         .concat();
 
-        let mut transcript =
-            CircuitTranscript::<blake2b_simd::State>::init_from_bytes(self.proof_bytes.as_bytes());
+        let mut transcript = CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
 
-        let dual_msm = prepare::<
-            CircuitBase,
-            KZGCommitmentScheme<Bls12>,
-            CircuitTranscript<blake2b_simd::State>,
-        >(
+        let dual_msm = prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
             &verifier_setup.ivc_verifying_key,
             &[&[G1Projective::identity()]],
             &[&[&public_inputs]],
