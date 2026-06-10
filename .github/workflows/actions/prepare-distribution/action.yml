@@ -114,6 +114,12 @@ runs:
         ./.github/workflows/scripts/compute-cardano-compatibility.sh ./networks.json \
           >> ./release-notes-addon.txt
 
+    - name: Add DMQ node compatibility table
+      shell: bash
+      run: |
+        ./.github/workflows/scripts/compute-dmq-compatibility.sh ./networks.json \
+          >> ./release-notes-addon.txt
+
     - name: Add platform support table
       shell: bash
       run: |
