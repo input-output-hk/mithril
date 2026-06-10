@@ -9,7 +9,8 @@ if [[ ! -f "$JSON_FILE" ]]; then
     exit 1
 fi
 
-# Get all unique keys from 'cardano-minimum-version'
+# Derive the Mithril node columns from the 'cardano-minimum-version' keys, so the
+# DMQ table stays aligned with the Cardano compatibility table
 MITHRIL_NODES=$(jq -r '[.[] | .["cardano-minimum-version"] | keys[]] | unique | .[]' "$JSON_FILE")
 
 # Create header of the markdown table
@@ -40,7 +41,7 @@ for MITHRIL_NETWORK in $(jq -r 'keys[]' "$JSON_FILE"); do
         row="| $MITHRIL_NETWORK_NAME"
 
         # Repeat the DMQ minimum version for each mithril node
-        for _ in $MITHRIL_NODES; do
+        for _mithril_node in $MITHRIL_NODES; do
             if [[ "$DMQ_VERSION" != "N/A" ]]; then
                 row="$row | DMQ \`$DMQ_VERSION+\`<sup>(*)</sup>"
             else
