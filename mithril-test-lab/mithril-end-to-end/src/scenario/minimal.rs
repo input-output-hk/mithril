@@ -158,20 +158,24 @@ impl MinimalScenario {
         let transaction_hashes = randomly_take_transactions_hashes(&blocks_transactions, 5);
         let block_hashes = randomly_take_blocks_hashes(&blocks_transactions, 5);
 
+        // Verify that the aggregator is still producing a certificate chain
+        self.toolkit
+            .check
+            .certificate
+            .is_creating_certificate_with_min_epoch(aggregator, expected_epoch_min)
+            .await?;
+
         // Verify that mithril stake distribution artifacts are produced and signed correctly
-        {
-            let mut client = infrastructure.build_client(aggregator).await?;
-            self.toolkit
-                .check
-                .mithril_stake_distribution
-                .is_certified_and_verified(
-                    aggregator,
-                    &mut client,
-                    expected_epoch_min,
-                    infrastructure.signers().len(),
-                )
-                .await?;
-        }
+        self.toolkit
+            .check
+            .mithril_stake_distribution
+            .is_certified_and_verified(
+                aggregator,
+                &mut client,
+                expected_epoch_min,
+                infrastructure.signers().len(),
+            )
+            .await?;
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
         if self.signed_entity_type == SignedEntityTypeDiscriminants::CardanoDatabase {
