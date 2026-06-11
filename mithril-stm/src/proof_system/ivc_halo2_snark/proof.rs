@@ -4,14 +4,15 @@ use std::{marker::PhantomData, sync::Arc};
 
 use anyhow::anyhow;
 use ff::FromUniformBytes;
+use group::Group;
 use midnight_circuits::{
     hash::poseidon::PoseidonState,
     types::Instantiable,
     verifier::{Accumulator, AssignedAccumulator, BlstrsEmulation},
 };
-use midnight_curves::Bls12;
+use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{
-    plonk::create_proof,
+    plonk::{create_proof, prepare},
     poly::{
         commitment::PolynomialCommitmentScheme,
         kzg::{KZGCommitmentScheme, params::ParamsKZG},
@@ -34,8 +35,12 @@ use crate::{
         },
     },
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey, prover_input::IvcProverInput, rolling_state::IvcRollingState,
+        CircuitProvingKey,
+        errors::IvcProofError,
+        prover_input::IvcProverInput,
+        rolling_state::IvcRollingState,
         setup::IvcProvingSetup,
+        verifier_setup::IvcVerifierSetup,
     },
 };
 
@@ -51,18 +56,38 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 
 /// IVC proof emitted at the end of a proving step.
 ///
-/// The `H` type parameter records the transcript hash used to generate `proof_bytes`.
-/// The external verifier-facing proof always uses `H = blake2b_simd::State`.
+/// `H` is the transcript hash used to produce this proof and must be used to verify it.
+/// It is a zero-cost phantom: no `H`-dependent data is stored, but it prevents accidentally
+/// verifying a Poseidon-produced proof via the Blake2b path and vice versa.
 // TODO: remove this allow dead_code directive when the IVC prover is wired into STM
 #[allow(dead_code)]
-pub(crate) struct IvcProof<H> {
+pub(crate) struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes generated under transcript hash `H`.
-    pub(crate) proof_bytes: IvcProofBytes,
+    proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.
-    pub(crate) state: State,
+    state: State,
     /// Folded accumulator the proof commits to.
-    pub(crate) accumulator: Accumulator<BlstrsEmulation>,
-    _phantom: PhantomData<H>,
+    accumulator: Accumulator<BlstrsEmulation>,
+    /// Phantom marker tying the proof to its transcript hash type.
+    hash: PhantomData<H>,
+}
+
+// TODO: remove this allow dead_code directive when the IVC prover is wired into STM
+#[allow(dead_code)]
+impl<H: TranscriptHash> IvcProof<H> {
+    /// Bundle the outputs of a single proving step into a typed proof.
+    pub(crate) fn new(
+        proof_bytes: IvcProofBytes,
+        state: State,
+        accumulator: Accumulator<BlstrsEmulation>,
+    ) -> Self {
+        Self {
+            proof_bytes,
+            state,
+            accumulator,
+            hash: PhantomData,
+        }
+    }
 }
 
 /// Transcript-generic IVC proof generation helper.
@@ -197,13 +222,280 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             &public_inputs,
             &mut self.rng,
         )?;
-        let external_proof = IvcProof {
-            proof_bytes: IvcProofBytes::new(blake2b_bytes),
-            state: input.next_state,
-            accumulator: input.next_accumulator,
-            _phantom: PhantomData,
-        };
+        let external_proof = IvcProof::new(
+            IvcProofBytes::new(blake2b_bytes),
+            input.next_state,
+            input.next_accumulator,
+        );
 
         Ok((external_proof, next_rolling_state))
+    }
+}
+
+// TODO: remove this allow dead_code directive when IvcProof::verify is called
+#[allow(dead_code)]
+impl<H: TranscriptHash> IvcProof<H>
+where
+    CircuitBase: Sampleable<H> + Hashable<H>,
+    <KZGCommitmentScheme<Bls12> as PolynomialCommitmentScheme<CircuitBase>>::Commitment:
+        Hashable<H>,
+{
+    /// Verifies the IVC proof and its folded accumulator using transcript hash `H`.
+    ///
+    /// Checks:
+    /// 1. The KZG opening equations against the IVC verifying key.
+    /// 2. The folded accumulator pairing equation.
+    ///
+    /// # Invariant
+    ///
+    /// `global` and `verifier_setup` must be built from the same certificate and IVC verifying
+    /// keys. If they differ, the public inputs fed to the KZG opening check will not match the
+    /// proof transcript and verification will return [`IvcProofError::KzgOpeningFailed`].
+    pub(crate) fn verify(
+        &self,
+        global: &Global,
+        verifier_setup: &IvcVerifierSetup,
+    ) -> StmResult<()> {
+        let public_inputs: Vec<CircuitBase> = [
+            global.as_public_input(),
+            self.state.as_public_input(),
+            AssignedAccumulator::as_public_input(&self.accumulator),
+        ]
+        .concat();
+
+        let mut transcript =
+            CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
+
+        let dual_msm =
+            prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
+                verifier_setup.ivc_verifying_key(),
+                &[&[G1Projective::identity()]],
+                &[&[&public_inputs]],
+                &mut transcript,
+            )
+            .map_err(|_| IvcProofError::TranscriptPreparationFailed)?;
+
+        transcript
+            .assert_empty()
+            .map_err(|_| IvcProofError::TranscriptNotFullyConsumed)?;
+
+        if !dual_msm.check(verifier_setup.verifier_params()) {
+            return Err(IvcProofError::KzgOpeningFailed.into());
+        }
+
+        if !self.accumulator.check(
+            verifier_setup.tau_g2(),
+            verifier_setup.combined_fixed_bases(),
+        ) {
+            return Err(IvcProofError::AccumulatorFailed.into());
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use midnight_curves::G2Affine;
+
+    use crate::{
+        circuits::halo2_ivc::{
+            state::Global,
+            tests::common::{
+                asset_readers::{
+                    load_embedded_following_certificate_in_epoch_asset,
+                    load_embedded_next_epoch_step_output_asset,
+                    load_embedded_recursive_chain_state_asset,
+                    load_embedded_verification_context_asset,
+                },
+                generators::{build_asset_generation_setup, build_recursive_global},
+            },
+            types::IvcProofBytes,
+        },
+        proof_system::ivc_halo2_snark::{
+            errors::IvcProofError, verifier_setup::IvcVerifierSetup,
+        },
+    };
+
+    use super::IvcProof;
+
+    fn build_proof_verifier_context() -> (Global, IvcVerifierSetup) {
+        let ctx = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let setup = build_asset_generation_setup();
+        let global = build_recursive_global(
+            &setup,
+            &ctx.certificate_verifying_key,
+            &ctx.recursive_verifying_key,
+        );
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            ctx.verifier_params,
+            ctx.verifier_tau_in_g2,
+            ctx.recursive_verifying_key,
+            ctx.combined_fixed_bases,
+        );
+        (global, verifier_setup)
+    }
+
+    #[test]
+    fn ivc_proof_verify_accepts_stored_recursive_step_output() {
+        let ctx = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let setup = build_asset_generation_setup();
+        let global = build_recursive_global(
+            &setup,
+            &ctx.certificate_verifying_key,
+            &ctx.recursive_verifying_key,
+        );
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            ctx.verifier_params,
+            ctx.verifier_tau_in_g2,
+            ctx.recursive_verifying_key,
+            ctx.combined_fixed_bases,
+        );
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        proof
+            .verify(&global, &verifier_setup)
+            .expect("stored recursive step output should pass IvcProof::verify");
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_tampered_proof_bytes() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let mut tampered_bytes = step_output.ivc_proof.as_bytes().to_vec();
+        let mid = tampered_bytes.len() / 2;
+        tampered_bytes[mid] ^= 0xff;
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            IvcProofBytes::new(tampered_bytes),
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("tampered proof bytes should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "tampered bytes must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_mismatched_state() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+        let same_epoch = load_embedded_following_certificate_in_epoch_asset()
+            .expect("same-epoch step output asset should load");
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            same_epoch.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("state from a different proof should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "mismatched state corrupts public inputs and must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_mismatched_accumulator() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+        let same_epoch = load_embedded_following_certificate_in_epoch_asset()
+            .expect("same-epoch step output asset should load");
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            same_epoch.next_accumulator,
+        );
+
+        let err = proof.verify(&global, &verifier_setup).expect_err(
+            "accumulator from a different proof should be rejected by IvcProof::verify",
+        );
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "mismatched accumulator corrupts public inputs and must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_poseidon_proof_bytes() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let chain_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load");
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            chain_state.ivc_proof,
+            chain_state.state,
+            chain_state.accumulator,
+        );
+
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "Poseidon bytes via Blake2b path must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_wrong_tau_g2() {
+        let ctx = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+        let setup = build_asset_generation_setup();
+        let global = build_recursive_global(
+            &setup,
+            &ctx.certificate_verifying_key,
+            &ctx.recursive_verifying_key,
+        );
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            ctx.verifier_params,
+            G2Affine::default(),
+            ctx.recursive_verifying_key,
+            ctx.combined_fixed_bases,
+        );
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::AccumulatorFailed),
+            "wrong tau_g2 must fail the accumulator check (not the KZG check), got: {err}"
+        );
     }
 }
