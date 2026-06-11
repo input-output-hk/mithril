@@ -26,8 +26,9 @@ mod halo2_snark;
 /// ceremony. This value is independent of the circuit degree `k`, so all circuits
 /// (non-recursive and IVC) share it.
 ///
-/// Regenerate by running the `verifier_setup_matches_trusted_srs` test, serializing
-/// `srs.verifier_params()` with `SerdeFormat::RawBytesUnchecked`.
+/// Regenerate by extracting `srs.verifier_params()` from `TrustedSetupProvider` and
+/// serializing with `SerdeFormat::RawBytesUnchecked`; the `verifier_setup_matches_trusted_srs`
+/// test (in `halo2_snark`) asserts the embedded bytes still match the trusted SRS.
 #[cfg(feature = "future_snark")]
 pub(crate) const KZG_VERIFIER_PARAMS: [u8; 192] = [
     4, 187, 225, 162, 79, 204, 79, 152, 140, 110, 242, 104, 208, 193, 22, 14, 172, 10, 12, 79, 83,
