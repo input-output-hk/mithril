@@ -8,16 +8,18 @@ use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, SnarkProof, StmResult,
     circuits::halo2_ivc::{
-        errors::{EpochTransitionErrorKind, IvcCircuitError},
         state::{Global, State, Witness},
         types::{
-            EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage,
-            ProtocolParametersHash, StepCounter,
+            MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage, ProtocolParametersHash,
         },
     },
-    proof_system::{
-        halo2_snark::build_snark_message,
-        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcSetup},
+    proof_system::ivc_halo2_snark::{
+        prover_input_helpers::{
+            TransitionType, build_new_chain_state, build_next_accumulator,
+            decode_snark_message_fields, determine_transition, verify_certificate_proof,
+        },
+        rolling_state::IvcRollingState,
+        setup::IvcSetup,
     },
 };
 
@@ -54,130 +56,31 @@ impl IvcProverInput {
         rolling_state: &IvcRollingState,
         setup: &IvcSetup,
     ) -> StmResult<Self> {
-        let chain_epoch = rolling_state.state().current_epoch;
-        let certificate_epoch = protocol_message_preimage.current_epoch();
+        let transition_type = determine_transition(rolling_state, protocol_message_preimage)?;
 
-        let is_same_epoch = certificate_epoch == chain_epoch;
-        let is_next_epoch =
-            certificate_epoch.as_field() == chain_epoch.as_field() + EpochNumber::new(1).as_field();
-        let is_genesis = rolling_state.state().step_counter == StepCounter::ZERO;
-
-        // Genesis base case: no certificate is processed. Verify the chain's genesis
-        // signature, build the base-case witness/state, and pass the rolling state's
-        // trivial accumulator through unchanged.
-        if is_genesis {
-            rolling_state.verify_genesis_signature(global)?;
-
-            let new_step_counter = rolling_state.new_step_counter()?;
-            let next_state = State::new(
-                new_step_counter,
-                global.genesis_message,
-                MerkleTreeCommitment::ZERO,
-                protocol_message_preimage.next_merkle_tree_commitment(),
-                ProtocolParametersHash::ZERO,
-                protocol_message_preimage.next_protocol_parameters(),
-                certificate_epoch,
-            );
-
-            let witness = Witness::new(
-                rolling_state.genesis_signature(),
-                MessageHash::ZERO,
-                MerkleTreeCommitment::ZERO,
-                protocol_message_preimage.clone(),
-            );
-
-            return Ok(IvcProverInput {
-                witness,
-                next_state,
-                next_accumulator: rolling_state.accumulator().clone(),
-            });
+        if matches!(transition_type, TransitionType::Genesis) {
+            return Self::prepare_genesis(rolling_state, protocol_message_preimage, global);
         }
 
-        // Non-genesis path: Reject upfront if the proof's embedded verifying key differs
-        // from `setup.certificate_verifying_key`: the off-circuit accumulator built here
-        // would not match the one the in-circuit verifier produces.
-        if snark_proof
-            .circuit_verification_key()
-            .get_midnight_vk()
-            .vk()
-            .transcript_repr()
-            != setup.certificate_verifying_key.transcript_repr()
-        {
-            return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
-        }
-
-        let dual_msm = snark_proof.prepare_and_check(
+        let dual_msm = verify_certificate_proof(
+            &snark_proof,
             message,
             aggregate_verification_key_for_snark,
-            &setup.srs_verifier_params,
+            setup,
         )?;
 
-        if !is_same_epoch && !is_next_epoch {
-            return Err(IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::OutOfRange {
-                    certificate_epoch: certificate_epoch.as_u64(),
-                },
-                chain_epoch: chain_epoch.as_u64(),
-            }
-            .into());
-        }
+        let (certificate_message, certificate_merkle_tree_commitment) =
+            decode_snark_message_fields(aggregate_verification_key_for_snark, message)?;
 
-        if rolling_state.state().step_counter == StepCounter::new(1) && !is_next_epoch {
-            return Err(IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
-                chain_epoch: chain_epoch.as_u64(),
-            }
-            .into());
-        }
-
-        if is_same_epoch
-            && (protocol_message_preimage.next_merkle_tree_commitment()
-                != rolling_state.state().next_merkle_tree_commitment
-                || protocol_message_preimage.next_protocol_parameters()
-                    != rolling_state.state().next_protocol_parameters)
-        {
-            return Err(IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
-                chain_epoch: chain_epoch.as_u64(),
-            }
-            .into());
-        }
-        let snark_message = build_snark_message(
-            &aggregate_verification_key_for_snark.get_merkle_tree_commitment().root,
-            message,
-        )?;
-        let certificate_message = MessageHash::from_field(snark_message[1].0);
-        let certificate_merkle_tree_commitment =
-            MerkleTreeCommitment::from_field(snark_message[0].0);
-
-        let new_protocol_parameters = if is_same_epoch {
-            rolling_state.state().protocol_parameters
-        } else {
-            rolling_state.state().next_protocol_parameters
-        };
-        let new_step_counter = rolling_state.new_step_counter()?;
-        let next_state = State::new(
-            new_step_counter,
+        let next_state = build_new_chain_state(
+            transition_type,
+            rolling_state,
             certificate_message,
             certificate_merkle_tree_commitment,
-            protocol_message_preimage.next_merkle_tree_commitment(),
-            new_protocol_parameters,
-            protocol_message_preimage.next_protocol_parameters(),
-            certificate_epoch,
-        );
+            protocol_message_preimage,
+        )?;
 
-        let certificate_collapsed_accumulator = setup.certificate_collapsed_accumulator(dual_msm);
-        let previous_ivc_proof_collapsed_accumulator = setup
-            .previous_ivc_proof_collapsed_accumulator(
-                rolling_state.ivc_proof().as_bytes(),
-                &rolling_state.previous_ivc_proof_public_inputs(global),
-            )?;
-        let mut next_accumulator = Accumulator::accumulate(&[
-            rolling_state.accumulator().clone(),
-            certificate_collapsed_accumulator,
-            previous_ivc_proof_collapsed_accumulator,
-        ]);
-        next_accumulator.collapse();
+        let next_accumulator = build_next_accumulator(dual_msm, rolling_state, setup, global)?;
 
         let witness = Witness::new(
             rolling_state.genesis_signature(),
@@ -190,6 +93,42 @@ impl IvcProverInput {
             witness,
             next_state,
             next_accumulator,
+        })
+    }
+
+    /// Builds the genesis-step `IvcProverInput`. Verifies the chain's genesis signature,
+    /// constructs the base-case state and witness with all certificate-derived fields set
+    /// to ZERO and the chain message set to `global.genesis_message`, and passes the
+    /// rolling state's trivial accumulator through unchanged.
+    fn prepare_genesis(
+        rolling_state: &IvcRollingState,
+        protocol_message_preimage: &ProtocolMessagePreimage,
+        global: &Global,
+    ) -> StmResult<Self> {
+        rolling_state.verify_genesis_signature(global)?;
+
+        let new_step_counter = rolling_state.new_step_counter()?;
+        let next_state = State::new(
+            new_step_counter,
+            global.genesis_message,
+            MerkleTreeCommitment::ZERO,
+            protocol_message_preimage.next_merkle_tree_commitment(),
+            ProtocolParametersHash::ZERO,
+            protocol_message_preimage.next_protocol_parameters(),
+            protocol_message_preimage.current_epoch(),
+        );
+
+        let witness = Witness::new(
+            rolling_state.genesis_signature(),
+            MessageHash::ZERO,
+            MerkleTreeCommitment::ZERO,
+            protocol_message_preimage.clone(),
+        );
+
+        Ok(IvcProverInput {
+            witness,
+            next_state,
+            next_accumulator: rolling_state.accumulator().clone(),
         })
     }
 }
@@ -230,6 +169,7 @@ mod tests {
                             },
                         },
                     },
+                    types::{EpochNumber, StepCounter},
                 },
                 trusted_setup::build_provider_with_unsafe_srs,
             },
