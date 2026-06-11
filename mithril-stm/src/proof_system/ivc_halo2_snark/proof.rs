@@ -48,13 +48,33 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 #[allow(dead_code)]
 pub(crate) struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes.
-    pub(crate) proof_bytes: IvcProofBytes,
+    proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.
-    pub(crate) state: State,
+    state: State,
     /// Folded accumulator the proof commits to.
-    pub(crate) accumulator: Accumulator<BlstrsEmulation>,
+    accumulator: Accumulator<BlstrsEmulation>,
     /// Phantom marker tying the proof to its transcript hash type.
-    pub(crate) _hash: PhantomData<H>,
+    hash: PhantomData<H>,
+}
+
+impl<H: TranscriptHash> IvcProof<H> {
+    /// Bundle the outputs of a single proving step into a typed proof.
+    ///
+    /// `H` is inferred from the prover's own type parameter, so the proof's hash type
+    /// is bound to the hash used to produce it without any runtime check.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn new(
+        proof_bytes: IvcProofBytes,
+        state: State,
+        accumulator: Accumulator<BlstrsEmulation>,
+    ) -> Self {
+        Self {
+            proof_bytes,
+            state,
+            accumulator,
+            hash: PhantomData,
+        }
+    }
 }
 
 // TODO: remove this allow dead_code directive when IvcProof::verify is called
@@ -119,8 +139,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use crate::{
         circuits::halo2_ivc::{
             state::Global,
@@ -182,12 +200,11 @@ mod tests {
             verification_context.combined_fixed_bases,
         );
 
-        let proof = IvcProof::<blake2b_simd::State> {
-            proof_bytes: step_output.ivc_proof,
-            state: step_output.next_state,
-            accumulator: step_output.next_accumulator,
-            _hash: PhantomData,
-        };
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
 
         proof
             .verify(&global, &verifier_setup)
@@ -207,12 +224,11 @@ mod tests {
         let mid = tampered_bytes.len() / 2;
         tampered_bytes[mid] ^= 0xff;
 
-        let proof = IvcProof::<blake2b_simd::State> {
-            proof_bytes: IvcProofBytes::new(tampered_bytes),
-            state: step_output.next_state,
-            accumulator: step_output.next_accumulator,
-            _hash: PhantomData,
-        };
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            IvcProofBytes::new(tampered_bytes),
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
 
         assert!(
             proof.verify(&global, &verifier_setup).is_err(),
@@ -231,12 +247,11 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State> {
-            proof_bytes: step_output.ivc_proof,
-            state: same_epoch.next_state,
-            accumulator: step_output.next_accumulator,
-            _hash: PhantomData,
-        };
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            same_epoch.next_state,
+            step_output.next_accumulator,
+        );
 
         assert!(
             proof.verify(&global, &verifier_setup).is_err(),
@@ -255,12 +270,11 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State> {
-            proof_bytes: step_output.ivc_proof,
-            state: step_output.next_state,
-            accumulator: same_epoch.next_accumulator,
-            _hash: PhantomData,
-        };
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            same_epoch.next_accumulator,
+        );
 
         assert!(
             proof.verify(&global, &verifier_setup).is_err(),
@@ -277,12 +291,11 @@ mod tests {
         let chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        let proof = IvcProof::<blake2b_simd::State> {
-            proof_bytes: chain_state.ivc_proof,
-            state: chain_state.state,
-            accumulator: chain_state.accumulator,
-            _hash: PhantomData,
-        };
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            chain_state.ivc_proof,
+            chain_state.state,
+            chain_state.accumulator,
+        );
 
         assert!(
             proof.verify(&global, &verifier_setup).is_err(),
