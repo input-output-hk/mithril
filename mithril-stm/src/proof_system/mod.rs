@@ -44,3 +44,6 @@ pub(crate) use halo2_snark::{
 
 #[cfg(all(test, feature = "future_snark"))]
 pub(crate) use halo2_snark::RIGID_SLOT_BYTES as SNARK_AGGREGATE_VERIFICATION_KEY_RIGID_SLOT_BYTES;
+
+#[cfg(feature = "future_snark")]
+pub(crate) use ivc_halo2_snark::CircuitVerifyingKey;

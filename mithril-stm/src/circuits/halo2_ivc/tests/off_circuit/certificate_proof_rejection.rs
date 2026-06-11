@@ -11,7 +11,8 @@ use crate::circuits::halo2_ivc::{
     certificate_proof::verify_and_prepare_accumulator,
     errors::IvcCircuitError,
     tests::common::asset_readers::{
-        load_embedded_same_epoch_step_output_asset, load_embedded_verification_context_asset,
+        load_embedded_following_certificate_in_epoch_asset,
+        load_embedded_verification_context_asset,
     },
 };
 
@@ -25,7 +26,7 @@ fn verify_and_prepare_accumulator_rejects_garbage_proof_bytes() {
     let result = verify_and_prepare_accumulator(
         &[0u8; 64],
         &[],
-        &ctx.certificate_verifying_key,
+        ctx.certificate_verifying_key.vk(),
         &ctx.verifier_params,
     );
 
@@ -42,7 +43,7 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
     // that fails the pairing check, so the function returns CertificateProofRejected.
     let ctx =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let step_output = load_embedded_same_epoch_step_output_asset()
+    let step_output = load_embedded_following_certificate_in_epoch_asset()
         .expect("same-epoch step output asset should load");
 
     let wrong_inputs = vec![CircuitBase::ZERO, CircuitBase::ZERO];
@@ -50,7 +51,7 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
     let result = verify_and_prepare_accumulator(
         step_output.certificate_proof.as_bytes(),
         &wrong_inputs,
-        &ctx.certificate_verifying_key,
+        ctx.certificate_verifying_key.vk(),
         &ctx.verifier_params,
     );
 

@@ -1,16 +1,23 @@
 //! `IvcRollingState`: caller-owned bridge between consecutive IVC proving steps.
 
-use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
-
-use crate::{
-    circuits::halo2_ivc::{
-        state::{State, trivial_acc},
-        types::IvcProofBytes,
-    },
-    signature_scheme::StandardSchnorrSignature,
+use midnight_circuits::{
+    types::Instantiable,
+    verifier::{Accumulator, BlstrsEmulation},
 };
 
-use super::proof::IvcProof;
+use crate::{
+    StmResult,
+    circuits::{
+        halo2::types::CircuitBase,
+        halo2_ivc::{
+            AssignedAccumulator,
+            errors::IvcCircuitError,
+            state::{Global, State, trivial_acc},
+            types::{IvcProofBytes, StepCounter},
+        },
+    },
+    signature_scheme::{BaseFieldElement, StandardSchnorrSignature},
+};
 
 /// Caller-owned bridge between consecutive IVC proving steps.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
@@ -27,6 +34,7 @@ pub(crate) struct IvcRollingState {
     genesis_signature: StandardSchnorrSignature,
 }
 
+// TODO: remove this allow dead_code directive when the IVC prover uses this rolling state
 #[allow(dead_code)]
 impl IvcRollingState {
     /// Builds a rolling state from the four fields produced by an IVC proving step.
@@ -63,22 +71,6 @@ impl IvcRollingState {
         }
     }
 
-    /// Builds the rolling state for the next step from the previous IVC proof.
-    /// The chain state, proof bytes, and folded accumulator are pulled from the
-    /// previous proof; the genesis signature is the chain-specific constant
-    /// supplied once at session start.
-    pub(crate) fn from_previous_proof(
-        previous_proof: &IvcProof,
-        genesis_signature: StandardSchnorrSignature,
-    ) -> Self {
-        Self {
-            state: previous_proof.state.clone(),
-            ivc_proof: previous_proof.proof_bytes.clone(),
-            accumulator: previous_proof.accumulator.clone(),
-            genesis_signature,
-        }
-    }
-
     /// Returns the last committed chain state.
     pub(crate) fn state(&self) -> &State {
         &self.state
@@ -97,6 +89,36 @@ impl IvcRollingState {
     /// Returns the chain-specific Schnorr signature over the genesis state.
     pub(crate) fn genesis_signature(&self) -> StandardSchnorrSignature {
         self.genesis_signature
+    }
+
+    /// Verifies the chain's genesis Schnorr signature against the genesis message and
+    /// verification key carried in `global`. Called at the first proving step only.
+    pub(crate) fn verify_genesis_signature(&self, global: &Global) -> StmResult<()> {
+        self.genesis_signature.verify(
+            &[BaseFieldElement::from(global.genesis_message.as_field())],
+            &global.genesis_verification_key,
+        )
+    }
+
+    /// Returns the public inputs expected by the IVC verifier gadget for the previous
+    /// step's IVC proof: `[global | previous state | previous folded accumulator]`.
+    pub(crate) fn previous_ivc_proof_public_inputs(&self, global: &Global) -> Vec<CircuitBase> {
+        [
+            global.as_public_input(),
+            self.state.as_public_input(),
+            AssignedAccumulator::as_public_input(&self.accumulator),
+        ]
+        .concat()
+    }
+
+    /// Returns the step counter for the next step (current + 1). Errors if the counter
+    /// would overflow `u64`.
+    pub(crate) fn new_step_counter(&self) -> StmResult<StepCounter> {
+        let current = self.state.step_counter.as_u64();
+        let next = current
+            .checked_add(1)
+            .ok_or(IvcCircuitError::StepCounterOverflow { current })?;
+        Ok(StepCounter::new(next))
     }
 }
 
@@ -153,42 +175,5 @@ mod tests {
         let mut expected = fixed_base_names.clone();
         expected.sort();
         assert_eq!(accumulator_fixed_base_keys, expected);
-    }
-
-    #[test]
-    fn from_previous_proof_carries_proof_bytes_and_supplied_signature() {
-        let genesis_signature = build_genesis_signature();
-        let proof_bytes = IvcProofBytes::new(vec![0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03]);
-        let previous_proof = IvcProof {
-            proof_bytes: proof_bytes.clone(),
-            state: State::genesis(),
-            accumulator: trivial_acc(&["base_one".to_string()]),
-        };
-
-        let rolling_state =
-            IvcRollingState::from_previous_proof(&previous_proof, genesis_signature);
-
-        assert_eq!(rolling_state.ivc_proof(), &proof_bytes);
-        assert_eq!(rolling_state.genesis_signature(), genesis_signature);
-    }
-
-    #[test]
-    fn from_previous_proof_chain_state_matches_previous_proof_chain_state() {
-        let genesis_signature = build_genesis_signature();
-        let previous_state = State::genesis();
-        let previous_proof = IvcProof {
-            proof_bytes: IvcProofBytes::empty(),
-            state: previous_state,
-            accumulator: trivial_acc(&["base_one".to_string()]),
-        };
-
-        let rolling_state =
-            IvcRollingState::from_previous_proof(&previous_proof, genesis_signature);
-
-        assert_eq!(
-            rolling_state.state().as_public_input(),
-            State::genesis().as_public_input(),
-            "rolling state's chain state must mirror the previous proof's chain state"
-        );
     }
 }

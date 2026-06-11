@@ -12,8 +12,8 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     tests::common::{
         asset_readers::{
-            RecursiveStepOutputAsset, load_embedded_recursive_chain_state_asset,
-            load_embedded_recursive_step_output_asset, load_embedded_same_epoch_step_output_asset,
+            StepOutputAsset, load_embedded_following_certificate_in_epoch_asset,
+            load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
             load_embedded_verification_context_asset,
         },
         helpers::{
@@ -24,8 +24,8 @@ use crate::circuits::halo2_ivc::{
 
 /// Loads a step output via `load_step_output` and asserts the verifier accepts
 /// the proof, confirming the previous IVC proof is correctly folded into the step.
-fn assert_valid_previous_ivc_proof_is_accepted(
-    load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
+fn assert_valid_previous_ivc_proof_is_accepted<T: StepOutputAsset>(
+    load_step_output: impl FnOnce() -> StmResult<T>,
     load_label: &str,
     acceptance_message: &str,
 ) {
@@ -36,14 +36,14 @@ fn assert_valid_previous_ivc_proof_is_accepted(
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
-        step_output.next_state.as_public_input(),
-        AssignedAccumulator::as_public_input(&step_output.next_accumulator),
+        step_output.next_state().as_public_input(),
+        AssignedAccumulator::as_public_input(step_output.next_accumulator()),
     ]
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.ivc_proof.as_bytes(),
+        step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
 
@@ -58,7 +58,7 @@ fn same_epoch_step_with_valid_previous_ivc_proof_is_accepted() {
     // Asset-based check that the verifier accepts the stored same-epoch proof,
     // confirming a valid previous IVC proof is correctly folded in a same-epoch step.
     assert_valid_previous_ivc_proof_is_accepted(
-        load_embedded_same_epoch_step_output_asset,
+        load_embedded_following_certificate_in_epoch_asset,
         "same-epoch step output",
         "same-epoch step with a valid previous IVC proof should be accepted by the verifier",
     );
@@ -69,7 +69,7 @@ fn next_epoch_step_with_valid_previous_ivc_proof_is_accepted() {
     // Asset-based check that the verifier accepts the stored next-epoch proof,
     // confirming a valid previous IVC proof is correctly folded in a next-epoch step.
     assert_valid_previous_ivc_proof_is_accepted(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         "next-epoch step with a valid previous IVC proof should be accepted by the verifier",
     );

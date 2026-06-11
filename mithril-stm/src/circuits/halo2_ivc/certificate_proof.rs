@@ -8,6 +8,7 @@
 //! aggregation.
 
 use group::Group;
+
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::{
@@ -15,11 +16,11 @@ use midnight_proofs::{
     poly::kzg::{KZGCommitmentScheme, msm::DualMSM, params::ParamsVerifierKZG},
     transcript::{CircuitTranscript, Transcript},
 };
-use midnight_zk_stdlib::MidnightVK;
 
 use crate::{
     StmResult,
     circuits::{halo2::types::CircuitBase, halo2_ivc::errors::IvcCircuitError},
+    proof_system::CircuitVerifyingKey,
 };
 
 /// Runs the off-circuit verifier for a cert SNARK proof and returns the
@@ -36,7 +37,7 @@ use crate::{
 pub(crate) fn verify_and_prepare_accumulator(
     proof_bytes: &[u8],
     public_inputs: &[CircuitBase],
-    circuit_verification_key: &MidnightVK,
+    circuit_verification_key: &CircuitVerifyingKey,
     verifier_params: &ParamsVerifierKZG<Bls12>,
 ) -> StmResult<DualMSM<Bls12>> {
     let mut transcript =
@@ -47,7 +48,7 @@ pub(crate) fn verify_and_prepare_accumulator(
         KZGCommitmentScheme<Bls12>,
         CircuitTranscript<PoseidonState<CircuitBase>>,
     >(
-        circuit_verification_key.vk(),
+        circuit_verification_key,
         // `committed_instances` slot: identity matches what the in-circuit IVC verifier
         // gadget passes, so the off-circuit `DualMSM` is byte-equivalent to its in-circuit twin.
         &[&[G1Projective::identity()]],

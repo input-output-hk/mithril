@@ -4,7 +4,7 @@ use crate::circuits::halo2_ivc::{
     state::Witness,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_chain_state_asset, load_embedded_recursive_step_output_asset,
+            load_embedded_next_epoch_step_output_asset, load_embedded_recursive_chain_state_asset,
         },
         generators::{
             build_asset_generation_setup, next_message_and_preimage_for_step, next_state_for_step,
@@ -24,7 +24,7 @@ use crate::circuits::halo2_ivc::{
 fn merkle_tree_commitment_tampered_is_rejected() {
     // Asset-based check: circuit enforces merkle_tree_commitment = prev.next_merkle_tree_commitment in a next-epoch transition.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered merkle_tree_commitment should be rejected by the verifier",
@@ -35,7 +35,7 @@ fn merkle_tree_commitment_tampered_is_rejected() {
 fn protocol_parameters_tampered_is_rejected() {
     // Asset-based check: circuit enforces protocol_parameters = prev.next_protocol_parameters in a next-epoch transition.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered protocol_parameters should be rejected by the verifier",
@@ -46,7 +46,7 @@ fn protocol_parameters_tampered_is_rejected() {
 fn next_merkle_tree_commitment_tampered_is_rejected() {
     // Asset-based check: circuit enforces next_merkle_tree_commitment is extracted from the certificate message preimage.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.next_merkle_tree_commitment = MerkleTreeCommitment::from_field(F::ONE),
         "proof with tampered next_merkle_tree_commitment should be rejected by the verifier",
@@ -57,7 +57,7 @@ fn next_merkle_tree_commitment_tampered_is_rejected() {
 fn next_protocol_parameters_tampered_is_rejected() {
     // Asset-based check: circuit enforces next_protocol_parameters is extracted from the certificate message preimage.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.next_protocol_parameters = ProtocolParametersHash::from_field(F::ONE),
         "proof with tampered next_protocol_parameters should be rejected by the verifier",
@@ -68,7 +68,7 @@ fn next_protocol_parameters_tampered_is_rejected() {
 fn counter_tampered_is_rejected() {
     // Asset-based check: circuit enforces step_counter = prev.step_counter + 1 in a next-epoch transition.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.step_counter = StepCounter::from_field(F::ONE),
         "proof with tampered step_counter should be rejected by the verifier",
@@ -79,7 +79,7 @@ fn counter_tampered_is_rejected() {
 fn current_epoch_tampered_is_rejected() {
     // Asset-based check: circuit enforces current_epoch = prev.current_epoch + 1 in a next-epoch transition.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.current_epoch = EpochNumber::ZERO,
         "proof with tampered current_epoch should be rejected by the verifier",
@@ -90,7 +90,7 @@ fn current_epoch_tampered_is_rejected() {
 fn msg_tampered_is_rejected() {
     // Asset-based check: circuit enforces message equals the certificate message hash verified in-circuit.
     assert_step_output_rejects_tampered_state(
-        load_embedded_recursive_step_output_asset,
+        load_embedded_next_epoch_step_output_asset,
         "recursive step output",
         |s| s.message = MessageHash::from_field(F::ONE),
         "proof with tampered message should be rejected by the verifier",

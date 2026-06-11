@@ -34,6 +34,7 @@ The current asset set is:
 - `genesis_step_output.bin` — output of the genesis base-case step
 - `same_epoch_step_output.bin` — output of a same-epoch recursive step
 - `recursive_step_output.bin` — output of a next-epoch recursive step
+- `first_step_cert.bin` — first certificate produced from the genesis-base-case next-state; used to test `IvcProverInput::prepare` at the genesis transition (`step_counter == 0`, no previous IVC proof)
 - `recursive_step_output_accumulator_bytes.bin` — raw serialized accumulator extracted from `recursive_step_output.bin`; golden anchor for the encoding stability test
 - `golden_recursive_circuit_verification_key.bin` — golden anchor for recursive circuit VK stability
 
@@ -43,9 +44,10 @@ The current asset set is:
 2. `verification_context.bin` — no dependencies
 3. `genesis_step_output.bin` — no dependencies
 4. `recursive_chain_state.bin` — no dependencies
-5. `same_epoch_step_output.bin` — depends on `recursive_chain_state.bin`
-6. `recursive_step_output.bin` — depends on `recursive_chain_state.bin`
-7. `recursive_step_output_accumulator_bytes.bin` — depends on `recursive_step_output.bin`
+5. `first_step_cert.bin` — no dependencies
+6. `same_epoch_step_output.bin` — depends on `recursive_chain_state.bin`
+7. `recursive_step_output.bin` — depends on `recursive_chain_state.bin`
+8. `recursive_step_output_accumulator_bytes.bin` — depends on `recursive_step_output.bin`
 
 ## Generation Model
 
@@ -73,6 +75,7 @@ cargo test -p mithril-stm --features future_snark --release generate_genesis_ste
 cargo test -p mithril-stm --features future_snark --release generate_recursive_chain_state_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_same_epoch_step_output_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_only -- --ignored --nocapture
+cargo test -p mithril-stm --features future_snark --release generate_first_step_cert_only -- --ignored --nocapture
 cargo test -p mithril-stm --features future_snark --release generate_recursive_step_output_accumulator_bytes_only -- --ignored --nocapture
 ```
 

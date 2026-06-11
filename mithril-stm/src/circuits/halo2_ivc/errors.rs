@@ -2,7 +2,6 @@ use midnight_proofs::plonk::Error as PlonkError;
 use thiserror::Error;
 
 /// Circuit-scoped errors for the IVC recursive SNARK circuit and its off-circuit helpers.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum IvcCircuitError {
     /// Off-circuit verifier rejected a certificate proof.
@@ -30,6 +29,53 @@ pub enum IvcCircuitError {
         "IvcCircuitData::validate_column_counts failed: need {needed} fixed columns, only {available} allocated"
     )]
     InsufficientFixedColumns { needed: usize, available: usize },
+
+    /// Off-circuit step transition: the certificate's epoch does not advance the chain
+    /// correctly. `kind` distinguishes between an out-of-range epoch advance and a
+    /// same-epoch lookahead mismatch.
+    #[error(
+        "IvcProverInput::prepare: invalid epoch transition at chain epoch {chain_epoch}: {kind}"
+    )]
+    InvalidEpochTransition {
+        kind: EpochTransitionErrorKind,
+        chain_epoch: u64,
+    },
+
+    /// Off-circuit step transition: the chain's step counter would overflow u64.
+    #[error("IvcProverInput::prepare: step counter overflow advancing past {current}")]
+    StepCounterOverflow { current: u64 },
+
+    /// Off-circuit step transition: the certificate proof's embedded verifying key does
+    /// not match the certificate verifying key carried by `IvcSetup`.
+    #[error(
+        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcSetup"
+    )]
+    CertificateVerifyingKeyMismatch,
+}
+
+/// Subcategorization for `IvcCircuitError::InvalidEpochTransition`. Lets negative
+/// tests downcast on the specific transition violation.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum EpochTransitionErrorKind {
+    /// The certificate's epoch is neither equal to nor exactly one greater than the
+    /// chain's current epoch.
+    #[error("certificate epoch {certificate_epoch} is neither same-epoch nor next-epoch")]
+    OutOfRange { certificate_epoch: u64 },
+
+    /// A same-epoch certificate's preimage announces a next-epoch lookahead that
+    /// disagrees with the chain's previous state. All certificates in the same epoch
+    /// must encode the same next-epoch fields.
+    #[error(
+        "same-epoch certificate announces a next-epoch lookahead that does not match the chain state"
+    )]
+    SameEpochLookaheadMismatch,
+
+    /// The first certificate after genesis (chain step counter equal to one) must be a
+    /// next-epoch certificate.
+    #[error(
+        "first certificate after genesis must be a next-epoch certificate, got a same-epoch certificate"
+    )]
+    FirstCertificateAfterGenesisMustBeNextEpoch,
 }
 
 /// Convert an IVC circuit error into a Plonk synthesis error at gadget boundaries.

@@ -26,8 +26,8 @@ pub(crate) use super::generators::{
 };
 use super::{
     asset_readers::{
-        RecursiveChainStateAsset, load_embedded_recursive_chain_state_asset,
-        load_embedded_recursive_step_output_asset, load_embedded_verification_context_asset,
+        RecursiveChainStateAsset, load_embedded_next_epoch_step_output_asset,
+        load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
     },
     generators::{
         AssetGenerationSetup, build_recursive_fixed_bases, build_recursive_global,
@@ -314,7 +314,7 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets()
         load_embedded_verification_context_asset().expect("verification context asset should load");
     let recursive_chain_state = load_embedded_recursive_chain_state_asset()
         .expect("recursive chain state asset should load");
-    let recursive_step_output = load_embedded_recursive_step_output_asset()
+    let recursive_step_output = load_embedded_next_epoch_step_output_asset()
         .expect("recursive step output asset should load");
 
     let (certificate_fixed_bases, _, _) = build_recursive_fixed_bases(

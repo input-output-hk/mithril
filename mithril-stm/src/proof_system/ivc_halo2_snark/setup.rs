@@ -2,15 +2,18 @@
 
 use std::collections::BTreeMap;
 
+use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use midnight_curves::{Bls12, G1Projective};
-use midnight_proofs::poly::kzg::params::ParamsKZG;
+use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsVerifierKZG};
 
 use crate::{
     StmResult,
     circuits::{
+        halo2::types::CircuitBase,
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
-            state::fixed_bases_and_names,
+            certificate_proof::verify_and_prepare_accumulator,
+            state::{fixed_bases_and_names, trivial_acc},
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -34,8 +37,11 @@ use crate::{
 // TODO: remove this allow dead_code directive when the IVC prover consumes this setup
 #[allow(dead_code)]
 pub(crate) struct IvcSetup {
-    /// KZG structured reference string.
-    pub(crate) srs: ParamsKZG<Bls12>,
+    /// Verifier-side KZG parameters derived from the SRS at load time.
+    ///
+    /// The full SRS (~1 GB at production K) is intentionally NOT stored: verification
+    /// only reads `s_g2`, which is what `ParamsVerifierKZG` exposes.
+    pub(crate) srs_verifier_params: ParamsVerifierKZG<Bls12>,
     /// Verifying key of the certificate circuit.
     pub(crate) certificate_verifying_key: CircuitVerifyingKey,
     /// Verifying key of the IVC circuit.
@@ -51,13 +57,16 @@ pub(crate) struct IvcSetup {
     pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
 
+// TODO: remove this allow dead_code directive when the IVC prover uses this setup
 #[allow(dead_code)]
 impl IvcSetup {
     /// Derives the full IVC setup by orchestrating the key providers.
     ///
-    /// The function pulls the SRS, the certificate verifying key, the IVC verifying key,
-    /// and the IVC proving key from the supplied providers, extracts the three fixed-base
-    /// maps from the verifying keys, and assembles them into an `IvcSetup`.
+    /// Pulls the SRS from `trusted_setup_provider` only long enough to derive the verifier
+    /// params; the SRS itself drops at end of scope. Pulls the certificate verifying key,
+    /// the IVC verifying key, and the IVC proving key from the supplied key providers,
+    /// extracts the three fixed-base maps from the verifying keys, and assembles them into
+    /// an `IvcSetup`.
     ///
     /// Providers are currently the temporary pure-compute ones in
     /// `unsafe_setup_helpers`; they share the API surface the production cache providers
@@ -66,14 +75,13 @@ impl IvcSetup {
     ///
     /// # SRS consistency
     ///
-    /// The SRS and the key providers are sourced independently by design (today the temp
-    /// providers store an `Arc<ParamsKZG<Bls12>>` field; the production cache providers
-    /// will not). The caller must ensure the SRS yielded by `trusted_setup_provider`
-    /// matches the SRS that produced the key artifacts the providers return. A mismatch
-    /// produces an internally inconsistent `IvcSetup` that surfaces only at proof
-    /// generation or verification time. In practice: route all of them through the same
-    /// `TrustedSetupProvider` instance (temp design) or the same canonical trusted setup
-    /// source (production cache design).
+    /// `srs_verifier_params` is derived from the SRS yielded by `trusted_setup_provider`,
+    /// while the verifying and proving keys come from the key providers, which today carry
+    /// their own SRS reference. The caller must ensure both SRS sources agree. A mismatch
+    /// produces an internally inconsistent `IvcSetup` that surfaces only at verification
+    /// time. In practice: route all providers through the same `TrustedSetupProvider`
+    /// instance (temp design) or the same canonical trusted setup source (production
+    /// cache design).
     // TODO: swap `Temp*Provider` parameters for the production IVC cache providers
     // once they ship.
     pub(crate) fn load(
@@ -82,6 +90,7 @@ impl IvcSetup {
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
         let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        let srs_verifier_params = srs.verifier_params();
 
         let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
@@ -97,7 +106,7 @@ impl IvcSetup {
         combined_fixed_bases.extend(ivc_fixed_bases.clone());
 
         Ok(Self {
-            srs,
+            srs_verifier_params,
             certificate_verifying_key,
             ivc_verifying_key,
             ivc_proving_key,
@@ -105,6 +114,50 @@ impl IvcSetup {
             ivc_fixed_bases,
             combined_fixed_bases,
         })
+    }
+
+    /// Wrap the certificate proof's prepared `DualMSM` into a collapsed accumulator on
+    /// the certificate circuit's fixed bases.
+    pub(crate) fn certificate_collapsed_accumulator(
+        &self,
+        dual_msm: DualMSM<Bls12>,
+    ) -> Accumulator<BlstrsEmulation> {
+        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
+        accumulator.extract_fixed_bases(&self.certificate_fixed_bases);
+        accumulator.collapse();
+        accumulator
+    }
+
+    /// Trivial previous-IVC-proof collapsed accumulator used at genesis. The in-circuit
+    /// gadget zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`;
+    /// off-circuit we construct a fresh trivial accumulator over the combined fixed-base
+    /// names.
+    pub(crate) fn trivial_previous_ivc_proof_collapsed_accumulator(
+        &self,
+    ) -> Accumulator<BlstrsEmulation> {
+        let combined_fixed_base_names: Vec<String> =
+            self.combined_fixed_bases.keys().cloned().collect();
+        trivial_acc(&combined_fixed_base_names)
+    }
+
+    /// Off-circuit verify of the previous step's IVC proof, returning the collapsed
+    /// accumulator the in-circuit IVC verifier gadget would have produced on the same
+    /// proof. Used at every non-genesis step.
+    pub(crate) fn previous_ivc_proof_collapsed_accumulator(
+        &self,
+        ivc_proof_bytes: &[u8],
+        public_inputs: &[CircuitBase],
+    ) -> StmResult<Accumulator<BlstrsEmulation>> {
+        let dual_msm = verify_and_prepare_accumulator(
+            ivc_proof_bytes,
+            public_inputs,
+            &self.ivc_verifying_key,
+            &self.srs_verifier_params,
+        )?;
+        let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
+        accumulator.extract_fixed_bases(&self.ivc_fixed_bases);
+        accumulator.collapse();
+        Ok(accumulator)
     }
 }
 

@@ -9,7 +9,7 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator, F,
     state::State,
     tests::common::{
-        asset_readers::{RecursiveStepOutputAsset, load_embedded_verification_context_asset},
+        asset_readers::{StepOutputAsset, load_embedded_verification_context_asset},
         helpers::verify_prepare_blake2b_recursive_proof,
     },
 };
@@ -20,8 +20,8 @@ mod same_epoch;
 
 /// Loads `verification_context` and a step output via `load_step_output`, tampers
 /// `next_state` via `tamper`, then asserts the verifier rejects the result.
-fn assert_step_output_rejects_tampered_state(
-    load_step_output: impl FnOnce() -> StmResult<RecursiveStepOutputAsset>,
+fn assert_step_output_rejects_tampered_state<T: StepOutputAsset>(
+    load_step_output: impl FnOnce() -> StmResult<T>,
     load_label: &str,
     tamper: impl FnOnce(&mut State),
     rejection_message: &str,
@@ -31,19 +31,19 @@ fn assert_step_output_rejects_tampered_state(
     let step_output =
         load_step_output().unwrap_or_else(|_| panic!("{load_label} asset should load"));
 
-    let mut tampered_state = step_output.next_state.clone();
+    let mut tampered_state = step_output.next_state().clone();
     tamper(&mut tampered_state);
 
     let public_inputs = [
         verification_context.global_field_elements.clone(),
         tampered_state.as_public_input(),
-        AssignedAccumulator::as_public_input(&step_output.next_accumulator),
+        AssignedAccumulator::as_public_input(step_output.next_accumulator()),
     ]
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
         &verification_context.recursive_verifying_key,
-        step_output.ivc_proof.as_bytes(),
+        step_output.ivc_proof().as_bytes(),
         &public_inputs,
     );
 

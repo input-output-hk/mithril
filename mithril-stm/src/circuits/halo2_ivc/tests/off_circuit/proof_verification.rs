@@ -14,8 +14,8 @@ use crate::circuits::halo2_ivc::{
     AssignedAccumulator,
     tests::common::{
         asset_readers::{
-            load_embedded_recursive_chain_state_asset, load_embedded_same_epoch_step_output_asset,
-            load_embedded_verification_context_asset,
+            load_embedded_following_certificate_in_epoch_asset,
+            load_embedded_recursive_chain_state_asset, load_embedded_verification_context_asset,
         },
         helpers::{
             verify_prepare_blake2b_recursive_proof, verify_prepare_poseidon_recursive_proof,
@@ -30,7 +30,7 @@ fn same_epoch_proof_passes_dual_msm_check_and_accumulator_check() {
     // confirming the stored same-epoch asset is fully self-consistent.
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
-    let same_epoch_step_output = load_embedded_same_epoch_step_output_asset()
+    let same_epoch_step_output = load_embedded_following_certificate_in_epoch_asset()
         .expect("same-epoch step output asset should load");
 
     let public_inputs = [
