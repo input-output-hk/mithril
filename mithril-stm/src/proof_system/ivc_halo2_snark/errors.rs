@@ -19,4 +19,8 @@ pub(crate) enum IvcProofError {
     /// Folded accumulator pairing equation did not verify.
     #[error("IVC proof rejected: accumulator pairing check failed")]
     AccumulatorFailed,
+
+    /// The PLONK prover (`create_proof`) failed internally.
+    #[error("IVC proof generation failed: {0}")]
+    ProofGenerationFailed(String),
 }
