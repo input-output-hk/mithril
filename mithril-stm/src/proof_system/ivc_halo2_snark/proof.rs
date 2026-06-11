@@ -91,7 +91,7 @@ where
         let mut transcript = CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
 
         let dual_msm = prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
-            &verifier_setup.ivc_verifying_key,
+            verifier_setup.ivc_verifying_key(),
             &[&[G1Projective::identity()]],
             &[&[&public_inputs]],
             &mut transcript,
@@ -102,14 +102,14 @@ where
             .assert_empty()
             .map_err(|_| IvcProofError::TranscriptNotFullyConsumed)?;
 
-        if !dual_msm.check(&verifier_setup.verifier_params) {
+        if !dual_msm.check(verifier_setup.verifier_params()) {
             return Err(IvcProofError::KzgOpeningFailed.into());
         }
 
-        if !self
-            .accumulator
-            .check(&verifier_setup.tau_g2, &verifier_setup.combined_fixed_bases)
-        {
+        if !self.accumulator.check(
+            verifier_setup.tau_g2(),
+            verifier_setup.combined_fixed_bases(),
+        ) {
             return Err(IvcProofError::AccumulatorFailed.into());
         }
 

@@ -41,21 +41,21 @@ use crate::proof_system::KZG_VERIFIER_PARAMS;
 #[allow(dead_code)]
 pub(crate) struct IvcVerifierSetup {
     /// Stabilized KZG verifier parameters (embedded constant, no SRS load required).
-    pub(crate) verifier_params: ParamsVerifierKZG<Bls12>,
+    verifier_params: ParamsVerifierKZG<Bls12>,
     /// `s_g2` (tau·G2) extracted from the embedded params; passed to the accumulator check.
-    pub(crate) tau_g2: G2Affine,
+    tau_g2: G2Affine,
     /// Verifying key of the IVC circuit.
-    pub(crate) ivc_verifying_key: CircuitVerifyingKey,
+    ivc_verifying_key: CircuitVerifyingKey,
     /// Combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
-    pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
+    combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
 
-#[allow(dead_code)]
 impl IvcVerifierSetup {
     /// Build from the embedded KZG params constant plus caller-supplied verifying keys.
     ///
     /// The certificate VK varies per deployment (k, m, merkle_depth); the IVC VK is typically
     /// deserialized from `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION`. No SRS needed.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn try_new(
         certificate_verifying_key: &CircuitVerifyingKey,
         ivc_verifying_key: CircuitVerifyingKey,
@@ -80,6 +80,7 @@ impl IvcVerifierSetup {
     /// Derive from an already-built [`IvcSetup`], reusing its precomputed fixed bases.
     ///
     /// Avoids recomputing fixed bases from scratch when a proving session is already running.
+    #[allow(dead_code)]
     pub(crate) fn from_ivc_setup(ivc_setup: &IvcSetup) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
         Ok(Self {
@@ -94,6 +95,7 @@ impl IvcVerifierSetup {
     /// SRS rather than the embedded constant. Only for tests — production code must not load the
     /// full SRS just to verify a proof.
     #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcSetup) -> Self {
         let verifier_params = ivc_setup.srs_verifier_params.clone();
         let tau_g2: G2Affine = verifier_params.s_g2().into();
@@ -135,12 +137,47 @@ impl IvcVerifierSetup {
 
         Ok((verifier_params, tau_g2))
     }
+
+    pub(crate) fn verifier_params(&self) -> &ParamsVerifierKZG<Bls12> {
+        &self.verifier_params
+    }
+
+    pub(crate) fn tau_g2(&self) -> &G2Affine {
+        &self.tau_g2
+    }
+
+    pub(crate) fn ivc_verifying_key(&self) -> &CircuitVerifyingKey {
+        &self.ivc_verifying_key
+    }
+
+    pub(crate) fn combined_fixed_bases(&self) -> &BTreeMap<String, G1Projective> {
+        &self.combined_fixed_bases
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuits::trusted_setup::TrustedSetupProvider;
+    use crate::circuits::{
+        halo2_ivc::tests::common::asset_readers::load_embedded_verification_context_asset,
+        trusted_setup::TrustedSetupProvider,
+    };
+
+    #[test]
+    fn try_new_merges_certificate_and_ivc_fixed_bases() {
+        let ctx = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let setup = IvcVerifierSetup::try_new(
+            ctx.certificate_verifying_key.vk(),
+            ctx.recursive_verifying_key,
+        )
+        .expect("try_new must succeed with valid verifying keys");
+        assert_eq!(
+            setup.combined_fixed_bases.keys().collect::<Vec<_>>(),
+            ctx.combined_fixed_bases.keys().collect::<Vec<_>>(),
+            "combined_fixed_bases keys must match the stored verification context"
+        );
+    }
 
     #[test]
     fn embedded_ivc_verifier_params_deserialize_without_error() {
