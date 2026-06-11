@@ -212,8 +212,6 @@ impl CertificateProofBytes {
         Self(bytes)
     }
 
-    // Used for the genesis IVC step. This can be un-gated when the production IVC prover is wired.
-    #[cfg(test)]
     pub(crate) fn empty() -> Self {
         Self(Vec::new())
     }
