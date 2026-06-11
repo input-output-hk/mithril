@@ -30,15 +30,15 @@ pub enum IvcCircuitError {
     )]
     InsufficientFixedColumns { needed: usize, available: usize },
 
-    /// Off-circuit step transition: the certificate's epoch does not advance the chain
-    /// correctly. `kind` distinguishes between an out-of-range epoch advance and a
-    /// same-epoch lookahead mismatch.
+    /// Off-circuit step transition: the incoming certificate's epoch does not advance the
+    /// chain correctly. The `kind` field carries an `EpochTransitionErrorKind` with the
+    /// specific violation.
     #[error(
-        "IvcProverInput::prepare: invalid epoch transition at chain epoch {chain_epoch}: {kind}"
+        "IvcProverInput::prepare: invalid epoch transition at last committed epoch {last_committed_epoch}: {kind}"
     )]
     InvalidEpochTransition {
         kind: EpochTransitionErrorKind,
-        chain_epoch: u64,
+        last_committed_epoch: u64,
     },
 
     /// Off-circuit step transition: the chain's step counter would overflow u64.
@@ -57,10 +57,16 @@ pub enum IvcCircuitError {
 /// tests downcast on the specific transition violation.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum EpochTransitionErrorKind {
-    /// The certificate's epoch is neither equal to nor exactly one greater than the
-    /// chain's current epoch.
-    #[error("certificate epoch {certificate_epoch} is neither same-epoch nor next-epoch")]
-    OutOfRange { certificate_epoch: u64 },
+    /// The incoming certificate's epoch is neither equal to nor exactly one greater than
+    /// the last committed epoch.
+    #[error(
+        "incoming certificate epoch {incoming_certificate_epoch} is neither same-epoch nor next-epoch \
+         (last committed epoch {last_committed_epoch})"
+    )]
+    EpochGap {
+        incoming_certificate_epoch: u64,
+        last_committed_epoch: u64,
+    },
 
     /// A same-epoch certificate's preimage announces a next-epoch lookahead that
     /// disagrees with the chain's previous state. All certificates in the same epoch
@@ -68,7 +74,7 @@ pub enum EpochTransitionErrorKind {
     #[error(
         "same-epoch certificate announces a next-epoch lookahead that does not match the chain state"
     )]
-    SameEpochLookaheadMismatch,
+    EpochMismatch,
 
     /// The first certificate after genesis (chain step counter equal to one) must be a
     /// next-epoch certificate.
