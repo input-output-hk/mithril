@@ -20,12 +20,13 @@ use crate::{
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
-            errors::IvcCircuitError,
             state::{Global, State},
             types::IvcProofBytes,
         },
     },
-    proof_system::ivc_halo2_snark::{setup::IvcSetup, verifier_setup::IvcVerifierSetup},
+    proof_system::ivc_halo2_snark::{
+        errors::IvcProofError, setup::IvcSetup, verifier_setup::IvcVerifierSetup,
+    },
 };
 
 /// Per-session IVC prover handle.
@@ -45,7 +46,7 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 /// verifying a Poseidon-produced proof via the Blake2b path and vice versa.
 // TODO: remove this allow dead_code directive when the IVC prover emits this proof
 #[allow(dead_code)]
-pub(crate) struct IvcProof<H> {
+pub(crate) struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes.
     pub(crate) proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.
@@ -58,9 +59,8 @@ pub(crate) struct IvcProof<H> {
 
 // TODO: remove this allow dead_code directive when IvcProof::verify is called
 #[allow(dead_code)]
-impl<H> IvcProof<H>
+impl<H: TranscriptHash> IvcProof<H>
 where
-    H: TranscriptHash,
     CircuitBase: Sampleable<H> + Hashable<H>,
     <KZGCommitmentScheme<Bls12> as PolynomialCommitmentScheme<CircuitBase>>::Commitment:
         Hashable<H>,
@@ -75,7 +75,7 @@ where
     ///
     /// `global` and `verifier_setup` must be built from the same certificate and IVC verifying
     /// keys. If they differ, the public inputs fed to the KZG opening check will not match the
-    /// proof transcript and verification will return [`IvcCircuitError::RecursiveProofKzgOpeningFailed`].
+    /// proof transcript and verification will return [`IvcProofError::KzgOpeningFailed`].
     pub(crate) fn verify(
         &self,
         global: &Global,
@@ -96,18 +96,21 @@ where
             &[&[&public_inputs]],
             &mut transcript,
         )
-        .map_err(|_| IvcCircuitError::RecursiveProofTranscriptPreparationFailed)?;
+        .map_err(|_| IvcProofError::TranscriptPreparationFailed)?;
 
         transcript
             .assert_empty()
-            .map_err(|_| IvcCircuitError::RecursiveProofTranscriptNotFullyConsumed)?;
+            .map_err(|_| IvcProofError::TranscriptNotFullyConsumed)?;
 
         if !dual_msm.check(&verifier_setup.verifier_params) {
-            return Err(IvcCircuitError::RecursiveProofKzgOpeningFailed.into());
+            return Err(IvcProofError::KzgOpeningFailed.into());
         }
 
-        if !self.accumulator.check(&verifier_setup.tau_g2, &verifier_setup.combined_fixed_bases) {
-            return Err(IvcCircuitError::RecursiveProofAccumulatorFailed.into());
+        if !self
+            .accumulator
+            .check(&verifier_setup.tau_g2, &verifier_setup.combined_fixed_bases)
+        {
+            return Err(IvcProofError::AccumulatorFailed.into());
         }
 
         Ok(())

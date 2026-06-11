@@ -32,10 +32,11 @@ use crate::proof_system::KZG_VERIFIER_PARAMS;
 /// The certificate and IVC verifying keys used to build this struct must match those used to
 /// build the [`Global`] passed to [`IvcProof::verify`]. A mismatch silently produces wrong
 /// public inputs and will cause verification to fail with
-/// [`IvcCircuitError::RecursiveProofKzgOpeningFailed`].
+/// [`IvcProofError::KzgOpeningFailed`].
 ///
 /// [`Global`]: crate::circuits::halo2_ivc::state::Global
 /// [`IvcProof::verify`]: crate::proof_system::ivc_halo2_snark::proof::IvcProof::verify
+/// [`IvcProofError::KzgOpeningFailed`]: crate::proof_system::ivc_halo2_snark::errors::IvcProofError::KzgOpeningFailed
 // TODO: remove this allow dead_code directive when IvcVerifierSetup is wired into STM
 #[allow(dead_code)]
 pub(crate) struct IvcVerifierSetup {
