@@ -24,6 +24,7 @@ use crate::{
         key_cache::{CacheState, CircuitKeyCache},
         trusted_setup::TrustedSetupProvider,
     },
+    proof_system::KZG_VERIFIER_PARAMS,
 };
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
@@ -107,7 +108,7 @@ impl SnarkVerifierSetup {
     /// Build the verifier setup from the embedded constant verifier params bytes.
     pub(crate) fn try_new() -> StmResult<Self> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
-            &mut &crate::proof_system::KZG_VERIFIER_PARAMS[..],
+            &mut &KZG_VERIFIER_PARAMS[..],
             SerdeFormat::RawBytesUnchecked,
         )
         .with_context(|| "Failed to read embedded SNARK verifier params bytes")?;
