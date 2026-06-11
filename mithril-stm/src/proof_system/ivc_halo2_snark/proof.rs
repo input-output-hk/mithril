@@ -139,6 +139,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use midnight_curves::G2Affine;
+
     use crate::{
         circuits::halo2_ivc::{
             state::Global,
@@ -153,7 +155,7 @@ mod tests {
             },
             types::IvcProofBytes,
         },
-        proof_system::ivc_halo2_snark::verifier_setup::IvcVerifierSetup,
+        proof_system::ivc_halo2_snark::{errors::IvcProofError, verifier_setup::IvcVerifierSetup},
     };
 
     use super::IvcProof;
@@ -230,9 +232,13 @@ mod tests {
             step_output.next_accumulator,
         );
 
-        assert!(
-            proof.verify(&global, &verifier_setup).is_err(),
-            "tampered proof bytes should be rejected by IvcProof::verify"
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("tampered proof bytes should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "tampered bytes must fail the KZG opening check, got: {err}"
         );
     }
 
@@ -253,17 +259,21 @@ mod tests {
             step_output.next_accumulator,
         );
 
-        assert!(
-            proof.verify(&global, &verifier_setup).is_err(),
-            "state from a different proof should be rejected by IvcProof::verify"
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("state from a different proof should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "mismatched state corrupts public inputs and must fail the KZG opening check, got: {err}"
         );
     }
 
     #[test]
     fn ivc_proof_verify_rejects_mismatched_accumulator() {
         // Substituting the accumulator from a different proof step corrupts the public
-        // inputs (accumulator is part of them) and also fails the pairing equation
-        // check, so `verify` must return `Err` on both counts.
+        // inputs fed to `prepare` (the accumulator is serialised into them), so
+        // `dual_msm.check` fails before the pairing equation is ever reached.
         let (global, verifier_setup) = build_proof_verifier_context();
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
@@ -276,9 +286,13 @@ mod tests {
             same_epoch.next_accumulator,
         );
 
-        assert!(
-            proof.verify(&global, &verifier_setup).is_err(),
-            "accumulator from a different proof should be rejected by IvcProof::verify"
+        let err = proof.verify(&global, &verifier_setup).expect_err(
+            "accumulator from a different proof should be rejected by IvcProof::verify",
+        );
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "mismatched accumulator corrupts public inputs and must fail the KZG opening check, got: {err}"
         );
     }
 
@@ -297,9 +311,51 @@ mod tests {
             chain_state.accumulator,
         );
 
-        assert!(
-            proof.verify(&global, &verifier_setup).is_err(),
-            "Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify"
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "Poseidon bytes via Blake2b path must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_wrong_tau_g2() {
+        // A verifier setup with a wrong tau_g2 but otherwise correct parameters passes
+        // the KZG opening check (tau_g2 is not part of verifier_params) and fails at
+        // the accumulator pairing equation, exercising the AccumulatorFailed path.
+        let ctx = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+        let setup = build_asset_generation_setup();
+        let global = build_recursive_global(
+            &setup,
+            &ctx.certificate_verifying_key,
+            &ctx.recursive_verifying_key,
+        );
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            ctx.verifier_params,
+            G2Affine::default(),
+            ctx.recursive_verifying_key,
+            ctx.combined_fixed_bases,
+        );
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(&global, &verifier_setup)
+            .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::AccumulatorFailed),
+            "wrong tau_g2 must fail the accumulator check (not the KZG check), got: {err}"
         );
     }
 }
