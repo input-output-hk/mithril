@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX] - UNRELEASED
+## Mithril Distribution [2624.0] - UNRELEASED
 
 - **REMOVED** support for `CardanoImmutableFilesFull` in Mithril signer and aggregator:
   - Use `CardanoDatabase` (also known as "cardano database v2") instead, which supports partial database restoration and
@@ -17,8 +17,6 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Aggregators will discard signatures of this type received from older signers.
 
 - Support for `Cardano node` `11.0.1` in the signer and the aggregator.
-
-- Added a new internal crate `mithril-merkle-tree` for the implementation of Merkle tree and merkelized map primitives used by Mithril nodes.
 
 - DMQ node:
   - Implemented new message id format for the DMQ message to follow specification of the [CIP-0137](https://cips.cardano.org/cip/CIP-0137).
@@ -30,14 +28,22 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Allow users to set the network genesis verification key when adding an aggregator in the Mithril Explorer.
 
+- Added a new internal crate `mithril-merkle-tree` for the implementation of Merkle tree and merkelized map primitives used by Mithril nodes.
+
 - **UNSTABLE**:
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
   - Support for SNARK-friendly genesis certificate primitives.
   - Support for dual-signature genesis certificate.
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.9.6`   |
+| mithril-client      | `0.14.14` |
+| mithril-client-cli  | `0.13.15` |
+| mithril-client-wasm | `0.10.6`  |
+| mithril-common      | `0.7.4`   |
+| mithril-signer      | `1.1.2`   |
+| mithril-stm         | `0.10.32` |
 
 ## Mithril Distribution [2617.0] - 2026-04-29
 
