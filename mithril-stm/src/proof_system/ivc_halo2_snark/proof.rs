@@ -34,12 +34,8 @@ use crate::{
         },
     },
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey,
-        errors::IvcProofError,
-        prover_input::IvcProverInput,
-        rolling_state::IvcRollingState,
-        setup::IvcProvingSetup,
-        verifier_setup::IvcVerifierSetup,
+        CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
+        rolling_state::IvcRollingState, setup::IvcProvingSetup, verifier_setup::IvcVerifierSetup,
     },
 };
 
@@ -129,8 +125,9 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
     /// Internally calls [`IvcProverInput::prepare`] to fold accumulators and build the
     /// witness, then generates the proofs required by the step type:
     ///
-    /// - **Genesis** (`step_counter == 0`): two proofs — a Poseidon proof that initialises
-    ///   the rolling state for the next step, and a Blake2b proof returned to the caller.
+    /// - **Genesis** (`step_counter == 0`): one Poseidon proof that seeds the rolling state.
+    ///   No Blake2b external proof is returned: the chain is bootstrapping and there is
+    ///   nothing to hand back to an external verifier yet.
     /// - **Same-epoch** (`cert_epoch == chain_epoch`): one Blake2b proof only. The rolling
     ///   state is unchanged; the caller retains the existing [`IvcRollingState`].
     /// - **Next-epoch** (`cert_epoch == chain_epoch + 1`): two proofs — a Poseidon proof
@@ -147,7 +144,10 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
-    ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
+    ) -> StmResult<(
+        Option<IvcProof<blake2b_simd::State>>,
+        Option<IvcRollingState>,
+    )> {
         let is_genesis = rolling_state.state().step_counter == StepCounter::ZERO;
         let chain_epoch = rolling_state.state().current_epoch;
         let certificate_epoch = protocol_message_preimage.current_epoch();
@@ -213,19 +213,24 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             None
         };
 
-        // Always generate a Blake2b proof for the external verifier.
-        let blake2b_bytes = prove_with_transcript::<blake2b_simd::State>(
-            &self.ivc_setup.srs,
-            &self.ivc_setup.ivc_proving_key,
-            &circuit_data,
-            &public_inputs,
-            &mut self.rng,
-        )?;
-        let external_proof = IvcProof::new(
-            IvcProofBytes::new(blake2b_bytes),
-            input.next_state,
-            input.next_accumulator,
-        );
+        // Genesis only seeds the rolling state; no Blake2b external proof is returned.
+        // Same-epoch and next-epoch steps produce a Blake2b proof for the external verifier.
+        let external_proof = if is_genesis {
+            None
+        } else {
+            let blake2b_bytes = prove_with_transcript::<blake2b_simd::State>(
+                &self.ivc_setup.srs,
+                &self.ivc_setup.ivc_proving_key,
+                &circuit_data,
+                &public_inputs,
+                &mut self.rng,
+            )?;
+            Some(IvcProof::new(
+                IvcProofBytes::new(blake2b_bytes),
+                input.next_state,
+                input.next_accumulator,
+            ))
+        };
 
         Ok((external_proof, next_rolling_state))
     }
@@ -262,17 +267,15 @@ where
         ]
         .concat();
 
-        let mut transcript =
-            CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
+        let mut transcript = CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
 
-        let dual_msm =
-            prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
-                verifier_setup.ivc_verifying_key(),
-                &[&[G1Projective::identity()]],
-                &[&[&public_inputs]],
-                &mut transcript,
-            )
-            .map_err(|_| IvcProofError::TranscriptPreparationFailed)?;
+        let dual_msm = prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
+            verifier_setup.ivc_verifying_key(),
+            &[&[G1Projective::identity()]],
+            &[&[&public_inputs]],
+            &mut transcript,
+        )
+        .map_err(|_| IvcProofError::TranscriptPreparationFailed)?;
 
         transcript
             .assert_empty()
@@ -311,9 +314,7 @@ mod tests {
             },
             types::IvcProofBytes,
         },
-        proof_system::ivc_halo2_snark::{
-            errors::IvcProofError, verifier_setup::IvcVerifierSetup,
-        },
+        proof_system::ivc_halo2_snark::{errors::IvcProofError, verifier_setup::IvcVerifierSetup},
     };
 
     use super::IvcProof;
