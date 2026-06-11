@@ -23,9 +23,18 @@ jobs:
   test-client:
     uses: ./.github/workflows/test-client.yml
 
+  test-e2e:
+    uses: ./.github/workflows/test-e2e.yml
+
   notify-on-failure:
     uses: ./.github/workflows/test-notify-on-failure.yml
     needs:
-      [backward-compatibility, aggregator-stress-test, test-client, test-rust]
+      [
+        backward-compatibility,
+        aggregator-stress-test,
+        test-client,
+        test-rust,
+        test-e2e,
+      ]
     if: failure()
     secrets: inherit
