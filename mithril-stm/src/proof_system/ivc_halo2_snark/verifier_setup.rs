@@ -105,6 +105,25 @@ impl IvcVerifierSetup {
         }
     }
 
+    /// Construct directly from pre-built parts. Only for tests that load stored assets
+    /// (verifier params, tau_g2, VK, fixed bases) as a bundle — the caller is responsible
+    /// for ensuring `tau_g2 == s_g2()` of `verifier_params` and that `combined_fixed_bases`
+    /// covers both the certificate and IVC verifying keys.
+    #[cfg(test)]
+    pub(crate) fn from_parts(
+        verifier_params: ParamsVerifierKZG<Bls12>,
+        tau_g2: G2Affine,
+        ivc_verifying_key: CircuitVerifyingKey,
+        combined_fixed_bases: BTreeMap<String, G1Projective>,
+    ) -> Self {
+        Self {
+            verifier_params,
+            tau_g2,
+            ivc_verifying_key,
+            combined_fixed_bases,
+        }
+    }
+
     pub(crate) fn read_embedded_params() -> StmResult<(ParamsVerifierKZG<Bls12>, G2Affine)> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
             &mut &KZG_VERIFIER_PARAMS[..],

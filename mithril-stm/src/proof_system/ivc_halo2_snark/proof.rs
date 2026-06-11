@@ -149,12 +149,12 @@ mod tests {
             &ctx.certificate_verifying_key,
             &ctx.recursive_verifying_key,
         );
-        let verifier_setup = IvcVerifierSetup {
-            verifier_params: ctx.verifier_params,
-            tau_g2: ctx.verifier_tau_in_g2,
-            ivc_verifying_key: ctx.recursive_verifying_key,
-            combined_fixed_bases: ctx.combined_fixed_bases,
-        };
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            ctx.verifier_params,
+            ctx.verifier_tau_in_g2,
+            ctx.recursive_verifying_key,
+            ctx.combined_fixed_bases,
+        );
         (global, verifier_setup)
     }
 
@@ -175,12 +175,12 @@ mod tests {
             &verification_context.recursive_verifying_key,
         );
 
-        let verifier_setup = IvcVerifierSetup {
-            verifier_params: verification_context.verifier_params,
-            tau_g2: verification_context.verifier_tau_in_g2,
-            ivc_verifying_key: verification_context.recursive_verifying_key,
-            combined_fixed_bases: verification_context.combined_fixed_bases,
-        };
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            verification_context.verifier_params,
+            verification_context.verifier_tau_in_g2,
+            verification_context.recursive_verifying_key,
+            verification_context.combined_fixed_bases,
+        );
 
         let proof = IvcProof::<blake2b_simd::State> {
             proof_bytes: step_output.ivc_proof,
