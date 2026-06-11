@@ -2,7 +2,6 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use anyhow::anyhow;
 use ff::FromUniformBytes;
 use group::Group;
 use midnight_circuits::{
@@ -118,7 +117,7 @@ where
         rng,
         &mut transcript,
     )
-    .map_err(|e| anyhow!("IVC proof generation failed: {e}"))?;
+    .map_err(|e| IvcProofError::ProofGenerationFailed(e.to_string()))?;
     Ok(transcript.finalize())
 }
 
