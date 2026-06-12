@@ -17,7 +17,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcSetup},
+        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcProvingSetup},
     },
 };
 
@@ -46,13 +46,13 @@ impl IvcProverInput {
     /// transition is validated, and the certificate and previous IVC accumulators are
     /// folded into the chain's accumulator.
     pub(crate) fn prepare<D: MembershipDigest>(
-        snark_proof: SnarkProof<D>,
+        snark_proof: &SnarkProof<D>,
         message: &[u8],
         aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
-        setup: &IvcSetup,
+        setup: &IvcProvingSetup,
     ) -> StmResult<Self> {
         let chain_epoch = rolling_state.state().current_epoch;
         let certificate_epoch = protocol_message_preimage.current_epoch();
@@ -106,10 +106,11 @@ impl IvcProverInput {
             return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
         }
 
+        let verifier_params = setup.srs.verifier_params();
         let dual_msm = snark_proof.prepare_and_check(
             message,
             aggregate_verification_key_for_snark,
-            &setup.srs_verifier_params,
+            &verifier_params,
         )?;
 
         if !is_same_epoch && !is_next_epoch {
@@ -244,8 +245,8 @@ mod tests {
 
         use super::*;
 
-        fn shared_ivc_setup() -> &'static IvcSetup {
-            static CELL: OnceLock<IvcSetup> = OnceLock::new();
+        fn shared_ivc_setup() -> &'static IvcProvingSetup {
+            static CELL: OnceLock<IvcProvingSetup> = OnceLock::new();
             CELL.get_or_init(|| {
                 let temp_dir = tempdir().expect("temp dir creation should succeed");
                 let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -269,8 +270,8 @@ mod tests {
                     .get_verifying_key()
                     .expect("certificate verifying key keygen should succeed");
                 let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-                IvcSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcSetup::load should succeed under the unsafe SRS")
+                IvcProvingSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                    .expect("IvcProvingSetup::load should succeed under the unsafe SRS")
             })
         }
 
@@ -371,7 +372,7 @@ mod tests {
             let protocol_message_preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
 
             let input = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &first_step.message,
                 &avk,
                 &global,
@@ -416,7 +417,7 @@ mod tests {
             );
 
             let input = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &step.message,
                 &avk,
                 &global,
@@ -462,7 +463,7 @@ mod tests {
             );
 
             let input = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &step.message,
                 &avk,
                 &global,
@@ -510,7 +511,7 @@ mod tests {
             );
 
             let result = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &step.message,
                 &avk,
                 &global,
@@ -549,7 +550,7 @@ mod tests {
             let protocol_message_preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
 
             let result = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &first_step.message,
                 &avk,
                 &global,
@@ -599,7 +600,7 @@ mod tests {
             let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let result = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &step.message,
                 &avk,
                 &global,
@@ -655,7 +656,7 @@ mod tests {
             let protocol_message_preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let result = IvcProverInput::prepare(
-                snark_proof,
+                &snark_proof,
                 &step.message,
                 &avk,
                 &global,

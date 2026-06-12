@@ -1,4 +1,4 @@
-//! Temporary unsafe setup helpers used by `IvcSetup::load` until the production
+//! Temporary unsafe setup helpers used by `IvcProvingSetup::load` until the production
 //! cache providers for the recursive circuit are implemented.
 //!
 //! Two providers, one per circuit, each exposing both `get_verifying_key` and
