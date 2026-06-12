@@ -24,11 +24,11 @@ pub(crate) enum TransitionType {
     /// The first step of the chain. The rolling state's step counter is zero, no
     /// certificate is processed, and the rolling state's accumulator passes through.
     Genesis,
-    /// Non-genesis step where the certificate's epoch matches the rolling chain's
-    /// current epoch.
+    /// Non-genesis step where the incoming certificate's epoch matches the last
+    /// committed epoch.
     SameEpoch,
-    /// Non-genesis step where the certificate's epoch is one greater than the rolling
-    /// chain's current epoch.
+    /// Non-genesis step where the incoming certificate's epoch is one greater than the
+    /// last committed epoch.
     NextEpoch,
 }
 
@@ -37,30 +37,30 @@ pub(crate) enum TransitionType {
 ///
 /// Returns the matching `TransitionType` when the step is valid. Returns
 /// `IvcCircuitError::InvalidEpochTransition` with the specific
-/// `EpochTransitionErrorKind` when the certificate's epoch is out of range, when
-/// the first certificate after genesis is not a next-epoch certificate, or when a
-/// same-epoch certificate's lookahead does not match the rolling state.
+/// `EpochTransitionErrorKind` when the incoming certificate's epoch is out of range,
+/// when the first certificate after genesis is not a next-epoch certificate, or when
+/// a same-epoch certificate's lookahead does not match the rolling state.
 pub(crate) fn determine_transition(
     rolling_state: &IvcRollingState,
     protocol_message_preimage: &ProtocolMessagePreimage,
 ) -> StmResult<TransitionType> {
-    let chain_epoch = rolling_state.state().current_epoch;
-    let certificate_epoch = protocol_message_preimage.current_epoch();
+    let last_committed_epoch = rolling_state.state().current_epoch;
+    let incoming_certificate_epoch = protocol_message_preimage.current_epoch();
 
     if rolling_state.state().step_counter == StepCounter::ZERO {
         return Ok(TransitionType::Genesis);
     }
 
-    let is_same_epoch = certificate_epoch == chain_epoch;
-    let is_next_epoch =
-        certificate_epoch.as_field() == chain_epoch.as_field() + EpochNumber::new(1).as_field();
+    let is_same_epoch = incoming_certificate_epoch == last_committed_epoch;
+    let is_next_epoch = incoming_certificate_epoch.as_field()
+        == last_committed_epoch.as_field() + EpochNumber::new(1).as_field();
 
     if !is_same_epoch && !is_next_epoch {
         return Err(IvcCircuitError::InvalidEpochTransition {
             kind: EpochTransitionErrorKind::OutOfRange {
-                certificate_epoch: certificate_epoch.as_u64(),
+                incoming_certificate_epoch: incoming_certificate_epoch.as_u64(),
             },
-            chain_epoch: chain_epoch.as_u64(),
+            last_committed_epoch: last_committed_epoch.as_u64(),
         }
         .into());
     }
@@ -68,7 +68,7 @@ pub(crate) fn determine_transition(
     if rolling_state.state().step_counter == StepCounter::new(1) && !is_next_epoch {
         return Err(IvcCircuitError::InvalidEpochTransition {
             kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
-            chain_epoch: chain_epoch.as_u64(),
+            last_committed_epoch: last_committed_epoch.as_u64(),
         }
         .into());
     }
@@ -81,7 +81,7 @@ pub(crate) fn determine_transition(
     {
         return Err(IvcCircuitError::InvalidEpochTransition {
             kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
-            chain_epoch: chain_epoch.as_u64(),
+            last_committed_epoch: last_committed_epoch.as_u64(),
         }
         .into());
     }
@@ -103,12 +103,12 @@ pub(crate) fn determine_transition(
 /// `prepare_and_check` agrees with the one the in-circuit IVC verifier gadget
 /// produces on the same proof.
 pub(crate) fn verify_certificate_proof<D: MembershipDigest>(
-    snark_proof: &SnarkProof<D>,
-    message: &[u8],
+    certificate_proof: &SnarkProof<D>,
+    certificate_message_bytes: &[u8],
     aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
     setup: &IvcSetup,
 ) -> StmResult<DualMSM<Bls12>> {
-    if snark_proof
+    if certificate_proof
         .circuit_verification_key()
         .get_midnight_vk()
         .vk()
@@ -118,39 +118,39 @@ pub(crate) fn verify_certificate_proof<D: MembershipDigest>(
         return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
     }
 
-    snark_proof.prepare_and_check(
-        message,
+    certificate_proof.prepare_and_check(
+        certificate_message_bytes,
         aggregate_verification_key_for_snark,
         &setup.srs_verifier_params,
     )
 }
 
 /// Builds the certificate's two-element SNARK public-input message from the AVK Merkle root
-/// and the user message, then decodes it into the typed certificate message hash and Merkle
-/// tree commitment.
-pub(crate) fn decode_snark_message_fields<D: MembershipDigest>(
+/// and the certificate's message bytes, then decodes it into the typed certificate message
+/// hash and Merkle tree commitment.
+pub(crate) fn build_snark_message_and_decode_fields<D: MembershipDigest>(
     aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
-    message: &[u8],
+    certificate_message_bytes: &[u8],
 ) -> StmResult<(MessageHash, MerkleTreeCommitment)> {
     let snark_message = build_snark_message(
         &aggregate_verification_key_for_snark.get_merkle_tree_commitment().root,
-        message,
+        certificate_message_bytes,
     )?;
-    let certificate_message = MessageHash::from_field(snark_message[1].0);
+    let certificate_message_hash = MessageHash::from_field(snark_message[1].0);
     let certificate_merkle_tree_commitment = MerkleTreeCommitment::from_field(snark_message[0].0);
-    Ok((certificate_message, certificate_merkle_tree_commitment))
+    Ok((certificate_message_hash, certificate_merkle_tree_commitment))
 }
 
 /// Builds the non-genesis `State` for the next step. Advances the step counter
 /// (overflow-checked), selects the next state's protocol parameters from the rolling
 /// state (current for same-epoch, next-epoch lookahead promoted for next-epoch
 /// transitions), and carries the lookahead fields from the protocol message preimage.
-/// The certificate's typed message and Merkle tree commitment are passed in by the
-/// caller (decoded upstream by `decode_snark_message_fields`).
-pub(crate) fn build_new_chain_state(
+/// The certificate's typed message hash and Merkle tree commitment are passed in by the
+/// caller (decoded upstream by `build_snark_message_and_decode_fields`).
+pub(crate) fn build_next_state(
     transition_type: TransitionType,
     rolling_state: &IvcRollingState,
-    certificate_message: MessageHash,
+    certificate_message_hash: MessageHash,
     certificate_merkle_tree_commitment: MerkleTreeCommitment,
     protocol_message_preimage: &ProtocolMessagePreimage,
 ) -> StmResult<State> {
@@ -162,7 +162,7 @@ pub(crate) fn build_new_chain_state(
     let new_step_counter = rolling_state.new_step_counter()?;
     Ok(State::new(
         new_step_counter,
-        certificate_message,
+        certificate_message_hash,
         certificate_merkle_tree_commitment,
         protocol_message_preimage.next_merkle_tree_commitment(),
         new_protocol_parameters,
@@ -177,12 +177,13 @@ pub(crate) fn build_new_chain_state(
 /// The returned accumulator is the off-circuit twin of the one the in-circuit IVC
 /// verifier gadget computes from the same inputs; the new IVC proof commits to it.
 pub(crate) fn build_next_accumulator(
-    dual_msm: DualMSM<Bls12>,
+    certificate_dual_msm: DualMSM<Bls12>,
     rolling_state: &IvcRollingState,
     setup: &IvcSetup,
     global: &Global,
 ) -> StmResult<Accumulator<BlstrsEmulation>> {
-    let certificate_collapsed_accumulator = setup.certificate_collapsed_accumulator(dual_msm);
+    let certificate_collapsed_accumulator =
+        setup.certificate_collapsed_accumulator(certificate_dual_msm);
     let previous_ivc_proof_collapsed_accumulator = setup.previous_ivc_proof_collapsed_accumulator(
         rolling_state.ivc_proof().as_bytes(),
         &rolling_state.previous_ivc_proof_public_inputs(global),
@@ -325,7 +326,7 @@ mod tests {
             circuit_error,
             IvcCircuitError::InvalidEpochTransition {
                 kind: EpochTransitionErrorKind::OutOfRange {
-                    certificate_epoch: 10,
+                    incoming_certificate_epoch: 10,
                 },
                 ..
             }
@@ -403,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn build_new_chain_state_same_epoch_keeps_current_protocol_parameters() {
+    fn build_next_state_same_epoch_keeps_current_protocol_parameters() {
         let pp_current = protocol_parameters_from_u64(1);
         let pp_next = protocol_parameters_from_u64(2);
         let rolling_state = build_rolling_state(build_state(
@@ -414,7 +415,7 @@ mod tests {
             pp_next,
         ));
         let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let next_state = build_new_chain_state(
+        let next_state = build_next_state(
             TransitionType::SameEpoch,
             &rolling_state,
             MessageHash::ZERO,
@@ -426,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn build_new_chain_state_next_epoch_promotes_lookahead_protocol_parameters() {
+    fn build_next_state_next_epoch_promotes_lookahead_protocol_parameters() {
         let pp_current = protocol_parameters_from_u64(1);
         let pp_next = protocol_parameters_from_u64(2);
         let rolling_state = build_rolling_state(build_state(
@@ -437,7 +438,7 @@ mod tests {
             pp_next,
         ));
         let preimage = build_preimage(EpochNumber::new(4), [0u8; 32], [0u8; 32]);
-        let next_state = build_new_chain_state(
+        let next_state = build_next_state(
             TransitionType::NextEpoch,
             &rolling_state,
             MessageHash::ZERO,
@@ -449,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn build_new_chain_state_advances_step_counter_by_one() {
+    fn build_next_state_advances_step_counter_by_one() {
         let rolling_state = build_rolling_state(build_state(
             StepCounter::new(7),
             EpochNumber::new(3),
@@ -458,7 +459,7 @@ mod tests {
             ProtocolParametersHash::ZERO,
         ));
         let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let next_state = build_new_chain_state(
+        let next_state = build_next_state(
             TransitionType::SameEpoch,
             &rolling_state,
             MessageHash::ZERO,
@@ -470,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn build_new_chain_state_produces_state_with_expected_field_plumbing() {
+    fn build_next_state_produces_state_with_expected_field_plumbing() {
         let pp_current = protocol_parameters_from_u64(7);
         let pp_next = protocol_parameters_from_u64(8);
         let rolling_state = build_rolling_state(build_state(
@@ -491,7 +492,7 @@ mod tests {
         let preimage_cert_epoch = EpochNumber::new(4);
         let preimage = build_preimage(preimage_cert_epoch, [0x44; 32], [0x55; 32]);
 
-        let next_state = build_new_chain_state(
+        let next_state = build_next_state(
             TransitionType::NextEpoch,
             &rolling_state,
             cert_message,
@@ -519,7 +520,7 @@ mod tests {
     }
 
     #[test]
-    fn build_new_chain_state_rejects_step_counter_overflow() {
+    fn build_next_state_rejects_step_counter_overflow() {
         let rolling_state = build_rolling_state(build_state(
             StepCounter::new(u64::MAX),
             EpochNumber::new(3),
@@ -528,7 +529,7 @@ mod tests {
             ProtocolParametersHash::ZERO,
         ));
         let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let err = build_new_chain_state(
+        let err = build_next_state(
             TransitionType::SameEpoch,
             &rolling_state,
             MessageHash::ZERO,

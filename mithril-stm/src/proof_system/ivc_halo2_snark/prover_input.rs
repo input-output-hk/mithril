@@ -15,8 +15,8 @@ use crate::{
     },
     proof_system::ivc_halo2_snark::{
         prover_input_helpers::{
-            TransitionType, build_new_chain_state, build_next_accumulator,
-            decode_snark_message_fields, determine_transition, verify_certificate_proof,
+            TransitionType, build_next_accumulator, build_next_state,
+            build_snark_message_and_decode_fields, determine_transition, verify_certificate_proof,
         },
         rolling_state::IvcRollingState,
         setup::IvcSetup,
@@ -50,8 +50,8 @@ impl IvcProverInput {
     /// verifier-prepared, then the certificate and previous IVC accumulators are
     /// folded into the chain's accumulator.
     pub(crate) fn prepare<D: MembershipDigest>(
-        snark_proof: SnarkProof<D>,
-        message: &[u8],
+        certificate_proof: SnarkProof<D>,
+        certificate_message_bytes: &[u8],
         aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
@@ -64,29 +64,33 @@ impl IvcProverInput {
             return Self::prepare_genesis(rolling_state, protocol_message_preimage, global);
         }
 
-        let dual_msm = verify_certificate_proof(
-            &snark_proof,
-            message,
+        let certificate_dual_msm = verify_certificate_proof(
+            &certificate_proof,
+            certificate_message_bytes,
             aggregate_verification_key_for_snark,
             setup,
         )?;
 
-        let (certificate_message, certificate_merkle_tree_commitment) =
-            decode_snark_message_fields(aggregate_verification_key_for_snark, message)?;
+        let (certificate_message_hash, certificate_merkle_tree_commitment) =
+            build_snark_message_and_decode_fields(
+                aggregate_verification_key_for_snark,
+                certificate_message_bytes,
+            )?;
 
-        let next_state = build_new_chain_state(
+        let next_state = build_next_state(
             transition_type,
             rolling_state,
-            certificate_message,
+            certificate_message_hash,
             certificate_merkle_tree_commitment,
             protocol_message_preimage,
         )?;
 
-        let next_accumulator = build_next_accumulator(dual_msm, rolling_state, setup, global)?;
+        let next_accumulator =
+            build_next_accumulator(certificate_dual_msm, rolling_state, setup, global)?;
 
         let witness = Witness::new(
             rolling_state.genesis_signature(),
-            certificate_message,
+            certificate_message_hash,
             certificate_merkle_tree_commitment,
             protocol_message_preimage.clone(),
         );
@@ -299,7 +303,7 @@ mod tests {
                 let rolling_state =
                     IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
 
-                let snark_proof = wrap_snark_proof(
+                let certificate_proof = wrap_snark_proof(
                     &verification_context,
                     first_step.certificate_proof.clone().into_vec(),
                 );
@@ -309,7 +313,7 @@ mod tests {
                     wrap_protocol_message_preimage(&genesis_preimage_bytes);
 
                 IvcProverInput::prepare(
-                    snark_proof,
+                    certificate_proof,
                     &first_step.message,
                     &avk,
                     &global,
@@ -326,7 +330,7 @@ mod tests {
                 let step = load_embedded_following_certificate_in_epoch_asset()
                     .expect("same-epoch step output asset should load");
 
-                let snark_proof = wrap_snark_proof(
+                let certificate_proof = wrap_snark_proof(
                     &verification_context,
                     step.certificate_proof.clone().into_vec(),
                 );
@@ -342,7 +346,7 @@ mod tests {
                 );
 
                 let input = IvcProverInput::prepare(
-                    snark_proof,
+                    certificate_proof,
                     &step.message,
                     &avk,
                     &global,
@@ -367,7 +371,7 @@ mod tests {
                 let step = load_embedded_next_epoch_step_output_asset()
                     .expect("recursive step output asset should load");
 
-                let snark_proof = wrap_snark_proof(
+                let certificate_proof = wrap_snark_proof(
                     &verification_context,
                     step.certificate_proof.clone().into_vec(),
                 );
@@ -383,7 +387,7 @@ mod tests {
                 );
 
                 let input = IvcProverInput::prepare(
-                    snark_proof,
+                    certificate_proof,
                     &step.message,
                     &avk,
                     &global,
@@ -411,7 +415,7 @@ mod tests {
                 let mut corrupted = step.certificate_proof.clone().into_vec();
                 corrupted[0] ^= 0xFF;
 
-                let snark_proof = wrap_snark_proof(&verification_context, corrupted);
+                let certificate_proof = wrap_snark_proof(&verification_context, corrupted);
                 let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
                 let protocol_message_preimage =
                     wrap_protocol_message_preimage(&step.message_preimage);
@@ -423,7 +427,7 @@ mod tests {
                 );
 
                 let result = IvcProverInput::prepare(
-                    snark_proof,
+                    certificate_proof,
                     &step.message,
                     &avk,
                     &global,
