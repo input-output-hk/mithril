@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.34 (06-12-2026)
+
+### Added
+
+- Added `IvcVerifierSetup` structure to bundle the embedded KZG verifier parameters, `tau_g2`, IVC verifying key, and combined fixed-base map needed to verify IVC proofs without loading the full SRS.
+- Added `IvcProof::verify` for off-circuit IVC proof verification using a Blake2b transcript.
+- Added `IvcProofError::ProofGenerationFailed` error variant for the IVC prove path.
+
 ## 0.10.33 (06-11-2026)
 
 ### Added
