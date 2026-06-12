@@ -93,6 +93,7 @@ readonly -a SLOW_MITHRIL_STM_TESTS=(
   "mithril-stm/src/circuits/halo2_ivc/#circuits::halo2_ivc::"
   "mithril-stm/src/membership_commitment/merkle_tree#membership_commitment::merkle_tree::"
   "mithril-stm/src/proof_system/halo2_snark#proof_system::halo2_snark::"
+  "mithril-stm/src/proof_system/ivc_halo2_snark#proof_system::ivc_halo2_snark::"
   "mithril-stm/src/signature_scheme/bls_multi_signature#signature_scheme::bls_multi_signature::"
 )
 
