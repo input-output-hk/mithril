@@ -23,7 +23,8 @@ use crate::{
     },
 };
 
-/// Pre-circuit inputs consumed by the IVC prover's circuit-construction and proof-generation steps.
+/// Outputs of the IVC prover's preparation step, consumed by the circuit-construction and
+/// proof-generation steps.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this input
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -34,6 +35,8 @@ pub(crate) struct IvcProverInput {
     pub(crate) next_state: State,
     /// Folded accumulator the new step's IVC proof commits to.
     pub(crate) next_accumulator: Accumulator<BlstrsEmulation>,
+    /// Classification of this step (genesis, same-epoch, or next-epoch).
+    pub(crate) transition_type: TransitionType,
 }
 
 // TODO: remove this allow dead_code directive when the IVC prover consumes this input
@@ -99,6 +102,7 @@ impl IvcProverInput {
             witness,
             next_state,
             next_accumulator,
+            transition_type,
         })
     }
 
@@ -135,6 +139,7 @@ impl IvcProverInput {
             witness,
             next_state,
             next_accumulator: rolling_state.accumulator().clone(),
+            transition_type: TransitionType::Genesis,
         })
     }
 }

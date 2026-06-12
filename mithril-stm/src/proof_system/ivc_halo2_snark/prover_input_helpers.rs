@@ -19,7 +19,7 @@ use crate::{
 
 /// Categorizes the requested step relative to the rolling chain state: either the first
 /// step (genesis), or a non-genesis step at the same or next epoch.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TransitionType {
     /// The first step of the chain. The rolling state's step counter is zero, no
     /// certificate is processed, and the rolling state's accumulator passes through.

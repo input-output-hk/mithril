@@ -31,8 +31,8 @@ pub enum IvcCircuitError {
     InsufficientFixedColumns { needed: usize, available: usize },
 
     /// Off-circuit step transition: the incoming certificate's epoch does not advance the
-    /// chain correctly. `kind` distinguishes between an out-of-range epoch advance and a
-    /// same-epoch lookahead mismatch.
+    /// chain correctly. The `kind` field carries an `EpochTransitionErrorKind` with the
+    /// specific violation.
     #[error(
         "IvcProverInput::prepare: invalid epoch transition at last committed epoch {last_committed_epoch}: {kind}"
     )]
