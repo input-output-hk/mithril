@@ -293,7 +293,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "slow: runs real keygen; opt-in only"]
         fn prepare_integration_scenarios() {
             let setup = build_ivc_setup();
             let asset_setup = build_asset_generation_setup();

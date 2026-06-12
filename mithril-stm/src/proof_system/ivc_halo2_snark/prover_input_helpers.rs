@@ -221,30 +221,54 @@ mod tests {
             .expect("standard schnorr signing should succeed for a synthetic message")
     }
 
-    fn build_state(
+    fn build_rolling_state(
         step_counter: StepCounter,
         current_epoch: EpochNumber,
         next_merkle_tree_commitment: MerkleTreeCommitment,
         protocol_parameters: ProtocolParametersHash,
         next_protocol_parameters: ProtocolParametersHash,
-    ) -> State {
-        State::new(
-            step_counter,
-            MessageHash::ZERO,
-            MerkleTreeCommitment::ZERO,
-            next_merkle_tree_commitment,
-            protocol_parameters,
-            next_protocol_parameters,
-            current_epoch,
-        )
-    }
-
-    fn build_rolling_state(state: State) -> IvcRollingState {
+    ) -> IvcRollingState {
         IvcRollingState::new(
-            state,
+            State::new(
+                step_counter,
+                MessageHash::ZERO,
+                MerkleTreeCommitment::ZERO,
+                next_merkle_tree_commitment,
+                protocol_parameters,
+                next_protocol_parameters,
+                current_epoch,
+            ),
             IvcProofBytes::empty(),
             trivial_acc(&[]),
             build_signature(),
+        )
+    }
+
+    fn build_standard_rolling_state(
+        step_counter: StepCounter,
+        current_epoch: EpochNumber,
+    ) -> IvcRollingState {
+        build_rolling_state(
+            step_counter,
+            current_epoch,
+            MerkleTreeCommitment::ZERO,
+            ProtocolParametersHash::ZERO,
+            ProtocolParametersHash::ZERO,
+        )
+    }
+
+    fn build_rolling_state_with_protocol_parameters(
+        step_counter: StepCounter,
+        current_epoch: EpochNumber,
+        current_pp: ProtocolParametersHash,
+        next_pp: ProtocolParametersHash,
+    ) -> IvcRollingState {
+        build_rolling_state(
+            step_counter,
+            current_epoch,
+            MerkleTreeCommitment::ZERO,
+            current_pp,
+            next_pp,
         )
     }
 
@@ -262,287 +286,655 @@ mod tests {
         ProtocolMessagePreimage::new(bytes)
     }
 
+    fn build_standard_preimage(current_epoch: EpochNumber) -> ProtocolMessagePreimage {
+        build_preimage(current_epoch, [0u8; 32], [0u8; 32])
+    }
+
     fn protocol_parameters_from_u64(value: u64) -> ProtocolParametersHash {
         ProtocolParametersHash::from_field(BaseFieldElement::from(value).0)
     }
 
-    #[test]
-    fn determine_transition_returns_genesis_at_step_zero() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::ZERO,
-            EpochNumber::ZERO,
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::ZERO, [0u8; 32], [0u8; 32]);
-        let transition = determine_transition(&rolling_state, &preimage).unwrap();
-        assert!(matches!(transition, TransitionType::Genesis));
+    fn merkle_tree_commitment_from_u64(value: u64) -> MerkleTreeCommitment {
+        MerkleTreeCommitment::from_field(BaseFieldElement::from(value).0)
     }
 
-    #[test]
-    fn determine_transition_returns_same_epoch_for_matching_cert_epoch() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let transition = determine_transition(&rolling_state, &preimage).unwrap();
-        assert!(matches!(transition, TransitionType::SameEpoch));
+    fn merkle_tree_commitment_from_bytes(bytes: [u8; 32]) -> MerkleTreeCommitment {
+        MerkleTreeCommitment::from_field(
+            BaseFieldElement::from_raw(&bytes)
+                .expect("from_raw applies modulus reduction")
+                .0,
+        )
     }
 
-    #[test]
-    fn determine_transition_returns_next_epoch_for_advanced_cert_epoch() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(4), [0u8; 32], [0u8; 32]);
-        let transition = determine_transition(&rolling_state, &preimage).unwrap();
-        assert!(matches!(transition, TransitionType::NextEpoch));
+    fn message_hash_from_u64(value: u64) -> MessageHash {
+        MessageHash::from_field(BaseFieldElement::from(value).0)
     }
 
-    #[test]
-    fn determine_transition_rejects_out_of_range_cert_epoch() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(10), [0u8; 32], [0u8; 32]);
-        let err = determine_transition(&rolling_state, &preimage).unwrap_err();
-        let circuit_error = err
-            .downcast_ref::<IvcCircuitError>()
-            .expect("error chain should carry IvcCircuitError");
-        assert!(matches!(
-            circuit_error,
-            IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::OutOfRange {
-                    incoming_certificate_epoch: 10,
+    mod build_next_state {
+
+        use super::*;
+
+        #[test]
+        fn same_epoch_keeps_current_protocol_parameters() {
+            let pp_current = protocol_parameters_from_u64(1);
+            let pp_next = protocol_parameters_from_u64(2);
+            let rolling_state = build_rolling_state_with_protocol_parameters(
+                StepCounter::new(5),
+                EpochNumber::new(3),
+                pp_current,
+                pp_next,
+            );
+            let preimage = build_standard_preimage(EpochNumber::new(3));
+            let next_state = build_next_state(
+                TransitionType::SameEpoch,
+                &rolling_state,
+                MessageHash::ZERO,
+                MerkleTreeCommitment::ZERO,
+                &preimage,
+            )
+            .unwrap();
+            assert_eq!(next_state.protocol_parameters, pp_current);
+        }
+
+        #[test]
+        fn next_epoch_promotes_lookahead_protocol_parameters() {
+            let pp_current = protocol_parameters_from_u64(1);
+            let pp_next = protocol_parameters_from_u64(2);
+            let rolling_state = build_rolling_state_with_protocol_parameters(
+                StepCounter::new(5),
+                EpochNumber::new(3),
+                pp_current,
+                pp_next,
+            );
+            let preimage = build_standard_preimage(EpochNumber::new(4));
+            let next_state = build_next_state(
+                TransitionType::NextEpoch,
+                &rolling_state,
+                MessageHash::ZERO,
+                MerkleTreeCommitment::ZERO,
+                &preimage,
+            )
+            .unwrap();
+            assert_eq!(next_state.protocol_parameters, pp_next);
+        }
+
+        #[test]
+        fn advances_step_counter_by_one() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(7), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(3));
+            let next_state = build_next_state(
+                TransitionType::SameEpoch,
+                &rolling_state,
+                MessageHash::ZERO,
+                MerkleTreeCommitment::ZERO,
+                &preimage,
+            )
+            .unwrap();
+            assert_eq!(next_state.step_counter, StepCounter::new(8));
+        }
+
+        #[test]
+        fn produces_state_with_expected_field_plumbing() {
+            let pp_current = protocol_parameters_from_u64(7);
+            let pp_next = protocol_parameters_from_u64(8);
+            let rolling_state = build_rolling_state(
+                StepCounter::new(5),
+                EpochNumber::new(3),
+                merkle_tree_commitment_from_bytes([0x33; 32]),
+                pp_current,
+                pp_next,
+            );
+
+            let cert_message = message_hash_from_u64(99);
+            let cert_merkle_tree_commitment = merkle_tree_commitment_from_u64(98);
+            let preimage_cert_epoch = EpochNumber::new(4);
+            let preimage = build_preimage(preimage_cert_epoch, [0x44; 32], [0x55; 32]);
+
+            let next_state = build_next_state(
+                TransitionType::NextEpoch,
+                &rolling_state,
+                cert_message,
+                cert_merkle_tree_commitment,
+                &preimage,
+            )
+            .unwrap();
+
+            assert_eq!(next_state.step_counter, StepCounter::new(6));
+            assert_eq!(next_state.message, cert_message);
+            assert_eq!(
+                next_state.merkle_tree_commitment,
+                cert_merkle_tree_commitment
+            );
+            assert_eq!(
+                next_state.next_merkle_tree_commitment,
+                preimage.next_merkle_tree_commitment()
+            );
+            assert_eq!(next_state.protocol_parameters, pp_next);
+            assert_eq!(
+                next_state.next_protocol_parameters,
+                preimage.next_protocol_parameters()
+            );
+            assert_eq!(next_state.current_epoch, preimage_cert_epoch);
+        }
+
+        #[test]
+        fn rejects_step_counter_overflow() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(u64::MAX), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(3));
+            let err = build_next_state(
+                TransitionType::SameEpoch,
+                &rolling_state,
+                MessageHash::ZERO,
+                MerkleTreeCommitment::ZERO,
+                &preimage,
+            )
+            .unwrap_err();
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::StepCounterOverflow { .. }
+            ));
+        }
+    }
+
+    mod determine_transition {
+
+        use super::*;
+
+        #[test]
+        fn returns_genesis_at_step_zero() {
+            let rolling_state = build_standard_rolling_state(StepCounter::ZERO, EpochNumber::ZERO);
+            let preimage = build_standard_preimage(EpochNumber::ZERO);
+            let transition = determine_transition(&rolling_state, &preimage).unwrap();
+            assert!(matches!(transition, TransitionType::Genesis));
+        }
+
+        #[test]
+        fn returns_same_epoch_for_matching_cert_epoch() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(3));
+            let transition = determine_transition(&rolling_state, &preimage).unwrap();
+            assert!(matches!(transition, TransitionType::SameEpoch));
+        }
+
+        #[test]
+        fn returns_next_epoch_for_advanced_cert_epoch() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(4));
+            let transition = determine_transition(&rolling_state, &preimage).unwrap();
+            assert!(matches!(transition, TransitionType::NextEpoch));
+        }
+
+        #[test]
+        fn rejects_out_of_range_cert_epoch() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_standard_preimage(EpochNumber::new(10));
+            let err = determine_transition(&rolling_state, &preimage).unwrap_err();
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind: EpochTransitionErrorKind::OutOfRange {
+                        incoming_certificate_epoch: 10,
+                    },
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn rejects_same_epoch_after_genesis_step() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(1), EpochNumber::ZERO);
+            let preimage = build_standard_preimage(EpochNumber::ZERO);
+            let err = determine_transition(&rolling_state, &preimage).unwrap_err();
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn rejects_same_epoch_with_mismatched_lookahead_commitment() {
+            // Rolling state has ZERO next_merkle_tree_commitment; preimage decodes a non-zero one.
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_preimage(EpochNumber::new(3), [0x11; 32], [0u8; 32]);
+            let err = determine_transition(&rolling_state, &preimage).unwrap_err();
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
+                    ..
+                }
+            ));
+        }
+
+        #[test]
+        fn rejects_same_epoch_with_mismatched_lookahead_parameters() {
+            let rolling_state =
+                build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
+            let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0x22; 32]);
+            let err = determine_transition(&rolling_state, &preimage).unwrap_err();
+            let circuit_error = err
+                .downcast_ref::<IvcCircuitError>()
+                .expect("error chain should carry IvcCircuitError");
+            assert!(matches!(
+                circuit_error,
+                IvcCircuitError::InvalidEpochTransition {
+                    kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
+                    ..
+                }
+            ));
+        }
+    }
+
+    mod slow {
+        use std::sync::Arc;
+
+        use tempfile::tempdir;
+
+        use super::*;
+        use crate::{
+            MithrilMembershipDigest, Parameters,
+            circuits::{
+                halo2_ivc::{
+                    K,
+                    tests::common::{
+                        asset_readers::{
+                            VerificationContextAsset,
+                            load_embedded_following_certificate_in_epoch_asset,
+                            load_embedded_verification_context_asset,
+                        },
+                        generators::setup::{QUORUM_SIZE, SIGNER_COUNT, TOTAL_STAKE},
+                    },
                 },
-                ..
+                trusted_setup::build_provider_with_unsafe_srs,
+            },
+            proof_system::{
+                halo2_snark::CircuitVerificationKey,
+                ivc_halo2_snark::unsafe_setup_helpers::{
+                    TempCertificateKeyProvider, TempIvcKeyProvider,
+                },
+            },
+        };
+
+        fn build_setup() -> IvcSetup {
+            let temp_dir = tempdir().expect("temp dir creation should succeed");
+            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+            let srs = Arc::new(
+                trusted_setup_provider
+                    .get_trusted_setup_parameters()
+                    .expect("unsafe SRS should load"),
+            );
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            let cert_provider =
+                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
+            let cert_vk = cert_provider
+                .get_verifying_key()
+                .expect("certificate verifying key keygen should succeed");
+            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
+            IvcSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                .expect("IvcSetup::load should succeed under the unsafe SRS")
+        }
+
+        fn wrap_snark_proof(
+            verification_context: &VerificationContextAsset,
+            certificate_proof_bytes: Vec<u8>,
+        ) -> SnarkProof<MithrilMembershipDigest> {
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            let circuit_verification_key =
+                CircuitVerificationKey::new(verification_context.certificate_verifying_key.clone());
+            SnarkProof::from_parts(
+                certificate_proof_bytes,
+                parameters,
+                merkle_tree_depth,
+                circuit_verification_key,
+            )
+        }
+
+        fn wrap_avk(
+            aggregate_verification_key_merkle_root: &[u8; 32],
+        ) -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
+            let mut avk_bytes = [0u8; 40];
+            avk_bytes[0..32].copy_from_slice(aggregate_verification_key_merkle_root);
+            avk_bytes[32..40].copy_from_slice(&TOTAL_STAKE.to_be_bytes());
+            AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_bytes)
+                .expect("AVK should decode from asset bytes")
+        }
+
+        mod build_next_accumulator {
+            use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
+            use midnight_proofs::utils::SerdeFormat;
+
+            use super::*;
+            use crate::circuits::halo2_ivc::tests::common::asset_readers::{
+                load_embedded_next_epoch_step_output_asset,
+                load_embedded_recursive_chain_state_asset,
+            };
+            use crate::circuits::halo2_ivc::{
+                io::Write as IvcWrite,
+                tests::common::generators::{
+                    build_asset_generation_setup, build_recursive_global,
+                    setup::AssetGenerationSetup,
+                },
+            };
+
+            fn build_global(
+                asset_setup: &AssetGenerationSetup,
+                verification_context: &VerificationContextAsset,
+            ) -> Global {
+                build_recursive_global(
+                    asset_setup,
+                    &verification_context.certificate_verifying_key,
+                    &verification_context.recursive_verifying_key,
+                )
             }
-        ));
-    }
 
-    #[test]
-    fn determine_transition_rejects_same_epoch_after_genesis_step() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(1),
-            EpochNumber::ZERO,
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::ZERO, [0u8; 32], [0u8; 32]);
-        let err = determine_transition(&rolling_state, &preimage).unwrap_err();
-        let circuit_error = err
-            .downcast_ref::<IvcCircuitError>()
-            .expect("error chain should carry IvcCircuitError");
-        assert!(matches!(
-            circuit_error,
-            IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
-                ..
+            fn accumulator_bytes(accumulator: &Accumulator<BlstrsEmulation>) -> Vec<u8> {
+                let mut bytes = Vec::new();
+                accumulator
+                    .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
+                    .expect("accumulator serialization should succeed");
+                bytes
             }
-        ));
-    }
 
-    #[test]
-    fn determine_transition_rejects_same_epoch_with_mismatched_lookahead_commitment() {
-        // Rolling state has ZERO next_merkle_tree_commitment; preimage decodes a non-zero one.
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0x11; 32], [0u8; 32]);
-        let err = determine_transition(&rolling_state, &preimage).unwrap_err();
-        let circuit_error = err
-            .downcast_ref::<IvcCircuitError>()
-            .expect("error chain should carry IvcCircuitError");
-        assert!(matches!(
-            circuit_error,
-            IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
-                ..
+            #[test]
+            fn folds_correctly_for_same_epoch_step() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let asset_setup = build_asset_generation_setup();
+                let global = build_global(&asset_setup, &verification_context);
+
+                let chain_state = load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
+
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+                let certificate_dual_msm =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup)
+                        .expect("verify_certificate_proof should succeed for valid asset");
+
+                let rolling_state = IvcRollingState::new(
+                    chain_state.state,
+                    chain_state.ivc_proof,
+                    chain_state.accumulator,
+                    chain_state.genesis_signature,
+                );
+
+                let next_accumulator =
+                    build_next_accumulator(certificate_dual_msm, &rolling_state, &setup, &global)
+                        .expect("build_next_accumulator should succeed");
+
+                assert_eq!(
+                    accumulator_bytes(&next_accumulator),
+                    accumulator_bytes(&step.next_accumulator),
+                );
             }
-        ));
-    }
 
-    #[test]
-    fn determine_transition_rejects_same_epoch_with_mismatched_lookahead_parameters() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0x22; 32]);
-        let err = determine_transition(&rolling_state, &preimage).unwrap_err();
-        let circuit_error = err
-            .downcast_ref::<IvcCircuitError>()
-            .expect("error chain should carry IvcCircuitError");
-        assert!(matches!(
-            circuit_error,
-            IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::SameEpochLookaheadMismatch,
-                ..
+            #[test]
+            fn folds_correctly_for_next_epoch_step() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let asset_setup = build_asset_generation_setup();
+                let global = build_global(&asset_setup, &verification_context);
+
+                let chain_state = load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load");
+                let step = load_embedded_next_epoch_step_output_asset()
+                    .expect("next-epoch step output asset should load");
+
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+                let certificate_dual_msm =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup)
+                        .expect("verify_certificate_proof should succeed for valid asset");
+
+                let rolling_state = IvcRollingState::new(
+                    chain_state.state,
+                    chain_state.ivc_proof,
+                    chain_state.accumulator,
+                    chain_state.genesis_signature,
+                );
+
+                let next_accumulator =
+                    build_next_accumulator(certificate_dual_msm, &rolling_state, &setup, &global)
+                        .expect("build_next_accumulator should succeed");
+
+                assert_eq!(
+                    accumulator_bytes(&next_accumulator),
+                    accumulator_bytes(&step.next_accumulator),
+                );
             }
-        ));
-    }
 
-    #[test]
-    fn build_next_state_same_epoch_keeps_current_protocol_parameters() {
-        let pp_current = protocol_parameters_from_u64(1);
-        let pp_next = protocol_parameters_from_u64(2);
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            pp_current,
-            pp_next,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let next_state = build_next_state(
-            TransitionType::SameEpoch,
-            &rolling_state,
-            MessageHash::ZERO,
-            MerkleTreeCommitment::ZERO,
-            &preimage,
-        )
-        .unwrap();
-        assert_eq!(next_state.protocol_parameters, pp_current);
-    }
+            #[test]
+            fn rejects_corrupted_previous_ivc_proof() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let asset_setup = build_asset_generation_setup();
+                let global = build_global(&asset_setup, &verification_context);
 
-    #[test]
-    fn build_next_state_next_epoch_promotes_lookahead_protocol_parameters() {
-        let pp_current = protocol_parameters_from_u64(1);
-        let pp_next = protocol_parameters_from_u64(2);
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            pp_current,
-            pp_next,
-        ));
-        let preimage = build_preimage(EpochNumber::new(4), [0u8; 32], [0u8; 32]);
-        let next_state = build_next_state(
-            TransitionType::NextEpoch,
-            &rolling_state,
-            MessageHash::ZERO,
-            MerkleTreeCommitment::ZERO,
-            &preimage,
-        )
-        .unwrap();
-        assert_eq!(next_state.protocol_parameters, pp_next);
-    }
+                let chain_state = load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
 
-    #[test]
-    fn build_next_state_advances_step_counter_by_one() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(7),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let next_state = build_next_state(
-            TransitionType::SameEpoch,
-            &rolling_state,
-            MessageHash::ZERO,
-            MerkleTreeCommitment::ZERO,
-            &preimage,
-        )
-        .unwrap();
-        assert_eq!(next_state.step_counter, StepCounter::new(8));
-    }
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+                let certificate_dual_msm =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup)
+                        .expect("verify_certificate_proof should succeed for valid asset");
 
-    #[test]
-    fn build_next_state_produces_state_with_expected_field_plumbing() {
-        let pp_current = protocol_parameters_from_u64(7);
-        let pp_next = protocol_parameters_from_u64(8);
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(5),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::from_field(
-                BaseFieldElement::from_raw(&[0x33; 32])
-                    .expect("from_raw applies modulus reduction")
-                    .0,
-            ),
-            pp_current,
-            pp_next,
-        ));
+                let mut corrupted = chain_state.ivc_proof.into_vec();
+                corrupted[0] ^= 0xFF;
+                let rolling_state = IvcRollingState::new(
+                    chain_state.state,
+                    IvcProofBytes::new(corrupted),
+                    chain_state.accumulator,
+                    chain_state.genesis_signature,
+                );
 
-        let cert_message = MessageHash::from_field(BaseFieldElement::from(99u64).0);
-        let cert_merkle_tree_commitment =
-            MerkleTreeCommitment::from_field(BaseFieldElement::from(98u64).0);
-        let preimage_cert_epoch = EpochNumber::new(4);
-        let preimage = build_preimage(preimage_cert_epoch, [0x44; 32], [0x55; 32]);
+                let result =
+                    build_next_accumulator(certificate_dual_msm, &rolling_state, &setup, &global);
+                assert!(
+                    result.is_err(),
+                    "build_next_accumulator should reject a corrupted previous IVC proof",
+                );
+            }
 
-        let next_state = build_next_state(
-            TransitionType::NextEpoch,
-            &rolling_state,
-            cert_message,
-            cert_merkle_tree_commitment,
-            &preimage,
-        )
-        .unwrap();
+            #[test]
+            fn rejects_mismatched_global() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let asset_setup = build_asset_generation_setup();
+                let correct_global = build_global(&asset_setup, &verification_context);
 
-        assert_eq!(next_state.step_counter, StepCounter::new(6));
-        assert_eq!(next_state.message, cert_message);
-        assert_eq!(
-            next_state.merkle_tree_commitment,
-            cert_merkle_tree_commitment
-        );
-        assert_eq!(
-            next_state.next_merkle_tree_commitment,
-            preimage.next_merkle_tree_commitment()
-        );
-        assert_eq!(next_state.protocol_parameters, pp_next);
-        assert_eq!(
-            next_state.next_protocol_parameters,
-            preimage.next_protocol_parameters()
-        );
-        assert_eq!(next_state.current_epoch, preimage_cert_epoch);
-    }
+                let chain_state = load_embedded_recursive_chain_state_asset()
+                    .expect("recursive chain state asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
 
-    #[test]
-    fn build_next_state_rejects_step_counter_overflow() {
-        let rolling_state = build_rolling_state(build_state(
-            StepCounter::new(u64::MAX),
-            EpochNumber::new(3),
-            MerkleTreeCommitment::ZERO,
-            ProtocolParametersHash::ZERO,
-            ProtocolParametersHash::ZERO,
-        ));
-        let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0u8; 32]);
-        let err = build_next_state(
-            TransitionType::SameEpoch,
-            &rolling_state,
-            MessageHash::ZERO,
-            MerkleTreeCommitment::ZERO,
-            &preimage,
-        )
-        .unwrap_err();
-        let circuit_error = err
-            .downcast_ref::<IvcCircuitError>()
-            .expect("error chain should carry IvcCircuitError");
-        assert!(matches!(
-            circuit_error,
-            IvcCircuitError::StepCounterOverflow { .. }
-        ));
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+                let certificate_dual_msm =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup)
+                        .expect("verify_certificate_proof should succeed for valid asset");
+
+                let rolling_state = IvcRollingState::new(
+                    chain_state.state,
+                    chain_state.ivc_proof,
+                    chain_state.accumulator,
+                    chain_state.genesis_signature,
+                );
+
+                let mut wrong_global = correct_global.clone();
+                wrong_global.genesis_message = message_hash_from_u64(0xDEAD_BEEF);
+
+                let result = build_next_accumulator(
+                    certificate_dual_msm,
+                    &rolling_state,
+                    &setup,
+                    &wrong_global,
+                );
+                assert!(
+                    result.is_err(),
+                    "build_next_accumulator should reject a global whose public inputs do not match \
+                     the previous IVC proof",
+                );
+            }
+        }
+
+        mod verify_certificate_proof {
+            use super::*;
+
+            // Note: a dedicated `rejects_mismatched_verifying_key` test is not provided.
+            // Constructing a `CircuitVerificationKey` whose inner `MidnightVK.vk().transcript_repr()`
+            // differs from `setup.certificate_verifying_key.transcript_repr()` requires either a
+            // pre-generated wrong-VK asset or a second cert-circuit keygen (via `setup_vk`), since
+            // `MidnightVK` has no in-process constructor from a raw `VerifyingKey`. The early-return
+            // VK match check in `verify_certificate_proof` is a single equality on `transcript_repr`
+            // and is exercised indirectly through the matching-VK path in every other slow test.
+
+            #[test]
+            fn accepts_valid_proof() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
+
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+
+                let dual_msm =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup)
+                        .expect("verify_certificate_proof should succeed for valid asset");
+                assert!(
+                    dual_msm.check(&setup.srs_verifier_params),
+                    "returned DualMSM should pass its pairing check",
+                );
+            }
+
+            #[test]
+            fn rejects_corrupted_proof_bytes() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
+
+                let mut corrupted = step.certificate_proof.clone().into_vec();
+                corrupted[0] ^= 0xFF;
+                let certificate_proof = wrap_snark_proof(&verification_context, corrupted);
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+
+                let result =
+                    verify_certificate_proof(&certificate_proof, &step.message, &avk, &setup);
+                assert!(
+                    result.is_err(),
+                    "verify_certificate_proof should reject a corrupted certificate proof",
+                );
+            }
+
+            #[test]
+            fn rejects_mismatched_message() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
+
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
+
+                let mut wrong_message = step.message;
+                wrong_message[0] ^= 0xFF;
+
+                let result =
+                    verify_certificate_proof(&certificate_proof, &wrong_message, &avk, &setup);
+                assert!(
+                    result.is_err(),
+                    "verify_certificate_proof should reject a message that does not match the \
+                     one the proof committed to",
+                );
+            }
+
+            #[test]
+            fn rejects_mismatched_avk() {
+                let setup = build_setup();
+                let verification_context = load_embedded_verification_context_asset()
+                    .expect("verification context asset should load");
+                let step = load_embedded_following_certificate_in_epoch_asset()
+                    .expect("same-epoch step output asset should load");
+
+                let certificate_proof = wrap_snark_proof(
+                    &verification_context,
+                    step.certificate_proof.clone().into_vec(),
+                );
+                let mut tampered_root = step.aggregate_verification_key_merkle_root;
+                tampered_root[0] ^= 0xFF;
+                let wrong_avk = wrap_avk(&tampered_root);
+
+                let result =
+                    verify_certificate_proof(&certificate_proof, &step.message, &wrong_avk, &setup);
+                assert!(
+                    result.is_err(),
+                    "verify_certificate_proof should reject an AVK that does not match the one \
+                     the proof committed to",
+                );
+            }
+        }
     }
 }
