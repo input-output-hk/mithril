@@ -9,6 +9,7 @@ use crate::circuits::halo2::types::CircuitBase;
 pub(crate) mod errors;
 pub(crate) mod proof;
 mod prover_input;
+mod prover_input_helpers;
 mod rolling_state;
 mod setup;
 mod unsafe_setup_helpers;
