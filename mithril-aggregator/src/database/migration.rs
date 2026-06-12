@@ -332,5 +332,14 @@ delete from buffered_single_signature where buffered_single_signature.signed_ent
 delete from signed_entity_type where signed_entity_type.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 44
+        // Add `ancillary_prover_data` and `ancillary_verifier_data` columns to `certificate` table.
+        SqlMigration::new(
+            44,
+            r#"
+alter table certificate add column ancillary_prover_data text;
+alter table certificate add column ancillary_verifier_data text;
+        "#,
+        ),
     ]
 }

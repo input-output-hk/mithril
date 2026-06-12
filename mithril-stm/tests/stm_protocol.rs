@@ -30,9 +30,9 @@ fn test_full_protocol() {
         operation_phase(params, signers, reg_parties, msg);
 
     match msig {
-        Ok(aggr) => {
+        Ok((aggr, ancillary_verifier_data)) => {
             println!("Aggregate ok");
-            assert!(aggr.verify(&msg, &avk, &params).is_ok());
+            assert!(aggr.verify(&msg, &avk, &params, ancillary_verifier_data).is_ok());
         }
         Err(error) => match error.downcast_ref::<AggregationError>() {
             Some(AggregationError::NotEnoughSignatures(n, k)) => {
@@ -59,6 +59,7 @@ fn test_full_protocol_batch_verify() {
     let mut aggr_stms = Vec::new();
     let mut batch_msgs = Vec::new();
     let mut batch_params = Vec::new();
+    let mut batch_ancillary_verifier_datas = Vec::new();
 
     let params = Parameters {
         k: 357,
@@ -79,12 +80,20 @@ fn test_full_protocol_batch_verify() {
             operation_phase(params, signers, reg_parties, msg);
 
         aggr_avks.push(avk);
-        aggr_stms.push(msig.unwrap());
+        let (signature, ancillary_verifier_data) = msig.unwrap();
+        aggr_stms.push(signature);
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
+        batch_ancillary_verifier_datas.push(ancillary_verifier_data);
     }
     assert!(
-        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params)
-            .is_ok()
+        AggregateSignature::batch_verify(
+            &aggr_stms,
+            &batch_msgs,
+            &aggr_avks,
+            &batch_params,
+            &batch_ancillary_verifier_datas
+        )
+        .is_ok()
     );
 }

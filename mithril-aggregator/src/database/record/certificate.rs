@@ -113,6 +113,12 @@ pub struct CertificateRecord {
     /// Aggregate verification key for SNARK
     pub aggregate_verification_key_snark: Option<HexEncodedVerificationKeyForSnark>,
 
+    /// Ancillary data used by the prover to produce the next certificate, hex-encoded.
+    pub ancillary_prover_data: Option<HexEncodedKey>,
+
+    /// Ancillary data used to verify the certificate, hex-encoded.
+    pub ancillary_verifier_data: Option<HexEncodedKey>,
+
     /// Epoch of creation of the certificate.
     pub epoch: Epoch,
 
@@ -180,6 +186,8 @@ impl CertificateRecord {
                 [0]
             .to_owned(),
             aggregate_verification_key_snark: None,
+            ancillary_prover_data: None,
+            ancillary_verifier_data: None,
             epoch,
             network: fake_data::network().to_string(),
             signed_entity_type,
@@ -230,6 +238,15 @@ impl TryFrom<Certificate> for CertificateRecord {
         #[cfg(not(feature = "future_snark"))]
         let aggregate_verification_key_snark: Option<HexEncodedKey> = None;
 
+        let ancillary_prover_data = other
+            .ancillary_prover_data
+            .map(|data| data.to_bytes_hex())
+            .transpose()?;
+        let ancillary_verifier_data = other
+            .ancillary_verifier_data
+            .map(|data| data.to_bytes_hex())
+            .transpose()?;
+
         let certificate_record = CertificateRecord {
             certificate_id: other.hash,
             parent_certificate_id,
@@ -237,6 +254,8 @@ impl TryFrom<Certificate> for CertificateRecord {
             signature,
             aggregate_verification_key: other.aggregate_verification_key.to_json_hex()?,
             aggregate_verification_key_snark,
+            ancillary_prover_data,
+            ancillary_verifier_data,
             epoch: other.epoch,
             network: other.metadata.network,
             signed_entity_type,
@@ -289,6 +308,15 @@ impl TryFrom<CertificateRecord> for Certificate {
             .map(|hex| hex.as_str().try_into())
             .transpose()?;
 
+        let ancillary_prover_data = other
+            .ancillary_prover_data
+            .map(|hex_data| hex_data.try_into())
+            .transpose()?;
+        let ancillary_verifier_data = other
+            .ancillary_verifier_data
+            .map(|hex_data| hex_data.try_into())
+            .transpose()?;
+
         let certificate = Certificate {
             hash: other.certificate_id,
             previous_hash,
@@ -299,6 +327,8 @@ impl TryFrom<CertificateRecord> for Certificate {
             aggregate_verification_key: other.aggregate_verification_key.try_into()?,
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark,
+            ancillary_prover_data,
+            ancillary_verifier_data,
             signature,
         };
 
@@ -350,6 +380,8 @@ impl From<CertificateRecord> for CertificateMessage {
             aggregate_verification_key: value.aggregate_verification_key,
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark: value.aggregate_verification_key_snark,
+            ancillary_prover_data: value.ancillary_prover_data,
+            ancillary_verifier_data: value.ancillary_verifier_data,
             multi_signature,
             genesis_signature,
             #[cfg(feature = "future_snark")]
@@ -404,6 +436,8 @@ impl SqLiteEntity for CertificateRecord {
         let signers_string = row.read::<&str, _>(13);
         let initiated_at = row.read::<&str, _>(14);
         let sealed_at = row.read::<&str, _>(15);
+        let ancillary_prover_data = row.read::<Option<&str>, _>(16).map(|s| s.to_owned());
+        let ancillary_verifier_data = row.read::<Option<&str>, _>(17).map(|s| s.to_owned());
 
         let certificate_record = Self {
             certificate_id,
@@ -412,6 +446,8 @@ impl SqLiteEntity for CertificateRecord {
             signature,
             aggregate_verification_key,
             aggregate_verification_key_snark,
+            ancillary_prover_data,
+            ancillary_verifier_data,
             epoch: Epoch(epoch_int.try_into().map_err(|e| {
                 HydrationError::InvalidData(format!(
                     "Could not cast i64 ({epoch_int}) to u64. Error: '{e}'"
@@ -517,6 +553,16 @@ impl SqLiteEntity for CertificateRecord {
         projection.add_field("signers", "{:certificate:}.signers", "text");
         projection.add_field("initiated_at", "{:certificate:}.initiated_at", "text");
         projection.add_field("sealed_at", "{:certificate:}.sealed_at", "text");
+        projection.add_field(
+            "ancillary_prover_data",
+            "{:certificate:}.ancillary_prover_data",
+            "text",
+        );
+        projection.add_field(
+            "ancillary_verifier_data",
+            "{:certificate:}.ancillary_verifier_data",
+            "text",
+        );
 
         projection
     }

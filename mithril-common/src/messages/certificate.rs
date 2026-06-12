@@ -56,6 +56,14 @@ pub struct CertificateMessage {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub aggregate_verification_key_snark: Option<String>,
 
+    /// Ancillary data used by the prover to produce the next certificate, hex-encoded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ancillary_prover_data: Option<String>,
+
+    /// Ancillary data used to verify the certificate, hex-encoded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ancillary_verifier_data: Option<String>,
+
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
     pub multi_signature: String,
@@ -163,6 +171,8 @@ impl Debug for CertificateMessage {
                     "aggregate_verification_key_snark",
                     &self.aggregate_verification_key_snark,
                 );
+                debug.field("ancillary_prover_data", &self.ancillary_prover_data);
+                debug.field("ancillary_verifier_data", &self.ancillary_verifier_data);
                 debug
                     .field("multi_signature", &self.multi_signature)
                     .field("genesis_signature", &self.genesis_signature);
@@ -209,6 +219,20 @@ impl TryFrom<CertificateMessage> for Certificate {
                 .with_context(|| {
                 "Can not convert message to certificate: can not decode the aggregate verification key for SNARK"
             })?,
+            ancillary_prover_data: certificate_message
+                .ancillary_prover_data
+                .map(|hex_data| hex_data.try_into())
+                .transpose()
+                .with_context(|| {
+                    "Can not convert message to certificate: can not decode the ancillary prover data"
+                })?,
+            ancillary_verifier_data: certificate_message
+                .ancillary_verifier_data
+                .map(|hex_data| hex_data.try_into())
+                .transpose()
+                .with_context(|| {
+                    "Can not convert message to certificate: can not decode the ancillary verifier data"
+                })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateMessage::multi_signature_from_message(
                     certificate_message.signed_entity_type,
@@ -290,6 +314,20 @@ impl TryFrom<Certificate> for CertificateMessage {
                 .with_context(|| {
                     "Can not convert certificate to message: can not encode aggregate verification key for SNARK"
                 })?,
+            ancillary_prover_data: certificate
+                .ancillary_prover_data
+                .map(|data| data.to_bytes_hex())
+                .transpose()
+                .with_context(|| {
+                    "Can not convert certificate to message: can not encode the ancillary prover data"
+                })?,
+            ancillary_verifier_data: certificate
+                .ancillary_verifier_data
+                .map(|data| data.to_bytes_hex())
+                .transpose()
+                .with_context(|| {
+                    "Can not convert certificate to message: can not encode the ancillary verifier data"
+                })?,
             multi_signature,
             genesis_signature,
             #[cfg(feature = "future_snark")]
@@ -357,6 +395,8 @@ mod tests {
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark: None,
+            ancillary_prover_data: None,
+            ancillary_verifier_data: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
             #[cfg(feature = "future_snark")]

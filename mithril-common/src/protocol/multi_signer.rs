@@ -1,12 +1,26 @@
 use anyhow::Context;
-use mithril_stm::{AggregateSignatureType, Parameters};
+use mithril_stm::{AggregateSignatureType, AncillaryProofInput, Parameters};
 
 use crate::{
     StdResult,
-    crypto_helper::{ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolMultiSignature},
+    crypto_helper::{
+        ProtocolAggregateVerificationKey, ProtocolAncillaryVerifierData, ProtocolClerk,
+        ProtocolMultiSignature,
+    },
     entities::SingleSignature,
     protocol::ToMessage,
 };
+
+/// A multi-signature together with the ancillary verifier data produced during its creation.
+#[derive(Debug, Clone)]
+pub struct MultiSignatureWithAncillaryVerifierData {
+    /// The produced multi-signature.
+    pub multi_signature: ProtocolMultiSignature,
+
+    /// The ancillary verifier data produced during aggregation, absent when the proof system
+    /// produces none.
+    pub ancillary_verifier_data: Option<ProtocolAncillaryVerifierData>,
+}
 
 /// MultiSigner is the cryptographic engine in charge of producing multi-signatures from individual signatures
 pub struct MultiSigner {
@@ -28,19 +42,26 @@ impl MultiSigner {
         single_signatures: &[SingleSignature],
         message: &T,
         aggregate_signature_type: AggregateSignatureType,
-    ) -> StdResult<ProtocolMultiSignature> {
+        ancillary_input: AncillaryProofInput,
+    ) -> StdResult<MultiSignatureWithAncillaryVerifierData> {
         let protocol_signatures: Vec<_> = single_signatures
             .iter()
             .map(|single_signature| single_signature.to_protocol_signature())
             .collect();
 
-        self.protocol_clerk
-            .aggregate_signatures_with_type(
+        let (multi_signature, ancillary_verifier_data) =
+            self.protocol_clerk.aggregate_signatures_with_type(
                 &protocol_signatures,
                 message.to_message().as_bytes(),
                 aggregate_signature_type,
-            )
-            .map(|multi_sig| multi_sig.into())
+                ancillary_input,
+            )?;
+
+        Ok(MultiSignatureWithAncillaryVerifierData {
+            multi_signature: multi_signature.into(),
+            ancillary_verifier_data: ancillary_verifier_data
+                .map(ProtocolAncillaryVerifierData::new),
+        })
     }
 
     /// Compute aggregate verification key from stake distribution
@@ -96,7 +117,7 @@ mod test {
         protocol::SignerBuilder,
         test::{
             builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
-            double::fake_keys,
+            double::{Dummy, fake_keys},
         },
     };
 
@@ -118,7 +139,12 @@ mod test {
         let message = ProtocolMessage::default();
 
         let error = multi_signer
-            .aggregate_single_signatures(&[], &message, AggregateSignatureType::default())
+            .aggregate_single_signatures(
+                &[],
+                &message,
+                AggregateSignatureType::default(),
+                AncillaryProofInput::dummy(),
+            )
             .expect_err(
                 "Multi-signature should not be created with an empty single signatures list",
             );
@@ -144,7 +170,12 @@ mod test {
             .collect();
 
         multi_signer
-            .aggregate_single_signatures(&signatures, &message, AggregateSignatureType::default())
+            .aggregate_single_signatures(
+                &signatures,
+                &message,
+                AggregateSignatureType::default(),
+                AncillaryProofInput::dummy(),
+            )
             .expect("Multi-signature should be created");
     }
 
@@ -165,7 +196,12 @@ mod test {
         signatures[4].signature = fake_keys::single_signature()[3].try_into().unwrap();
 
         multi_signer
-            .aggregate_single_signatures(&signatures, &message, AggregateSignatureType::default())
+            .aggregate_single_signatures(
+                &signatures,
+                &message,
+                AggregateSignatureType::default(),
+                AncillaryProofInput::dummy(),
+            )
             .expect("Multi-signature should be created even with one invalid signature");
     }
 

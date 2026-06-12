@@ -1,9 +1,13 @@
 mod aggregate_key;
+mod ancillary_data;
 mod clerk;
 mod error;
 mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
+pub use ancillary_data::{
+    AncillaryGenesisData, AncillaryProofInput, AncillaryProverData, AncillaryVerifierData,
+};
 pub use clerk::Clerk;
 pub use error::{AggregateSignatureError, AggregationError};
 pub use signature::{AggregateSignature, AggregateSignatureType};
@@ -26,7 +30,7 @@ mod tests {
 
     use super::{
         AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
-        Clerk,
+        AncillaryProofInput, AncillaryVerifierData, Clerk,
     };
 
     type Sig = AggregateSignature<D>;
@@ -163,7 +167,7 @@ mod tests {
 
     #[derive(Debug)]
     struct ProofTest {
-        msig: StmResult<Sig>,
+        msig: StmResult<(Sig, Option<AncillaryVerifierData>)>,
         clerk: Clerk<D>,
         msg: [u8; 16],
     }
@@ -184,7 +188,12 @@ mod tests {
                 let sigs = find_signatures(&msg, &ps, &all_ps);
 
                 let aggr_sig_type = AggregateSignatureType::Concatenation;
-                let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+                let msig = clerk.aggregate_signatures_with_type(
+                    &sigs,
+                    &msg,
+                    aggr_sig_type,
+                    AncillaryProofInput::dummy(),
+                );
                 ProofTest { msig, clerk, msg }
             })
         })
@@ -195,13 +204,14 @@ mod tests {
         F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 16]),
     {
         match tc.msig {
-            Ok(mut aggr) => {
+            Ok((mut aggr, ancillary_verifier_data)) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 assert!(
                     aggr.verify(
                         &tc.msg,
                         &tc.clerk.compute_aggregate_verification_key(),
-                        &tc.clerk.get_concatenation_clerk().parameters
+                        &tc.clerk.get_concatenation_clerk().parameters,
+                        ancillary_verifier_data
                     )
                     .is_err()
                 )
@@ -227,12 +237,12 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
 
             match msig {
-                Ok(aggr) => {
+                Ok((aggr, ancillary_verifier_data)) => {
                     println!("Aggregate ok");
-                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
+                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
                 }
                 Err(error) => match error.downcast_ref::<AggregationError>() {
                     Some(AggregationError::NotEnoughSignatures(n, k)) => {
@@ -313,11 +323,11 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
-            if let Ok(aggr) = msig {
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
+            if let Ok((aggr, ancillary_verifier_data)) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes().expect("AggregateSignature serialization should not fail");
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
-                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
+                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
             }
         }
     }
@@ -397,6 +407,7 @@ mod tests {
                 let mut aggr_stms = Vec::new();
                 let mut batch_msgs = Vec::new();
                 let mut batch_params = Vec::new();
+                let mut batch_ancillary_verifier_datas = Vec::new();
                 for _ in 0..batch_size {
                     let mut msg = [0u8; 32];
                     rng.fill_bytes(&mut msg);
@@ -406,14 +417,15 @@ mod tests {
 
                     let all_ps: Vec<usize> = (0..nparties).collect();
                     let sigs = find_signatures(&msg, &ps, &all_ps);
-                    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+                    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
 
                     match msig {
-                        Ok(aggr) => {
+                        Ok((aggr, ancillary_verifier_data)) => {
                             aggr_avks.push(clerk.compute_aggregate_verification_key());
                             aggr_stms.push(aggr);
                             batch_msgs.push(msg.to_vec());
                             batch_params.push(params);
+                            batch_ancillary_verifier_datas.push(ancillary_verifier_data);
                         }
                         Err(error) => { assert!(
                             matches!(
@@ -425,13 +437,13 @@ mod tests {
                     }
                 }
 
-                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_ok());
 
                 if aggr_stms.len() >= 2 {
                     let mut swapped_msgs = batch_msgs.clone();
                     swapped_msgs.swap(0, 1);
                     assert!(
-                        AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params).is_err(),
+                        AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_err(),
                         "Batch verify should reject swapped messages"
                     );
 
@@ -448,7 +460,7 @@ mod tests {
                     let mut wrong_avks = aggr_avks.clone();
                     wrong_avks[0] = wrong_avk;
                     assert!(
-                        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params).is_err(),
+                        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params, &batch_ancillary_verifier_datas).is_err(),
                         "Batch verify should reject a wrong avk"
                     );
                 }
@@ -461,10 +473,10 @@ mod tests {
 
                 let all_ps: Vec<usize> = (0..nparties).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
-                let fake_msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
+                let (fake_msig, _ancillary_verifier_data) = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy()).unwrap();
 
-                aggr_stms[0] = fake_msig.unwrap();
-                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
+                aggr_stms[0] = fake_msig;
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_err());
             }
         }
 
@@ -498,7 +510,7 @@ mod tests {
                 let clerk = Clerk::new_clerk_from_signer(&ps[0]);
                 let aggr_sig_type = AggregateSignatureType::Concatenation;
 
-                let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
+                let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy()).expect_err("Not enough quorum should fail!");
                 assert!(
                     matches!(
                         error.downcast_ref::<AggregationError>(),

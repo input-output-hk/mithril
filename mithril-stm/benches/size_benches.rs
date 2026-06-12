@@ -5,8 +5,9 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, Initializer, KeyRegistration, MembershipDigest,
-    MithrilMembershipDigest, Parameters, Signer, SingleSignature,
+    AggregateSignatureType, AncillaryGenesisData, AncillaryProofInput, Clerk, Initializer,
+    KeyRegistration, MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
+    SingleSignature,
 };
 
 #[cfg(feature = "future_snark")]
@@ -50,8 +51,20 @@ where
 
     // Aggregate with random parties
     let aggr_sig_type = AggregateSignatureType::Concatenation;
-    let aggr = clerk
-        .aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type)
+    let (aggr, _ancillary_verifier_data) = clerk
+        .aggregate_signatures_with_type(
+            &sigs,
+            &msg,
+            aggr_sig_type,
+            AncillaryProofInput::new(
+                None,
+                AncillaryGenesisData::new(
+                    Vec::new(),
+                    #[cfg(feature = "future_snark")]
+                    None,
+                ),
+            ),
+        )
         .unwrap();
 
     println!(

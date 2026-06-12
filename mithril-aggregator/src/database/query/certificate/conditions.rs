@@ -24,9 +24,11 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
         protocol_message, \
         signers, \
         initiated_at, \
-        sealed_at)";
+        sealed_at, \
+        ancillary_prover_data, \
+        ancillary_verifier_data)";
     let values_columns: Vec<&str> = repeat_n(
-        "(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
+        "(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
         certificates_records.len(),
     )
     .collect();
@@ -65,6 +67,14 @@ pub(super) fn insert_many(certificates_records: Vec<CertificateRecord>) -> Where
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
                 Value::String(certificate_record.initiated_at.to_rfc3339()),
                 Value::String(certificate_record.sealed_at.to_rfc3339()),
+                certificate_record
+                    .ancillary_prover_data
+                    .map(Value::String)
+                    .unwrap_or(Value::Null),
+                certificate_record
+                    .ancillary_verifier_data
+                    .map(Value::String)
+                    .unwrap_or(Value::Null),
             ]
         })
         .collect();

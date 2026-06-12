@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, Initializer, KeyRegistration,
-    MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
+    AggregateSignature, AggregateSignatureType, AncillaryGenesisData, AncillaryProofInput, Clerk,
+    Initializer, KeyRegistration, MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
 };
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -70,7 +70,21 @@ fn stm_benches<D: MembershipDigest>(
     let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type))
+        b.iter(|| {
+            clerk.aggregate_signatures_with_type(
+                &sigs,
+                &msg,
+                aggregate_signature_type,
+                AncillaryProofInput::new(
+                    None,
+                    AncillaryGenesisData::new(
+                        Vec::new(),
+                        #[cfg(feature = "future_snark")]
+                        None,
+                    ),
+                ),
+            )
+        })
     });
 }
 
@@ -98,6 +112,7 @@ fn batch_benches<D>(
         let mut batch_params = Vec::with_capacity(nr_batches);
         let mut batch_stms: Vec<AggregateSignature<D>> = Vec::with_capacity(nr_batches);
         let mut batch_avks = Vec::with_capacity(nr_batches);
+        let mut batch_ancillary_verifier_datas = Vec::with_capacity(nr_batches);
 
         for _ in 0..nr_batches {
             let mut msg = [0u8; 32];
@@ -132,12 +147,25 @@ fn batch_benches<D>(
 
             let clerk = Clerk::new_clerk_from_signer(&signers[0]);
             let aggregate_signature_type = AggregateSignatureType::Concatenation;
-            let msig = clerk
-                .aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type)
+            let (msig, ancillary_verifier_data) = clerk
+                .aggregate_signatures_with_type(
+                    &sigs,
+                    &msg,
+                    aggregate_signature_type,
+                    AncillaryProofInput::new(
+                        None,
+                        AncillaryGenesisData::new(
+                            Vec::new(),
+                            #[cfg(feature = "future_snark")]
+                            None,
+                        ),
+                    ),
+                )
                 .unwrap();
 
             batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);
+            batch_ancillary_verifier_datas.push(ancillary_verifier_data);
         }
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
@@ -147,6 +175,7 @@ fn batch_benches<D>(
                     &batch_msgs,
                     &batch_avks,
                     &batch_params,
+                    &batch_ancillary_verifier_datas,
                 )
                 .is_ok()
             })

@@ -1,5 +1,5 @@
 use hex::ToHex;
-use mithril_stm::AggregateSignatureType;
+use mithril_stm::{AggregateSignatureType, AncillaryGenesisData, AncillaryProofInput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -169,13 +169,22 @@ impl Party {
         signatures: &[ProtocolSingleSignature],
     ) -> Option<&ProtocolMultiSignature> {
         let aggregate_signature_type = AggregateSignatureType::Concatenation;
+        let ancillary_input = AncillaryProofInput::new(
+            None,
+            AncillaryGenesisData::new(
+                Vec::new(),
+                #[cfg(feature = "future_snark")]
+                None,
+            ),
+        );
         let msig = self.clerk.as_ref().unwrap().aggregate_signatures_with_type(
             signatures,
             message,
             aggregate_signature_type,
+            ancillary_input,
         );
         match msig {
-            Ok(aggregate_signature) => {
+            Ok((aggregate_signature, _ancillary_verifier_data)) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);
                 self.msigs.insert(message.clone(), aggregate_signature);
                 self.get_aggregate(message)
@@ -202,6 +211,7 @@ impl Party {
                 message,
                 &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
                 &self.params.unwrap(),
+                None,
             ) {
                 Ok(_) => {
                     println!(
@@ -305,6 +315,7 @@ impl Verifier {
             message,
             &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
             &self.params.unwrap(),
+            None,
         ) {
             Ok(_) => {
                 println!(

@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.65
+  version: 0.1.66
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1759,6 +1759,18 @@ components:
             `aggregate_verification_key` on Lagrange-era certificates. Omitted on
             Pythagoras and pre-Lagrange certificates: clients that ignore this field
             remain compatible with the pre-Lagrange wire format.
+          type: string
+          format: bytes
+        ancillary_prover_data:
+          description: |
+            Hex-encoded ancillary data used by the prover to produce the next certificate. Omitted
+            when absent. Its shape depends on the aggregate signature type.
+          type: string
+          format: bytes
+        ancillary_verifier_data:
+          description: |
+            Hex-encoded ancillary data used to verify the certificate. Omitted when absent. Its
+            shape depends on the aggregate signature type.
           type: string
           format: bytes
         multi_signature:

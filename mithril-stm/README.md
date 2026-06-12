@@ -68,8 +68,9 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-    RegistrationEntry, Signer, SingleSignature, MithrilMembershipDigest, AggregateVerificationKey,
+    AggregateSignatureType, AggregationError, AncillaryGenesisData, AncillaryProofInput, Clerk,
+    Initializer, KeyRegistration, Parameters, RegistrationEntry, Signer, SingleSignature,
+    MithrilMembershipDigest, AggregateVerificationKey,
 };
 
 type D = MithrilMembershipDigest;
@@ -135,12 +136,13 @@ for s in sigs.iter() {
 }
 
 // Aggregate a concatenation proof with random parties
-let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
+let ancillary_input = AncillaryProofInput::new(None, AncillaryGenesisData::new(Vec::new(), #[cfg(feature = "future_snark")] None));
+let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation, ancillary_input);
 
 match msig {
-    Ok(aggr) => {
+    Ok((aggr, ancillary_verifier_data)) => {
         println!("Aggregate ok");
-        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
+        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
     }
     Err(error) => match error.downcast_ref::<AggregationError>() {
         Some(AggregationError::NotEnoughSignatures(n, k)) => {
