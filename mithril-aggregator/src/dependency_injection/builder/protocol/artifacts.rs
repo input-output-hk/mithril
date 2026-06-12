@@ -39,8 +39,13 @@ impl DependenciesBuilder {
         let mithril_stake_distribution_artifact_builder = Arc::new(
             MithrilStakeDistributionArtifactBuilder::new(epoch_service.clone()),
         );
-        let cardano_node_version = Version::parse(&self.configuration.cardano_node_version())
-            .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version()), error: Some(e.into()) })?;
+        let cardano_node_version =
+            self.configuration.parsed_cardano_node_version().map_err(|e| {
+                DependenciesBuilderError::Initialization {
+                    message: "Error while retrieving cardano node version".to_string(),
+                    error: Some(e),
+                }
+            })?;
         let legacy_prover_service = self.get_legacy_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
             CardanoTransactionsArtifactBuilder::new(legacy_prover_service.clone()),
@@ -144,6 +149,7 @@ impl DependenciesBuilder {
                     self.configuration.get_snapshot_dir()?.join("pending_snapshot");
 
                 Arc::new(CompressedArchiveSnapshotter::new(
+                    self.configuration.parsed_cardano_node_version()?,
                     self.configuration.db_directory().clone(),
                     ongoing_snapshot_directory,
                     self.configuration.snapshot_compression_algorithm(),
