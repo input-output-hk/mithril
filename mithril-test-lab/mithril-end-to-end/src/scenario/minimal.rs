@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use slog_scope::{info, warn};
+use slog_scope::info;
 use tokio::task::JoinSet;
 
 use mithril_common::{
@@ -9,7 +9,7 @@ use mithril_common::{
 };
 
 use crate::{
-    Aggregator, MithrilInfrastructure, NodeVersion,
+    Aggregator, MithrilInfrastructure,
     toolkit::ScenarioToolkit,
     utils::{
         randomly_take_blocks_hashes, randomly_take_transactions_hashes,
@@ -17,56 +17,22 @@ use crate::{
     },
 };
 
-pub struct FullScenario {
+pub struct MinimalScenario {
     toolkit: ScenarioToolkit,
     infrastructure: Arc<MithrilInfrastructure>,
-    is_signing_cardano_transactions: bool,
-    is_signing_cardano_blocks_transactions: bool,
-    is_signing_cardano_stake_distribution: bool,
-    is_signing_cardano_database: bool,
-    check_client_cli_snapshot_converter: bool,
-    next_era: Option<String>,
-    regenesis_on_era_switch: bool,
+    signed_entity_type: SignedEntityTypeDiscriminants,
 }
 
-impl FullScenario {
+impl MinimalScenario {
     pub fn new(
         toolkit: ScenarioToolkit,
         infrastructure: Arc<MithrilInfrastructure>,
-        signed_entity_types: Vec<String>,
-        check_client_cli_snapshot_converter: bool,
-        next_era: Option<String>,
-        regenesis_on_era_switch: bool,
+        signed_entity_type: SignedEntityTypeDiscriminants,
     ) -> Self {
-        let is_signing_cardano_blocks_transactions = {
-            let contains_cardano_blocks_transactions = signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoBlocksTransactions.to_string());
-
-            if contains_cardano_blocks_transactions
-                && !infrastructure.can_certify_cardano_blocks_transactions()
-            {
-                warn!(
-                    "Aggregator(s) version below 0.8.25 or Signer(s) version below 0.3.18, skipping CardanoBlocksTransactions checks"
-                );
-                false
-            } else {
-                contains_cardano_blocks_transactions
-            }
-        };
-
         Self {
             infrastructure,
             toolkit,
-            is_signing_cardano_transactions: signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
-            is_signing_cardano_blocks_transactions,
-            is_signing_cardano_stake_distribution: signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string()),
-            is_signing_cardano_database: signed_entity_types
-                .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
-            check_client_cli_snapshot_converter,
-            next_era,
-            regenesis_on_era_switch,
+            signed_entity_type,
         }
     }
 
@@ -74,11 +40,24 @@ impl FullScenario {
         let mut join_set = JoinSet::new();
         let spec = Arc::new(self);
 
-        // Transfer some funds on the devnet to have some Cardano transactions to sign.
-        // This step needs to be executed early in the process so that the transactions are available
-        // for signing in the penultimate immutable chunk before the end of the test.
-        // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
-        spec.toolkit.exec.transfer_funds(spec.infrastructure.devnet()).await?;
+        // Delegate some stakes to pools
+        let delegation_round = 1;
+        spec.toolkit
+            .exec
+            .delegate_stakes_to_pools(spec.infrastructure.devnet(), delegation_round)
+            .await?;
+
+        if matches!(
+            &spec.signed_entity_type,
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution
+                | SignedEntityTypeDiscriminants::CardanoTransactions
+        ) {
+            // Transfer some funds on the devnet to have some Cardano transactions to sign.
+            // This step needs to be executed early in the process so that the transactions are available
+            // for signing in the penultimate immutable chunk before the end of the test.
+            // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
+            spec.toolkit.exec.transfer_funds(spec.infrastructure.devnet()).await?;
+        }
 
         info!("Bootstrapping leader aggregator");
         spec.bootstrap_leader_aggregator(&spec.infrastructure).await?;
@@ -118,7 +97,7 @@ impl FullScenario {
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
-        let mut target_epoch = start_epoch + 4;
+        let target_epoch = start_epoch + 4;
         self.toolkit
             .wait
             .for_aggregator_at_target_epoch(
@@ -134,24 +113,6 @@ impl FullScenario {
             .await?;
         self.toolkit.wait.for_epoch_settings(leader_aggregator).await?;
 
-        // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
-        target_epoch += 2;
-        self.toolkit
-            .wait
-            .for_aggregator_at_target_epoch(
-                leader_aggregator,
-                target_epoch,
-                "epoch after which the stake distribution will change".to_string(),
-            )
-            .await?;
-
-        // Delegate some stakes to pools
-        let delegation_round = 1;
-        self.toolkit
-            .exec
-            .delegate_stakes_to_pools(infrastructure.devnet(), delegation_round)
-            .await?;
-
         Ok(())
     }
 
@@ -163,87 +124,20 @@ impl FullScenario {
         let chain_observer = aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
-        // Wait 2 epochs before changing protocol parameters
-        let mut target_epoch = start_epoch + 2;
+        // Wait 2 epochs after genesis certificate creation
+        let target_epoch = start_epoch + 2;
         self.toolkit
             .wait
             .for_aggregator_at_target_epoch(
                 aggregator,
                 target_epoch,
-                "epoch after which the protocol parameters will change".to_string(),
+                "epoch after which a minimal number of certificates have been produced".to_string(),
             )
             .await?;
 
-        if aggregator.is_first() || aggregator.version().is_below("0.7.94") {
-            self.toolkit
-                .exec
-                .update_protocol_parameters(aggregator, infrastructure.aggregate_signature_type())
-                .await?;
-        }
-
-        // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
-        target_epoch += 6;
-        self.toolkit.wait.for_aggregator_at_target_epoch(
-            aggregator,
-            target_epoch,
-            "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
-        )
-        .await?;
-
         // Verify that artifacts are produced and signed correctly
-        let mut target_epoch = self
-            .verify_artifacts_production(target_epoch, aggregator, infrastructure)
+        self.verify_artifacts_production(target_epoch, aggregator, infrastructure)
             .await?;
-
-        // Verify that artifacts are produced and signed correctly after era switch
-        if let Some(next_era) = &self.next_era {
-            // Switch to next era
-            if aggregator.is_first() {
-                infrastructure.register_switch_to_next_era(next_era).await?;
-            }
-            target_epoch += 5;
-            self.toolkit
-                .wait
-                .for_aggregator_at_target_epoch(
-                    aggregator,
-                    target_epoch,
-                    "epoch after which the era switch will have triggered".to_string(),
-                )
-                .await?;
-
-            // Proceed to a re-genesis of the certificate chain
-            if self.regenesis_on_era_switch {
-                self.toolkit.exec.bootstrap_genesis_certificate(aggregator).await?;
-                target_epoch += 5;
-                self.toolkit
-                    .wait
-                    .for_aggregator_at_target_epoch(
-                        aggregator,
-                        target_epoch,
-                        "epoch after which the re-genesis on era switch will be completed"
-                            .to_string(),
-                    )
-                    .await?;
-            }
-
-            // Verify that artifacts are produced and signed correctly
-            self.verify_artifacts_production(target_epoch, aggregator, infrastructure)
-                .await?;
-        }
-
-        // Check the ledger snapshot conversion step using utxo-hd snapshot-converter
-        if self.check_client_cli_snapshot_converter {
-            let mut client = infrastructure.build_client(aggregator).await?;
-            self.toolkit
-                .check
-                .client_can_convert_the_ledger_snapshot(
-                    &mut client,
-                    aggregator.full_node(),
-                    infrastructure.devnet().artifacts_dir(),
-                    NodeVersion::new(infrastructure.cardano_node_version().clone()),
-                )
-                .await?;
-        }
 
         Ok(())
     }
@@ -256,7 +150,7 @@ impl FullScenario {
     ) -> StdResult<Epoch> {
         let mut client = infrastructure.build_client(aggregator).await?;
 
-        let expected_epoch_min = target_epoch - 3;
+        let expected_epoch_min = target_epoch - 1;
         let immutable_files_directory = aggregator.db_directory().join("immutable");
         let blocks_transactions =
             retrieve_blocks_transactions_from_immutable_files(&immutable_files_directory)?;
@@ -284,7 +178,7 @@ impl FullScenario {
             .await?;
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
-        if self.is_signing_cardano_database {
+        if self.signed_entity_type == SignedEntityTypeDiscriminants::CardanoDatabase {
             self.toolkit
                 .check
                 .cardano_database
@@ -298,7 +192,7 @@ impl FullScenario {
         }
 
         // Verify that Cardano transactions artifacts are produced and signed correctly
-        if self.is_signing_cardano_transactions {
+        if self.signed_entity_type == SignedEntityTypeDiscriminants::CardanoTransactions {
             self.toolkit
                 .check
                 .cardano_transactions
@@ -313,7 +207,7 @@ impl FullScenario {
         }
 
         // Verify that Cardano blocks transactions artifacts are produced and signed correctly
-        if self.is_signing_cardano_blocks_transactions {
+        if self.signed_entity_type == SignedEntityTypeDiscriminants::CardanoBlocksTransactions {
             self.toolkit
                 .check
                 .cardano_blocks_transactions
@@ -329,7 +223,7 @@ impl FullScenario {
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
-        if self.is_signing_cardano_stake_distribution {
+        if self.signed_entity_type == SignedEntityTypeDiscriminants::CardanoStakeDistribution {
             {
                 self.toolkit
                     .check

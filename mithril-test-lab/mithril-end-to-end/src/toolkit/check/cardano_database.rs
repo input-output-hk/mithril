@@ -99,7 +99,7 @@ impl CheckCardanoDatabaseToolkit {
             }
         }
 
-        match attempt!(30, self.context.tenth_epoch_delay(), {
+        match attempt!(10, self.context.tenth_epoch_delay(), {
             fetch_cardano_database_digests_map(url.clone()).await
         }) {
             AttemptResult::Ok(cardano_database_digests_map) => {
@@ -107,7 +107,7 @@ impl CheckCardanoDatabaseToolkit {
                 Ok(cardano_database_digests_map)
             }
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
             "Timeout exhausted assert_node_producing_cardano_database_digests_map, no response from `{url}`"
         )),
         }.with_context(|| {

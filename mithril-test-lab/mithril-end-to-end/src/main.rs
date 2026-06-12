@@ -17,9 +17,9 @@ use tokio::{
     task::JoinSet,
 };
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 use mithril_doc::GenerateDocCommands;
-use mithril_end_to_end::scenario::{FullScenario, RunOnlyScenario};
+use mithril_end_to_end::scenario::{FullScenario, MinimalScenario, RunOnlyScenario};
 use mithril_end_to_end::toolkit::{ScenarioToolkit, ScenarioToolkitContext};
 use mithril_end_to_end::{
     AggregateSignatureType, Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError,
@@ -90,6 +90,11 @@ enum ScenarioArgs {
         )]
         signed_entity_types: Vec<String>,
     },
+    Minimal {
+        /// Additional signed entity type to enable.
+        #[clap(long, default_value_t = SignedEntityTypeDiscriminants::CardanoDatabase)]
+        signed_entity_type: SignedEntityTypeDiscriminants,
+    },
     /// Bootstrap a Cardano devnet, Mithril Aggregators and Signers, and run continuously
     RunOnly {
         /// Signed entity types parameters (discriminants names in an ordered comma separated list).
@@ -121,6 +126,7 @@ impl ScenarioArgs {
                 signed_entity_types,
                 ..
             } => signed_entity_types.clone(),
+            ScenarioArgs::Minimal { signed_entity_type } => vec![signed_entity_type.to_string()],
             ScenarioArgs::RunOnly {
                 signed_entity_types,
                 ..
@@ -531,6 +537,12 @@ impl App {
                 .await;
                 (runner, false)
             }
+            ScenarioArgs::Minimal { signed_entity_type } => (
+                MinimalScenario::new(toolkit, infrastructure, signed_entity_type)
+                    .run()
+                    .await,
+                false,
+            ),
             ScenarioArgs::RunOnly { .. } => (
                 RunOnlyScenario::new(toolkit, infrastructure).run().await,
                 true,

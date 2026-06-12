@@ -5,6 +5,7 @@ use slog_scope::info;
 
 use mithril_common::{StdResult, entities::Epoch};
 
+use crate::utils::TimeoutReason;
 use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
 
 pub async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
@@ -30,8 +31,37 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
     context: &ScenarioToolkitContext,
     aggregator: &Aggregator,
 ) -> StdResult<T> {
+    wait_for_latest_artifact_with_condition(
+        artifact_name,
+        artifact_list_url,
+        hash_extractor,
+        context,
+        aggregator,
+        |_| true,
+        |_| String::new(),
+    )
+    .await
+}
+
+/// Wait until the aggregator produces an artifact, returning the latest one
+///
+/// Note: the `artifact_list_url` must start with a `/`
+pub async fn wait_for_latest_artifact_with_condition<T, P, E>(
+    artifact_name: &str,
+    artifact_list_url: &str,
+    hash_extractor: fn(&T) -> String,
+    context: &ScenarioToolkitContext,
+    aggregator: &Aggregator,
+    condition: P,
+    invalid_condition_error_msg_callback: E,
+) -> StdResult<T>
+where
+    T: DeserializeOwned,
+    P: Fn(&T) -> bool,
+    E: Fn(T) -> String,
+{
     let url = format!("{}{artifact_list_url}", aggregator.endpoint());
-    info!("Waiting for the aggregator to produce a {artifact_name} artifact"; "aggregator" => &aggregator.name());
+    info!("Waiting for the aggregator to produce a {artifact_name} "; "aggregator" => &aggregator.name());
 
     async fn fetch_last_artifact<T: DeserializeOwned>(
         artifact_name: &str,
@@ -44,16 +74,19 @@ pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
         }
     }
 
-    match attempt!(30, context.tenth_epoch_delay(), {
+    match attempt!(20, context.tenth_epoch_delay(), {
         fetch_last_artifact(artifact_name, url.clone()).await
-    }) {
+    }, until &condition) {
         AttemptResult::Ok(last_artifact) => {
             info!("Aggregator produced a {artifact_name} artifact"; "hash" => hash_extractor(&last_artifact), "aggregator" => &aggregator.name());
             Ok(last_artifact)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(anyhow!(
+        AttemptResult::Timeout(TimeoutReason::NoResponse) => Err(anyhow!(
             "Timeout exhausted waiting for {artifact_name}, no response from `{url}`"
+        )),
+        AttemptResult::Timeout(TimeoutReason::PredicateNotSatisfied(last_response)) => Err(anyhow!(
+            "Timeout exhausted waiting for {artifact_name}, {}", invalid_condition_error_msg_callback(last_response)
         )),
     }
         .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))

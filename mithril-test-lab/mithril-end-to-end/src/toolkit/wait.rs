@@ -37,7 +37,7 @@ impl WaitToolkit {
         }) {
             AttemptResult::Ok(_) => Ok(()),
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
                 "Timeout exhausted for enough immutable to be written in `{}`",
                 db_directory.display()
             )),
@@ -74,7 +74,7 @@ impl WaitToolkit {
         }) {
             AttemptResult::Ok(epoch_settings) => Ok(epoch_settings),
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
                 "Timeout exhausted for aggregator to be up, no response from `{url}`"
             )),
         }
@@ -114,7 +114,7 @@ impl WaitToolkit {
                 Ok(())
             }
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => {
+            AttemptResult::Timeout(..) => {
                 Err(anyhow!("Timeout exhausted for target epoch to be reached"))
             }
         }?;

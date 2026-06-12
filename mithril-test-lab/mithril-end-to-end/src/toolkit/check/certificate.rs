@@ -1,7 +1,11 @@
 use anyhow::{Context, anyhow};
 use slog_scope::info;
 
-use mithril_common::{StdResult, messages::CertificateMessage};
+use mithril_common::{
+    StdResult,
+    entities::Epoch,
+    messages::{CertificateListItemMessage, CertificateMessage},
+};
 
 use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
 
@@ -15,6 +19,27 @@ pub struct CheckCertificateToolkit {
 impl CheckCertificateToolkit {
     pub fn new(context: ScenarioToolkitContext) -> Self {
         Self { context }
+    }
+
+    pub async fn is_creating_certificate_with_min_epoch(
+        &self,
+        aggregator: &Aggregator,
+        min_epoch_expected: Epoch,
+    ) -> StdResult<CertificateListItemMessage> {
+        utils::wait_for_latest_artifact_with_condition(
+            &format!("Certificate for epoch {}", min_epoch_expected),
+            "/certificates",
+            |a: &CertificateListItemMessage| a.hash.clone(),
+            &self.context,
+            aggregator,
+            |c| c.epoch >= min_epoch_expected,
+            |last_invalid_cert| {
+                format!(
+                    "no certificate found with epoch >= {min_epoch_expected}\nlast certificate: {last_invalid_cert:?}",
+                )
+            },
+        )
+        .await
     }
 
     pub async fn is_creating_certificate_with_enough_signers(
@@ -55,7 +80,7 @@ impl CheckCertificateToolkit {
                 }
             }
             AttemptResult::Err(error) => Err(error),
-            AttemptResult::Timeout() => Err(anyhow!(
+            AttemptResult::Timeout(..) => Err(anyhow!(
                 "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
             )),
         }

@@ -1,30 +1,63 @@
-#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum AttemptResult<T, E> {
     Ok(T),
     Err(E),
-    Timeout(),
+    Timeout(TimeoutReason<T>),
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
+pub enum TimeoutReason<T> {
+    /// No response was received after the given number of attempts
+    NoResponse,
+    /// The predicate was not satisfied after the given number of attempts, containing the last
+    /// response received
+    PredicateNotSatisfied(T),
 }
 
 #[macro_export]
 macro_rules! attempt {
-    ( $remaining_attempts:expr, $sleep_duration:expr, $block:block ) => {{
+    ( $remaining_attempts:expr, $sleep_duration:expr, $block:block, until $predicate:expr ) => {{
         let mut remaining_attempts = $remaining_attempts;
+        let mut last_received_response = None;
+
         loop {
             let res = $block;
-            if let Ok(None) = res {
-                if remaining_attempts > 1 {
-                    tokio::time::sleep($sleep_duration).await;
-                    remaining_attempts -= 1;
-                    continue;
+
+            match res {
+                Ok(Some(value)) => {
+                    if $predicate(&value) {
+                        break $crate::utils::AttemptResult::Ok(value);
+                    } else {
+                        last_received_response = Some(value);
+                    }
                 }
+                Ok(None) => (),
+                Err(error) => break $crate::utils::AttemptResult::Err(error),
             }
 
-            break match res {
-                Ok(Some(value)) => AttemptResult::Ok(value),
-                Err(error) => AttemptResult::Err(error),
-                Ok(None) => AttemptResult::Timeout(),
+            if remaining_attempts > 1 {
+                tokio::time::sleep($sleep_duration).await;
+                remaining_attempts -= 1;
+                continue;
+            }
+
+            break match last_received_response {
+                Some(value) => $crate::utils::AttemptResult::Timeout(
+                    $crate::utils::TimeoutReason::PredicateNotSatisfied(value),
+                ),
+                None => {
+                    $crate::utils::AttemptResult::Timeout($crate::utils::TimeoutReason::NoResponse)
+                }
             };
         }
+    }};
+    ( $remaining_attempts:expr, $sleep_duration:expr, $block:block ) => {{
+        $crate::attempt!(
+            $remaining_attempts,
+            $sleep_duration,
+            $block,
+            until | _ | true
+        )
     }};
 }
 
@@ -33,7 +66,7 @@ mod tests {
     use std::time::Duration;
     use tokio::time::Instant;
 
-    use crate::utils::AttemptResult;
+    use super::*;
 
     const EMPTY_RESULT: Result<Option<()>, String> = Ok(None);
 
@@ -51,10 +84,62 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_timeout() {
+    async fn returns_ok_when_response_satisfies_predicate() {
         assert_eq!(
-            AttemptResult::Timeout(),
+            AttemptResult::Ok(42),
+            attempt!(
+                3,
+                Duration::from_millis(2),
+                {
+                    let result: Result<Option<i32>, String> = Ok(Some(42));
+                    result
+                },
+                until |value: &i32| *value == 42
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn retries_until_response_satisfies_predicate() {
+        let mut attempt_count = 0;
+        assert_eq!(
+            AttemptResult::Ok(3),
+            attempt!(
+                5,
+                Duration::from_millis(2),
+                {
+                    attempt_count += 1;
+                    let result: Result<Option<i32>, String> = Ok(Some(attempt_count));
+                    result
+                },
+                until |value: &i32| *value == 3
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn timeout_is_no_response_when_no_value_was_received() {
+        assert_eq!(
+            AttemptResult::Timeout(TimeoutReason::NoResponse),
             attempt!(1, Duration::from_millis(2), { EMPTY_RESULT })
+        );
+    }
+
+    #[tokio::test]
+    async fn timeout_when_no_response_satisfies_predicate() {
+        let mut attempt_count = 0;
+        assert_eq!(
+            AttemptResult::Timeout(TimeoutReason::PredicateNotSatisfied(3)),
+            attempt!(
+                3,
+                Duration::from_millis(2),
+                {
+                    attempt_count += 1;
+                    let result: Result<Option<i32>, String> = Ok(Some(attempt_count));
+                    result
+                },
+                until | _ | false
+            )
         );
     }
 
@@ -75,7 +160,7 @@ mod tests {
         let mut number_of_loop = 0;
 
         assert_eq!(
-            AttemptResult::Timeout(),
+            AttemptResult::Timeout(TimeoutReason::NoResponse),
             attempt!(expected_number_of_loop, Duration::from_millis(2), {
                 number_of_loop += 1;
                 EMPTY_RESULT
@@ -89,7 +174,7 @@ mod tests {
         let now = Instant::now();
 
         assert_eq!(
-            AttemptResult::Timeout(),
+            AttemptResult::Timeout(TimeoutReason::NoResponse),
             // Note: the attempt! macro wait only after the first loop so we must attempt to two times
             // to have it wait its given duration once.
             attempt!(2, Duration::from_millis(10), { EMPTY_RESULT })
