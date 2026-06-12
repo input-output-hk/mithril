@@ -519,4 +519,449 @@ mod tests {
             "wrong tau_g2 must fail the accumulator check (not the KZG check), got: {err}"
         );
     }
+
+    mod slow {
+        use std::sync::{Arc, OnceLock};
+
+        use midnight_circuits::hash::poseidon::PoseidonState;
+        use rand_core::OsRng;
+        use sha2::{Digest, Sha256};
+        use tempfile::tempdir;
+
+        use crate::{
+            AggregateVerificationKeyForSnark, MithrilMembershipDigest, Parameters, SnarkProof,
+            circuits::{
+                halo2::types::CircuitBase,
+                halo2_ivc::{
+                    K,
+                    state::Global,
+                    tests::common::{
+                        CERTIFICATE_CIRCUIT_DEGREE,
+                        asset_readers::{
+                            VerificationContextAsset, load_embedded_verification_context_asset,
+                        },
+                        generators::{
+                            build_asset_generation_setup, build_genesis_base_case_next_state,
+                            build_genesis_protocol_message_preimage, build_recursive_global,
+                            build_same_epoch_certificate_asset_data,
+                            next_message_and_preimage_for_step,
+                            same_epoch_message_and_preimage_for_step,
+                            setup::{
+                                AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE, SIGNER_COUNT,
+                                TOTAL_STAKE,
+                            },
+                            transitions::build_next_certificate_asset_data,
+                        },
+                    },
+                    types::ProtocolMessagePreimage,
+                },
+                trusted_setup::build_provider_with_unsafe_srs,
+            },
+            proof_system::{
+                halo2_snark::CircuitVerificationKey,
+                ivc_halo2_snark::{
+                    rolling_state::IvcRollingState,
+                    setup::IvcProvingSetup,
+                    unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
+                    verifier_setup::IvcVerifierSetup,
+                },
+            },
+        };
+
+        use super::super::{IvcProof, IvcProver};
+
+        fn shared_ivc_setup() -> Arc<IvcProvingSetup> {
+            static CELL: OnceLock<Arc<IvcProvingSetup>> = OnceLock::new();
+            CELL.get_or_init(|| {
+                let temp_dir = tempdir().expect("temp dir creation should succeed");
+                let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+                let srs = Arc::new(
+                    trusted_setup_provider
+                        .get_trusted_setup_parameters()
+                        .expect("unsafe SRS should load"),
+                );
+                let parameters = Parameters {
+                    k: QUORUM_SIZE as u64,
+                    m: (QUORUM_SIZE * 10) as u64,
+                    phi_f: 0.2,
+                };
+                let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+                let cert_provider = TempCertificateKeyProvider::new(
+                    Arc::clone(&srs),
+                    parameters,
+                    merkle_tree_depth,
+                );
+                let cert_vk = cert_provider
+                    .get_verifying_key()
+                    .expect("certificate verifying key keygen should succeed");
+                let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
+                Arc::new(
+                    IvcProvingSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                        .expect("IvcProvingSetup::load should succeed"),
+                )
+            })
+            .clone()
+        }
+
+        fn shared_asset_setup() -> &'static AssetGenerationSetup {
+            static CELL: OnceLock<AssetGenerationSetup> = OnceLock::new();
+            CELL.get_or_init(build_asset_generation_setup)
+        }
+
+        fn shared_verification_context() -> &'static VerificationContextAsset {
+            static CELL: OnceLock<VerificationContextAsset> = OnceLock::new();
+            CELL.get_or_init(|| {
+                load_embedded_verification_context_asset()
+                    .expect("verification context asset should load")
+            })
+        }
+
+        fn build_global() -> Global {
+            let asset_setup = shared_asset_setup();
+            let ctx = shared_verification_context();
+            build_recursive_global(
+                asset_setup,
+                &ctx.certificate_verifying_key,
+                &ctx.recursive_verifying_key,
+            )
+        }
+
+        fn wrap_snark_proof(
+            certificate_proof_bytes: Vec<u8>,
+        ) -> SnarkProof<MithrilMembershipDigest> {
+            let ctx = shared_verification_context();
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            SnarkProof::from_parts(
+                certificate_proof_bytes,
+                parameters,
+                merkle_tree_depth,
+                CircuitVerificationKey::new(ctx.certificate_verifying_key.clone()),
+            )
+        }
+
+        fn wrap_avk(root: &[u8; 32]) -> AggregateVerificationKeyForSnark<MithrilMembershipDigest> {
+            let mut avk_bytes = [0u8; 40];
+            avk_bytes[0..32].copy_from_slice(root);
+            avk_bytes[32..40].copy_from_slice(&TOTAL_STAKE.to_be_bytes());
+            AggregateVerificationKeyForSnark::<MithrilMembershipDigest>::from_bytes(&avk_bytes)
+                .expect("AVK should decode from bytes")
+        }
+
+        fn wrap_protocol_message_preimage(preimage: &[u8]) -> ProtocolMessagePreimage {
+            use crate::circuits::halo2_ivc::PREIMAGE_SIZE;
+            let preimage_array: [u8; PREIMAGE_SIZE] = preimage
+                .try_into()
+                .expect("preimage should be exactly PREIMAGE_SIZE bytes");
+            ProtocolMessagePreimage::new(preimage_array)
+        }
+
+        fn assert_vk_consistency() {
+            let ctx = shared_verification_context();
+            let setup = shared_ivc_setup();
+            assert_eq!(
+                ctx.certificate_verifying_key.vk().transcript_repr(),
+                setup.certificate_verifying_key.transcript_repr(),
+                "stored verification context cert VK must match freshly generated cert VK"
+            );
+            assert_eq!(
+                ctx.recursive_verifying_key.transcript_repr(),
+                setup.ivc_verifying_key.transcript_repr(),
+                "stored verification context IVC VK must match freshly generated IVC VK"
+            );
+        }
+
+        #[test]
+        fn prove_genesis_seeds_rolling_state_with_verifiable_poseidon_proof() {
+            assert_vk_consistency();
+
+            let ivc_setup = shared_ivc_setup();
+            let asset_setup = shared_asset_setup();
+            let global = build_global();
+            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+
+            let combined_names: Vec<String> =
+                ivc_setup.combined_fixed_bases.keys().cloned().collect();
+            let rolling_state =
+                IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
+            let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
+            let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+            let snark_proof = wrap_snark_proof(vec![]);
+            let avk = wrap_avk(&[0u8; 32]);
+            let message_bytes = Sha256::digest(&genesis_preimage_bytes);
+
+            let mut prover = IvcProver {
+                ivc_setup,
+                rng: OsRng,
+            };
+
+            let (external, rolling) = prover
+                .prove(
+                    snark_proof,
+                    message_bytes.as_ref(),
+                    &avk,
+                    &global,
+                    &preimage,
+                    &rolling_state,
+                )
+                .expect("genesis prove should succeed");
+
+            assert!(external.is_none(), "genesis must return no Blake2b proof");
+
+            let new_rolling = rolling.expect("genesis must return a rolling state");
+
+            let expected_state = build_genesis_base_case_next_state(asset_setup, GENESIS_EPOCH);
+            assert_eq!(
+                new_rolling.state(),
+                &expected_state,
+                "genesis rolling state must match expected next state"
+            );
+
+            IvcProof::<PoseidonState<CircuitBase>>::new(
+                new_rolling.ivc_proof().clone(),
+                new_rolling.state().clone(),
+                new_rolling.accumulator().clone(),
+            )
+            .verify(&global, &verifier_setup)
+            .expect("genesis Poseidon proof must verify");
+        }
+
+        #[test]
+        fn prove_next_epoch_produces_external_proof_and_rolling_state() {
+            assert_vk_consistency();
+
+            let ivc_setup = shared_ivc_setup();
+            let asset_setup = shared_asset_setup();
+            let global = build_global();
+            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+
+            let mut cert_params = ivc_setup.srs.clone();
+            cert_params.downsize(CERTIFICATE_CIRCUIT_DEGREE);
+            let cert_vk = shared_verification_context().certificate_verifying_key.clone();
+
+            // Genesis step — bootstraps rolling state; no assertions on this step.
+            let genesis_rolling = {
+                let combined_names: Vec<String> =
+                    ivc_setup.combined_fixed_bases.keys().cloned().collect();
+                let rolling_state =
+                    IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
+                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
+                let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+                let snark_proof = wrap_snark_proof(vec![]);
+                let avk = wrap_avk(&[0u8; 32]);
+                let message_bytes = Sha256::digest(&genesis_preimage_bytes);
+                let mut prover = IvcProver {
+                    ivc_setup: Arc::clone(&ivc_setup),
+                    rng: OsRng,
+                };
+                let (_, rolling) = prover
+                    .prove(
+                        snark_proof,
+                        message_bytes.as_ref(),
+                        &avk,
+                        &global,
+                        &preimage,
+                        &rolling_state,
+                    )
+                    .expect("genesis prove should succeed");
+                rolling.expect("genesis must return a rolling state")
+            };
+
+            // Next-epoch step.
+            let (cert_proof, _, expected_next_epoch_state, _) = build_next_certificate_asset_data(
+                asset_setup,
+                &cert_params,
+                &asset_setup.certificate_relation,
+                &cert_vk,
+                genesis_rolling.state(),
+                &mut OsRng,
+            );
+            let (_, next_epoch_preimage_bytes) =
+                next_message_and_preimage_for_step(asset_setup, genesis_rolling.state());
+            let next_epoch_message_bytes = Sha256::digest(&next_epoch_preimage_bytes);
+            let avk_root: [u8; 32] = asset_setup
+                .aggregate_verification_key
+                .get_merkle_tree_commitment()
+                .root
+                .as_slice()
+                .try_into()
+                .expect("asset AVK root must be 32 bytes");
+            let avk = wrap_avk(&avk_root);
+            let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+            let preimage = wrap_protocol_message_preimage(&next_epoch_preimage_bytes);
+
+            let mut prover = IvcProver {
+                ivc_setup: Arc::clone(&ivc_setup),
+                rng: OsRng,
+            };
+            let (external, rolling) = prover
+                .prove(
+                    snark_proof,
+                    next_epoch_message_bytes.as_ref(),
+                    &avk,
+                    &global,
+                    &preimage,
+                    &genesis_rolling,
+                )
+                .expect("next-epoch prove should succeed");
+
+            let blake2b_proof = external.expect("next-epoch must return a Blake2b proof");
+            let next_rolling = rolling.expect("next-epoch must return a rolling state");
+
+            assert_eq!(
+                blake2b_proof.state, expected_next_epoch_state,
+                "next-epoch Blake2b proof state must match generator output"
+            );
+            assert_eq!(
+                next_rolling.state(),
+                &expected_next_epoch_state,
+                "next-epoch rolling state must match generator output"
+            );
+
+            blake2b_proof
+                .verify(&global, &verifier_setup)
+                .expect("next-epoch Blake2b proof must verify");
+
+            IvcProof::<PoseidonState<CircuitBase>>::new(
+                next_rolling.ivc_proof().clone(),
+                next_rolling.state().clone(),
+                next_rolling.accumulator().clone(),
+            )
+            .verify(&global, &verifier_setup)
+            .expect("next-epoch Poseidon proof must verify");
+        }
+
+        #[test]
+        fn prove_same_epoch_produces_external_proof_only() {
+            assert_vk_consistency();
+
+            let ivc_setup = shared_ivc_setup();
+            let asset_setup = shared_asset_setup();
+            let global = build_global();
+            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+
+            let mut cert_params = ivc_setup.srs.clone();
+            cert_params.downsize(CERTIFICATE_CIRCUIT_DEGREE);
+            let cert_vk = shared_verification_context().certificate_verifying_key.clone();
+
+            // Genesis step — bootstraps rolling state; no assertions on this step.
+            let genesis_rolling = {
+                let combined_names: Vec<String> =
+                    ivc_setup.combined_fixed_bases.keys().cloned().collect();
+                let rolling_state =
+                    IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
+                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
+                let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+                let snark_proof = wrap_snark_proof(vec![]);
+                let avk = wrap_avk(&[0u8; 32]);
+                let message_bytes = Sha256::digest(&genesis_preimage_bytes);
+                let mut prover = IvcProver {
+                    ivc_setup: Arc::clone(&ivc_setup),
+                    rng: OsRng,
+                };
+                let (_, rolling) = prover
+                    .prove(
+                        snark_proof,
+                        message_bytes.as_ref(),
+                        &avk,
+                        &global,
+                        &preimage,
+                        &rolling_state,
+                    )
+                    .expect("genesis prove should succeed");
+                rolling.expect("genesis must return a rolling state")
+            };
+
+            let avk_root: [u8; 32] = asset_setup
+                .aggregate_verification_key
+                .get_merkle_tree_commitment()
+                .root
+                .as_slice()
+                .try_into()
+                .expect("asset AVK root must be 32 bytes");
+            let avk = wrap_avk(&avk_root);
+
+            // Next-epoch step — bootstraps rolling state for same-epoch; no assertions on this step.
+            let next_rolling = {
+                let (cert_proof, _, _, _) = build_next_certificate_asset_data(
+                    asset_setup,
+                    &cert_params,
+                    &asset_setup.certificate_relation,
+                    &cert_vk,
+                    genesis_rolling.state(),
+                    &mut OsRng,
+                );
+                let (_, next_epoch_preimage_bytes) =
+                    next_message_and_preimage_for_step(asset_setup, genesis_rolling.state());
+                let next_epoch_message_bytes = Sha256::digest(&next_epoch_preimage_bytes);
+                let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+                let preimage = wrap_protocol_message_preimage(&next_epoch_preimage_bytes);
+                let mut prover = IvcProver {
+                    ivc_setup: Arc::clone(&ivc_setup),
+                    rng: OsRng,
+                };
+                let (_, rolling) = prover
+                    .prove(
+                        snark_proof,
+                        next_epoch_message_bytes.as_ref(),
+                        &avk,
+                        &global,
+                        &preimage,
+                        &genesis_rolling,
+                    )
+                    .expect("next-epoch prove should succeed");
+                rolling.expect("next-epoch must return a rolling state")
+            };
+
+            // Same-epoch step.
+            let (cert_proof, _, expected_same_epoch_state, _) =
+                build_same_epoch_certificate_asset_data(
+                    asset_setup,
+                    &cert_params,
+                    &asset_setup.certificate_relation,
+                    &cert_vk,
+                    next_rolling.state(),
+                    &mut OsRng,
+                );
+            let (_, same_epoch_preimage_bytes) =
+                same_epoch_message_and_preimage_for_step(asset_setup, next_rolling.state());
+            let same_epoch_message_bytes = Sha256::digest(&same_epoch_preimage_bytes);
+            let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+            let preimage = wrap_protocol_message_preimage(&same_epoch_preimage_bytes);
+
+            let mut prover = IvcProver {
+                ivc_setup: Arc::clone(&ivc_setup),
+                rng: OsRng,
+            };
+            let (external, rolling) = prover
+                .prove(
+                    snark_proof,
+                    same_epoch_message_bytes.as_ref(),
+                    &avk,
+                    &global,
+                    &preimage,
+                    &next_rolling,
+                )
+                .expect("same-epoch prove should succeed");
+
+            let blake2b_proof = external.expect("same-epoch must return a Blake2b proof");
+            assert!(
+                rolling.is_none(),
+                "same-epoch must not return a rolling state"
+            );
+
+            assert_eq!(
+                blake2b_proof.state, expected_same_epoch_state,
+                "same-epoch Blake2b proof state must match generator output"
+            );
+
+            blake2b_proof
+                .verify(&global, &verifier_setup)
+                .expect("same-epoch Blake2b proof must verify");
+        }
+    }
 }
