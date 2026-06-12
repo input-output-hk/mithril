@@ -126,6 +126,13 @@ impl IvcVerifierSetup {
         }
     }
 
+    /// Deserialize the compile-time [`KZG_VERIFIER_PARAMS`] constant and extract `tau_g2` (`s_g2`).
+    ///
+    /// Returns `(verifier_params, tau_g2)` as a pair so callers can use them independently
+    /// without re-reading the constant. Shared by [`try_new`] and [`from_ivc_setup`].
+    ///
+    /// [`try_new`]: Self::try_new
+    /// [`from_ivc_setup`]: Self::from_ivc_setup
     pub(crate) fn read_embedded_params() -> StmResult<(ParamsVerifierKZG<Bls12>, G2Affine)> {
         let verifier_params = ParamsVerifierKZG::<Bls12>::read(
             &mut &KZG_VERIFIER_PARAMS[..],
@@ -138,18 +145,22 @@ impl IvcVerifierSetup {
         Ok((verifier_params, tau_g2))
     }
 
+    /// Returns the embedded KZG verifier parameters.
     pub(crate) fn verifier_params(&self) -> &ParamsVerifierKZG<Bls12> {
         &self.verifier_params
     }
 
+    /// Returns `tau·G2` (`s_g2`) extracted from the embedded verifier params.
     pub(crate) fn tau_g2(&self) -> &G2Affine {
         &self.tau_g2
     }
 
+    /// Returns the IVC circuit verifying key.
     pub(crate) fn ivc_verifying_key(&self) -> &CircuitVerifyingKey {
         &self.ivc_verifying_key
     }
 
+    /// Returns the combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
     pub(crate) fn combined_fixed_bases(&self) -> &BTreeMap<String, G1Projective> {
         &self.combined_fixed_bases
     }
