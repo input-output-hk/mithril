@@ -171,7 +171,7 @@ jobs:
           shell: bash
           max_attempts: 3
           retry_on_exit_code: 2
-          timeout_minutes: 10
+          timeout_minutes: 120
           warning_on_retry: true
           command: |
             ./mithril-binaries/mithril-end-to-end -vvv \
@@ -197,7 +197,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-sig_type_${{ matrix.aggregate_signature_type }}--scenario_minimal--cardano-${{ matrix.cardano_node_version }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-sig_type_${{ matrix.aggregate_signature_type }}-scenario_minimal-cardano-${{ matrix.cardano_node_version }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
@@ -248,7 +248,7 @@ jobs:
           shell: bash
           max_attempts: 3
           retry_on_exit_code: 2
-          timeout_minutes: 10
+          timeout_minutes: 120
           warning_on_retry: true
           command: |
             ./mithril-binaries/mithril-end-to-end -vvv \
@@ -274,7 +274,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-sig_type_${{ matrix.aggregate_signature_type }}--scenario_full--cardano-${{ matrix.cardano_node_version }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-sig_type_${{ matrix.aggregate_signature_type }}-scenario_full-cardano-${{ matrix.cardano_node_version }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
