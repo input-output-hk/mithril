@@ -338,8 +338,11 @@ runs:
     - name: Init Terraform
       shell: bash
       working-directory: mithril-infra
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: ./google-application-credentials.json
+        TF_REGISTRY_CLIENT_TIMEOUT: 60
       run: |
-        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}" -upgrade
+        terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}" -upgrade
 
     - name: Check Terraform
       shell: bash
