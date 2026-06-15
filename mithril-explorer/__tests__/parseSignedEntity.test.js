@@ -5,7 +5,7 @@ describe("parseSignedEntity", () => {
   it("parse correctly formed `MithrilStakeDistribution` signed entity", () => {
     const epoch = 1432;
     const signed_entity = {
-      [signedEntityType.MithrilStakeDistribution]: [epoch],
+      [signedEntityType.MithrilStakeDistribution]: epoch,
     };
 
     expect(parseSignedEntity(signed_entity)).toEqual({
@@ -19,7 +19,7 @@ describe("parseSignedEntity", () => {
   it("parse correctly formed `CardanoStakeDistribution` signed entity", () => {
     const epoch = 1432;
     const signed_entity = {
-      [signedEntityType.CardanoStakeDistribution]: [epoch],
+      [signedEntityType.CardanoStakeDistribution]: epoch,
     };
 
     expect(parseSignedEntity(signed_entity)).toEqual({
