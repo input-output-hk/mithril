@@ -137,6 +137,7 @@ fn main() {
             AncillaryProofInput::new(
                 None,
                 AncillaryGenesisData::new(
+                    #[cfg(feature = "future_snark")]
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
                     None,
@@ -167,6 +168,7 @@ fn main() {
             AncillaryProofInput::new(
                 None,
                 AncillaryGenesisData::new(
+                    #[cfg(feature = "future_snark")]
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
                     None,
@@ -196,6 +198,7 @@ fn main() {
         AncillaryProofInput::new(
             None,
             AncillaryGenesisData::new(
+                #[cfg(feature = "future_snark")]
                 Vec::new(),
                 #[cfg(feature = "future_snark")]
                 None,
