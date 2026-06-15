@@ -62,8 +62,7 @@ pub(crate) struct IvcGenesisBootstrapInput {
     pub(crate) genesis_signature: StandardSchnorrSignature,
     /// Protocol message preimage of the genesis certificate. Needed by the internal genesis IVC
     /// step to set the lookahead fields in the genesis output state.
-    /// Populated from `AncillaryGenesisData::genesis_message()`, which is
-    /// `genesis_certificate.protocol_message.rigid_preimage()` (see issue #3147).
+    /// Populated from `AncillaryGenesisData::genesis_message_preimage()` (see issue #3147).
     pub(crate) genesis_protocol_message_preimage: ProtocolMessagePreimage,
 }
 
