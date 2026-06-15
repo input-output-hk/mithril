@@ -11,7 +11,6 @@ use crate::entities::CertificateSignature;
 ///
 /// Under `future_snark`, the genesis message preimage is carried, and the genesis Schnorr signature
 /// too when the genesis certificate is dual-signed (absent for a legacy genesis).
-#[cfg_attr(not(feature = "future_snark"), allow(unused_variables))]
 pub fn build_ancillary_proof_input(
     genesis_certificate: &Certificate,
     parent_certificate: &Certificate,
@@ -31,7 +30,10 @@ pub fn build_ancillary_proof_input(
         AncillaryGenesisData::new(genesis_message_preimage, genesis_schnorr_signature)
     };
     #[cfg(not(feature = "future_snark"))]
-    let genesis_data = AncillaryGenesisData::new();
+    let genesis_data = {
+        let _ = genesis_certificate;
+        AncillaryGenesisData::new()
+    };
 
     AncillaryProofInput::new(prover_data, genesis_data)
 }
