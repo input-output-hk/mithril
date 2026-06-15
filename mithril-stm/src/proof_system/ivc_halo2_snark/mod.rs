@@ -10,7 +10,7 @@ pub(crate) mod errors;
 pub(crate) mod proof;
 mod prover_input;
 mod prover_setup;
-mod rolling_state;
+pub(crate) mod rolling_state;
 mod unsafe_setup_helpers;
 pub(crate) mod verifier_setup;
 

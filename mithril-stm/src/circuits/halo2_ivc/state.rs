@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use ff::Field;
 use group::Group;
+use serde::{Deserialize, Serialize};
 
 use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 
@@ -17,7 +18,7 @@ use super::{
     verifier,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct State {
     pub(crate) step_counter: StepCounter,
     pub(crate) message: MessageHash,

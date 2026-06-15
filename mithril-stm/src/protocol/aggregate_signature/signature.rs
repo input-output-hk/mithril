@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg(feature = "future_snark")]
-use crate::proof_system::{SnarkProof, SnarkVerifierSetup};
+use crate::proof_system::{SnarkProof, SnarkVerifierSetup, ivc_halo2_snark::proof::IvcProof};
 
 use super::{AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData};
 
@@ -22,6 +22,9 @@ pub enum AggregateSignatureType {
     /// SNARK proof system.
     #[cfg(feature = "future_snark")]
     Snark,
+    /// IVC SNARK proof system.
+    #[cfg(feature = "future_snark")]
+    IvcSnark,
 }
 
 impl AggregateSignatureType {
@@ -33,6 +36,8 @@ impl AggregateSignatureType {
             AggregateSignatureType::Concatenation => 0,
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => 1,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => 2,
         }
     }
 
@@ -44,6 +49,8 @@ impl AggregateSignatureType {
             0 => Some(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
             1 => Some(AggregateSignatureType::Snark),
+            #[cfg(feature = "future_snark")]
+            2 => Some(AggregateSignatureType::IvcSnark),
             _ => None,
         }
     }
@@ -59,6 +66,8 @@ impl AggregateSignatureType {
             AggregateSignatureType::Concatenation => false,
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => false,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => true,
         }
     }
 }
@@ -69,6 +78,8 @@ impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureTyp
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(_) => AggregateSignatureType::Snark,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(_) => AggregateSignatureType::IvcSnark,
         }
     }
 }
@@ -81,6 +92,8 @@ impl FromStr for AggregateSignatureType {
             "Concatenation" => Ok(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
             "Snark" => Ok(AggregateSignatureType::Snark),
+            #[cfg(feature = "future_snark")]
+            "IvcSnark" => Ok(AggregateSignatureType::IvcSnark),
             _ => Err(anyhow!(AggregateSignatureError::UnknownProofSystem(
                 s.to_string()
             ))),
@@ -94,6 +107,8 @@ impl Display for AggregateSignatureType {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => write!(f, "Snark"),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => write!(f, "IvcSnark"),
         }
     }
 }
@@ -118,6 +133,10 @@ pub enum AggregateSignature<D: MembershipDigest> {
     /// SNARK proof system.
     #[cfg(feature = "future_snark")]
     Snark(Box<SnarkProof<D>>),
+
+    /// IVC SNARK proof system.
+    #[cfg(feature = "future_snark")]
+    IvcSnark(Box<IvcProof<blake2b_simd::State>>),
 
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
@@ -150,6 +169,10 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 })?;
                 let verifier_setup = SnarkVerifierSetup::try_new()?;
                 snark_proof.verify(msg, snark_avk, &verifier_setup.verifier_params)
+            }
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(ivc_proof) => {
+                todo!()
             }
         }
     }
@@ -275,6 +298,10 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
                         Ok(())
                     }
+                    #[cfg(feature = "future_snark")]
+                    AggregateSignatureType::IvcSnark => {
+                        todo!()
+                    }
                 }
             })
     }
@@ -291,6 +318,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             }
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes()?,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(ivc_proof) => todo!(),
         };
         let envelope = AggregateSignatureCborEnvelope {
             signature_type: aggregate_signature_type.get_byte_encoding_prefix(),
@@ -336,6 +365,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(Box::new(
                 SnarkProof::from_bytes(&envelope.proof_bytes)?,
             ))),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => todo!(),
         }
     }
 
@@ -353,6 +384,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(Box::new(
                 SnarkProof::from_bytes(proof_bytes)?,
             ))),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => todo!(),
         }
     }
 
@@ -362,6 +395,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignature::Concatenation(proof) => Some(proof),
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(_) => None,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(_) => None,
         }
     }
 
@@ -371,6 +406,18 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         match self {
             AggregateSignature::Snark(proof) => Some(proof),
             AggregateSignature::Concatenation(_) => None,
+            AggregateSignature::IvcSnark(_) => None,
+        }
+    }
+
+    /// If the aggregate signature is an IVC proof, return it.
+    /// TODO: replace the proof type to IvcProof
+    #[cfg(feature = "future_snark")]
+    pub fn get_ivc_proof(&self) -> Option<&IvcProof<blake2b_simd::State>> {
+        match self {
+            AggregateSignature::IvcSnark(proof) => Some(proof),
+            AggregateSignature::Concatenation(_) => None,
+            AggregateSignature::Snark(_) => None,
         }
     }
 }

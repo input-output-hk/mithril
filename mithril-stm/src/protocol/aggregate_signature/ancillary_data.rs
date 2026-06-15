@@ -15,8 +15,10 @@ use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
 /// Holds the prover-side state needed to produce the next certificate. Carried in the certificate,
 /// hashed into the certificate hash and transmitted in the certificate message. Variants map to the
 /// aggregate signature types that require prover data; none exist yet.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AncillaryProverData {}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AncillaryProverData {
+    IvcSnark(IvcRollingState),
+}
 
 impl AncillaryProverData {
     /// Serialize to versioned CBOR bytes, following `CODEC.md`.

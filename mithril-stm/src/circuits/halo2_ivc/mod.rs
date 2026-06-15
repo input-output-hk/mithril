@@ -53,7 +53,7 @@ pub(crate) mod circuit;
 pub(crate) mod config;
 pub(crate) mod errors;
 pub(crate) mod gadget;
-#[cfg(test)]
+// #[cfg(test)]
 pub(crate) mod io;
 #[cfg(test)]
 pub(crate) mod protocol_message;

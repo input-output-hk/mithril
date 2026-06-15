@@ -1,4 +1,5 @@
 use anyhow::Context;
+use midnight_proofs::transcript::TranscriptHash;
 use std::marker::PhantomData;
 
 #[cfg(feature = "future_snark")]
@@ -12,6 +13,8 @@ use crate::{
 
 #[cfg(feature = "future_snark")]
 use crate::AggregateSignatureError;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::ivc_halo2_snark::proof::IvcProver;
 #[cfg(feature = "future_snark")]
 use crate::proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver};
 
@@ -113,6 +116,21 @@ impl<D: MembershipDigest> Clerk<D> {
                         AggregateSignatureType::Snark
                     )
                 })
+            }
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => {
+                let clerk = self
+                    .get_snark_clerk()
+                    .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
+
+                let preimage = todo!();
+                let genvk = todo!();
+
+                // let prover = IvcProver {
+                //     ivc_setup:
+                // }
+
+                todo!()
             }
         }
     }

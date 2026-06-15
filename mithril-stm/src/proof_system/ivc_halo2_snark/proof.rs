@@ -19,6 +19,7 @@ use midnight_proofs::{
     transcript::{CircuitTranscript, Hashable, Sampleable, Transcript, TranscriptHash},
 };
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKeyForSnark, MembershipDigest, SnarkProof, StmResult,
@@ -30,6 +31,7 @@ use crate::{
             types::{CertificateProofBytes, IvcProofBytes, ProtocolMessagePreimage},
         },
     },
+    proof_system::ivc_halo2_snark::rolling_state::midnight_accumulator_serde,
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
         prover_setup::IvcProverSetup, rolling_state::IvcRollingState,
@@ -72,12 +74,14 @@ pub(crate) struct IvcGenesisBootstrapInput {
 /// verifying a Poseidon-produced proof via the Blake2b path and vice versa.
 // TODO: remove this allow dead_code directive when the IVC prover emits this proof
 #[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes.
     proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.
     state: State,
     /// Folded accumulator the proof commits to.
+    #[serde(with = "midnight_accumulator_serde")]
     accumulator: Accumulator<BlstrsEmulation>,
     /// Phantom marker tying the proof to its transcript hash type.
     hash: PhantomData<H>,
