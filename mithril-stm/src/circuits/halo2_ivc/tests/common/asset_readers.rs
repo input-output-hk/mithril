@@ -60,9 +60,9 @@ pub(crate) struct VerificationContextAsset {
     pub(crate) certificate_verifying_key: MidnightVK,
 }
 
-/// Stored data of the first certificate produced from `State::genesis()`. Used to test
-/// `IvcProverInput::prepare` at the genesis transition (where the rolling state's
-/// `step_counter` is zero and no previous IVC proof exists).
+/// Stored data of the first certificate produced from `build_genesis_base_case_next_state()`.
+/// Used to test `IvcProverInput::prepare` at the first real certificate step (where the rolling
+/// state's `step_counter` is one, after the internal genesis IVC step has run).
 #[derive(Debug)]
 pub(crate) struct FirstCertificateInEpochAsset {
     /// Certificate proof bytes (consumed by `prepare` via `SnarkProof`).

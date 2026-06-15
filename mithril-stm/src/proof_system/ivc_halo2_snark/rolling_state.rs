@@ -13,7 +13,7 @@ use crate::{
             AssignedAccumulator,
             errors::IvcCircuitError,
             state::{Global, State, trivial_acc},
-            types::{IvcProofBytes, StepCounter},
+            types::{EpochNumber, IvcProofBytes, StepCounter},
         },
     },
     signature_scheme::{BaseFieldElement, StandardSchnorrSignature},
@@ -30,7 +30,7 @@ pub(crate) struct IvcRollingState {
     ivc_proof: IvcProofBytes,
     /// Folded accumulator the new step will build on top of
     accumulator: Accumulator<BlstrsEmulation>,
-    /// Chain-specific Schnorr signature over the genesis state
+    /// Chain-specific Schnorr signature over the genesis message
     genesis_signature: StandardSchnorrSignature,
 }
 
@@ -120,6 +120,18 @@ impl IvcRollingState {
             .ok_or(IvcCircuitError::StepCounterOverflow { current })?;
         Ok(StepCounter::new(next))
     }
+
+    /// Returns `true` if this rolling state is at the genesis step (`step_counter == 0`).
+    pub(crate) fn is_genesis(&self) -> bool {
+        self.state.step_counter == StepCounter::ZERO
+    }
+
+    /// Returns `true` if the certificate belongs to the epoch immediately following
+    /// the chain's current epoch (`certificate_epoch == current_epoch + 1`).
+    pub(crate) fn is_next_epoch(&self, certificate_epoch: EpochNumber) -> bool {
+        certificate_epoch.as_field()
+            == self.state.current_epoch.as_field() + EpochNumber::new(1).as_field()
+    }
 }
 
 #[cfg(test)]
@@ -127,7 +139,10 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey};
+    use crate::{
+        circuits::halo2_ivc::types::EpochNumber,
+        signature_scheme::{BaseFieldElement, SchnorrSigningKey},
+    };
 
     use super::*;
 
@@ -175,5 +190,22 @@ mod tests {
         let mut expected = fixed_base_names.clone();
         expected.sort();
         assert_eq!(accumulator_fixed_base_keys, expected);
+    }
+
+    #[test]
+    fn is_genesis_returns_true_for_genesis_state() {
+        let genesis_signature = build_genesis_signature();
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &[]);
+        assert!(rolling_state.is_genesis());
+    }
+
+    #[test]
+    fn is_next_epoch_identifies_direct_successor_of_chain_epoch() {
+        let genesis_signature = build_genesis_signature();
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &[]);
+        // Genesis state has current_epoch == 0. The immediate next epoch is 1.
+        assert!(rolling_state.is_next_epoch(EpochNumber::new(1)));
+        assert!(!rolling_state.is_next_epoch(EpochNumber::new(0)));
+        assert!(!rolling_state.is_next_epoch(EpochNumber::new(2)));
     }
 }

@@ -23,4 +23,12 @@ pub(crate) enum IvcProofError {
     /// The PLONK prover (`create_proof`) failed internally.
     #[error("IVC proof generation failed: {0}")]
     ProofGenerationFailed(String),
+
+    /// `prove()` was called with an invalid combination of `rolling_state` and
+    /// `genesis_bootstrap`: exactly one must be `Some`, and `rolling_state` must not carry a
+    /// genesis state (`step_counter == 0`). Use `genesis_bootstrap` for the first certificate.
+    #[error(
+        "IVC prover called with invalid context: exactly one of rolling_state and genesis_bootstrap must be Some; rolling_state must not be a genesis (step_counter == 0) state"
+    )]
+    InvalidProvingContext,
 }

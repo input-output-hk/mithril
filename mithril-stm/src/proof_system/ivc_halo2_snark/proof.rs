@@ -27,16 +27,14 @@ use crate::{
         halo2_ivc::{
             circuit::IvcCircuitData,
             state::{Global, State},
-            types::{
-                CertificateProofBytes, EpochNumber, IvcProofBytes, ProtocolMessagePreimage,
-                StepCounter,
-            },
+            types::{CertificateProofBytes, IvcProofBytes, ProtocolMessagePreimage},
         },
     },
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
         rolling_state::IvcRollingState, setup::IvcProverSetup, verifier_setup::IvcVerifierSetup,
     },
+    signature_scheme::StandardSchnorrSignature,
 };
 
 /// Per-session IVC prover handle.
@@ -47,6 +45,26 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     pub(crate) ivc_setup: Arc<IvcProverSetup>,
     /// Randomness source used during proof generation.
     pub(crate) rng: R,
+}
+
+/// Bootstrap input for the first [`IvcProver::prove`] call in an IVC chain.
+///
+/// Passed as `genesis_bootstrap: Some(...)` when `rolling_state = None`. Supplies the
+/// data needed to run the internal genesis IVC step before processing the first certificate.
+///
+// TODO(#3147): Wire genesis bootstrap inputs into the aggregator call site.
+// TODO: remove this allow dead_code directive when IvcProver::prove is wired into STM
+#[allow(dead_code)]
+pub(crate) struct IvcGenesisBootstrapInput {
+    /// Schnorr half of the Lagrange-era dual genesis signature (Ed25519 + Schnorr). Carried
+    /// forward through every rolling state for in-circuit verification of the genesis message.
+    /// Populated from `AncillaryGenesisData::genesis_schnorr_signature()` (see issue #3147).
+    pub(crate) genesis_signature: StandardSchnorrSignature,
+    /// Protocol message preimage of the genesis certificate. Needed by the internal genesis IVC
+    /// step to set the lookahead fields in the genesis output state.
+    /// Populated from `AncillaryGenesisData::genesis_message()`, which is
+    /// `genesis_certificate.protocol_message.rigid_preimage()` (see issue #3147).
+    pub(crate) genesis_protocol_message_preimage: ProtocolMessagePreimage,
 }
 
 /// IVC proof emitted at the end of a proving step.
@@ -189,20 +207,21 @@ where
 impl<R: RngCore + CryptoRng> IvcProver<R> {
     /// Advances the IVC chain by one step.
     ///
-    /// Internally calls [`IvcProverInput::prepare`] to fold accumulators and build the
-    /// witness, then generates the proofs required by the step type:
+    /// Exactly one of `rolling_state` and `genesis_bootstrap` must be `Some`:
     ///
-    /// - **Genesis** (`step_counter == 0`): one Poseidon proof that seeds the rolling state.
-    ///   No Blake2b external proof is returned: the chain is bootstrapping and there is
-    ///   nothing to hand back to an external verifier yet.
-    /// - **Same-epoch** (`cert_epoch == chain_epoch`): one Blake2b proof only. The rolling
-    ///   state is unchanged; the caller retains the existing [`IvcRollingState`].
-    /// - **Next-epoch** (`cert_epoch == chain_epoch + 1`): two proofs — a Poseidon proof
-    ///   that advances the rolling state, and a Blake2b proof returned to the caller.
+    /// - `rolling_state = Some(rs), genesis_bootstrap = None`: normal step. `rs` carries the
+    ///   previous step's output. The transition type (same-epoch / next-epoch) is determined
+    ///   from the certificate epoch vs the chain epoch recorded in `rs`.
+    /// - `rolling_state = None, genesis_bootstrap = Some(bootstrap)`: genesis bootstrap.
+    ///   Called at the first certificate (Epoch 1). Internally runs a genesis IVC step using
+    ///   `bootstrap.genesis_signature` and `bootstrap.genesis_protocol_message_preimage`,
+    ///   then immediately runs the Epoch 1 step with the supplied certificate inputs.
+    ///   Returns the Epoch 1 Blake2b proof and the updated rolling state.
     ///
-    /// Note: `snark_proof`, `message`, and `aggregate_verification_key` are unused at
-    /// genesis — [`IvcProverInput::prepare`] ignores them on the genesis path. A future
-    /// refactor may wrap them in `Option<IvcCertificateInput>`.
+    /// Both `Some` or both `None` returns [`IvcProofError::InvalidProvingContext`].
+    ///
+    /// Returns `(proof, next_rolling_state)`. `next_rolling_state` is `Some` on next-epoch
+    /// steps (rolling state must advance) and `None` on same-epoch steps.
     pub(crate) fn prove<D: MembershipDigest>(
         &mut self,
         snark_proof: SnarkProof<D>,
@@ -210,16 +229,33 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
-        rolling_state: &IvcRollingState,
-    ) -> StmResult<(
-        Option<IvcProof<blake2b_simd::State>>,
-        Option<IvcRollingState>,
-    )> {
-        let is_genesis = rolling_state.state().step_counter == StepCounter::ZERO;
-        let chain_epoch = rolling_state.state().current_epoch;
+        rolling_state: Option<&IvcRollingState>,
+        // TODO(#3147): Wire genesis_bootstrap into the aggregator call site.
+        genesis_bootstrap: Option<IvcGenesisBootstrapInput>,
+    ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
+        // Exactly one of rolling_state or genesis_bootstrap must be Some.
+        // rolling_state must not be a genesis state (step_counter == 0): the bootstrap path
+        // is the only supported entry point for the first certificate.
+        if rolling_state.is_some() == genesis_bootstrap.is_some()
+            || rolling_state.map_or(false, |rs| rs.is_genesis())
+        {
+            return Err(IvcProofError::InvalidProvingContext.into());
+        }
+        let genesis_seeded_state: Option<IvcRollingState> = match genesis_bootstrap {
+            Some(bootstrap) => Some(self.run_genesis_step(
+                &snark_proof,
+                message,
+                aggregate_verification_key,
+                global,
+                &bootstrap,
+            )?),
+            None => None,
+        };
+        let effective_rolling_state: &IvcRollingState =
+            genesis_seeded_state.as_ref().or(rolling_state).unwrap();
+
         let certificate_epoch = protocol_message_preimage.current_epoch();
-        let is_next_epoch =
-            certificate_epoch.as_field() == chain_epoch.as_field() + EpochNumber::new(1).as_field();
+        let is_next_epoch = effective_rolling_state.is_next_epoch(certificate_epoch);
 
         // Prepare the witness, next state, and folded next accumulator.
         // prepare() borrows snark_proof; snark_proof is still owned afterward.
@@ -229,25 +265,19 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             aggregate_verification_key,
             global,
             protocol_message_preimage,
-            rolling_state,
+            effective_rolling_state,
             &self.ivc_setup,
         )?;
 
-        // At genesis the circuit ignores cert bytes (gated on is_not_genesis); pass empty to
-        // match the asset generator and avoid unnecessary serialization work.
-        let certificate_proof_bytes = if is_genesis {
-            CertificateProofBytes::empty()
-        } else {
-            snark_proof.into_circuit_proof_bytes()
-        };
+        let certificate_proof_bytes = snark_proof.into_circuit_proof_bytes();
 
         let circuit_data = IvcCircuitData::try_new(
             global.clone(),
-            rolling_state.state().clone(),
+            effective_rolling_state.state().clone(),
             prover_input.witness,
             certificate_proof_bytes,
-            rolling_state.ivc_proof().clone(),
-            rolling_state.accumulator().clone(),
+            effective_rolling_state.ivc_proof().clone(),
+            effective_rolling_state.accumulator().clone(),
             &self.ivc_setup.certificate_verifying_key,
             &self.ivc_setup.ivc_verifying_key,
         )?;
@@ -260,9 +290,9 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         ]
         .concat();
 
-        // Genesis and next-epoch steps update the rolling state with a fresh Poseidon proof.
+        // Next-epoch steps update the rolling state with a fresh Poseidon proof.
         // Same-epoch steps leave the rolling state unchanged (return None).
-        let next_rolling_state = if is_genesis || is_next_epoch {
+        let next_rolling_state = if is_next_epoch {
             let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
                 &self.ivc_setup.srs,
                 &self.ivc_setup.ivc_proving_key,
@@ -274,32 +304,92 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
                 prover_input.next_state.clone(),
                 IvcProofBytes::new(poseidon_bytes),
                 prover_input.next_accumulator.clone(),
-                rolling_state.genesis_signature(),
+                effective_rolling_state.genesis_signature(),
             ))
         } else {
             None
         };
 
-        // Genesis only seeds the rolling state; no Blake2b external proof is returned.
-        // Same-epoch and next-epoch steps produce a Blake2b proof for the external verifier.
-        let proof = if is_genesis {
-            None
-        } else {
-            let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
-                &self.ivc_setup.srs,
-                &self.ivc_setup.ivc_proving_key,
-                &circuit_data,
-                &public_inputs,
-                &mut self.rng,
-            )?;
-            Some(IvcProof::new(
-                IvcProofBytes::new(blake2b_bytes),
-                prover_input.next_state,
-                prover_input.next_accumulator,
-            ))
-        };
+        let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
+            &self.ivc_setup.srs,
+            &self.ivc_setup.ivc_proving_key,
+            &circuit_data,
+            &public_inputs,
+            &mut self.rng,
+        )?;
+        let proof = IvcProof::new(
+            IvcProofBytes::new(blake2b_bytes),
+            prover_input.next_state,
+            prover_input.next_accumulator,
+        );
 
         Ok((proof, next_rolling_state))
+    }
+
+    /// Runs the genesis IVC step internally during bootstrap.
+    ///
+    /// Builds a zero genesis rolling state from `bootstrap.genesis_signature`, calls
+    /// [`IvcProverInput::prepare`] with the genesis preimage, and generates a Poseidon proof
+    /// to seed the rolling state. The resulting rolling state is returned for immediate use
+    /// in the Epoch 1 step.
+    ///
+    /// `snark_proof`, `message`, and `aggregate_verification_key` are passed through to
+    /// `prepare` but are ignored on the genesis path (`step_counter == 0`).
+    fn run_genesis_step<D: MembershipDigest>(
+        &mut self,
+        snark_proof: &SnarkProof<D>,
+        message: &[u8],
+        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
+        global: &Global,
+        bootstrap: &IvcGenesisBootstrapInput,
+    ) -> StmResult<IvcRollingState> {
+        let combined_fixed_base_names: Vec<String> =
+            self.ivc_setup.combined_fixed_bases.keys().cloned().collect();
+        let genesis_rolling_state =
+            IvcRollingState::genesis(bootstrap.genesis_signature, &combined_fixed_base_names);
+
+        let genesis_prover_input = IvcProverInput::prepare(
+            snark_proof,
+            message,
+            aggregate_verification_key,
+            global,
+            &bootstrap.genesis_protocol_message_preimage,
+            &genesis_rolling_state,
+            &self.ivc_setup,
+        )?;
+
+        let genesis_circuit_data = IvcCircuitData::try_new(
+            global.clone(),
+            genesis_rolling_state.state().clone(),
+            genesis_prover_input.witness,
+            CertificateProofBytes::empty(),
+            genesis_rolling_state.ivc_proof().clone(),
+            genesis_rolling_state.accumulator().clone(),
+            &self.ivc_setup.certificate_verifying_key,
+            &self.ivc_setup.ivc_verifying_key,
+        )?;
+
+        let genesis_public_inputs: Vec<CircuitBase> = [
+            global.as_public_input(),
+            genesis_prover_input.next_state.as_public_input(),
+            AssignedAccumulator::as_public_input(&genesis_prover_input.next_accumulator),
+        ]
+        .concat();
+
+        let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
+            &self.ivc_setup.srs,
+            &self.ivc_setup.ivc_proving_key,
+            &genesis_circuit_data,
+            &genesis_public_inputs,
+            &mut self.rng,
+        )?;
+
+        Ok(IvcRollingState::new(
+            genesis_prover_input.next_state,
+            IvcProofBytes::new(poseidon_bytes),
+            genesis_prover_input.next_accumulator,
+            bootstrap.genesis_signature,
+        ))
     }
 }
 
@@ -565,7 +655,6 @@ mod tests {
             proof_system::{
                 halo2_snark::CircuitVerificationKey,
                 ivc_halo2_snark::{
-                    rolling_state::IvcRollingState,
                     setup::IvcProverSetup,
                     unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
                     verifier_setup::IvcVerifierSetup,
@@ -573,7 +662,7 @@ mod tests {
             },
         };
 
-        use super::super::{IvcProof, IvcProver};
+        use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
         fn shared_ivc_setup() -> Arc<IvcProverSetup> {
             static CELL: OnceLock<Arc<IvcProverSetup>> = OnceLock::new();
@@ -681,7 +770,11 @@ mod tests {
         }
 
         #[test]
-        fn prove_genesis_seeds_rolling_state_with_verifiable_poseidon_proof() {
+        fn prove_bootstrap_produces_epoch1_proof_and_rolling_state() {
+            // Verifies the bootstrap path (rolling_state = None, genesis_bootstrap = Some):
+            // prove() must internally run the genesis IVC step, then run the Epoch 1 step
+            // with the supplied certificate inputs, and return a Blake2b proof plus an
+            // updated rolling state.
             assert_vk_consistency();
 
             let ivc_setup = shared_ivc_setup();
@@ -689,50 +782,84 @@ mod tests {
             let global = build_global();
             let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
 
-            let combined_names: Vec<String> =
-                ivc_setup.combined_fixed_bases.keys().cloned().collect();
-            let rolling_state =
-                IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
+            let mut cert_params = ivc_setup.srs.clone();
+            cert_params.downsize(CERTIFICATE_CIRCUIT_DEGREE);
+            let cert_vk = shared_verification_context().certificate_verifying_key.clone();
+
+            // Epoch 1 certificate data (next-epoch transition from the genesis base-case state).
+            // The previous state for the first real certificate is the output of the internal
+            // genesis IVC step, not State::genesis() (which is the zero input state).
+            let genesis_base_state = build_genesis_base_case_next_state(asset_setup, GENESIS_EPOCH);
+            let (cert_proof, _, expected_epoch1_state, _) = build_next_certificate_asset_data(
+                asset_setup,
+                &cert_params,
+                &asset_setup.certificate_relation,
+                &cert_vk,
+                &genesis_base_state,
+                &mut OsRng,
+            );
+            let (_, epoch1_preimage_bytes) =
+                next_message_and_preimage_for_step(asset_setup, &genesis_base_state);
+            let epoch1_message_bytes = Sha256::digest(&epoch1_preimage_bytes);
+            let avk_root: [u8; 32] = asset_setup
+                .aggregate_verification_key
+                .get_merkle_tree_commitment()
+                .root
+                .as_slice()
+                .try_into()
+                .expect("asset AVK root must be 32 bytes");
+            let avk = wrap_avk(&avk_root);
+            let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+            let epoch1_preimage = wrap_protocol_message_preimage(&epoch1_preimage_bytes);
+
+            // Genesis bootstrap input.
             let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
-            let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
-            let snark_proof = wrap_snark_proof(vec![]);
-            let avk = wrap_avk(&[0u8; 32]);
-            let message_bytes = Sha256::digest(&genesis_preimage_bytes);
+            let genesis_preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+            let bootstrap = IvcGenesisBootstrapInput {
+                genesis_signature: asset_setup.genesis_signature,
+                genesis_protocol_message_preimage: genesis_preimage,
+            };
 
             let mut prover = IvcProver {
                 ivc_setup,
                 rng: OsRng,
             };
 
-            let (external, rolling) = prover
+            let (blake2b_proof, rolling) = prover
                 .prove(
                     snark_proof,
-                    message_bytes.as_ref(),
+                    epoch1_message_bytes.as_ref(),
                     &avk,
                     &global,
-                    &preimage,
-                    &rolling_state,
+                    &epoch1_preimage,
+                    None,
+                    Some(bootstrap),
                 )
-                .expect("genesis prove should succeed");
+                .expect("bootstrap prove should succeed");
 
-            assert!(external.is_none(), "genesis must return no Blake2b proof");
+            let epoch1_rolling = rolling.expect("bootstrap must return a rolling state");
 
-            let new_rolling = rolling.expect("genesis must return a rolling state");
-
-            let expected_state = build_genesis_base_case_next_state(asset_setup, GENESIS_EPOCH);
             assert_eq!(
-                new_rolling.state(),
-                &expected_state,
-                "genesis rolling state must match expected next state"
+                blake2b_proof.state, expected_epoch1_state,
+                "bootstrap Blake2b proof state must match Epoch 1 expected state"
+            );
+            assert_eq!(
+                epoch1_rolling.state(),
+                &expected_epoch1_state,
+                "bootstrap rolling state must match Epoch 1 expected state"
             );
 
+            blake2b_proof
+                .verify(&global, &verifier_setup)
+                .expect("bootstrap Blake2b proof must verify");
+
             IvcProof::<PoseidonState<CircuitBase>>::new(
-                new_rolling.ivc_proof().clone(),
-                new_rolling.state().clone(),
-                new_rolling.accumulator().clone(),
+                epoch1_rolling.ivc_proof().clone(),
+                epoch1_rolling.state().clone(),
+                epoch1_rolling.accumulator().clone(),
             )
             .verify(&global, &verifier_setup)
-            .expect("genesis Poseidon proof must verify");
+            .expect("bootstrap Poseidon proof must verify");
         }
 
         #[test]
@@ -748,46 +875,6 @@ mod tests {
             cert_params.downsize(CERTIFICATE_CIRCUIT_DEGREE);
             let cert_vk = shared_verification_context().certificate_verifying_key.clone();
 
-            // Genesis step — bootstraps rolling state; no assertions on this step.
-            let genesis_rolling = {
-                let combined_names: Vec<String> =
-                    ivc_setup.combined_fixed_bases.keys().cloned().collect();
-                let rolling_state =
-                    IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
-                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
-                let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
-                let snark_proof = wrap_snark_proof(vec![]);
-                let avk = wrap_avk(&[0u8; 32]);
-                let message_bytes = Sha256::digest(&genesis_preimage_bytes);
-                let mut prover = IvcProver {
-                    ivc_setup: Arc::clone(&ivc_setup),
-                    rng: OsRng,
-                };
-                let (_, rolling) = prover
-                    .prove(
-                        snark_proof,
-                        message_bytes.as_ref(),
-                        &avk,
-                        &global,
-                        &preimage,
-                        &rolling_state,
-                    )
-                    .expect("genesis prove should succeed");
-                rolling.expect("genesis must return a rolling state")
-            };
-
-            // Next-epoch step.
-            let (cert_proof, _, expected_next_epoch_state, _) = build_next_certificate_asset_data(
-                asset_setup,
-                &cert_params,
-                &asset_setup.certificate_relation,
-                &cert_vk,
-                genesis_rolling.state(),
-                &mut OsRng,
-            );
-            let (_, next_epoch_preimage_bytes) =
-                next_message_and_preimage_for_step(asset_setup, genesis_rolling.state());
-            let next_epoch_message_bytes = Sha256::digest(&next_epoch_preimage_bytes);
             let avk_root: [u8; 32] = asset_setup
                 .aggregate_verification_key
                 .get_merkle_tree_commitment()
@@ -796,6 +883,60 @@ mod tests {
                 .try_into()
                 .expect("asset AVK root must be 32 bytes");
             let avk = wrap_avk(&avk_root);
+
+            // Bootstrap step — runs genesis + Epoch 1 internally; no assertions on this step.
+            let epoch1_rolling = {
+                let genesis_base_state =
+                    build_genesis_base_case_next_state(asset_setup, GENESIS_EPOCH);
+                let (cert_proof, _, _, _) = build_next_certificate_asset_data(
+                    asset_setup,
+                    &cert_params,
+                    &asset_setup.certificate_relation,
+                    &cert_vk,
+                    &genesis_base_state,
+                    &mut OsRng,
+                );
+                let (_, epoch1_preimage_bytes) =
+                    next_message_and_preimage_for_step(asset_setup, &genesis_base_state);
+                let epoch1_message_bytes = Sha256::digest(&epoch1_preimage_bytes);
+                let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+                let epoch1_preimage = wrap_protocol_message_preimage(&epoch1_preimage_bytes);
+                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
+                let genesis_preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+                let bootstrap = IvcGenesisBootstrapInput {
+                    genesis_signature: asset_setup.genesis_signature,
+                    genesis_protocol_message_preimage: genesis_preimage,
+                };
+                let mut prover = IvcProver {
+                    ivc_setup: Arc::clone(&ivc_setup),
+                    rng: OsRng,
+                };
+                let (_, rolling) = prover
+                    .prove(
+                        snark_proof,
+                        epoch1_message_bytes.as_ref(),
+                        &avk,
+                        &global,
+                        &epoch1_preimage,
+                        None,
+                        Some(bootstrap),
+                    )
+                    .expect("bootstrap prove should succeed");
+                rolling.expect("bootstrap must return a rolling state")
+            };
+
+            // Next-epoch step (Epoch 2).
+            let (cert_proof, _, expected_next_epoch_state, _) = build_next_certificate_asset_data(
+                asset_setup,
+                &cert_params,
+                &asset_setup.certificate_relation,
+                &cert_vk,
+                epoch1_rolling.state(),
+                &mut OsRng,
+            );
+            let (_, next_epoch_preimage_bytes) =
+                next_message_and_preimage_for_step(asset_setup, epoch1_rolling.state());
+            let next_epoch_message_bytes = Sha256::digest(&next_epoch_preimage_bytes);
             let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
             let preimage = wrap_protocol_message_preimage(&next_epoch_preimage_bytes);
 
@@ -803,18 +944,18 @@ mod tests {
                 ivc_setup: Arc::clone(&ivc_setup),
                 rng: OsRng,
             };
-            let (external, rolling) = prover
+            let (blake2b_proof, rolling) = prover
                 .prove(
                     snark_proof,
                     next_epoch_message_bytes.as_ref(),
                     &avk,
                     &global,
                     &preimage,
-                    &genesis_rolling,
+                    Some(&epoch1_rolling),
+                    None,
                 )
                 .expect("next-epoch prove should succeed");
 
-            let blake2b_proof = external.expect("next-epoch must return a Blake2b proof");
             let next_rolling = rolling.expect("next-epoch must return a rolling state");
 
             assert_eq!(
@@ -853,34 +994,6 @@ mod tests {
             cert_params.downsize(CERTIFICATE_CIRCUIT_DEGREE);
             let cert_vk = shared_verification_context().certificate_verifying_key.clone();
 
-            // Genesis step — bootstraps rolling state; no assertions on this step.
-            let genesis_rolling = {
-                let combined_names: Vec<String> =
-                    ivc_setup.combined_fixed_bases.keys().cloned().collect();
-                let rolling_state =
-                    IvcRollingState::genesis(asset_setup.genesis_signature, &combined_names);
-                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
-                let preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
-                let snark_proof = wrap_snark_proof(vec![]);
-                let avk = wrap_avk(&[0u8; 32]);
-                let message_bytes = Sha256::digest(&genesis_preimage_bytes);
-                let mut prover = IvcProver {
-                    ivc_setup: Arc::clone(&ivc_setup),
-                    rng: OsRng,
-                };
-                let (_, rolling) = prover
-                    .prove(
-                        snark_proof,
-                        message_bytes.as_ref(),
-                        &avk,
-                        &global,
-                        &preimage,
-                        &rolling_state,
-                    )
-                    .expect("genesis prove should succeed");
-                rolling.expect("genesis must return a rolling state")
-            };
-
             let avk_root: [u8; 32] = asset_setup
                 .aggregate_verification_key
                 .get_merkle_tree_commitment()
@@ -890,18 +1003,59 @@ mod tests {
                 .expect("asset AVK root must be 32 bytes");
             let avk = wrap_avk(&avk_root);
 
-            // Next-epoch step — bootstraps rolling state for same-epoch; no assertions on this step.
-            let next_rolling = {
+            // Bootstrap step — runs genesis + Epoch 1 internally; no assertions on this step.
+            let epoch1_rolling = {
+                let genesis_base_state =
+                    build_genesis_base_case_next_state(asset_setup, GENESIS_EPOCH);
                 let (cert_proof, _, _, _) = build_next_certificate_asset_data(
                     asset_setup,
                     &cert_params,
                     &asset_setup.certificate_relation,
                     &cert_vk,
-                    genesis_rolling.state(),
+                    &genesis_base_state,
+                    &mut OsRng,
+                );
+                let (_, epoch1_preimage_bytes) =
+                    next_message_and_preimage_for_step(asset_setup, &genesis_base_state);
+                let epoch1_message_bytes = Sha256::digest(&epoch1_preimage_bytes);
+                let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
+                let epoch1_preimage = wrap_protocol_message_preimage(&epoch1_preimage_bytes);
+                let genesis_preimage_bytes = build_genesis_protocol_message_preimage(asset_setup);
+                let genesis_preimage = wrap_protocol_message_preimage(&genesis_preimage_bytes);
+                let bootstrap = IvcGenesisBootstrapInput {
+                    genesis_signature: asset_setup.genesis_signature,
+                    genesis_protocol_message_preimage: genesis_preimage,
+                };
+                let mut prover = IvcProver {
+                    ivc_setup: Arc::clone(&ivc_setup),
+                    rng: OsRng,
+                };
+                let (_, rolling) = prover
+                    .prove(
+                        snark_proof,
+                        epoch1_message_bytes.as_ref(),
+                        &avk,
+                        &global,
+                        &epoch1_preimage,
+                        None,
+                        Some(bootstrap),
+                    )
+                    .expect("bootstrap prove should succeed");
+                rolling.expect("bootstrap must return a rolling state")
+            };
+
+            // Next-epoch step (Epoch 2) — seeds rolling state for same-epoch; no assertions.
+            let epoch2_rolling = {
+                let (cert_proof, _, _, _) = build_next_certificate_asset_data(
+                    asset_setup,
+                    &cert_params,
+                    &asset_setup.certificate_relation,
+                    &cert_vk,
+                    epoch1_rolling.state(),
                     &mut OsRng,
                 );
                 let (_, next_epoch_preimage_bytes) =
-                    next_message_and_preimage_for_step(asset_setup, genesis_rolling.state());
+                    next_message_and_preimage_for_step(asset_setup, epoch1_rolling.state());
                 let next_epoch_message_bytes = Sha256::digest(&next_epoch_preimage_bytes);
                 let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
                 let preimage = wrap_protocol_message_preimage(&next_epoch_preimage_bytes);
@@ -916,24 +1070,25 @@ mod tests {
                         &avk,
                         &global,
                         &preimage,
-                        &genesis_rolling,
+                        Some(&epoch1_rolling),
+                        None,
                     )
                     .expect("next-epoch prove should succeed");
                 rolling.expect("next-epoch must return a rolling state")
             };
 
-            // Same-epoch step.
+            // Same-epoch step (second certificate in Epoch 2).
             let (cert_proof, _, expected_same_epoch_state, _) =
                 build_same_epoch_certificate_asset_data(
                     asset_setup,
                     &cert_params,
                     &asset_setup.certificate_relation,
                     &cert_vk,
-                    next_rolling.state(),
+                    epoch2_rolling.state(),
                     &mut OsRng,
                 );
             let (_, same_epoch_preimage_bytes) =
-                same_epoch_message_and_preimage_for_step(asset_setup, next_rolling.state());
+                same_epoch_message_and_preimage_for_step(asset_setup, epoch2_rolling.state());
             let same_epoch_message_bytes = Sha256::digest(&same_epoch_preimage_bytes);
             let snark_proof = wrap_snark_proof(cert_proof.as_bytes().to_vec());
             let preimage = wrap_protocol_message_preimage(&same_epoch_preimage_bytes);
@@ -942,18 +1097,18 @@ mod tests {
                 ivc_setup: Arc::clone(&ivc_setup),
                 rng: OsRng,
             };
-            let (external, rolling) = prover
+            let (blake2b_proof, rolling) = prover
                 .prove(
                     snark_proof,
                     same_epoch_message_bytes.as_ref(),
                     &avk,
                     &global,
                     &preimage,
-                    &next_rolling,
+                    Some(&epoch2_rolling),
+                    None,
                 )
                 .expect("same-epoch prove should succeed");
 
-            let blake2b_proof = external.expect("same-epoch must return a Blake2b proof");
             assert!(
                 rolling.is_none(),
                 "same-epoch must not return a rolling state"
