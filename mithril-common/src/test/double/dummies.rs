@@ -13,6 +13,7 @@ mod stm {
             Self::new(
                 None,
                 AncillaryGenesisData::new(
+                    #[cfg(feature = "future_snark")]
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
                     None,
