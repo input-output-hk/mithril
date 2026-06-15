@@ -57,13 +57,13 @@ export const updatePoolsForAggregator = createAsyncThunk(
 );
 
 const poolsForAggregator = (poolsSlice, aggregator) => {
-  return poolsSlice.list.find((poolsData) => poolsData.aggregator === aggregator.url);
+  return poolsSlice.list.find((poolsData) => poolsData.aggregator === aggregator);
 };
 
 export const getPoolForSelectedAggregator = createSelector(
   [(state) => state.settings.selectedAggregator, (state) => state.pools, (state, poolId) => poolId],
   (aggregator, pools, poolId) => {
-    const aggregatorPools = poolsForAggregator(pools, aggregator);
+    const aggregatorPools = poolsForAggregator(pools, aggregator.url);
     const data = aggregatorPools?.pools.find((pool) => pool.party_id === poolId);
 
     return {
@@ -76,14 +76,14 @@ export const getPoolForSelectedAggregator = createSelector(
 export const getSelectedAggregatorPools = createSelector(
   [(state) => state.settings.selectedAggregator, (state) => state.pools],
   (aggregator, pools) => {
-    return poolsForAggregator(pools, aggregator);
+    return poolsForAggregator(pools, aggregator.url);
   },
 );
 
 export const getSelectedAggregatorNetwork = createSelector(
   [(state) => state.settings.selectedAggregator, (state) => state.pools],
   (aggregator, pools) => {
-    const aggregatorPools = poolsForAggregator(pools, aggregator);
+    const aggregatorPools = poolsForAggregator(pools, aggregator.url);
     return aggregatorPools?.network;
   },
 );
