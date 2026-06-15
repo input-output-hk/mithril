@@ -11,7 +11,7 @@ use crate::{
 #[cfg(feature = "future_snark")]
 use crate::proof_system::{SnarkProof, SnarkVerifierSetup};
 
-use super::{AggregateSignatureError, AggregateVerificationKey};
+use super::{AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData};
 
 /// The type of STM aggregate signature.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -45,6 +45,20 @@ impl AggregateSignatureType {
             #[cfg(feature = "future_snark")]
             1 => Some(AggregateSignatureType::Snark),
             _ => None,
+        }
+    }
+
+    /// Whether a valid certificate carrying this aggregate signature type certifies the full
+    /// certificate chain back to the genesis certificate on its own.
+    ///
+    /// Returns `false` for the current proof systems. Recursive proof systems (e.g. IVC) return
+    /// `true`, which lets certificate chain verification stop at the first valid such certificate
+    /// instead of walking back to the genesis certificate.
+    pub fn certifies_full_certificate_chain(&self) -> bool {
+        match self {
+            AggregateSignatureType::Concatenation => false,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::Snark => false,
         }
     }
 }
@@ -120,7 +134,9 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
+        ancillary_verifier_data: Option<AncillaryVerifierData>,
     ) -> StmResult<()> {
+        let _ = ancillary_verifier_data;
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
                 msg,
@@ -144,12 +160,14 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
+        ancillary_verifier_datas: &[Option<AncillaryVerifierData>],
     ) -> StmResult<()> {
         type AggregateEntriesForAggregateSignatureType<D> = (
             AggregateSignature<D>,
             AggregateVerificationKey<D>,
             Vec<u8>,
             Parameters,
+            Option<AncillaryVerifierData>,
         );
 
         fn check_input_lengths(
@@ -174,6 +192,9 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             avks.len(),
             parameters.len(),
         )?;
+        if aggregate_signatures.len() != ancillary_verifier_datas.len() {
+            return Err(anyhow!(AggregateSignatureError::BatchInvalid));
+        }
 
         let aggregate_entries_by_aggregate_signature_type: HashMap<
             AggregateSignatureType,
@@ -183,15 +204,18 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             .zip(msgs.iter())
             .zip(avks.iter())
             .zip(parameters.iter())
+            .zip(ancillary_verifier_datas.iter())
             .fold(
                 HashMap::new(),
-                |mut acc, (((aggregate_signature, msg), avk), parameters)| {
+                |mut acc,
+                 ((((aggregate_signature, msg), avk), parameters), ancillary_verifier_data)| {
                     let signature_type = AggregateSignatureType::from(aggregate_signature);
                     acc.entry(signature_type).or_default().push((
                         aggregate_signature.clone(),
                         avk.clone(),
                         msg.clone(),
                         *parameters,
+                        ancillary_verifier_data.clone(),
                     ));
                     acc
                 },
@@ -204,22 +228,24 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     AggregateSignatureType::Concatenation => {
                         let avks = aggregate_entries
                             .iter()
-                            .map(|(_, avk, _, _)| avk.to_concatenation_aggregate_verification_key())
+                            .map(|(_, avk, _, _, _)| {
+                                avk.to_concatenation_aggregate_verification_key()
+                            })
                             .cloned()
                             .collect::<Vec<_>>();
                         let concatenation_proofs = aggregate_entries
                             .iter()
-                            .filter_map(|(aggregate_signature, _, _, _)| {
+                            .filter_map(|(aggregate_signature, _, _, _, _)| {
                                 aggregate_signature.to_concatenation_proof().cloned()
                             })
                             .collect::<Vec<_>>();
                         let msgs = aggregate_entries
                             .iter()
-                            .map(|(_, _, msg, _)| msg.clone())
+                            .map(|(_, _, msg, _, _)| msg.clone())
                             .collect::<Vec<_>>();
                         let parameters = aggregate_entries
                             .iter()
-                            .map(|(_, _, _, parameters)| *parameters)
+                            .map(|(_, _, _, parameters, _)| *parameters)
                             .collect::<Vec<_>>();
                         check_input_lengths(
                             concatenation_proofs.len(),
@@ -236,8 +262,15 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     }
                     #[cfg(feature = "future_snark")]
                     AggregateSignatureType::Snark => {
-                        for (aggregate_signature, avk, msg, parameters) in aggregate_entries {
-                            aggregate_signature.verify(&msg, &avk, &parameters)?;
+                        for (aggregate_signature, avk, msg, parameters, ancillary_verifier_data) in
+                            aggregate_entries
+                        {
+                            aggregate_signature.verify(
+                                &msg,
+                                &avk,
+                                &parameters,
+                                ancillary_verifier_data,
+                            )?;
                         }
 
                         Ok(())
@@ -434,7 +467,7 @@ mod tests {
 
         #[test]
         fn returns_error_when_messages_length_differs_from_signatures() {
-            let result = AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[], &[]);
 
             assert_batch_invalid_error(result);
         }
@@ -442,7 +475,7 @@ mod tests {
         #[test]
         fn returns_error_when_avks_length_differs_from_signatures() {
             let avk = build_aggregate_verification_key();
-            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[avk], &[]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[avk], &[], &[]);
 
             assert_batch_invalid_error(result);
         }
@@ -458,14 +491,22 @@ mod tests {
                     m: 100,
                     phi_f: 0.2,
                 }],
+                &[],
             );
 
             assert_batch_invalid_error(result);
         }
 
         #[test]
+        fn returns_error_when_ancillary_verifier_datas_length_differs_from_signatures() {
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[None]);
+
+            assert_batch_invalid_error(result);
+        }
+
+        #[test]
         fn succeeds_when_all_inputs_are_empty() {
-            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[]);
 
             assert!(result.is_ok());
         }
@@ -500,14 +541,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn golden_certifies_full_certificate_chain_per_aggregate_signature_type() {
+        fn assert_golden_value(aggregate_signature_type: AggregateSignatureType, expected: bool) {
+            assert_eq!(
+                expected,
+                aggregate_signature_type.certifies_full_certificate_chain(),
+                "golden 'certifies_full_certificate_chain' value changed for {aggregate_signature_type}, this alters certificate chain verification semantics"
+            );
+        }
+
+        assert_golden_value(AggregateSignatureType::Concatenation, false);
+        #[cfg(feature = "future_snark")]
+        assert_golden_value(AggregateSignatureType::Snark, false);
+    }
+
     mod aggregate_signature_golden_concatenation {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
-            Clerk, KeyRegistration, MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
-            VerificationKeyProofOfPossessionForConcatenation,
+            AncillaryProofInput, Clerk, KeyRegistration, MithrilMembershipDigest, Parameters,
+            RegistrationEntry, Signer, VerificationKeyProofOfPossessionForConcatenation,
             proof_system::ConcatenationProofSigner, signature_scheme::BlsSigningKey,
         };
 
@@ -640,13 +696,15 @@ mod tests {
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();
 
-            clerk
+            let (signature, _ancillary_verifier_data) = clerk
                 .aggregate_signatures_with_type(
                     &[signature_1, signature_2],
                     &msg,
                     AggregateSignatureType::Concatenation,
+                    AncillaryProofInput::dummy(),
                 )
-                .unwrap()
+                .unwrap();
+            signature
         }
 
         #[test]

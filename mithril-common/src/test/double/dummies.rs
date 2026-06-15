@@ -2,6 +2,26 @@ use chrono::{DateTime, Utc};
 
 use crate::test::double::{Dummy, fake_data, fake_keys};
 
+mod stm {
+    use mithril_stm::{AncillaryGenesisData, AncillaryProofInput};
+
+    use super::*;
+
+    impl Dummy for AncillaryProofInput {
+        /// Return a dummy [AncillaryProofInput] carrying no data (test-only).
+        fn dummy() -> Self {
+            Self::new(
+                None,
+                AncillaryGenesisData::new(
+                    Vec::new(),
+                    #[cfg(feature = "future_snark")]
+                    None,
+                ),
+            )
+        }
+    }
+}
+
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;
@@ -539,6 +559,8 @@ mod messages {
                     fake_keys::aggregate_verification_key_for_concatenation()[0].to_owned(),
                 #[cfg(feature = "future_snark")]
                 aggregate_verification_key_snark: None,
+                ancillary_prover_data: None,
+                ancillary_verifier_data: None,
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
                 #[cfg(feature = "future_snark")]

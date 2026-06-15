@@ -212,7 +212,9 @@ mod tests {
                 }}]',
                 '2023-06-23T08:37:49.066Z',
                 '2023-06-23T08:37:49.066Z',
-                {snark_avk}
+                {snark_avk},
+                null,
+                null
             );
             
             -- multi-signature certificate
@@ -243,7 +245,9 @@ mod tests {
                 }}]',
                 '2023-03-16T01:51:00.880Z',
                 '2023-03-16T02:07:22.145Z',
-                {snark_avk}
+                {snark_avk},
+                null,
+                null
             );
             "#
             ))

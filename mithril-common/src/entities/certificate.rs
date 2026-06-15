@@ -10,7 +10,8 @@ use crate::crypto_helper::GenesisSchnorrSignature;
 use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
     GenesisEd25519Signature, ProtocolAggregateVerificationKey,
-    ProtocolAggregateVerificationKeyForConcatenation, ProtocolMultiSignature,
+    ProtocolAggregateVerificationKeyForConcatenation, ProtocolAncillaryProverData,
+    ProtocolAncillaryVerifierData, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 
@@ -107,6 +108,12 @@ pub struct Certificate {
     #[cfg(feature = "future_snark")]
     pub aggregate_verification_key_snark: Option<ProtocolAggregateVerificationKeyForSnark>,
 
+    /// Ancillary data used by the prover to produce the next certificate.
+    pub ancillary_prover_data: Option<ProtocolAncillaryProverData>,
+
+    /// Ancillary data used to verify the certificate.
+    pub ancillary_verifier_data: Option<ProtocolAncillaryVerifierData>,
+
     /// Certificate signature
     pub signature: CertificateSignature,
 }
@@ -120,6 +127,7 @@ impl Certificate {
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
         signature: CertificateSignature,
+        ancillary_verifier_data: Option<ProtocolAncillaryVerifierData>,
     ) -> crate::StdResult<Certificate> {
         let signed_message = protocol_message.compute_hash();
 
@@ -141,6 +149,8 @@ impl Certificate {
                 .into(),
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark,
+            ancillary_prover_data: None,
+            ancillary_verifier_data,
             signature,
         };
         certificate.hash = certificate.try_compute_hash()?;
@@ -169,6 +179,12 @@ impl Certificate {
             signed_entity_type.feed_hash(&mut hasher);
         }
         hasher.update(self.signature.to_bytes_hex_for_certificate_hash()?);
+        if let Some(ancillary_prover_data) = &self.ancillary_prover_data {
+            hasher.update(ancillary_prover_data.to_bytes()?);
+        }
+        if let Some(ancillary_verifier_data) = &self.ancillary_verifier_data {
+            hasher.update(ancillary_verifier_data.to_bytes()?);
+        }
         Ok(hex::encode(hasher.finalize()))
     }
 
@@ -259,6 +275,8 @@ impl Debug for Certificate {
                             .map(|avk| avk.to_bytes_hex())
                     ),
                 );
+                debug.field("ancillary_prover_data", &self.ancillary_prover_data);
+                debug.field("ancillary_verifier_data", &self.ancillary_verifier_data);
                 debug
                     .field("signature", &format_args!("{:?}", self.signature))
                     .finish()
@@ -352,6 +370,7 @@ mod tests {
                 signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
+            None,
         )
         .unwrap();
 
@@ -506,6 +525,7 @@ mod tests {
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),
+            None,
         )
         .unwrap();
 
@@ -558,6 +578,7 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisSignature(ed_signature),
+            None,
         )
         .unwrap();
 
@@ -586,6 +607,7 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+            None,
         )
         .unwrap();
 
@@ -635,6 +657,7 @@ mod tests {
                     None,
                 ),
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+                None,
             )
             .unwrap();
             hashes.insert(certificate.try_compute_hash().unwrap());
@@ -673,6 +696,7 @@ mod tests {
                 None,
             ),
             signature,
+            None,
         )
         .unwrap()
     }

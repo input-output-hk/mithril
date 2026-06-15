@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.35 (06-12-2026)
+
+### Added
+
+- Added proof-system-agnostic ancillary data carriers (`AncillaryProverData`, `AncillaryVerifierData`, `AncillaryGenesisData`, and `AncillaryProofInput`) with versioned CBOR `to_bytes`/`from_bytes`.
+- Added the `AggregateSignatureType::certifies_full_certificate_chain` predicate.
+
+### Changed
+
+- `Clerk::aggregate_signatures_with_type` now takes an `AncillaryProofInput` and returns the aggregate signature together with the optional `AncillaryVerifierData`.
+- `AggregateSignature::verify` and `AggregateSignature::batch_verify` now accept the optional `AncillaryVerifierData`.
+
 ## 0.10.34 (06-12-2026)
 
 ### Added

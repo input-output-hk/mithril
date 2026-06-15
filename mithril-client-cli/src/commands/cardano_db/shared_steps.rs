@@ -302,6 +302,8 @@ mod tests {
             aggregate_verification_key: String::new(),
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark: None,
+            ancillary_prover_data: None,
+            ancillary_verifier_data: None,
             multi_signature: String::new(),
             genesis_signature: String::new(),
             #[cfg(feature = "future_snark")]

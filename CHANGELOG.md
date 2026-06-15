@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [2624.0] - UNRELEASED
+## Mithril Distribution [XXXX] - UNRELEASED
 
 - **REMOVED** support for `CardanoImmutableFilesFull` in Mithril signer and aggregator:
   - Use `CardanoDatabase` (also known as "cardano database v2") instead, which supports partial database restoration and
@@ -34,16 +34,18 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Support for SNARK-friendly rigid protocol message openable in recursive circuit.
   - Support for SNARK-friendly genesis certificate primitives.
   - Support for dual-signature genesis certificate.
+  - Support for ancillary prover and verifier data carried on certificates.
+  - Support for stopping certificate chain verification early on full-chain certifying certificates.
 
-| Crate               | Version   |
-| ------------------- | --------- |
-| mithril-aggregator  | `0.9.6`   |
-| mithril-client      | `0.14.14` |
-| mithril-client-cli  | `0.13.15` |
-| mithril-client-wasm | `0.10.6`  |
-| mithril-common      | `0.7.4`   |
-| mithril-signer      | `1.1.2`   |
-| mithril-stm         | `0.10.32` |
+| Crate               | Version |
+| ------------------- | ------- |
+| mithril-aggregator  | `-`     |
+| mithril-client      | `-`     |
+| mithril-client-cli  | `-`     |
+| mithril-client-wasm | `-`     |
+| mithril-common      | `-`     |
+| mithril-signer      | `-`     |
+| mithril-stm         | `-`     |
 
 ## Mithril Distribution [2617.0] - 2026-04-29
 

@@ -339,8 +339,9 @@ mod tests {
         use rand_core::SeedableRng;
 
         use crate::{
-            AggregateSignatureType, Clerk, KeyRegistration, MithrilMembershipDigest, Parameters,
-            RegistrationEntry, Signer, VerificationKeyProofOfPossessionForConcatenation,
+            AggregateSignatureType, AncillaryProofInput, Clerk, KeyRegistration,
+            MithrilMembershipDigest, Parameters, RegistrationEntry, Signer,
+            VerificationKeyProofOfPossessionForConcatenation,
             proof_system::ConcatenationProofSigner, protocol::AggregateSignature,
             signature_scheme::BlsSigningKey,
         };
@@ -418,13 +419,15 @@ mod tests {
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();
 
-            clerk
+            let (signature, _ancillary_verifier_data) = clerk
                 .aggregate_signatures_with_type(
                     &[signature_1, signature_2],
                     &msg,
                     AggregateSignatureType::Concatenation,
+                    AncillaryProofInput::dummy(),
                 )
-                .unwrap()
+                .unwrap();
+            signature
         }
 
         const GOLDEN_CBOR_BYTES: &[u8; 2974] = &[
