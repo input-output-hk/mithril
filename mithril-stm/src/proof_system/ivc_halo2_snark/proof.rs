@@ -35,7 +35,7 @@ use crate::{
     },
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
-        rolling_state::IvcRollingState, setup::IvcProvingSetup, verifier_setup::IvcVerifierSetup,
+        rolling_state::IvcRollingState, setup::IvcProverSetup, verifier_setup::IvcVerifierSetup,
     },
 };
 
@@ -44,7 +44,7 @@ use crate::{
 #[allow(dead_code)]
 pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     /// Shared, cached setup (SRS, verifying keys, proving key, fixed-base maps).
-    pub(crate) ivc_setup: Arc<IvcProvingSetup>,
+    pub(crate) ivc_setup: Arc<IvcProverSetup>,
     /// Randomness source used during proof generation.
     pub(crate) rng: R,
 }
@@ -147,36 +147,41 @@ where
     }
 }
 
-/// Transcript-generic IVC proof generation helper.
-///
-/// Calls `create_proof` with the committed-instance layout the IVC circuit expects:
-/// `&[&[&[], public_inputs]]` (one circuit, one instance group, empty committed
-/// instance, then the field-element public inputs). Returns the finalised transcript
-/// bytes on success.
-fn prove_with_transcript<H: TranscriptHash>(
-    srs: &ParamsKZG<Bls12>,
-    proving_key: &CircuitProvingKey,
-    circuit_data: &IvcCircuitData,
-    public_inputs: &[CircuitBase],
-    rng: &mut (impl RngCore + CryptoRng),
-) -> StmResult<Vec<u8>>
+impl<H: TranscriptHash> IvcProof<H>
 where
     CircuitBase: Sampleable<H> + Hashable<H> + std::hash::Hash + Ord + FromUniformBytes<64>,
     <KZGCommitmentScheme<Bls12> as PolynomialCommitmentScheme<CircuitBase>>::Commitment:
         Hashable<H>,
 {
-    let mut transcript = CircuitTranscript::<H>::init();
-    create_proof::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>, IvcCircuitData>(
-        srs,
-        proving_key,
-        std::slice::from_ref(circuit_data),
-        1,
-        &[&[&[], public_inputs]],
-        rng,
-        &mut transcript,
-    )
-    .map_err(|e| IvcProofError::ProofGenerationFailed(e.to_string()))?;
-    Ok(transcript.finalize())
+    /// Calls `create_proof` with the committed-instance layout the IVC circuit expects:
+    /// `&[&[&[], public_inputs]]` (one circuit, one instance group, empty committed
+    /// instance, then the field-element public inputs). Returns the finalised transcript
+    /// bytes on success.
+    fn prove_with_transcript(
+        srs: &ParamsKZG<Bls12>,
+        proving_key: &CircuitProvingKey,
+        circuit_data: &IvcCircuitData,
+        public_inputs: &[CircuitBase],
+        rng: &mut (impl RngCore + CryptoRng),
+    ) -> StmResult<Vec<u8>> {
+        let mut transcript = CircuitTranscript::<H>::init();
+        create_proof::<
+            CircuitBase,
+            KZGCommitmentScheme<Bls12>,
+            CircuitTranscript<H>,
+            IvcCircuitData,
+        >(
+            srs,
+            proving_key,
+            std::slice::from_ref(circuit_data),
+            1,
+            &[&[&[], public_inputs]],
+            rng,
+            &mut transcript,
+        )
+        .map_err(|e| IvcProofError::ProofGenerationFailed(e.to_string()))?;
+        Ok(transcript.finalize())
+    }
 }
 
 // TODO: remove this allow dead_code directive when the IVC prover is wired into STM
@@ -218,7 +223,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         // Prepare the witness, next state, and folded next accumulator.
         // prepare() borrows snark_proof; snark_proof is still owned afterward.
-        let input = IvcProverInput::prepare(
+        let prover_input = IvcProverInput::prepare(
             &snark_proof,
             message,
             aggregate_verification_key,
@@ -239,7 +244,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         let circuit_data = IvcCircuitData::try_new(
             global.clone(),
             rolling_state.state().clone(),
-            input.witness,
+            prover_input.witness,
             certificate_proof_bytes,
             rolling_state.ivc_proof().clone(),
             rolling_state.accumulator().clone(),
@@ -250,15 +255,15 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         // Public inputs for the new step: [global | next_state | next_accumulator].
         let public_inputs: Vec<CircuitBase> = [
             global.as_public_input(),
-            input.next_state.as_public_input(),
-            AssignedAccumulator::as_public_input(&input.next_accumulator),
+            prover_input.next_state.as_public_input(),
+            AssignedAccumulator::as_public_input(&prover_input.next_accumulator),
         ]
         .concat();
 
         // Genesis and next-epoch steps update the rolling state with a fresh Poseidon proof.
         // Same-epoch steps leave the rolling state unchanged (return None).
         let next_rolling_state = if is_genesis || is_next_epoch {
-            let poseidon_bytes = prove_with_transcript::<PoseidonState<CircuitBase>>(
+            let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
                 &self.ivc_setup.srs,
                 &self.ivc_setup.ivc_proving_key,
                 &circuit_data,
@@ -266,9 +271,9 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
                 &mut self.rng,
             )?;
             Some(IvcRollingState::new(
-                input.next_state.clone(),
+                prover_input.next_state.clone(),
                 IvcProofBytes::new(poseidon_bytes),
-                input.next_accumulator.clone(),
+                prover_input.next_accumulator.clone(),
                 rolling_state.genesis_signature(),
             ))
         } else {
@@ -277,10 +282,10 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         // Genesis only seeds the rolling state; no Blake2b external proof is returned.
         // Same-epoch and next-epoch steps produce a Blake2b proof for the external verifier.
-        let external_proof = if is_genesis {
+        let proof = if is_genesis {
             None
         } else {
-            let blake2b_bytes = prove_with_transcript::<blake2b_simd::State>(
+            let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
                 &self.ivc_setup.srs,
                 &self.ivc_setup.ivc_proving_key,
                 &circuit_data,
@@ -289,12 +294,12 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             )?;
             Some(IvcProof::new(
                 IvcProofBytes::new(blake2b_bytes),
-                input.next_state,
-                input.next_accumulator,
+                prover_input.next_state,
+                prover_input.next_accumulator,
             ))
         };
 
-        Ok((external_proof, next_rolling_state))
+        Ok((proof, next_rolling_state))
     }
 }
 
@@ -561,7 +566,7 @@ mod tests {
                 halo2_snark::CircuitVerificationKey,
                 ivc_halo2_snark::{
                     rolling_state::IvcRollingState,
-                    setup::IvcProvingSetup,
+                    setup::IvcProverSetup,
                     unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
                     verifier_setup::IvcVerifierSetup,
                 },
@@ -570,8 +575,8 @@ mod tests {
 
         use super::super::{IvcProof, IvcProver};
 
-        fn shared_ivc_setup() -> Arc<IvcProvingSetup> {
-            static CELL: OnceLock<Arc<IvcProvingSetup>> = OnceLock::new();
+        fn shared_ivc_setup() -> Arc<IvcProverSetup> {
+            static CELL: OnceLock<Arc<IvcProverSetup>> = OnceLock::new();
             CELL.get_or_init(|| {
                 let temp_dir = tempdir().expect("temp dir creation should succeed");
                 let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -596,8 +601,8 @@ mod tests {
                     .expect("certificate verifying key keygen should succeed");
                 let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
                 Arc::new(
-                    IvcProvingSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                        .expect("IvcProvingSetup::load should succeed"),
+                    IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                        .expect("IvcProverSetup::load should succeed"),
                 )
             })
             .clone()

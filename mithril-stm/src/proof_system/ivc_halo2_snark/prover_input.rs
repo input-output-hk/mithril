@@ -17,7 +17,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcProvingSetup},
+        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcProverSetup},
     },
 };
 
@@ -52,7 +52,7 @@ impl IvcProverInput {
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
-        setup: &IvcProvingSetup,
+        setup: &IvcProverSetup,
     ) -> StmResult<Self> {
         let chain_epoch = rolling_state.state().current_epoch;
         let certificate_epoch = protocol_message_preimage.current_epoch();
@@ -245,8 +245,8 @@ mod tests {
 
         use super::*;
 
-        fn shared_ivc_setup() -> &'static IvcProvingSetup {
-            static CELL: OnceLock<IvcProvingSetup> = OnceLock::new();
+        fn shared_ivc_setup() -> &'static IvcProverSetup {
+            static CELL: OnceLock<IvcProverSetup> = OnceLock::new();
             CELL.get_or_init(|| {
                 let temp_dir = tempdir().expect("temp dir creation should succeed");
                 let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -270,8 +270,8 @@ mod tests {
                     .get_verifying_key()
                     .expect("certificate verifying key keygen should succeed");
                 let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-                IvcProvingSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcProvingSetup::load should succeed under the unsafe SRS")
+                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                    .expect("IvcProverSetup::load should succeed under the unsafe SRS")
             })
         }
 

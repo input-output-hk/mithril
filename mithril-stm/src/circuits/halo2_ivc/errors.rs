@@ -46,9 +46,9 @@ pub enum IvcCircuitError {
     StepCounterOverflow { current: u64 },
 
     /// Off-circuit step transition: the certificate proof's embedded verifying key does
-    /// not match the certificate verifying key carried by `IvcProvingSetup`.
+    /// not match the certificate verifying key carried by `IvcProverSetup`.
     #[error(
-        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcProvingSetup"
+        "IvcProverInput::prepare: certificate proof's embedded verifying key does not match the certificate verifying key in IvcProverSetup"
     )]
     CertificateVerifyingKeyMismatch,
 }

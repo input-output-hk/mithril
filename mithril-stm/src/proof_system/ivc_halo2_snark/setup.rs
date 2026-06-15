@@ -36,7 +36,7 @@ use crate::{
 /// here produces folded accumulators the circuit will reject.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this setup
 #[allow(dead_code)]
-pub(crate) struct IvcProvingSetup {
+pub(crate) struct IvcProverSetup {
     /// Full KZG parameters used during proof generation.
     ///
     /// Stored in full to support `create_proof`, which requires the prover-side
@@ -60,14 +60,14 @@ pub(crate) struct IvcProvingSetup {
 
 // TODO: remove this allow dead_code directive when the IVC prover uses this setup
 #[allow(dead_code)]
-impl IvcProvingSetup {
+impl IvcProverSetup {
     /// Derives the full IVC setup by orchestrating the key providers.
     ///
-    /// Pulls the full SRS from `trusted_setup_provider` and stores it in `IvcProvingSetup` (needed
+    /// Pulls the full SRS from `trusted_setup_provider` and stores it in `IvcProverSetup` (needed
     /// by `IvcProver::prove` for `create_proof`). Pulls the certificate verifying key,
     /// the IVC verifying key, and the IVC proving key from the supplied key providers,
     /// extracts the three fixed-base maps from the verifying keys, and assembles them into
-    /// an `IvcProvingSetup`. Verifier params are derived on demand via `self.srs.verifier_params()`.
+    /// an `IvcProverSetup`. Verifier params are derived on demand via `self.srs.verifier_params()`.
     ///
     /// Providers are currently the temporary pure-compute ones in
     /// `unsafe_setup_helpers`; they share the API surface the production cache providers
@@ -79,7 +79,7 @@ impl IvcProvingSetup {
     /// `srs` is the full parameter set yielded by `trusted_setup_provider`, while the
     /// verifying and proving keys come from the key providers, which today carry their own
     /// SRS reference. The caller must ensure both SRS sources agree. A mismatch produces an
-    /// internally inconsistent `IvcProvingSetup` that surfaces only at proving or verification time.
+    /// internally inconsistent `IvcProverSetup` that surfaces only at proving or verification time.
     /// In practice: route all providers through the same `TrustedSetupProvider` instance
     /// (temp design) or the same canonical trusted setup source (production cache design).
     // TODO: swap `Temp*Provider` parameters for the production IVC cache providers
@@ -168,9 +168,9 @@ impl IvcProvingSetup {
 // When the real IVC cache providers ship, these tests will be rewritten end-to-end:
 // the temp provider constructions are replaced with the real provider constructions,
 // the K=19 unsafe SRS is replaced with the production K=22 SRS loaded through
-// `TrustedSetupProvider`, and `IvcProvingSetup::load` is called with the real
+// `TrustedSetupProvider`, and `IvcProverSetup::load` is called with the real
 // `RecursiveCircuit{Verifying,Proving}KeyProvider` plus the cert
-// `CircuitVerificationKeyProvider`. The body of `IvcProvingSetup::load` stays unchanged across
+// `CircuitVerificationKeyProvider`. The body of `IvcProverSetup::load` stays unchanged across
 // that swap; only the call site (here) and the provider types change.
 #[cfg(test)]
 mod tests {
@@ -211,7 +211,7 @@ mod tests {
             let certificate_verifying_key = certificate_key_provider.get_verifying_key().unwrap();
             let ivc_key_provider = TempIvcKeyProvider::new(srs, certificate_verifying_key);
 
-            let setup = IvcProvingSetup::load(
+            let setup = IvcProverSetup::load(
                 &trusted_setup_provider,
                 &certificate_key_provider,
                 &ivc_key_provider,

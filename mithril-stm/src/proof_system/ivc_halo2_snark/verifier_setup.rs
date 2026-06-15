@@ -17,13 +17,13 @@ use crate::{
     },
     proof_system::{
         KZG_VERIFIER_PARAMS,
-        ivc_halo2_snark::{CircuitVerifyingKey, setup::IvcProvingSetup},
+        ivc_halo2_snark::{CircuitVerifyingKey, setup::IvcProverSetup},
     },
 };
 
 /// Minimal setup artifacts needed to verify IVC proofs without loading the full SRS.
 ///
-/// Unlike [`IvcProvingSetup`], this struct does not hold a `ParamsKZG` (hundreds of MB). The KZG
+/// Unlike [`IvcProverSetup`], this struct does not hold a `ParamsKZG` (hundreds of MB). The KZG
 /// verifier parameters are embedded as a compile-time constant and deserialized on
 /// construction. The caller must supply the verifying keys because the certificate VK varies
 /// per deployment.
@@ -78,11 +78,11 @@ impl IvcVerifierSetup {
         })
     }
 
-    /// Derive from an already-built [`IvcProvingSetup`], reusing its precomputed fixed bases.
+    /// Derive from an already-built [`IvcProverSetup`], reusing its precomputed fixed bases.
     ///
     /// Avoids recomputing fixed bases from scratch when a proving session is already running.
     #[allow(dead_code)]
-    pub(crate) fn from_ivc_setup(ivc_setup: &IvcProvingSetup) -> StmResult<Self> {
+    pub(crate) fn from_ivc_setup(ivc_setup: &IvcProverSetup) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
         Ok(Self {
             verifier_params,
@@ -92,12 +92,12 @@ impl IvcVerifierSetup {
         })
     }
 
-    /// Derive from an already-built [`IvcProvingSetup`], extracting verifier params directly
+    /// Derive from an already-built [`IvcProverSetup`], extracting verifier params directly
     /// from its SRS rather than the embedded constant. Only for tests — production code must
     /// not load the full SRS just to verify a proof.
     #[cfg(test)]
     #[allow(dead_code)]
-    pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcProvingSetup) -> Self {
+    pub(crate) fn from_ivc_setup_with_srs(ivc_setup: &IvcProverSetup) -> Self {
         let verifier_params = ivc_setup.srs.verifier_params();
         let tau_g2: G2Affine = verifier_params.s_g2().into();
         Self {
