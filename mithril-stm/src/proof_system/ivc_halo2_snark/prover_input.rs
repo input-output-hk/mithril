@@ -269,8 +269,16 @@ mod tests {
                     .get_verifying_key()
                     .expect("certificate verifying key keygen should succeed");
                 let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-                IvcSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcSetup::load should succeed under the unsafe SRS")
+                // `prepare` only verifies/prepares; it never reads the IVC proving key. Use
+                // the pk-less constructor so each nextest process skips the ~2.4 GiB,
+                // multi-minute `keygen_pk` that the shared `OnceLock` cannot amortize across
+                // per-test processes.
+                IvcSetup::load_without_proving_key(
+                    &trusted_setup_provider,
+                    &cert_provider,
+                    &ivc_provider,
+                )
+                .expect("IvcSetup::load_without_proving_key should succeed under the unsafe SRS")
             })
         }
 

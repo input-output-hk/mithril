@@ -47,7 +47,13 @@ pub(crate) struct IvcSetup {
     /// Verifying key of the IVC circuit.
     pub(crate) ivc_verifying_key: CircuitVerifyingKey,
     /// Proving key of the IVC circuit.
-    pub(crate) ivc_proving_key: CircuitProvingKey,
+    ///
+    /// `Some` when assembled by [`IvcSetup::load`] (the full path the production prover
+    /// needs); `None` when assembled by [`IvcSetup::load_without_proving_key`], which skips
+    /// the expensive `keygen_pk` for callers that only verify/prepare (e.g. the `prepare`
+    /// step). The proving key at production `K` is ~2.4 GiB and takes minutes to build, so
+    /// the verify-only callers deliberately avoid it.
+    pub(crate) ivc_proving_key: Option<CircuitProvingKey>,
     /// Fixed-base map used to normalize the certificate accumulator.
     pub(crate) certificate_fixed_bases: BTreeMap<String, G1Projective>,
     /// Fixed-base map used to normalize the IVC proof accumulator.
@@ -96,6 +102,52 @@ impl IvcSetup {
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
         let ivc_proving_key = ivc_key_provider.get_proving_key()?;
 
+        Ok(Self::assemble(
+            srs_verifier_params,
+            certificate_verifying_key,
+            ivc_verifying_key,
+            Some(ivc_proving_key),
+        ))
+    }
+
+    /// Derives an IVC setup that omits the IVC proving key.
+    ///
+    /// Identical to [`IvcSetup::load`] except it pulls only the IVC *verifying* key, skipping
+    /// `keygen_pk`. The IVC proving key at production `K` is ~2.4 GiB and takes minutes to
+    /// build; callers that only verify or prepare (e.g. `IvcProverInput::prepare`) never read
+    /// it, so paying for it is pure waste. The verifying key, verifier params, and all three
+    /// fixed-base maps are still built, so the verify/prepare helpers remain fully functional.
+    ///
+    /// `ivc_proving_key` is left `None`. The production prover, which needs the proving key,
+    /// must use [`IvcSetup::load`] instead.
+    pub(crate) fn load_without_proving_key(
+        trusted_setup_provider: &TrustedSetupProvider,
+        certificate_key_provider: &TempCertificateKeyProvider,
+        ivc_key_provider: &TempIvcKeyProvider,
+    ) -> StmResult<Self> {
+        let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        let srs_verifier_params = srs.verifier_params();
+
+        let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
+        let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
+
+        Ok(Self::assemble(
+            srs_verifier_params,
+            certificate_verifying_key,
+            ivc_verifying_key,
+            None,
+        ))
+    }
+
+    /// Assembles an `IvcSetup` from already-derived keys, computing the three fixed-base maps
+    /// from the verifying keys. Shared by [`IvcSetup::load`] and
+    /// [`IvcSetup::load_without_proving_key`] so the fixed-base derivation lives in one place.
+    fn assemble(
+        srs_verifier_params: ParamsVerifierKZG<Bls12>,
+        certificate_verifying_key: CircuitVerifyingKey,
+        ivc_verifying_key: CircuitVerifyingKey,
+        ivc_proving_key: Option<CircuitProvingKey>,
+    ) -> Self {
         let (certificate_fixed_bases, _) = fixed_bases_and_names(
             CERTIFICATE_VERIFICATION_KEY_NAME,
             &certificate_verifying_key,
@@ -105,7 +157,7 @@ impl IvcSetup {
         let mut combined_fixed_bases = certificate_fixed_bases.clone();
         combined_fixed_bases.extend(ivc_fixed_bases.clone());
 
-        Ok(Self {
+        Self {
             srs_verifier_params,
             certificate_verifying_key,
             ivc_verifying_key,
@@ -113,7 +165,7 @@ impl IvcSetup {
             certificate_fixed_bases,
             ivc_fixed_bases,
             combined_fixed_bases,
-        })
+        }
     }
 
     /// Wrap the certificate proof's prepared `DualMSM` into a collapsed accumulator on
@@ -218,6 +270,10 @@ mod tests {
             )
             .unwrap();
 
+            assert!(
+                setup.ivc_proving_key.is_some(),
+                "full load should build the IVC proving key"
+            );
             assert!(
                 !setup.certificate_fixed_bases.is_empty(),
                 "certificate fixed bases should be populated"
