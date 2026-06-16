@@ -616,7 +616,8 @@ mod tests {
     }
 
     mod slow {
-        use std::sync::{Arc, OnceLock};
+        use std::sync::Arc;
+        use std::time::Instant;
 
         use midnight_circuits::{
             hash::poseidon::PoseidonState, verifier::Accumulator, verifier::BlstrsEmulation,
@@ -665,66 +666,18 @@ mod tests {
 
         use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
-        fn shared_ivc_setup() -> Arc<IvcProverSetup> {
-            static CELL: OnceLock<Arc<IvcProverSetup>> = OnceLock::new();
-            CELL.get_or_init(|| {
-                let temp_dir = tempdir().expect("temp dir creation should succeed");
-                let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
-                let srs = Arc::new(
-                    trusted_setup_provider
-                        .get_trusted_setup_parameters()
-                        .expect("unsafe SRS should load"),
-                );
-                let parameters = Parameters {
-                    k: QUORUM_SIZE as u64,
-                    m: (QUORUM_SIZE * 10) as u64,
-                    phi_f: 0.2,
-                };
-                let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-                let cert_provider = TempCertificateKeyProvider::new(
-                    Arc::clone(&srs),
-                    parameters,
-                    merkle_tree_depth,
-                );
-                let cert_vk = cert_provider
-                    .get_verifying_key()
-                    .expect("certificate verifying key keygen should succeed");
-                let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-                Arc::new(
-                    IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                        .expect("IvcProverSetup::load should succeed"),
-                )
-            })
-            .clone()
-        }
-
-        fn shared_asset_setup() -> &'static AssetGenerationSetup {
-            static CELL: OnceLock<AssetGenerationSetup> = OnceLock::new();
-            CELL.get_or_init(build_asset_generation_setup)
-        }
-
-        fn shared_verification_context() -> &'static VerificationContextAsset {
-            static CELL: OnceLock<VerificationContextAsset> = OnceLock::new();
-            CELL.get_or_init(|| {
-                load_embedded_verification_context_asset()
-                    .expect("verification context asset should load")
-            })
-        }
-
-        fn build_global() -> Global {
-            let asset_setup = shared_asset_setup();
-            let ctx = shared_verification_context();
-            build_recursive_global(
-                asset_setup,
-                &ctx.certificate_verifying_key,
-                &ctx.recursive_verifying_key,
-            )
+        struct SlowTestContext {
+            ivc_setup: Arc<IvcProverSetup>,
+            global: Global,
+            verifier_setup: IvcVerifierSetup,
+            asset_setup: AssetGenerationSetup,
+            verification_context: VerificationContextAsset,
         }
 
         fn wrap_snark_proof(
             certificate_proof_bytes: Vec<u8>,
+            verification_context: &VerificationContextAsset,
         ) -> SnarkProof<MithrilMembershipDigest> {
-            let ctx = shared_verification_context();
             let parameters = Parameters {
                 k: QUORUM_SIZE as u64,
                 m: (QUORUM_SIZE * 10) as u64,
@@ -735,7 +688,7 @@ mod tests {
                 certificate_proof_bytes,
                 parameters,
                 merkle_tree_depth,
-                CircuitVerificationKey::new(ctx.certificate_verifying_key.clone()),
+                CircuitVerificationKey::new(verification_context.certificate_verifying_key.clone()),
             )
         }
 
@@ -782,46 +735,20 @@ mod tests {
             bytes
         }
 
-        fn assert_vk_consistency() {
-            let ctx = shared_verification_context();
-            let setup = shared_ivc_setup();
-            assert_eq!(
-                ctx.certificate_verifying_key.vk().transcript_repr(),
-                setup.certificate_verifying_key.transcript_repr(),
-                "stored verification context cert VK must match freshly generated cert VK"
-            );
-            assert_eq!(
-                ctx.recursive_verifying_key.transcript_repr(),
-                setup.ivc_verifying_key.transcript_repr(),
-                "stored verification context IVC VK must match freshly generated IVC VK"
-            );
-        }
-
-        #[test]
-        fn prove_bootstrap_produces_epoch1_proof_and_rolling_state() {
-            // Verifies the bootstrap path (rolling_state = None, genesis_bootstrap = Some):
-            // prove() must internally run the genesis IVC step, then run the Epoch 1 step
-            // with the supplied certificate inputs, and return a Blake2b proof plus an
-            // updated rolling state.
-            assert_vk_consistency();
-
-            let ivc_setup = shared_ivc_setup();
-            let asset_setup = shared_asset_setup();
-            let global = build_global();
-            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+        fn run_bootstrap_path(ctx: &SlowTestContext) {
+            let t = Instant::now();
             let first_step = load_embedded_first_certificate_in_epoch_asset()
                 .expect("first-step certificate asset should load");
-
-            // Epoch 1 certificate data (next-epoch transition from the genesis base-case state).
-            // The previous state for the first real certificate is the output of the internal
-            // genesis IVC step, not State::genesis() (which is the zero input state).
             let avk = wrap_avk(&first_step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(first_step.certificate_proof.clone().into_vec());
+            let snark_proof = wrap_snark_proof(
+                first_step.certificate_proof.clone().into_vec(),
+                &ctx.verification_context,
+            );
             let epoch1_preimage = wrap_protocol_message_preimage(&first_step.message_preimage);
-            let bootstrap = genesis_bootstrap(asset_setup);
+            let bootstrap = genesis_bootstrap(&ctx.asset_setup);
 
             let mut prover = IvcProver {
-                ivc_setup,
+                ivc_setup: Arc::clone(&ctx.ivc_setup),
                 rng: OsRng,
             };
 
@@ -830,7 +757,7 @@ mod tests {
                     snark_proof,
                     first_step.message.as_ref(),
                     &avk,
-                    &global,
+                    &ctx.global,
                     &epoch1_preimage,
                     None,
                     Some(bootstrap),
@@ -850,7 +777,7 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&global, &verifier_setup)
+                .verify(&ctx.global, &ctx.verifier_setup)
                 .expect("bootstrap Blake2b proof must verify");
 
             IvcProof::<PoseidonState<CircuitBase>>::new(
@@ -858,17 +785,14 @@ mod tests {
                 epoch1_rolling.state().clone(),
                 epoch1_rolling.accumulator().clone(),
             )
-            .verify(&global, &verifier_setup)
+            .verify(&ctx.global, &ctx.verifier_setup)
             .expect("bootstrap Poseidon proof must verify");
+
+            println!("[bootstrap] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        #[test]
-        fn prove_next_epoch_produces_external_proof_and_rolling_state() {
-            assert_vk_consistency();
-
-            let ivc_setup = shared_ivc_setup();
-            let global = build_global();
-            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+        fn run_next_epoch_path(ctx: &SlowTestContext) {
+            let t = Instant::now();
             let rolling_state = rolling_state_from_asset(
                 load_embedded_recursive_chain_state_asset()
                     .expect("recursive chain state asset should load"),
@@ -876,13 +800,15 @@ mod tests {
             let step = load_embedded_next_epoch_step_output_asset()
                 .expect("next-epoch step output asset should load");
 
-            // Next-epoch step from the embedded non-genesis rolling checkpoint.
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
+            let snark_proof = wrap_snark_proof(
+                step.certificate_proof.clone().into_vec(),
+                &ctx.verification_context,
+            );
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let mut prover = IvcProver {
-                ivc_setup: Arc::clone(&ivc_setup),
+                ivc_setup: Arc::clone(&ctx.ivc_setup),
                 rng: OsRng,
             };
             let (blake2b_proof, rolling) = prover
@@ -890,7 +816,7 @@ mod tests {
                     snark_proof,
                     step.message.as_ref(),
                     &avk,
-                    &global,
+                    &ctx.global,
                     &preimage,
                     Some(&rolling_state),
                     None,
@@ -915,7 +841,7 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&global, &verifier_setup)
+                .verify(&ctx.global, &ctx.verifier_setup)
                 .expect("next-epoch Blake2b proof must verify");
 
             IvcProof::<PoseidonState<CircuitBase>>::new(
@@ -923,17 +849,14 @@ mod tests {
                 next_rolling.state().clone(),
                 next_rolling.accumulator().clone(),
             )
-            .verify(&global, &verifier_setup)
+            .verify(&ctx.global, &ctx.verifier_setup)
             .expect("next-epoch Poseidon proof must verify");
+
+            println!("[next-epoch] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        #[test]
-        fn prove_same_epoch_produces_external_proof_only() {
-            assert_vk_consistency();
-
-            let ivc_setup = shared_ivc_setup();
-            let global = build_global();
-            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+        fn run_same_epoch_path(ctx: &SlowTestContext) {
+            let t = Instant::now();
             let rolling_state = rolling_state_from_asset(
                 load_embedded_recursive_chain_state_asset()
                     .expect("recursive chain state asset should load"),
@@ -941,13 +864,15 @@ mod tests {
             let step = load_embedded_following_certificate_in_epoch_asset()
                 .expect("same-epoch step output asset should load");
 
-            // Same-epoch step (certificate following in the current epoch).
             let avk = wrap_avk(&step.aggregate_verification_key_merkle_root);
-            let snark_proof = wrap_snark_proof(step.certificate_proof.clone().into_vec());
+            let snark_proof = wrap_snark_proof(
+                step.certificate_proof.clone().into_vec(),
+                &ctx.verification_context,
+            );
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
 
             let mut prover = IvcProver {
-                ivc_setup: Arc::clone(&ivc_setup),
+                ivc_setup: Arc::clone(&ctx.ivc_setup),
                 rng: OsRng,
             };
             let (blake2b_proof, rolling) = prover
@@ -955,7 +880,7 @@ mod tests {
                     snark_proof,
                     step.message.as_ref(),
                     &avk,
-                    &global,
+                    &ctx.global,
                     &preimage,
                     Some(&rolling_state),
                     None,
@@ -973,8 +898,73 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&global, &verifier_setup)
+                .verify(&ctx.global, &ctx.verifier_setup)
                 .expect("same-epoch Blake2b proof must verify");
+
+            println!("[same-epoch] {:.1}s", t.elapsed().as_secs_f64());
+        }
+
+        #[test]
+        fn prove_all_scenarios() {
+            let t_setup = Instant::now();
+            let temp_dir = tempdir().expect("temp dir creation should succeed");
+            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+            let srs = Arc::new(
+                trusted_setup_provider
+                    .get_trusted_setup_parameters()
+                    .expect("unsafe SRS should load"),
+            );
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            let cert_provider =
+                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
+            let cert_vk = cert_provider
+                .get_verifying_key()
+                .expect("certificate verifying key keygen should succeed");
+            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
+            let ivc_setup = Arc::new(
+                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                    .expect("IvcProverSetup::load should succeed"),
+            );
+
+            let verification_context = load_embedded_verification_context_asset()
+                .expect("verification context asset should load");
+            let asset_setup = build_asset_generation_setup();
+
+            assert_eq!(
+                verification_context.certificate_verifying_key.vk().transcript_repr(),
+                ivc_setup.certificate_verifying_key.transcript_repr(),
+                "stored verification context cert VK must match freshly generated cert VK"
+            );
+            assert_eq!(
+                verification_context.recursive_verifying_key.transcript_repr(),
+                ivc_setup.ivc_verifying_key.transcript_repr(),
+                "stored verification context IVC VK must match freshly generated IVC VK"
+            );
+
+            let global = build_recursive_global(
+                &asset_setup,
+                &verification_context.certificate_verifying_key,
+                &verification_context.recursive_verifying_key,
+            );
+            let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
+            println!("[setup] {:.1}s", t_setup.elapsed().as_secs_f64());
+
+            let ctx = SlowTestContext {
+                ivc_setup,
+                global,
+                verifier_setup,
+                asset_setup,
+                verification_context,
+            };
+
+            run_bootstrap_path(&ctx);
+            run_next_epoch_path(&ctx);
+            run_same_epoch_path(&ctx);
         }
     }
 }
