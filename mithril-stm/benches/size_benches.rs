@@ -62,6 +62,10 @@ where
                     #[cfg(feature = "future_snark")]
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
+                    [0u8; 32],
+                    #[cfg(feature = "future_snark")]
+                    None,
+                    #[cfg(feature = "future_snark")]
                     None,
                 ),
             ),

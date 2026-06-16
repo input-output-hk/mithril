@@ -94,7 +94,9 @@
 //! let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let genesis_data = AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] None);
+//! #[cfg(feature = "future_snark")]
+//! use sha2::{Digest, Sha256};
+//! let genesis_data = AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] Sha256::digest(b"").into(), #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None);
 //! let ancillary_input = AncillaryProofInput::new(None, genesis_data);
 //! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation, ancillary_input);
 //! match msig {

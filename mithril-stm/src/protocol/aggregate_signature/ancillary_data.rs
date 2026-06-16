@@ -5,10 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "future_snark")]
-use crate::StandardSchnorrSignature;
 use crate::StmResult;
 use crate::codec;
+#[cfg(feature = "future_snark")]
+use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
 
 /// Ancillary data carried by a certificate for the prover.
 ///
@@ -68,32 +68,47 @@ impl AncillaryVerifierData {
 
 /// Genesis-related data carried into aggregate signature creation.
 ///
-/// Under `future_snark`, holds the genesis message preimage and the genesis Schnorr signature when
-/// the genesis certificate carries one. It is a transient input to proof creation, never stored on
-/// a certificate.
+/// Under `future_snark`, holds the genesis message preimage, the genesis message (the SHA-256
+/// digest of that preimage), the genesis Schnorr signature and the genesis Schnorr verification key
+/// when the genesis certificate carries them. It is a transient input to proof creation, never
+/// stored on a certificate.
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
     #[cfg(feature = "future_snark")]
     genesis_message_preimage: Vec<u8>,
     #[cfg(feature = "future_snark")]
+    genesis_message: [u8; 32],
+    #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
+    #[cfg(feature = "future_snark")]
+    genesis_schnorr_verification_key: Option<SchnorrVerificationKey>,
 }
 
 impl AncillaryGenesisData {
-    /// Build the genesis ancillary data. Under `future_snark`, from the genesis message preimage and
-    /// the genesis Schnorr signature (absent for a legacy, non-dual genesis certificate).
+    /// Build the genesis ancillary data. Under `future_snark`, from the genesis message preimage,
+    /// the genesis message (the SHA-256 digest of that preimage), the genesis Schnorr signature and
+    /// the genesis Schnorr verification key (the signature absent for a legacy, non-dual genesis
+    /// certificate).
     #[cfg_attr(not(feature = "future_snark"), allow(clippy::new_without_default))]
     pub fn new(
         #[cfg(feature = "future_snark")] genesis_message_preimage: Vec<u8>,
+        #[cfg(feature = "future_snark")] genesis_message: [u8; 32],
         #[cfg(feature = "future_snark")] genesis_schnorr_signature: Option<
             StandardSchnorrSignature,
+        >,
+        #[cfg(feature = "future_snark")] genesis_schnorr_verification_key: Option<
+            SchnorrVerificationKey,
         >,
     ) -> Self {
         Self {
             #[cfg(feature = "future_snark")]
             genesis_message_preimage,
             #[cfg(feature = "future_snark")]
+            genesis_message,
+            #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
+            #[cfg(feature = "future_snark")]
+            genesis_schnorr_verification_key,
         }
     }
 
@@ -103,10 +118,23 @@ impl AncillaryGenesisData {
         &self.genesis_message_preimage
     }
 
+    /// Return the genesis message (the SHA-256 digest of the genesis message preimage).
+    #[cfg(feature = "future_snark")]
+    pub fn genesis_message(&self) -> [u8; 32] {
+        self.genesis_message
+    }
+
     /// Return the genesis Schnorr signature, absent for a legacy (non-dual) genesis certificate.
     #[cfg(feature = "future_snark")]
     pub fn genesis_schnorr_signature(&self) -> Option<&StandardSchnorrSignature> {
         self.genesis_schnorr_signature.as_ref()
+    }
+
+    /// Return the genesis Schnorr verification key, absent for a legacy (non-dual) genesis
+    /// certificate.
+    #[cfg(feature = "future_snark")]
+    pub fn genesis_schnorr_verification_key(&self) -> Option<&SchnorrVerificationKey> {
+        self.genesis_schnorr_verification_key.as_ref()
     }
 
     /// Build genesis ancillary data carrying no data, for use in tests.
@@ -115,6 +143,10 @@ impl AncillaryGenesisData {
         Self::new(
             #[cfg(feature = "future_snark")]
             Vec::new(),
+            #[cfg(feature = "future_snark")]
+            [0u8; 32],
+            #[cfg(feature = "future_snark")]
+            None,
             #[cfg(feature = "future_snark")]
             None,
         )
@@ -222,5 +254,19 @@ mod tests {
 
         assert!(output.prover_data().is_none());
         assert!(output.verifier_data().is_none());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn genesis_data_getters_return_the_values_it_was_built_with() {
+        let preimage = vec![1u8, 2, 3];
+        let message = [7u8; 32];
+
+        let genesis_data = AncillaryGenesisData::new(preimage.clone(), message, None, None);
+
+        assert_eq!(genesis_data.genesis_message_preimage(), preimage.as_slice());
+        assert_eq!(genesis_data.genesis_message(), message);
+        assert!(genesis_data.genesis_schnorr_signature().is_none());
+        assert!(genesis_data.genesis_schnorr_verification_key().is_none());
     }
 }

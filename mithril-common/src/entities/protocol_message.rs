@@ -242,10 +242,16 @@ impl ProtocolMessage {
     /// Compute the hex-encoded SHA-256 hash of the protocol message, dispatching over
     /// [ProtocolMessage::hash_scheme].
     pub fn compute_hash(&self) -> String {
+        hex::encode(self.compute_hash_bytes())
+    }
+
+    /// Compute the SHA-256 hash bytes of the protocol message, dispatching over
+    /// [ProtocolMessage::hash_scheme].
+    pub fn compute_hash_bytes(&self) -> [u8; 32] {
         match self.hash_scheme {
-            ProtocolMessageHashScheme::Legacy => self.compute_legacy_hash(),
+            ProtocolMessageHashScheme::Legacy => self.compute_legacy_digest_bytes(),
             #[cfg(feature = "future_snark")]
-            ProtocolMessageHashScheme::Rigid => self.compute_rigid_hash(),
+            ProtocolMessageHashScheme::Rigid => self.compute_rigid_hash_bytes(),
         }
     }
 
@@ -256,10 +262,6 @@ impl ProtocolMessage {
             hasher.update(value.as_bytes());
         }
         hasher.finalize().into()
-    }
-
-    fn compute_legacy_hash(&self) -> String {
-        hex::encode(self.compute_legacy_digest_bytes())
     }
 }
 
@@ -321,8 +323,16 @@ impl ProtocolMessage {
         }
     }
 
-    fn compute_rigid_hash(&self) -> String {
-        hex::encode(Sha256::digest(self.rigid_preimage()))
+    /// Compute the SHA-256 rigid hash bytes of the protocol message (the digest of its rigid
+    /// preimage).
+    pub fn compute_rigid_hash_bytes(&self) -> [u8; 32] {
+        Self::compute_rigid_hash_bytes_from_preimage(&self.rigid_preimage())
+    }
+
+    /// Compute the SHA-256 rigid hash bytes from an already-built rigid preimage, avoiding a second
+    /// preimage assembly when the caller already holds it.
+    pub fn compute_rigid_hash_bytes_from_preimage(preimage: &[u8]) -> [u8; 32] {
+        Sha256::digest(preimage).into()
     }
 
     /// Assemble the SNARK-friendly rigid preimage from the [ProtocolMessage::message_parts] as
@@ -558,6 +568,20 @@ mod tests {
         );
 
         assert_ne!(hash_before_change, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn compute_hash_is_the_hex_encoding_of_compute_hash_bytes() {
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "a-digest".to_string(),
+        );
+
+        assert_eq!(
+            protocol_message.compute_hash(),
+            hex::encode(protocol_message.compute_hash_bytes())
+        );
     }
 
     #[test]
@@ -823,6 +847,27 @@ mod tests {
         assert_eq!(hash.len(), 64);
         let decoded = hex::decode(&hash).unwrap();
         assert_eq!(decoded.len(), 32);
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn rigid_compute_hash_bytes_is_the_hex_decoded_rigid_hash() {
+        let rigid = build_rigid_protocol_message_reference();
+
+        let hash_bytes = rigid.compute_rigid_hash_bytes();
+
+        assert_eq!(hex::encode(hash_bytes), rigid.compute_hash());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn compute_rigid_hash_bytes_from_preimage_matches_compute_rigid_hash_bytes() {
+        let rigid = build_rigid_protocol_message_reference();
+
+        assert_eq!(
+            ProtocolMessage::compute_rigid_hash_bytes_from_preimage(&rigid.rigid_preimage()),
+            rigid.compute_rigid_hash_bytes()
+        );
     }
 
     #[cfg(feature = "future_snark")]

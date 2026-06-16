@@ -308,8 +308,12 @@ impl CertifierService for MithrilCertifierService {
             .await
             .with_context(|| "Certifier can not get the latest genesis certificate")?
             .ok_or_else(|| Box::new(CertifierServiceError::NoGenesisCertificateFound))?;
-        let ancillary_input =
-            build_ancillary_proof_input(&genesis_certificate, &parent_certificate);
+        let ancillary_input = build_ancillary_proof_input(
+            &genesis_certificate,
+            &parent_certificate,
+            #[cfg(feature = "future_snark")]
+            self.genesis_verifier.to_schnorr_verification_key(),
+        );
 
         let MultiSignatureWithAncillaryData {
             multi_signature,
