@@ -6,7 +6,8 @@ mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
 pub use ancillary_data::{
-    AncillaryGenesisData, AncillaryProofInput, AncillaryProverData, AncillaryVerifierData,
+    AncillaryGenesisData, AncillaryProofInput, AncillaryProofOutput, AncillaryProverData,
+    AncillaryVerifierData,
 };
 pub use clerk::Clerk;
 pub use error::{AggregateSignatureError, AggregationError};
@@ -30,7 +31,7 @@ mod tests {
 
     use super::{
         AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
-        AncillaryProofInput, AncillaryVerifierData, Clerk,
+        AncillaryProofInput, AncillaryProofOutput, Clerk,
     };
 
     type Sig = AggregateSignature<D>;
@@ -167,7 +168,7 @@ mod tests {
 
     #[derive(Debug)]
     struct ProofTest {
-        msig: StmResult<(Sig, Option<AncillaryVerifierData>)>,
+        msig: StmResult<(Sig, AncillaryProofOutput)>,
         clerk: Clerk<D>,
         msg: [u8; 16],
     }
@@ -204,14 +205,14 @@ mod tests {
         F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 16]),
     {
         match tc.msig {
-            Ok((mut aggr, ancillary_verifier_data)) => {
+            Ok((mut aggr, ancillary_proof_output)) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 assert!(
                     aggr.verify(
                         &tc.msg,
                         &tc.clerk.compute_aggregate_verification_key(),
                         &tc.clerk.get_concatenation_clerk().parameters,
-                        ancillary_verifier_data
+                        ancillary_proof_output.verifier_data().cloned()
                     )
                     .is_err()
                 )
@@ -240,9 +241,9 @@ mod tests {
             let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
 
             match msig {
-                Ok((aggr, ancillary_verifier_data)) => {
+                Ok((aggr, ancillary_proof_output)) => {
                     println!("Aggregate ok");
-                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
+                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
                 }
                 Err(error) => match error.downcast_ref::<AggregationError>() {
                     Some(AggregationError::NotEnoughSignatures(n, k)) => {
@@ -324,10 +325,10 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
-            if let Ok((aggr, ancillary_verifier_data)) = msig {
+            if let Ok((aggr, ancillary_proof_output)) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes().expect("AggregateSignature serialization should not fail");
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
-                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
+                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
             }
         }
     }
@@ -420,12 +421,12 @@ mod tests {
                     let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy());
 
                     match msig {
-                        Ok((aggr, ancillary_verifier_data)) => {
+                        Ok((aggr, ancillary_proof_output)) => {
                             aggr_avks.push(clerk.compute_aggregate_verification_key());
                             aggr_stms.push(aggr);
                             batch_msgs.push(msg.to_vec());
                             batch_params.push(params);
-                            batch_ancillary_verifier_datas.push(ancillary_verifier_data);
+                            batch_ancillary_verifier_datas.push(ancillary_proof_output.verifier_data().cloned());
                         }
                         Err(error) => { assert!(
                             matches!(
@@ -473,7 +474,7 @@ mod tests {
 
                 let all_ps: Vec<usize> = (0..nparties).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
-                let (fake_msig, _ancillary_verifier_data) = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy()).unwrap();
+                let (fake_msig, _ancillary_proof_output) = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy()).unwrap();
 
                 aggr_stms[0] = fake_msig;
                 assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_err());

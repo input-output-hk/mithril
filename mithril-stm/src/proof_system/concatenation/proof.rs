@@ -419,7 +419,7 @@ mod tests {
             let signature_1 = signer_1.create_single_signature(&msg).unwrap();
             let signature_2 = signer_2.create_single_signature(&msg).unwrap();
 
-            let (signature, _ancillary_verifier_data) = clerk
+            let (signature, _ancillary_proof_output) = clerk
                 .aggregate_signatures_with_type(
                     &[signature_1, signature_2],
                     &msg,

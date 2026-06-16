@@ -51,7 +51,7 @@ where
 
     // Aggregate with random parties
     let aggr_sig_type = AggregateSignatureType::Concatenation;
-    let (aggr, _ancillary_verifier_data) = clerk
+    let (aggr, _ancillary_proof_output) = clerk
         .aggregate_signatures_with_type(
             &sigs,
             &msg,

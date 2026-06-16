@@ -98,10 +98,10 @@
 //! let ancillary_input = AncillaryProofInput::new(None, genesis_data);
 //! let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation, ancillary_input);
 //! match msig {
-//!     Ok((aggr, ancillary_verifier_data)) => {
+//!     Ok((aggr, ancillary_proof_output)) => {
 //!         println!("Aggregate ok");
 //!         assert!(aggr
-//!             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data)
+//!             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned())
 //!             .is_ok());
 //!     }
 //!     Err(error) => assert!(
@@ -150,10 +150,10 @@ mod signature_scheme;
 pub use proof_system::AggregateVerificationKeyForConcatenation;
 pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
-    AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProverData,
-    AncillaryVerifierData, Clerk, ClosedKeyRegistration, ClosedRegistrationEntry, Initializer,
-    KeyRegistration, Parameters, RegisterError, RegistrationEntry,
-    RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
+    AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProofOutput,
+    AncillaryProverData, AncillaryVerifierData, Clerk, ClosedKeyRegistration,
+    ClosedRegistrationEntry, Initializer, KeyRegistration, Parameters, RegisterError,
+    RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
     SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
     VerificationKeyProofOfPossessionForConcatenation,
 };

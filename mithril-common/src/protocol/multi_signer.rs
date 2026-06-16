@@ -49,7 +49,7 @@ impl MultiSigner {
             .map(|single_signature| single_signature.to_protocol_signature())
             .collect();
 
-        let (multi_signature, ancillary_verifier_data) =
+        let (multi_signature, ancillary_proof_output) =
             self.protocol_clerk.aggregate_signatures_with_type(
                 &protocol_signatures,
                 message.to_message().as_bytes(),
@@ -59,7 +59,9 @@ impl MultiSigner {
 
         Ok(MultiSignatureWithAncillaryVerifierData {
             multi_signature: multi_signature.into(),
-            ancillary_verifier_data: ancillary_verifier_data
+            ancillary_verifier_data: ancillary_proof_output
+                .verifier_data()
+                .cloned()
                 .map(ProtocolAncillaryVerifierData::new),
         })
     }

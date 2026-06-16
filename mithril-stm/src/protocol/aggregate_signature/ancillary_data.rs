@@ -161,6 +161,41 @@ impl AncillaryProofInput {
     }
 }
 
+/// Ancillary output from one aggregate signature creation.
+///
+/// Carries the prover data to store on the new certificate (the state the proof system needs to
+/// produce the next certificate) and the verifier data the new certificate exposes. It is the
+/// output counterpart of [`AncillaryProofInput`]; each proof system decides whether to produce
+/// either, so both are absent for a proof system that produces none.
+#[derive(Clone, Debug)]
+pub struct AncillaryProofOutput {
+    prover_data: Option<AncillaryProverData>,
+    verifier_data: Option<AncillaryVerifierData>,
+}
+
+impl AncillaryProofOutput {
+    /// Build the ancillary proof output from the prover and verifier data.
+    pub fn new(
+        prover_data: Option<AncillaryProverData>,
+        verifier_data: Option<AncillaryVerifierData>,
+    ) -> Self {
+        Self {
+            prover_data,
+            verifier_data,
+        }
+    }
+
+    /// Return the prover ancillary data to store on the new certificate.
+    pub fn prover_data(&self) -> Option<&AncillaryProverData> {
+        self.prover_data.as_ref()
+    }
+
+    /// Return the verifier ancillary data the new certificate exposes.
+    pub fn verifier_data(&self) -> Option<&AncillaryVerifierData> {
+        self.verifier_data.as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::codec::CODEC_VERSION_CBOR_V1;
@@ -179,5 +214,13 @@ mod tests {
         assert!(AncillaryVerifierData::from_bytes(&[]).is_err());
         assert!(AncillaryVerifierData::from_bytes(&[0, 1, 2]).is_err());
         assert!(AncillaryVerifierData::from_bytes(&[CODEC_VERSION_CBOR_V1, 0xff]).is_err());
+    }
+
+    #[test]
+    fn proof_output_exposes_the_data_it_was_built_with() {
+        let output = AncillaryProofOutput::new(None, None);
+
+        assert!(output.prover_data().is_none());
+        assert!(output.verifier_data().is_none());
     }
 }
