@@ -6,6 +6,9 @@
 [test-groups.ivc-snark-slow]
 max-threads = 1
 
+[test-groups.ivc-snark-very-slow]
+max-threads = 1
+
 [profile.ci]
 # Print out output for failing tests as soon as they fail, and also at the end
 # of the run (for easy scrollability).
@@ -20,5 +23,9 @@ path = "tests-result.junit.xml"
 report-name = "mithril-tests"
 
 [[profile.ci.overrides]]
-filter = 'test(#proof_system::ivc_halo2_snark::*slow::*)'
+filter = 'test(#proof_system::ivc_halo2_snark::*slow::*) and not test(#*very_slow::*)'
 test-group = "ivc-snark-slow"
+
+[[profile.ci.overrides]]
+filter = 'test(#proof_system::ivc_halo2_snark::*very_slow::*)'
+test-group = "ivc-snark-very-slow"

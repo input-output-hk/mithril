@@ -666,7 +666,7 @@ mod tests {
 
         use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
-        struct SlowTestContext {
+        pub(super) struct SlowTestContext {
             ivc_setup: Arc<IvcProverSetup>,
             global: Global,
             verifier_setup: IvcVerifierSetup,
@@ -791,7 +791,7 @@ mod tests {
             println!("[bootstrap] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        fn run_next_epoch_path(ctx: &SlowTestContext) {
+        pub(super) fn run_next_epoch_path(ctx: &SlowTestContext) {
             let t = Instant::now();
             let rolling_state = rolling_state_from_asset(
                 load_embedded_recursive_chain_state_asset()
@@ -904,8 +904,7 @@ mod tests {
             println!("[same-epoch] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        #[test]
-        fn prove_all_scenarios() {
+        pub(super) fn build_slow_test_context() -> SlowTestContext {
             let t_setup = Instant::now();
             let temp_dir = tempdir().expect("temp dir creation should succeed");
             let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -954,17 +953,30 @@ mod tests {
             let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
             println!("[setup] {:.1}s", t_setup.elapsed().as_secs_f64());
 
-            let ctx = SlowTestContext {
+            SlowTestContext {
                 ivc_setup,
                 global,
                 verifier_setup,
                 asset_setup,
                 verification_context,
-            };
+            }
+        }
 
+        #[test]
+        fn prove_bootstrap_and_same_epoch_scenarios() {
+            let ctx = build_slow_test_context();
             run_bootstrap_path(&ctx);
-            run_next_epoch_path(&ctx);
             run_same_epoch_path(&ctx);
+        }
+    }
+
+    mod very_slow {
+        use super::slow::{build_slow_test_context, run_next_epoch_path};
+
+        #[test]
+        fn prove_next_epoch_scenario() {
+            let ctx = build_slow_test_context();
+            run_next_epoch_path(&ctx);
         }
     }
 }
