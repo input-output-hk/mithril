@@ -189,6 +189,7 @@ impl CertificateGenesisProducer {
             genesis_avk,
             signature,
             None,
+            None,
         )
     }
 }

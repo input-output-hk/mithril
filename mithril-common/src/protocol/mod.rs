@@ -10,7 +10,7 @@ mod signer_builder;
 mod single_signer;
 
 pub use ancillary::build_ancillary_proof_input;
-pub use multi_signer::{MultiSignatureWithAncillaryVerifierData, MultiSigner};
+pub use multi_signer::{MultiSignatureWithAncillaryData, MultiSigner};
 pub use signer_builder::{SignerBuilder, SignerBuilderError};
 pub use single_signer::SingleSigner;
 

@@ -4,18 +4,21 @@ use mithril_stm::{AggregateSignatureType, AncillaryProofInput, Parameters};
 use crate::{
     StdResult,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolAncillaryVerifierData, ProtocolClerk,
-        ProtocolMultiSignature,
+        ProtocolAggregateVerificationKey, ProtocolAncillaryProverData,
+        ProtocolAncillaryVerifierData, ProtocolClerk, ProtocolMultiSignature,
     },
     entities::SingleSignature,
     protocol::ToMessage,
 };
 
-/// A multi-signature together with the ancillary verifier data produced during its creation.
+/// A multi-signature together with the ancillary data produced during its creation.
 #[derive(Debug, Clone)]
-pub struct MultiSignatureWithAncillaryVerifierData {
+pub struct MultiSignatureWithAncillaryData {
     /// The produced multi-signature.
     pub multi_signature: ProtocolMultiSignature,
+
+    /// The ancillary prover data produced during aggregation needed for a following round of aggregation, absent when the proof system produces none.
+    pub ancillary_prover_data: Option<ProtocolAncillaryProverData>,
 
     /// The ancillary verifier data produced during aggregation, absent when the proof system
     /// produces none.
@@ -43,7 +46,7 @@ impl MultiSigner {
         message: &T,
         aggregate_signature_type: AggregateSignatureType,
         ancillary_input: AncillaryProofInput,
-    ) -> StdResult<MultiSignatureWithAncillaryVerifierData> {
+    ) -> StdResult<MultiSignatureWithAncillaryData> {
         let protocol_signatures: Vec<_> = single_signatures
             .iter()
             .map(|single_signature| single_signature.to_protocol_signature())
@@ -57,8 +60,12 @@ impl MultiSigner {
                 ancillary_input,
             )?;
 
-        Ok(MultiSignatureWithAncillaryVerifierData {
+        Ok(MultiSignatureWithAncillaryData {
             multi_signature: multi_signature.into(),
+            ancillary_prover_data: ancillary_proof_output
+                .prover_data()
+                .cloned()
+                .map(ProtocolAncillaryProverData::new),
             ancillary_verifier_data: ancillary_proof_output
                 .verifier_data()
                 .cloned()
