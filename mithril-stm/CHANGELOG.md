@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.38 (06-17-2026)
+
+### Added
+
+- Added `AncillaryProofOutput`, carrying the optional prover and verifier data produced during aggregate signature creation.
+
+### Changed
+
+- `Clerk::aggregate_signatures_with_type` now returns the aggregate signature together with an `AncillaryProofOutput` instead of the optional `AncillaryVerifierData`.
+- `AncillaryGenesisData` now also carries the genesis Schnorr verification key, gated behind the `future_snark` feature.
+- `AncillaryProofInput` now also carries the rigid preimage of the protocol message being aggregated, gated behind the `future_snark` feature.
+
 ## 0.10.37 (06-17-2026)
 
 ### Added
