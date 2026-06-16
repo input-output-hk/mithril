@@ -68,35 +68,39 @@ impl AncillaryVerifierData {
 
 /// Genesis-related data carried into aggregate signature creation.
 ///
-/// Holds the genesis message and, under `future_snark`, the genesis Schnorr signature when the
-/// genesis certificate carries one. It is a transient input to proof creation, never stored on a
-/// certificate.
+/// Under `future_snark`, holds the genesis message preimage and the genesis Schnorr signature when
+/// the genesis certificate carries one. It is a transient input to proof creation, never stored on
+/// a certificate.
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
-    genesis_message: Vec<u8>,
+    #[cfg(feature = "future_snark")]
+    genesis_message_preimage: Vec<u8>,
     #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
 }
 
 impl AncillaryGenesisData {
-    /// Build the genesis ancillary data from the genesis message and, under `future_snark`, the
-    /// genesis Schnorr signature (absent for a legacy, non-dual genesis certificate).
+    /// Build the genesis ancillary data. Under `future_snark`, from the genesis message preimage and
+    /// the genesis Schnorr signature (absent for a legacy, non-dual genesis certificate).
+    #[cfg_attr(not(feature = "future_snark"), allow(clippy::new_without_default))]
     pub fn new(
-        genesis_message: Vec<u8>,
+        #[cfg(feature = "future_snark")] genesis_message_preimage: Vec<u8>,
         #[cfg(feature = "future_snark")] genesis_schnorr_signature: Option<
             StandardSchnorrSignature,
         >,
     ) -> Self {
         Self {
-            genesis_message,
+            #[cfg(feature = "future_snark")]
+            genesis_message_preimage,
             #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
         }
     }
 
-    /// Return the genesis message.
-    pub fn genesis_message(&self) -> &[u8] {
-        &self.genesis_message
+    /// Return the genesis message preimage.
+    #[cfg(feature = "future_snark")]
+    pub fn genesis_message_preimage(&self) -> &[u8] {
+        &self.genesis_message_preimage
     }
 
     /// Return the genesis Schnorr signature, absent for a legacy (non-dual) genesis certificate.
@@ -109,6 +113,7 @@ impl AncillaryGenesisData {
     #[cfg(test)]
     pub fn dummy() -> Self {
         Self::new(
+            #[cfg(feature = "future_snark")]
             Vec::new(),
             #[cfg(feature = "future_snark")]
             None,

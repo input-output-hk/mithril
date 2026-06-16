@@ -78,6 +78,7 @@ fn stm_benches<D: MembershipDigest>(
                 AncillaryProofInput::new(
                     None,
                     AncillaryGenesisData::new(
+                        #[cfg(feature = "future_snark")]
                         Vec::new(),
                         #[cfg(feature = "future_snark")]
                         None,
@@ -155,6 +156,7 @@ fn batch_benches<D>(
                     AncillaryProofInput::new(
                         None,
                         AncillaryGenesisData::new(
+                            #[cfg(feature = "future_snark")]
                             Vec::new(),
                             #[cfg(feature = "future_snark")]
                             None,
