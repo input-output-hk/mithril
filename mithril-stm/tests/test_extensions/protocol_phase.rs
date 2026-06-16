@@ -108,6 +108,8 @@ pub fn operation_phase(
             #[cfg(feature = "future_snark")]
             None,
         ),
+        #[cfg(feature = "future_snark")]
+        Vec::new(),
     );
     let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, ancillary_input);
 

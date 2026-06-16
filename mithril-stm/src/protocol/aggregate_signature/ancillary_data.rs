@@ -155,24 +155,31 @@ impl AncillaryGenesisData {
 
 /// Ancillary input to one aggregate signature creation.
 ///
-/// Carries the prover data from the previous certificate and the genesis data from the genesis
-/// certificate, the state the proof system needs at creation. It is always supplied to the clerk;
+/// Carries the prover data from the previous certificate, the genesis data from the genesis
+/// certificate and, under `future_snark`, the rigid preimage of the protocol message being
+/// aggregated, the state the proof system needs at creation. It is always supplied to the clerk;
 /// each proof system decides whether to consume it.
 #[derive(Clone, Debug)]
 pub struct AncillaryProofInput {
     prover_data: Option<AncillaryProverData>,
     genesis_data: AncillaryGenesisData,
+    #[cfg(feature = "future_snark")]
+    message_preimage: Vec<u8>,
 }
 
 impl AncillaryProofInput {
-    /// Build the ancillary proof input from the prover and genesis data.
+    /// Build the ancillary proof input from the prover data, the genesis data and, under
+    /// `future_snark`, the rigid preimage of the protocol message being aggregated.
     pub fn new(
         prover_data: Option<AncillaryProverData>,
         genesis_data: AncillaryGenesisData,
+        #[cfg(feature = "future_snark")] message_preimage: Vec<u8>,
     ) -> Self {
         Self {
             prover_data,
             genesis_data,
+            #[cfg(feature = "future_snark")]
+            message_preimage,
         }
     }
 
@@ -186,10 +193,21 @@ impl AncillaryProofInput {
         &self.genesis_data
     }
 
+    /// Return the rigid preimage of the protocol message being aggregated.
+    #[cfg(feature = "future_snark")]
+    pub fn message_preimage(&self) -> &[u8] {
+        &self.message_preimage
+    }
+
     /// Build an ancillary proof input carrying no data, for use in tests.
     #[cfg(test)]
     pub fn dummy() -> Self {
-        Self::new(None, AncillaryGenesisData::dummy())
+        Self::new(
+            None,
+            AncillaryGenesisData::dummy(),
+            #[cfg(feature = "future_snark")]
+            Vec::new(),
+        )
     }
 }
 
@@ -268,5 +286,19 @@ mod tests {
         assert_eq!(genesis_data.genesis_message(), message);
         assert!(genesis_data.genesis_schnorr_signature().is_none());
         assert!(genesis_data.genesis_schnorr_verification_key().is_none());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn proof_input_returns_the_message_preimage_it_was_built_with() {
+        let message_preimage = vec![9u8, 8, 7];
+
+        let proof_input = AncillaryProofInput::new(
+            None,
+            AncillaryGenesisData::dummy(),
+            message_preimage.clone(),
+        );
+
+        assert_eq!(proof_input.message_preimage(), message_preimage.as_slice());
     }
 }

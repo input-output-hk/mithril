@@ -87,6 +87,8 @@ fn stm_benches<D: MembershipDigest>(
                         #[cfg(feature = "future_snark")]
                         None,
                     ),
+                    #[cfg(feature = "future_snark")]
+                    Vec::new(),
                 ),
             )
         })
@@ -169,6 +171,8 @@ fn batch_benches<D>(
                             #[cfg(feature = "future_snark")]
                             None,
                         ),
+                        #[cfg(feature = "future_snark")]
+                        Vec::new(),
                     ),
                 )
                 .unwrap();

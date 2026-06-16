@@ -181,6 +181,8 @@ impl Party {
                 #[cfg(feature = "future_snark")]
                 None,
             ),
+            #[cfg(feature = "future_snark")]
+            Vec::new(),
         );
         let msig = self.clerk.as_ref().unwrap().aggregate_signatures_with_type(
             signatures,

@@ -312,6 +312,8 @@ impl CertifierService for MithrilCertifierService {
             &genesis_certificate,
             &parent_certificate,
             #[cfg(feature = "future_snark")]
+            &open_message.protocol_message,
+            #[cfg(feature = "future_snark")]
             self.genesis_verifier.to_schnorr_verification_key(),
         );
 

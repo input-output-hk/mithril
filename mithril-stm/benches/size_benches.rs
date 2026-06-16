@@ -68,6 +68,8 @@ where
                     #[cfg(feature = "future_snark")]
                     None,
                 ),
+                #[cfg(feature = "future_snark")]
+                Vec::new(),
             ),
         )
         .unwrap();
