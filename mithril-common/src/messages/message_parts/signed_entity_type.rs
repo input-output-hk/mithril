@@ -353,181 +353,149 @@ mod deserialize {
 
     use super::*;
 
+    mod visitor {
+        use super::*;
+
+        pub(super) struct SignedEntityTypeMessageVisitor<'de> {
+            pub(super) marker: PhantomData<SignedEntityTypeMessage>,
+            pub(super) lifetime: PhantomData<&'de ()>,
+        }
+
+        impl<'de> Visitor<'de> for SignedEntityTypeMessageVisitor<'de> {
+            type Value = SignedEntityTypeMessage;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                Formatter::write_str(formatter, "enum SignedEntityTypeMessage")
+            }
+
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                match EnumAccess::variant(data)? {
+                    (SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution, variant) => {
+                        Result::map(
+                            VariantAccess::newtype_variant::<Epoch>(variant),
+                            SignedEntityTypeMessage::MithrilStakeDistribution,
+                        )
+                    }
+                    (SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution, variant) => {
+                        Result::map(
+                            VariantAccess::newtype_variant::<Epoch>(variant),
+                            SignedEntityTypeMessage::CardanoStakeDistribution,
+                        )
+                    }
+                    (SignedEntityTypeDiscriminantsMessage::CardanoDatabase, variant) => {
+                        Result::map(
+                            VariantAccess::newtype_variant::<CardanoDbBeacon>(variant),
+                            SignedEntityTypeMessage::CardanoDatabase,
+                        )
+                    }
+                    (SignedEntityTypeDiscriminantsMessage::CardanoTransactions, variant) => {
+                        VariantAccess::tuple_variant(
+                            variant,
+                            2usize,
+                            CardanoTransactionsVisitor {
+                                marker: PhantomData::<SignedEntityTypeMessage>,
+                                lifetime: PhantomData,
+                            },
+                        )
+                    }
+                    (SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions, variant) => {
+                        VariantAccess::tuple_variant(
+                            variant,
+                            3usize,
+                            CardanoBlocksTransactionsVisitor {
+                                marker: PhantomData::<SignedEntityTypeMessage>,
+                                lifetime: PhantomData,
+                            },
+                        )
+                    }
+                    (SignedEntityTypeDiscriminantsMessage::Unknown, variant) => {
+                        VariantAccess::unit_variant(variant)?;
+                        Ok(SignedEntityTypeMessage::Unknown)
+                    }
+                }
+            }
+        }
+
+        struct CardanoTransactionsVisitor<'de> {
+            marker: PhantomData<SignedEntityTypeMessage>,
+            lifetime: PhantomData<&'de ()>,
+        }
+
+        impl<'de> Visitor<'de> for CardanoTransactionsVisitor<'de> {
+            type Value = SignedEntityTypeMessage;
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                Formatter::write_str(
+                    formatter,
+                    "tuple variant SignedEntityTypeMessage::CardanoTransactions",
+                )
+            }
+
+            #[inline]
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let expected =
+                    "tuple variant SignedEntityTypeMessage::CardanoTransactions with 3 elements";
+
+                let epoch = SeqAccess::next_element::<Epoch>(&mut seq)?
+                    .ok_or(serde::de::Error::invalid_length(0usize, &expected))?;
+                let block_number = SeqAccess::next_element::<BlockNumber>(&mut seq)?
+                    .ok_or(serde::de::Error::invalid_length(1, &expected))?;
+
+                Ok(SignedEntityTypeMessage::CardanoTransactions(
+                    epoch,
+                    block_number,
+                ))
+            }
+        }
+
+        struct CardanoBlocksTransactionsVisitor<'de> {
+            marker: PhantomData<SignedEntityTypeMessage>,
+            lifetime: PhantomData<&'de ()>,
+        }
+
+        impl<'de> Visitor<'de> for CardanoBlocksTransactionsVisitor<'de> {
+            type Value = SignedEntityTypeMessage;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                Formatter::write_str(
+                    formatter,
+                    "tuple variant SignedEntityTypeMessage::CardanoBlocksTransactions",
+                )
+            }
+
+            #[inline]
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let expected = "tuple variant SignedEntityTypeMessage::CardanoBlocksTransactions with 3 elements";
+
+                let epoch = SeqAccess::next_element::<Epoch>(&mut seq)?
+                    .ok_or(serde::de::Error::invalid_length(0usize, &expected))?;
+                let block_number = SeqAccess::next_element::<BlockNumber>(&mut seq)?
+                    .ok_or(serde::de::Error::invalid_length(1, &expected))?;
+                let block_number_offset = SeqAccess::next_element::<BlockNumberOffset>(&mut seq)?
+                    .ok_or(serde::de::Error::invalid_length(2, &expected))?;
+
+                Ok(SignedEntityTypeMessage::CardanoBlocksTransactions(
+                    epoch,
+                    block_number,
+                    block_number_offset,
+                ))
+            }
+        }
+    }
+
     impl<'de> serde::Deserialize<'de> for SignedEntityTypeMessage {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
             D: serde::Deserializer<'de>,
         {
-            struct SignedEntityTypeMessageVisitor<'de> {
-                marker: PhantomData<SignedEntityTypeMessage>,
-                lifetime: PhantomData<&'de ()>,
-            }
-
-            impl<'de> Visitor<'de> for SignedEntityTypeMessageVisitor<'de> {
-                type Value = SignedEntityTypeMessage;
-
-                fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                    Formatter::write_str(
-                        formatter,
-                        concat!("enum ", stringify!(SignedEntityTypeMessage)),
-                    )
-                }
-
-                fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
-                where
-                    A: EnumAccess<'de>,
-                {
-                    match EnumAccess::variant(data)? {
-                        (
-                            SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
-                            variant,
-                        ) => Result::map(
-                            VariantAccess::newtype_variant::<Epoch>(variant),
-                            SignedEntityTypeMessage::MithrilStakeDistribution,
-                        ),
-                        (
-                            SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
-                            variant,
-                        ) => Result::map(
-                            VariantAccess::newtype_variant::<Epoch>(variant),
-                            SignedEntityTypeMessage::CardanoStakeDistribution,
-                        ),
-                        (SignedEntityTypeDiscriminantsMessage::CardanoDatabase, variant) => {
-                            Result::map(
-                                VariantAccess::newtype_variant::<CardanoDbBeacon>(variant),
-                                SignedEntityTypeMessage::CardanoDatabase,
-                            )
-                        }
-                        (SignedEntityTypeDiscriminantsMessage::CardanoTransactions, variant) => {
-                            struct CardanoTransactionsVisitor<'de> {
-                                marker: PhantomData<SignedEntityTypeMessage>,
-                                lifetime: PhantomData<&'de ()>,
-                            }
-
-                            impl<'de> Visitor<'de> for CardanoTransactionsVisitor<'de> {
-                                type Value = SignedEntityTypeMessage;
-                                fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                                    Formatter::write_str(
-                                        formatter,
-                                        concat!(
-                                            "tuple variant ",
-                                            stringify!(
-                                                SignedEntityTypeMessage::CardanoTransactions
-                                            )
-                                        ),
-                                    )
-                                }
-
-                                #[inline]
-                                fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-                                where
-                                    A: SeqAccess<'de>,
-                                {
-                                    let expected = concat!(
-                                        "tuple variant ",
-                                        stringify!(SignedEntityTypeMessage::CardanoTransactions),
-                                        " with 2 elements"
-                                    );
-
-                                    let epoch = SeqAccess::next_element::<Epoch>(&mut seq)?.ok_or(
-                                        serde::de::Error::invalid_length(0usize, &expected),
-                                    )?;
-                                    let block_number = SeqAccess::next_element::<BlockNumber>(
-                                        &mut seq,
-                                    )?
-                                    .ok_or(serde::de::Error::invalid_length(1, &expected))?;
-
-                                    Ok(SignedEntityTypeMessage::CardanoTransactions(
-                                        epoch,
-                                        block_number,
-                                    ))
-                                }
-                            }
-
-                            VariantAccess::tuple_variant(
-                                variant,
-                                2usize,
-                                CardanoTransactionsVisitor {
-                                    marker: PhantomData::<SignedEntityTypeMessage>,
-                                    lifetime: PhantomData,
-                                },
-                            )
-                        }
-                        (
-                            SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions,
-                            variant,
-                        ) => {
-                            struct CardanoBlocksTransactionsVisitor<'de> {
-                                marker: PhantomData<SignedEntityTypeMessage>,
-                                lifetime: PhantomData<&'de ()>,
-                            }
-
-                            impl<'de> Visitor<'de> for CardanoBlocksTransactionsVisitor<'de> {
-                                type Value = SignedEntityTypeMessage;
-
-                                fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                                    Formatter::write_str(
-                                        formatter,
-                                        concat!(
-                                            "tuple variant ",
-                                            stringify!(
-                                                SignedEntityTypeMessage::CardanoBlocksTransactions
-                                            )
-                                        ),
-                                    )
-                                }
-
-                                #[inline]
-                                fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-                                where
-                                    A: SeqAccess<'de>,
-                                {
-                                    let expected = concat!(
-                                        "tuple variant ",
-                                        stringify!(
-                                            SignedEntityTypeMessage::CardanoBlocksTransactions
-                                        ),
-                                        " with 3 elements"
-                                    );
-
-                                    let epoch = SeqAccess::next_element::<Epoch>(&mut seq)?.ok_or(
-                                        serde::de::Error::invalid_length(0usize, &expected),
-                                    )?;
-                                    let block_number = SeqAccess::next_element::<BlockNumber>(
-                                        &mut seq,
-                                    )?
-                                    .ok_or(serde::de::Error::invalid_length(1, &expected))?;
-                                    let block_number_offset =
-                                        SeqAccess::next_element::<BlockNumberOffset>(&mut seq)?
-                                            .ok_or(serde::de::Error::invalid_length(
-                                                2, &expected,
-                                            ))?;
-
-                                    Ok(SignedEntityTypeMessage::CardanoBlocksTransactions(
-                                        epoch,
-                                        block_number,
-                                        block_number_offset,
-                                    ))
-                                }
-                            }
-
-                            VariantAccess::tuple_variant(
-                                variant,
-                                3usize,
-                                CardanoBlocksTransactionsVisitor {
-                                    marker: PhantomData::<SignedEntityTypeMessage>,
-                                    lifetime: PhantomData,
-                                },
-                            )
-                        }
-                        (SignedEntityTypeDiscriminantsMessage::Unknown, variant) => {
-                            VariantAccess::unit_variant(variant)?;
-                            Ok(SignedEntityTypeMessage::Unknown)
-                        }
-                    }
-                }
-            }
-
             const VARIANTS: &[&str] = &[
                 "MithrilStakeDistribution",
                 "CardanoStakeDistribution",
@@ -539,9 +507,9 @@ mod deserialize {
 
             serde::Deserializer::deserialize_enum(
                 deserializer,
-                stringify!(SignedEntityTypeMessage),
+                "SignedEntityTypeMessage",
                 VARIANTS,
-                SignedEntityTypeMessageVisitor {
+                visitor::SignedEntityTypeMessageVisitor {
                     marker: PhantomData::<SignedEntityTypeMessage>,
                     lifetime: PhantomData,
                 },
