@@ -63,6 +63,8 @@ pub(crate) mod types;
 #[cfg(test)]
 pub(crate) mod tests;
 
+pub(crate) use types::ProtocolMessagePreimage;
+
 type S = BlstrsEmulation;
 type F = <S as SelfEmulation>::F;
 type C = <S as SelfEmulation>::C;

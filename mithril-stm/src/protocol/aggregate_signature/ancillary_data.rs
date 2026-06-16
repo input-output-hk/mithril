@@ -38,6 +38,12 @@ impl AncillaryProverData {
             ))
         }
     }
+
+    pub fn as_ivc_rolling_state(&self) -> IvcRollingState {
+        match self {
+            Self::IvcSnark(state) => state.clone(),
+        }
+    }
 }
 
 /// Ancillary data carried by a certificate for the verifier.

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use midnight_proofs::transcript::TranscriptHash;
+use rand_core::OsRng;
 use std::marker::PhantomData;
 
 #[cfg(feature = "future_snark")]
@@ -7,8 +7,19 @@ use anyhow::anyhow;
 
 use crate::{
     AggregateVerificationKey, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
-    Signer, SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
-    proof_system::{ConcatenationClerk, ConcatenationProof},
+    Signer, SingleSignature, SnarkProof, Stake, StmResult, VerificationKeyForConcatenation,
+    proof_system::{
+        ConcatenationClerk, ConcatenationProof, IvcRollingState, ivc_halo2_snark::proof::IvcProof,
+    },
+};
+
+use crate::{
+    AncillaryProverData, MithrilMembershipDigest,
+    circuits::{halo2_ivc::state::Global, trusted_setup::TrustedSetupProvider},
+    proof_system::ivc_halo2_snark::{
+        IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
+        proof::IvcGenesisBootstrapInput,
+    },
 };
 
 #[cfg(feature = "future_snark")]
@@ -122,15 +133,33 @@ impl<D: MembershipDigest> Clerk<D> {
                 let clerk = self
                     .get_snark_clerk()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
+                let snark_proof = SnarkProver::try_new_non_deterministic(
+                    &clerk.parameters,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                )?
+                .aggregate_signatures::<MithrilMembershipDigest>(clerk, sigs, msg)
+                .with_context(|| {
+                    format!(
+                        "Signatures failed to aggregate for type {}",
+                        AggregateSignatureType::Snark
+                    )
+                })?;
 
-                let preimage = todo!();
-                let genvk = todo!();
+                // For now the function will fail as we give two Some values
+                // which should not happen but this might be changed
+                let proof_output = ivc_prover_input_preparation_and_prove(
+                    snark_proof,
+                    msg,
+                    clerk,
+                    ancillary_input,
+                )?;
 
-                // let prover = IvcProver {
-                //     ivc_setup:
-                // }
+                let ancillary_prover_data = AncillaryProverData::IvcSnark(
+                    proof_output.1.ok_or_else(|| anyhow!("missing rolling state"))?,
+                );
 
-                todo!()
+                // TODO: add the AncillaryProverData and AncillaryVerifierData to the output
+                Ok((AggregateSignature::IvcSnark(Box::new(proof_output.0)), None))
             }
         }
     }
@@ -182,4 +211,68 @@ impl<D: MembershipDigest> Clerk<D> {
     pub fn update_m(&mut self, m: u64) {
         self.concatenation_proof_clerk.update_m(m);
     }
+}
+
+fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
+    snark_proof: SnarkProof<D>,
+    msg: &[u8],
+    clerk: &SnarkClerk,
+    ancillary_input: AncillaryProofInput,
+) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
+    // TODO: get the protocol message preimage
+    let protocol_message_preimage = todo!();
+    // TODO: get the protocol message preimage
+    let genesis_verification_key = todo!();
+    // TODO: get the genesis message
+    let genesis_message = todo!();
+
+    let trusted_setup_provider = TrustedSetupProvider::default();
+    let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+    let certificate_key_provider =
+        TempCertificateKeyProvider::new(srs.into(), clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK);
+    let ivc_key_provider =
+        TempIvcKeyProvider::new(srs.into(), certificate_key_provider.get_verifying_key()?);
+
+    let ivc_setup = IvcProverSetup::load(
+        &trusted_setup_provider,
+        &certificate_key_provider,
+        &ivc_key_provider,
+    )?;
+
+    let prover = IvcProver {
+        ivc_setup: ivc_setup.into(),
+        rng: OsRng,
+    };
+
+    // This is only used to get the root of the tree so maybe we can replace
+    // the avk inputs by the root directly
+    let avk = clerk.compute_aggregate_verification_key_for_snark();
+
+    let global = Global::new(
+        genesis_message,
+        genesis_verification_key,
+        &certificate_key_provider.get_verifying_key()?,
+        &ivc_key_provider.get_verifying_key()?,
+    );
+
+    let rolling_state = ancillary_input
+        .prover_data()
+        .ok_or_else(|| anyhow!("Missing prover data"))?
+        .as_ivc_rolling_state();
+
+    // IvcGenesisBootstrapInput contains the same values as AncillaryGenesisData
+    // We might consider dropping one or implementing a conversion between the two
+    let genesis_bootstrap = ancillary_input.genesis_data().try_into()?;
+
+    // For now the function will fail as we give two Some values
+    // which should not happen but this might be changed
+    prover.prove(
+        snark_proof,
+        msg,
+        &avk,
+        &global,
+        protocol_message_preimage,
+        Some(&rolling_state),
+        Some(genesis_bootstrap),
+    )
 }

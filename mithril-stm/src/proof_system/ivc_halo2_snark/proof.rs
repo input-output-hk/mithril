@@ -2,6 +2,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use anyhow::anyhow;
 use ff::FromUniformBytes;
 use group::Group;
 use midnight_circuits::{
@@ -22,7 +23,8 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKeyForSnark, MembershipDigest, SnarkProof, StmResult,
+    AggregateVerificationKeyForSnark, AncillaryGenesisData, MembershipDigest, SnarkProof,
+    StmResult,
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
@@ -31,10 +33,12 @@ use crate::{
             types::{CertificateProofBytes, IvcProofBytes, ProtocolMessagePreimage},
         },
     },
-    proof_system::ivc_halo2_snark::rolling_state::midnight_accumulator_serde,
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
-        prover_setup::IvcProverSetup, rolling_state::IvcRollingState,
+        CircuitProvingKey,
+        errors::IvcProofError,
+        prover_input::IvcProverInput,
+        prover_setup::IvcProverSetup,
+        rolling_state::{IvcRollingState, midnight_accumulator_serde},
         verifier_setup::IvcVerifierSetup,
     },
     signature_scheme::StandardSchnorrSignature,
@@ -65,6 +69,23 @@ pub(crate) struct IvcGenesisBootstrapInput {
     /// step to set the lookahead fields in the genesis output state.
     /// Populated from `AncillaryGenesisData::genesis_message_preimage()` (see issue #3141).
     pub(crate) genesis_protocol_message_preimage: ProtocolMessagePreimage,
+}
+
+impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
+    type Error = anyhow::Error;
+    fn try_from(ancillary_genesis_data: &AncillaryGenesisData) -> StmResult<Self> {
+        let genesis_signature = ancillary_genesis_data
+            .genesis_schnorr_signature()
+            .ok_or_else(|| anyhow!("Missing genesis signature!"))?;
+
+        let genesis_protocol_message_preimage: [u8; 190] =
+            ancillary_genesis_data.genesis_message_preimage().try_into()?;
+
+        Ok(Self {
+            genesis_protocol_message_preimage: genesis_protocol_message_preimage.into(),
+            genesis_signature: *genesis_signature,
+        })
+    }
 }
 
 /// IVC proof emitted at the end of a proving step.
