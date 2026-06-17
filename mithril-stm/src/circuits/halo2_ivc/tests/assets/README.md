@@ -34,7 +34,7 @@ The current asset set is:
 - `genesis_step_output.bin` — output of the genesis base-case step
 - `same_epoch_step_output.bin` — output of a same-epoch recursive step
 - `recursive_step_output.bin` — output of a next-epoch recursive step
-- `first_step_cert.bin` — first certificate produced from the genesis-base-case next-state; used to test `IvcProverInput::prepare` at the genesis transition (`step_counter == 0`, no previous IVC proof)
+- `first_step_cert.bin` — first certificate produced from the genesis-base-case next-state; used to test the first real certificate step after the internal genesis IVC step (`step_counter == 1`)
 - `recursive_step_output_accumulator_bytes.bin` — raw serialized accumulator extracted from `recursive_step_output.bin`; golden anchor for the encoding stability test
 - `golden_recursive_circuit_verification_key.bin` — golden anchor for recursive circuit VK stability
 

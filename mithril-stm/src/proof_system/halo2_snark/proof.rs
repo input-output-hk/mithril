@@ -410,49 +410,49 @@ mod tests {
         SnarkProver::try_new_deterministic(seed, snark_setup).unwrap()
     }
 
-    #[test]
-    fn fails_with_insufficient_signatures() {
-        let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
-        let params = Parameters {
-            m: 20,
-            k: 3,
-            phi_f: 0.1,
-        };
-        let nparties = 4;
-        let message = [2u8; 32];
-
-        let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let signatures = collect_signatures(&signers, &message);
-        let mut prover = create_prover(current_function!(), params, [1u8; 32]);
-
-        let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
-        assert!(
-            result.is_err(),
-            "Expected failure due to insufficient signatures"
-        );
-    }
-
-    #[test]
-    fn fails_with_empty_signatures() {
-        let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
-        let params = Parameters {
-            m: 200,
-            k: 3,
-            phi_f: 0.8,
-        };
-        let nparties = 5;
-
-        let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-        let mut prover = create_prover(current_function!(), params, [2u8; 32]);
-
-        let result = prover.aggregate_signatures::<D>(&clerk, &[], &[3u8; 32]);
-        assert!(result.is_err(), "Expected failure with empty signatures");
-    }
-
     mod slow {
         use crate::AggregateVerificationKeyForSnark;
 
         use super::*;
+
+        #[test]
+        fn fails_with_empty_signatures() {
+            let mut rng = ChaCha20Rng::from_seed([2u8; 32]);
+            let params = Parameters {
+                m: 200,
+                k: 3,
+                phi_f: 0.8,
+            };
+            let nparties = 5;
+
+            let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let mut prover = create_prover(current_function!(), params, [2u8; 32]);
+
+            let result = prover.aggregate_signatures::<D>(&clerk, &[], &[3u8; 32]);
+            assert!(result.is_err(), "Expected failure with empty signatures");
+        }
+
+        #[test]
+        fn fails_with_insufficient_signatures() {
+            let mut rng = ChaCha20Rng::from_seed([1u8; 32]);
+            let params = Parameters {
+                m: 20,
+                k: 3,
+                phi_f: 0.1,
+            };
+            let nparties = 4;
+            let message = [2u8; 32];
+
+            let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
+            let signatures = collect_signatures(&signers, &message);
+            let mut prover = create_prover(current_function!(), params, [1u8; 32]);
+
+            let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
+            assert!(
+                result.is_err(),
+                "Expected failure due to insufficient signatures"
+            );
+        }
 
         #[test]
         fn produces_valid_snark_proof() {

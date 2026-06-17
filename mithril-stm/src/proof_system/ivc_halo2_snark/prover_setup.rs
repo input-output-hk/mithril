@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use midnight_curves::{Bls12, G1Projective};
-use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsVerifierKZG};
+use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsKZG};
 
 use crate::{
     StmResult,
@@ -36,12 +36,13 @@ use crate::{
 /// here produces folded accumulators the circuit will reject.
 // TODO: remove this allow dead_code directive when the IVC prover consumes this setup
 #[allow(dead_code)]
-pub(crate) struct IvcSetup {
-    /// Verifier-side KZG parameters derived from the SRS at load time.
+pub(crate) struct IvcProverSetup {
+    /// Full KZG parameters used during proof generation.
     ///
-    /// The full SRS (~1 GB at production K) is intentionally NOT stored: verification
-    /// only reads `s_g2`, which is what `ParamsVerifierKZG` exposes.
-    pub(crate) srs_verifier_params: ParamsVerifierKZG<Bls12>,
+    /// Stored in full to support `create_proof`, which requires the prover-side
+    /// commitment material. Verifier params are derived on demand via
+    /// `self.srs.verifier_params()`.
+    pub(crate) srs: ParamsKZG<Bls12>,
     /// Verifying key of the certificate circuit.
     pub(crate) certificate_verifying_key: CircuitVerifyingKey,
     /// Verifying key of the IVC circuit.
@@ -59,14 +60,14 @@ pub(crate) struct IvcSetup {
 
 // TODO: remove this allow dead_code directive when the IVC prover uses this setup
 #[allow(dead_code)]
-impl IvcSetup {
+impl IvcProverSetup {
     /// Derives the full IVC setup by orchestrating the key providers.
     ///
-    /// Pulls the SRS from `trusted_setup_provider` only long enough to derive the verifier
-    /// params; the SRS itself drops at end of scope. Pulls the certificate verifying key,
+    /// Pulls the full SRS from `trusted_setup_provider` and stores it in `IvcProverSetup` (needed
+    /// by `IvcProver::prove` for `create_proof`). Pulls the certificate verifying key,
     /// the IVC verifying key, and the IVC proving key from the supplied key providers,
     /// extracts the three fixed-base maps from the verifying keys, and assembles them into
-    /// an `IvcSetup`.
+    /// an `IvcProverSetup`. Verifier params are derived on demand via `self.srs.verifier_params()`.
     ///
     /// Providers are currently the temporary pure-compute ones in
     /// `unsafe_setup_helpers`; they share the API surface the production cache providers
@@ -75,13 +76,12 @@ impl IvcSetup {
     ///
     /// # SRS consistency
     ///
-    /// `srs_verifier_params` is derived from the SRS yielded by `trusted_setup_provider`,
-    /// while the verifying and proving keys come from the key providers, which today carry
-    /// their own SRS reference. The caller must ensure both SRS sources agree. A mismatch
-    /// produces an internally inconsistent `IvcSetup` that surfaces only at verification
-    /// time. In practice: route all providers through the same `TrustedSetupProvider`
-    /// instance (temp design) or the same canonical trusted setup source (production
-    /// cache design).
+    /// `srs` is the full parameter set yielded by `trusted_setup_provider`, while the
+    /// verifying and proving keys come from the key providers, which today carry their own
+    /// SRS reference. The caller must ensure both SRS sources agree. A mismatch produces an
+    /// internally inconsistent `IvcProverSetup` that surfaces only at proving or verification time.
+    /// In practice: route all providers through the same `TrustedSetupProvider` instance
+    /// (temp design) or the same canonical trusted setup source (production cache design).
     // TODO: swap `Temp*Provider` parameters for the production IVC cache providers
     // once they ship.
     pub(crate) fn load(
@@ -90,7 +90,6 @@ impl IvcSetup {
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
         let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
-        let srs_verifier_params = srs.verifier_params();
 
         let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
@@ -106,7 +105,7 @@ impl IvcSetup {
         combined_fixed_bases.extend(ivc_fixed_bases.clone());
 
         Ok(Self {
-            srs_verifier_params,
+            srs,
             certificate_verifying_key,
             ivc_verifying_key,
             ivc_proving_key,
@@ -148,11 +147,12 @@ impl IvcSetup {
         ivc_proof_bytes: &[u8],
         public_inputs: &[CircuitBase],
     ) -> StmResult<Accumulator<BlstrsEmulation>> {
+        let verifier_params = self.srs.verifier_params();
         let dual_msm = verify_and_prepare_accumulator(
             ivc_proof_bytes,
             public_inputs,
             &self.ivc_verifying_key,
-            &self.srs_verifier_params,
+            &verifier_params,
         )?;
         let mut accumulator: Accumulator<BlstrsEmulation> = dual_msm.into();
         accumulator.extract_fixed_bases(&self.ivc_fixed_bases);
@@ -168,9 +168,9 @@ impl IvcSetup {
 // When the real IVC cache providers ship, these tests will be rewritten end-to-end:
 // the temp provider constructions are replaced with the real provider constructions,
 // the K=19 unsafe SRS is replaced with the production K=22 SRS loaded through
-// `TrustedSetupProvider`, and `IvcSetup::load` is called with the real
+// `TrustedSetupProvider`, and `IvcProverSetup::load` is called with the real
 // `RecursiveCircuit{Verifying,Proving}KeyProvider` plus the cert
-// `CircuitVerificationKeyProvider`. The body of `IvcSetup::load` stays unchanged across
+// `CircuitVerificationKeyProvider`. The body of `IvcProverSetup::load` stays unchanged across
 // that swap; only the call site (here) and the provider types change.
 #[cfg(test)]
 mod tests {
@@ -211,7 +211,7 @@ mod tests {
             let certificate_verifying_key = certificate_key_provider.get_verifying_key().unwrap();
             let ivc_key_provider = TempIvcKeyProvider::new(srs, certificate_verifying_key);
 
-            let setup = IvcSetup::load(
+            let setup = IvcProverSetup::load(
                 &trusted_setup_provider,
                 &certificate_key_provider,
                 &ivc_key_provider,

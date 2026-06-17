@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.37 (06-17-2026)
+
+### Added
+
+- Added `IvcProver::prove` for IVC SNARK proof generation with genesis bootstrap and incremental step transitions.
+
 ## 0.10.36 (06-15-2026)
 
 ### Changed

@@ -743,9 +743,9 @@ pub(crate) fn generate_same_epoch_step_output_asset(
 }
 
 /// Generates and writes the first-step certificate asset. The certificate is produced
-/// against `previous_state = State::genesis()`, so the asset captures the very first
-/// non-genesis cert in the chain — the input scenario for `IvcProverInput::prepare` at
-/// `step_counter == 0`.
+/// against `previous_state = build_genesis_base_case_next_state()` (`step_counter == 1`),
+/// so the asset captures the first real certificate after the genesis IVC step — the input
+/// scenario for `IvcProverInput::prepare` at `step_counter == 1`.
 pub(crate) fn generate_first_step_cert_asset(setup: &AssetGenerationSetup, paths: &AssetPaths) {
     println!(
         "generate_first_step_cert: start -> {}",
