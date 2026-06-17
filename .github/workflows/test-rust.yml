@@ -17,13 +17,19 @@ jobs:
         include:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
+            cargo-profile: ci-tests
           - os: ubuntu-24.04
             test-args: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
             artifact-suffix: -future-snark
+            # Dedicated profile that optimizes (opt-level 3) the crypto deps and `mithril-stm`
+            # so the slow SNARK tests run faster, at the cost of a longer (cache-amortized) build.
+            cargo-profile: ci-tests-snark
           - os: ubuntu-24.04-arm
             test-args: --features full,unstable --workspace
+            cargo-profile: ci-tests
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
+            cargo-profile: ci-tests
             test-args: >
               --features full,unstable --workspace
               --exclude mithril-aggregator
@@ -33,6 +39,7 @@ jobs:
               --exclude mithril-aggregator-fake
           # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-end-to-end)
           - os: windows-latest
+            cargo-profile: ci-tests
             test-args: >
               --features full,unstable --workspace
               --exclude mithril-aggregator
@@ -76,16 +83,16 @@ jobs:
           echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
 
       - name: Build tests
-        run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
+        run: cargo nextest run --cargo-profile ${{ matrix.cargo-profile }} --no-run ${{ matrix.test-args }}
 
       - name: Run tests
-        run: cargo nextest run --profile ci --cargo-profile ci-tests --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
+        run: cargo nextest run --profile ci --cargo-profile ${{ matrix.cargo-profile }} --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
 
       - name: Run doc tests
-        run: cargo test --profile ci-tests --doc ${{ matrix.test-args }}
+        run: cargo test --profile ${{ matrix.cargo-profile }} --doc ${{ matrix.test-args }}
 
       - name: Ensure examples build
-        run: cargo build --profile ci-tests --examples ${{ matrix.test-args }}
+        run: cargo build --profile ${{ matrix.cargo-profile }} --examples ${{ matrix.test-args }}
 
       - name: Rename junit file to include runner info
         shell: bash
