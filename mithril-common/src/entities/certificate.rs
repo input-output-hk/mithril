@@ -120,6 +120,7 @@ pub struct Certificate {
 
 impl Certificate {
     /// Builds a certificate and computes its hash, returning an error if hashing fails.
+    #[allow(clippy::too_many_arguments)]
     pub fn try_new<T: Into<String>>(
         previous_hash: T,
         epoch: Epoch,
@@ -127,6 +128,7 @@ impl Certificate {
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
         signature: CertificateSignature,
+        ancillary_prover_data: Option<ProtocolAncillaryProverData>,
         ancillary_verifier_data: Option<ProtocolAncillaryVerifierData>,
     ) -> crate::StdResult<Certificate> {
         let signed_message = protocol_message.compute_hash();
@@ -149,7 +151,7 @@ impl Certificate {
                 .into(),
             #[cfg(feature = "future_snark")]
             aggregate_verification_key_snark,
-            ancillary_prover_data: None,
+            ancillary_prover_data,
             ancillary_verifier_data,
             signature,
         };
@@ -371,6 +373,7 @@ mod tests {
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
             None,
+            None,
         )
         .unwrap();
 
@@ -526,6 +529,7 @@ mod tests {
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),
             None,
+            None,
         )
         .unwrap();
 
@@ -579,6 +583,7 @@ mod tests {
             ),
             CertificateSignature::GenesisSignature(ed_signature),
             None,
+            None,
         )
         .unwrap();
 
@@ -607,6 +612,7 @@ mod tests {
                 None,
             ),
             CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
+            None,
             None,
         )
         .unwrap();
@@ -658,6 +664,7 @@ mod tests {
                 ),
                 CertificateSignature::GenesisDualSignature(ed_signature, schnorr_signature),
                 None,
+                None,
             )
             .unwrap();
             hashes.insert(certificate.try_compute_hash().unwrap());
@@ -696,6 +703,7 @@ mod tests {
                 None,
             ),
             signature,
+            None,
             None,
         )
         .unwrap()

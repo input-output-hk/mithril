@@ -16,7 +16,7 @@ use crate::AggregateSignatureError;
 use crate::proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver};
 
 use super::{
-    AggregateSignature, AggregateSignatureType, AncillaryProofInput, AncillaryVerifierData,
+    AggregateSignature, AggregateSignatureType, AncillaryProofInput, AncillaryProofOutput,
 };
 
 /// Clerk for aggregate signatures.
@@ -71,7 +71,7 @@ impl<D: MembershipDigest> Clerk<D> {
         msg: &[u8],
         aggregate_signature_type: AggregateSignatureType,
         ancillary_input: AncillaryProofInput,
-    ) -> StmResult<(AggregateSignature<D>, Option<AncillaryVerifierData>)> {
+    ) -> StmResult<(AggregateSignature<D>, AncillaryProofOutput)> {
         let _ = ancillary_input;
         match aggregate_signature_type {
             AggregateSignatureType::Concatenation => {
@@ -86,7 +86,10 @@ impl<D: MembershipDigest> Clerk<D> {
                         AggregateSignatureType::Concatenation
                     )
                 })?;
-                Ok((AggregateSignature::Concatenation(Box::new(proof)), None))
+                Ok((
+                    AggregateSignature::Concatenation(Box::new(proof)),
+                    AncillaryProofOutput::new(None, None),
+                ))
             }
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => {
@@ -98,7 +101,12 @@ impl<D: MembershipDigest> Clerk<D> {
                     MERKLE_TREE_DEPTH_FOR_SNARK,
                 )?
                 .aggregate_signatures(clerk, sigs, msg)
-                .map(|p| (AggregateSignature::Snark(Box::new(p)), None))
+                .map(|p| {
+                    (
+                        AggregateSignature::Snark(Box::new(p)),
+                        AncillaryProofOutput::new(None, None),
+                    )
+                })
                 .with_context(|| {
                     format!(
                         "Signatures failed to aggregate for type {}",

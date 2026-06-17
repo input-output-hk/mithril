@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AncillaryGenesisData,
-    AncillaryProofInput, AncillaryVerifierData, Clerk, Initializer, KeyRegistration,
+    AncillaryProofInput, AncillaryProofOutput, Clerk, Initializer, KeyRegistration,
     MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake, StmResult,
     VerificationKeyForConcatenation,
 };
@@ -20,7 +20,7 @@ pub struct InitializationPhaseResult {
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: StmResult<(AggregateSignature<D>, Option<AncillaryVerifierData>)>,
+    pub msig: StmResult<(AggregateSignature<D>, AncillaryProofOutput)>,
     pub avk: AggregateVerificationKey<D>,
     pub sigs: Vec<SingleSignature>,
 }
@@ -103,7 +103,11 @@ pub fn operation_phase(
             Vec::new(),
             #[cfg(feature = "future_snark")]
             None,
+            #[cfg(feature = "future_snark")]
+            None,
         ),
+        #[cfg(feature = "future_snark")]
+        Vec::new(),
     );
     let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, ancillary_input);
 

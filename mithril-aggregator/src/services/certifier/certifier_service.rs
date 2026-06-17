@@ -12,7 +12,7 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{
-    MultiSignatureWithAncillaryVerifierData, ToMessage, build_ancillary_proof_input,
+    MultiSignatureWithAncillaryData, ToMessage, build_ancillary_proof_input,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -308,11 +308,18 @@ impl CertifierService for MithrilCertifierService {
             .await
             .with_context(|| "Certifier can not get the latest genesis certificate")?
             .ok_or_else(|| Box::new(CertifierServiceError::NoGenesisCertificateFound))?;
-        let ancillary_input =
-            build_ancillary_proof_input(&genesis_certificate, &parent_certificate);
+        let ancillary_input = build_ancillary_proof_input(
+            &genesis_certificate,
+            &parent_certificate,
+            #[cfg(feature = "future_snark")]
+            &open_message.protocol_message,
+            #[cfg(feature = "future_snark")]
+            self.genesis_verifier.to_schnorr_verification_key(),
+        );
 
-        let MultiSignatureWithAncillaryVerifierData {
+        let MultiSignatureWithAncillaryData {
             multi_signature,
+            ancillary_prover_data,
             ancillary_verifier_data,
         } = match self
             .multi_signer
@@ -326,12 +333,12 @@ impl CertifierService for MithrilCertifierService {
                 );
                 return Ok(None);
             }
-            Some(multi_signature_with_ancillary_verifier_data) => {
+            Some(multi_signature_with_ancillary_data) => {
                 info!(
                     self.logger,
                     "create_certificate: multi-signature created for open message {signed_entity_type:?}"
                 );
-                multi_signature_with_ancillary_verifier_data
+                multi_signature_with_ancillary_data
             }
         };
 
@@ -364,6 +371,7 @@ impl CertifierService for MithrilCertifierService {
             open_message.protocol_message.clone(),
             epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
+            ancillary_prover_data,
             ancillary_verifier_data,
         )?;
 

@@ -7,7 +7,7 @@ use mithril_common::{
     crypto_helper::ProtocolAggregationError,
     entities::{self},
     logging::LoggerExtensions,
-    protocol::{MultiSignatureWithAncillaryVerifierData, MultiSigner as ProtocolMultiSigner},
+    protocol::{MultiSignatureWithAncillaryData, MultiSigner as ProtocolMultiSigner},
 };
 
 use crate::dependency_injection::EpochServiceWrapper;
@@ -36,7 +36,7 @@ pub trait MultiSigner: Sync + Send {
         &self,
         open_message: &OpenMessage,
         ancillary_input: AncillaryProofInput,
-    ) -> StdResult<Option<MultiSignatureWithAncillaryVerifierData>>;
+    ) -> StdResult<Option<MultiSignatureWithAncillaryData>>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
@@ -117,7 +117,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         open_message: &OpenMessage,
         ancillary_input: AncillaryProofInput,
-    ) -> StdResult<Option<MultiSignatureWithAncillaryVerifierData>> {
+    ) -> StdResult<Option<MultiSignatureWithAncillaryData>> {
         debug!(self.logger, ">> create_multi_signature"; "open_message" => ?open_message);
 
         let epoch_service = self.epoch_service.read().await;
@@ -131,8 +131,8 @@ impl MultiSigner for MultiSignerImpl {
             self.aggregate_signature_type,
             ancillary_input,
         ) {
-            Ok(multi_signature_with_ancillary_verifier_data) => {
-                Ok(Some(multi_signature_with_ancillary_verifier_data))
+            Ok(multi_signature_with_ancillary_data) => {
+                Ok(Some(multi_signature_with_ancillary_data))
             }
             Err(err) => match err.downcast_ref::<ProtocolAggregationError>() {
                 Some(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {

@@ -141,7 +141,11 @@ fn main() {
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
                     None,
+                    #[cfg(feature = "future_snark")]
+                    None,
                 ),
+                #[cfg(feature = "future_snark")]
+                Vec::new(),
             ),
         ) {
         Ok((s, _)) => s,
@@ -172,7 +176,11 @@ fn main() {
                     Vec::new(),
                     #[cfg(feature = "future_snark")]
                     None,
+                    #[cfg(feature = "future_snark")]
+                    None,
                 ),
+                #[cfg(feature = "future_snark")]
+                Vec::new(),
             ),
         ) {
         Ok((s, _)) => s,
@@ -202,7 +210,11 @@ fn main() {
                 Vec::new(),
                 #[cfg(feature = "future_snark")]
                 None,
+                #[cfg(feature = "future_snark")]
+                None,
             ),
+            #[cfg(feature = "future_snark")]
+            Vec::new(),
         ),
     );
     assert!(msig_3.is_err());

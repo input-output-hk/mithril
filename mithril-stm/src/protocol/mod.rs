@@ -7,8 +7,8 @@ mod single_signature;
 
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
-    AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProverData,
-    AncillaryVerifierData, Clerk,
+    AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProofOutput,
+    AncillaryProverData, AncillaryVerifierData, Clerk,
 };
 pub use error::RegisterError;
 #[cfg(feature = "future_snark")]

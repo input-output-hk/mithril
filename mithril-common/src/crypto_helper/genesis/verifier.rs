@@ -8,8 +8,8 @@ use anyhow::anyhow;
 use crate::StdResult;
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::{
-    BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSignature, GenesisSchnorrVerifier,
-    GenesisVerificationKeyBundle,
+    BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSignature, GenesisSchnorrVerificationKey,
+    GenesisSchnorrVerifier, GenesisVerificationKeyBundle,
 };
 use crate::crypto_helper::{
     GenesisEd25519Signature, GenesisEd25519VerificationKey, GenesisEd25519Verifier, GenesisSigner,
@@ -115,6 +115,13 @@ impl GenesisVerifier {
     /// Return the ed25519 (Ed25519) verification key.
     pub fn to_ed25519_verification_key(&self) -> GenesisEd25519VerificationKey {
         self.ed25519.to_verification_key()
+    }
+
+    /// Return the SNARK-friendly (Schnorr) genesis verification key, absent for a legacy
+    /// single-Ed25519 verifier.
+    #[cfg(feature = "future_snark")]
+    pub fn to_schnorr_verification_key(&self) -> Option<GenesisSchnorrVerificationKey> {
+        self.schnorr.as_ref().map(|schnorr| schnorr.to_verification_key())
     }
 
     /// Derive the matching dual verification-key bundle, suitable for serialisation to disk by the
@@ -305,6 +312,26 @@ mod tests {
                 verifier.ed25519.to_verification_key().as_bytes()
             );
             assert_eq!(bundle.schnorr.to_bytes(), expected_schnorr);
+        }
+
+        #[test]
+        fn to_schnorr_verification_key_returns_the_schnorr_half_for_a_dual_verifier() {
+            let bundle = build_bundle();
+            let expected_schnorr = bundle.schnorr.to_bytes();
+
+            let verifier = GenesisVerifier::from_bundle(bundle);
+
+            assert_eq!(
+                verifier.to_schnorr_verification_key().unwrap().to_bytes(),
+                expected_schnorr
+            );
+        }
+
+        #[test]
+        fn to_schnorr_verification_key_is_none_for_a_legacy_verifier() {
+            let verifier = GenesisVerifier::from_ed25519(deterministic_signer().verification_key());
+
+            assert!(verifier.to_schnorr_verification_key().is_none());
         }
     }
 }

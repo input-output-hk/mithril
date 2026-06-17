@@ -136,13 +136,13 @@ for s in sigs.iter() {
 }
 
 // Aggregate a concatenation proof with random parties
-let ancillary_input = AncillaryProofInput::new(None, AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] None));
+let ancillary_input = AncillaryProofInput::new(None, AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None), #[cfg(feature = "future_snark")] Vec::new());
 let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation, ancillary_input);
 
 match msig {
-    Ok((aggr, ancillary_verifier_data)) => {
+    Ok((aggr, ancillary_proof_output)) => {
         println!("Aggregate ok");
-        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_verifier_data).is_ok());
+        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
     }
     Err(error) => match error.downcast_ref::<AggregationError>() {
         Some(AggregationError::NotEnoughSignatures(n, k)) => {

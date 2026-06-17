@@ -573,7 +573,7 @@ impl<'a> CertificateChainBuilder<'a> {
             .filter_map(|s| s.protocol_signer.sign(certificate.signed_message.as_bytes()))
             .collect::<Vec<_>>();
         let clerk = CertificateChainBuilder::compute_clerk_for_signers(&fixture.signers_fixture());
-        let (multi_signature, _ancillary_verifier_data) = clerk
+        let (multi_signature, _ancillary_proof_output) = clerk
             .aggregate_signatures_with_type(
                 &single_signatures,
                 certificate.signed_message.as_bytes(),

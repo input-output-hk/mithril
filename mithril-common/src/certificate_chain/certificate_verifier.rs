@@ -587,7 +587,7 @@ mod tests {
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_aggregate_verification_key();
-        let (aggregate_signature, ancillary_verifier_data) = clerk
+        let (aggregate_signature, ancillary_proof_output) = clerk
             .aggregate_signatures_with_type(
                 &single_signatures,
                 &message_hash,
@@ -595,6 +595,7 @@ mod tests {
                 AncillaryProofInput::dummy(),
             )
             .unwrap();
+        let ancillary_verifier_data = ancillary_proof_output.verifier_data().cloned();
         let multi_signature = aggregate_signature.into();
 
         let verifier = MithrilCertificateVerifier::new(
@@ -962,7 +963,7 @@ mod tests {
                 .collect::<Vec<_>>();
             let clerk =
                 ProtocolClerk::new_clerk_from_signer(&fixture.signers_fixture()[0].protocol_signer);
-            let (modified_multi_signature, _ancillary_verifier_data) = clerk
+            let (modified_multi_signature, _ancillary_proof_output) = clerk
                 .aggregate_signatures_with_type(
                     &single_signatures,
                     signed_message.as_bytes(),
@@ -1271,7 +1272,7 @@ mod tests {
                 &forged_protocol_parameters.clone().into(),
                 &fixture.signers_fixture()[0].protocol_closed_key_registration,
             );
-            let (forged_multi_signature, _ancillary_verifier_data) = forged_clerk
+            let (forged_multi_signature, _ancillary_proof_output) = forged_clerk
                 .aggregate_signatures_with_type(
                     &forged_single_signatures,
                     signed_message.as_bytes(),

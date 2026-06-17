@@ -82,7 +82,11 @@ fn stm_benches<D: MembershipDigest>(
                         Vec::new(),
                         #[cfg(feature = "future_snark")]
                         None,
+                        #[cfg(feature = "future_snark")]
+                        None,
                     ),
+                    #[cfg(feature = "future_snark")]
+                    Vec::new(),
                 ),
             )
         })
@@ -148,7 +152,7 @@ fn batch_benches<D>(
 
             let clerk = Clerk::new_clerk_from_signer(&signers[0]);
             let aggregate_signature_type = AggregateSignatureType::Concatenation;
-            let (msig, ancillary_verifier_data) = clerk
+            let (msig, ancillary_proof_output) = clerk
                 .aggregate_signatures_with_type(
                     &sigs,
                     &msg,
@@ -160,14 +164,18 @@ fn batch_benches<D>(
                             Vec::new(),
                             #[cfg(feature = "future_snark")]
                             None,
+                            #[cfg(feature = "future_snark")]
+                            None,
                         ),
+                        #[cfg(feature = "future_snark")]
+                        Vec::new(),
                     ),
                 )
                 .unwrap();
 
             batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);
-            batch_ancillary_verifier_datas.push(ancillary_verifier_data);
+            batch_ancillary_verifier_datas.push(ancillary_proof_output.verifier_data().cloned());
         }
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {

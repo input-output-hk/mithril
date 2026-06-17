@@ -176,7 +176,11 @@ impl Party {
                 Vec::new(),
                 #[cfg(feature = "future_snark")]
                 None,
+                #[cfg(feature = "future_snark")]
+                None,
             ),
+            #[cfg(feature = "future_snark")]
+            Vec::new(),
         );
         let msig = self.clerk.as_ref().unwrap().aggregate_signatures_with_type(
             signatures,
@@ -185,7 +189,7 @@ impl Party {
             ancillary_input,
         );
         match msig {
-            Ok((aggregate_signature, _ancillary_verifier_data)) => {
+            Ok((aggregate_signature, _ancillary_proof_output)) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);
                 self.msigs.insert(message.clone(), aggregate_signature);
                 self.get_aggregate(message)
