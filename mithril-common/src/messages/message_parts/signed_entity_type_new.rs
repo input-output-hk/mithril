@@ -48,6 +48,45 @@ pub enum SignedEntityTypeDiscriminantsMessage {
     Unknown,
 }
 
+impl SignedEntityTypeMessage {
+    /// Converts the message into a [SignedEntityType].
+    ///
+    /// Returns `None` for unknown or discontinued values.
+    pub fn into_entity(self) -> Option<SignedEntityType> {
+        match self {
+            SignedEntityTypeMessage::Known(signed_entity) => Some(signed_entity),
+            SignedEntityTypeMessage::Discontinued(_) | SignedEntityTypeMessage::Unknown => None,
+        }
+    }
+}
+
+impl SignedEntityTypeDiscriminantsMessage {
+    /// Converts the message into a [SignedEntityTypeDiscriminants].
+    ///
+    /// Returns `None` for unknown values.
+    pub fn into_discriminant(self) -> Option<SignedEntityTypeDiscriminants> {
+        match self {
+            SignedEntityTypeDiscriminantsMessage::Known(discriminant) => Some(discriminant),
+            SignedEntityTypeDiscriminantsMessage::Discontinued(_)
+            | SignedEntityTypeDiscriminantsMessage::Unknown => None,
+        }
+    }
+
+    /// Convert an iterator of `SignedEntityTypeDiscriminantsMessage` into an iterator of `SignedEntityTypeDiscriminants`
+    ///
+    /// Instead of failing, any unknown or discontinued values will be discarded
+    pub fn into_known_discriminants<
+        T: IntoIterator<Item = Self>,
+        B: FromIterator<SignedEntityTypeDiscriminants>,
+    >(
+        iter: T,
+    ) -> B {
+        iter.into_iter()
+            .filter_map(|message| message.into_discriminant())
+            .collect()
+    }
+}
+
 impl<'de> Deserialize<'de> for SignedEntityTypeMessage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -105,6 +144,70 @@ impl<'de> Deserialize<'de> for SignedEntityTypeDiscriminantsMessage {
             }
             InternalRepresentation::Unknown(_) => SignedEntityTypeDiscriminantsMessage::Unknown,
         })
+    }
+}
+
+mod infallible_conversions {
+    use super::*;
+
+    // Manual implementation instead of using strum::EnumString because it does not allow a "catch all"
+    // variant if that variant has no associated value.
+    impl From<&str> for SignedEntityTypeDiscriminantsMessage {
+        fn from(value: &str) -> Self {
+            match value {
+                "MithrilStakeDistribution" => SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                ),
+                "CardanoStakeDistribution" => SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ),
+                "CardanoDatabase" => SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ),
+                "CardanoTransactions" => SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ),
+                "CardanoBlocksTransactions" => SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
+                ),
+                "CardanoImmutableFilesFull" => SignedEntityTypeDiscriminantsMessage::Discontinued(
+                    DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                ),
+                _ => SignedEntityTypeDiscriminantsMessage::Unknown,
+            }
+        }
+    }
+
+    impl From<SignedEntityType> for SignedEntityTypeMessage {
+        fn from(value: SignedEntityType) -> Self {
+            SignedEntityTypeMessage::Known(value)
+        }
+    }
+
+    impl From<SignedEntityType> for SignedEntityTypeDiscriminantsMessage {
+        fn from(value: SignedEntityType) -> Self {
+            SignedEntityTypeDiscriminantsMessage::Known(value.into())
+        }
+    }
+
+    impl From<SignedEntityTypeDiscriminants> for SignedEntityTypeDiscriminantsMessage {
+        fn from(value: SignedEntityTypeDiscriminants) -> Self {
+            SignedEntityTypeDiscriminantsMessage::Known(value)
+        }
+    }
+
+    impl From<SignedEntityTypeMessage> for SignedEntityTypeDiscriminantsMessage {
+        fn from(value: SignedEntityTypeMessage) -> Self {
+            match value {
+                SignedEntityTypeMessage::Known(value) => {
+                    SignedEntityTypeDiscriminantsMessage::Known(value.into())
+                }
+                SignedEntityTypeMessage::Discontinued(discontinued) => {
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(discontinued)
+                }
+                SignedEntityTypeMessage::Unknown => SignedEntityTypeDiscriminantsMessage::Unknown,
+            }
+        }
     }
 }
 
@@ -352,6 +455,107 @@ mod tests {
 
                 assert_eq!(SignedEntityTypeDiscriminantsMessage::Unknown, res);
             }
+        }
+    }
+
+    mod infallible_conversions {
+        use super::*;
+
+        #[test]
+        fn from_signed_entity_to_message() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeMessage::from(signed_entity.clone()),
+                    SignedEntityTypeMessage::Known(signed_entity)
+                );
+            }
+        }
+
+        #[test]
+        fn from_signed_entity_to_discriminant_message() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::from(signed_entity.clone()),
+                    SignedEntityTypeDiscriminantsMessage::Known(signed_entity.into())
+                )
+            }
+        }
+
+        #[test]
+        fn from_signed_entity_discriminant_to_discriminant_message() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::from(discriminant),
+                    SignedEntityTypeDiscriminantsMessage::Known(discriminant)
+                )
+            }
+        }
+
+        #[test]
+        fn from_signed_entity_type_message_to_discriminant_message() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::from(SignedEntityTypeMessage::Known(
+                        signed_entity.clone()
+                    )),
+                    SignedEntityTypeDiscriminantsMessage::Known(signed_entity.into())
+                )
+            }
+
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::from(
+                        SignedEntityTypeMessage::Discontinued(entity)
+                    ),
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
+                )
+            }
+
+            assert_eq!(
+                SignedEntityTypeDiscriminantsMessage::from(SignedEntityTypeMessage::Unknown),
+                SignedEntityTypeDiscriminantsMessage::Unknown
+            )
+        }
+
+        #[test]
+        fn into_entity_returns_some_for_known_messages() {
+            for (entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    Some(entity.clone()),
+                    SignedEntityTypeMessage::Known(entity).into_entity()
+                )
+            }
+
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    None,
+                    SignedEntityTypeMessage::Discontinued(entity).into_entity()
+                )
+            }
+
+            assert_eq!(None, SignedEntityTypeMessage::Unknown.into_entity());
+        }
+
+        #[test]
+        fn into_discriminant_returns_some_for_known_messages() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    Some(discriminant),
+                    SignedEntityTypeDiscriminantsMessage::Known(discriminant).into_discriminant()
+                )
+            }
+
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    None,
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(entity).into_discriminant()
+                )
+            }
+
+            assert_eq!(
+                None,
+                SignedEntityTypeDiscriminantsMessage::Unknown.into_discriminant()
+            );
         }
     }
 }
