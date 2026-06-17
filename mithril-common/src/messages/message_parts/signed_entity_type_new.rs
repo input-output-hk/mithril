@@ -10,7 +10,7 @@ use crate::entities::{SignedEntityType, SignedEntityTypeDiscriminants};
 ///
 /// This message preserves backward compatibility by distinguishing current,
 /// discontinued, and unknown signed entity types.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum SignedEntityTypeMessage {
     /// A currently supported signed entity type.
@@ -266,6 +266,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use crate::entities::{BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch};
+    use crate::test::assert_same_json;
 
     use super::*;
 
@@ -353,6 +354,142 @@ mod tests {
         );
     }
 
+    mod serialize_entity {
+        use super::*;
+
+        #[test]
+        fn known_message_serializes_like_signed_entity_type() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                assert_same_json!(
+                    value: &signed_entity,
+                    value: &SignedEntityTypeMessage::Known(signed_entity)
+                );
+            }
+        }
+
+        #[test]
+        fn discontinued_message_serializes_as_discontinued_variant_name() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_same_json!(
+                    json: &format!(r#""{entity}""#),
+                    value: &SignedEntityTypeMessage::Discontinued(entity)
+                );
+            }
+        }
+
+        #[test]
+        fn unknown_message_serializes_as_null() {
+            assert_same_json!(json: "null", value: &SignedEntityTypeMessage::Unknown);
+        }
+
+        #[test]
+        fn known_message_round_trips_through_json() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                let json =
+                    serde_json::to_string(&SignedEntityTypeMessage::Known(signed_entity.clone()))
+                        .unwrap();
+                let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
+                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
+
+                assert_eq!(SignedEntityTypeMessage::Known(signed_entity), res);
+            }
+        }
+
+        #[test]
+        fn unknown_message_round_trips_through_json() {
+            let json = serde_json::to_string(&SignedEntityTypeMessage::Unknown).unwrap();
+            let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
+                .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
+
+            assert_eq!(SignedEntityTypeMessage::Unknown, res);
+        }
+
+        #[test]
+        fn discontinued_message_deserializes_as_unknown_after_serialization() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                let json =
+                    serde_json::to_string(&SignedEntityTypeMessage::Discontinued(entity)).unwrap();
+                let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
+                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
+
+                assert_eq!(SignedEntityTypeMessage::Unknown, res);
+            }
+        }
+    }
+
+    mod serialize_discriminant {
+        use super::*;
+
+        #[test]
+        fn known_discriminant_message_serializes_like_discriminant() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_same_json!(
+                    value: &discriminant,
+                    value: &SignedEntityTypeDiscriminantsMessage::Known(discriminant)
+                );
+            }
+        }
+
+        #[test]
+        fn discontinued_discriminant_message_serializes_as_discontinued_variant_name() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_same_json!(
+                    json: &format!(r#""{entity}""#),
+                    value: &SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
+                );
+            }
+        }
+
+        #[test]
+        fn unknown_discriminant_message_serializes_as_null() {
+            assert_same_json!(json: "null", value: &SignedEntityTypeDiscriminantsMessage::Unknown);
+        }
+
+        #[test]
+        fn discriminant_messages_round_trip_through_json() {
+            let cases: Vec<SignedEntityTypeDiscriminantsMessage> =
+                known_entity_and_discriminant_cases()
+                    .into_iter()
+                    .map(|(_, d)| SignedEntityTypeDiscriminantsMessage::Known(d))
+                    .chain(
+                        DiscontinuedSignedEntityTypeMessage::iter()
+                            .map(SignedEntityTypeDiscriminantsMessage::Discontinued),
+                    )
+                    .chain(vec![SignedEntityTypeDiscriminantsMessage::Unknown])
+                    .collect();
+
+            for case in cases {
+                let json = serde_json::to_string(&case).unwrap();
+                let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(&json)
+                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
+
+                assert_eq!(case, res);
+            }
+        }
+    }
+
+    mod serialize_discontinued_entity {
+        use super::*;
+
+        #[test]
+        fn discontinued_signed_entity_type_serializes_to_variant_name() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_same_json!(json: &format!(r#""{entity}""#), value: &entity);
+            }
+        }
+
+        #[test]
+        fn discontinued_signed_entity_type_round_trips_through_json() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                let json = serde_json::to_string(&entity).unwrap();
+                let res = serde_json::from_str::<DiscontinuedSignedEntityTypeMessage>(&json)
+                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
+
+                assert_eq!(entity, res);
+            }
+        }
+    }
+
     mod deserialization_entity {
         use super::*;
 
@@ -415,7 +552,7 @@ mod tests {
         #[test]
         fn malformed_json_returns_an_error() {
             for json in malformed_json_cases() {
-                let res = serde_json::from_str::<SignedEntityTypeMessage>(&json);
+                let res = serde_json::from_str::<SignedEntityTypeMessage>(json);
 
                 assert!(
                     res.is_err(),
@@ -502,7 +639,7 @@ mod tests {
         #[test]
         fn malformed_json_returns_an_error() {
             for json in malformed_json_cases() {
-                let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(&json);
+                let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(json);
 
                 assert!(
                     res.is_err(),
