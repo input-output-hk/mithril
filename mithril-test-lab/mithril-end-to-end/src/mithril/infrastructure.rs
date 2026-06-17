@@ -286,11 +286,13 @@ impl MithrilInfrastructure {
                 m: 105,
                 phi_f: 0.95,
             },
-            AggregateSignatureType::Snark => ProtocolParameters {
-                k: 5,
-                m: 9,
-                phi_f: 0.95,
-            },
+            AggregateSignatureType::Snark | AggregateSignatureType::IvcSnark => {
+                ProtocolParameters {
+                    k: 5,
+                    m: 9,
+                    phi_f: 0.95,
+                }
+            }
         };
         aggregator.set_protocol_parameters(&protocol_parameters_new).await;
 
