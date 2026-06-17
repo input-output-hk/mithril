@@ -9,12 +9,15 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use midnight_curves::{Bls12, G1Projective, G2Affine};
 use midnight_proofs::{poly::kzg::params::ParamsVerifierKZG, utils::SerdeFormat};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    StmResult,
+    SchnorrVerificationKey, StmResult,
     circuits::halo2_ivc::{
         CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, state::fixed_bases_and_names,
+        types::MessageHash,
     },
+    codec,
     proof_system::{
         KZG_VERIFIER_PARAMS,
         ivc_halo2_snark::{CircuitVerifyingKey, prover_setup::IvcProverSetup},
@@ -164,6 +167,94 @@ impl IvcVerifierSetup {
     /// Returns the combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
     pub(crate) fn combined_fixed_bases(&self) -> &BTreeMap<String, G1Projective> {
         &self.combined_fixed_bases
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IvcVerifierData {
+    genesis_message: MessageHash,
+    genesis_schnorr_verification_key: SchnorrVerificationKey,
+    #[serde(with = "verification_key_serde")]
+    certificate_circuit_verification_key: CircuitVerifyingKey,
+    #[serde(with = "verification_key_serde")]
+    ivc_circuit_verification_key: CircuitVerifyingKey,
+}
+
+// This implementation is copied from another one and needs to be
+// updated and tested. It is temporary to test the wiring of the prove and verification
+impl IvcVerifierData {
+    /// Serialize to versioned CBOR bytes, following `CODEC.md`.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
+    }
+
+    /// Deserialize from versioned CBOR bytes, following `CODEC.md`.
+    ///
+    /// With no variants this always fails; it gains meaning once a variant is added.
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if codec::has_cbor_v1_prefix(bytes) {
+            codec::from_cbor_bytes(&bytes[1..])
+        } else {
+            Err(anyhow::anyhow!(
+                "AncillaryProverData: unsupported encoding, expected a CBOR v1 prefix"
+            ))
+        }
+    }
+
+    pub fn genesis_message(&self) -> MessageHash {
+        self.genesis_message
+    }
+
+    pub fn genesis_schnorr_verification_key(&self) -> SchnorrVerificationKey {
+        self.genesis_schnorr_verification_key
+    }
+
+    pub fn certificate_circuit_verification_key(&self) -> CircuitVerifyingKey {
+        self.certificate_circuit_verification_key.clone()
+    }
+
+    pub fn ivc_circuit_verification_key(&self) -> CircuitVerifyingKey {
+        self.ivc_circuit_verification_key.clone()
+    }
+}
+
+/// Module implementing serialize and deserialize functions
+/// for the VerifyingKey struct
+// TODO: Needs to be tested
+pub mod verification_key_serde {
+    use midnight_curves::Bls12;
+    use midnight_proofs::plonk::ConstraintSystem;
+    use midnight_proofs::utils::SerdeFormat;
+    use midnight_proofs::{plonk::VerifyingKey, poly::kzg::KZGCommitmentScheme};
+    use serde::{Deserializer, Serializer};
+
+    use crate::circuits::halo2::types::CircuitBase;
+
+    /// Serialization function based on the write function of the VerifyingKey
+    pub fn serialize<S: Serializer>(
+        verification_key: &VerifyingKey<CircuitBase, KZGCommitmentScheme<Bls12>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut buf = Vec::new();
+        verification_key
+            .write(&mut buf, SerdeFormat::RawBytes)
+            .map_err(serde::ser::Error::custom)?;
+        serializer.serialize_bytes(&buf)
+    }
+
+    /// Deserialization function based on the read function of the VerifyingKey
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<VerifyingKey<CircuitBase, KZGCommitmentScheme<Bls12>>, D::Error> {
+        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
+        let cs = ConstraintSystem::default();
+
+        VerifyingKey::<CircuitBase, KZGCommitmentScheme<Bls12>>::read_from_cs(
+            &mut bytes.as_slice(),
+            SerdeFormat::RawBytes,
+            cs,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 

@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::codec;
+use crate::proof_system::IvcRollingState;
+use crate::proof_system::ivc_halo2_snark::verifier_setup::IvcVerifierData;
 #[cfg(feature = "future_snark")]
 use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
 
@@ -51,8 +53,10 @@ impl AncillaryProverData {
 /// Holds the data a verifier needs to verify the certificate. Stored and transmitted in the
 /// certificate message. Variants map to the aggregate signature types that require verifier
 /// data; none exist yet.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AncillaryVerifierData {}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AncillaryVerifierData {
+    IvcSnark(IvcVerifierData),
+}
 
 impl AncillaryVerifierData {
     /// Serialize to versioned CBOR bytes, following `CODEC.md`.
@@ -70,6 +74,12 @@ impl AncillaryVerifierData {
             Err(anyhow::anyhow!(
                 "AncillaryVerifierData: unsupported encoding, expected a CBOR v1 prefix"
             ))
+        }
+    }
+
+    pub fn as_ivc_verifier_data(&self) -> IvcVerifierData {
+        match self {
+            Self::IvcSnark(state) => state.clone(),
         }
     }
 }

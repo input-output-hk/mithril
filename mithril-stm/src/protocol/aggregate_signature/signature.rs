@@ -9,7 +9,12 @@ use crate::{
 };
 
 #[cfg(feature = "future_snark")]
-use crate::proof_system::{SnarkProof, SnarkVerifierSetup, ivc_halo2_snark::proof::IvcProof};
+use crate::circuits::halo2_ivc::state::Global;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::{
+    SnarkProof, SnarkVerifierSetup,
+    ivc_halo2_snark::{proof::IvcProof, verifier_setup::IvcVerifierSetup},
+};
 
 use super::{AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData};
 
@@ -172,7 +177,30 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             }
             #[cfg(feature = "future_snark")]
             AggregateSignature::IvcSnark(ivc_proof) => {
-                todo!()
+                let ivc_verifier_data = ancillary_verifier_data
+                    .ok_or_else(|| {
+                        anyhow!("Ancillary verifier data needed to verify the IVC proof")
+                    })?
+                    .as_ivc_verifier_data();
+
+                let certificate_verifying_key =
+                    ivc_verifier_data.certificate_circuit_verification_key();
+
+                let ivc_verifying_key = ivc_verifier_data.ivc_circuit_verification_key();
+
+                let global = &Global::new(
+                    ivc_verifier_data.genesis_message(),
+                    ivc_verifier_data.genesis_schnorr_verification_key(),
+                    &certificate_verifying_key,
+                    &ivc_verifying_key,
+                );
+
+                // Need to clone the ivc_verifying_key here because try_new does not
+                // take a reference, can we change that? do we want to?
+                let verifier_setup =
+                    IvcVerifierSetup::try_new(&certificate_verifying_key, ivc_verifying_key)?;
+
+                ivc_proof.verify(global, &verifier_setup)
             }
         }
     }

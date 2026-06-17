@@ -4,8 +4,6 @@ use std::{marker::PhantomData, sync::Arc};
 
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
-#[cfg(feature = "future_snark")]
-use sha2::{Digest, Sha256};
 
 use crate::{
     AggregateVerificationKey, BaseFieldElement, ClosedKeyRegistration, LotteryIndex,
@@ -275,7 +273,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 
     // IvcGenesisBootstrapInput contains the same values as AncillaryGenesisData
     // We might consider dropping one or implementing a conversion between the two
-    let genesis_bootstrap = ancillary_input.genesis_data().try_into()?;
+    let genesis_bootstrap = &ancillary_input.genesis_data().try_into()?;
 
     // For now the function will fail as we give two Some values
     // which should not happen but this might be changed
@@ -285,7 +283,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         &avk,
         &global,
         &ProtocolMessagePreimage(protocol_message_preimage_bytes),
+        genesis_bootstrap,
         rolling_state.as_ref(),
-        Some(genesis_bootstrap),
     )
 }

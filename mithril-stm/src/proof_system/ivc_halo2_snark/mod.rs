@@ -14,7 +14,7 @@ pub(crate) mod rolling_state;
 mod unsafe_setup_helpers;
 pub(crate) mod verifier_setup;
 
-pub(crate) use setup::IvcProverSetup;
+pub(crate) use prover_setup::IvcProverSetup;
 pub(crate) use unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider};
 
 /// PLONK verifying key used across the IVC setup
