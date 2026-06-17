@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
 use strum::{Display, EnumIter};
@@ -25,7 +27,9 @@ pub enum SignedEntityTypeMessage {
 ///
 /// These values are kept to deserialize historical messages without treating
 /// them as unknown.
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Display, EnumIter)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Display, EnumIter,
+)]
 pub enum DiscontinuedSignedEntityTypeMessage {
     /// Full Cardano immutable files snapshot.
     CardanoImmutableFilesFull,
@@ -35,7 +39,7 @@ pub enum DiscontinuedSignedEntityTypeMessage {
 ///
 /// This message preserves backward compatibility by distinguishing current,
 /// discontinued, and unknown signed entity type discriminants.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(untagged)]
 pub enum SignedEntityTypeDiscriminantsMessage {
     /// A currently supported signed entity type discriminant.
@@ -61,6 +65,15 @@ impl SignedEntityTypeMessage {
 }
 
 impl SignedEntityTypeDiscriminantsMessage {
+    /// Get all the discriminants without unstable values
+    pub fn all_known() -> BTreeSet<Self> {
+        // Leverage the list from `SignedEntityTypeDiscriminants` to avoid Unknown and Discontinued and duplicating the filter
+        SignedEntityTypeDiscriminants::all()
+            .into_iter()
+            .map(Self::from)
+            .collect()
+    }
+
     /// Converts the message into a [SignedEntityTypeDiscriminants].
     ///
     /// Returns `None` for unknown values.
@@ -286,6 +299,21 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             ),
         ]
+    }
+
+    #[test]
+    fn all_known_returns_known_discriminant_messages() {
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all()
+                .into_iter()
+                .map(From::from)
+                .collect::<BTreeSet<_>>(),
+            SignedEntityTypeDiscriminantsMessage::all_known()
+        );
+        assert!(
+            !SignedEntityTypeDiscriminantsMessage::all_known()
+                .contains(&SignedEntityTypeDiscriminantsMessage::Unknown)
+        );
     }
 
     mod deserialization_entity {
