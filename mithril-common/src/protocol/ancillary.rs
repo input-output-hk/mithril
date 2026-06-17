@@ -31,15 +31,12 @@ pub fn build_ancillary_proof_input(
     #[cfg(feature = "future_snark")]
     let genesis_data = {
         let genesis_message_preimage = genesis_certificate.protocol_message.rigid_preimage();
-        let genesis_message =
-            ProtocolMessage::compute_rigid_hash_bytes_from_preimage(&genesis_message_preimage);
         let genesis_schnorr_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisDualSignature(_, signature) => Some(*signature),
             _ => None,
         };
         AncillaryGenesisData::new(
             genesis_message_preimage,
-            genesis_message,
             genesis_schnorr_signature,
             genesis_schnorr_verification_key,
         )
@@ -85,7 +82,7 @@ mod tests {
     }
 
     #[test]
-    fn carries_message_preimage_genesis_message_and_schnorr_signature_for_a_dual_genesis() {
+    fn carries_message_preimage_and_schnorr_signature_for_a_dual_genesis() {
         let parent = fake_data::certificate("parent");
         let genesis = dual_signed_genesis_certificate();
         let protocol_message = ProtocolMessage::new_rigid();
@@ -104,10 +101,6 @@ mod tests {
         assert_eq!(
             input.message_preimage(),
             protocol_message.rigid_preimage().as_slice()
-        );
-        assert_eq!(
-            genesis_data.genesis_message(),
-            genesis.protocol_message.compute_rigid_hash_bytes()
         );
         assert_eq!(
             genesis_data.genesis_message_preimage(),

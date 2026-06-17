@@ -136,9 +136,7 @@ for s in sigs.iter() {
 }
 
 // Aggregate a concatenation proof with random parties
-#[cfg(feature = "future_snark")]
-use sha2::{Digest, Sha256};
-let ancillary_input = AncillaryProofInput::new(None, AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] Sha256::digest(b"").into(), #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None), #[cfg(feature = "future_snark")] Vec::new());
+let ancillary_input = AncillaryProofInput::new(None, AncillaryGenesisData::new(#[cfg(feature = "future_snark")] Vec::new(), #[cfg(feature = "future_snark")] None, #[cfg(feature = "future_snark")] None), #[cfg(feature = "future_snark")] Vec::new());
 let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation, ancillary_input);
 
 match msig {
