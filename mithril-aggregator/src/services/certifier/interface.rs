@@ -52,6 +52,10 @@ pub enum CertifierServiceError {
         current_epoch: Epoch,
     },
 
+    /// Cannot sign at genesis epoch
+    #[error("Cannot sign at genesis epoch {0:?}.")]
+    CantSignAtGenesisEpoch(Epoch),
+
     /// Could not verify certificate chain because could not find last certificate.
     #[error("No certificate found.")]
     CouldNotFindLastCertificate,

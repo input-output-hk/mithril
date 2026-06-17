@@ -47,12 +47,15 @@ async fn open_message_expiration() {
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
     comment!("Bootstrap the genesis certificate");
-    tester.register_genesis_certificate(&fixture).await.unwrap();
+    tester
+        .register_genesis_certificate_at_previous_epoch(&fixture)
+        .await
+        .unwrap();
 
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Epoch(1),
+            Epoch(0),
             fixture.compute_and_encode_concatenation_aggregate_verification_key()
         )
     );
@@ -95,7 +98,7 @@ async fn open_message_expiration() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Epoch(1),
+            Epoch(0),
             fixture.compute_and_encode_concatenation_aggregate_verification_key()
         )
     );
@@ -126,7 +129,7 @@ async fn open_message_expiration() {
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_concatenation_aggregate_verification_key(),
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
+            ExpectedCertificate::genesis_identifier(Epoch(0)),
         )
     );
 

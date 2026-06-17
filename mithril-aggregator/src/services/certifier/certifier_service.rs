@@ -312,6 +312,14 @@ impl CertifierService for MithrilCertifierService {
             .await
             .with_context(|| "Certifier can not get the latest genesis certificate")?
             .ok_or_else(|| Box::new(CertifierServiceError::NoGenesisCertificateFound))?;
+
+        // This avoids stucking the state machine in running a slow IVC prover at the epoch at which the genesis certificate is created.
+        if genesis_certificate.epoch == open_message.epoch {
+            return Err(
+                CertifierServiceError::CantSignAtGenesisEpoch(genesis_certificate.epoch).into(),
+            );
+        }
+
         let ancillary_input = build_ancillary_proof_input(
             &genesis_certificate,
             &parent_certificate,

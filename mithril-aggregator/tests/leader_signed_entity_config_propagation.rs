@@ -76,7 +76,10 @@ async fn leader_signed_entity_config_propagation() {
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
     comment!("Bootstrap the genesis certificate");
-    tester.register_genesis_certificate(&fixture).await.unwrap();
+    tester
+        .register_genesis_certificate_at_previous_epoch(&fixture)
+        .await
+        .unwrap();
 
     comment!("start the runtime state machine");
     cycle!(tester, "ready");
