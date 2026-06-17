@@ -224,6 +224,43 @@ mod infallible_conversions {
     }
 }
 
+mod comparison {
+    use super::*;
+
+    impl PartialEq<SignedEntityTypeMessage> for SignedEntityType {
+        fn eq(&self, message: &SignedEntityTypeMessage) -> bool {
+            match message {
+                SignedEntityTypeMessage::Known(entity) => entity.eq(self),
+                SignedEntityTypeMessage::Discontinued(_) | SignedEntityTypeMessage::Unknown => {
+                    false
+                }
+            }
+        }
+    }
+
+    impl PartialEq<SignedEntityType> for SignedEntityTypeMessage {
+        fn eq(&self, other: &SignedEntityType) -> bool {
+            other.eq(self)
+        }
+    }
+
+    impl PartialEq<SignedEntityTypeDiscriminantsMessage> for SignedEntityTypeDiscriminants {
+        fn eq(&self, message: &SignedEntityTypeDiscriminantsMessage) -> bool {
+            match message {
+                SignedEntityTypeDiscriminantsMessage::Known(discriminant) => discriminant.eq(self),
+                SignedEntityTypeDiscriminantsMessage::Discontinued(_)
+                | SignedEntityTypeDiscriminantsMessage::Unknown => false,
+            }
+        }
+    }
+
+    impl PartialEq<SignedEntityTypeDiscriminants> for SignedEntityTypeDiscriminantsMessage {
+        fn eq(&self, other: &SignedEntityTypeDiscriminants) -> bool {
+            other.eq(self)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use strum::IntoEnumIterator;
@@ -584,6 +621,63 @@ mod tests {
                 None,
                 SignedEntityTypeDiscriminantsMessage::Unknown.into_discriminant()
             );
+        }
+    }
+
+    mod comparison {
+        use super::*;
+
+        fn alter_entity(entity: &SignedEntityType) -> SignedEntityType {
+            match entity.clone() {
+                SignedEntityType::MithrilStakeDistribution(epoch) => {
+                    SignedEntityType::MithrilStakeDistribution(epoch + 1)
+                }
+                SignedEntityType::CardanoStakeDistribution(epoch) => {
+                    SignedEntityType::CardanoStakeDistribution(epoch + 1)
+                }
+                SignedEntityType::CardanoDatabase(beacon) => SignedEntityType::CardanoDatabase(
+                    CardanoDbBeacon::new(*beacon.epoch + 1, beacon.immutable_file_number + 5),
+                ),
+                SignedEntityType::CardanoTransactions(epoch, block) => {
+                    SignedEntityType::CardanoTransactions(epoch + 1, block + 1)
+                }
+                SignedEntityType::CardanoBlocksTransactions(epoch, block, offset) => {
+                    SignedEntityType::CardanoBlocksTransactions(epoch + 1, block + 1, offset + 1)
+                }
+            }
+        }
+
+        #[test]
+        fn discriminant_message_equals_discriminant_and_reverse() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                let discriminant_message =
+                    SignedEntityTypeDiscriminantsMessage::Known(discriminant);
+
+                assert_eq!(discriminant_message, discriminant);
+                assert_eq!(discriminant, discriminant_message);
+            }
+        }
+
+        #[test]
+        fn message_equals_entity_and_reverse() {
+            for (entity, _) in known_entity_and_discriminant_cases() {
+                let message = SignedEntityTypeMessage::Known(entity.clone());
+
+                assert_eq!(message, entity);
+                assert_eq!(entity, message);
+                assert_ne!(message, alter_entity(&entity));
+                assert_ne!(alter_entity(&entity), message);
+            }
+        }
+
+        #[test]
+        fn unknown_messages_do_not_equal_entities() {
+            for (entity, discriminant) in known_entity_and_discriminant_cases() {
+                assert_ne!(entity, SignedEntityTypeMessage::Unknown);
+                assert_ne!(SignedEntityTypeMessage::Unknown, entity);
+                assert_ne!(discriminant, SignedEntityTypeDiscriminantsMessage::Unknown);
+                assert_ne!(SignedEntityTypeDiscriminantsMessage::Unknown, discriminant);
+            }
         }
     }
 }
