@@ -28,6 +28,9 @@ pub enum AggregateSignatureType {
     /// SNARK proof system.
     #[value(name = "Snark")]
     Snark,
+    /// IVC SNARK proof system.
+    #[value(name = "IvcSnark")]
+    IvcSnark,
 }
 
 impl std::fmt::Display for AggregateSignatureType {
@@ -35,6 +38,7 @@ impl std::fmt::Display for AggregateSignatureType {
         match self {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
             AggregateSignatureType::Snark => write!(f, "Snark"),
+            AggregateSignatureType::IvcSnark => write!(f, "IvcSnark"),
         }
     }
 }
