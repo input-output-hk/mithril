@@ -1,13 +1,17 @@
 use anyhow::Context;
 use rand_core::OsRng;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
+#[cfg(feature = "future_snark")]
+use sha2::{Digest, Sha256};
 
 use crate::{
-    AggregateVerificationKey, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
-    Signer, SingleSignature, SnarkProof, Stake, StmResult, VerificationKeyForConcatenation,
+    AggregateVerificationKey, BaseFieldElement, ClosedKeyRegistration, LotteryIndex,
+    MembershipDigest, Parameters, Signer, SingleSignature, SnarkProof, Stake, StmResult,
+    VerificationKeyForConcatenation,
+    circuits::halo2_ivc::{ProtocolMessagePreimage, types::MessageHash},
     proof_system::{
         ConcatenationClerk, ConcatenationProof, IvcRollingState, ivc_halo2_snark::proof::IvcProof,
     },
@@ -18,7 +22,6 @@ use crate::{
     circuits::{halo2_ivc::state::Global, trusted_setup::TrustedSetupProvider},
     proof_system::ivc_halo2_snark::{
         IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
-        proof::IvcGenesisBootstrapInput,
     },
 };
 
@@ -159,7 +162,10 @@ impl<D: MembershipDigest> Clerk<D> {
                 );
 
                 // TODO: add the AncillaryProverData and AncillaryVerifierData to the output
-                Ok((AggregateSignature::IvcSnark(Box::new(proof_output.0)), None))
+                Ok((
+                    AggregateSignature::IvcSnark(Box::new(proof_output.0)),
+                    AncillaryProofOutput::new(Some(ancillary_prover_data), None),
+                ))
             }
         }
     }
@@ -219,19 +225,26 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     clerk: &SnarkClerk,
     ancillary_input: AncillaryProofInput,
 ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
-    // TODO: get the protocol message preimage
-    let protocol_message_preimage = todo!();
-    // TODO: get the protocol message preimage
-    let genesis_verification_key = todo!();
-    // TODO: get the genesis message
-    let genesis_message = todo!();
+    let protocol_message_preimage_bytes: [u8; 190] =
+        ancillary_input.message_preimage().try_into()?;
+
+    let genesis_verification_key = ancillary_input
+        .genesis_data()
+        .genesis_schnorr_verification_key()
+        .cloned()
+        .ok_or_else(|| anyhow!("Missing genesis verification key from ancillary data"))?;
+
+    let genesis_preimage = ancillary_input.genesis_data().genesis_message_preimage();
+
+    // TODO: clean this to have proper call to SHA256
+    let genesis_message_field_elem = BaseFieldElement::try_from(genesis_preimage)?.0;
 
     let trusted_setup_provider = TrustedSetupProvider::default();
-    let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+    let srs = Arc::new(trusted_setup_provider.get_trusted_setup_parameters()?);
     let certificate_key_provider =
-        TempCertificateKeyProvider::new(srs.into(), clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK);
+        TempCertificateKeyProvider::new(srs.clone(), clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK);
     let ivc_key_provider =
-        TempIvcKeyProvider::new(srs.into(), certificate_key_provider.get_verifying_key()?);
+        TempIvcKeyProvider::new(srs.clone(), certificate_key_provider.get_verifying_key()?);
 
     let ivc_setup = IvcProverSetup::load(
         &trusted_setup_provider,
@@ -239,7 +252,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         &ivc_key_provider,
     )?;
 
-    let prover = IvcProver {
+    let mut prover = IvcProver {
         ivc_setup: ivc_setup.into(),
         rng: OsRng,
     };
@@ -249,16 +262,16 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let avk = clerk.compute_aggregate_verification_key_for_snark();
 
     let global = Global::new(
-        genesis_message,
+        MessageHash::from_field(genesis_message_field_elem),
         genesis_verification_key,
         &certificate_key_provider.get_verifying_key()?,
         &ivc_key_provider.get_verifying_key()?,
     );
 
-    let rolling_state = ancillary_input
-        .prover_data()
-        .ok_or_else(|| anyhow!("Missing prover data"))?
-        .as_ivc_rolling_state();
+    let rolling_state = match ancillary_input.prover_data() {
+        Some(input) => Some(input.as_ivc_rolling_state()),
+        None => None,
+    };
 
     // IvcGenesisBootstrapInput contains the same values as AncillaryGenesisData
     // We might consider dropping one or implementing a conversion between the two
@@ -271,8 +284,8 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         msg,
         &avk,
         &global,
-        protocol_message_preimage,
-        Some(&rolling_state),
+        &ProtocolMessagePreimage(protocol_message_preimage_bytes),
+        rolling_state.as_ref(),
         Some(genesis_bootstrap),
     )
 }

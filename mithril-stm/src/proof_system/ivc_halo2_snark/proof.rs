@@ -96,7 +96,7 @@ impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
 // TODO: remove this allow dead_code directive when the IVC prover emits this proof
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct IvcProof<H: TranscriptHash> {
+pub struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes.
     proof_bytes: IvcProofBytes,
     /// Chain state the proof commits to.

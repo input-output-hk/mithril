@@ -24,7 +24,7 @@ use crate::{
 // TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
 #[allow(dead_code)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct IvcRollingState {
+pub struct IvcRollingState {
     /// Last committed chain state.
     state: State,
     /// Bytes of the last IVC proof under the Poseidon transcript

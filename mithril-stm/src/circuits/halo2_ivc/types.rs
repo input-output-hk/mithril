@@ -87,7 +87,7 @@ u64_wrapper!(EpochNumber);
 u64_wrapper!(StepCounter);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ProtocolMessagePreimage([u8; PREIMAGE_SIZE]);
+pub(crate) struct ProtocolMessagePreimage(pub(crate) [u8; PREIMAGE_SIZE]);
 
 impl ProtocolMessagePreimage {
     #[cfg(test)]
