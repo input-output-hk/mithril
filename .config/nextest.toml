@@ -3,10 +3,7 @@
 # IVC SNARK proof generation tests are memory-heavy; running them concurrently
 # causes resource contention on CI runners and exceeds the job time limit.
 # Run serially to avoid contention.
-[test-groups.ivc-snark-slow]
-max-threads = 1
-
-[test-groups.ivc-snark-very-slow]
+[test-groups.ivc-snark-sequential]
 max-threads = 1
 
 [profile.ci]
@@ -23,9 +20,5 @@ path = "tests-result.junit.xml"
 report-name = "mithril-tests"
 
 [[profile.ci.overrides]]
-filter = 'test(#proof_system::ivc_halo2_snark::*slow::*) and not test(#*very_slow::*)'
-test-group = "ivc-snark-slow"
-
-[[profile.ci.overrides]]
-filter = 'test(#proof_system::ivc_halo2_snark::*very_slow::*)'
-test-group = "ivc-snark-very-slow"
+filter = 'test(#proof_system::ivc_halo2_snark::*slow::*)'
+test-group = "ivc-snark-sequential"

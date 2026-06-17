@@ -24,11 +24,12 @@ pub(crate) enum IvcProofError {
     #[error("IVC proof generation failed: {0}")]
     ProofGenerationFailed(String),
 
-    /// `prove()` was called with an invalid combination of `rolling_state` and
-    /// `genesis_bootstrap`: exactly one must be `Some`, and `rolling_state` must not carry a
-    /// genesis state (`step_counter == 0`). Use `genesis_bootstrap` for the first certificate.
+    /// `prove()` was called with a `rolling_state` carrying a genesis state
+    /// (`step_counter == 0`). The genesis step is run internally from `genesis_bootstrap`
+    /// when `rolling_state` is `None`; callers must only pass a `rolling_state` produced by a
+    /// previous proving step.
     #[error(
-        "IVC prover called with invalid context: exactly one of rolling_state and genesis_bootstrap must be Some; rolling_state must not be a genesis (step_counter == 0) state"
+        "IVC prover called with invalid context: rolling_state must not be a genesis (step_counter == 0) state; pass None to bootstrap from genesis"
     )]
     InvalidProvingContext,
 }

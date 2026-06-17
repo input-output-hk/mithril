@@ -17,7 +17,7 @@ use crate::{
     },
     proof_system::{
         KZG_VERIFIER_PARAMS,
-        ivc_halo2_snark::{CircuitVerifyingKey, setup::IvcProverSetup},
+        ivc_halo2_snark::{CircuitVerifyingKey, prover_setup::IvcProverSetup},
     },
 };
 

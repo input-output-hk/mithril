@@ -17,7 +17,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{rolling_state::IvcRollingState, setup::IvcProverSetup},
+        ivc_halo2_snark::{prover_setup::IvcProverSetup, rolling_state::IvcRollingState},
     },
 };
 

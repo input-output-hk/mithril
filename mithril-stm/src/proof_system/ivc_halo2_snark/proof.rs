@@ -32,7 +32,8 @@ use crate::{
     },
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey, errors::IvcProofError, prover_input::IvcProverInput,
-        rolling_state::IvcRollingState, setup::IvcProverSetup, verifier_setup::IvcVerifierSetup,
+        prover_setup::IvcProverSetup, rolling_state::IvcRollingState,
+        verifier_setup::IvcVerifierSetup,
     },
     signature_scheme::StandardSchnorrSignature,
 };
@@ -49,10 +50,8 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 
 /// Bootstrap input for the first [`IvcProver::prove`] call in an IVC chain.
 ///
-/// Passed as `genesis_bootstrap: Some(...)` when `rolling_state = None`. Supplies the
-/// data needed to run the internal genesis IVC step before processing the first certificate.
-///
-// TODO(#3141): Wire genesis bootstrap inputs into the aggregator call site.
+/// Always supplied to [`IvcProver::prove`] by reference; used only when `rolling_state = None`
+/// (the first certificate) to run the internal genesis IVC step before processing it.
 // TODO: remove this allow dead_code directive when IvcProver::prove is wired into STM
 #[allow(dead_code)]
 pub(crate) struct IvcGenesisBootstrapInput {
@@ -201,23 +200,40 @@ where
     }
 }
 
+/// Rejects a `rolling_state` that carries a genesis state (`step_counter == 0`).
+///
+/// The genesis step is only ever produced internally by the bootstrap path; callers reach it by
+/// passing `rolling_state = None`. A genesis state supplied as a previous step would instead run
+/// a normal step that silently ignores the certificate. Since `genesis_bootstrap` is always
+/// supplied, this is the only remaining invalid context: the previously-possible both-`Some` and
+/// both-`None` misuses are now unrepresentable.
+fn ensure_advanceable_rolling_state(rolling_state: Option<&IvcRollingState>) -> StmResult<()> {
+    if rolling_state.is_some_and(|rs| rs.is_genesis()) {
+        return Err(IvcProofError::InvalidProvingContext.into());
+    }
+    Ok(())
+}
+
 // TODO: remove this allow dead_code directive when the IVC prover is wired into STM
 #[allow(dead_code)]
 impl<R: RngCore + CryptoRng> IvcProver<R> {
     /// Advances the IVC chain by one step.
     ///
-    /// Exactly one of `rolling_state` and `genesis_bootstrap` must be `Some`:
+    /// `genesis_bootstrap` carries the chain's genesis data and is always supplied; whether it
+    /// is used depends on `rolling_state`:
     ///
-    /// - `rolling_state = Some(rs), genesis_bootstrap = None`: normal step. `rs` carries the
-    ///   previous step's output. The transition type (same-epoch / next-epoch) is determined
-    ///   from the certificate epoch vs the chain epoch recorded in `rs`.
-    /// - `rolling_state = None, genesis_bootstrap = Some(bootstrap)`: genesis bootstrap.
-    ///   Called at the first certificate (Epoch 1). Internally runs a genesis IVC step using
-    ///   `bootstrap.genesis_signature` and `bootstrap.genesis_protocol_message_preimage`,
-    ///   then immediately runs the Epoch 1 step with the supplied certificate inputs.
-    ///   Returns the Epoch 1 Blake2b proof and the updated rolling state.
+    /// - `rolling_state = Some(rs)`: normal step. `rs` carries the previous step's output. The
+    ///   transition type (same-epoch / next-epoch) is determined from the certificate epoch vs
+    ///   the chain epoch recorded in `rs`. `genesis_bootstrap` is unused.
+    /// - `rolling_state = None`: genesis bootstrap, at the first certificate (Epoch 1).
+    ///   Internally runs a genesis IVC step using `genesis_bootstrap.genesis_signature` and
+    ///   `genesis_bootstrap.genesis_protocol_message_preimage`, then immediately runs the
+    ///   Epoch 1 step with the supplied certificate inputs. Returns the Epoch 1 Blake2b proof
+    ///   and the updated rolling state.
     ///
-    /// Both `Some` or both `None` returns [`IvcProofError::InvalidProvingContext`].
+    /// A `rolling_state` carrying a genesis state (`step_counter == 0`) returns
+    /// [`IvcProofError::InvalidProvingContext`]: the genesis step is only reachable via the
+    /// `rolling_state = None` bootstrap path.
     ///
     /// Returns `(proof, next_rolling_state)`. `next_rolling_state` is `Some` on next-epoch
     /// steps (rolling state must advance) and `None` on same-epoch steps.
@@ -229,27 +245,21 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
+        genesis_bootstrap: &IvcGenesisBootstrapInput,
         rolling_state: Option<&IvcRollingState>,
-        // TODO(#3141): Wire genesis_bootstrap into the aggregator call site.
-        genesis_bootstrap: Option<IvcGenesisBootstrapInput>,
     ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
-        // Exactly one of rolling_state or genesis_bootstrap must be Some.
-        // rolling_state must not be a genesis state (step_counter == 0): the bootstrap path
-        // is the only supported entry point for the first certificate.
-        if rolling_state.is_some() == genesis_bootstrap.is_some()
-            || rolling_state.is_some_and(|rs| rs.is_genesis())
-        {
-            return Err(IvcProofError::InvalidProvingContext.into());
-        }
-        let genesis_seeded_state: Option<IvcRollingState> = match genesis_bootstrap {
-            Some(bootstrap) => Some(self.run_genesis_step(
+        ensure_advanceable_rolling_state(rolling_state)?;
+        // `rolling_state = None` is the first certificate: bootstrap from genesis internally,
+        // then continue with the seeded state. Otherwise advance from the supplied state.
+        let genesis_seeded_state: Option<IvcRollingState> = match rolling_state {
+            None => Some(self.run_genesis_step(
                 &snark_proof,
                 message,
                 aggregate_verification_key,
                 global,
-                &bootstrap,
+                genesis_bootstrap,
             )?),
-            None => None,
+            Some(_) => None,
         };
         let effective_rolling_state: &IvcRollingState =
             genesis_seeded_state.as_ref().or(rolling_state).unwrap();
@@ -615,6 +625,59 @@ mod tests {
         );
     }
 
+    // The context guard is the first thing `IvcProver::prove` runs. It is tested directly here
+    // rather than through `prove` so the test stays fast: reaching `prove` would require building
+    // an `IvcProverSetup` (full keygen). With `genesis_bootstrap` now always supplied, a genesis
+    // `rolling_state` is the only remaining invalid context; both-`Some`/both-`None` are
+    // unrepresentable.
+    #[test]
+    fn ensure_advanceable_rolling_state_rejects_only_genesis_state() {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::{
+            proof_system::ivc_halo2_snark::rolling_state::IvcRollingState,
+            signature_scheme::{BaseFieldElement, SchnorrSigningKey},
+        };
+
+        use super::ensure_advanceable_rolling_state;
+
+        // A genesis signature is needed to build any rolling state; its value is irrelevant
+        // because the guard only inspects the step counter.
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let signing_key = SchnorrSigningKey::generate(&mut rng);
+        let genesis_signature = signing_key
+            .sign_standard(&[BaseFieldElement::from(1u64)], &mut rng)
+            .expect("genesis signature should be produced");
+
+        // `None` bootstraps from genesis internally: accepted.
+        ensure_advanceable_rolling_state(None).expect("None must be accepted (genesis bootstrap)");
+
+        // A genesis rolling state (`step_counter == 0`) must be rejected.
+        let genesis_state = IvcRollingState::genesis(genesis_signature, &[]);
+        assert!(genesis_state.is_genesis());
+        let err = ensure_advanceable_rolling_state(Some(&genesis_state))
+            .expect_err("genesis rolling state must be rejected");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::InvalidProvingContext),
+            "genesis rolling state must fail with InvalidProvingContext, got: {err}"
+        );
+
+        // A non-genesis rolling state (a previous step's output) is accepted.
+        let chain_state = load_embedded_recursive_chain_state_asset()
+            .expect("recursive chain state asset should load");
+        let advanced_state = IvcRollingState::new(
+            chain_state.state,
+            chain_state.ivc_proof,
+            chain_state.accumulator,
+            chain_state.genesis_signature,
+        );
+        assert!(!advanced_state.is_genesis());
+        ensure_advanceable_rolling_state(Some(&advanced_state))
+            .expect("a non-genesis rolling state must be accepted");
+    }
+
     mod slow {
         use std::sync::Arc;
         use std::time::Instant;
@@ -656,8 +719,8 @@ mod tests {
             proof_system::{
                 halo2_snark::CircuitVerificationKey,
                 ivc_halo2_snark::{
+                    prover_setup::IvcProverSetup,
                     rolling_state::IvcRollingState,
-                    setup::IvcProverSetup,
                     unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
                     verifier_setup::IvcVerifierSetup,
                 },
@@ -666,7 +729,7 @@ mod tests {
 
         use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
-        pub(super) struct SlowTestContext {
+        struct SlowTestContext {
             ivc_setup: Arc<IvcProverSetup>,
             global: Global,
             verifier_setup: IvcVerifierSetup,
@@ -759,8 +822,8 @@ mod tests {
                     &avk,
                     &ctx.global,
                     &epoch1_preimage,
+                    &bootstrap,
                     None,
-                    Some(bootstrap),
                 )
                 .expect("bootstrap prove should succeed");
 
@@ -791,7 +854,7 @@ mod tests {
             println!("[bootstrap] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        pub(super) fn run_next_epoch_path(ctx: &SlowTestContext) {
+        fn run_next_epoch_path(ctx: &SlowTestContext) {
             let t = Instant::now();
             let rolling_state = rolling_state_from_asset(
                 load_embedded_recursive_chain_state_asset()
@@ -818,8 +881,8 @@ mod tests {
                     &avk,
                     &ctx.global,
                     &preimage,
+                    &genesis_bootstrap(&ctx.asset_setup),
                     Some(&rolling_state),
-                    None,
                 )
                 .expect("next-epoch prove should succeed");
 
@@ -882,8 +945,8 @@ mod tests {
                     &avk,
                     &ctx.global,
                     &preimage,
+                    &genesis_bootstrap(&ctx.asset_setup),
                     Some(&rolling_state),
-                    None,
                 )
                 .expect("same-epoch prove should succeed");
 
@@ -904,7 +967,8 @@ mod tests {
             println!("[same-epoch] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        pub(super) fn build_slow_test_context() -> SlowTestContext {
+        #[test]
+        fn prove_all_scenarios() {
             let t_setup = Instant::now();
             let temp_dir = tempdir().expect("temp dir creation should succeed");
             let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -953,30 +1017,17 @@ mod tests {
             let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
             println!("[setup] {:.1}s", t_setup.elapsed().as_secs_f64());
 
-            SlowTestContext {
+            let ctx = SlowTestContext {
                 ivc_setup,
                 global,
                 verifier_setup,
                 asset_setup,
                 verification_context,
-            }
-        }
+            };
 
-        #[test]
-        fn prove_bootstrap_and_same_epoch_scenarios() {
-            let ctx = build_slow_test_context();
             run_bootstrap_path(&ctx);
-            run_same_epoch_path(&ctx);
-        }
-    }
-
-    mod very_slow {
-        use super::slow::{build_slow_test_context, run_next_epoch_path};
-
-        #[test]
-        fn prove_next_epoch_scenario() {
-            let ctx = build_slow_test_context();
             run_next_epoch_path(&ctx);
+            run_same_epoch_path(&ctx);
         }
     }
 }
