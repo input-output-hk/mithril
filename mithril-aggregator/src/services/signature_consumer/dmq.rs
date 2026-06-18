@@ -74,7 +74,9 @@ mod tests {
             (
                 RegisterSignatureMessageDmq {
                     signature: single_signature.clone(),
-                    signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(Epoch(3)),
+                    signed_entity_type: SignedEntityTypeMessage::Known(
+                        SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+                    ),
                 },
                 "pool-id-1".to_string(),
             ),

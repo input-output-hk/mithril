@@ -43,7 +43,7 @@ pub struct CardanoTransactionsProverCapabilities {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::CardanoTransactionsSigningConfig;
+    use crate::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
 
     use super::*;
 
@@ -69,7 +69,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilitiesUntilV0_1_45 {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoTransactions.into(),
                 ]),
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request: 100,
@@ -101,7 +101,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilitiesUntilV0_6_17 {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoTransactions.into(),
                 ]),
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request: 100,
@@ -117,7 +117,7 @@ mod tests {
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilities {
                 signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
+                    SignedEntityTypeDiscriminants::CardanoTransactions.into(),
                 ]),
                 aggregate_signature_type: AggregateSignatureType::Concatenation,
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {

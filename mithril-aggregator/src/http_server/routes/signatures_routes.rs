@@ -32,7 +32,9 @@ mod handlers {
     use warp::http::StatusCode;
 
     use mithril_common::entities::SignedEntityType;
-    use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
+    use mithril_common::messages::{
+        RegisterSignatureMessageHttp, SignedEntityTypeMessage, TryFromMessageAdapter,
+    };
 
     use crate::{
         MetricsService, SingleSignatureAuthenticator,
@@ -61,17 +63,13 @@ mod handlers {
         let payload = message.clone();
         let signed_message = message.signed_message.clone();
 
-        let signed_entity_type: SignedEntityType = match message
-            .signed_entity_type
-            .clone()
-            .try_into()
-        {
-            Ok(entity_type) => entity_type,
-            Err(err) => {
-                warn!(logger, "register_signatures::invalid signed entity type"; "payload" => ?message, "error" => ?err);
+        let signed_entity_type: SignedEntityType = match &message.signed_entity_type {
+            SignedEntityTypeMessage::Known(entity) => entity.clone(),
+            SignedEntityTypeMessage::Discontinued(_) | SignedEntityTypeMessage::Unknown => {
+                warn!(logger, "register_signatures::invalid signed entity type"; "payload" => ?message);
                 return Ok(reply::bad_request(
                     "Invalid signed entity type".to_string(),
-                    err.to_string(),
+                    format!("{}", message.signed_entity_type),
                 ));
             }
         };
@@ -154,9 +152,7 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         entities::{ClientError, SignedEntityType},
-        messages::{
-            RegisterSignatureMessageHttp, SignedEntityTypeMessage, UnknownSignedEntityTypeError,
-        },
+        messages::{RegisterSignatureMessageHttp, SignedEntityTypeMessage},
         test::{double::Dummy, mock_extensions::MockBuilder},
     };
 
@@ -373,7 +369,7 @@ mod tests {
         assert_eq!(
             ClientError::new(
                 "Invalid signed entity type",
-                UnknownSignedEntityTypeError.to_string()
+                SignedEntityTypeMessage::Unknown.to_string()
             ),
             response_body
         );

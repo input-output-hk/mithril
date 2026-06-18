@@ -873,7 +873,7 @@ mod tests {
             );
             assert_eq!(
                 message.available_signed_entity_types,
-                SignedEntityTypeDiscriminantsMessage::all()
+                SignedEntityTypeDiscriminantsMessage::all_known()
             );
         }
 
@@ -899,10 +899,10 @@ mod tests {
 
             assert_eq!(
                 message.available_signed_entity_types,
-                SignedEntityTypeDiscriminantsMessage::all()
+                SignedEntityTypeDiscriminantsMessage::all_known()
                     .difference(&BTreeSet::from([
-                        SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
-                        SignedEntityTypeDiscriminantsMessage::CardanoBlocksTransactions
+                        SignedEntityTypeDiscriminants::CardanoTransactions.into(),
+                        SignedEntityTypeDiscriminants::CardanoBlocksTransactions.into(),
                     ]))
                     .cloned()
                     .collect::<BTreeSet<_>>(),
