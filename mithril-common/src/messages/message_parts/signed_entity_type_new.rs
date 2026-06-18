@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
 use strum::{Display, EnumIter};
+use thiserror::Error;
 
 use crate::entities::{SignedEntityType, SignedEntityTypeDiscriminants};
 
@@ -244,6 +245,63 @@ mod infallible_conversions {
                     SignedEntityTypeDiscriminantsMessage::Discontinued(discontinued)
                 }
                 SignedEntityTypeMessage::Unknown => SignedEntityTypeDiscriminantsMessage::Unknown,
+            }
+        }
+    }
+}
+
+/// Error returned when a signed entity type message cannot be converted to a
+/// current signed entity type or discriminant.
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum IncompatibleSignedEntityTypeError {
+    /// The message contains a signed entity type that is no longer supported.
+    #[error("Discontinued signed entity type: {0}")]
+    DiscontinuedSignedEntityType(DiscontinuedSignedEntityTypeMessage),
+
+    /// The message contains an unrecognized signed entity type.
+    #[error("Unknown signed entity type")]
+    UnknownSignedEntityType,
+}
+
+mod fallible_conversions {
+    use super::*;
+
+    impl TryFrom<SignedEntityTypeMessage> for SignedEntityType {
+        type Error = IncompatibleSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeMessage) -> Result<Self, Self::Error> {
+            match value {
+                SignedEntityTypeMessage::Known(entity) => Ok(entity),
+                SignedEntityTypeMessage::Discontinued(entity) => {
+                    Err(IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity))
+                }
+                SignedEntityTypeMessage::Unknown => {
+                    Err(IncompatibleSignedEntityTypeError::UnknownSignedEntityType)
+                }
+            }
+        }
+    }
+
+    impl TryFrom<SignedEntityTypeMessage> for SignedEntityTypeDiscriminants {
+        type Error = IncompatibleSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeMessage) -> Result<Self, Self::Error> {
+            SignedEntityType::try_from(value).map(Into::into)
+        }
+    }
+
+    impl TryFrom<SignedEntityTypeDiscriminantsMessage> for SignedEntityTypeDiscriminants {
+        type Error = IncompatibleSignedEntityTypeError;
+
+        fn try_from(value: SignedEntityTypeDiscriminantsMessage) -> Result<Self, Self::Error> {
+            match value {
+                SignedEntityTypeDiscriminantsMessage::Known(entity) => Ok(entity),
+                SignedEntityTypeDiscriminantsMessage::Discontinued(entity) => {
+                    Err(IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity))
+                }
+                SignedEntityTypeDiscriminantsMessage::Unknown => {
+                    Err(IncompatibleSignedEntityTypeError::UnknownSignedEntityType)
+                }
             }
         }
     }
@@ -869,6 +927,114 @@ mod tests {
                 None,
                 SignedEntityTypeDiscriminantsMessage::Unknown.into_discriminant()
             );
+        }
+    }
+
+    mod fallible_conversions {
+        use super::*;
+
+        #[test]
+        fn try_from_entity_message_to_entity_succeeds_for_known_values() {
+            for (signed_entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityType::try_from(SignedEntityTypeMessage::Known(
+                        signed_entity.clone()
+                    ))
+                    .unwrap(),
+                    signed_entity
+                );
+            }
+        }
+
+        #[test]
+        fn try_from_entity_message_to_discriminant_succeeds_for_known_values() {
+            for (signed_entity, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Known(
+                        signed_entity
+                    ))
+                    .unwrap(),
+                    discriminant,
+                )
+            }
+        }
+
+        #[test]
+        fn try_from_discriminant_message_to_discriminant_succeeds_for_known_values() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(
+                        SignedEntityTypeDiscriminantsMessage::Known(discriminant)
+                    )
+                    .unwrap(),
+                    discriminant,
+                )
+            }
+        }
+
+        #[test]
+        fn try_from_message_to_entity_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityType::try_from(SignedEntityTypeMessage::Unknown).unwrap_err(),
+                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+            );
+        }
+
+        #[test]
+        fn try_from_entity_message_to_discriminant_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Unknown)
+                    .unwrap_err(),
+                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+            );
+        }
+
+        #[test]
+        fn try_from_discriminant_message_to_discriminant_fails_for_unknown_values() {
+            assert_eq!(
+                SignedEntityTypeDiscriminants::try_from(
+                    SignedEntityTypeDiscriminantsMessage::Unknown
+                )
+                .unwrap_err(),
+                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+            );
+        }
+
+        #[test]
+        fn try_from_message_to_entity_fails_for_discontinued_values() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    SignedEntityType::try_from(SignedEntityTypeMessage::Discontinued(entity))
+                        .unwrap_err(),
+                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                );
+            }
+        }
+
+        #[test]
+        fn try_from_entity_message_to_discriminant_fails_for_discontinued_values() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Discontinued(
+                        entity
+                    ))
+                    .unwrap_err(),
+                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                );
+            }
+        }
+
+        #[test]
+        fn try_from_discriminant_message_to_discriminant_fails_for_discontinued_values() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminants::try_from(
+                        SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
+                    )
+                    .unwrap_err(),
+                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                );
+            }
         }
     }
 
