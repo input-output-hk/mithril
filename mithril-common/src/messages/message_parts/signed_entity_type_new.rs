@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
 
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -97,6 +98,30 @@ impl SignedEntityTypeDiscriminantsMessage {
         iter.into_iter()
             .filter_map(|message| message.into_discriminant())
             .collect()
+    }
+}
+
+impl Display for SignedEntityTypeMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SignedEntityTypeMessage::Known(discriminant) => discriminant.fmt(f),
+            SignedEntityTypeMessage::Discontinued(entity) => {
+                write!(f, "Discontinued({entity})")
+            }
+            SignedEntityTypeMessage::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
+impl Display for SignedEntityTypeDiscriminantsMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SignedEntityTypeDiscriminantsMessage::Known(discriminant) => discriminant.fmt(f),
+            SignedEntityTypeDiscriminantsMessage::Discontinued(entity) => {
+                write!(f, "Discontinued({entity})")
+            }
+            SignedEntityTypeDiscriminantsMessage::Unknown => write!(f, "Unknown"),
+        }
     }
 }
 
@@ -352,6 +377,92 @@ mod tests {
             !SignedEntityTypeDiscriminantsMessage::all_known()
                 .contains(&SignedEntityTypeDiscriminantsMessage::Unknown)
         );
+    }
+
+    mod display {
+        use super::*;
+
+        #[test]
+        fn displaying_entity_untag_know_values() {
+            for (entity, _) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    entity.to_string(),
+                    SignedEntityTypeMessage::from(entity.clone()).to_string()
+                );
+                assert_eq!(
+                    entity.to_string(),
+                    format!("{}", SignedEntityTypeMessage::from(entity)),
+                );
+            }
+        }
+
+        #[test]
+        fn displaying_discontinued_entity_wrap_them_into_discontinued() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                let expected = format!("Discontinued({entity})");
+                assert_eq!(
+                    expected,
+                    SignedEntityTypeMessage::Discontinued(entity).to_string()
+                );
+                assert_eq!(
+                    expected,
+                    format!("{}", SignedEntityTypeMessage::Discontinued(entity)),
+                );
+            }
+        }
+
+        #[test]
+        fn displaying_unknown_entity_yield_unknown() {
+            assert_eq!("Unknown", SignedEntityTypeMessage::Unknown.to_string(),);
+            assert_eq!("Unknown", format!("{}", SignedEntityTypeMessage::Unknown),);
+        }
+
+        #[test]
+        fn displaying_discriminant_untag_know_values() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    discriminant.to_string(),
+                    SignedEntityTypeDiscriminantsMessage::from(discriminant).to_string()
+                );
+                assert_eq!(
+                    discriminant.to_string(),
+                    format!(
+                        "{}",
+                        SignedEntityTypeDiscriminantsMessage::from(discriminant)
+                    ),
+                );
+            }
+        }
+
+        #[test]
+        fn displaying_discontinued_discriminant_wrap_them_into_discontinued() {
+            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+                let expected = format!("Discontinued({entity})");
+                assert_eq!(
+                    expected,
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(entity).to_string()
+                );
+                assert_eq!(
+                    expected,
+                    format!(
+                        "{}",
+                        SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
+                    ),
+                );
+            }
+        }
+
+        #[test]
+        fn displaying_unknown_discriminant_yield_unknown() {
+            assert_eq!(
+                "Unknown",
+                SignedEntityTypeDiscriminantsMessage::Unknown.to_string(),
+            );
+            assert_eq!(
+                "Unknown",
+                format!("{}", SignedEntityTypeDiscriminantsMessage::Unknown),
+            );
+        }
     }
 
     mod serialize_entity {
