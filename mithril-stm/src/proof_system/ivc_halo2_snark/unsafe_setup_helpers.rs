@@ -19,7 +19,7 @@ use midnight_proofs::{
     plonk::{keygen_pk, keygen_vk_with_k},
     poly::kzg::params::ParamsKZG,
 };
-use midnight_zk_stdlib::{self as zk};
+use midnight_zk_stdlib::{self as zk, MidnightVK};
 
 use crate::{
     Parameters, StmResult,
@@ -60,13 +60,22 @@ impl TempCertificateKeyProvider {
     }
 
     /// Builds the certificate circuit, clones the shared SRS so it can be
-    /// downsized in place, and runs `zk::setup_vk` to produce the verifying key.
-    pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
+    /// downsized in place, and runs `zk::setup_vk` to produce the [MidnightVK].
+    ///
+    /// The [MidnightVK] carries the circuit architecture, which is required to
+    /// deserialize the verifying key against the correct constraint system.
+    pub(crate) fn get_midnight_verifying_key(&self) -> StmResult<MidnightVK> {
         let certificate_circuit =
             StmCertificateCircuit::try_new(&self.parameters, self.merkle_tree_depth)?;
         let mut certificate_srs = (*self.srs).clone();
         zk::downsize_srs_for_relation(&mut certificate_srs, &certificate_circuit);
-        Ok(zk::setup_vk(&certificate_srs, &certificate_circuit).vk().clone())
+        Ok(zk::setup_vk(&certificate_srs, &certificate_circuit))
+    }
+
+    /// Builds the certificate circuit, clones the shared SRS so it can be
+    /// downsized in place, and runs `zk::setup_vk` to produce the verifying key.
+    pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
+        Ok(self.get_midnight_verifying_key()?.vk().clone())
     }
 
     /// Recomputes the verifying key (the temp layer has no cache, so the VK is

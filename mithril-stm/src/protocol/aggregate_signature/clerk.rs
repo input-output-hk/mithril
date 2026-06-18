@@ -294,7 +294,9 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let avk = clerk.compute_aggregate_verification_key_for_snark();
 
     let genesis_message = MessageHash::from_field(genesis_message_field_elem);
-    let certificate_circuit_verification_key = certificate_key_provider.get_verifying_key()?;
+    let certificate_midnight_verifying_key =
+        certificate_key_provider.get_midnight_verifying_key()?;
+    let certificate_circuit_verification_key = certificate_midnight_verifying_key.vk().clone();
     let ivc_circuit_verification_key = ivc_key_provider.get_verifying_key()?;
     println!("Creating the global value");
 
@@ -308,7 +310,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let verifier_data = IvcVerifierData::new(
         genesis_message,
         genesis_verification_key,
-        certificate_circuit_verification_key,
+        certificate_midnight_verifying_key,
         ivc_circuit_verification_key,
     );
 
