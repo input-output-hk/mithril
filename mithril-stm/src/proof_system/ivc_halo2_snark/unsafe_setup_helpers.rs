@@ -110,14 +110,18 @@ impl TempIvcKeyProvider {
     /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `K`.
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
-        Ok(keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit_data, K)?)
+        let mut ivc_srs = (*self.srs).clone();
+        ivc_srs.downsize(K);
+        Ok(keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, K)?)
     }
 
     /// Recomputes the IVC verifying key (the temp layer has no cache, so the VK
     /// is re-derived here) and runs `keygen_pk` to produce the proving key.
     pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
-        let ivc_verifying_key = keygen_vk_with_k(self.srs.as_ref(), &ivc_circuit_data, K)?;
+        let mut ivc_srs = (*self.srs).clone();
+        ivc_srs.downsize(K);
+        let ivc_verifying_key = keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, K)?;
         Ok(keygen_pk(ivc_verifying_key, &ivc_circuit_data)?)
     }
 }

@@ -11,7 +11,7 @@ use crate::{
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
-            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
+            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, K,
             certificate_proof::verify_and_prepare_accumulator,
             state::{fixed_bases_and_names, trivial_acc},
         },
@@ -37,11 +37,11 @@ use crate::{
 // TODO: remove this allow dead_code directive when the IVC prover consumes this setup
 #[allow(dead_code)]
 pub(crate) struct IvcProverSetup {
-    /// Full KZG parameters used during proof generation.
+    /// KZG parameters used during proof generation, downsized to the IVC circuit degree `K`.
     ///
-    /// Stored in full to support `create_proof`, which requires the prover-side
-    /// commitment material. Verifier params are derived on demand via
-    /// `self.srs.verifier_params()`.
+    /// `create_proof` commits in the Lagrange basis of the circuit domain, so the SRS must match
+    /// that domain: a larger SRS carries a different basis and yields an unverifiable proof.
+    /// Verifier params are derived on demand via `self.srs.verifier_params()`.
     pub(crate) srs: ParamsKZG<Bls12>,
     /// Verifying key of the certificate circuit.
     pub(crate) certificate_verifying_key: CircuitVerifyingKey,
@@ -89,7 +89,8 @@ impl IvcProverSetup {
         certificate_key_provider: &TempCertificateKeyProvider,
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
-        let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        srs.downsize(K);
 
         let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
