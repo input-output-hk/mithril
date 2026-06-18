@@ -59,7 +59,9 @@ impl SignatureConsumer for SignatureConsumerDmq {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        crypto_helper::ProtocolSingleSignature, entities::Epoch, messages::SignedEntityTypeMessage,
+        crypto_helper::ProtocolSingleSignature,
+        entities::Epoch,
+        messages::{DiscontinuedSignedEntityTypeMessage, SignedEntityTypeMessage},
         test::double::fake_keys,
     };
     use mithril_dmq::test::double::DmqConsumerFake;
@@ -67,7 +69,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn get_signatures_success_and_filter_out_unknown_signed_entity() {
+    async fn get_signatures_success_and_filter_out_unknown_and_discontinued_signed_entity() {
         let single_signature: ProtocolSingleSignature =
             fake_keys::single_signature()[0].try_into().unwrap();
         let dmq_consumer = Arc::new(DmqConsumerFake::new(vec![Ok(vec![
@@ -86,6 +88,15 @@ mod tests {
                     signed_entity_type: SignedEntityTypeMessage::Unknown,
                 },
                 "pool-id-2".to_string(),
+            ),
+            (
+                RegisterSignatureMessageDmq {
+                    signature: single_signature.clone(),
+                    signed_entity_type: SignedEntityTypeMessage::Discontinued(
+                        DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                    ),
+                },
+                "pool-id-3".to_string(),
             ),
         ])]));
         let consumer = SignatureConsumerDmq::new(dmq_consumer);

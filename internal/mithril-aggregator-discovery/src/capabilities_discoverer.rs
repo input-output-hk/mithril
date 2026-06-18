@@ -125,7 +125,10 @@ mod tests {
             CardanoDatabase, CardanoStakeDistribution, CardanoTransactions,
             MithrilStakeDistribution,
         },
-        messages::{AggregatorFeaturesMessage, SignedEntityTypeDiscriminantsMessage},
+        messages::{
+            AggregatorFeaturesMessage, DiscontinuedSignedEntityTypeMessage,
+            SignedEntityTypeDiscriminantsMessage,
+        },
     };
 
     use super::*;
@@ -180,13 +183,16 @@ mod tests {
         }
 
         #[test]
-        fn required_capabilities_match_signed_entity_types_fails_if_only_unknown_discriminants_match()
+        fn required_capabilities_match_signed_entity_types_fails_if_only_unknown_or_discontinued_discriminants_match()
          {
             let required =
                 RequiredAggregatorCapabilities::SignedEntityType(MithrilStakeDistribution);
             let available = AggregatorCapabilities {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(
+                        DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                    ),
                     SignedEntityTypeDiscriminantsMessage::Unknown,
                 ]),
                 cardano_transactions_prover: None,

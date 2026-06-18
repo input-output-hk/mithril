@@ -113,7 +113,9 @@ mod tests {
         BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
         CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityTypeDiscriminants,
     };
-    use mithril_common::messages::ProtocolConfigurationMessage;
+    use mithril_common::messages::{
+        DiscontinuedSignedEntityTypeMessage, ProtocolConfigurationMessage,
+    };
     use mithril_common::test::double::Dummy;
     use mithril_common::test::entities_extensions::SignedEntityTypeDiscriminantsTestExtension;
 
@@ -293,24 +295,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_discriminants_are_removed_from_enabled_list() {
+    async fn unknown_and_discontinued_discriminants_are_removed_from_enabled_list() {
         let server = MockServer::start();
         server.mock(|when, then| {
-            let mut message_with_unknown_type =
-                serde_json::to_value(&ProtocolConfigurationMessage {
-                    available_signed_entity_types: BTreeSet::new(),
-                    ..Dummy::dummy()
-                })
-                .unwrap();
-            message_with_unknown_type["available_signed_entity_types"] =
-                serde_json::to_value(vec![
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution.as_ref(),
-                    "signed_entity_type_which_does_not_exist",
-                ])
-                .unwrap();
+            let mut message = serde_json::to_value(&ProtocolConfigurationMessage {
+                available_signed_entity_types: BTreeSet::new(),
+                ..Dummy::dummy()
+            })
+            .unwrap();
+            message["available_signed_entity_types"] = serde_json::to_value(vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution.as_ref(),
+                &DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string(),
+                "signed_entity_type_which_does_not_exist",
+            ])
+            .unwrap();
 
             when.path("/protocol-configuration/56");
-            then.status(200).body(message_with_unknown_type.to_string());
+            then.status(200).body(message.to_string());
         });
 
         let mithril_configuration_provider =
