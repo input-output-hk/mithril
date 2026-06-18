@@ -183,6 +183,22 @@ pub struct IvcVerifierData {
 // This implementation is copied from another one and needs to be
 // updated and tested. It is temporary to test the wiring of the prove and verification
 impl IvcVerifierData {
+    /// Build the verifier data from the genesis message, the genesis Schnorr verification key and
+    /// the certificate and IVC circuit verifying keys used to produce the proof.
+    pub(crate) fn new(
+        genesis_message: MessageHash,
+        genesis_schnorr_verification_key: SchnorrVerificationKey,
+        certificate_circuit_verification_key: CircuitVerifyingKey,
+        ivc_circuit_verification_key: CircuitVerifyingKey,
+    ) -> Self {
+        Self {
+            genesis_message,
+            genesis_schnorr_verification_key,
+            certificate_circuit_verification_key,
+            ivc_circuit_verification_key,
+        }
+    }
+
     /// Serialize to versioned CBOR bytes, following `CODEC.md`.
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
         codec::to_cbor_bytes(self)

@@ -16,10 +16,11 @@ use crate::{
 };
 
 use crate::{
-    AncillaryProverData, MithrilMembershipDigest,
+    AncillaryProverData, AncillaryVerifierData, MithrilMembershipDigest,
     circuits::{halo2_ivc::state::Global, trusted_setup::TrustedSetupProvider},
     proof_system::ivc_halo2_snark::{
         IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
+        verifier_setup::IvcVerifierData,
     },
 };
 
@@ -148,21 +149,25 @@ impl<D: MembershipDigest> Clerk<D> {
 
                 // For now the function will fail as we give two Some values
                 // which should not happen but this might be changed
-                let proof_output = ivc_prover_input_preparation_and_prove(
-                    snark_proof,
-                    msg,
-                    clerk,
-                    ancillary_input,
-                )?;
+                let (ivc_proof, rolling_state, verifier_data) =
+                    ivc_prover_input_preparation_and_prove(
+                        snark_proof,
+                        msg,
+                        clerk,
+                        ancillary_input,
+                    )?;
 
                 let ancillary_prover_data = AncillaryProverData::IvcSnark(
-                    proof_output.1.ok_or_else(|| anyhow!("missing rolling state"))?,
+                    rolling_state.ok_or_else(|| anyhow!("missing rolling state"))?,
                 );
+                let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(verifier_data);
 
-                // TODO: add the AncillaryProverData and AncillaryVerifierData to the output
                 Ok((
-                    AggregateSignature::IvcSnark(Box::new(proof_output.0)),
-                    AncillaryProofOutput::new(Some(ancillary_prover_data), None),
+                    AggregateSignature::IvcSnark(Box::new(ivc_proof)),
+                    AncillaryProofOutput::new(
+                        Some(ancillary_prover_data),
+                        Some(ancillary_verifier_data),
+                    ),
                 ))
             }
         }
@@ -222,7 +227,11 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     msg: &[u8],
     clerk: &SnarkClerk,
     ancillary_input: AncillaryProofInput,
-) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
+) -> StmResult<(
+    IvcProof<blake2b_simd::State>,
+    Option<IvcRollingState>,
+    IvcVerifierData,
+)> {
     let protocol_message_preimage_bytes: [u8; 190] =
         ancillary_input.message_preimage().try_into()?;
 
@@ -259,11 +268,22 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     // the avk inputs by the root directly
     let avk = clerk.compute_aggregate_verification_key_for_snark();
 
+    let genesis_message = MessageHash::from_field(genesis_message_field_elem);
+    let certificate_circuit_verification_key = certificate_key_provider.get_verifying_key()?;
+    let ivc_circuit_verification_key = ivc_key_provider.get_verifying_key()?;
+
     let global = Global::new(
-        MessageHash::from_field(genesis_message_field_elem),
+        genesis_message,
         genesis_verification_key,
-        &certificate_key_provider.get_verifying_key()?,
-        &ivc_key_provider.get_verifying_key()?,
+        &certificate_circuit_verification_key,
+        &ivc_circuit_verification_key,
+    );
+
+    let verifier_data = IvcVerifierData::new(
+        genesis_message,
+        genesis_verification_key,
+        certificate_circuit_verification_key,
+        ivc_circuit_verification_key,
     );
 
     let rolling_state = match ancillary_input.prover_data() {
@@ -277,7 +297,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 
     // For now the function will fail as we give two Some values
     // which should not happen but this might be changed
-    prover.prove(
+    let (ivc_proof, next_rolling_state) = prover.prove(
         snark_proof,
         msg,
         &avk,
@@ -285,5 +305,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         &ProtocolMessagePreimage(protocol_message_preimage_bytes),
         genesis_bootstrap,
         rolling_state.as_ref(),
-    )
+    )?;
+
+    Ok((ivc_proof, next_rolling_state, verifier_data))
 }
