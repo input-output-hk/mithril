@@ -31,7 +31,7 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use mithril_common::entities::SignedEntityType;
+    use mithril_common::entities::{SignedEntityType, SignedEntityTypeDiscriminants};
     use mithril_common::messages::{
         RegisterSignatureMessageHttp, SignedEntityTypeMessage, TryFromMessageAdapter,
     };
@@ -65,11 +65,21 @@ mod handlers {
 
         let signed_entity_type: SignedEntityType = match &message.signed_entity_type {
             SignedEntityTypeMessage::Known(entity) => entity.clone(),
-            SignedEntityTypeMessage::Discontinued(_) | SignedEntityTypeMessage::Unknown => {
+            SignedEntityTypeMessage::Discontinued(entity) => {
+                warn!(logger, "register_signatures::discontinued signed entity type"; "payload" => ?message);
+                return Ok(reply::gone(
+                    "Discontinued signed entity type".to_string(),
+                    entity.to_string(),
+                ));
+            }
+            SignedEntityTypeMessage::Unknown => {
                 warn!(logger, "register_signatures::invalid signed entity type"; "payload" => ?message);
                 return Ok(reply::bad_request(
-                    "Invalid signed entity type".to_string(),
-                    format!("{}", message.signed_entity_type),
+                    "Unknown signed entity type".to_string(),
+                    format!(
+                        "Accepted signed entity types are: {}",
+                        SignedEntityTypeDiscriminants::accepted_discriminants(),
+                    ),
                 ));
             }
         };
@@ -151,8 +161,11 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        entities::{ClientError, SignedEntityType},
-        messages::{RegisterSignatureMessageHttp, SignedEntityTypeMessage},
+        entities::{ClientError, SignedEntityType, SignedEntityTypeDiscriminants},
+        messages::{
+            DiscontinuedSignedEntityTypeMessage, RegisterSignatureMessageHttp,
+            SignedEntityTypeMessage,
+        },
         test::{double::Dummy, mock_extensions::MockBuilder},
     };
 
@@ -368,8 +381,48 @@ mod tests {
         let response_body: ClientError = serde_json::from_slice(response.body()).unwrap();
         assert_eq!(
             ClientError::new(
-                "Invalid signed entity type",
-                SignedEntityTypeMessage::Unknown.to_string()
+                "Unknown signed entity type",
+                format!(
+                    "Accepted signed entity types are: {}",
+                    SignedEntityTypeDiscriminants::accepted_discriminants(),
+                ),
+            ),
+            response_body
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_return_410_if_signed_entity_is_discontinued() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service.expect_register_single_signature().never();
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
+
+        let mut message = serde_json::to_value(RegisterSignatureMessageHttp::dummy()).unwrap();
+        message["entity_type"] = serde_json::json!({
+           DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string(): { "foo": "bar" }
+        });
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(path)
+            .json(&message)
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        assert_eq!(StatusCode::GONE, response.status());
+        let response_body: ClientError = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(
+            ClientError::new(
+                "Discontinued signed entity type",
+                DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string()
             ),
             response_body
         );

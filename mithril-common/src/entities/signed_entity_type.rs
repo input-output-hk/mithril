@@ -236,6 +236,11 @@ impl SignedEntityTypeDiscriminants {
         Self::iter().filter(|d| !Self::UNSTABLE_DISCRIMINANTS.contains(d))
     }
 
+    /// Returns a comma-separated list of all accepted signed entity type discriminants.
+    pub fn accepted_discriminants() -> String {
+        Self::iter_all().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
+    }
+
     /// Get the database value from enum's instance
     pub fn index(&self) -> SignedEntityTypeId {
         match self {
@@ -339,10 +344,6 @@ Accepted values are (case-sensitive): {}."#,
             invalid_discriminants.join(", "),
             Self::accepted_discriminants()
         )
-    }
-
-    fn accepted_discriminants() -> String {
-        Self::iter_all().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
     }
 }
 

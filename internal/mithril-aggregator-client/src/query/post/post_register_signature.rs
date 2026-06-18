@@ -55,7 +55,10 @@ impl AggregatorQuery for PostRegisterSignatureQuery {
             StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
             StatusCode::GONE => {
                 let root_cause = AggregatorHttpClientError::get_root_cause(context.response).await;
-                debug!(context.logger, "Message already certified or expired"; "details" => &root_cause);
+                debug!(
+                    context.logger, "Message already certified, expired, or the signed entity type was discontinued";
+                    "details" => &root_cause
+                );
 
                 Ok(())
             }

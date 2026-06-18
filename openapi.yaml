@@ -743,7 +743,7 @@ paths:
         "404":
           description: open message not found
         "410":
-          description: signatures registration done too late
+          description: signatures registration done too late or the signed entity type was discontinued
           content:
             application/json:
               schema:
