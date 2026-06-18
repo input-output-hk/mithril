@@ -84,3 +84,26 @@ inherits = "dev"
 debug = "line-tables-only"
 # Not cached by `Swatinem/rust-cache`, so generating them is a waste of resources
 incremental = false
+
+# Variant of `ci-tests` used *only* by the `future_snark` Rust test job (selected via
+# `--cargo-profile ci-tests-snark` in the matching CI matrix entry). All other test jobs keep
+# using `ci-tests` and are unaffected by the `opt-level = 3` overrides below.
+[profile.ci-tests-snark]
+inherits = "ci-tests"
+
+# Optimize all dependencies while leaving the workspace crates at the profile's base
+# `opt-level = 0` (fast to compile, the part under active iteration). The `future_snark`
+# crypto stack (`midnight-proofs`, `midnight-curves`, `midnight-circuits`, `blst`, `ff`,
+# `group`, ...) does heavy proof-system arithmetic (FFTs, MSM, polynomial ops) that runs
+# considerably slower unoptimized and dominates the slow circuit/proof tests. The dependency
+# build cost is paid once per `Swatinem/rust-cache` key, not per CI run.
+[profile.ci-tests-snark.package."*"]
+opt-level = 3
+
+# The `mithril-stm` circuit/synthesis code (cert + IVC circuits, gadget assignment) runs
+# during keygen / MockProver / proving and measured as the dominant remaining hotspot after
+# the dependency stack was optimized: MockProver synthesis sped up 5.6× and IVC keygen ~2.2×
+# only once this crate was optimized too (deps alone gave ~1.5×). This trades slower
+# incremental recompiles of `mithril-stm` for substantially faster `future_snark` test runs.
+[profile.ci-tests-snark.package.mithril-stm]
+opt-level = 3

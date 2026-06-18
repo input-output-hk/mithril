@@ -17,13 +17,23 @@ jobs:
         include:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
+            cargo-profile: ci-tests
           - os: ubuntu-24.04
             test-args: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
             artifact-suffix: -future-snark
+            # Default to the fast profile; the `prepare` step upgrades to `slow-cargo-profile`
+            # only when the slow SNARK tests are actually in scope for this run (so we don't pay
+            # the opt-level 3 build cost on PRs that filter those tests out).
+            cargo-profile: ci-tests
+            # Optimizes (opt-level 3) the crypto deps and `mithril-stm` so the slow SNARK tests
+            # run faster, at the cost of a longer (cache-amortized) build.
+            slow-cargo-profile: ci-tests-snark
           - os: ubuntu-24.04-arm
             test-args: --features full,unstable --workspace
+            cargo-profile: ci-tests
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
+            cargo-profile: ci-tests
             test-args: >
               --features full,unstable --workspace
               --exclude mithril-aggregator
@@ -33,6 +43,7 @@ jobs:
               --exclude mithril-aggregator-fake
           # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-end-to-end)
           - os: windows-latest
+            cargo-profile: ci-tests
             test-args: >
               --features full,unstable --workspace
               --exclude mithril-aggregator
@@ -65,27 +76,45 @@ jobs:
         run: |
           if [[ "${{ inputs.include-slow-tests }}" == "true" ]]; then
             FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
+            SLOW_TESTS=true
           else
             # For pull-request HEAD^1 targets the "simulated merge commit" created by GitHub Actions.
             # For push (i.e. merging on main branch), HEAD^1 refers be an actual, not simulated, merge commit.
             # Note: this approach does not correctly detect changes when multiple commits are pushed directly to the main branch at once.
             FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
+            # The filter script only appends a `package(mithril-stm)` slow-test allowance when the
+            # changed files touch a slow SNARK test path, so its presence tells us whether the slow
+            # tests are in scope for this run.
+            if [[ "$FILTERSET" == *"package(mithril-stm)"* ]]; then
+              SLOW_TESTS=true
+            else
+              SLOW_TESTS=false
+            fi
+          fi
+
+          # Use the heavier opt-level 3 profile only when the slow tests will actually run; the
+          # longer build only pays off then. Other jobs (no `slow-cargo-profile`) keep `cargo-profile`.
+          CARGO_PROFILE="${{ matrix.cargo-profile }}"
+          if [[ "$SLOW_TESTS" == "true" && -n "${{ matrix.slow-cargo-profile }}" ]]; then
+            CARGO_PROFILE="${{ matrix.slow-cargo-profile }}"
           fi
 
           echo "Tests filterset: $FILTERSET"
+          echo "Cargo profile: $CARGO_PROFILE"
           echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
+          echo "cargo-profile=$CARGO_PROFILE" >> $GITHUB_OUTPUT
 
       - name: Build tests
-        run: cargo nextest run --cargo-profile ci-tests --no-run ${{ matrix.test-args }}
+        run: cargo nextest run --cargo-profile ${{ steps.prepare.outputs.cargo-profile }} --no-run ${{ matrix.test-args }}
 
       - name: Run tests
-        run: cargo nextest run --profile ci --cargo-profile ci-tests --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
+        run: cargo nextest run --profile ci --cargo-profile ${{ steps.prepare.outputs.cargo-profile }} --filterset "${{ steps.prepare.outputs.filterset }}" ${{ matrix.test-args }}
 
       - name: Run doc tests
-        run: cargo test --profile ci-tests --doc ${{ matrix.test-args }}
+        run: cargo test --profile ${{ steps.prepare.outputs.cargo-profile }} --doc ${{ matrix.test-args }}
 
       - name: Ensure examples build
-        run: cargo build --profile ci-tests --examples ${{ matrix.test-args }}
+        run: cargo build --profile ${{ steps.prepare.outputs.cargo-profile }} --examples ${{ matrix.test-args }}
 
       - name: Rename junit file to include runner info
         shell: bash
