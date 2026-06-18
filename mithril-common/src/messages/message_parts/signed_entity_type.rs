@@ -348,8 +348,11 @@ mod comparison {
 mod tests {
     use strum::IntoEnumIterator;
 
-    use crate::entities::{BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch};
-    use crate::test::assert_same_json;
+    use crate::{
+        assert_equivalent,
+        entities::{BlockNumber, BlockNumberOffset, CardanoDbBeacon, Epoch},
+        test::{assert_same_json, entities_extensions::SignedEntityTypeDiscriminantsTestExtension},
+    };
 
     use super::*;
 
@@ -420,6 +423,19 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
             ),
         ]
+    }
+
+    #[test]
+    fn known_entity_and_discriminant_cases_are_exhaustive() {
+        let discriminants: Vec<_> = known_entity_and_discriminant_cases()
+            .into_iter()
+            .map(|(_, discriminant)| discriminant)
+            .collect();
+
+        assert_equivalent!(
+            SignedEntityTypeDiscriminants::all_with_unstable_vec(),
+            discriminants
+        );
     }
 
     #[test]
