@@ -167,8 +167,12 @@ fn merkle_tree_commitment_from_stm_tree(merkle_tree: &SignerRegistrationMerkleTr
 }
 
 /// Builds the shared universal KZG parameters that both circuits derive from.
+///
+/// Backed by the process-shared on-disk SRS cache (see
+/// [`crate::circuits::trusted_setup::shared_unsafe_srs`], seed 42 == `ASSET_SEED`), so the
+/// expensive degree-19 SRS is generated once per CI run instead of once per test process.
 pub(crate) fn build_deterministic_params(circuit_degree: u32) -> ParamsKZG<Bls12> {
-    ParamsKZG::<Bls12>::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(ASSET_SEED))
+    crate::circuits::trusted_setup::shared_unsafe_srs(circuit_degree)
 }
 
 /// Derives circuit-specific commitment parameters from a shared universal SRS.

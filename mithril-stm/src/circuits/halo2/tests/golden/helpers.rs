@@ -748,6 +748,8 @@ pub(crate) fn compute_unsafe_circuit_verification_key(
     const RNG_SEED: u64 = 42;
     let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth).unwrap();
     let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
+    // Generated locally at this circuit's (small) degree: cheaper than loading/downsizing the
+    // shared k=19 file, and avoids cold-start contention on its one-time generation lock.
     let srs: ParamsKZG<Bls12> =
         ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(RNG_SEED));
 

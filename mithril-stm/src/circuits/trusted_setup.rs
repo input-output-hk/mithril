@@ -8,6 +8,9 @@ use std::{
 use anyhow::Context;
 use midnight_curves::Bls12;
 use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
+// `max_k()` (used by the shared test-SRS helper) lives on the `Params` trait.
+#[cfg(test)]
+use midnight_proofs::poly::commitment::Params;
 use sha2::{Digest, Sha256};
 
 use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
@@ -177,19 +180,132 @@ impl Default for TrustedSetupProvider {
     }
 }
 
-/// Builds a `TrustedSetupProvider` backed by a freshly generated unsafe SRS of
-/// degree `k`, written to `base_dir/srs/srs-parameters` with a matching SHA256
-/// hash so the provider's hash check passes. For tests only.
+/// Maximum SRS degree required by any test circuit. A single unsafe SRS generated at this degree
+/// downsizes to every smaller circuit, so all tests can share one cached file.
+///
+/// Derived from the circuit-degree constants so it tracks them automatically: if a circuit's
+/// degree changes, this updates with no separate pin to maintain. (`Ord::max` is not const-stable,
+/// so the maximum is taken with a `const`-safe comparison.)
+#[cfg(test)]
+pub(crate) const MAX_TEST_SRS_DEGREE: u32 = {
+    use crate::circuits::halo2_ivc::tests::common::{
+        CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE,
+    };
+    if RECURSIVE_CIRCUIT_DEGREE > CERTIFICATE_CIRCUIT_DEGREE {
+        RECURSIVE_CIRCUIT_DEGREE
+    } else {
+        CERTIFICATE_CIRCUIT_DEGREE
+    }
+};
+
+/// Folder under `temp_dir()` holding the shared unsafe test SRS.
+#[cfg(test)]
+const SHARED_TEST_SRS_FOLDER: &str = "mithril-stm-test-srs";
+
+/// Loads the shared seed-42 unsafe SRS at [`MAX_TEST_SRS_DEGREE`], generating it once and caching
+/// it on disk, then downsizes the result to degree `k`.
+///
+/// The cache lives at `temp_dir()/mithril-stm-test-srs/srs-unsafe-k{MAX_TEST_SRS_DEGREE}` and is
+/// shared across every nextest process on the runner. nextest runs each test in its own process,
+/// so an on-disk cache is the only way to avoid regenerating the (~2^19-element) SRS per test.
+/// Generation is serialized behind an exclusive file lock so concurrent process startup builds the
+/// file exactly once instead of every process racing to generate it.
+///
+/// Every caller still requests the degree it needs; this loads the single max-degree file and
+/// downsizes. For callers requesting `MAX_TEST_SRS_DEGREE` the result is byte-identical to a fresh
+/// `unsafe_setup(MAX_TEST_SRS_DEGREE, seed 42)`.
+#[cfg(test)]
+pub(crate) fn shared_unsafe_srs(k: u32) -> ParamsKZG<Bls12> {
+    use fs4::fs_std::FileExt;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+    use std::fs::{File, create_dir_all};
+
+    assert!(
+        k <= MAX_TEST_SRS_DEGREE,
+        "requested SRS degree {k} exceeds MAX_TEST_SRS_DEGREE {MAX_TEST_SRS_DEGREE}"
+    );
+
+    let cache_dir = std::env::temp_dir().join(SHARED_TEST_SRS_FOLDER);
+    let srs_path = cache_dir.join(format!("srs-unsafe-k{MAX_TEST_SRS_DEGREE}"));
+
+    // Steady state: load the cached file without taking the lock.
+    if let Some(srs) = try_load_shared_srs(&srs_path) {
+        return downsize_srs(srs, k);
+    }
+
+    // Cache miss: serialize generation behind an exclusive lock so only one process builds the SRS.
+    create_dir_all(&cache_dir).expect("Failed to create shared SRS cache directory.");
+    let lock_path = cache_dir.join(format!("srs-unsafe-k{MAX_TEST_SRS_DEGREE}.lock"));
+    let lock_file = File::create(&lock_path).expect("Failed to create shared SRS lock file.");
+    FileExt::lock_exclusive(&lock_file).expect("Failed to acquire exclusive shared SRS lock.");
+    // The OS lock is released when `lock_file` is dropped, including on panic / unwind.
+
+    // Re-check under the lock: another process may have generated the file while we waited.
+    let srs = try_load_shared_srs(&srs_path).unwrap_or_else(|| {
+        let srs =
+            ParamsKZG::<Bls12>::unsafe_setup(MAX_TEST_SRS_DEGREE, ChaCha20Rng::seed_from_u64(42));
+        write_shared_srs_atomically(&srs, &cache_dir, &srs_path);
+        srs
+    });
+
+    downsize_srs(srs, k)
+}
+
+/// Reads the cached shared SRS, returning `None` if the file is absent or unreadable. Asserts the
+/// loaded degree matches [`MAX_TEST_SRS_DEGREE`] so a corrupt/mismatched file can never be used.
+#[cfg(test)]
+fn try_load_shared_srs(srs_path: &std::path::Path) -> Option<ParamsKZG<Bls12>> {
+    let file = File::open(srs_path).ok()?;
+    let mut reader = BufReader::new(file);
+    let srs = ParamsKZG::<Bls12>::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked).ok()?;
+    assert_eq!(
+        srs.max_k(),
+        MAX_TEST_SRS_DEGREE,
+        "Cached shared SRS at {srs_path:?} has degree {} but expected {MAX_TEST_SRS_DEGREE}.",
+        srs.max_k(),
+    );
+    Some(srs)
+}
+
+/// Serializes `srs` to a temporary file in `cache_dir`, then atomically renames it onto `srs_path`.
+#[cfg(test)]
+fn write_shared_srs_atomically(
+    srs: &ParamsKZG<Bls12>,
+    cache_dir: &std::path::Path,
+    srs_path: &std::path::Path,
+) {
+    let mut srs_bytes = Vec::new();
+    srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytesUnchecked)
+        .expect("Failed to serialize shared SRS.");
+    let mut tmp = tempfile::NamedTempFile::new_in(cache_dir)
+        .expect("Failed to create temporary file for the shared SRS.");
+    tmp.write_all(&srs_bytes)
+        .expect("Failed to write the shared SRS to its temporary file.");
+    tmp.persist(srs_path)
+        .expect("Failed to atomically rename the shared SRS file.");
+}
+
+/// Downsizes `srs` to degree `k` in place when `k` is smaller than the loaded degree.
+#[cfg(test)]
+fn downsize_srs(mut srs: ParamsKZG<Bls12>, k: u32) -> ParamsKZG<Bls12> {
+    if k < srs.max_k() {
+        srs.downsize(k);
+    }
+    srs
+}
+
+/// Builds a `TrustedSetupProvider` backed by the shared unsafe SRS (see [`shared_unsafe_srs`])
+/// downsized to degree `k`, written to `base_dir/srs/srs-parameters` with a matching SHA256 hash
+/// so the provider's hash check passes. For tests only.
 #[cfg(test)]
 pub(crate) fn build_provider_with_unsafe_srs(
     base_dir: &std::path::Path,
     k: u32,
 ) -> TrustedSetupProvider {
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
     use std::fs::{File, create_dir_all};
 
-    let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(42));
+    let srs = shared_unsafe_srs(k);
     let mut srs_bytes = Vec::new();
     srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
 

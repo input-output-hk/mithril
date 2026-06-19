@@ -39,6 +39,8 @@ where
     R: Relation,
 {
     let circuit = MidnightCircuit::from_relation(relation);
+    // These gadget relations need only a small SRS (k ~ 10); generate it locally rather than
+    // loading/downsizing the shared k=19 file, which would add I/O and cold-start lock contention.
     let srs = ParamsKZG::<Bls12>::unsafe_setup(circuit.min_k(), ChaCha20Rng::seed_from_u64(42));
     let vk = zk::setup_vk(&srs, relation);
     let pk = zk::setup_pk(relation, &vk);
