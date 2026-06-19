@@ -126,7 +126,7 @@ mod tests {
             MithrilStakeDistribution,
         },
         messages::{
-            AggregatorFeaturesMessage, DiscontinuedSignedEntityTypeMessage,
+            AggregatorFeaturesMessage, DiscontinuedSignedEntityType,
             SignedEntityTypeDiscriminantsMessage,
         },
     };
@@ -191,7 +191,7 @@ mod tests {
                 aggregate_signature_type: Concatenation,
                 signed_entity_types: BTreeSet::from([
                     SignedEntityTypeDiscriminantsMessage::Discontinued(
-                        DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                        DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
                     ),
                     SignedEntityTypeDiscriminantsMessage::Unknown,
                 ]),

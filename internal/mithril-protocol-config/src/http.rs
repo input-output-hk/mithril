@@ -113,9 +113,7 @@ mod tests {
         BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
         CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityTypeDiscriminants,
     };
-    use mithril_common::messages::{
-        DiscontinuedSignedEntityTypeMessage, ProtocolConfigurationMessage,
-    };
+    use mithril_common::messages::{DiscontinuedSignedEntityType, ProtocolConfigurationMessage};
     use mithril_common::test::double::Dummy;
     use mithril_common::test::entities_extensions::SignedEntityTypeDiscriminantsTestExtension;
 
@@ -305,7 +303,7 @@ mod tests {
             .unwrap();
             message["available_signed_entity_types"] = serde_json::to_value(vec![
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution.as_ref(),
-                &DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string(),
+                DiscontinuedSignedEntityType::CardanoImmutableFilesFull.as_ref(),
                 "signed_entity_type_which_does_not_exist",
             ])
             .unwrap();

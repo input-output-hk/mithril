@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
-use strum::{Display, EnumIter};
+use strum::{AsRefStr, Display, EnumIter, EnumString};
 use thiserror::Error;
 
 use crate::entities::{SignedEntityType, SignedEntityTypeDiscriminants};
@@ -19,9 +19,11 @@ pub enum SignedEntityTypeMessage {
     Known(SignedEntityType),
 
     /// A signed entity type that is no longer supported.
-    Discontinued(DiscontinuedSignedEntityTypeMessage),
+    Discontinued(DiscontinuedSignedEntityType),
 
     /// An unrecognized signed entity type.
+    ///
+    /// For JSON, serialized as `null`.
     Unknown,
 }
 
@@ -29,10 +31,24 @@ pub enum SignedEntityTypeMessage {
 ///
 /// These values are kept to deserialize historical messages without treating
 /// them as unknown.
+// IMPORTANT: When adding a variant, also update `DiscontinuedEntityPayload` in `SignedEntityTypeMessage`
+// deserialization.
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Display, EnumIter,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumIter,
+    EnumString,
+    AsRefStr,
 )]
-pub enum DiscontinuedSignedEntityTypeMessage {
+pub enum DiscontinuedSignedEntityType {
     /// Full Cardano immutable files snapshot.
     CardanoImmutableFilesFull,
 }
@@ -48,9 +64,11 @@ pub enum SignedEntityTypeDiscriminantsMessage {
     Known(SignedEntityTypeDiscriminants),
 
     /// A signed entity type discriminant that is no longer supported.
-    Discontinued(DiscontinuedSignedEntityTypeMessage),
+    Discontinued(DiscontinuedSignedEntityType),
 
     /// An unrecognized signed entity type discriminant.
+    ///
+    /// For JSON, serialized as `null`.
     Unknown,
 }
 
@@ -67,7 +85,7 @@ impl SignedEntityTypeMessage {
 }
 
 impl SignedEntityTypeDiscriminantsMessage {
-    /// Get all the discriminants without unstable values
+    /// Returns all currently supported signed entity type discriminants.
     pub fn all_known() -> BTreeSet<Self> {
         // Leverage the list from `SignedEntityTypeDiscriminants` to avoid Unknown and Discontinued and duplicating the filter
         SignedEntityTypeDiscriminants::all()
@@ -78,7 +96,7 @@ impl SignedEntityTypeDiscriminantsMessage {
 
     /// Converts the message into a [SignedEntityTypeDiscriminants].
     ///
-    /// Returns `None` for unknown values.
+    /// Returns `None` for unknown or discontinued values.
     pub fn into_discriminant(self) -> Option<SignedEntityTypeDiscriminants> {
         match self {
             SignedEntityTypeDiscriminantsMessage::Known(discriminant) => Some(discriminant),
@@ -87,18 +105,16 @@ impl SignedEntityTypeDiscriminantsMessage {
         }
     }
 
-    /// Convert an iterator of `SignedEntityTypeDiscriminantsMessage` into an iterator of `SignedEntityTypeDiscriminants`
+    /// Convert an iterator of `SignedEntityTypeDiscriminantsMessage` into a collection of `SignedEntityTypeDiscriminants`
     ///
-    /// Instead of failing, any unknown or discontinued values will be discarded
+    /// Unknown and discontinued values are discarded.
     pub fn into_known_discriminants<
         T: IntoIterator<Item = Self>,
         B: FromIterator<SignedEntityTypeDiscriminants>,
     >(
         iter: T,
     ) -> B {
-        iter.into_iter()
-            .filter_map(|message| message.into_discriminant())
-            .collect()
+        iter.into_iter().filter_map(Self::into_discriminant).collect()
     }
 }
 
@@ -133,8 +149,18 @@ impl<'de> Deserialize<'de> for SignedEntityTypeMessage {
     {
         // Duplicated enum to support discarding associated beacon using `IgnoredAny`
         #[derive(Deserialize)]
-        enum DiscontinuedSignedEntityRepresentation {
+        enum DiscontinuedEntityPayload {
             CardanoImmutableFilesFull(IgnoredAny),
+        }
+
+        impl From<DiscontinuedEntityPayload> for DiscontinuedSignedEntityType {
+            fn from(value: DiscontinuedEntityPayload) -> Self {
+                match value {
+                    DiscontinuedEntityPayload::CardanoImmutableFilesFull(_) => {
+                        DiscontinuedSignedEntityType::CardanoImmutableFilesFull
+                    }
+                }
+            }
         }
 
         // Duplicated enum because `IgnoredAny` is not `Serialize`
@@ -142,19 +168,15 @@ impl<'de> Deserialize<'de> for SignedEntityTypeMessage {
         #[serde(untagged)]
         enum InternalRepresentation {
             Known(SignedEntityType),
-            Discontinued(DiscontinuedSignedEntityRepresentation),
+            Discontinued(DiscontinuedEntityPayload),
             Unknown(IgnoredAny),
         }
 
         Ok(match InternalRepresentation::deserialize(deserializer)? {
             InternalRepresentation::Known(entity) => SignedEntityTypeMessage::Known(entity),
-            InternalRepresentation::Discontinued(entity) => match entity {
-                DiscontinuedSignedEntityRepresentation::CardanoImmutableFilesFull(_) => {
-                    SignedEntityTypeMessage::Discontinued(
-                        DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
-                    )
-                }
-            },
+            InternalRepresentation::Discontinued(entity) => {
+                SignedEntityTypeMessage::Discontinued(entity.into())
+            }
             InternalRepresentation::Unknown(_) => SignedEntityTypeMessage::Unknown,
         })
     }
@@ -170,7 +192,7 @@ impl<'de> Deserialize<'de> for SignedEntityTypeDiscriminantsMessage {
         #[serde(untagged)]
         enum InternalRepresentation {
             Known(SignedEntityTypeDiscriminants),
-            Discontinued(DiscontinuedSignedEntityTypeMessage),
+            Discontinued(DiscontinuedSignedEntityType),
             Unknown(IgnoredAny),
         }
 
@@ -189,31 +211,15 @@ impl<'de> Deserialize<'de> for SignedEntityTypeDiscriminantsMessage {
 mod infallible_conversions {
     use super::*;
 
-    // Manual implementation instead of using strum::EnumString because it does not allow a "catch all"
+    // Manual implementation instead of deriving `strum::EnumString` because it does not allow a "catch all"
     // variant if that variant has no associated value.
     impl From<&str> for SignedEntityTypeDiscriminantsMessage {
         fn from(value: &str) -> Self {
-            match value {
-                "MithrilStakeDistribution" => SignedEntityTypeDiscriminantsMessage::Known(
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                ),
-                "CardanoStakeDistribution" => SignedEntityTypeDiscriminantsMessage::Known(
-                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                ),
-                "CardanoDatabase" => SignedEntityTypeDiscriminantsMessage::Known(
-                    SignedEntityTypeDiscriminants::CardanoDatabase,
-                ),
-                "CardanoTransactions" => SignedEntityTypeDiscriminantsMessage::Known(
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                ),
-                "CardanoBlocksTransactions" => SignedEntityTypeDiscriminantsMessage::Known(
-                    SignedEntityTypeDiscriminants::CardanoBlocksTransactions,
-                ),
-                "CardanoImmutableFilesFull" => SignedEntityTypeDiscriminantsMessage::Discontinued(
-                    DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
-                ),
-                _ => SignedEntityTypeDiscriminantsMessage::Unknown,
-            }
+            value
+                .parse::<SignedEntityTypeDiscriminants>()
+                .map(Self::Known)
+                .or_else(|_| value.parse::<DiscontinuedSignedEntityType>().map(Self::Discontinued))
+                .unwrap_or(Self::Unknown)
         }
     }
 
@@ -225,26 +231,24 @@ mod infallible_conversions {
 
     impl From<SignedEntityType> for SignedEntityTypeDiscriminantsMessage {
         fn from(value: SignedEntityType) -> Self {
-            SignedEntityTypeDiscriminantsMessage::Known(value.into())
+            Self::Known(value.into())
         }
     }
 
     impl From<SignedEntityTypeDiscriminants> for SignedEntityTypeDiscriminantsMessage {
         fn from(value: SignedEntityTypeDiscriminants) -> Self {
-            SignedEntityTypeDiscriminantsMessage::Known(value)
+            Self::Known(value)
         }
     }
 
     impl From<SignedEntityTypeMessage> for SignedEntityTypeDiscriminantsMessage {
         fn from(value: SignedEntityTypeMessage) -> Self {
             match value {
-                SignedEntityTypeMessage::Known(value) => {
-                    SignedEntityTypeDiscriminantsMessage::Known(value.into())
-                }
+                SignedEntityTypeMessage::Known(value) => Self::Known(value.into()),
                 SignedEntityTypeMessage::Discontinued(discontinued) => {
-                    SignedEntityTypeDiscriminantsMessage::Discontinued(discontinued)
+                    Self::Discontinued(discontinued)
                 }
-                SignedEntityTypeMessage::Unknown => SignedEntityTypeDiscriminantsMessage::Unknown,
+                SignedEntityTypeMessage::Unknown => Self::Unknown,
             }
         }
     }
@@ -256,11 +260,11 @@ mod infallible_conversions {
 pub enum IncompatibleSignedEntityTypeError {
     /// The message contains a signed entity type that is no longer supported.
     #[error("Discontinued signed entity type: {0}")]
-    DiscontinuedSignedEntityType(DiscontinuedSignedEntityTypeMessage),
+    Discontinued(DiscontinuedSignedEntityType),
 
     /// The message contains an unrecognized signed entity type.
     #[error("Unknown signed entity type")]
-    UnknownSignedEntityType,
+    Unknown,
 }
 
 mod fallible_conversions {
@@ -273,11 +277,9 @@ mod fallible_conversions {
             match value {
                 SignedEntityTypeMessage::Known(entity) => Ok(entity),
                 SignedEntityTypeMessage::Discontinued(entity) => {
-                    Err(IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity))
+                    Err(IncompatibleSignedEntityTypeError::Discontinued(entity))
                 }
-                SignedEntityTypeMessage::Unknown => {
-                    Err(IncompatibleSignedEntityTypeError::UnknownSignedEntityType)
-                }
+                SignedEntityTypeMessage::Unknown => Err(IncompatibleSignedEntityTypeError::Unknown),
             }
         }
     }
@@ -297,10 +299,10 @@ mod fallible_conversions {
             match value {
                 SignedEntityTypeDiscriminantsMessage::Known(entity) => Ok(entity),
                 SignedEntityTypeDiscriminantsMessage::Discontinued(entity) => {
-                    Err(IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity))
+                    Err(IncompatibleSignedEntityTypeError::Discontinued(entity))
                 }
                 SignedEntityTypeDiscriminantsMessage::Unknown => {
-                    Err(IncompatibleSignedEntityTypeError::UnknownSignedEntityType)
+                    Err(IncompatibleSignedEntityTypeError::Unknown)
                 }
             }
         }
@@ -425,6 +427,12 @@ mod tests {
         ]
     }
 
+    fn serialize_then_deserialize<T: Serialize + serde::de::DeserializeOwned>(value: &T) -> T {
+        let json = serde_json::to_string(value).unwrap();
+        serde_json::from_str::<T>(&json)
+            .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"))
+    }
+
     #[test]
     fn known_entity_and_discriminant_cases_are_exhaustive() {
         let discriminants: Vec<_> = known_entity_and_discriminant_cases()
@@ -457,46 +465,11 @@ mod tests {
         use super::*;
 
         #[test]
-        fn displaying_entity_untag_know_values() {
-            for (entity, _) in known_entity_and_discriminant_cases() {
-                assert_eq!(
-                    entity.to_string(),
-                    SignedEntityTypeMessage::from(entity.clone()).to_string()
-                );
+        fn displaying_untags_known_values() {
+            for (entity, discriminant) in known_entity_and_discriminant_cases() {
                 assert_eq!(
                     entity.to_string(),
                     format!("{}", SignedEntityTypeMessage::from(entity)),
-                );
-            }
-        }
-
-        #[test]
-        fn displaying_discontinued_entity_wrap_them_into_discontinued() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
-                let expected = format!("Discontinued({entity})");
-                assert_eq!(
-                    expected,
-                    SignedEntityTypeMessage::Discontinued(entity).to_string()
-                );
-                assert_eq!(
-                    expected,
-                    format!("{}", SignedEntityTypeMessage::Discontinued(entity)),
-                );
-            }
-        }
-
-        #[test]
-        fn displaying_unknown_entity_yield_unknown() {
-            assert_eq!("Unknown", SignedEntityTypeMessage::Unknown.to_string(),);
-            assert_eq!("Unknown", format!("{}", SignedEntityTypeMessage::Unknown),);
-        }
-
-        #[test]
-        fn displaying_discriminant_untag_know_values() {
-            for (_, discriminant) in known_entity_and_discriminant_cases() {
-                assert_eq!(
-                    discriminant.to_string(),
-                    SignedEntityTypeDiscriminantsMessage::from(discriminant).to_string()
                 );
                 assert_eq!(
                     discriminant.to_string(),
@@ -509,12 +482,12 @@ mod tests {
         }
 
         #[test]
-        fn displaying_discontinued_discriminant_wrap_them_into_discontinued() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+        fn displaying_discontinued_value_wraps_it_in_discontinued() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 let expected = format!("Discontinued({entity})");
                 assert_eq!(
                     expected,
-                    SignedEntityTypeDiscriminantsMessage::Discontinued(entity).to_string()
+                    format!("{}", SignedEntityTypeMessage::Discontinued(entity)),
                 );
                 assert_eq!(
                     expected,
@@ -527,11 +500,8 @@ mod tests {
         }
 
         #[test]
-        fn displaying_unknown_discriminant_yield_unknown() {
-            assert_eq!(
-                "Unknown",
-                SignedEntityTypeDiscriminantsMessage::Unknown.to_string(),
-            );
+        fn displaying_unknown_value_yields_unknown() {
+            assert_eq!("Unknown", format!("{}", SignedEntityTypeMessage::Unknown),);
             assert_eq!(
                 "Unknown",
                 format!("{}", SignedEntityTypeDiscriminantsMessage::Unknown),
@@ -554,7 +524,7 @@ mod tests {
 
         #[test]
         fn discontinued_message_serializes_as_discontinued_variant_name() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_same_json!(
                     json: &format!(r#""{entity}""#),
                     value: &SignedEntityTypeMessage::Discontinued(entity)
@@ -570,33 +540,24 @@ mod tests {
         #[test]
         fn known_message_round_trips_through_json() {
             for (signed_entity, _) in known_entity_and_discriminant_cases() {
-                let json =
-                    serde_json::to_string(&SignedEntityTypeMessage::Known(signed_entity.clone()))
-                        .unwrap();
-                let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
-                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
-
+                let res = serialize_then_deserialize(&SignedEntityTypeMessage::Known(
+                    signed_entity.clone(),
+                ));
                 assert_eq!(SignedEntityTypeMessage::Known(signed_entity), res);
             }
         }
 
         #[test]
         fn unknown_message_round_trips_through_json() {
-            let json = serde_json::to_string(&SignedEntityTypeMessage::Unknown).unwrap();
-            let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
-                .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
-
+            let res = serialize_then_deserialize(&SignedEntityTypeMessage::Unknown);
             assert_eq!(SignedEntityTypeMessage::Unknown, res);
         }
 
         #[test]
         fn discontinued_message_deserializes_as_unknown_after_serialization() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
-                let json =
-                    serde_json::to_string(&SignedEntityTypeMessage::Discontinued(entity)).unwrap();
-                let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
-                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
-
+            for entity in DiscontinuedSignedEntityType::iter() {
+                let res =
+                    serialize_then_deserialize(&SignedEntityTypeMessage::Discontinued(entity));
                 assert_eq!(SignedEntityTypeMessage::Unknown, res);
             }
         }
@@ -617,7 +578,7 @@ mod tests {
 
         #[test]
         fn discontinued_discriminant_message_serializes_as_discontinued_variant_name() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_same_json!(
                     json: &format!(r#""{entity}""#),
                     value: &SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
@@ -637,17 +598,14 @@ mod tests {
                     .into_iter()
                     .map(|(_, d)| SignedEntityTypeDiscriminantsMessage::Known(d))
                     .chain(
-                        DiscontinuedSignedEntityTypeMessage::iter()
+                        DiscontinuedSignedEntityType::iter()
                             .map(SignedEntityTypeDiscriminantsMessage::Discontinued),
                     )
                     .chain(vec![SignedEntityTypeDiscriminantsMessage::Unknown])
                     .collect();
 
             for case in cases {
-                let json = serde_json::to_string(&case).unwrap();
-                let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(&json)
-                    .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
-
+                let res = serialize_then_deserialize(&case);
                 assert_eq!(case, res);
             }
         }
@@ -658,16 +616,16 @@ mod tests {
 
         #[test]
         fn discontinued_signed_entity_type_serializes_to_variant_name() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_same_json!(json: &format!(r#""{entity}""#), value: &entity);
             }
         }
 
         #[test]
         fn discontinued_signed_entity_type_round_trips_through_json() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 let json = serde_json::to_string(&entity).unwrap();
-                let res = serde_json::from_str::<DiscontinuedSignedEntityTypeMessage>(&json)
+                let res = serde_json::from_str::<DiscontinuedSignedEntityType>(&json)
                     .unwrap_or_else(|e| panic!("Failed to deserialize `{json}`: {e}"));
 
                 assert_eq!(entity, res);
@@ -711,8 +669,8 @@ mod tests {
 
         #[test]
         fn discontinued_entity_deserializes_as_discontinued_regardless_of_payload() {
-            for (entity, json) in DiscontinuedSignedEntityTypeMessage::iter().flat_map(|entity| {
-                externally_tagged_payload_cases(entity.to_string())
+            for (entity, json) in DiscontinuedSignedEntityType::iter().flat_map(|entity| {
+                externally_tagged_payload_cases(entity)
                     .into_iter()
                     .map(move |json| (entity, json))
             }) {
@@ -725,7 +683,7 @@ mod tests {
 
         #[test]
         fn discontinued_discriminant_json_deserializes_as_unknown_entity_message() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 let json = format!("\"{entity}\"");
                 let res = serde_json::from_str::<SignedEntityTypeMessage>(&json)
                     .unwrap_or_else(|_| panic!("Failed to deserialize: {json}"));
@@ -797,7 +755,7 @@ mod tests {
 
         #[test]
         fn discontinued_discriminant_deserializes_as_discontinued_message() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 let json = format!("\"{entity}\"");
                 let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(&json)
                     .unwrap_or_else(|_| panic!("Failed to deserialize: {json}"));
@@ -811,8 +769,8 @@ mod tests {
 
         #[test]
         fn discontinued_full_entity_json_deserializes_as_unknown_discriminant_message() {
-            for json in DiscontinuedSignedEntityTypeMessage::iter()
-                .flat_map(|entity| externally_tagged_payload_cases(entity.to_string()))
+            for json in
+                DiscontinuedSignedEntityType::iter().flat_map(externally_tagged_payload_cases)
             {
                 let res = serde_json::from_str::<SignedEntityTypeDiscriminantsMessage>(&json)
                     .unwrap_or_else(|_| panic!("Failed to deserialize: {json}"));
@@ -842,6 +800,103 @@ mod tests {
 
                 assert_eq!(SignedEntityTypeDiscriminantsMessage::Unknown, res);
             }
+        }
+    }
+
+    mod discriminant_from_str {
+        use super::*;
+
+        #[test]
+        fn from_known_discriminants() {
+            for (_, discriminant) in known_entity_and_discriminant_cases() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::Known(discriminant),
+                    SignedEntityTypeDiscriminantsMessage::from(discriminant.as_ref())
+                );
+            }
+
+            for entity in DiscontinuedSignedEntityType::iter() {
+                assert_eq!(
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(entity),
+                    SignedEntityTypeDiscriminantsMessage::from(entity.as_ref())
+                );
+            }
+
+            // special case included for completeness
+            assert_eq!(
+                SignedEntityTypeDiscriminantsMessage::from("Unknown"),
+                SignedEntityTypeDiscriminantsMessage::Unknown
+            );
+        }
+
+        #[test]
+        fn all_other_strings_yield_unknown() {
+            let discriminant = SignedEntityTypeDiscriminantsMessage::from("not_exist");
+            assert_eq!(discriminant, SignedEntityTypeDiscriminantsMessage::Unknown);
+        }
+    }
+
+    mod convert_iterable_into_known_discriminants {
+        use super::*;
+
+        #[test]
+        fn converts_all_known_discriminants_message() {
+            let discriminants_message: Vec<_> = known_entity_and_discriminant_cases()
+                .into_iter()
+                .map(|(_, discriminant)| discriminant.into())
+                .collect();
+
+            let converted: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(
+                    discriminants_message,
+                );
+            assert_eq!(
+                converted,
+                SignedEntityTypeDiscriminants::all_with_unstable_vec()
+            );
+        }
+
+        #[test]
+        fn discards_unknown_and_discontinued_discriminants() {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(
+                        DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
+                    ),
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution.into(),
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                    SignedEntityTypeDiscriminants::CardanoTransactions.into(),
+                ]);
+
+            assert_eq!(
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ],
+                discriminants
+            );
+        }
+
+        #[test]
+        fn returns_empty_collection_when_input_is_empty() {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![]);
+
+            assert_eq!(Vec::<SignedEntityTypeDiscriminants>::new(), discriminants);
+        }
+
+        #[test]
+        fn returns_empty_collection_when_input_contains_only_unknown_and_discontinued_discriminants()
+         {
+            let discriminants: Vec<SignedEntityTypeDiscriminants> =
+                SignedEntityTypeDiscriminantsMessage::into_known_discriminants(vec![
+                    SignedEntityTypeDiscriminantsMessage::Unknown,
+                    SignedEntityTypeDiscriminantsMessage::Discontinued(
+                        DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
+                    ),
+                ]);
+
+            assert_eq!(Vec::<SignedEntityTypeDiscriminants>::new(), discriminants);
         }
     }
 
@@ -889,7 +944,7 @@ mod tests {
                 )
             }
 
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     SignedEntityTypeDiscriminantsMessage::from(
                         SignedEntityTypeMessage::Discontinued(entity)
@@ -913,7 +968,7 @@ mod tests {
                 )
             }
 
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     None,
                     SignedEntityTypeMessage::Discontinued(entity).into_entity()
@@ -932,7 +987,7 @@ mod tests {
                 )
             }
 
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     None,
                     SignedEntityTypeDiscriminantsMessage::Discontinued(entity).into_discriminant()
@@ -992,7 +1047,7 @@ mod tests {
         fn try_from_message_to_entity_fails_for_unknown_values() {
             assert_eq!(
                 SignedEntityType::try_from(SignedEntityTypeMessage::Unknown).unwrap_err(),
-                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+                IncompatibleSignedEntityTypeError::Unknown
             );
         }
 
@@ -1001,7 +1056,7 @@ mod tests {
             assert_eq!(
                 SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Unknown)
                     .unwrap_err(),
-                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+                IncompatibleSignedEntityTypeError::Unknown
             );
         }
 
@@ -1012,43 +1067,43 @@ mod tests {
                     SignedEntityTypeDiscriminantsMessage::Unknown
                 )
                 .unwrap_err(),
-                IncompatibleSignedEntityTypeError::UnknownSignedEntityType
+                IncompatibleSignedEntityTypeError::Unknown
             );
         }
 
         #[test]
         fn try_from_message_to_entity_fails_for_discontinued_values() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     SignedEntityType::try_from(SignedEntityTypeMessage::Discontinued(entity))
                         .unwrap_err(),
-                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                    IncompatibleSignedEntityTypeError::Discontinued(entity)
                 );
             }
         }
 
         #[test]
         fn try_from_entity_message_to_discriminant_fails_for_discontinued_values() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     SignedEntityTypeDiscriminants::try_from(SignedEntityTypeMessage::Discontinued(
                         entity
                     ))
                     .unwrap_err(),
-                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                    IncompatibleSignedEntityTypeError::Discontinued(entity)
                 );
             }
         }
 
         #[test]
         fn try_from_discriminant_message_to_discriminant_fails_for_discontinued_values() {
-            for entity in DiscontinuedSignedEntityTypeMessage::iter() {
+            for entity in DiscontinuedSignedEntityType::iter() {
                 assert_eq!(
                     SignedEntityTypeDiscriminants::try_from(
                         SignedEntityTypeDiscriminantsMessage::Discontinued(entity)
                     )
                     .unwrap_err(),
-                    IncompatibleSignedEntityTypeError::DiscontinuedSignedEntityType(entity)
+                    IncompatibleSignedEntityTypeError::Discontinued(entity)
                 );
             }
         }

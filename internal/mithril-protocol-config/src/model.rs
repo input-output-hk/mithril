@@ -70,7 +70,7 @@ impl From<ProtocolConfigurationMessage> for MithrilNetworkConfigurationForEpoch 
 #[cfg(test)]
 mod tests {
     use mithril_common::messages::{
-        DiscontinuedSignedEntityTypeMessage, SignedEntityTypeDiscriminantsMessage,
+        DiscontinuedSignedEntityType, SignedEntityTypeDiscriminantsMessage,
     };
     use mithril_common::test::double::Dummy;
 
@@ -85,7 +85,7 @@ mod tests {
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 ),
                 SignedEntityTypeDiscriminantsMessage::Discontinued(
-                    DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                    DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
                 ),
                 SignedEntityTypeDiscriminantsMessage::Unknown,
             ]),

@@ -61,7 +61,7 @@ mod tests {
     use mithril_common::{
         crypto_helper::ProtocolSingleSignature,
         entities::Epoch,
-        messages::{DiscontinuedSignedEntityTypeMessage, SignedEntityTypeMessage},
+        messages::{DiscontinuedSignedEntityType, SignedEntityTypeMessage},
         test::double::fake_keys,
     };
     use mithril_dmq::test::double::DmqConsumerFake;
@@ -93,7 +93,7 @@ mod tests {
                 RegisterSignatureMessageDmq {
                     signature: single_signature.clone(),
                     signed_entity_type: SignedEntityTypeMessage::Discontinued(
-                        DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull,
+                        DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
                     ),
                 },
                 "pool-id-3".to_string(),

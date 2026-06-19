@@ -163,8 +163,7 @@ mod tests {
     use mithril_common::{
         entities::{ClientError, SignedEntityType, SignedEntityTypeDiscriminants},
         messages::{
-            DiscontinuedSignedEntityTypeMessage, RegisterSignatureMessageHttp,
-            SignedEntityTypeMessage,
+            DiscontinuedSignedEntityType, RegisterSignatureMessageHttp, SignedEntityTypeMessage,
         },
         test::{double::Dummy, mock_extensions::MockBuilder},
     };
@@ -402,7 +401,7 @@ mod tests {
 
         let mut message = serde_json::to_value(RegisterSignatureMessageHttp::dummy()).unwrap();
         message["entity_type"] = serde_json::json!({
-           DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string(): { "foo": "bar" }
+           DiscontinuedSignedEntityType::CardanoImmutableFilesFull.to_string(): { "foo": "bar" }
         });
 
         let method = Method::POST.as_str();
@@ -422,7 +421,7 @@ mod tests {
         assert_eq!(
             ClientError::new(
                 "Discontinued signed entity type",
-                DiscontinuedSignedEntityTypeMessage::CardanoImmutableFilesFull.to_string()
+                DiscontinuedSignedEntityType::CardanoImmutableFilesFull.to_string()
             ),
             response_body
         );
