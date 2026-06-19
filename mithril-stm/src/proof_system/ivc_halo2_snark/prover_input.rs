@@ -54,6 +54,8 @@ impl IvcProverInput {
         rolling_state: &IvcRollingState,
         setup: &IvcProverSetup,
     ) -> StmResult<Self> {
+        println!("Entering prepare function");
+
         let chain_epoch = rolling_state.state().current_epoch;
         let certificate_epoch = protocol_message_preimage.current_epoch();
 
@@ -66,6 +68,8 @@ impl IvcProverInput {
         // signature, build the base-case witness/state, and pass the rolling state's
         // trivial accumulator through unchanged.
         if is_genesis {
+            println!("Preparing the genesis");
+
             rolling_state.verify_genesis_signature(global)?;
 
             let new_step_counter = rolling_state.new_step_counter()?;
@@ -93,6 +97,8 @@ impl IvcProverInput {
             });
         }
 
+        println!("Preparing after the genesis");
+
         // Non-genesis path: Reject upfront if the proof's embedded verifying key differs
         // from `setup.certificate_verifying_key`: the off-circuit accumulator built here
         // would not match the one the in-circuit verifier produces.
@@ -105,6 +111,7 @@ impl IvcProverInput {
         {
             return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
         }
+        println!("verification that the transcript repr matches done");
 
         let verifier_params = setup.srs.verifier_params();
         let dual_msm = snark_proof.prepare_and_check(
@@ -112,6 +119,8 @@ impl IvcProverInput {
             aggregate_verification_key_for_snark,
             &verifier_params,
         )?;
+
+        println!("verification of the snark proof done");
 
         if !is_same_epoch && !is_next_epoch {
             return Err(IvcCircuitError::InvalidEpochTransition {

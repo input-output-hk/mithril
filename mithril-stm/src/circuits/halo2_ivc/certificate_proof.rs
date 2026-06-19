@@ -43,6 +43,8 @@ pub(crate) fn verify_and_prepare_accumulator(
     let mut transcript =
         CircuitTranscript::<PoseidonState<CircuitBase>>::init_from_bytes(proof_bytes);
 
+    println!("Preparing the dual msm");
+
     let dual_msm = prepare::<
         CircuitBase,
         KZGCommitmentScheme<Bls12>,
@@ -57,13 +59,18 @@ pub(crate) fn verify_and_prepare_accumulator(
     )
     .map_err(|_| IvcCircuitError::CertificateProofRejected)?;
 
+    println!("Checking the transcript");
+
     transcript
         .assert_empty()
         .map_err(|_| IvcCircuitError::CertificateProofRejected)?;
 
+    println!("Checking the dualMSM");
+
     if !dual_msm.clone().check(verifier_params) {
         return Err(IvcCircuitError::CertificateProofRejected.into());
     }
+    println!("DONE Checking the dualMSM");
 
     Ok(dual_msm)
 }
