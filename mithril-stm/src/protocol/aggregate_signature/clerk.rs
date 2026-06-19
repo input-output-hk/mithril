@@ -1,35 +1,42 @@
 use anyhow::Context;
-use rand_core::OsRng;
-use std::{marker::PhantomData, sync::Arc};
+#[cfg(feature = "future_snark")]
+use sha2::{Digest, Sha256};
+use std::marker::PhantomData;
 
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
+#[cfg(feature = "future_snark")]
+use midnight_zk_stdlib::MidnightVK;
+#[cfg(feature = "future_snark")]
+use rand_core::OsRng;
+#[cfg(feature = "future_snark")]
+use std::collections::HashMap;
+#[cfg(feature = "future_snark")]
+use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::{
-    AggregateVerificationKey, BaseFieldElement, ClosedKeyRegistration, LotteryIndex,
-    MembershipDigest, Parameters, Signer, SingleSignature, SnarkProof, Stake, StmResult,
-    VerificationKeyForConcatenation,
-    circuits::halo2_ivc::{ProtocolMessagePreimage, types::MessageHash},
+    AggregateVerificationKey, ClosedKeyRegistration, LotteryIndex, MembershipDigest, Parameters,
+    Signer, SingleSignature, Stake, StmResult, VerificationKeyForConcatenation,
+    proof_system::{ConcatenationClerk, ConcatenationProof},
+};
+
+#[cfg(feature = "future_snark")]
+use crate::{
+    AggregateSignatureError, AncillaryProverData, AncillaryVerifierData, BaseFieldElement,
+    MithrilMembershipDigest, SnarkProof,
+    circuits::{
+        halo2_ivc::{ProtocolMessagePreimage, state::Global, types::MessageHash},
+        trusted_setup::TrustedSetupProvider,
+    },
     proof_system::{
-        ConcatenationClerk, ConcatenationProof, IvcRollingState, ivc_halo2_snark::proof::IvcProof,
+        IvcRollingState, MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver,
+        ivc_halo2_snark::{
+            IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
+            proof::{IvcProof, IvcProver},
+            verifier_setup::IvcVerifierData,
+        },
     },
 };
-
-use crate::{
-    AncillaryProverData, AncillaryVerifierData, MithrilMembershipDigest,
-    circuits::{halo2_ivc::state::Global, trusted_setup::TrustedSetupProvider},
-    proof_system::ivc_halo2_snark::{
-        IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
-        verifier_setup::IvcVerifierData,
-    },
-};
-
-#[cfg(feature = "future_snark")]
-use crate::AggregateSignatureError;
-#[cfg(feature = "future_snark")]
-use crate::proof_system::ivc_halo2_snark::proof::IvcProver;
-#[cfg(feature = "future_snark")]
-use crate::proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver};
 
 use super::{
     AggregateSignature, AggregateSignatureType, AncillaryProofInput, AncillaryProofOutput,
@@ -136,8 +143,6 @@ impl<D: MembershipDigest> Clerk<D> {
                     .get_snark_clerk()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingSnarkClerk))?;
 
-                println!("Clerk ready to prove the first certificate");
-
                 let snark_proof = SnarkProver::try_new_non_deterministic(
                     &clerk.parameters,
                     MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -149,8 +154,6 @@ impl<D: MembershipDigest> Clerk<D> {
                         AggregateSignatureType::Snark
                     )
                 })?;
-
-                println!("First certificate proof generated, starting the IVC proof");
 
                 // A same-epoch step does not advance the rolling state, so the prover returns
                 // none: carry the input rolling state forward so the next certificate keeps
@@ -229,6 +232,17 @@ impl<D: MembershipDigest> Clerk<D> {
     }
 }
 
+/// Prepares the IVC prover inputs from `ancillary_input`, loads the cached prover setup,
+/// builds the [`Global`] chain constants, and runs [`IvcProver::prove`].
+///
+/// Returns `(proof, next_rolling_state, verifier_data)`. `next_rolling_state` is `Some` when
+/// the step advances the epoch and `None` for same-epoch steps — in that case the caller
+/// carries the previous rolling state forward.
+///
+/// # Errors
+/// Fails if the genesis Schnorr verifying key is absent, the message preimage is not 190 bytes,
+/// the prover setup cannot be loaded, or the proof itself fails.
+#[cfg(feature = "future_snark")]
 fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     snark_proof: SnarkProof<D>,
     msg: &[u8],
@@ -242,97 +256,45 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let protocol_message_preimage_bytes: [u8; 190] =
         ancillary_input.message_preimage().try_into()?;
 
-    println!("Getting the genesis_verification_key");
+    let genesis_data = ancillary_input.genesis_data();
 
-    let genesis_verification_key = ancillary_input
-        .genesis_data()
+    let genesis_verifying_key = genesis_data
         .genesis_schnorr_verification_key()
         .cloned()
-        .ok_or_else(|| anyhow!("Missing genesis verification key from ancillary data"))?;
+        .ok_or_else(|| anyhow!("Missing genesis verifying key from ancillary data"))?;
 
-    println!("Getting the genesis_preimage");
+    let genesis_preimage = genesis_data.genesis_message_preimage();
+    let genesis_preimage_hash: [u8; 32] = Sha256::digest(genesis_preimage).into();
+    let genesis_message_field_elem = BaseFieldElement::from_raw(&genesis_preimage_hash)?.0;
+    let genesis_message = MessageHash::from_field(genesis_message_field_elem);
 
-    let genesis_preimage = ancillary_input.genesis_data().genesis_message_preimage();
+    let (ivc_prover_setup, certificate_midnight_verifying_key) =
+        load_ivc_prover_setup(clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK)?;
+    let certificate_circuit_verifying_key = certificate_midnight_verifying_key.vk().clone();
+    let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
 
-    println!("Converting the genesis_preimage to field element");
-    // TODO: clean this to have proper call to SHA256
-    // the try_from function applies the Sha256 hash
-    let genesis_message_field_elem = BaseFieldElement::try_from(genesis_preimage)?.0;
+    let rolling_state = ancillary_input
+        .prover_data()
+        .map(|prover_data| prover_data.as_ivc_rolling_state());
 
-    println!("Starting the trusted_setup generation via the provider");
-
-    let trusted_setup_provider = TrustedSetupProvider::default();
-    println!("Getting the srs");
-
-    let srs = Arc::new(trusted_setup_provider.get_trusted_setup_parameters()?);
-    println!("Creating the certificate_key_provider from srs");
-
-    let certificate_key_provider =
-        TempCertificateKeyProvider::new(srs.clone(), clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK);
-    println!("Creating the ivc_key_provider from srs");
-
-    let ivc_key_provider =
-        TempIvcKeyProvider::new(srs.clone(), certificate_key_provider.get_verifying_key()?);
-
-    println!("Creating the ivc_setup from providers");
-
-    let ivc_setup = IvcProverSetup::load(
-        &trusted_setup_provider,
-        &certificate_key_provider,
-        &ivc_key_provider,
-    )?;
-
-    println!("Creating the prover from ivc_setup");
-
-    let mut prover = IvcProver {
-        ivc_setup: ivc_setup.into(),
-        rng: OsRng,
-    };
-
-    println!("Computing the avk");
+    let genesis_bootstrap = &genesis_data.try_into()?;
 
     // This is only used to get the root of the tree so maybe we can replace
-    // the avk inputs by the root directly
+    // the avk inputs by the root directly?
     let avk = clerk.compute_aggregate_verification_key_for_snark();
-
-    let genesis_message = MessageHash::from_field(genesis_message_field_elem);
-    let certificate_midnight_verifying_key =
-        certificate_key_provider.get_midnight_verifying_key()?;
-    let certificate_circuit_verification_key = certificate_midnight_verifying_key.vk().clone();
-    let ivc_circuit_verification_key = ivc_key_provider.get_verifying_key()?;
-    println!("Creating the global value");
 
     let global = Global::new(
         genesis_message,
-        genesis_verification_key,
-        &certificate_circuit_verification_key,
-        &ivc_circuit_verification_key,
+        genesis_verifying_key,
+        &certificate_circuit_verifying_key,
+        &ivc_circuit_verifying_key,
     );
 
-    let verifier_data = IvcVerifierData::new(
-        genesis_message,
-        genesis_verification_key,
-        certificate_midnight_verifying_key,
-        ivc_circuit_verification_key,
-    );
-
-    println!("Extracting the rolling state if present");
-
-    let rolling_state = match ancillary_input.prover_data() {
-        Some(input) => Some(input.as_ivc_rolling_state()),
-        None => None,
+    let mut prover = IvcProver {
+        ivc_setup: ivc_prover_setup.clone().into(),
+        rng: OsRng,
     };
 
-    println!("Converting the genesis bootstrap data");
-
-    // IvcGenesisBootstrapInput contains the same values as AncillaryGenesisData
-    // We might consider dropping one or implementing a conversion between the two
-    let genesis_bootstrap = &ancillary_input.genesis_data().try_into()?;
-
-    println!("Starting the IVC proof");
-
-    // For now the function will fail as we give two Some values
-    // which should not happen but this might be changed
     let (ivc_proof, next_rolling_state) = prover.prove(
         snark_proof,
         msg,
@@ -343,7 +305,63 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         rolling_state.as_ref(),
     )?;
 
+    let verifier_data = IvcVerifierData::new(
+        genesis_message,
+        genesis_verifying_key,
+        certificate_midnight_verifying_key,
+        ivc_circuit_verifying_key,
+    );
+
     Ok((ivc_proof, next_rolling_state, verifier_data))
+}
+
+/// Process-wide cache of the IVC prover setup keyed by the certificate circuit shape.
+///
+/// The setup (SRS plus the certificate and IVC circuit keys) only depends on the protocol
+/// parameters and the Merkle tree depth, so it is computed once per shape and reused across
+/// certificates instead of being rebuilt on every proof. The certificate [MidnightVK] is cached
+/// alongside it because it is needed to expose the verifier data.
+#[cfg(feature = "future_snark")]
+type IvcProverSetupCache = HashMap<(Vec<u8>, u32), (Arc<IvcProverSetup>, MidnightVK)>;
+
+#[cfg(feature = "future_snark")]
+static IVC_PROVER_SETUP_CACHE: LazyLock<Mutex<IvcProverSetupCache>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Load the IVC prover setup and the certificate [MidnightVK] for the given certificate circuit
+/// shape, building them on the first call and serving cached clones afterwards.
+#[cfg(feature = "future_snark")]
+fn load_ivc_prover_setup(
+    parameters: Parameters,
+    merkle_tree_depth: u32,
+) -> StmResult<(Arc<IvcProverSetup>, MidnightVK)> {
+    let cache_key = (parameters.to_bytes()?, merkle_tree_depth);
+
+    if let Some(cached) = IVC_PROVER_SETUP_CACHE.lock().unwrap().get(&cache_key) {
+        return Ok(cached.clone());
+    }
+
+    let trusted_setup_provider = TrustedSetupProvider::default();
+    let srs = Arc::new(trusted_setup_provider.get_trusted_setup_parameters()?);
+    let certificate_key_provider =
+        TempCertificateKeyProvider::new(srs.clone(), parameters, merkle_tree_depth);
+    let certificate_midnight_verifying_key =
+        certificate_key_provider.get_midnight_verifying_key()?;
+    let ivc_key_provider =
+        TempIvcKeyProvider::new(srs.clone(), certificate_key_provider.get_verifying_key()?);
+    let ivc_setup = Arc::new(IvcProverSetup::load(
+        &trusted_setup_provider,
+        &certificate_key_provider,
+        &ivc_key_provider,
+    )?);
+
+    let cached = (ivc_setup, certificate_midnight_verifying_key);
+    IVC_PROVER_SETUP_CACHE
+        .lock()
+        .unwrap()
+        .insert(cache_key, cached.clone());
+
+    Ok(cached)
 }
 
 /// Resolve the prover data to store on a new IVC certificate.
@@ -351,6 +369,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 /// A next-epoch step advances the rolling state, which is stored as is. A same-epoch step does not
 /// advance it (the prover returns none), so the input rolling state carried from the parent
 /// certificate is reused for the next certificate.
+#[cfg(feature = "future_snark")]
 fn resolve_ivc_ancillary_prover_data(
     next_rolling_state: Option<IvcRollingState>,
     previous_prover_data: Option<AncillaryProverData>,

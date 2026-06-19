@@ -835,11 +835,6 @@ mod tests {
             );
             let epoch1_preimage = wrap_protocol_message_preimage(&first_step.message_preimage);
             let bootstrap = genesis_bootstrap(&ctx.asset_setup);
-            println!(
-                "Genesis message preimage: {:?}",
-                bootstrap.genesis_protocol_message_preimage
-            );
-            println!("epoch1_preimage: {:?}", epoch1_preimage);
 
             let mut prover = IvcProver {
                 ivc_setup: Arc::clone(&ctx.ivc_setup),
@@ -964,8 +959,6 @@ mod tests {
                 &ctx.verification_context,
             );
             let preimage = wrap_protocol_message_preimage(&step.message_preimage);
-
-            println!("preimage next certificate: {:?}", preimage);
 
             let mut prover = IvcProver {
                 ivc_setup: Arc::clone(&ctx.ivc_setup),

@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::codec;
+#[cfg(feature = "future_snark")]
 use crate::proof_system::IvcRollingState;
+#[cfg(feature = "future_snark")]
 use crate::proof_system::ivc_halo2_snark::verifier_setup::IvcVerifierData;
 #[cfg(feature = "future_snark")]
 use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
@@ -19,6 +21,7 @@ use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
 /// aggregate signature types that require prover data; none exist yet.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryProverData {
+    #[cfg(feature = "future_snark")]
     IvcSnark(IvcRollingState),
 }
 
@@ -41,6 +44,7 @@ impl AncillaryProverData {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     pub fn as_ivc_rolling_state(&self) -> IvcRollingState {
         match self {
             Self::IvcSnark(state) => state.clone(),
@@ -55,6 +59,7 @@ impl AncillaryProverData {
 /// data; none exist yet.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryVerifierData {
+    #[cfg(feature = "future_snark")]
     IvcSnark(IvcVerifierData),
 }
 
@@ -77,6 +82,7 @@ impl AncillaryVerifierData {
         }
     }
 
+    #[cfg(feature = "future_snark")]
     pub fn as_ivc_verifier_data(&self) -> IvcVerifierData {
         match self {
             Self::IvcSnark(state) => state.clone(),

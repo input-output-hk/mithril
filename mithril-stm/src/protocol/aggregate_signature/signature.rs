@@ -328,7 +328,18 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     }
                     #[cfg(feature = "future_snark")]
                     AggregateSignatureType::IvcSnark => {
-                        todo!()
+                        for (aggregate_signature, avk, msg, parameters, ancillary_verifier_data) in
+                            aggregate_entries
+                        {
+                            aggregate_signature.verify(
+                                &msg,
+                                &avk,
+                                &parameters,
+                                ancillary_verifier_data,
+                            )?;
+                        }
+
+                        Ok(())
                     }
                 }
             })
