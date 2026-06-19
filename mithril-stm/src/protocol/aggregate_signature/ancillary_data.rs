@@ -251,9 +251,27 @@ impl AncillaryProofOutput {
 
 #[cfg(test)]
 mod tests {
-    use crate::codec::CODEC_VERSION_CBOR_V1;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey,
+        circuits::halo2_ivc::{
+            tests::common::asset_readers::load_embedded_verification_context_asset,
+            types::MessageHash,
+        },
+        codec::CODEC_VERSION_CBOR_V1,
+    };
 
     use super::*;
+
+    // Duplicate from rolling_state.rs tests
+    fn build_genesis_signature() -> StandardSchnorrSignature {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let signing_key = SchnorrSigningKey::generate(&mut rng);
+        let message = vec![BaseFieldElement::from(1u64)];
+        signing_key.sign_standard(&message, &mut rng).unwrap()
+    }
 
     #[test]
     fn prover_data_from_bytes_rejects_every_input() {
@@ -301,5 +319,36 @@ mod tests {
         );
 
         assert_eq!(proof_input.message_preimage(), message_preimage.as_slice());
+    }
+
+    #[test]
+    fn ancillary_prover_data_to_from_bytes_round_trip() {
+        let genesis_signature = build_genesis_signature();
+        let fixed_base_names = vec!["base_one".to_string(), "base_two".to_string()];
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &fixed_base_names);
+        let ancillary_prover_data = AncillaryProverData::IvcSnark(rolling_state);
+
+        let bytes = ancillary_prover_data.to_bytes().unwrap();
+        let reconstructed = AncillaryProverData::from_bytes(&bytes).unwrap();
+
+        assert_eq!(bytes, reconstructed.to_bytes().unwrap());
+    }
+
+    #[test]
+    fn ancillary_verifier_data_to_from_bytes_round_trip() {
+        let context = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let verifier_data = IvcVerifierData::new(
+            MessageHash::ZERO,
+            SchnorrVerificationKey::default(),
+            context.certificate_verifying_key,
+            context.recursive_verifying_key,
+        );
+        let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(verifier_data);
+
+        let bytes = ancillary_verifier_data.to_bytes().unwrap();
+        let reconstructed = AncillaryVerifierData::from_bytes(&bytes).unwrap();
+
+        assert_eq!(bytes, reconstructed.to_bytes().unwrap());
     }
 }
