@@ -39,6 +39,7 @@ use crate::{
     proof_system::ivc_halo2_snark::{
         errors::IvcProofError,
         prover_input::IvcProverInput,
+        prover_input_helpers::IvcTransitionType,
         prover_setup::IvcSnarkProverSetup,
         rolling_state::{IvcRollingState, midnight_accumulator_serde},
         verifier_setup::IvcVerifierSetup,
@@ -330,9 +331,6 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         let effective_rolling_state: &IvcRollingState =
             genesis_seeded_state.as_ref().or(rolling_state).unwrap();
 
-        let certificate_epoch = protocol_message_preimage.current_epoch();
-        let is_next_epoch = effective_rolling_state.is_next_epoch(certificate_epoch);
-
         // Prepare the witness, next state, and folded next accumulator.
         // prepare() borrows snark_proof; snark_proof is still owned afterward.
         let prover_input = IvcProverInput::prepare(
@@ -368,23 +366,24 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         // Next-epoch steps update the rolling state with a fresh Poseidon proof.
         // Same-epoch steps leave the rolling state unchanged (return None).
-        let next_rolling_state = if is_next_epoch {
-            let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
-                &self.ivc_setup.srs,
-                &self.ivc_setup.ivc_proving_key,
-                &circuit_data,
-                &public_inputs,
-                &mut self.rng,
-            )?;
-            Some(IvcRollingState::new(
-                prover_input.next_state.clone(),
-                IvcProofBytes::new(poseidon_bytes),
-                prover_input.next_accumulator.clone(),
-                effective_rolling_state.genesis_signature(),
-            ))
-        } else {
-            None
-        };
+        let next_rolling_state =
+            if matches!(prover_input.transition_type, IvcTransitionType::NextEpoch) {
+                let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
+                    &self.ivc_setup.srs,
+                    &self.ivc_setup.ivc_proving_key,
+                    &circuit_data,
+                    &public_inputs,
+                    &mut self.rng,
+                )?;
+                Some(IvcRollingState::new(
+                    prover_input.next_state.clone(),
+                    IvcProofBytes::new(poseidon_bytes),
+                    prover_input.next_accumulator.clone(),
+                    effective_rolling_state.genesis_signature(),
+                ))
+            } else {
+                None
+            };
 
         let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
             &self.ivc_setup.srs,

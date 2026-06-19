@@ -7,9 +7,7 @@ use crate::{
     circuits::halo2_ivc::{
         errors::{EpochTransitionErrorKind, IvcCircuitError},
         state::{Global, State},
-        types::{
-            EpochNumber, MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage, StepCounter,
-        },
+        types::{MerkleTreeCommitment, MessageHash, ProtocolMessagePreimage, StepCounter},
     },
     proof_system::{
         halo2_snark::build_snark_message,
@@ -45,13 +43,12 @@ impl IvcTransitionType {
         let last_committed_epoch = rolling_state.state().current_epoch;
         let incoming_certificate_epoch = protocol_message_preimage.current_epoch();
 
-        if rolling_state.state().step_counter == StepCounter::ZERO {
+        if rolling_state.is_genesis() {
             return Ok(Self::Genesis);
         }
 
         let is_same_epoch = incoming_certificate_epoch == last_committed_epoch;
-        let is_next_epoch = incoming_certificate_epoch.as_field()
-            == last_committed_epoch.as_field() + EpochNumber::new(1).as_field();
+        let is_next_epoch = rolling_state.is_next_epoch(incoming_certificate_epoch);
 
         if !is_same_epoch && !is_next_epoch {
             return Err(IvcCircuitError::InvalidEpochTransition {
@@ -211,7 +208,7 @@ mod tests {
             PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
             PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES, PREIMAGE_SIZE,
             state::trivial_acc,
-            types::{IvcProofBytes, ProtocolParametersHash},
+            types::{EpochNumber, IvcProofBytes, ProtocolParametersHash},
         },
         signature_scheme::{BaseFieldElement, SchnorrSigningKey, StandardSchnorrSignature},
     };

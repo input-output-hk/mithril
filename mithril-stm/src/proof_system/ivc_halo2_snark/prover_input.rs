@@ -68,7 +68,7 @@ impl IvcProverInput {
         }
 
         let certificate_dual_msm = verify_certificate_proof(
-            &certificate_proof,
+            certificate_proof,
             certificate_message_bytes,
             aggregate_verification_key_for_snark,
             setup,
