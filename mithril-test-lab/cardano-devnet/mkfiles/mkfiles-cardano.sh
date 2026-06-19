@@ -122,6 +122,17 @@ echo "TestBabbageHardForkAtEpoch: ${HARD_FORK_BABBAGE_AT_EPOCH}" >> "${ARTIFACTS
 echo "TestConwayHardForkAtEpoch: ${HARD_FORK_CONWAY_AT_EPOCH}" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 echo "ExperimentalProtocolsEnabled: True" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 
+# Tune the UTxO-HD ledger state snapshot policy for cardano-node 11.1.0+ so the aggregator can build the Cardano database artifact
+if [ "$(version_lt ${CARDANO_NODE_VERSION_RELEASE} 11.1.0)" = "false" ]; then
+  cat >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml" <<EOF
+LedgerDB:
+  Backend: V2InMemory
+  SnapshotInterval: 1
+  SlotOffset: 0
+  RateLimit: 0
+EOF
+fi
+
 $CARDANO_CLI $CARDANO_CLI_ERA genesis create-staked --genesis-dir "${ARTIFACTS_DIR_TEMP}" \
   --testnet-magic "${NETWORK_MAGIC}" \
   --gen-pools ${NUM_SPO_NODES} \
