@@ -339,7 +339,9 @@ mod tests {
 
     use crate::{
         Initializer, KeyRegistration, MithrilMembershipDigest, Signer, SingleSignature,
-        circuits::{halo2_ivc::K, trusted_setup::build_provider_with_unsafe_srs},
+        circuits::{
+            halo2_ivc::RECURSIVE_CIRCUIT_DEGREE, trusted_setup::build_provider_with_unsafe_srs,
+        },
         proof_system::{
             SnarkClerk,
             halo2_snark::{
@@ -390,9 +392,12 @@ mod tests {
         params: Parameters,
         seed: [u8; 32],
     ) -> SnarkProver<ChaCha20Rng> {
-        let srs = build_provider_with_unsafe_srs(&std::env::temp_dir().join(folder_path.into()), K)
-            .get_trusted_setup_parameters()
-            .unwrap();
+        let srs = build_provider_with_unsafe_srs(
+            &std::env::temp_dir().join(folder_path.into()),
+            RECURSIVE_CIRCUIT_DEGREE,
+        )
+        .get_trusted_setup_parameters()
+        .unwrap();
         let snark_setup =
             SnarkSetup::try_new_with_srs(&params, MERKLE_TREE_DEPTH_FOR_SNARK, srs).unwrap();
 

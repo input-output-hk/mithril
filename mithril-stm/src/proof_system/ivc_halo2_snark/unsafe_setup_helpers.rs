@@ -25,7 +25,7 @@ use crate::{
     Parameters, StmResult,
     circuits::{
         halo2::circuit::StmCertificateCircuit,
-        halo2_ivc::{K, circuit::IvcCircuitData},
+        halo2_ivc::{RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData},
     },
     proof_system::ivc_halo2_snark::{CircuitProvingKey, CircuitVerifyingKey},
 };
@@ -101,12 +101,16 @@ impl TempIvcKeyProvider {
     }
 
     /// Builds an unknown-witness IVC circuit parameterized by the certificate VK
-    /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `K`.
+    /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `RECURSIVE_CIRCUIT_DEGREE`.
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
         let mut ivc_srs = (*self.srs).clone();
-        ivc_srs.downsize(K);
-        Ok(keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, K)?)
+        ivc_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
+        Ok(keygen_vk_with_k(
+            &ivc_srs,
+            &ivc_circuit_data,
+            RECURSIVE_CIRCUIT_DEGREE,
+        )?)
     }
 
     /// Recomputes the IVC verifying key (the temp layer has no cache, so the VK
@@ -114,8 +118,8 @@ impl TempIvcKeyProvider {
     pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
         let mut ivc_srs = (*self.srs).clone();
-        ivc_srs.downsize(K);
-        let ivc_verifying_key = keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, K)?;
+        ivc_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
+        let ivc_verifying_key = keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, RECURSIVE_CIRCUIT_DEGREE)?;
         Ok(keygen_pk(ivc_verifying_key, &ivc_circuit_data)?)
     }
 }

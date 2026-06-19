@@ -3,9 +3,10 @@ use anyhow::anyhow;
 
 use super::{
     Accumulator, BinaryInstructions, C, Circuit, ComposableChip, ConstraintSystem, E, Error,
-    EvaluationDomain, F, K, KZGCommitmentScheme, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
+    EvaluationDomain, F, KZGCommitmentScheme, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
     NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
-    NB_SHA256_FIXED_COLS, NG, PublicInputInstructions, S, SimpleFloorPlanner, Value, VerifyingKey,
+    NB_SHA256_FIXED_COLS, NG, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S,
+    SimpleFloorPlanner, Value, VerifyingKey,
     config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
     errors::IvcCircuitError,
     gadget::IvcGadget,
@@ -40,16 +41,16 @@ pub struct IvcCircuitData {
 }
 
 impl IvcCircuitData {
-    /// Validates that the IVC verification key degree matches the IVC circuit degree constant K.
+    /// Validates that the IVC verification key degree matches the IVC circuit degree constant RECURSIVE_CIRCUIT_DEGREE.
     // Kept until the IVC prover validates recursive circuit keys.
     #[allow(dead_code)]
     pub(crate) fn validate_ivc_verification_key_degree(
         ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     ) -> StmResult<()> {
         let actual = ivc_verification_key.get_domain().k();
-        if actual != K {
+        if actual != RECURSIVE_CIRCUIT_DEGREE {
             return Err(anyhow!(IvcCircuitError::IvcVerificationKeyDegreeMismatch {
-                expected: K,
+                expected: RECURSIVE_CIRCUIT_DEGREE,
                 actual,
             }));
         }
@@ -92,7 +93,7 @@ impl IvcCircuitData {
 
     /// Creates a new `IvcCircuitData` with the given witness and proof data.
     ///
-    /// Validates that `ivc_verification_key` has degree `K` and that the column pool allocated by
+    /// Validates that `ivc_verification_key` has degree `RECURSIVE_CIRCUIT_DEGREE` and that the column pool allocated by
     /// `configure_ivc_circuit` is sufficient for all chips. Returns an error containing
     /// [`IvcCircuitError::IvcVerificationKeyDegreeMismatch`] or
     /// [`IvcCircuitError::InsufficientAdviceColumns`] /
@@ -137,8 +138,10 @@ impl IvcCircuitData {
         Self::validate_column_counts()?;
         let mut ivc_circuit_constraint_system = ConstraintSystem::default();
         configure_ivc_circuit(&mut ivc_circuit_constraint_system);
-        let ivc_circuit_domain =
-            EvaluationDomain::new(ivc_circuit_constraint_system.degree() as u32, K);
+        let ivc_circuit_domain = EvaluationDomain::new(
+            ivc_circuit_constraint_system.degree() as u32,
+            RECURSIVE_CIRCUIT_DEGREE,
+        );
 
         Ok(IvcCircuitData {
             global: Value::unknown(),
@@ -255,7 +258,7 @@ mod tests {
 
         let poly_constraints: usize = cs.gates().iter().map(|g| g.polynomials().len()).sum();
         assert_eq!(
-            K, 19,
+            RECURSIVE_CIRCUIT_DEGREE, 19,
             "circuit size k must not change without a deliberate decision"
         );
         assert_eq!(

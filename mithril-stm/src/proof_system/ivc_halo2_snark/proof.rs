@@ -927,7 +927,7 @@ mod tests {
             circuits::{
                 halo2::types::CircuitBase,
                 halo2_ivc::{
-                    K,
+                    RECURSIVE_CIRCUIT_DEGREE,
                     io::Write as IvcWrite,
                     state::Global,
                     tests::common::{
@@ -1212,7 +1212,8 @@ mod tests {
         fn prove_all_scenarios() {
             let t_setup = Instant::now();
             let temp_dir = tempdir().expect("temp dir creation should succeed");
-            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+            let trusted_setup_provider =
+                build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE);
             let srs = Arc::new(
                 trusted_setup_provider
                     .get_trusted_setup_parameters()

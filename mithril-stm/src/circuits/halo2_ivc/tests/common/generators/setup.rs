@@ -17,6 +17,7 @@ use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::AggregateVerificationKeyForSnark;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
+use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_DEGREE;
 use crate::circuits::halo2_ivc::state::fixed_bases_and_names;
 use crate::circuits::halo2_ivc::types::MessageHash;
 use crate::circuits::halo2_ivc::{
@@ -30,7 +31,7 @@ use crate::signature_scheme::{
 use crate::{MembershipDigest, MithrilMembershipDigest, Parameters};
 
 use super::super::field_encoding::jubjub_base_from_raw_le_bytes;
-use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_DEGREE};
+use super::super::{ASSET_SEED, CERTIFICATE_CIRCUIT_DEGREE};
 use super::transitions::build_genesis_protocol_message;
 
 type SnarkHash = <MithrilMembershipDigest as MembershipDigest>::SnarkHash;

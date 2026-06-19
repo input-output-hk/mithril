@@ -12,7 +12,8 @@ use crate::{
     circuits::{
         halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         halo2_ivc::{
-            K, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuitData,
+            RECURSIVE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            circuit::IvcCircuitData,
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -22,9 +23,9 @@ use crate::{
 /// non-recursive VK. Used by [`write_recursive_circuit_verification_key_for_production_to_file`]
 /// to regenerate `recursive_circuit_verification_key_for_production.bin` when the circuit changes.
 fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
-    let shared_srs_degree = K;
+    let shared_srs_degree = RECURSIVE_CIRCUIT_DEGREE;
     let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
-    // The recursive circuit uses a fixed SRS degree K, smaller than the full production SRS.
+    // The recursive circuit uses a fixed SRS degree RECURSIVE_CIRCUIT_DEGREE, smaller than the full production SRS.
     let mut recursive_commitment_parameters = srs;
     recursive_commitment_parameters.downsize(shared_srs_degree);
 

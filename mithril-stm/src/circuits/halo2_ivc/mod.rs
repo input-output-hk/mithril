@@ -74,7 +74,7 @@ type CBase = <C as CircuitCurve>::Base;
 type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
 
 // Degree of the recursive circuit
-pub(crate) const K: u32 = 19;
+pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 
 pub const PREIMAGE_SIZE: usize = 190;
 /// Byte range of the next Merkle-tree commitment within the protocol message preimage.

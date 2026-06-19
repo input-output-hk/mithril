@@ -205,7 +205,7 @@ mod tests {
             MithrilMembershipDigest, Parameters,
             circuits::{
                 halo2_ivc::{
-                    K,
+                    RECURSIVE_CIRCUIT_DEGREE,
                     errors::{EpochTransitionErrorKind, IvcCircuitError},
                     io::Write as IvcWrite,
                     tests::common::{
@@ -245,7 +245,8 @@ mod tests {
             static CELL: OnceLock<IvcProverSetup> = OnceLock::new();
             CELL.get_or_init(|| {
                 let temp_dir = tempdir().expect("temp dir creation should succeed");
-                let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+                let trusted_setup_provider =
+                    build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE);
                 let srs = Arc::new(
                     trusted_setup_provider
                         .get_trusted_setup_parameters()

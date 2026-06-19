@@ -146,12 +146,12 @@ impl IvcProverSetup {
 }
 
 // Tests construct the temp providers directly: small `Parameters`, a small Merkle depth,
-// and a K=19 SRS produced via `unsafe_setup`. This keeps the slow keygen tractable while
+// and a degree-19 SRS produced via `unsafe_setup`. This keeps the slow keygen tractable while
 // the production cache providers are not yet wired in.
 //
 // When the real IVC cache providers ship, these tests will be rewritten end-to-end:
 // the temp provider constructions are replaced with the real provider constructions,
-// the K=19 unsafe SRS is replaced with the production K=22 SRS loaded through
+// the degree-19 unsafe SRS is replaced with the production degree-22 SRS loaded through
 // `TrustedSetupProvider`, and `IvcProverSetup::load` is called with the real
 // `RecursiveCircuit{Verifying,Proving}KeyProvider` plus the cert
 // `CircuitVerificationKeyProvider`. The body of `IvcProverSetup::load` stays unchanged across
@@ -165,10 +165,12 @@ mod tests {
     use super::*;
     use crate::{
         Parameters,
-        circuits::{halo2_ivc::K, trusted_setup::build_provider_with_unsafe_srs},
+        circuits::{
+            halo2_ivc::RECURSIVE_CIRCUIT_DEGREE, trusted_setup::build_provider_with_unsafe_srs,
+        },
     };
 
-    // Generates a K=19 SRS and runs `keygen_pk` for the IVC circuit; runs in the
+    // Generates a degree-19 SRS and runs `keygen_pk` for the IVC circuit; runs in the
     // `slow` tier (invoke with `cargo test slow::`).
     //
     // TODO: once the production IVC cache providers ship, rewrite this test to use
@@ -180,7 +182,8 @@ mod tests {
         #[test]
         fn load_succeeds_with_unsafe_srs() {
             let temp_dir = tempdir().unwrap();
-            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
+            let trusted_setup_provider =
+                build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE);
             let srs = Arc::new(trusted_setup_provider.get_trusted_setup_parameters().unwrap());
 
             let parameters = Parameters {

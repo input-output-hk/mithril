@@ -12,7 +12,7 @@ use crate::{
     Parameters,
     circuits::{
         halo2::circuit::StmCertificateCircuit,
-        halo2_ivc::{circuit::IvcCircuitData, tests::golden::RECURSIVE_CIRCUIT_DEGREE},
+        halo2_ivc::{RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData},
     },
 };
 

@@ -1,7 +1,5 @@
 //! Golden tests lock in recursive Halo2 IVC verification behavior.
 
-pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
-
 mod positive;
 
 #[cfg(test)]

@@ -13,7 +13,7 @@ use midnight_proofs::{
 use midnight_zk_stdlib::MidnightVK;
 
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, K, S, VerifyingKey,
+    Accumulator, AssignedAccumulator, C, E, F, RECURSIVE_CIRCUIT_DEGREE, S, VerifyingKey,
     circuit::IvcCircuitData,
     state::{Global, State, Witness, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
@@ -135,8 +135,12 @@ pub(crate) fn assert_recursive_mock_prover_rejects(
     ivc_circuit_data: IvcCircuitData,
     public_inputs: Vec<F>,
 ) {
-    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
-        .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(
+        RECURSIVE_CIRCUIT_DEGREE,
+        &ivc_circuit_data,
+        vec![vec![], public_inputs],
+    )
+    .expect("recursive MockProver setup should succeed");
     prover
         .verify()
         .expect_err("recursive MockProver should reject the provided circuit and public inputs");
@@ -149,8 +153,12 @@ pub(crate) fn assert_recursive_mock_prover_accepts_with_label(
     public_inputs: Vec<F>,
     label: &str,
 ) {
-    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
-        .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(
+        RECURSIVE_CIRCUIT_DEGREE,
+        &ivc_circuit_data,
+        vec![vec![], public_inputs],
+    )
+    .expect("recursive MockProver setup should succeed");
     prover.verify().unwrap_or_else(|errors| {
         panic!(
             "MockProver should accept the circuit and public inputs — case: {label}\n\
@@ -166,8 +174,12 @@ pub(crate) fn assert_recursive_mock_prover_rejects_with_label(
     public_inputs: Vec<F>,
     label: &str,
 ) {
-    let prover = MockProver::run(K, &ivc_circuit_data, vec![vec![], public_inputs])
-        .expect("recursive MockProver setup should succeed");
+    let prover = MockProver::run(
+        RECURSIVE_CIRCUIT_DEGREE,
+        &ivc_circuit_data,
+        vec![vec![], public_inputs],
+    )
+    .expect("recursive MockProver setup should succeed");
     assert!(
         prover.verify().is_err(),
         "MockProver should reject the circuit and public inputs — case: {label}"

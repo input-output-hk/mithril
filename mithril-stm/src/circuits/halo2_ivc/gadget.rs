@@ -12,10 +12,11 @@ use super::{
     AssignedVk, AssignmentInstructions, BinaryInstructions, C, CERTIFICATE_VERIFICATION_KEY_NAME,
     CircuitCurve, ComposableChip, ConstraintSystem, ControlFlowInstructions,
     ConversionInstructions, EccChip, EccInstructions, EqualityInstructions, Error,
-    EvaluationDomain, F, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, Jubjub, K,
+    EvaluationDomain, F, ForeignEccChip, HashInstructions, IVC_VERIFICATION_KEY_NAME, Jubjub,
     Layouter, NG, NativeChip, NativeGadget, P2RDecompositionChip, PREIMAGE_CURRENT_EPOCH_BYTES,
     PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES, PREIMAGE_NEXT_PROTOCOL_PARAMETERS_BYTES,
-    PoseidonChip, PublicInputInstructions, S, Value, VerifierGadget, ZeroInstructions,
+    PoseidonChip, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S, Value, VerifierGadget,
+    ZeroInstructions,
     config::IvcConfig,
     errors::{IvcCircuitError, to_synthesis_error},
     state::{
@@ -37,8 +38,10 @@ pub struct IvcGadget {
 impl IvcGadget {
     pub fn new(config: &IvcConfig) -> Self {
         let native_chip = <NativeChip<F> as ComposableChip<F>>::new(&config.native_config, &());
-        let core_decomp_chip =
-            P2RDecompositionChip::new(&config.core_decomp_config, &(K as usize - 1));
+        let core_decomp_chip = P2RDecompositionChip::new(
+            &config.core_decomp_config,
+            &(RECURSIVE_CIRCUIT_DEGREE as usize - 1),
+        );
         let native_gadget = NativeGadget::new(core_decomp_chip.clone(), native_chip.clone());
         let jubjub_chip = EccChip::<Jubjub>::new(&config.jubjub_config, &native_gadget);
         let bls12_381_chip: ForeignEccChip<_, C, C, _, _> =

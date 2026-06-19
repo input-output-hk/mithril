@@ -8,7 +8,7 @@ pub enum IvcCircuitError {
     #[error("Certificate proof verification rejected: {0}")]
     CertificateProofRejected(String),
 
-    /// IVC verification key degree does not match the IVC circuit degree constant K.
+    /// IVC verification key degree does not match the IVC circuit degree constant RECURSIVE_CIRCUIT_DEGREE.
     #[error(
         "IvcCircuitData::validate_ivc_verification_key_degree failed: expected k={expected}, got k={actual}"
     )]

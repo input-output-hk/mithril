@@ -5,7 +5,6 @@
 
 pub(crate) const ASSET_SEED: u64 = 42;
 pub(crate) const CERTIFICATE_CIRCUIT_DEGREE: u32 = 13;
-pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;
 
 pub(crate) mod asset_readers;
 pub(crate) mod field_encoding;
