@@ -967,8 +967,14 @@ mod tests {
             println!("[same-epoch] {:.1}s", t.elapsed().as_secs_f64());
         }
 
-        #[test]
-        fn prove_all_scenarios() {
+        /// Builds the deployment-constant setup (unsafe SRS + recursive keygen) and the asset-backed
+        /// verification context that every scenario path proves against.
+        ///
+        /// Each scenario test below rebuilds this independently — nextest runs every test in its own
+        /// process, so there is nothing to share in-process anyway. Keeping the scenarios as separate
+        /// `#[test]`s lets CI distribute them across sharded runners (see `test-rust.yml`); a single
+        /// monolithic test would pin all the recursive proving onto one runner.
+        fn build_slow_test_context() -> SlowTestContext {
             let t_setup = Instant::now();
             let temp_dir = tempdir().expect("temp dir creation should succeed");
             let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K);
@@ -1017,17 +1023,28 @@ mod tests {
             let verifier_setup = IvcVerifierSetup::from_ivc_setup_with_srs(&ivc_setup);
             println!("[setup] {:.1}s", t_setup.elapsed().as_secs_f64());
 
-            let ctx = SlowTestContext {
+            SlowTestContext {
                 ivc_setup,
                 global,
                 verifier_setup,
                 asset_setup,
                 verification_context,
-            };
+            }
+        }
 
-            run_bootstrap_path(&ctx);
-            run_next_epoch_path(&ctx);
-            run_same_epoch_path(&ctx);
+        #[test]
+        fn prove_genesis_bootstrap_scenario() {
+            run_bootstrap_path(&build_slow_test_context());
+        }
+
+        #[test]
+        fn prove_next_epoch_scenario() {
+            run_next_epoch_path(&build_slow_test_context());
+        }
+
+        #[test]
+        fn prove_same_epoch_scenario() {
+            run_same_epoch_path(&build_slow_test_context());
         }
     }
 }

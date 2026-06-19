@@ -18,16 +18,8 @@ jobs:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
             cargo-profile: ci-tests
-          - os: ubuntu-24.04
-            test-args: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
-            artifact-suffix: -future-snark
-            # Default to the fast profile; the `prepare` step upgrades to `slow-cargo-profile`
-            # only when the slow SNARK tests are actually in scope for this run (so we don't pay
-            # the opt-level 3 build cost on PRs that filter those tests out).
-            cargo-profile: ci-tests
-            # Optimizes (opt-level 3) the crypto deps and `mithril-stm` so the slow SNARK tests
-            # run faster, at the cost of a longer (cache-amortized) build.
-            slow-cargo-profile: ci-tests-snark
+          # NOTE: the `future_snark` (SNARK / Halo2) leg lives in its own `test-future-snark` job
+          # below, because it is by far the heaviest and is sharded across runners.
           - os: ubuntu-24.04-arm
             test-args: --features full,unstable --workspace
             cargo-profile: ci-tests
@@ -129,11 +121,142 @@ jobs:
           name: test-results-${{ runner.os }}-${{ runner.arch }}${{ matrix.artifact-suffix }}
           path: ./test-results-*.xml
 
+  # Decide, once, whether the heavy SNARK slow tests are in scope and how many shards to fan out to:
+  # a single shard for the common fast path (so non-SNARK PRs aren't penalized with extra builds),
+  # and several shards when the slow recursive-proof tests actually run.
+  future-snark-gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      cargo-profile: ${{ steps.prepare.outputs.cargo-profile }}
+      filterset: ${{ steps.prepare.outputs.filterset }}
+      shards: ${{ steps.prepare.outputs.shards }}
+      shard-count: ${{ steps.prepare.outputs.shard-count }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2 # Needed to get the diff of the last commit, which is used to filter out slow tests
+
+      - id: prepare
+        name: Prepare
+        shell: bash
+        run: |
+          if [[ "${{ inputs.include-slow-tests }}" == "true" ]]; then
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --all)"
+            SLOW_TESTS=true
+          else
+            FILTERSET="$(.github/workflows/scripts/filter-slow-tests.sh --commit-ref "HEAD^1")"
+            # The filter script only appends a `package(mithril-stm)` slow-test allowance when the
+            # changed files touch a slow SNARK test path, so its presence tells us whether the slow
+            # tests are in scope for this run.
+            if [[ "$FILTERSET" == *"package(mithril-stm)"* ]]; then
+              SLOW_TESTS=true
+            else
+              SLOW_TESTS=false
+            fi
+          fi
+
+          # Only the slow path is worth sharding (and worth the opt-level 3 build). The fast path
+          # runs as a single shard so non-SNARK PRs don't pay extra builds.
+          if [[ "$SLOW_TESTS" == "true" ]]; then
+            CARGO_PROFILE="ci-tests-snark"
+            SHARDS="[1, 2, 3, 4]"
+            SHARD_COUNT=4
+          else
+            CARGO_PROFILE="ci-tests"
+            SHARDS="[1]"
+            SHARD_COUNT=1
+          fi
+
+          echo "Tests filterset: $FILTERSET"
+          echo "Cargo profile: $CARGO_PROFILE / shards: $SHARDS"
+          echo "filterset=$FILTERSET" >> $GITHUB_OUTPUT
+          echo "cargo-profile=$CARGO_PROFILE" >> $GITHUB_OUTPUT
+          echo "shards=$SHARDS" >> $GITHUB_OUTPUT
+          echo "shard-count=$SHARD_COUNT" >> $GITHUB_OUTPUT
+
+  # The `future_snark` (SNARK / Halo2) tests are the heaviest in the workspace. Run them on their own
+  # runner(s), sharded with `nextest --partition` so the slow recursive-proof tests are spread across
+  # machines instead of serialized on one. Each shard builds independently (simple and robust; the
+  # extra build compute on heavy runs could later be removed with `cargo nextest archive`). Doc tests
+  # and the examples build run in the separate `future-snark-checks` job, off these shards' critical path.
+  test-future-snark:
+    needs: future-snark-gate
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.future-snark-gate.outputs.shards) }}
+    runs-on: ubuntu-24.04
+    env:
+      SNARK_TEST_ARGS: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ vars.CACHE_VERSION }}
+          cargo-tools: cargo-nextest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          never-save-cache: ${{ inputs.disable-cache-save }}
+
+      - name: Build tests
+        run: cargo nextest run --cargo-profile ${{ needs.future-snark-gate.outputs.cargo-profile }} --no-run $SNARK_TEST_ARGS
+
+      - name: Run tests (shard ${{ matrix.shard }}/${{ needs.future-snark-gate.outputs.shard-count }})
+        run: |
+          cargo nextest run --profile ci \
+            --cargo-profile ${{ needs.future-snark-gate.outputs.cargo-profile }} \
+            --partition hash:${{ matrix.shard }}/${{ needs.future-snark-gate.outputs.shard-count }} \
+            --filterset "${{ needs.future-snark-gate.outputs.filterset }}" \
+            $SNARK_TEST_ARGS
+
+      - name: Rename junit file to include runner info
+        shell: bash
+        if: success() || failure()
+        run: |
+          mv target/nextest/ci/tests-result.junit.xml test-results-${{ runner.os }}-${{ runner.arch }}-future-snark-shard${{ matrix.shard }}.xml
+
+      - name: Upload Tests Results
+        uses: actions/upload-artifact@v7
+        if: success() || failure()
+        with:
+          name: test-results-${{ runner.os }}-${{ runner.arch }}-future-snark-shard${{ matrix.shard }}
+          path: ./test-results-*.xml
+
+  # Doc tests and the examples build don't do heavy proving, so they don't need the opt-level 3
+  # profile. Run them once here in parallel with the shards, on the fast `ci-tests` profile, so they
+  # never sit on a test shard's critical path.
+  future-snark-checks:
+    runs-on: ubuntu-24.04
+    env:
+      SNARK_TEST_ARGS: --features future_snark -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-relay
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ vars.CACHE_VERSION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          never-save-cache: ${{ inputs.disable-cache-save }}
+
+      - name: Run doc tests
+        run: cargo test --profile ci-tests --doc $SNARK_TEST_ARGS
+
+      - name: Ensure examples build
+        run: cargo build --profile ci-tests --examples $SNARK_TEST_ARGS
+
   send-tests-results:
     if: success() || failure()
     runs-on: ubuntu-24.04
     needs:
       - test
+      - test-future-snark
     steps:
       - name: Download Tests Results
         if: success() || failure()
