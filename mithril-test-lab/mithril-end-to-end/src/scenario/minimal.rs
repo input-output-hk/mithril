@@ -124,8 +124,8 @@ impl MinimalScenario {
         let chain_observer = aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
-        // Wait 2 epochs after genesis certificate creation
-        let target_epoch = start_epoch + 2;
+        // Wait 3 epochs after genesis certificate creation
+        let target_epoch = start_epoch + 3;
         self.toolkit
             .wait
             .for_aggregator_at_target_epoch(
