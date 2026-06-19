@@ -36,7 +36,7 @@ use crate::{
     },
     codec,
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey,
+        PlonkProvingKey,
         errors::IvcProofError,
         prover_input::IvcProverInput,
         prover_setup::IvcProverSetup,
@@ -243,7 +243,7 @@ where
     /// bytes on success.
     fn prove_with_transcript(
         srs: &ParamsKZG<Bls12>,
-        proving_key: &CircuitProvingKey,
+        proving_key: &PlonkProvingKey,
         circuit_data: &IvcCircuitData,
         public_inputs: &[CircuitBase],
         rng: &mut (impl RngCore + CryptoRng),

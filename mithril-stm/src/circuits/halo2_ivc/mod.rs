@@ -44,7 +44,7 @@ pub(crate) use midnight_circuits::{
 
 pub(crate) use midnight_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
+    plonk::{Circuit, ConstraintSystem, Error, ProvingKey, VerifyingKey},
     poly::{EvaluationDomain, kzg::KZGCommitmentScheme},
 };
 
@@ -65,13 +65,20 @@ pub(crate) mod tests;
 pub(crate) use types::ProtocolMessagePreimage;
 
 type S = BlstrsEmulation;
-type F = <S as SelfEmulation>::F;
+pub(crate) type F = <S as SelfEmulation>::F;
 type C = <S as SelfEmulation>::C;
 
-type E = <S as SelfEmulation>::Engine;
+pub(crate) type E = <S as SelfEmulation>::Engine;
 type CBase = <C as CircuitCurve>::Base;
 
 type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
+
+/// PLONK verifying key shared by the certificate and recursive circuits
+/// (both use the same field/curve parameterization).
+pub(crate) type PlonkVerifyingKey = VerifyingKey<F, KZGCommitmentScheme<E>>;
+/// PLONK proving key shared by the certificate and recursive circuits
+/// (both use the same field/curve parameterization).
+pub(crate) type PlonkProvingKey = ProvingKey<F, KZGCommitmentScheme<E>>;
 
 // Degree of the recursive circuit
 pub(crate) const RECURSIVE_CIRCUIT_DEGREE: u32 = 19;

@@ -19,8 +19,10 @@ use midnight_proofs::{
 
 use crate::{
     StmResult,
-    circuits::{halo2::types::CircuitBase, halo2_ivc::errors::IvcCircuitError},
-    proof_system::CircuitVerifyingKey,
+    circuits::{
+        halo2::types::CircuitBase,
+        halo2_ivc::{PlonkVerifyingKey, errors::IvcCircuitError},
+    },
 };
 
 /// Runs the off-circuit verifier for a cert SNARK proof and returns the
@@ -37,7 +39,7 @@ use crate::{
 pub(crate) fn verify_and_prepare_accumulator(
     proof_bytes: &[u8],
     public_inputs: &[CircuitBase],
-    circuit_verification_key: &CircuitVerifyingKey,
+    circuit_verification_key: &PlonkVerifyingKey,
     verifier_params: &ParamsVerifierKZG<Bls12>,
 ) -> StmResult<DualMSM<Bls12>> {
     let mut transcript =

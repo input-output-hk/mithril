@@ -11,13 +11,13 @@ use crate::{
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
-            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, K,
+            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, RECURSIVE_CIRCUIT_DEGREE,
             certificate_proof::verify_and_prepare_accumulator, state::fixed_bases_and_names,
         },
         trusted_setup::TrustedSetupProvider,
     },
     proof_system::ivc_halo2_snark::{
-        CircuitProvingKey, CircuitVerifyingKey,
+        PlonkProvingKey, PlonkVerifyingKey,
         unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
     },
 };
@@ -41,11 +41,11 @@ pub(crate) struct IvcProverSetup {
     /// Verifier params are derived on demand via `self.srs.verifier_params()`.
     pub(crate) srs: ParamsKZG<Bls12>,
     /// Verifying key of the certificate circuit.
-    pub(crate) certificate_verifying_key: CircuitVerifyingKey,
+    pub(crate) certificate_verifying_key: PlonkVerifyingKey,
     /// Verifying key of the IVC circuit.
-    pub(crate) ivc_verifying_key: CircuitVerifyingKey,
+    pub(crate) ivc_verifying_key: PlonkVerifyingKey,
     /// Proving key of the IVC circuit.
-    pub(crate) ivc_proving_key: CircuitProvingKey,
+    pub(crate) ivc_proving_key: PlonkProvingKey,
     /// Fixed-base map used to normalize the certificate accumulator.
     pub(crate) certificate_fixed_bases: BTreeMap<String, G1Projective>,
     /// Fixed-base map used to normalize the IVC proof accumulator.
@@ -85,7 +85,7 @@ impl IvcProverSetup {
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
         let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
-        srs.downsize(K);
+        srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
 
         let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;

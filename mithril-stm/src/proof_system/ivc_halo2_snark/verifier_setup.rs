@@ -22,7 +22,7 @@ use crate::{
     proof_system::{
         KZG_VERIFIER_PARAMS,
         halo2_snark::midnight_certificate_verification_key_serde,
-        ivc_halo2_snark::{CircuitVerifyingKey, prover_setup::IvcProverSetup},
+        ivc_halo2_snark::{PlonkVerifyingKey, prover_setup::IvcProverSetup},
     },
 };
 
@@ -49,7 +49,7 @@ pub(crate) struct IvcVerifierSetup {
     /// `s_g2` (tau·G2) extracted from the embedded params; passed to the accumulator check.
     tau_g2: G2Affine,
     /// Verifying key of the IVC circuit.
-    ivc_verifying_key: CircuitVerifyingKey,
+    ivc_verifying_key: PlonkVerifyingKey,
     /// Combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
     combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
@@ -61,8 +61,8 @@ impl IvcVerifierSetup {
     /// deserialized from `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION`. No SRS needed.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn try_new(
-        certificate_verifying_key: &CircuitVerifyingKey,
-        ivc_verifying_key: &CircuitVerifyingKey,
+        certificate_verifying_key: &PlonkVerifyingKey,
+        ivc_verifying_key: &PlonkVerifyingKey,
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
@@ -119,7 +119,7 @@ impl IvcVerifierSetup {
     pub(crate) fn from_parts(
         verifier_params: ParamsVerifierKZG<Bls12>,
         tau_g2: G2Affine,
-        ivc_verifying_key: CircuitVerifyingKey,
+        ivc_verifying_key: PlonkVerifyingKey,
         combined_fixed_bases: BTreeMap<String, G1Projective>,
     ) -> Self {
         Self {
@@ -160,7 +160,7 @@ impl IvcVerifierSetup {
     }
 
     /// Returns the IVC circuit verifying key.
-    pub(crate) fn ivc_verifying_key(&self) -> &CircuitVerifyingKey {
+    pub(crate) fn ivc_verifying_key(&self) -> &PlonkVerifyingKey {
         &self.ivc_verifying_key
     }
 
@@ -178,7 +178,7 @@ pub struct IvcVerifierData {
     #[serde(with = "midnight_certificate_verification_key_serde")]
     certificate_circuit_verification_key: MidnightVK,
     #[serde(with = "ivc_circuit_verification_key_serde")]
-    ivc_circuit_verification_key: CircuitVerifyingKey,
+    ivc_circuit_verification_key: PlonkVerifyingKey,
 }
 
 impl IvcVerifierData {
@@ -190,7 +190,7 @@ impl IvcVerifierData {
     pub(crate) fn new(
         genesis_message: MessageHash,
         certificate_circuit_verification_key: MidnightVK,
-        ivc_circuit_verification_key: CircuitVerifyingKey,
+        ivc_circuit_verification_key: PlonkVerifyingKey,
     ) -> Self {
         Self {
             genesis_message,
@@ -222,12 +222,12 @@ impl IvcVerifierData {
     }
 
     /// Returns a copy of the certificate circuit verification key stored in the IvcVerifierData
-    pub(crate) fn certificate_circuit_verification_key(&self) -> &CircuitVerifyingKey {
+    pub(crate) fn certificate_circuit_verification_key(&self) -> &PlonkVerifyingKey {
         self.certificate_circuit_verification_key.vk()
     }
 
     /// Returns a copy of the ivc circuit verification key stored in the IvcVerifierData
-    pub(crate) fn ivc_circuit_verification_key(&self) -> &CircuitVerifyingKey {
+    pub(crate) fn ivc_circuit_verification_key(&self) -> &PlonkVerifyingKey {
         &self.ivc_circuit_verification_key
     }
 }

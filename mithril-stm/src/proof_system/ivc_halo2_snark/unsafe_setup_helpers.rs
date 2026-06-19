@@ -27,7 +27,7 @@ use crate::{
         halo2::circuit::StmCertificateCircuit,
         halo2_ivc::{RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData},
     },
-    proof_system::ivc_halo2_snark::{CircuitProvingKey, CircuitVerifyingKey},
+    proof_system::ivc_halo2_snark::{PlonkProvingKey, PlonkVerifyingKey},
 };
 
 /// Recomputes the certificate-circuit verifying key and proving key from a
@@ -72,7 +72,7 @@ impl TempCertificateKeyProvider {
 
     /// Builds the certificate circuit, clones the shared SRS so it can be
     /// downsized in place, and runs `zk::setup_vk` to produce the verifying key.
-    pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
+    pub(crate) fn get_verifying_key(&self) -> StmResult<PlonkVerifyingKey> {
         Ok(self.get_midnight_verifying_key()?.vk().clone())
     }
 }
@@ -85,14 +85,14 @@ pub(crate) struct TempIvcKeyProvider {
     srs: Arc<ParamsKZG<Bls12>>,
     /// Certificate verifying key produced by the cert provider; the IVC circuit
     /// is parameterized by this key.
-    certificate_verifying_key: CircuitVerifyingKey,
+    certificate_verifying_key: PlonkVerifyingKey,
 }
 
 impl TempIvcKeyProvider {
     /// Stores the prerequisites needed to recompute the IVC keys.
     pub(crate) fn new(
         srs: Arc<ParamsKZG<Bls12>>,
-        certificate_verifying_key: CircuitVerifyingKey,
+        certificate_verifying_key: PlonkVerifyingKey,
     ) -> Self {
         Self {
             srs,
@@ -102,7 +102,7 @@ impl TempIvcKeyProvider {
 
     /// Builds an unknown-witness IVC circuit parameterized by the certificate VK
     /// and runs `keygen_vk_with_k` at the IVC circuit's domain size `RECURSIVE_CIRCUIT_DEGREE`.
-    pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
+    pub(crate) fn get_verifying_key(&self) -> StmResult<PlonkVerifyingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
         let mut ivc_srs = (*self.srs).clone();
         ivc_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
@@ -115,7 +115,7 @@ impl TempIvcKeyProvider {
 
     /// Recomputes the IVC verifying key (the temp layer has no cache, so the VK
     /// is re-derived here) and runs `keygen_pk` to produce the proving key.
-    pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
+    pub(crate) fn get_proving_key(&self) -> StmResult<PlonkProvingKey> {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
         let mut ivc_srs = (*self.srs).clone();
         ivc_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);

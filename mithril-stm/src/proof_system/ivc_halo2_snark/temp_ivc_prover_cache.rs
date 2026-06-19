@@ -85,7 +85,7 @@ mod tests {
             Parameters,
             circuits::{
                 halo2_ivc::{
-                    K,
+                    RECURSIVE_CIRCUIT_DEGREE,
                     tests::common::{
                         asset_readers::load_embedded_verification_context_asset,
                         generators::setup::{QUORUM_SIZE, SIGNER_COUNT},
@@ -98,14 +98,16 @@ mod tests {
             },
         };
 
-        // The IVC circuit is degree `K`, but production builds its setup from the larger degree-22
-        // SRS. Keygen and the stored proving SRS must both downsize to `K`, otherwise their Lagrange
-        // basis differs and proofs do not verify. A larger unsafe SRS shares the smaller one's tau,
-        // so a correctly downsized setup reproduces the embedded degree-`K` assets exactly.
+        // The IVC circuit is degree `RECURSIVE_CIRCUIT_DEGREE`, but production builds its setup from
+        // the larger degree-22 SRS. Keygen and the stored proving SRS must both downsize to
+        // `RECURSIVE_CIRCUIT_DEGREE`, otherwise their Lagrange basis differs and proofs do not
+        // verify. A larger unsafe SRS shares the smaller one's tau, so a correctly downsized setup
+        // reproduces the embedded degree-`RECURSIVE_CIRCUIT_DEGREE` assets exactly.
         #[test]
         fn ivc_setup_downsizes_keys_and_srs_to_the_circuit_degree() {
             let temp_dir = tempdir().expect("temp dir creation should succeed");
-            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K + 1);
+            let trusted_setup_provider =
+                build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE + 1);
             let srs = Arc::new(
                 trusted_setup_provider
                     .get_trusted_setup_parameters()
@@ -142,7 +144,7 @@ mod tests {
             );
             assert_eq!(
                 ivc_setup.srs.max_k(),
-                K,
+                RECURSIVE_CIRCUIT_DEGREE,
                 "the proving SRS stored in IvcProverSetup must be downsized to the IVC circuit degree"
             );
         }
