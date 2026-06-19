@@ -3,7 +3,7 @@ use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use slog_scope::info;
 
-use mithril_common::{StdResult, entities::Epoch};
+use mithril_common::StdResult;
 
 use crate::utils::TimeoutReason;
 use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
@@ -19,28 +19,6 @@ pub async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<re
         }
         Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
     }
-}
-
-/// Wait until the aggregator produces an artifact, returning the latest one
-///
-/// Note: the `artifact_list_url` must start with a `/`
-pub async fn wait_for_latest_artifact<T: DeserializeOwned>(
-    artifact_name: &str,
-    artifact_list_url: &str,
-    hash_extractor: fn(&T) -> String,
-    context: &ScenarioToolkitContext,
-    aggregator: &Aggregator,
-) -> StdResult<T> {
-    wait_for_latest_artifact_with_condition(
-        artifact_name,
-        artifact_list_url,
-        hash_extractor,
-        context,
-        aggregator,
-        |_| true,
-        |_| String::new(),
-    )
-    .await
 }
 
 /// Wait until the aggregator produces an artifact, returning the latest one
@@ -90,17 +68,4 @@ where
         )),
     }
         .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
-}
-
-pub fn assert_minimal_epoch<T>(
-    artifact: &T,
-    epoch_extractor: fn(&T) -> Epoch,
-    expected_epoch_min: Epoch,
-) -> StdResult<()> {
-    match epoch_extractor(artifact) {
-        epoch if epoch >= expected_epoch_min => Ok(()),
-        epoch => Err(anyhow!(
-            "Minimum expected artifact epoch not reached: {epoch} < {expected_epoch_min}"
-        )),
-    }
 }

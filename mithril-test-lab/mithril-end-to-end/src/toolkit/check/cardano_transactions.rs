@@ -34,8 +34,7 @@ impl CheckCardanoTransactionsToolkit {
     ) -> StdResult<()> {
         let certificate_toolkit = CheckCertificateToolkit::new(self.context.clone());
 
-        let artifact = self.wait_for_artifact(aggregator).await?;
-        self.check_artifact(&artifact, expected_epoch_min)?;
+        let artifact = self.wait_for_artifact(aggregator, expected_epoch_min).await?;
         certificate_toolkit
             .is_creating_certificate_with_enough_signers(
                 aggregator,
@@ -51,23 +50,22 @@ impl CheckCardanoTransactionsToolkit {
     pub async fn wait_for_artifact(
         &self,
         aggregator: &Aggregator,
+        expected_epoch_min: Epoch,
     ) -> StdResult<CardanoTransactionSnapshotListItemMessage> {
-        utils::wait_for_latest_artifact::<CardanoTransactionSnapshotListItemMessage>(
+        utils::wait_for_latest_artifact_with_condition(
             "Cardano transactions",
             "/artifact/cardano-transactions",
-            |a| a.hash.clone(),
+            |a: &CardanoTransactionSnapshotListItemMessage| a.hash.clone(),
             &self.context,
             aggregator,
+            |a| a.epoch >= expected_epoch_min,
+            |last_invalid_artifact| {
+                format!(
+                    "no Cardano transactions found with epoch >= {expected_epoch_min}\nlast artifact: {last_invalid_artifact:?}"
+                )
+            },
         )
         .await
-    }
-
-    pub fn check_artifact(
-        &self,
-        artifact: &CardanoTransactionSnapshotListItemMessage,
-        expected_epoch_min: Epoch,
-    ) -> StdResult<()> {
-        utils::assert_minimal_epoch(artifact, |a| a.epoch, expected_epoch_min)
     }
 
     pub async fn verify_with_client(
