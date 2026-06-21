@@ -5,9 +5,9 @@ mod eligibility;
 mod message;
 mod proof;
 mod prover_input;
+mod setup;
 mod signer;
 mod single_signature;
-mod unsafe_helpers;
 
 pub use aggregate_key::AggregateVerificationKeyForSnark;
 #[cfg(test)]
@@ -22,9 +22,9 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub use proof::SnarkProof;
 pub(crate) use proof::SnarkProver;
+pub(crate) use setup::{SnarkSetup, SnarkVerifierSetup};
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
-pub(crate) use unsafe_helpers::{SnarkSetup, SnarkVerifierSetup};
 
 /// Fixed merkle tree depth used of the merkle tree
 /// of signers for the SNARK proof. It is used to compute

@@ -5,12 +5,6 @@
 //! [`CircuitKeyCache`] for reuse across process restarts.
 use std::sync::{Arc, LazyLock, RwLock};
 
-#[cfg(test)]
-use std::{
-    fs::File,
-    io::{BufReader, BufWriter, ErrorKind},
-};
-
 use anyhow::{Context, anyhow};
 use midnight_curves::Bls12;
 use midnight_proofs::{
@@ -120,82 +114,6 @@ impl SnarkVerifierSetup {
     }
 }
 
-/// Load the KZG SRS from `path`, or generate one with an unsafe deterministic seed
-/// if the file does not exist. When generated, the result is persisted to `path` so
-/// subsequent calls can load it quickly.
-#[cfg(test)]
-fn load_or_generate_srs(circuit_degree: u32, path: &str) -> StmResult<ParamsKZG<Bls12>> {
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-
-    let file = File::open(path);
-    match file {
-        Ok(f) => {
-            let mut reader = BufReader::new(f);
-            Ok(
-                ParamsKZG::read_custom(&mut reader, SerdeFormat::RawBytesUnchecked)
-                    .with_context(|| "Failed to read the srs bytes.")?,
-            )
-        }
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            let srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
-            if let Err(persist_err) = persist_srs(&srs, path) {
-                // Persistence failure is non-fatal: the SRS is still usable in memory.
-                eprintln!("Warning: failed to persist generated SRS to '{path}': {persist_err}");
-            }
-            Ok(srs)
-        }
-        Err(e) => Err(anyhow!("Failed to open SRS file at path '{path}': {e}")),
-    }
-}
-
-/// Persist a KZG SRS to disk so subsequent calls to `load_or_generate_srs` can load it.
-#[cfg(test)]
-fn persist_srs(srs: &ParamsKZG<Bls12>, path: &str) -> StmResult<()> {
-    if let Some(parent) = std::path::Path::new(path).parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create SRS directory at '{}'", parent.display()))?;
-    }
-    let file =
-        File::create(path).with_context(|| format!("Failed to create SRS file at '{path}'"))?;
-    let mut writer = BufWriter::new(file);
-    srs.write_custom(&mut writer, SerdeFormat::RawBytesUnchecked)
-        .with_context(|| format!("Failed to write SRS to '{path}'"))
-}
-
-/// Return a cached VK/PK pair for `cache_key`, or derive and cache it on first call.
-///
-/// The proving-key derivation (`zk::setup_pk`) is the dominant cost in `SnarkSetup::try_new`.
-/// Caching it per `(circuit_degree, k, m, merkle_tree_depth)` avoids redundant work across
-/// multiple certificate generations within the same process.
-#[cfg(test)]
-fn get_or_build_snark_keys(
-    cache_key: SnarkSetupCacheKey,
-    circuit: &StmCertificateCircuit,
-    srs: &ParamsKZG<Bls12>,
-) -> StmResult<SnarkSetupKeyPair> {
-    if let Some(key_pair) = SNARK_SETUP_KEY_CACHE
-        .read()
-        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
-        .as_ref()
-        .filter(|(k, _)| *k == cache_key)
-        .map(|(_, v)| v.clone())
-    {
-        return Ok(key_pair);
-    }
-
-    let vk = zk::setup_vk(srs, circuit);
-    let pk = zk::setup_pk(circuit, &vk);
-    let key_pair = Arc::new((vk, pk));
-
-    let mut cache = SNARK_SETUP_KEY_CACHE
-        .write()
-        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))?;
-    *cache = Some((cache_key, key_pair.clone()));
-
-    Ok(key_pair)
-}
-
 /// Returns a cached VK/PK pair, consulting two cache levels before recomputing: an in-process
 /// [`LazyLock`] for within-run reuse, then the on-disk [`CircuitKeyCache`] for reuse across
 /// process restarts. On a miss in both, the keys are derived from the SRS and stored back.
@@ -239,9 +157,8 @@ fn get_or_build_snark_keys_with_disk_cache(
 
 #[cfg(test)]
 mod test {
-    use std::{fs, sync::Arc};
+    use std::fs;
 
-    use midnight_curves::Bls12;
     use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
     use midnight_zk_stdlib::{self as zk, MidnightCircuit};
     use rand_chacha::ChaCha20Rng;
@@ -252,14 +169,7 @@ mod test {
         circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkSetup,
     };
 
-    use super::{
-        SnarkSetupCacheKey, get_or_build_snark_keys, get_or_build_snark_keys_with_disk_cache,
-        load_or_generate_srs, persist_srs,
-    };
-
-    fn small_srs() -> ParamsKZG<Bls12> {
-        ParamsKZG::unsafe_setup(3, ChaCha20Rng::seed_from_u64(42))
-    }
+    use super::{SnarkSetupCacheKey, get_or_build_snark_keys_with_disk_cache};
 
     fn default_params() -> Parameters {
         Parameters {
@@ -267,109 +177,6 @@ mod test {
             m: 10,
             phi_f: 0.2,
         }
-    }
-
-    #[test]
-    fn persist_srs_creates_file() {
-        let dir = std::env::temp_dir().join("mithril-test-srs-creates-file");
-        let path = dir.join("params");
-        fs::remove_dir_all(&dir).ok();
-
-        persist_srs(&small_srs(), path.to_str().unwrap()).unwrap();
-
-        assert!(path.exists());
-        assert!(fs::metadata(&path).unwrap().len() > 0);
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn persist_srs_creates_missing_parent_directories() {
-        let root = std::env::temp_dir().join("mithril-test-srs-parent-dirs");
-        let path = root.join("nested").join("deep").join("params");
-        fs::remove_dir_all(&root).ok();
-
-        assert!(!root.exists());
-        persist_srs(&small_srs(), path.to_str().unwrap()).unwrap();
-
-        assert!(path.exists());
-        fs::remove_dir_all(&root).ok();
-    }
-
-    #[test]
-    fn load_or_generate_srs_loads_from_existing_file() {
-        let dir = std::env::temp_dir().join("mithril-test-srs-load-existing");
-        let path = dir.join("params_kzg_unsafe_3");
-        fs::remove_dir_all(&dir).ok();
-
-        let original = small_srs();
-        persist_srs(&original, path.to_str().unwrap()).unwrap();
-
-        let loaded = load_or_generate_srs(3, path.to_str().unwrap()).unwrap();
-
-        let mut original_bytes = vec![];
-        original
-            .write_custom(&mut original_bytes, SerdeFormat::RawBytesUnchecked)
-            .unwrap();
-        let mut loaded_bytes = vec![];
-        loaded
-            .write_custom(&mut loaded_bytes, SerdeFormat::RawBytesUnchecked)
-            .unwrap();
-        assert_eq!(
-            original_bytes, loaded_bytes,
-            "loaded SRS must match the persisted one"
-        );
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn load_or_generate_srs_generates_and_persists_when_file_is_missing() {
-        let dir = std::env::temp_dir().join("mithril-test-srs-generates");
-        let path = dir.join("params_kzg_unsafe_3");
-        fs::remove_dir_all(&dir).ok();
-
-        assert!(!path.exists());
-        let _srs = load_or_generate_srs(3, path.to_str().unwrap()).unwrap();
-
-        assert!(
-            path.exists(),
-            "generated SRS should have been persisted to disk"
-        );
-        assert!(fs::metadata(&path).unwrap().len() > 0);
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn get_or_build_snark_keys_caching_behavior() {
-        let params = default_params();
-        let circuit_a = StmCertificateCircuit::try_new(&params, 2).unwrap();
-        let circuit_b = StmCertificateCircuit::try_new(&params, 3).unwrap();
-        let degree = MidnightCircuit::from_relation(&circuit_a).min_k();
-        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let key_a = SnarkSetupCacheKey {
-            circuit_degree: degree,
-            k: params.k,
-            m: params.m,
-            merkle_tree_depth: 2,
-        };
-        let key_b = SnarkSetupCacheKey {
-            circuit_degree: degree,
-            k: params.k,
-            m: params.m,
-            merkle_tree_depth: 3,
-        };
-
-        let pair_a1 = get_or_build_snark_keys(key_a, &circuit_a, &srs).unwrap();
-        let pair_a2 = get_or_build_snark_keys(key_a, &circuit_a, &srs).unwrap();
-        assert!(
-            Arc::ptr_eq(&pair_a1, &pair_a2),
-            "same key should return the cached Arc"
-        );
-
-        let pair_b = get_or_build_snark_keys(key_b, &circuit_b, &srs).unwrap();
-        assert!(
-            !Arc::ptr_eq(&pair_a1, &pair_b),
-            "different key must produce a different Arc"
-        );
     }
 
     #[test]
