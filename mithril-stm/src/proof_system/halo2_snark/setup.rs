@@ -1,6 +1,6 @@
 //! SNARK setup for the STM certificate circuit.
 //!
-//! Bundles circuit compilation and key derivation into [`SnarkSetup`], and wires in the
+//! Bundles circuit compilation and key derivation into [`SnarkProverSetup`], and wires in the
 //! two-level cache: an in-process [`LazyLock`] for within-run reuse, and the on-disk
 //! [`CircuitKeyCache`] for reuse across process restarts.
 use std::sync::{Arc, LazyLock, RwLock};
@@ -24,23 +24,24 @@ use crate::{
 
 /// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct SnarkSetupCacheKey {
+struct SnarkProverSetupCacheKey {
     circuit_degree: u32,
     k: u64,
     m: u64,
     merkle_tree_depth: u32,
 }
 
-type SnarkSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCertificateCircuit>)>;
+type SnarkProverSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCertificateCircuit>)>;
 
-static SNARK_SETUP_KEY_CACHE: LazyLock<RwLock<Option<(SnarkSetupCacheKey, SnarkSetupKeyPair)>>> =
-    LazyLock::new(|| RwLock::new(None));
+static SNARK_PROVER_SETUP_KEY_CACHE: LazyLock<
+    RwLock<Option<(SnarkProverSetupCacheKey, SnarkProverSetupKeyPair)>>,
+> = LazyLock::new(|| RwLock::new(None));
 
 /// Bundles the one-time setup artifacts needed to prove and verify SNARK proofs.
 ///
 /// This includes the Structured Reference String (SRS), the compiled circuit, and the
 /// proving and verification keys derived from them.
-pub struct SnarkSetup {
+pub struct SnarkProverSetup {
     /// KZG Structured Reference String.
     pub(crate) srs: ParamsKZG<Bls12>,
     /// Compiled STM circuit.
@@ -51,7 +52,7 @@ pub struct SnarkSetup {
     pub(crate) proving_key: MidnightPK<StmCertificateCircuit>,
 }
 
-impl SnarkSetup {
+impl SnarkProverSetup {
     /// Loads the trusted SRS via [`TrustedSetupProvider`] and delegates to
     /// [`Self::try_new_with_srs`].
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
@@ -64,7 +65,7 @@ impl SnarkSetup {
         )
     }
 
-    /// Build a new `SnarkSetup` from protocol parameters, Merkle tree depth, a caller-supplied
+    /// Build a new `SnarkProverSetup` from protocol parameters, Merkle tree depth, a caller-supplied
     /// SRS, and the key cache to consult. The SRS must have `max_k >= circuit.min_k()`; it is
     /// downsized to the exact circuit degree before key derivation (required by `keygen_vk`).
     pub(crate) fn try_new_with_srs(
@@ -77,7 +78,7 @@ impl SnarkSetup {
         let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
         zk::downsize_srs_for_relation(&mut srs, &circuit);
 
-        let cache_key = SnarkSetupCacheKey {
+        let cache_key = SnarkProverSetupCacheKey {
             circuit_degree,
             k: params.k,
             m: params.m,
@@ -118,12 +119,12 @@ impl SnarkVerifierSetup {
 /// [`LazyLock`] for within-run reuse, then the on-disk [`CircuitKeyCache`] for reuse across
 /// process restarts. On a miss in both, the keys are derived from the SRS and stored back.
 fn get_or_build_snark_keys_with_disk_cache(
-    cache_key: SnarkSetupCacheKey,
+    cache_key: SnarkProverSetupCacheKey,
     circuit: &StmCertificateCircuit,
     srs: &ParamsKZG<Bls12>,
     disk_cache: &CircuitKeyCache,
-) -> StmResult<SnarkSetupKeyPair> {
-    if let Some(pair) = SNARK_SETUP_KEY_CACHE
+) -> StmResult<SnarkProverSetupKeyPair> {
+    if let Some(pair) = SNARK_PROVER_SETUP_KEY_CACHE
         .read()
         .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
         .as_ref()
@@ -147,7 +148,7 @@ fn get_or_build_snark_keys_with_disk_cache(
     };
 
     let key_pair = Arc::new((vk, pk));
-    *SNARK_SETUP_KEY_CACHE
+    *SNARK_PROVER_SETUP_KEY_CACHE
         .write()
         .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))? =
         Some((cache_key, key_pair.clone()));
@@ -166,10 +167,10 @@ mod test {
 
     use crate::{
         Parameters, circuits::halo2::circuit::StmCertificateCircuit,
-        circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkSetup,
+        circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkProverSetup,
     };
 
-    use super::{SnarkSetupCacheKey, get_or_build_snark_keys_with_disk_cache};
+    use super::{SnarkProverSetupCacheKey, get_or_build_snark_keys_with_disk_cache};
 
     fn default_params() -> Parameters {
         Parameters {
@@ -188,7 +189,7 @@ mod test {
         let base_dir = std::env::temp_dir().join("mithril-test-snark-try-new-ok");
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"test-vk");
-        let result = SnarkSetup::try_new_with_srs(&params, 4, srs, &cache);
+        let result = SnarkProverSetup::try_new_with_srs(&params, 4, srs, &cache);
         assert!(result.is_ok());
         fs::remove_dir_all(&base_dir).ok();
     }
@@ -202,8 +203,8 @@ mod test {
         let base_dir = std::env::temp_dir().join("mithril-test-snark-try-new-same");
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"test-vk");
-        let setup1 = SnarkSetup::try_new_with_srs(&params, 4, make_srs(), &cache).unwrap();
-        let setup2 = SnarkSetup::try_new_with_srs(&params, 4, make_srs(), &cache).unwrap();
+        let setup1 = SnarkProverSetup::try_new_with_srs(&params, 4, make_srs(), &cache).unwrap();
+        let setup2 = SnarkProverSetup::try_new_with_srs(&params, 4, make_srs(), &cache).unwrap();
 
         let mut vk_bytes1 = vec![];
         setup1
@@ -258,7 +259,7 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 100).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let cache_key = SnarkSetupCacheKey {
+        let cache_key = SnarkProverSetupCacheKey {
             circuit_degree: degree,
             k: params.k,
             m: params.m,
@@ -288,7 +289,7 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 101).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let cache_key = SnarkSetupCacheKey {
+        let cache_key = SnarkProverSetupCacheKey {
             circuit_degree: degree,
             k: params.k,
             m: params.m,

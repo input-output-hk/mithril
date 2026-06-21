@@ -1252,7 +1252,7 @@ mod tests {
         use crate::{
             Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
             SingleSignature,
-            proof_system::{SnarkProver, SnarkSetup},
+            proof_system::{SnarkProver, SnarkProverSetup},
         };
 
         type D = MithrilMembershipDigest;
@@ -1666,8 +1666,8 @@ mod tests {
                 .next_power_of_two()
                 .trailing_zeros();
 
-            let setup = SnarkSetup::try_new(&params, merkle_tree_depth)
-                .expect("SnarkSetup creation must succeed");
+            let setup = SnarkProverSetup::try_new(&params, merkle_tree_depth)
+                .expect("SnarkProverSetup creation must succeed");
             let snark_proof = SnarkProver::try_new_deterministic(prover_seed, setup)
                 .expect("SnarkProver creation must succeed")
                 .aggregate_signatures::<D>(snark_clerk, &signatures, &message)

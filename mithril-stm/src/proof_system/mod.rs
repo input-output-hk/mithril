@@ -58,7 +58,7 @@ pub use halo2_snark::AggregateVerificationKeyForSnark;
 pub use halo2_snark::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProof};
 
 #[cfg(all(test, feature = "future_snark"))]
-pub(crate) use halo2_snark::{CircuitVerificationKey, SnarkSetup};
+pub(crate) use halo2_snark::{CircuitVerificationKey, SnarkProverSetup};
 #[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
     SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, SnarkProver, SnarkVerifierSetup,

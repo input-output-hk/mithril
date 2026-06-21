@@ -22,7 +22,7 @@ pub(crate) use eligibility::{
 pub(crate) use message::build_snark_message;
 pub use proof::SnarkProof;
 pub(crate) use proof::SnarkProver;
-pub(crate) use setup::{SnarkSetup, SnarkVerifierSetup};
+pub(crate) use setup::{SnarkProverSetup, SnarkVerifierSetup};
 pub(crate) use signer::SnarkProofSigner;
 pub(crate) use single_signature::SingleSignatureForSnark;
 
