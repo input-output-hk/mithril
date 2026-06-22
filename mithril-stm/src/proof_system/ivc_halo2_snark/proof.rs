@@ -33,6 +33,7 @@ use crate::{
             types::{CertificateProofBytes, IvcProofBytes, ProtocolMessagePreimage},
         },
     },
+    codec,
     proof_system::ivc_halo2_snark::{
         CircuitProvingKey,
         errors::IvcProofError,
@@ -45,8 +46,6 @@ use crate::{
 };
 
 /// Per-session IVC prover handle.
-// TODO: remove this allow dead_code directive when the IVC prover is wired into STM
-#[allow(dead_code)]
 pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     /// Shared, cached setup (SRS, verifying keys, proving key, fixed-base maps).
     pub(crate) ivc_setup: Arc<IvcProverSetup>,
@@ -58,8 +57,6 @@ pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
 ///
 /// Always supplied to [`IvcProver::prove`] by reference; used only when `rolling_state = None`
 /// (the first certificate) to run the internal genesis IVC step before processing it.
-// TODO: remove this allow dead_code directive when IvcProver::prove is wired into STM
-#[allow(dead_code)]
 pub(crate) struct IvcGenesisBootstrapInput {
     /// Schnorr half of the Lagrange-era dual genesis signature (Ed25519 + Schnorr). Carried
     /// forward through every rolling state for in-circuit verification of the genesis message.
@@ -71,12 +68,14 @@ pub(crate) struct IvcGenesisBootstrapInput {
     pub(crate) genesis_protocol_message_preimage: ProtocolMessagePreimage,
 }
 
+/// Fails if the genesis Schnorr signature is absent
+/// or if the message preimage is not exactly 190 bytes.
 impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
     type Error = anyhow::Error;
     fn try_from(ancillary_genesis_data: &AncillaryGenesisData) -> StmResult<Self> {
         let genesis_signature = ancillary_genesis_data
             .genesis_schnorr_signature()
-            .ok_or_else(|| anyhow!("Missing genesis signature!"))?;
+            .ok_or_else(|| anyhow!("Missing genesis Schnorr signature."))?;
 
         let genesis_protocol_message_preimage: [u8; 190] =
             ancillary_genesis_data.genesis_message_preimage().try_into()?;
@@ -93,8 +92,6 @@ impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
 /// `H` is the transcript hash used to produce this proof and must be used to verify it.
 /// It is a zero-cost phantom: no `H`-dependent data is stored, but it prevents accidentally
 /// verifying a Poseidon-produced proof via the Blake2b path and vice versa.
-// TODO: remove this allow dead_code directive when the IVC prover emits this proof
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IvcProof<H: TranscriptHash> {
     /// Externally-verifiable proof bytes.
@@ -113,7 +110,6 @@ impl<H: TranscriptHash> IvcProof<H> {
     ///
     /// `H` is inferred from the prover's own type parameter, so the proof's hash type
     /// is bound to the hash used to produce it without any runtime check.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(
         proof_bytes: IvcProofBytes,
         state: State,
@@ -126,10 +122,24 @@ impl<H: TranscriptHash> IvcProof<H> {
             hash: PhantomData,
         }
     }
+
+    /// Converts a IvcProof to CBOR bytes with a version prefix.
+    pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
+        codec::to_cbor_bytes(self)
+    }
+
+    /// Deserialise an IVC proof from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if codec::has_cbor_v1_prefix(bytes) {
+            codec::from_cbor_bytes(&bytes[1..])
+        } else {
+            Err(anyhow::anyhow!(
+                "IvcProof: unsupported encoding, expected a CBOR v1 prefix"
+            ))
+        }
+    }
 }
 
-// TODO: remove this allow dead_code directive when IvcProof::verify is called
-#[allow(dead_code)]
 impl<H: TranscriptHash> IvcProof<H>
 where
     CircuitBase: Sampleable<H> + Hashable<H>,
@@ -239,8 +249,6 @@ fn ensure_advanceable_rolling_state(rolling_state: Option<&IvcRollingState>) -> 
     Ok(())
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover is wired into STM
-#[allow(dead_code)]
 impl<R: RngCore + CryptoRng> IvcProver<R> {
     /// Advances the IVC chain by one step.
     ///
@@ -1051,8 +1059,8 @@ mod tests {
                 verification_context,
             };
 
-            // run_bootstrap_path(&ctx);
-            // run_next_epoch_path(&ctx);
+            run_bootstrap_path(&ctx);
+            run_next_epoch_path(&ctx);
             run_same_epoch_path(&ctx);
         }
 

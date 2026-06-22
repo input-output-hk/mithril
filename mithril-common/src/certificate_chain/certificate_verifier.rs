@@ -303,7 +303,11 @@ impl MithrilCertificateVerifier {
                 previous_certificate,
             ),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::IvcSnark => todo!(),
+            AggregateSignatureType::IvcSnark => self
+                .verify_snark_aggregate_verification_key_chaining(
+                    certificate,
+                    previous_certificate,
+                ),
         }
     }
 

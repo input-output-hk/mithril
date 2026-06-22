@@ -33,7 +33,6 @@ use crate::{
 /// Recomputes the certificate-circuit verifying key and proving key from a
 /// shared SRS plus the `Parameters` and Merkle tree depth that pin the circuit
 /// shape.
-#[allow(dead_code)]
 pub(crate) struct TempCertificateKeyProvider {
     /// Shared KZG structured reference string, sized for the IVC circuit. Cloned
     /// on demand and downsized in place before certificate-circuit keygen.
@@ -44,7 +43,6 @@ pub(crate) struct TempCertificateKeyProvider {
     merkle_tree_depth: u32,
 }
 
-#[allow(dead_code)]
 impl TempCertificateKeyProvider {
     /// Stores the prerequisites needed to recompute the certificate keys.
     pub(crate) fn new(
@@ -80,6 +78,7 @@ impl TempCertificateKeyProvider {
 
     /// Recomputes the verifying key (the temp layer has no cache, so the VK is
     /// re-derived here) and runs `zk::setup_pk` to produce the proving key.
+    #[allow(dead_code)]
     pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
         let certificate_circuit =
             StmCertificateCircuit::try_new(&self.parameters, self.merkle_tree_depth)?;
@@ -93,7 +92,6 @@ impl TempCertificateKeyProvider {
 /// Recomputes the IVC-circuit verifying key and proving key from a shared SRS
 /// and the already-computed certificate verifying key (which the IVC circuit
 /// recursively verifies).
-#[allow(dead_code)]
 pub(crate) struct TempIvcKeyProvider {
     /// Shared KZG structured reference string, sized for the IVC circuit.
     srs: Arc<ParamsKZG<Bls12>>,
@@ -102,7 +100,6 @@ pub(crate) struct TempIvcKeyProvider {
     certificate_verifying_key: CircuitVerifyingKey,
 }
 
-#[allow(dead_code)]
 impl TempIvcKeyProvider {
     /// Stores the prerequisites needed to recompute the IVC keys.
     pub(crate) fn new(

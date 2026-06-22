@@ -160,7 +160,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         parameters: &Parameters,
         ancillary_verifier_data: Option<AncillaryVerifierData>,
     ) -> StmResult<()> {
-        let _ = ancillary_verifier_data;
+        let _ = &ancillary_verifier_data;
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
                 msg,
@@ -178,9 +178,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             #[cfg(feature = "future_snark")]
             AggregateSignature::IvcSnark(ivc_proof) => {
                 let ivc_verifier_data = ancillary_verifier_data
-                    .ok_or_else(|| {
-                        anyhow!("Ancillary verifier data needed to verify the IVC proof")
-                    })?
+                    .as_ref()
+                    .ok_or_else(|| anyhow!(AggregateSignatureError::MissingAncillaryData))?
                     .as_ivc_verifier_data();
 
                 let certificate_verifying_key =
@@ -195,8 +194,6 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     &ivc_verifying_key,
                 );
 
-                // Need to clone the ivc_verifying_key here because try_new does not
-                // take a reference, can we change that? do we want to?
                 let verifier_setup =
                     IvcVerifierSetup::try_new(&certificate_verifying_key, ivc_verifying_key)?;
 
@@ -358,7 +355,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes()?,
             #[cfg(feature = "future_snark")]
-            AggregateSignature::IvcSnark(ivc_proof) => todo!(),
+            AggregateSignature::IvcSnark(ivc_proof) => ivc_proof.to_bytes()?,
         };
         let envelope = AggregateSignatureCborEnvelope {
             signature_type: aggregate_signature_type.get_byte_encoding_prefix(),
@@ -405,7 +402,9 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 SnarkProof::from_bytes(&envelope.proof_bytes)?,
             ))),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::IvcSnark => todo!(),
+            AggregateSignatureType::IvcSnark => Ok(AggregateSignature::IvcSnark(Box::new(
+                IvcProof::from_bytes(&envelope.proof_bytes)?,
+            ))),
         }
     }
 
@@ -424,7 +423,9 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 SnarkProof::from_bytes(proof_bytes)?,
             ))),
             #[cfg(feature = "future_snark")]
-            AggregateSignatureType::IvcSnark => todo!(),
+            AggregateSignatureType::IvcSnark => Ok(AggregateSignature::IvcSnark(Box::new(
+                IvcProof::from_bytes(proof_bytes)?,
+            ))),
         }
     }
 
@@ -450,7 +451,6 @@ impl<D: MembershipDigest> AggregateSignature<D> {
     }
 
     /// If the aggregate signature is an IVC proof, return it.
-    /// TODO: replace the proof type to IvcProof
     #[cfg(feature = "future_snark")]
     pub fn get_ivc_proof(&self) -> Option<&IvcProof<blake2b_simd::State>> {
         match self {

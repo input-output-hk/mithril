@@ -53,4 +53,8 @@ pub enum AggregateSignatureError {
     /// The proof system is unknown
     #[error("Unknown proof system: {0}")]
     UnknownProofSystem(String),
+
+    /// Missing ancillary data to verify the IVC proof
+    #[error("Missing ancillary data to verify the IVC proof.")]
+    MissingAncillaryData,
 }

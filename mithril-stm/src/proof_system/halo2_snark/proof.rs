@@ -110,8 +110,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
         }
     }
 
-    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
-    #[allow(dead_code)]
     pub(crate) fn into_circuit_proof_bytes(self) -> CertificateProofBytes {
         CertificateProofBytes::from_certificate_circuit_proof_bytes(self.circuit_proof)
     }
@@ -148,8 +146,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
     }
 
     /// Returns a reference to the circuit verification key embedded in SNARK proof
-    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
-    #[allow(dead_code)]
     pub(crate) fn circuit_verification_key(&self) -> &CircuitVerificationKey {
         &self.circuit_verification_key
     }
@@ -168,8 +164,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// the off-circuit twin of the one an in-circuit IVC verifier gadget would
     /// compute on the same proof, so it can be wrapped into a certificate
     /// accumulator for recursive aggregation.
-    // TODO: remove this allow dead_code directive when the IVC prover consumes this method
-    #[allow(dead_code)]
     pub(crate) fn prepare_and_check(
         &self,
         message: &[u8],
@@ -246,8 +240,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
 /// The type parameter `R` selects the randomness source used during proof generation.
 /// Use `try_new_non_deterministic` for production (`OsRng`) and `try_new_deterministic` for
 /// reproducible tests.
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 pub struct SnarkProver<R: RngCore + CryptoRng> {
     setup: SnarkSetup,
     rng: R,
@@ -271,7 +263,6 @@ impl SnarkProver<rand_core::OsRng> {
     }
 }
 
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
 #[cfg(test)]
 impl SnarkProver<ChaCha20Rng> {
     /// Create a new prover with a deterministic randomness source seeded from `seed` (for tests only).
@@ -293,8 +284,6 @@ impl SnarkProver<ChaCha20Rng> {
     }
 }
 
-// TODO: remove this allow dead_code directive when function is called or future_snark is activated
-#[allow(dead_code)]
 impl<R: RngCore + CryptoRng> SnarkProver<R> {
     /// Aggregate a set of single signatures into a SNARK proof.
     ///

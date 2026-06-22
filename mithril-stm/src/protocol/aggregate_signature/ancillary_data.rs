@@ -18,7 +18,7 @@ use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
 ///
 /// Holds the prover-side state needed to produce the next certificate. Carried in the certificate,
 /// hashed into the certificate hash and transmitted in the certificate message. Variants map to the
-/// aggregate signature types that require prover data; none exist yet.
+/// aggregate signature types that require prover data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryProverData {
     #[cfg(feature = "future_snark")]
@@ -44,10 +44,11 @@ impl AncillaryProverData {
         }
     }
 
+    /// Returns the wrapped IvcRollingState of an AncillaryProverData.
     #[cfg(feature = "future_snark")]
-    pub fn as_ivc_rolling_state(&self) -> IvcRollingState {
+    pub fn as_ivc_rolling_state(&self) -> &IvcRollingState {
         match self {
-            Self::IvcSnark(state) => state.clone(),
+            Self::IvcSnark(state) => state,
         }
     }
 }
@@ -56,7 +57,7 @@ impl AncillaryProverData {
 ///
 /// Holds the data a verifier needs to verify the certificate. Stored and transmitted in the
 /// certificate message. Variants map to the aggregate signature types that require verifier
-/// data; none exist yet.
+/// data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryVerifierData {
     #[cfg(feature = "future_snark")]
@@ -82,10 +83,11 @@ impl AncillaryVerifierData {
         }
     }
 
+    /// Returns the wrapped IvcVerifierData of an AncillaryVerifierData.
     #[cfg(feature = "future_snark")]
-    pub fn as_ivc_verifier_data(&self) -> IvcVerifierData {
+    pub fn as_ivc_verifier_data(&self) -> &IvcVerifierData {
         match self {
-            Self::IvcSnark(state) => state.clone(),
+            Self::IvcSnark(state) => state,
         }
     }
 }
@@ -260,18 +262,20 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    use crate::codec::CODEC_VERSION_CBOR_V1;
+    #[cfg(feature = "future_snark")]
     use crate::{
         BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey,
         circuits::halo2_ivc::{
             tests::common::asset_readers::load_embedded_verification_context_asset,
             types::MessageHash,
         },
-        codec::CODEC_VERSION_CBOR_V1,
     };
 
     use super::*;
 
     // Duplicate from rolling_state.rs tests
+    #[cfg(feature = "future_snark")]
     fn build_genesis_signature() -> StandardSchnorrSignature {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let signing_key = SchnorrSigningKey::generate(&mut rng);
@@ -327,6 +331,7 @@ mod tests {
         assert_eq!(proof_input.message_preimage(), message_preimage.as_slice());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn ancillary_prover_data_to_from_bytes_round_trip() {
         let genesis_signature = build_genesis_signature();
@@ -340,6 +345,7 @@ mod tests {
         assert_eq!(bytes, reconstructed.to_bytes().unwrap());
     }
 
+    #[cfg(feature = "future_snark")]
     #[test]
     fn ancillary_verifier_data_to_from_bytes_round_trip() {
         let context = load_embedded_verification_context_asset()

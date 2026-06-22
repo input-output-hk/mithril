@@ -181,8 +181,6 @@ pub struct IvcVerifierData {
     ivc_circuit_verification_key: CircuitVerifyingKey,
 }
 
-// This implementation is copied from another one and needs to be
-// updated and tested. It is temporary to test the wiring of the prove and verification
 impl IvcVerifierData {
     /// Build the verifier data from the genesis message, the genesis Schnorr verification key and
     /// the certificate and IVC circuit verifying keys used to produce the proof.
@@ -209,31 +207,29 @@ impl IvcVerifierData {
     }
 
     /// Deserialize from versioned CBOR bytes, following `CODEC.md`.
-    ///
-    /// With no variants this always fails; it gains meaning once a variant is added.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if codec::has_cbor_v1_prefix(bytes) {
             codec::from_cbor_bytes(&bytes[1..])
         } else {
             Err(anyhow::anyhow!(
-                "AncillaryProverData: unsupported encoding, expected a CBOR v1 prefix"
+                "IvcVerifierData: unsupported encoding, expected a CBOR v1 prefix"
             ))
         }
     }
 
-    pub fn genesis_message(&self) -> MessageHash {
+    pub(crate) fn genesis_message(&self) -> MessageHash {
         self.genesis_message
     }
 
-    pub fn genesis_schnorr_verification_key(&self) -> SchnorrVerificationKey {
+    pub(crate) fn genesis_schnorr_verification_key(&self) -> SchnorrVerificationKey {
         self.genesis_schnorr_verification_key
     }
 
-    pub fn certificate_circuit_verification_key(&self) -> CircuitVerifyingKey {
+    pub(crate) fn certificate_circuit_verification_key(&self) -> CircuitVerifyingKey {
         self.certificate_circuit_verification_key.vk().clone()
     }
 
-    pub fn ivc_circuit_verification_key(&self) -> CircuitVerifyingKey {
+    pub(crate) fn ivc_circuit_verification_key(&self) -> CircuitVerifyingKey {
         self.ivc_circuit_verification_key.clone()
     }
 }
@@ -242,7 +238,7 @@ impl IvcVerifierData {
 ///
 /// [MidnightVK] serialization carries the circuit architecture, so deserialization rebuilds the
 /// correct constraint system and round-trips byte-for-byte.
-pub mod midnight_certificate_verification_key_serde {
+mod midnight_certificate_verification_key_serde {
     use midnight_proofs::utils::SerdeFormat;
     use midnight_zk_stdlib::MidnightVK;
     use serde::{Deserializer, Serializer};
@@ -271,7 +267,7 @@ pub mod midnight_certificate_verification_key_serde {
 ///
 /// Deserialization rebuilds the constraint system from the [IvcCircuitData] circuit so the
 /// verifying key round-trips byte-for-byte.
-pub mod ivc_circuit_verification_key_serde {
+mod ivc_circuit_verification_key_serde {
     use midnight_curves::Bls12;
     use midnight_proofs::utils::SerdeFormat;
     use midnight_proofs::{plonk::VerifyingKey, poly::kzg::KZGCommitmentScheme};

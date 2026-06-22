@@ -95,7 +95,7 @@ impl<D: MembershipDigest> Clerk<D> {
         aggregate_signature_type: AggregateSignatureType,
         ancillary_input: AncillaryProofInput,
     ) -> StmResult<(AggregateSignature<D>, AncillaryProofOutput)> {
-        let _ = ancillary_input;
+        let _ = &ancillary_input;
         match aggregate_signature_type {
             AggregateSignatureType::Concatenation => {
                 let proof = ConcatenationProof::aggregate_signatures(
@@ -291,7 +291,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     );
 
     let mut prover = IvcProver {
-        ivc_setup: ivc_prover_setup.clone().into(),
+        ivc_setup: ivc_prover_setup,
         rng: OsRng,
     };
 
@@ -302,7 +302,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         &global,
         &ProtocolMessagePreimage(protocol_message_preimage_bytes),
         genesis_bootstrap,
-        rolling_state.as_ref(),
+        rolling_state,
     )?;
 
     let verifier_data = IvcVerifierData::new(
@@ -337,7 +337,11 @@ fn load_ivc_prover_setup(
 ) -> StmResult<(Arc<IvcProverSetup>, MidnightVK)> {
     let cache_key = (parameters.to_bytes()?, merkle_tree_depth);
 
-    if let Some(cached) = IVC_PROVER_SETUP_CACHE.lock().unwrap().get(&cache_key) {
+    if let Some(cached) = IVC_PROVER_SETUP_CACHE
+        .lock()
+        .map_err(|_| anyhow!("IVC prover setup cache lock poisoned."))?
+        .get(&cache_key)
+    {
         return Ok(cached.clone());
     }
 
@@ -358,7 +362,7 @@ fn load_ivc_prover_setup(
     let cached = (ivc_setup, certificate_midnight_verifying_key);
     IVC_PROVER_SETUP_CACHE
         .lock()
-        .unwrap()
+        .map_err(|_| anyhow!("IVC prover setup cache lock poisoned."))?
         .insert(cache_key, cached.clone());
 
     Ok(cached)

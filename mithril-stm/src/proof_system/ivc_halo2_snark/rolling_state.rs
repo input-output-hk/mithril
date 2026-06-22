@@ -21,8 +21,6 @@ use crate::{
 };
 
 /// Caller-owned bridge between consecutive IVC proving steps.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
-#[allow(dead_code)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IvcRollingState {
     /// Last committed chain state.
@@ -36,8 +34,6 @@ pub struct IvcRollingState {
     genesis_signature: StandardSchnorrSignature,
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover uses this rolling state
-#[allow(dead_code)]
 impl IvcRollingState {
     /// Builds a rolling state from the four fields produced by an IVC proving step.
     pub(crate) fn new(
@@ -136,7 +132,7 @@ impl IvcRollingState {
     }
 }
 
-pub mod midnight_accumulator_serde {
+pub(crate) mod midnight_accumulator_serde {
     use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
     use midnight_proofs::utils::SerdeFormat;
     use serde::{Deserializer, Serializer};

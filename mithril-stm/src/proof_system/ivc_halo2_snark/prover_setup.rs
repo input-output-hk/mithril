@@ -34,8 +34,6 @@ use crate::{
 /// and values must agree across the three maps for any shared key. The in-circuit IVC
 /// verifier gadget builds a single merged fixed-base list from these names; any mismatch
 /// here produces folded accumulators the circuit will reject.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this setup
-#[allow(dead_code)]
 pub(crate) struct IvcProverSetup {
     /// KZG parameters used during proof generation, downsized to the IVC circuit degree `K`.
     ///
@@ -58,8 +56,6 @@ pub(crate) struct IvcProverSetup {
     pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover uses this setup
-#[allow(dead_code)]
 impl IvcProverSetup {
     /// Derives the full IVC setup by orchestrating the key providers.
     ///
@@ -132,6 +128,8 @@ impl IvcProverSetup {
     /// gadget zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`;
     /// off-circuit we construct a fresh trivial accumulator over the combined fixed-base
     /// names.
+    // TODO: remove this allow dead_code directive when the function is used or remove the function
+    #[allow(dead_code)]
     pub(crate) fn trivial_previous_ivc_proof_collapsed_accumulator(
         &self,
     ) -> Accumulator<BlstrsEmulation> {
