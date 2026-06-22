@@ -63,21 +63,21 @@ impl IvcVerifierSetup {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn try_new(
         certificate_verifying_key: &CircuitVerifyingKey,
-        ivc_verifying_key: CircuitVerifyingKey,
+        ivc_verifying_key: &CircuitVerifyingKey,
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
         let (certificate_fixed_bases, _) =
             fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
         let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, &ivc_verifying_key);
+            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key);
         let mut combined_fixed_bases = certificate_fixed_bases;
         combined_fixed_bases.extend(ivc_fixed_bases);
 
         Ok(Self {
             verifier_params,
             tau_g2,
-            ivc_verifying_key,
+            ivc_verifying_key: ivc_verifying_key.clone(),
             combined_fixed_bases,
         })
     }
@@ -217,20 +217,25 @@ impl IvcVerifierData {
         }
     }
 
+    /// Returns the genesis message (hash of the genesis preimage converted to a field element)
+    /// stored in the IvcVerifierData
     pub(crate) fn genesis_message(&self) -> MessageHash {
         self.genesis_message
     }
 
+    /// Returns the genesis schnorr verification key stored in the IvcVerifierData
     pub(crate) fn genesis_schnorr_verification_key(&self) -> SchnorrVerificationKey {
         self.genesis_schnorr_verification_key
     }
 
-    pub(crate) fn certificate_circuit_verification_key(&self) -> CircuitVerifyingKey {
-        self.certificate_circuit_verification_key.vk().clone()
+    /// Returns a copy of the certificate circuit verification key stored in the IvcVerifierData
+    pub(crate) fn certificate_circuit_verification_key(&self) -> &CircuitVerifyingKey {
+        self.certificate_circuit_verification_key.vk()
     }
 
-    pub(crate) fn ivc_circuit_verification_key(&self) -> CircuitVerifyingKey {
-        self.ivc_circuit_verification_key.clone()
+    /// Returns a copy of the ivc circuit verification key stored in the IvcVerifierData
+    pub(crate) fn ivc_circuit_verification_key(&self) -> &CircuitVerifyingKey {
+        &self.ivc_circuit_verification_key
     }
 }
 
@@ -340,7 +345,7 @@ mod tests {
             .expect("verification context asset should load");
         let setup = IvcVerifierSetup::try_new(
             ctx.certificate_verifying_key.vk(),
-            ctx.recursive_verifying_key,
+            &ctx.recursive_verifying_key,
         )
         .expect("try_new must succeed with valid verifying keys");
         assert_eq!(

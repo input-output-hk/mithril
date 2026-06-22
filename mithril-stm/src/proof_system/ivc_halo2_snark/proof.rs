@@ -2,7 +2,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ff::FromUniformBytes;
 use group::Group;
 use midnight_circuits::{
@@ -23,14 +23,15 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AggregateVerificationKeyForSnark, AncillaryGenesisData, MembershipDigest, SnarkProof,
-    StmResult,
+    AggregateVerificationKeyForSnark, AncillaryGenesisData, BaseFieldElement, MembershipDigest,
+    SnarkProof, StmResult,
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
+            PREIMAGE_SIZE,
             circuit::IvcCircuitData,
             state::{Global, State},
-            types::{CertificateProofBytes, IvcProofBytes, ProtocolMessagePreimage},
+            types::{CertificateProofBytes, IvcProofBytes, MessageHash, ProtocolMessagePreimage},
         },
     },
     codec,
@@ -69,7 +70,7 @@ pub(crate) struct IvcGenesisBootstrapInput {
 }
 
 /// Fails if the genesis Schnorr signature is absent
-/// or if the message preimage is not exactly 190 bytes.
+/// or if the message preimage is not exactly PREIMAGE_SIZE bytes.
 impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
     type Error = anyhow::Error;
     fn try_from(ancillary_genesis_data: &AncillaryGenesisData) -> StmResult<Self> {
@@ -77,8 +78,11 @@ impl TryFrom<&AncillaryGenesisData> for IvcGenesisBootstrapInput {
             .genesis_schnorr_signature()
             .ok_or_else(|| anyhow!("Missing genesis Schnorr signature."))?;
 
-        let genesis_protocol_message_preimage: [u8; 190] =
-            ancillary_genesis_data.genesis_message_preimage().try_into()?;
+        let genesis_protocol_message_preimage: [u8; PREIMAGE_SIZE] = ancillary_genesis_data
+            .genesis_message_preimage()
+            .0
+            .as_slice()
+            .try_into()?;
 
         Ok(Self {
             genesis_protocol_message_preimage: genesis_protocol_message_preimage.into(),
@@ -159,9 +163,11 @@ where
     /// proof transcript and verification will return [`IvcProofError::KzgOpeningFailed`].
     pub(crate) fn verify(
         &self,
+        msg: &[u8],
         global: &Global,
         verifier_setup: &IvcVerifierSetup,
     ) -> StmResult<()> {
+        self.input_message_matches_state_message(msg)?;
         let public_inputs: Vec<CircuitBase> = [
             global.as_public_input(),
             self.state.as_public_input(),
@@ -192,6 +198,33 @@ where
             verifier_setup.combined_fixed_bases(),
         ) {
             return Err(IvcProofError::AccumulatorFailed.into());
+        }
+
+        Ok(())
+    }
+
+    /// Verifies that the input protocol message is the same as the one used to generate
+    /// the proof.
+    ///
+    /// Returns an error if the input message has a wrong format, cannot be converted to a field
+    /// element or is different from the message store in the proof state.
+    fn input_message_matches_state_message(&self, msg: &[u8]) -> StmResult<()> {
+        let mut msg_bytes = [0u8; 32];
+        match TryInto::<[u8; 32]>::try_into(msg) {
+            Ok(bytes) => msg_bytes = bytes,
+            Err(_) => {
+                // If the message is not 32 bytes, try to decode it as hex.
+                hex::decode_to_slice(msg, &mut msg_bytes).with_context(
+                || "Message must be exactly 32 bytes hex encoded in 64 bytes if it is not exactly 32 bytes.",
+            )?;
+            }
+        }
+
+        let message_as_base_field_element = BaseFieldElement::from_raw(&msg_bytes)
+            .with_context(|| "Failed to convert message to BaseFieldElement.")?;
+
+        if self.state.message != MessageHash::from_field(message_as_base_field_element.0) {
+            return Err(IvcProofError::InvalidProtocolMessage.into());
         }
 
         Ok(())
@@ -452,7 +485,7 @@ mod tests {
                 },
                 generators::{build_asset_generation_setup, build_recursive_global},
             },
-            types::IvcProofBytes,
+            types::{IvcProofBytes, MessageHash},
         },
         proof_system::ivc_halo2_snark::{errors::IvcProofError, verifier_setup::IvcVerifierSetup},
     };
@@ -487,6 +520,11 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
         let setup = build_asset_generation_setup();
         let global = build_recursive_global(
             &setup,
@@ -508,8 +546,97 @@ mod tests {
         );
 
         proof
-            .verify(&global, &verifier_setup)
+            .verify(msg, &global, &verifier_setup)
             .expect("stored recursive step output should pass IvcProof::verify");
+    }
+
+    #[test]
+    fn ivc_proof_message_verification_accepts_correct_message() {
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        proof
+            .input_message_matches_state_message(msg)
+            .expect("Correct message should be accepted by verification function");
+    }
+
+    #[test]
+    fn ivc_proof_message_verification_rejects_wrong_message() {
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let msg = &[
+            21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .input_message_matches_state_message(msg)
+            .expect_err("wrong message should be rejected by verification function");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::InvalidProtocolMessage),
+            "wrong message must be rejected, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_wrong_input_message() {
+        let verification_context = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let msg = &[
+            21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
+        let setup = build_asset_generation_setup();
+        let global = build_recursive_global(
+            &setup,
+            &verification_context.certificate_verifying_key,
+            &verification_context.recursive_verifying_key,
+        );
+
+        let verifier_setup = IvcVerifierSetup::from_parts(
+            verification_context.verifier_params,
+            verification_context.verifier_tau_in_g2,
+            verification_context.recursive_verifying_key,
+            verification_context.combined_fixed_bases,
+        );
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(msg, &global, &verifier_setup)
+            .expect_err("tampered message should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::InvalidProtocolMessage),
+            "tampered message must fail the KZG opening check, got: {err}"
+        );
     }
 
     #[test]
@@ -520,6 +647,11 @@ mod tests {
         let (global, verifier_setup) = build_proof_verifier_context();
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
+
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
 
         let mut tampered_bytes = step_output.ivc_proof.as_bytes().to_vec();
         let mid = tampered_bytes.len() / 2;
@@ -532,12 +664,39 @@ mod tests {
         );
 
         let err = proof
-            .verify(&global, &verifier_setup)
+            .verify(msg, &global, &verifier_setup)
             .expect_err("tampered proof bytes should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
             Some(&IvcProofError::KzgOpeningFailed),
             "tampered bytes must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_tampered_message_bytes() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let mut step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        // Set the message and the MessageHash to zero so they match between
+        // them but they don't match what was used to create the proof
+        let msg = &[0u8; 32];
+        step_output.next_state.message = MessageHash::ZERO;
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(msg, &global, &verifier_setup)
+            .expect_err("different protocol message should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "different protocol message must fail the KZG opening check, got: {err}"
         );
     }
 
@@ -552,6 +711,11 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
+        let msg = &[
+            147, 84, 244, 74, 250, 60, 153, 155, 8, 94, 236, 150, 53, 39, 132, 61, 99, 153, 192,
+            207, 20, 90, 16, 130, 216, 12, 87, 134, 230, 4, 190, 175,
+        ];
+
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
             same_epoch.next_state,
@@ -559,7 +723,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(&global, &verifier_setup)
+            .verify(msg, &global, &verifier_setup)
             .expect_err("state from a different proof should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -579,13 +743,18 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
             step_output.next_state,
             same_epoch.next_accumulator,
         );
 
-        let err = proof.verify(&global, &verifier_setup).expect_err(
+        let err = proof.verify(msg, &global, &verifier_setup).expect_err(
             "accumulator from a different proof should be rejected by IvcProof::verify",
         );
         assert_eq!(
@@ -604,6 +773,11 @@ mod tests {
         let chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
         let proof = IvcProof::<blake2b_simd::State>::new(
             chain_state.ivc_proof,
             chain_state.state,
@@ -611,7 +785,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(&global, &verifier_setup)
+            .verify(msg, &global, &verifier_setup)
             .expect_err("Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -641,6 +815,10 @@ mod tests {
             ctx.recursive_verifying_key,
             ctx.combined_fixed_bases,
         );
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
 
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
@@ -649,7 +827,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(&global, &verifier_setup)
+            .verify(msg, &global, &verifier_setup)
             .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -874,7 +1052,11 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&ctx.global, &ctx.verifier_setup)
+                .verify(
+                    first_step.message.as_ref(),
+                    &ctx.global,
+                    &ctx.verifier_setup,
+                )
                 .expect("bootstrap Blake2b proof must verify");
 
             IvcProof::<PoseidonState<CircuitBase>>::new(
@@ -882,7 +1064,11 @@ mod tests {
                 epoch1_rolling.state().clone(),
                 epoch1_rolling.accumulator().clone(),
             )
-            .verify(&ctx.global, &ctx.verifier_setup)
+            .verify(
+                first_step.message.as_ref(),
+                &ctx.global,
+                &ctx.verifier_setup,
+            )
             .expect("bootstrap Poseidon proof must verify");
 
             println!("[bootstrap] {:.1}s", t.elapsed().as_secs_f64());
@@ -938,7 +1124,7 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&ctx.global, &ctx.verifier_setup)
+                .verify(step.message.as_ref(), &ctx.global, &ctx.verifier_setup)
                 .expect("next-epoch Blake2b proof must verify");
 
             IvcProof::<PoseidonState<CircuitBase>>::new(
@@ -946,7 +1132,7 @@ mod tests {
                 next_rolling.state().clone(),
                 next_rolling.accumulator().clone(),
             )
-            .verify(&ctx.global, &ctx.verifier_setup)
+            .verify(step.message.as_ref(), &ctx.global, &ctx.verifier_setup)
             .expect("next-epoch Poseidon proof must verify");
 
             println!("[next-epoch] {:.1}s", t.elapsed().as_secs_f64());
@@ -995,7 +1181,7 @@ mod tests {
             );
 
             blake2b_proof
-                .verify(&ctx.global, &ctx.verifier_setup)
+                .verify(step.message.as_ref(), &ctx.global, &ctx.verifier_setup)
                 .expect("same-epoch Blake2b proof must verify");
 
             println!("[same-epoch] {:.1}s", t.elapsed().as_secs_f64());

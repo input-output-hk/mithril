@@ -5,14 +5,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
-use crate::codec;
 #[cfg(feature = "future_snark")]
-use crate::proof_system::IvcRollingState;
-#[cfg(feature = "future_snark")]
-use crate::proof_system::ivc_halo2_snark::verifier_setup::IvcVerifierData;
-#[cfg(feature = "future_snark")]
-use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
+use crate::{
+    SchnorrVerificationKey, StandardSchnorrSignature,
+    proof_system::{IvcRollingState, ivc_halo2_snark::verifier_setup::IvcVerifierData},
+    protocol::aggregate_signature::GenesisMessagePreimage,
+};
+use crate::{StmResult, codec};
 
 /// Ancillary data carried by a certificate for the prover.
 ///
@@ -46,9 +45,9 @@ impl AncillaryProverData {
 
     /// Returns the wrapped IvcRollingState of an AncillaryProverData.
     #[cfg(feature = "future_snark")]
-    pub fn as_ivc_rolling_state(&self) -> &IvcRollingState {
+    pub fn as_ivc_rolling_state(&self) -> Option<&IvcRollingState> {
         match self {
-            Self::IvcSnark(state) => state,
+            Self::IvcSnark(state) => Some(state),
         }
     }
 }
@@ -85,9 +84,9 @@ impl AncillaryVerifierData {
 
     /// Returns the wrapped IvcVerifierData of an AncillaryVerifierData.
     #[cfg(feature = "future_snark")]
-    pub fn as_ivc_verifier_data(&self) -> &IvcVerifierData {
+    pub fn as_ivc_verifier_data(&self) -> Option<&IvcVerifierData> {
         match self {
-            Self::IvcSnark(state) => state,
+            Self::IvcSnark(state) => Some(state),
         }
     }
 }
@@ -100,7 +99,7 @@ impl AncillaryVerifierData {
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
     #[cfg(feature = "future_snark")]
-    genesis_message_preimage: Vec<u8>,
+    genesis_message_preimage: GenesisMessagePreimage,
     #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
     #[cfg(feature = "future_snark")]
@@ -123,7 +122,7 @@ impl AncillaryGenesisData {
     ) -> Self {
         Self {
             #[cfg(feature = "future_snark")]
-            genesis_message_preimage,
+            genesis_message_preimage: GenesisMessagePreimage(genesis_message_preimage),
             #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
             #[cfg(feature = "future_snark")]
@@ -133,7 +132,7 @@ impl AncillaryGenesisData {
 
     /// Return the genesis message preimage.
     #[cfg(feature = "future_snark")]
-    pub fn genesis_message_preimage(&self) -> &[u8] {
+    pub fn genesis_message_preimage(&self) -> &GenesisMessagePreimage {
         &self.genesis_message_preimage
     }
 
@@ -312,7 +311,10 @@ mod tests {
 
         let genesis_data = AncillaryGenesisData::new(preimage.clone(), None, None);
 
-        assert_eq!(genesis_data.genesis_message_preimage(), preimage.as_slice());
+        assert_eq!(
+            genesis_data.genesis_message_preimage().0,
+            preimage.as_slice()
+        );
         assert!(genesis_data.genesis_schnorr_signature().is_none());
         assert!(genesis_data.genesis_schnorr_verification_key().is_none());
     }

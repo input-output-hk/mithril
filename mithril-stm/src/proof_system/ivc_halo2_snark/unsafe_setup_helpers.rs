@@ -75,18 +75,6 @@ impl TempCertificateKeyProvider {
     pub(crate) fn get_verifying_key(&self) -> StmResult<CircuitVerifyingKey> {
         Ok(self.get_midnight_verifying_key()?.vk().clone())
     }
-
-    /// Recomputes the verifying key (the temp layer has no cache, so the VK is
-    /// re-derived here) and runs `zk::setup_pk` to produce the proving key.
-    #[allow(dead_code)]
-    pub(crate) fn get_proving_key(&self) -> StmResult<CircuitProvingKey> {
-        let certificate_circuit =
-            StmCertificateCircuit::try_new(&self.parameters, self.merkle_tree_depth)?;
-        let mut certificate_srs = (*self.srs).clone();
-        zk::downsize_srs_for_relation(&mut certificate_srs, &certificate_circuit);
-        let midnight_vk = zk::setup_vk(&certificate_srs, &certificate_circuit);
-        Ok(zk::setup_pk(&certificate_circuit, &midnight_vk).pk().clone())
-    }
 }
 
 /// Recomputes the IVC-circuit verifying key and proving key from a shared SRS

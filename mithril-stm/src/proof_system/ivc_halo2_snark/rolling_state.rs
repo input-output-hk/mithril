@@ -139,7 +139,7 @@ pub(crate) mod midnight_accumulator_serde {
 
     use crate::circuits::halo2_ivc::io::{Read, Write};
 
-    /// Serialization function based on the write function of the MidnightVK
+    /// Serialization function based on the write function of Midnight's Accumulator
     pub fn serialize<S: Serializer>(
         accumulator: &Accumulator<BlstrsEmulation>,
         serializer: S,
@@ -151,7 +151,7 @@ pub(crate) mod midnight_accumulator_serde {
         serializer.serialize_bytes(&buf)
     }
 
-    /// Deserialization function based on the read function of the MidnightVK
+    /// Deserialization function based on the read function of Midnight's Accumulator
     pub fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Accumulator<BlstrsEmulation>, D::Error> {

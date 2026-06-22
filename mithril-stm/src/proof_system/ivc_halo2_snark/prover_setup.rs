@@ -12,8 +12,7 @@ use crate::{
         halo2::types::CircuitBase,
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, K,
-            certificate_proof::verify_and_prepare_accumulator,
-            state::{fixed_bases_and_names, trivial_acc},
+            certificate_proof::verify_and_prepare_accumulator, state::fixed_bases_and_names,
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -122,20 +121,6 @@ impl IvcProverSetup {
         accumulator.extract_fixed_bases(&self.certificate_fixed_bases);
         accumulator.collapse();
         accumulator
-    }
-
-    /// Trivial previous-IVC-proof collapsed accumulator used at genesis. The in-circuit
-    /// gadget zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`;
-    /// off-circuit we construct a fresh trivial accumulator over the combined fixed-base
-    /// names.
-    // TODO: remove this allow dead_code directive when the function is used or remove the function
-    #[allow(dead_code)]
-    pub(crate) fn trivial_previous_ivc_proof_collapsed_accumulator(
-        &self,
-    ) -> Accumulator<BlstrsEmulation> {
-        let combined_fixed_base_names: Vec<String> =
-            self.combined_fixed_bases.keys().cloned().collect();
-        trivial_acc(&combined_fixed_base_names)
     }
 
     /// Off-circuit verify of the previous step's IVC proof, returning the collapsed

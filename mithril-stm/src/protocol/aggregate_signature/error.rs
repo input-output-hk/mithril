@@ -54,7 +54,15 @@ pub enum AggregateSignatureError {
     #[error("Unknown proof system: {0}")]
     UnknownProofSystem(String),
 
-    /// Missing ancillary data to verify the IVC proof
-    #[error("Missing ancillary data to verify the IVC proof.")]
-    MissingAncillaryData,
+    /// Missing ancillary verifier data to verify the IVC proof
+    #[error("Missing ancillary verifier data to verify the IVC proof.")]
+    MissingAncillaryVerifierData,
+
+    /// Missing IVC verifier data from the AncillaryVerifierData
+    #[error("Missing IVC verifier data from the AncillaryVerifierData.")]
+    MissingIvcVerifierData,
+
+    /// Missing the rolling state to pass along the next certificate
+    #[error("Missing the rolling state to pass along the next certificate.")]
+    MissingRollingStateForNextCertificate,
 }
