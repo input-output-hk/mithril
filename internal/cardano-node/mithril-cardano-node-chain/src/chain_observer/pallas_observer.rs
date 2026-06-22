@@ -113,27 +113,31 @@ impl PallasChainObserver {
     }
 
     /// Returns the decoded inline [Datum] from the given transaction output.
-    fn inspect_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Datum> {
-        let plutus_data = match self.get_inline_datum(utxo)? {
-            DatumOption::Data(plutus_data) => plutus_data.0,
-            DatumOption::Hash(_) => {
-                return Err(anyhow!("PallasChainObserver does not support datum hash"))
-                    .with_context(|| "PallasChainObserver failed to inspect datum");
-            }
-        };
-        let datum_bytes = minicbor::to_vec(&plutus_data)
-            .with_context(|| "PallasChainObserver failed to encode inline datum")?;
+    ///
+    /// Hashes are not supported, and will return `Ok(None)`.
+    fn inspect_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Option<Datum>> {
+        let inline_datum = self.get_inline_datum(utxo)?;
 
-        try_inspect::<Datum>(datum_bytes)
+        match inline_datum {
+            DatumOption::Data(plutus_data) => {
+                let datum_bytes = minicbor::to_vec(&plutus_data.0)
+                    .with_context(|| "PallasChainObserver failed to encode inline datum")?;
+                Ok(Some(try_inspect::<Datum>(datum_bytes)?))
+            }
+            DatumOption::Hash(_) => Ok(None),
+        }
     }
 
     /// Serializes datum to `TxDatum` instance.
-    fn serialize_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TxDatum> {
-        let datum = self.inspect_datum(utxo)?;
-        let serialized = serde_json::to_string(&datum.to_json())
-            .with_context(|| "PallasChainObserver failed to serialize datum")?;
-
-        Ok(TxDatum(serialized))
+    ///
+    /// If the inline datum is a hash, returns Ok(None).
+    fn serialize_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Option<TxDatum>> {
+        let tx_datum = self
+            .inspect_datum(utxo)?
+            .map(|datum| serde_json::to_string(&datum.to_json()))
+            .transpose()?
+            .map(TxDatum);
+        Ok(tx_datum)
     }
 
     /// Maps the given `UTxOByAddress` instance to Datums.
@@ -141,9 +145,7 @@ impl PallasChainObserver {
         transaction
             .iter()
             .filter_map(|(_, utxo)| match utxo {
-                TransactionOutput::Current(output) => {
-                    output.inline_datum.as_ref().map(|_| self.serialize_datum(output))
-                }
+                TransactionOutput::Current(output) => self.serialize_datum(output).transpose(),
                 _ => None,
             })
             .collect::<StdResult<Datums>>()
@@ -485,7 +487,9 @@ impl ChainObserver for PallasChainObserver {
 #[cfg(all(test, unix))]
 mod tests {
     use std::fs;
+    use std::str::FromStr;
 
+    use mithril_common::test::TempDir;
     use pallas_codec::utils::{AnyCbor, AnyUInt, CborWrap, KeyValuePairs};
     use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::localstate::queries_v16::{BigInt, PlutusData};
@@ -499,12 +503,14 @@ mod tests {
             },
         },
     };
-    use pallas_primitives::Hash;
+    use pallas_primitives::{DatumHash, Hash};
     use tokio::net::UnixListener;
 
-    use mithril_common::test::TempDir;
-
     use super::*;
+
+    fn valid_hex_datum() -> String {
+        "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF".to_string()
+    }
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
@@ -512,7 +518,7 @@ mod tests {
         let transaction_id = Hash::from(tx_bytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
-        let hex_datum = "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF";
+        let hex_datum = valid_hex_datum();
         let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
         let inline_datum = Some(DatumOption::Data(CborWrap(plutus_data)));
 
@@ -676,6 +682,41 @@ mod tests {
                 }
             }
         })
+    }
+
+    #[tokio::test]
+    async fn inspect_datum_return_none_for_hash() {
+        let socket_path = create_temp_dir("inspect_datum_return_none_for_hash").join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let utxo = PostAlonsoTransactionOutput {
+            address: Addr::from(vec![1, 2, 3]),
+            amount: Value::Coin(AnyUInt::MajorByte(2)),
+            inline_datum: Some(DatumOption::Hash(
+                DatumHash::from_str(&"a".repeat(64)).unwrap(),
+            )),
+            script_ref: None,
+        };
+
+        let result = observer.inspect_datum(&utxo).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn inspect_datum_return_datum_for_data() {
+        let socket_path =
+            create_temp_dir("inspect_datum_return_datum_for_data").join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let hex_datum = valid_hex_datum();
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        let utxo = PostAlonsoTransactionOutput {
+            address: Addr::from(vec![1, 2, 3]),
+            amount: Value::Coin(AnyUInt::MajorByte(2)),
+            inline_datum: Some(DatumOption::Data(CborWrap(plutus_data))),
+            script_ref: None,
+        };
+
+        let result = observer.inspect_datum(&utxo).unwrap();
+        assert!(result.is_some());
     }
 
     #[tokio::test]
