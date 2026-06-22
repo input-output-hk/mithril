@@ -7,7 +7,7 @@ use mithril_common::{
     messages::{CertificateListItemMessage, CertificateMessage},
 };
 
-use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
+use crate::{Aggregator, poll_until, toolkit::ScenarioToolkitContext, utils::AttemptResult};
 
 use super::utils;
 
@@ -58,9 +58,11 @@ impl CheckCertificateToolkit {
             }
         }
 
-        match attempt!(10, self.context.tenth_epoch_delay(), {
-            fetch_certificate_message(url.clone()).await
-        }) {
+        match poll_until!(
+            self.context.appearance_timeout(),
+            self.context.poll_backoff(),
+            { fetch_certificate_message(url.clone()).await }
+        ) {
             AttemptResult::Ok(certificate) => {
                 info!("Aggregator produced a certificate"; "certificate" => ?certificate);
                 if certificate.metadata.signers.len() == total_signers_expected {
