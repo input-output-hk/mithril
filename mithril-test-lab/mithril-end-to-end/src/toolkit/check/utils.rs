@@ -6,7 +6,7 @@ use slog_scope::info;
 use mithril_common::StdResult;
 
 use crate::utils::TimeoutReason;
-use crate::{Aggregator, attempt, toolkit::ScenarioToolkitContext, utils::AttemptResult};
+use crate::{Aggregator, poll_until, toolkit::ScenarioToolkitContext, utils::AttemptResult};
 
 pub async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
     match reqwest::get(url.clone()).await {
@@ -52,7 +52,7 @@ where
         }
     }
 
-    match attempt!(20, context.tenth_epoch_delay(), {
+    match poll_until!(context.timeout_for_epochs(2), context.poll_backoff(), {
         fetch_last_artifact(artifact_name, url.clone()).await
     }, until &condition) {
         AttemptResult::Ok(last_artifact) => {

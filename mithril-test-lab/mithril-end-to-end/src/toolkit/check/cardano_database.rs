@@ -8,7 +8,7 @@ use mithril_common::{
 };
 
 use crate::{
-    Aggregator, CardanoDbV2Command, Client, ClientCommand, attempt,
+    Aggregator, CardanoDbV2Command, Client, ClientCommand, poll_until,
     toolkit::{CheckCertificateToolkit, ScenarioToolkitContext},
     utils::AttemptResult,
 };
@@ -97,7 +97,7 @@ impl CheckCardanoDatabaseToolkit {
             }
         }
 
-        match attempt!(10, self.context.tenth_epoch_delay(), {
+        match poll_until!(self.context.timeout_for_epochs(1), self.context.poll_backoff(), {
             fetch_cardano_database_digests_map(url.clone()).await
         }) {
             AttemptResult::Ok(cardano_database_digests_map) => {
