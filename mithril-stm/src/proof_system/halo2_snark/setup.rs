@@ -186,7 +186,7 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let base_dir = std::env::temp_dir().join("mithril-test-snark-try-new-ok");
+        let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"test-vk");
         let result = SnarkProverSetup::try_new_with_srs(&params, 4, srs, &cache);
@@ -200,7 +200,7 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let make_srs = || ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let base_dir = std::env::temp_dir().join("mithril-test-snark-try-new-same");
+        let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"test-vk");
         let setup1 = SnarkProverSetup::try_new_with_srs(&params, 4, make_srs(), &cache).unwrap();
@@ -266,7 +266,7 @@ mod test {
             merkle_tree_depth: 100,
         };
 
-        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-empty");
+        let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
 
@@ -303,7 +303,7 @@ mod test {
         let mut pk_bytes = vec![];
         pk.write(&mut pk_bytes, SerdeFormat::RawBytes).unwrap();
 
-        let base_dir = std::env::temp_dir().join("mithril-test-snark-disk-valid");
+        let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", &vk_bytes);
 

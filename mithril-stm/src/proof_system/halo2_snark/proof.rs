@@ -76,18 +76,19 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// caller-supplied SRS instead of the trusted production SRS, so a proof can be reconstructed
     /// against the same unsafe SRS it was generated with.
     #[cfg(test)]
-    pub(crate) fn try_new_with_srs(
+    pub(crate) fn try_new_with_srs<T: Into<std::path::PathBuf>>(
+        folder_path: T,
         circuit_proof: Vec<u8>,
         params: Parameters,
         merkle_tree_depth: u32,
         srs: ParamsKZG<Bls12>,
     ) -> StmResult<Self> {
-        let key_cache_dir = tempfile::tempdir()?;
+        let base_dir = std::env::temp_dir().join(folder_path.into());
         let snark_setup = SnarkProverSetup::try_new_with_srs(
             &params,
             merkle_tree_depth,
             srs,
-            &CircuitKeyCache::new(key_cache_dir.path().to_path_buf(), "non-recursive", &[]),
+            &CircuitKeyCache::new(base_dir, "non-recursive", &[]),
         )?;
         Ok(Self {
             circuit_proof,
@@ -579,6 +580,7 @@ mod tests {
                 .unwrap();
 
             let snark_proof = SnarkProof::try_new_with_srs(
+                current_function!(),
                 forged_snark_proof.circuit_proof,
                 params,
                 merkle_tree_depth,
@@ -612,6 +614,7 @@ mod tests {
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
             let random_proof = SnarkProof::try_new_with_srs(
+                current_function!(),
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -625,6 +628,7 @@ mod tests {
             let not_enough_bytes =
                 &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
             let small_proof = SnarkProof::try_new_with_srs(
+                current_function!(),
                 not_enough_bytes.to_vec(),
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -641,6 +645,7 @@ mod tests {
             let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
             let large_proof = SnarkProof::try_new_with_srs(
+                current_function!(),
                 too_many_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -753,6 +758,7 @@ mod tests {
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
             let random_proof = SnarkProof::try_new_with_srs(
+                current_function!(),
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,

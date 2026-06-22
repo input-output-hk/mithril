@@ -220,14 +220,14 @@ mod tests {
 
     #[test]
     fn validate_returns_empty_when_vk_absent() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-absent");
+        let (base_dir, cache) = make_test_cache(current_function!());
         assert!(matches!(cache.validate().unwrap(), CacheState::Empty));
         fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
     fn validate_returns_valid_key_pair_when_vk_and_pk_present() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-match");
+        let (base_dir, cache) = make_test_cache(current_function!());
         fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
         fs::write(cache.verification_key_path(), b"expected-vk-bytes").unwrap();
         fs::write(cache.proving_key_path(), b"some-pk-bytes").unwrap();
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn validate_returns_verification_key_only_when_pk_absent() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-pk-missing");
+        let (base_dir, cache) = make_test_cache(current_function!());
         fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
         fs::write(cache.verification_key_path(), b"expected-vk-bytes").unwrap();
         assert!(matches!(
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn validate_removes_stale_files_and_returns_empty() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-stale");
+        let (base_dir, cache) = make_test_cache(current_function!());
         let vk_path = cache.verification_key_path().to_path_buf();
         let pk_path = cache.proving_key_path().to_path_buf();
         fs::create_dir_all(vk_path.parent().unwrap()).unwrap();
@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn validate_handles_absent_pk_during_stale_cleanup() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-pk-absent");
+        let (base_dir, cache) = make_test_cache(current_function!());
         let vk_path = cache.verification_key_path().to_path_buf();
         let pk_path = cache.proving_key_path().to_path_buf();
         fs::create_dir_all(vk_path.parent().unwrap()).unwrap();
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn store_key_pair_writes_both_files_and_validates_as_pair() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-store");
+        let (base_dir, cache) = make_test_cache(current_function!());
         cache.store_key_pair(b"expected-vk-bytes", b"some-pk-bytes").unwrap();
         assert_eq!(
             fs::read(cache.verification_key_path()).unwrap(),
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn get_verification_key_returns_none_when_empty() {
-        let (base_dir, cache) = make_test_cache("mithril-key-cache-test-get-empty");
+        let (base_dir, cache) = make_test_cache(current_function!());
         let result: Option<MidnightVK> = cache.get_verification_key().unwrap();
         assert!(result.is_none());
         fs::remove_dir_all(&base_dir).ok();
@@ -311,7 +311,7 @@ mod tests {
         // Cache whose expected bytes and on-disk VK are the production certificate VK, so
         // get_verification_key validates (match) and deserializes a real MidnightVK. The PK is
         // absent (VerificationKeyOnly), which is enough for verifying-key access.
-        let base_dir = env::temp_dir().join("mithril-key-cache-test-get-vk");
+        let base_dir = env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(
             base_dir.clone(),
@@ -334,7 +334,7 @@ mod tests {
     fn get_proving_key_returns_none_without_full_pair() {
         // VK present and matching but no PK → VerificationKeyOnly → get_proving_key returns None.
         // The type parameter is only a witness here; no deserialization runs.
-        let base_dir = env::temp_dir().join("mithril-key-cache-test-get-pk-none");
+        let base_dir = env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let cache = CircuitKeyCache::new(
             base_dir.clone(),
@@ -353,12 +353,8 @@ mod tests {
         fs::remove_dir_all(&base_dir).ok();
     }
 
-    // Both constructor tests below write to the real temp_dir() paths used by the production
-    // factory methods. Parallel test runs that also exercise the production path could race
-    // on the same directory. If these tests ever become flaky, switch to make_test_cache to
-    // isolate each run into a unique subdirectory.
     #[test]
-    fn for_non_recursive_circuit_has_correct_path_and_uses_production_vk() {
+    fn for_non_recursive_circuit_path_and_production_vk_validation() {
         let cache = CircuitKeyCache::for_non_recursive_circuit();
 
         assert!(
@@ -374,24 +370,28 @@ mod tests {
             "proving_key_path should end with mithril-circuit/non-recursive-keys/proving-key"
         );
 
-        let cleanup_dir = cache.verification_key_path().parent().unwrap().to_path_buf();
-        fs::remove_dir_all(&cleanup_dir).ok();
-        fs::create_dir_all(&cleanup_dir).unwrap();
-        fs::write(
-            cache.verification_key_path(),
+        let base_dir = env::temp_dir().join(current_function!());
+        fs::remove_dir_all(&base_dir).ok();
+        let isolated_cache = CircuitKeyCache::new(
+            base_dir.clone(),
+            "non-recursive-keys",
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        )
-        .unwrap();
-        fs::write(cache.proving_key_path(), b"any-pk-bytes").unwrap();
+        );
+        isolated_cache
+            .store_key_pair(
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                b"any-pk-bytes",
+            )
+            .unwrap();
         assert!(
-            matches!(cache.validate().unwrap(), CacheState::ValidKeyPair),
+            matches!(isolated_cache.validate().unwrap(), CacheState::ValidKeyPair),
             "validate() should return ValidKeyPair when production VK bytes are on disk"
         );
-        fs::remove_dir_all(&cleanup_dir).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn for_recursive_circuit_has_correct_path_and_uses_production_vk() {
+    fn for_recursive_circuit_path_and_production_vk_validation() {
         let cache = CircuitKeyCache::for_recursive_circuit();
 
         assert!(
@@ -407,19 +407,23 @@ mod tests {
             "proving_key_path should end with mithril-circuit/recursive-keys/proving-key"
         );
 
-        let cleanup_dir = cache.verification_key_path().parent().unwrap().to_path_buf();
-        fs::remove_dir_all(&cleanup_dir).ok();
-        fs::create_dir_all(&cleanup_dir).unwrap();
-        fs::write(
-            cache.verification_key_path(),
+        let base_dir = env::temp_dir().join(current_function!());
+        fs::remove_dir_all(&base_dir).ok();
+        let isolated_cache = CircuitKeyCache::new(
+            base_dir.clone(),
+            "recursive-keys",
             RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        )
-        .unwrap();
-        fs::write(cache.proving_key_path(), b"any-pk-bytes").unwrap();
+        );
+        isolated_cache
+            .store_key_pair(
+                RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                b"any-pk-bytes",
+            )
+            .unwrap();
         assert!(
-            matches!(cache.validate().unwrap(), CacheState::ValidKeyPair),
+            matches!(isolated_cache.validate().unwrap(), CacheState::ValidKeyPair),
             "validate() should return ValidKeyPair when production VK bytes are on disk"
         );
-        fs::remove_dir_all(&cleanup_dir).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 }
