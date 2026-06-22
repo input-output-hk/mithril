@@ -236,6 +236,11 @@ impl SignedEntityTypeDiscriminants {
         Self::iter().filter(|d| !Self::UNSTABLE_DISCRIMINANTS.contains(d))
     }
 
+    /// Returns a comma-separated list of all accepted signed entity type discriminants.
+    pub fn accepted_discriminants() -> String {
+        Self::iter_all().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
+    }
+
     /// Get the database value from enum's instance
     pub fn index(&self) -> SignedEntityTypeId {
         match self {
@@ -339,10 +344,6 @@ Accepted values are (case-sensitive): {}."#,
             invalid_discriminants.join(", "),
             Self::accepted_discriminants()
         )
-    }
-
-    fn accepted_discriminants() -> String {
-        Self::iter_all().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
     }
 }
 
@@ -540,15 +541,15 @@ mod tests {
         let cardano_stake_distribution_json = SignedEntityType::CardanoStakeDistribution(Epoch(25))
             .get_json_beacon()
             .unwrap();
-        assert_same_json!("25", &cardano_stake_distribution_json);
+        assert_same_json!(json: "25", json: &cardano_stake_distribution_json);
 
         let cardano_transactions_json =
             SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77))
                 .get_json_beacon()
                 .unwrap();
         assert_same_json!(
-            r#"{"epoch":35,"block_number":77}"#,
-            &cardano_transactions_json
+            json: r#"{"epoch":35,"block_number":77}"#,
+            json: &cardano_transactions_json
         );
 
         let cardano_transactions_json = SignedEntityType::CardanoBlocksTransactions(
@@ -559,22 +560,22 @@ mod tests {
         .get_json_beacon()
         .unwrap();
         assert_same_json!(
-            r#"{"epoch":35,"block_number":77,"block_number_offset":5}"#,
-            &cardano_transactions_json
+            json: r#"{"epoch":35,"block_number":77,"block_number_offset":5}"#,
+            json: &cardano_transactions_json
         );
 
         let msd_json = SignedEntityType::MithrilStakeDistribution(Epoch(15))
             .get_json_beacon()
             .unwrap();
-        assert_same_json!("15", &msd_json);
+        assert_same_json!(json: "15", json: &msd_json);
 
         let cardano_database_full_json =
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(12, 987))
                 .get_json_beacon()
                 .unwrap();
         assert_same_json!(
-            r#"{"epoch":12,"immutable_file_number":987}"#,
-            &cardano_database_full_json
+            json: r#"{"epoch":12,"immutable_file_number":987}"#,
+            json: &cardano_database_full_json
         );
     }
 

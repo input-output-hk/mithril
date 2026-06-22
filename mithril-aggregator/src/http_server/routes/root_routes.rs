@@ -39,7 +39,6 @@ mod handlers {
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
-        SignedEntityTypeDiscriminantsMessage,
     };
 
     use crate::http_server::routes::reply::json;
@@ -69,7 +68,7 @@ mod handlers {
 
         if capabilities
             .signed_entity_types
-            .contains(&SignedEntityTypeDiscriminantsMessage::CardanoTransactions)
+            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions.into())
         {
             capabilities.cardano_transactions_prover =
                 Some(CardanoTransactionsProverCapabilities {
@@ -101,7 +100,6 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
-        SignedEntityTypeDiscriminantsMessage,
     };
     use mithril_common::test::double::Dummy;
 
@@ -165,10 +163,10 @@ mod tests {
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
                     signed_entity_types: BTreeSet::from_iter([
-                        SignedEntityTypeDiscriminantsMessage::CardanoStakeDistribution,
-                        SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
-                        SignedEntityTypeDiscriminantsMessage::CardanoTransactions,
-                        SignedEntityTypeDiscriminantsMessage::CardanoDatabase,
+                        SignedEntityTypeDiscriminants::CardanoStakeDistribution.into(),
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution.into(),
+                        SignedEntityTypeDiscriminants::CardanoTransactions.into(),
+                        SignedEntityTypeDiscriminants::CardanoDatabase.into(),
                     ]),
                     aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {

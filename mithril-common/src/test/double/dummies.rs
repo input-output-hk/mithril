@@ -182,8 +182,9 @@ mod messages {
         CardanoBlocksTransactionsSigningConfig, CardanoDbBeacon, CardanoTransaction,
         CardanoTransactionsSetProof, CardanoTransactionsSigningConfig, CompressionAlgorithm,
         DigestLocation, Epoch, ImmutablesLocation, MkSetProof, MultiFilesUri, ProtocolMessage,
-        ProtocolMessagePartKey, ProtocolParameters, StakeDistribution, StakeDistributionParty,
-        SupportedEra, TemplateUri,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, SupportedEra,
+        TemplateUri,
     };
     use crate::messages::*;
 
@@ -315,7 +316,7 @@ mod messages {
                 documentation_url: "https://example.com".to_string(),
                 capabilities: AggregatorCapabilities {
                     signed_entity_types: BTreeSet::from([
-                        SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution.into(),
                     ]),
                     aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: None,
@@ -556,7 +557,7 @@ mod messages {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
                 epoch,
-                signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(epoch),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch).into(),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
@@ -592,7 +593,7 @@ mod messages {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
                 epoch,
-                signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(epoch),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch).into(),
                 metadata: CertificateListItemMessageMetadata {
                     network: "testnet".to_string(),
                     protocol_version: "0.1.0".to_string(),
@@ -643,7 +644,7 @@ mod messages {
                 cardano_blocks_transactions_signing_config: Some(
                     CardanoBlocksTransactionsSigningConfig::dummy(),
                 ),
-                available_signed_entity_types: SignedEntityTypeDiscriminantsMessage::all(),
+                available_signed_entity_types: SignedEntityTypeDiscriminantsMessage::all_known(),
             }
         }
     }
@@ -683,7 +684,7 @@ mod messages {
         fn dummy() -> Self {
             use crate::entities::Epoch;
             Self {
-                signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(Epoch(5)),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(5)).into(),
                 party_id: "party_id".to_string(),
                 signature: fake_keys::single_signature()[0].to_string(),
                 won_indexes: vec![1, 3],
@@ -698,7 +699,7 @@ mod messages {
         fn dummy() -> Self {
             use crate::entities::Epoch;
             Self {
-                signed_entity_type: SignedEntityTypeMessage::MithrilStakeDistribution(Epoch(5)),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(5)).into(),
                 signature: fake_keys::single_signature()[0].try_into().unwrap(),
             }
         }

@@ -343,7 +343,8 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use crate::entities::{
-        CardanoDbBeacon, ProtocolMessagePartKey, ProtocolParameters, StakeDistributionParty,
+        CardanoDbBeacon, ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        StakeDistributionParty,
     };
 
     use super::*;
@@ -353,10 +354,11 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: Epoch(10),
-            signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(CardanoDbBeacon::new(
+            signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
                 *Epoch(10),
                 1728,
-            )),
+            ))
+            .into(),
             metadata: CertificateMetadataMessagePart {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

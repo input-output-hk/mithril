@@ -113,7 +113,7 @@ impl Debug for CertificateListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CardanoDbBeacon, ProtocolMessagePartKey};
+    use crate::entities::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType};
 
     use super::*;
 
@@ -165,9 +165,10 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(CardanoDbBeacon::new(
+            signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
                 *epoch, 1728,
-            )),
+            ))
+            .into(),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

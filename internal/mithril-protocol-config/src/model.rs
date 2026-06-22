@@ -69,16 +69,24 @@ impl From<ProtocolConfigurationMessage> for MithrilNetworkConfigurationForEpoch 
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::messages::SignedEntityTypeDiscriminantsMessage;
+    use mithril_common::messages::{
+        DiscontinuedSignedEntityType, SignedEntityTypeDiscriminantsMessage,
+    };
     use mithril_common::test::double::Dummy;
 
     use super::*;
 
     #[test]
-    fn convert_from_protocol_conf_message_to_network_config_remove_unknown_discriminants() {
+    fn convert_from_protocol_conf_message_to_network_config_remove_unknown_and_discontinued_discriminants()
+     {
         let message = ProtocolConfigurationMessage {
             available_signed_entity_types: BTreeSet::from([
-                SignedEntityTypeDiscriminantsMessage::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminantsMessage::Known(
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                ),
+                SignedEntityTypeDiscriminantsMessage::Discontinued(
+                    DiscontinuedSignedEntityType::CardanoImmutableFilesFull,
+                ),
                 SignedEntityTypeDiscriminantsMessage::Unknown,
             ]),
             ..Dummy::dummy()

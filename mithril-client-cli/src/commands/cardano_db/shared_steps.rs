@@ -271,7 +271,7 @@ pub fn is_version_at_least_10_6_2_or_latest(version: &str) -> bool {
 mod tests {
     use mithril_client::{
         MithrilCertificateMetadata,
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityTypeMessage, test::Dummy},
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType, test::Dummy},
     };
     use mithril_common::test::TempDir;
 
@@ -295,7 +295,7 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: beacon.epoch,
-            signed_entity_type: SignedEntityTypeMessage::CardanoDatabase(beacon),
+            signed_entity_type: SignedEntityType::CardanoDatabase(beacon).into(),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
