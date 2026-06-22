@@ -1,15 +1,22 @@
 use std::time::Duration;
 
+use crate::utils::Backoff;
+
+/// Context shared across scenario toolkits, carrying the polling policy derived from the Cardano
+/// epoch duration.
 #[derive(Debug, Clone)]
 pub struct ScenarioToolkitContext {
+    /// Policy used to derive polling timeouts from the epoch duration.
     attempt_policy: AttemptPolicy,
 }
 
 impl ScenarioToolkitContext {
+    /// Builds a context from the given attempt policy.
     pub fn new(attempt_policy: AttemptPolicy) -> Self {
         Self { attempt_policy }
     }
 
+    /// Builds a context from the Cardano slot length and number of slots per epoch.
     pub fn new_from_cardano_epoch(slot_length_in_s: f64, number_of_slot_per_epoch: f64) -> Self {
         Self {
             attempt_policy: AttemptPolicy::from_cardano_epoch(
@@ -19,43 +26,52 @@ impl ScenarioToolkitContext {
         }
     }
 
-    pub fn attempt_policy(&self) -> AttemptPolicy {
-        self.attempt_policy
+    /// Backoff spacing out polling attempts while waiting for a condition.
+    pub fn poll_backoff(&self) -> Backoff {
+        Backoff::default()
     }
 
-    pub fn tenth_epoch_delay(&self) -> Duration {
-        self.attempt_policy.delay(0.10)
+    /// Timeout covering the given number of Cardano epochs.
+    pub fn timeout_for_epochs(&self, epochs: u32) -> Duration {
+        self.attempt_policy.timeout_for_epochs(epochs)
     }
 
-    pub fn half_epoch_delay(&self) -> Duration {
-        self.attempt_policy.delay(0.5)
+    /// Timeout to wait for the aggregator to produce a signed artifact once it is running.
+    pub fn artifact_production_timeout(&self) -> Duration {
+        self.timeout_for_epochs(1)
     }
 
-    pub fn full_epoch_delay(&self) -> Duration {
-        self.attempt_policy.epoch_duration
+    /// Timeout to wait for the devnet and aggregator to become ready during startup.
+    pub fn startup_readiness_timeout(&self) -> Duration {
+        self.timeout_for_epochs(10)
     }
 }
 
+/// Policy deriving polling timeouts from the Cardano epoch duration.
 #[derive(Debug, Clone, Copy)]
 pub struct AttemptPolicy {
+    /// Wall-clock duration of a single Cardano epoch.
     epoch_duration: Duration,
 }
 
 impl AttemptPolicy {
+    /// Builds a policy from the given epoch duration.
     pub const fn new(base_duration: Duration) -> Self {
         Self {
             epoch_duration: base_duration,
         }
     }
 
+    /// Builds a policy from the Cardano slot length and number of slots per epoch.
     pub fn from_cardano_epoch(slot_length_in_s: f64, number_of_slot_per_epoch: f64) -> Self {
         Self::new(Duration::from_secs_f64(
             slot_length_in_s * number_of_slot_per_epoch,
         ))
     }
 
-    pub fn delay(self, multiplier: f32) -> Duration {
-        self.epoch_duration.mul_f32(multiplier)
+    /// Returns a timeout covering the given number of epochs, saturating at [`Duration::MAX`].
+    pub fn timeout_for_epochs(self, epochs: u32) -> Duration {
+        self.epoch_duration.checked_mul(epochs).unwrap_or(Duration::MAX)
     }
 }
 
@@ -72,9 +88,32 @@ mod tests {
     }
 
     #[test]
-    fn delay_calculation() {
+    fn timeout_for_epochs_scales_with_epoch_duration() {
         let policy = AttemptPolicy::new(Duration::from_secs(10));
-        assert_eq!(policy.delay(0.5), Duration::from_secs(5));
-        assert_eq!(policy.delay(2.0), Duration::from_secs(20));
+
+        assert_eq!(policy.timeout_for_epochs(0), Duration::from_secs(0));
+        assert_eq!(policy.timeout_for_epochs(1), Duration::from_secs(10));
+        assert_eq!(policy.timeout_for_epochs(5), Duration::from_secs(50));
+    }
+
+    #[test]
+    fn timeout_for_epochs_saturates_on_overflow() {
+        let policy = AttemptPolicy::new(Duration::MAX);
+
+        assert_eq!(policy.timeout_for_epochs(2), Duration::MAX);
+    }
+
+    #[test]
+    fn named_timeouts_cover_expected_epochs() {
+        let context = ScenarioToolkitContext::new(AttemptPolicy::new(Duration::from_secs(10)));
+
+        assert_eq!(
+            context.artifact_production_timeout(),
+            Duration::from_secs(10)
+        );
+        assert_eq!(
+            context.startup_readiness_timeout(),
+            Duration::from_secs(100)
+        );
     }
 }
