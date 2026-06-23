@@ -7,6 +7,7 @@
 //! * `crypto_helper`: Cryptographic utilities for testing
 //! * `double`: Test doubles (mocks, fakes, dummies, ...)
 //! * `entities_extensions`: Extension traits adding test-specific methods for [crate::entities]
+//! * `messages_extensions`: Extension traits adding test-specific methods for [crate::messages]
 //! * `logging`: Test logging infrastructure
 //! * `mock_extensions`: Additional mocking utilities
 //! * `temp_dir`: Temporary directory management for tests
@@ -18,6 +19,7 @@ pub mod crypto_helper;
 pub mod double;
 pub mod entities_extensions;
 pub mod logging;
+pub mod messages_extensions;
 pub mod mock_extensions;
 
 mod assert;
