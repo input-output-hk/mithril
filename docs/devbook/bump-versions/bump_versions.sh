@@ -51,6 +51,8 @@ readonly BENCHMARK_VERSION_FILE=mithril-test-lab/benchmark/aggregator-prover/VER
 declare BENCHMARK_UPDATE=""
 declare BENCHMARK_UPDATE_MESSAGE=""
 
+readonly RESOURCES_TO_CHECK="[src/|tests/|benches/|Cargo.toml]"
+
 update_crate_versions() {
     # NOTE
     # `cargo get workspace.members` display the list of path to crates in the workspace.
@@ -70,7 +72,7 @@ update_crate_versions() {
 
     for member in $members
     do
-        nb_files_modify=$(echo "$files_modify" | grep -c "^$member/")
+        nb_files_modify=$(echo "$files_modify" | grep -c "^$member/$RESOURCES_TO_CHECK")
         if [[ $nb_files_modify -gt 0 ]]
         then
             package_name=${member##*/}
