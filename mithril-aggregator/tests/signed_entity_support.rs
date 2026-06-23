@@ -39,8 +39,12 @@ async fn follower_can_cycle_to_ready_to_signing_with_unknown_and_discontinued_si
     };
     let mut leader_tester =
         RuntimeTester::build(start_time_point.clone(), leader_configuration.clone()).await;
-    let leader_aggregator_http_server =
-        leader_tester.spawn_leader_aggregator_http_server().await.unwrap();
+    let leader_aggregator_http_server = leader_tester
+        .build_leader_aggregator_http_server()
+        .with_unknown_signed_entities_in_protocol_configuration()
+        .with_discontinued_signed_entities_in_protocol_configuration()
+        .spawn()
+        .unwrap();
 
     let follower_configuration = ServeCommandConfiguration {
         data_stores_directory: test_dir.join("follower"),
