@@ -1,10 +1,12 @@
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_addresses::Address;
-use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
+use pallas_codec::minicbor;
+use pallas_codec::utils::Bytes;
+use pallas_network::miniprotocols::localstate::queries_v16::DatumOption;
+use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::{
@@ -12,8 +14,8 @@ use pallas_network::{
         localstate::{
             Client,
             queries_v16::{
-                self, Addr, Addrs, ChainBlockNumber, GenesisConfig, PostAlonsoTransactionOutput,
-                StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
+                self, Addr, Addrs, ChainBlockNumber, GenesisConfig, StakeSnapshots, Stakes,
+                TransactionOutput, UTxOByAddress,
             },
         },
     },
@@ -101,42 +103,41 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
-    /// Returns inline datum tag from the given `Values` instance.
-    fn get_datum_tag(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TagWrap<Bytes, 24>> {
-        Ok(utxo
-            .inline_datum
-            .as_ref()
-            .with_context(|| "PallasChainObserver failed to get inline datum")?
-            .1
-            .clone())
-    }
-
-    /// Returns inline datums from the given `Values` instance.
-    fn inspect_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Datum> {
-        let datum = self.get_datum_tag(utxo)?;
-        let datum = CborWrap(datum).to_vec();
-
-        try_inspect::<Datum>(datum)
+    /// Returns the decoded inline [Datum] from the given transaction output.
+    ///
+    /// Hashes are not supported, and will return `Ok(None)`.
+    fn inspect_datum(&self, inline_datum: &DatumOption) -> StdResult<Option<Datum>> {
+        match inline_datum {
+            DatumOption::Data(plutus_data) => {
+                let datum_bytes = minicbor::to_vec(&plutus_data.0)
+                    .with_context(|| "PallasChainObserver failed to encode inline datum")?;
+                try_inspect::<Datum>(datum_bytes).map(Some)
+            }
+            DatumOption::Hash(_) => Ok(None),
+        }
     }
 
     /// Serializes datum to `TxDatum` instance.
-    fn serialize_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TxDatum> {
-        let datum = self.inspect_datum(utxo)?;
-        let serialized = serde_json::to_string(&datum.to_json())
-            .with_context(|| "PallasChainObserver failed to serialize datum")?;
-
-        Ok(TxDatum(serialized))
+    ///
+    /// If the inline datum is a hash, returns Ok(None).
+    fn serialize_datum(&self, inline_datum: &DatumOption) -> StdResult<Option<TxDatum>> {
+        let tx_datum = self
+            .inspect_datum(inline_datum)?
+            .map(|datum| serde_json::to_string(&datum.to_json()))
+            .transpose()?
+            .map(TxDatum);
+        Ok(tx_datum)
     }
 
     /// Maps the given `UTxOByAddress` instance to Datums.
     fn map_datums(&self, transaction: UTxOByAddress) -> StdResult<Datums> {
         transaction
-            .utxo
             .iter()
             .filter_map(|(_, utxo)| match utxo {
-                TransactionOutput::Current(output) => {
-                    output.inline_datum.as_ref().map(|_| self.serialize_datum(output))
-                }
+                TransactionOutput::Current(output) => output
+                    .inline_datum
+                    .as_ref()
+                    .and_then(|inline_datum| self.serialize_datum(inline_datum).transpose()),
                 _ => None,
             })
             .collect::<StdResult<Datums>>()
@@ -185,7 +186,7 @@ impl PallasChainObserver {
     async fn do_stake_snapshots_state_query(
         &self,
         statequery: &mut Client,
-    ) -> StdResult<StakeSnapshot> {
+    ) -> StdResult<StakeSnapshots> {
         statequery
             .acquire(None)
             .await
@@ -195,7 +196,7 @@ impl PallasChainObserver {
             .await
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
-        let state_snapshot = queries_v16::get_stake_snapshots(statequery, era, BTreeSet::new())
+        let state_snapshot = queries_v16::get_stake_snapshots(statequery, era, SMaybe::None)
             .await
             .with_context(|| "PallasChainObserver failed to get stake snapshot")?;
 
@@ -222,7 +223,6 @@ impl PallasChainObserver {
 
         let have_stakes_in_two_epochs = |stakes: &Stakes| stakes.snapshot_mark_pool > 0;
         for (key, stakes) in stake_snapshot
-            .snapshots
             .stake_snapshots
             .iter()
             .filter(|(_, stakes)| have_stakes_in_two_epochs(stakes))
@@ -301,7 +301,7 @@ impl PallasChainObserver {
     async fn do_get_genesis_config_state_query(
         &self,
         statequery: &mut Client,
-    ) -> StdResult<Vec<GenesisConfig>> {
+    ) -> StdResult<GenesisConfig> {
         let era = self.do_get_current_era_state_query(statequery).await?;
         let genesis_config = queries_v16::get_genesis_config(statequery, era)
             .await
@@ -350,12 +350,8 @@ impl PallasChainObserver {
 
         let genesis_config = self.do_get_genesis_config_state_query(statequery).await?;
 
-        let config = genesis_config
-            .first()
-            .with_context(|| "PallasChainObserver failed to extract the config")?;
-
         let current_kes_period = self
-            .calculate_kes_period(chain_point, config.slots_per_kes_period as u64)
+            .calculate_kes_period(chain_point, genesis_config.slots_per_kes_period as u64)
             .await?;
 
         Ok(Some(current_kes_period))
@@ -483,25 +479,43 @@ impl ChainObserver for PallasChainObserver {
 #[cfg(all(test, unix))]
 mod tests {
     use std::fs;
+    use std::str::FromStr;
 
-    use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
+    use mithril_common::test::TempDir;
+    use pallas_codec::utils::{AnyCbor, AnyUInt, CborWrap, KeyValuePairs};
     use pallas_network::facades::NodeServer;
+    use pallas_network::miniprotocols::localstate::queries_v16::{
+        BigInt, PlutusData, PostAlonsoTransactionOutput,
+    };
     use pallas_network::miniprotocols::{
         Point,
         localstate::{
             ClientQueryRequest,
             queries_v16::{
                 BlockQuery, ChainBlockNumber, Fraction, GenesisConfig, HardForkQuery, LedgerQuery,
-                Request, Snapshots, StakeSnapshot, SystemStart, Value,
+                Request, StakeSnapshots, SystemStart, Value,
             },
         },
     };
-    use pallas_primitives::Hash;
+    use pallas_primitives::{DatumHash, Hash};
     use tokio::net::UnixListener;
 
-    use mithril_common::test::TempDir;
-
     use super::*;
+
+    fn valid_hex_datum() -> String {
+        "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF".to_string()
+    }
+
+    fn dummy_post_alonso_transaction_output() -> PostAlonsoTransactionOutput {
+        let hex_datum = valid_hex_datum();
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        PostAlonsoTransactionOutput {
+            address: Addr::from(vec![1, 2, 3]),
+            amount: Value::Coin(AnyUInt::MajorByte(2)),
+            inline_datum: Some(DatumOption::Data(CborWrap(plutus_data))),
+            script_ref: None,
+        }
+    }
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
@@ -509,10 +523,9 @@ mod tests {
         let transaction_id = Hash::from(tx_bytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
-        let hex_datum = "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF";
-        let datum = hex::decode(hex_datum).unwrap().into();
-        let tag = TagWrap::<_, 24>::new(datum);
-        let inline_datum = Some((1_u16, tag));
+        let hex_datum = valid_hex_datum();
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        let inline_datum = Some(DatumOption::Data(CborWrap(plutus_data)));
 
         let address: Address =
             Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
@@ -524,18 +537,17 @@ mod tests {
             inline_datum,
             script_ref: None,
         });
-        let utxo = KeyValuePairs::from(vec![(
+
+        KeyValuePairs::from(vec![(
             queries_v16::UTxO {
                 transaction_id,
                 index,
             },
             values,
-        )]);
-
-        UTxOByAddress { utxo }
+        )])
     }
 
-    fn get_fake_stake_snapshot() -> StakeSnapshot {
+    fn get_fake_stake_snapshot() -> StakeSnapshots {
         let stake_snapshots = KeyValuePairs::from(vec![
             (
                 Bytes::from(
@@ -583,22 +595,20 @@ mod tests {
             ),
         ]);
 
-        StakeSnapshot {
-            snapshots: Snapshots {
-                stake_snapshots,
-                snapshot_stake_mark_total: 2100000000003,
-                snapshot_stake_set_total: 2100000000006,
-                snapshot_stake_go_total: 2100000000000,
-            },
+        StakeSnapshots {
+            stake_snapshots,
+            snapshot_stake_mark_total: 2100000000003,
+            snapshot_stake_set_total: 2100000000006,
+            snapshot_stake_go_total: 2100000000000,
         }
     }
 
-    fn get_fake_genesis_config() -> Vec<GenesisConfig> {
-        let genesis = GenesisConfig {
+    fn get_fake_genesis_config() -> GenesisConfig {
+        GenesisConfig {
             system_start: SystemStart {
-                year: 2021,
+                year: BigInt::from(2021),
                 day_of_year: 150,
-                picoseconds_of_day: 0,
+                picoseconds_of_day: BigInt::from(0),
             },
             network_magic: 42,
             network_id: 42,
@@ -610,9 +620,7 @@ mod tests {
             slot_length: 1,
             update_quorum: 5,
             max_lovelace_supply: AnyUInt::MajorByte(2),
-        };
-
-        vec![genesis]
+        }
     }
 
     /// pallas responses mock server.
@@ -638,13 +646,13 @@ mod tests {
                 AnyCbor::from_encode([8])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetGenesisConfig)) => {
-                AnyCbor::from_encode(get_fake_genesis_config())
+                AnyCbor::from_encode([get_fake_genesis_config()])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetUTxOByAddress(_))) => {
-                AnyCbor::from_encode(get_fake_utxo_by_address())
+                AnyCbor::from_encode([get_fake_utxo_by_address()])
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetStakeSnapshots(_))) => {
-                AnyCbor::from_encode(get_fake_stake_snapshot())
+                AnyCbor::from_encode([get_fake_stake_snapshot()])
             }
             _ => panic!("unexpected query from client: {query:?}"),
         }
@@ -679,6 +687,71 @@ mod tests {
                 }
             }
         })
+    }
+
+    #[tokio::test]
+    async fn inspect_datum_return_none_for_hash() {
+        let socket_path = create_temp_dir("inspect_datum_return_none_for_hash").join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let inline_datum = DatumOption::Hash(DatumHash::from_str(&"a".repeat(64)).unwrap());
+
+        let result = observer.inspect_datum(&inline_datum).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn inspect_datum_return_datum_for_data() {
+        let socket_path =
+            create_temp_dir("inspect_datum_return_datum_for_data").join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let hex_datum = valid_hex_datum();
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        let inline_datum = DatumOption::Data(CborWrap(plutus_data));
+
+        let result = observer.inspect_datum(&inline_datum).unwrap();
+        assert!(result.is_some());
+    }
+
+    #[tokio::test]
+    async fn map_datums_ignore_transaction_without_inline_datum() {
+        let socket_path = create_temp_dir("map_datums_ignore_transaction_without_inline_datum")
+            .join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let utxo = PostAlonsoTransactionOutput {
+            inline_datum: None,
+            ..dummy_post_alonso_transaction_output()
+        };
+
+        let result = observer.map_datums(KeyValuePairs::from(vec![(
+            queries_v16::UTxO {
+                transaction_id: Hash::from([0u8; 32]),
+                index: AnyUInt::MajorByte(0),
+            },
+            TransactionOutput::Current(utxo),
+        )]));
+        assert_eq!(result.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn map_datums_retrieve_transaction_with_inline_datum() {
+        let socket_path = create_temp_dir("map_datums_retrieve_transaction_with_inline_datum")
+            .join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let hex_datum = valid_hex_datum();
+        let plutus_data: PlutusData = minicbor::decode(&hex::decode(hex_datum).unwrap()).unwrap();
+        let utxo = PostAlonsoTransactionOutput {
+            inline_datum: Some(DatumOption::Data(CborWrap(plutus_data))),
+            ..dummy_post_alonso_transaction_output()
+        };
+
+        let result = observer.map_datums(KeyValuePairs::from(vec![(
+            queries_v16::UTxO {
+                transaction_id: Hash::from([0u8; 32]),
+                index: AnyUInt::MajorByte(0),
+            },
+            TransactionOutput::Current(utxo),
+        )]));
+        assert_eq!(result.unwrap().len(), 1);
     }
 
     #[tokio::test]
