@@ -183,20 +183,17 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     .as_ivc_verifier_data()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingIvcVerifierData))?;
 
-                let certificate_verifying_key =
-                    ivc_verifier_data.certificate_circuit_verification_key();
-
-                let ivc_verifying_key = ivc_verifier_data.ivc_circuit_verification_key();
-
                 let global = Global::new(
                     ivc_verifier_data.genesis_message(),
                     ivc_verifier_data.genesis_schnorr_verification_key(),
-                    certificate_verifying_key,
-                    ivc_verifying_key,
+                    ivc_verifier_data.certificate_circuit_verification_key(),
+                    ivc_verifier_data.ivc_circuit_verification_key(),
                 );
 
-                let verifier_setup =
-                    IvcVerifierSetup::try_new(certificate_verifying_key, ivc_verifying_key)?;
+                let verifier_setup = IvcVerifierSetup::try_new(
+                    ivc_verifier_data.certificate_circuit_verification_key(),
+                    ivc_verifier_data.ivc_circuit_verification_key(),
+                )?;
 
                 ivc_proof.verify(msg, &global, &verifier_setup)
             }
@@ -509,7 +506,7 @@ mod tests {
                 .expect_err("Should fail without ancillary verifier data.");
             assert_eq!(
                 err.downcast_ref::<IvcProofError>(),
-                Some(&IvcProofError::InvalidProtocolMessage),
+                Some(&IvcProofError::InvalidMessage),
                 "missing ancillary verifier data must be rejected, got: {err}"
             );
         }

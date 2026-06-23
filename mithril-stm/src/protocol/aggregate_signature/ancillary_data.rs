@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     SchnorrVerificationKey, StandardSchnorrSignature,
     proof_system::{IvcRollingState, ivc_halo2_snark::verifier_setup::IvcVerifierData},
-    protocol::aggregate_signature::GenesisMessagePreimage,
+    protocol::aggregate_signature::MessagePreimage,
 };
 use crate::{StmResult, codec};
 
@@ -99,7 +99,7 @@ impl AncillaryVerifierData {
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
     #[cfg(feature = "future_snark")]
-    genesis_message_preimage: GenesisMessagePreimage,
+    genesis_message_preimage: MessagePreimage,
     #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
     #[cfg(feature = "future_snark")]
@@ -122,7 +122,7 @@ impl AncillaryGenesisData {
     ) -> Self {
         Self {
             #[cfg(feature = "future_snark")]
-            genesis_message_preimage: GenesisMessagePreimage(genesis_message_preimage),
+            genesis_message_preimage: MessagePreimage(genesis_message_preimage),
             #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
             #[cfg(feature = "future_snark")]
@@ -132,7 +132,7 @@ impl AncillaryGenesisData {
 
     /// Return the genesis message preimage.
     #[cfg(feature = "future_snark")]
-    pub fn genesis_message_preimage(&self) -> &GenesisMessagePreimage {
+    pub fn genesis_message_preimage(&self) -> &MessagePreimage {
         &self.genesis_message_preimage
     }
 

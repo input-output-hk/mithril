@@ -33,9 +33,9 @@ pub(crate) enum IvcProofError {
     )]
     InvalidProvingContext,
 
-    /// Mismatch between the protocol messages
+    /// Mismatch between the messages
     #[error(
-        "IVC proof rejected: the protocol message used to create the proof is different from the input message"
+        "IVC proof rejected: the message used to create the proof is different from the input message"
     )]
-    InvalidProtocolMessage,
+    InvalidMessage,
 }

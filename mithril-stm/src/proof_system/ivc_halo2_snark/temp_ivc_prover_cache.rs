@@ -1,3 +1,4 @@
+// TODO: remove when the `IvcSnarkSetup` is final
 #[cfg(feature = "future_snark")]
 use std::{
     collections::HashMap,
@@ -69,4 +70,81 @@ pub(crate) fn load_ivc_prover_setup(
         .insert(cache_key, cached.clone());
 
     Ok(cached)
+}
+
+#[cfg(test)]
+mod tests {
+
+    mod slow {
+        use std::sync::Arc;
+
+        use midnight_proofs::poly::commitment::Params;
+        use tempfile::tempdir;
+
+        use crate::{
+            Parameters,
+            circuits::{
+                halo2_ivc::{
+                    K,
+                    tests::common::{
+                        asset_readers::load_embedded_verification_context_asset,
+                        generators::setup::{QUORUM_SIZE, SIGNER_COUNT},
+                    },
+                },
+                trusted_setup::build_provider_with_unsafe_srs,
+            },
+            proof_system::ivc_halo2_snark::{
+                IvcProverSetup, TempCertificateKeyProvider, TempIvcKeyProvider,
+            },
+        };
+
+        // The IVC circuit is degree `K`, but production builds its setup from the larger degree-22
+        // SRS. Keygen and the stored proving SRS must both downsize to `K`, otherwise their Lagrange
+        // basis differs and proofs do not verify. A larger unsafe SRS shares the smaller one's tau,
+        // so a correctly downsized setup reproduces the embedded degree-`K` assets exactly.
+        #[test]
+        fn ivc_setup_downsizes_keys_and_srs_to_the_circuit_degree() {
+            let temp_dir = tempdir().expect("temp dir creation should succeed");
+            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K + 1);
+            let srs = Arc::new(
+                trusted_setup_provider
+                    .get_trusted_setup_parameters()
+                    .expect("oversized unsafe SRS should load"),
+            );
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            let cert_provider =
+                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
+            let cert_vk = cert_provider
+                .get_verifying_key()
+                .expect("certificate verifying key keygen should succeed");
+            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
+            let ivc_setup =
+                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
+                    .expect("IvcProverSetup::load should succeed");
+
+            let verification_context = load_embedded_verification_context_asset()
+                .expect("verification context asset should load");
+
+            assert_eq!(
+                verification_context.certificate_verifying_key.vk().transcript_repr(),
+                ivc_setup.certificate_verifying_key.transcript_repr(),
+                "cert VK must be independent of the SRS degree (downsized at keygen)"
+            );
+            assert_eq!(
+                verification_context.recursive_verifying_key.transcript_repr(),
+                ivc_setup.ivc_verifying_key.transcript_repr(),
+                "IVC VK must be independent of the SRS degree (downsized at keygen)"
+            );
+            assert_eq!(
+                ivc_setup.srs.max_k(),
+                K,
+                "the proving SRS stored in IvcProverSetup must be downsized to the IVC circuit degree"
+            );
+        }
+    }
 }

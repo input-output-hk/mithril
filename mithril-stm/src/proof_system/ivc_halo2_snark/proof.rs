@@ -167,7 +167,7 @@ where
         global: &Global,
         verifier_setup: &IvcVerifierSetup,
     ) -> StmResult<()> {
-        self.input_message_matches_state_message(msg)?;
+        self.check_input_message_matches_state_message(msg)?;
         let public_inputs: Vec<CircuitBase> = [
             global.as_public_input(),
             self.state.as_public_input(),
@@ -208,7 +208,7 @@ where
     ///
     /// Returns an error if the input message has a wrong format, cannot be converted to a field
     /// element or is different from the message store in the proof state.
-    fn input_message_matches_state_message(&self, msg: &[u8]) -> StmResult<()> {
+    fn check_input_message_matches_state_message(&self, msg: &[u8]) -> StmResult<()> {
         let mut msg_bytes = [0u8; 32];
         match TryInto::<[u8; 32]>::try_into(msg) {
             Ok(bytes) => msg_bytes = bytes,
@@ -224,7 +224,7 @@ where
             .with_context(|| "Failed to convert message to BaseFieldElement.")?;
 
         if self.state.message != MessageHash::from_field(message_as_base_field_element.0) {
-            return Err(IvcProofError::InvalidProtocolMessage.into());
+            return Err(IvcProofError::InvalidMessage.into());
         }
 
         Ok(())
@@ -588,7 +588,7 @@ mod tests {
         );
 
         proof
-            .input_message_matches_state_message(msg)
+            .check_input_message_matches_state_message(msg)
             .expect("Correct message should be accepted by verification function");
     }
 
@@ -609,11 +609,11 @@ mod tests {
         );
 
         let err = proof
-            .input_message_matches_state_message(msg)
+            .check_input_message_matches_state_message(msg)
             .expect_err("wrong message should be rejected by verification function");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
-            Some(&IvcProofError::InvalidProtocolMessage),
+            Some(&IvcProofError::InvalidMessage),
             "wrong message must be rejected, got: {err}"
         );
     }
@@ -655,7 +655,7 @@ mod tests {
             .expect_err("tampered message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
-            Some(&IvcProofError::InvalidProtocolMessage),
+            Some(&IvcProofError::InvalidMessage),
             "tampered message must fail the KZG opening check, got: {err}"
         );
     }
@@ -946,7 +946,6 @@ mod tests {
         use midnight_circuits::{
             hash::poseidon::PoseidonState, verifier::Accumulator, verifier::BlstrsEmulation,
         };
-        use midnight_proofs::poly::commitment::Params;
         use midnight_proofs::utils::SerdeFormat;
         use rand_core::OsRng;
         use tempfile::tempdir;
@@ -1298,55 +1297,6 @@ mod tests {
             run_bootstrap_path(&ctx);
             run_next_epoch_path(&ctx);
             run_same_epoch_path(&ctx);
-        }
-
-        // The IVC circuit is degree `K`, but production builds its setup from the larger degree-22
-        // SRS. Keygen and the stored proving SRS must both downsize to `K`, otherwise their Lagrange
-        // basis differs and proofs do not verify. A larger unsafe SRS shares the smaller one's tau,
-        // so a correctly downsized setup reproduces the embedded degree-`K` assets exactly.
-        #[test]
-        fn ivc_setup_downsizes_keys_and_srs_to_the_circuit_degree() {
-            let temp_dir = tempdir().expect("temp dir creation should succeed");
-            let trusted_setup_provider = build_provider_with_unsafe_srs(temp_dir.path(), K + 1);
-            let srs = Arc::new(
-                trusted_setup_provider
-                    .get_trusted_setup_parameters()
-                    .expect("oversized unsafe SRS should load"),
-            );
-            let parameters = Parameters {
-                k: QUORUM_SIZE as u64,
-                m: (QUORUM_SIZE * 10) as u64,
-                phi_f: 0.2,
-            };
-            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let cert_provider =
-                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
-            let cert_vk = cert_provider
-                .get_verifying_key()
-                .expect("certificate verifying key keygen should succeed");
-            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-            let ivc_setup =
-                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcProverSetup::load should succeed");
-
-            let verification_context = load_embedded_verification_context_asset()
-                .expect("verification context asset should load");
-
-            assert_eq!(
-                verification_context.certificate_verifying_key.vk().transcript_repr(),
-                ivc_setup.certificate_verifying_key.transcript_repr(),
-                "cert VK must be independent of the SRS degree (downsized at keygen)"
-            );
-            assert_eq!(
-                verification_context.recursive_verifying_key.transcript_repr(),
-                ivc_setup.ivc_verifying_key.transcript_repr(),
-                "IVC VK must be independent of the SRS degree (downsized at keygen)"
-            );
-            assert_eq!(
-                ivc_setup.srs.max_k(),
-                K,
-                "the proving SRS stored in IvcProverSetup must be downsized to the IVC circuit degree"
-            );
         }
     }
 }

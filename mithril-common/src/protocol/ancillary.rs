@@ -103,7 +103,7 @@ mod tests {
             protocol_message.rigid_preimage().as_slice()
         );
         assert_eq!(
-            genesis_data.genesis_message_preimage().0,
+            genesis_data.genesis_message_preimage().to_vec(),
             genesis.protocol_message.rigid_preimage().as_slice()
         );
         assert!(genesis_data.genesis_schnorr_signature().is_some());
