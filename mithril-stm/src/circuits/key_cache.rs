@@ -222,6 +222,26 @@ mod tests {
     }
 
     #[test]
+    fn store_key_pair_rolls_back_verification_key_when_proving_key_write_fails() {
+        let (base_dir, cache) = make_test_cache(current_function!());
+        // A directory at the proving-key path makes the proving-key write fail after the
+        // verification key has already been written, exercising the rollback.
+        fs::create_dir_all(cache.proving_key_path()).unwrap();
+
+        let result = cache.store_key_pair(b"vk-bytes", b"pk-bytes");
+
+        assert!(
+            result.is_err(),
+            "store should fail when the proving key cannot be written"
+        );
+        assert!(
+            !cache.verification_key_path().exists(),
+            "the verification key must be rolled back when the proving key write fails"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
     fn get_verification_key_returns_none_when_empty() {
         let (base_dir, cache) = make_test_cache(current_function!());
         let result: Option<MidnightVK> = cache.get_verification_key().unwrap();

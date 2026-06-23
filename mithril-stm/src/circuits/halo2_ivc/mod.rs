@@ -75,11 +75,11 @@ type CBase = <C as CircuitCurve>::Base;
 
 type NG = NativeGadget<F, P2RDecompositionChip<F>, NativeChip<F>>;
 
-/// PLONK verifying key shared by the certificate and recursive circuits
-/// (both use the same field/curve parameterization).
+/// Raw PLONK verifying key used directly by the recursive circuit — its own key and the certificate
+/// verifying key it consumes. The certificate circuit itself wraps this key type as `MidnightVK`.
 pub(crate) type PlonkVerifyingKey = VerifyingKey<F, KZGCommitmentScheme<E>>;
-/// PLONK proving key shared by the certificate and recursive circuits
-/// (both use the same field/curve parameterization).
+/// Raw PLONK proving key used directly by the recursive circuit. The certificate circuit wraps this
+/// key type as `MidnightPK`.
 pub(crate) type PlonkProvingKey = ProvingKey<F, KZGCommitmentScheme<E>>;
 
 // Degree of the recursive circuit
