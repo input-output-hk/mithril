@@ -56,7 +56,7 @@ mod tests {
     type Sig = AggregateSignature<D>;
     type D = MithrilMembershipDigest;
 
-    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
+    pub(crate) fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }

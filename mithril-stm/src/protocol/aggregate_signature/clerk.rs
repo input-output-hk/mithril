@@ -147,22 +147,13 @@ impl<D: MembershipDigest> Clerk<D> {
                     )
                 })?;
 
-                // A same-epoch step does not advance the rolling state, so the prover returns
-                // none: carry the input rolling state forward so the next certificate keeps
-                // building on it.
-                let previous_prover_data = ancillary_input.prover_data().cloned();
-
-                let (ivc_proof, next_rolling_state, verifier_data) =
+                let (ivc_proof, ancillary_prover_data, ancillary_verifier_data) =
                     ivc_prover_input_preparation_and_prove(
                         snark_proof,
                         msg,
                         snark_clerk,
-                        ancillary_input,
+                        &ancillary_input,
                     )?;
-
-                let ancillary_prover_data =
-                    resolve_ivc_ancillary_prover_data(next_rolling_state, previous_prover_data)?;
-                let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(verifier_data);
 
                 Ok((
                     AggregateSignature::IvcSnark(Box::new(ivc_proof)),
@@ -239,11 +230,11 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     snark_proof: SnarkProof<D>,
     msg: &[u8],
     clerk: &SnarkClerk,
-    ancillary_input: AncillaryProofInput,
+    ancillary_input: &AncillaryProofInput,
 ) -> StmResult<(
     IvcProof<blake2b_simd::State>,
-    Option<IvcRollingState>,
-    IvcVerifierData,
+    AncillaryProverData,
+    AncillaryVerifierData,
 )> {
     let protocol_message_preimage_bytes: [u8; PREIMAGE_SIZE] =
         ancillary_input.message_preimage().try_into()?;
@@ -262,9 +253,10 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let certificate_circuit_verifying_key = certificate_midnight_verifying_key.vk().clone();
     let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
 
-    let rolling_state = ancillary_input
-        .prover_data()
-        .and_then(|prover_data| prover_data.as_ivc_rolling_state());
+    let prover_data = ancillary_input.prover_data();
+    // Get a rolling state if there is some ancillary prover data and some rolling state
+    // otherwise get None
+    let rolling_state = prover_data.and_then(|prover_data| prover_data.as_ivc_rolling_state());
 
     let genesis_bootstrap = &genesis_data.try_into()?;
 
@@ -292,14 +284,20 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
         rolling_state,
     )?;
 
-    let verifier_data = IvcVerifierData::new(
+    // A same-epoch step does not advance the rolling state, so the prover returns
+    // none: carry the input rolling state forward so the next certificate keeps
+    // building on it.
+    let ancillary_prover_data =
+        resolve_ivc_ancillary_prover_data(next_rolling_state, prover_data.cloned())?;
+
+    let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
         genesis_message,
         genesis_verifying_key,
         certificate_midnight_verifying_key,
         ivc_circuit_verifying_key,
-    );
+    ));
 
-    Ok((ivc_proof, next_rolling_state, verifier_data))
+    Ok((ivc_proof, ancillary_prover_data, ancillary_verifier_data))
 }
 
 /// Resolve the prover data to store on a new IVC certificate.

@@ -466,6 +466,55 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 mod tests {
     use super::*;
 
+    mod ivc_proof {
+        use crate::{Clerk, Parameters, protocol::aggregate_signature::tests::setup_equal_parties};
+
+        #[cfg(feature = "future_snark")]
+        use crate::{
+            AggregateSignature, MithrilMembershipDigest,
+            circuits::halo2_ivc::tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
+            proof_system::ivc_halo2_snark::{errors::IvcProofError, proof::IvcProof},
+        };
+
+        #[cfg(feature = "future_snark")]
+        #[test]
+        fn ivc_verify_fails_without_ancillary_verifier_data() {
+            let step_output = load_embedded_next_epoch_step_output_asset()
+                .expect("recursive step output asset should load");
+
+            let nparties = 5;
+            let m = 10;
+            let k = 3;
+            let params = Parameters { m, k, phi_f: 0.9 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+            let avk = clerk.compute_aggregate_verification_key();
+
+            let msg = &[
+                22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158,
+                211, 191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+            ];
+
+            let proof = IvcProof::<blake2b_simd::State>::new(
+                step_output.ivc_proof,
+                step_output.next_state,
+                step_output.next_accumulator,
+            );
+
+            let ivc_proof =
+                AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
+
+            let err = ivc_proof
+                .verify(msg, &avk, &params, None)
+                .expect_err("Should fail without ancillary verifier data.");
+            assert_eq!(
+                err.downcast_ref::<IvcProofError>(),
+                Some(&IvcProofError::InvalidProtocolMessage),
+                "missing ancillary verifier data must be rejected, got: {err}"
+            );
+        }
+    }
+
     mod envelope_compatibility {
         use super::*;
         use crate::codec;

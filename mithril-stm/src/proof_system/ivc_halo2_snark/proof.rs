@@ -551,6 +551,27 @@ mod tests {
     }
 
     #[test]
+    fn ivc_proof_to_from_bytes_round_trip() {
+        let step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let bytes = proof.to_bytes().expect("serialization should not fail");
+        let restored = IvcProof::<blake2b_simd::State>::from_bytes(&bytes)
+            .expect("deserialization should not fail");
+
+        assert_eq!(
+            bytes,
+            restored.to_bytes().expect("re-serialization should not fail")
+        );
+    }
+
+    #[test]
     fn ivc_proof_message_verification_accepts_correct_message() {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
@@ -674,7 +695,35 @@ mod tests {
     }
 
     #[test]
-    fn ivc_proof_verify_rejects_tampered_message_bytes() {
+    fn ivc_proof_verify_rejects_tampered_message_bytes_with_correct_input_message() {
+        let (global, verifier_setup) = build_proof_verifier_context();
+        let mut step_output = load_embedded_next_epoch_step_output_asset()
+            .expect("recursive step output asset should load");
+
+        let msg = &[
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+        step_output.next_state.message = MessageHash::ZERO;
+
+        let proof = IvcProof::<blake2b_simd::State>::new(
+            step_output.ivc_proof,
+            step_output.next_state,
+            step_output.next_accumulator,
+        );
+
+        let err = proof
+            .verify(msg, &global, &verifier_setup)
+            .expect_err("different protocol message should be rejected by IvcProof::verify");
+        assert_eq!(
+            err.downcast_ref::<IvcProofError>(),
+            Some(&IvcProofError::KzgOpeningFailed),
+            "different protocol message must fail the KZG opening check, got: {err}"
+        );
+    }
+
+    #[test]
+    fn ivc_proof_verify_rejects_tampered_message_bytes_with_tampered_input_message() {
         let (global, verifier_setup) = build_proof_verifier_context();
         let mut step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
@@ -773,6 +822,7 @@ mod tests {
         let chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
+        // I don't know what the correct bytes are...
         let msg = &[
             22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
             191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
