@@ -1,4 +1,4 @@
-//! [`CircuitKeySerialization`] impls for the recursive circuit's raw PLONK keys.
+//! [`TryToBytes`] / [`TryFromBytes`] impls for the recursive circuit's raw PLONK keys.
 //!
 //! The raw PLONK `read` is generic over the circuit type and takes its `Params`, so these impls
 //! pin [`IvcCircuitData`] and its `()` params. Production keys use [`SerdeFormat::RawBytes`].
@@ -11,7 +11,7 @@ use anyhow::Context;
 use midnight_proofs::utils::SerdeFormat;
 
 use crate::StmResult;
-use crate::circuits::key_serialization::CircuitKeySerialization;
+use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::{
     E, F, KZGCommitmentScheme, PlonkProvingKey, PlonkVerifyingKey, ProvingKey, VerifyingKey,
@@ -23,15 +23,17 @@ const KEY_SERDE_FORMAT: SerdeFormat = SerdeFormat::RawBytes;
 
 // Recursive (IVC) circuit verifying key. The raw PLONK `read` is generic over the circuit and
 // takes its `Params`, so it is pinned to `IvcCircuitData` with its `()` params below.
-impl CircuitKeySerialization for PlonkVerifyingKey {
-    fn serialize_key(&self) -> StmResult<Vec<u8>> {
+impl TryToBytes for PlonkVerifyingKey {
+    fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
             .with_context(|| "Failed to serialize the recursive PLONK verifying key")?;
         Ok(bytes)
     }
+}
 
-    fn deserialize_key(bytes: &[u8]) -> StmResult<Self> {
+impl TryFromBytes for PlonkVerifyingKey {
+    fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
         VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
             &mut reader,
@@ -43,15 +45,17 @@ impl CircuitKeySerialization for PlonkVerifyingKey {
 }
 
 // Recursive (IVC) circuit proving key.
-impl CircuitKeySerialization for PlonkProvingKey {
-    fn serialize_key(&self) -> StmResult<Vec<u8>> {
+impl TryToBytes for PlonkProvingKey {
+    fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
             .with_context(|| "Failed to serialize the recursive PLONK proving key")?;
         Ok(bytes)
     }
+}
 
-    fn deserialize_key(bytes: &[u8]) -> StmResult<Self> {
+impl TryFromBytes for PlonkProvingKey {
+    fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
         ProvingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
             &mut reader,
@@ -70,15 +74,27 @@ mod tests {
     #[test]
     fn verifying_key_round_trips_through_bytes() {
         let verifying_key =
-            PlonkVerifyingKey::deserialize_key(RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
+            PlonkVerifyingKey::try_from_bytes(RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
                 .expect("production recursive verifying key bytes should deserialize");
-        let first = verifying_key.serialize_key().expect("serialize should succeed");
+        let first = verifying_key.to_bytes_vec().expect("serialize should succeed");
         let restored =
-            PlonkVerifyingKey::deserialize_key(&first).expect("re-deserialize should succeed");
-        let second = restored.serialize_key().expect("re-serialize should succeed");
+            PlonkVerifyingKey::try_from_bytes(&first).expect("re-deserialize should succeed");
+        let second = restored.to_bytes_vec().expect("re-serialize should succeed");
         assert_eq!(
             first, second,
             "recursive verifying key bytes must be stable across a round trip"
+        );
+    }
+
+    #[test]
+    fn production_verifying_key_serializes_to_the_embedded_bytes() {
+        let verifying_key =
+            PlonkVerifyingKey::try_from_bytes(RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
+                .expect("production recursive verifying key bytes should deserialize");
+        assert_eq!(
+            verifying_key.to_bytes_vec().expect("serialize should succeed"),
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            "the embedded production recursive verifying key must be its own canonical serialization"
         );
     }
 }

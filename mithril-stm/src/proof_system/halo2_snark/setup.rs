@@ -1,41 +1,24 @@
 //! SNARK setup for the STM certificate circuit.
 //!
-//! Bundles circuit compilation and key derivation into [`SnarkProverSetup`], and wires in the
-//! two-level cache: an in-process [`LazyLock`] for within-run reuse, and the on-disk
-//! [`CircuitKeyCache`] for reuse across process restarts.
-use std::sync::{Arc, LazyLock, RwLock};
-
-use anyhow::{Context, anyhow};
+//! Bundles circuit compilation and key derivation into [`SnarkProverSetup`], backed by the on-disk
+//! [`CircuitKeyCache`] so derived keys are reused across process restarts.
+use anyhow::Context;
 use midnight_curves::Bls12;
 use midnight_proofs::{
     poly::kzg::params::{ParamsKZG, ParamsVerifierKZG},
     utils::SerdeFormat,
 };
-use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
+use midnight_zk_stdlib::{self as zk, MidnightPK, MidnightVK};
 
 use crate::{
     Parameters, StmResult,
     circuits::{
         halo2::circuit::StmCertificateCircuit, key_cache::CircuitKeyCache,
-        key_serialization::CircuitKeySerialization, trusted_setup::TrustedSetupProvider,
+        trusted_setup::TrustedSetupProvider,
     },
+    codec::TryToBytes,
     proof_system::KZG_VERIFIER_PARAMS,
 };
-
-/// Cache key for derived VK/PK pairs, scoped to a specific circuit configuration.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct SnarkProverSetupCacheKey {
-    circuit_degree: u32,
-    k: u64,
-    m: u64,
-    merkle_tree_depth: u32,
-}
-
-type SnarkProverSetupKeyPair = Arc<(MidnightVK, MidnightPK<StmCertificateCircuit>)>;
-
-static SNARK_PROVER_SETUP_KEY_CACHE: LazyLock<
-    RwLock<Option<(SnarkProverSetupCacheKey, SnarkProverSetupKeyPair)>>,
-> = LazyLock::new(|| RwLock::new(None));
 
 /// Bundles the one-time setup artifacts needed to prove and verify SNARK proofs.
 ///
@@ -75,23 +58,16 @@ impl SnarkProverSetup {
         key_cache: &CircuitKeyCache,
     ) -> StmResult<Self> {
         let circuit = StmCertificateCircuit::try_new(params, merkle_tree_depth)?;
-        let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
         zk::downsize_srs_for_relation(&mut srs, &circuit);
 
-        let cache_key = SnarkProverSetupCacheKey {
-            circuit_degree,
-            k: params.k,
-            m: params.m,
-            merkle_tree_depth,
-        };
-        let key_pair =
-            get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, key_cache)?;
+        let (verification_key, proving_key) =
+            get_or_build_snark_keys_with_disk_cache(&circuit, &srs, key_cache)?;
 
         Ok(Self {
             srs,
             circuit,
-            verification_key: key_pair.0.clone(),
-            proving_key: key_pair.1.clone(),
+            verification_key,
+            proving_key,
         })
     }
 }
@@ -115,45 +91,30 @@ impl SnarkVerifierSetup {
     }
 }
 
-/// Returns a cached VK/PK pair, consulting two cache levels before recomputing: an in-process
-/// [`LazyLock`] for within-run reuse, then the on-disk [`CircuitKeyCache`] for reuse across
-/// process restarts. On a miss in both, the keys are derived from the SRS and stored back.
+/// Returns the certificate VK/PK pair from the on-disk [`CircuitKeyCache`], deriving it from the
+/// SRS and storing it back on a cache miss.
 fn get_or_build_snark_keys_with_disk_cache(
-    cache_key: SnarkProverSetupCacheKey,
     circuit: &StmCertificateCircuit,
     srs: &ParamsKZG<Bls12>,
     disk_cache: &CircuitKeyCache,
-) -> StmResult<SnarkProverSetupKeyPair> {
-    if let Some(pair) = SNARK_PROVER_SETUP_KEY_CACHE
-        .read()
-        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on read"))?
-        .as_ref()
-        .filter(|(k, _)| *k == cache_key)
-        .map(|(_, v)| v.clone())
+) -> StmResult<(MidnightVK, MidnightPK<StmCertificateCircuit>)> {
+    // The proving key is only read once the verifying key is present, so an orphan proving key left
+    // by a failed store (which removes the verifying key) is recomputed rather than surfaced as a
+    // deserialization error.
+    if let Some(verification_key) = disk_cache.get_verification_key::<MidnightVK>()?
+        && let Some(proving_key) =
+            disk_cache.get_proving_key::<MidnightPK<StmCertificateCircuit>>()?
     {
-        return Ok(pair);
+        return Ok((verification_key, proving_key));
     }
 
-    let (vk, pk) = match (
-        disk_cache.get_verification_key::<MidnightVK>()?,
-        disk_cache.get_proving_key::<MidnightPK<StmCertificateCircuit>>()?,
-    ) {
-        (Some(vk), Some(pk)) => (vk, pk),
-        _ => {
-            let vk = zk::setup_vk(srs, circuit);
-            let pk = zk::setup_pk(circuit, &vk);
-            disk_cache.store_key_pair(&vk.serialize_key()?, &pk.serialize_key()?)?;
-            (vk, pk)
-        }
-    };
-
-    let key_pair = Arc::new((vk, pk));
-    *SNARK_PROVER_SETUP_KEY_CACHE
-        .write()
-        .map_err(|_| anyhow!("SNARK setup key cache lock poisoned on write"))? =
-        Some((cache_key, key_pair.clone()));
-
-    Ok(key_pair)
+    let verification_key = zk::setup_vk(srs, circuit);
+    let proving_key = zk::setup_pk(circuit, &verification_key);
+    disk_cache.store_key_pair(
+        &verification_key.to_bytes_vec()?,
+        &proving_key.to_bytes_vec()?,
+    )?;
+    Ok((verification_key, proving_key))
 }
 
 #[cfg(test)]
@@ -170,7 +131,7 @@ mod test {
         circuits::key_cache::CircuitKeyCache, proof_system::halo2_snark::SnarkProverSetup,
     };
 
-    use super::{SnarkProverSetupCacheKey, get_or_build_snark_keys_with_disk_cache};
+    use super::get_or_build_snark_keys_with_disk_cache;
 
     fn default_params() -> Parameters {
         Parameters {
@@ -259,19 +220,12 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 100).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let cache_key = SnarkProverSetupCacheKey {
-            circuit_degree: degree,
-            k: params.k,
-            m: params.m,
-            merkle_tree_depth: 100,
-        };
-
         let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
         let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
 
         assert!(!disk_cache.verification_key_path().exists());
-        get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache).unwrap();
+        get_or_build_snark_keys_with_disk_cache(&circuit, &srs, &disk_cache).unwrap();
         assert!(
             disk_cache.verification_key_path().exists(),
             "VK should be written to disk on cache miss"
@@ -289,13 +243,6 @@ mod test {
         let circuit = StmCertificateCircuit::try_new(&params, 101).unwrap();
         let degree = MidnightCircuit::from_relation(&circuit).min_k();
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
-        let cache_key = SnarkProverSetupCacheKey {
-            circuit_degree: degree,
-            k: params.k,
-            m: params.m,
-            merkle_tree_depth: 101,
-        };
-
         let vk = zk::setup_vk(&srs, &circuit);
         let pk = zk::setup_pk(&circuit, &vk);
         let mut vk_bytes = vec![];
@@ -311,15 +258,42 @@ mod test {
         fs::write(disk_cache.verification_key_path(), &vk_bytes).unwrap();
         fs::write(disk_cache.proving_key_path(), &pk_bytes).unwrap();
 
-        let loaded =
-            get_or_build_snark_keys_with_disk_cache(cache_key, &circuit, &srs, &disk_cache)
-                .unwrap();
+        let loaded = get_or_build_snark_keys_with_disk_cache(&circuit, &srs, &disk_cache).unwrap();
 
         let mut loaded_vk_bytes = vec![];
         loaded.0.write(&mut loaded_vk_bytes, SerdeFormat::RawBytes).unwrap();
         assert_eq!(
             loaded_vk_bytes, vk_bytes,
             "loaded VK must match what was written to disk"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn orphan_corrupt_proving_key_is_recomputed_not_errored() {
+        // A failed store_key_pair removes the verifying key but can leave a partial proving key, so
+        // an orphan corrupt proving key with no verifying key must be treated as a cache miss and
+        // recomputed, not surfaced as a deserialization error.
+        let params = default_params();
+        let circuit = StmCertificateCircuit::try_new(&params, 4).unwrap();
+        let degree = MidnightCircuit::from_relation(&circuit).min_k();
+        let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
+
+        let base_dir = std::env::temp_dir().join(current_function!());
+        fs::remove_dir_all(&base_dir).ok();
+        let disk_cache = CircuitKeyCache::new(base_dir.clone(), "non-recursive", b"placeholder");
+        fs::create_dir_all(disk_cache.proving_key_path().parent().unwrap()).unwrap();
+        fs::write(disk_cache.proving_key_path(), b"not-a-valid-proving-key").unwrap();
+        assert!(!disk_cache.verification_key_path().exists());
+
+        let result = get_or_build_snark_keys_with_disk_cache(&circuit, &srs, &disk_cache);
+        assert!(
+            result.is_ok(),
+            "orphan corrupt proving key must be recomputed, not error"
+        );
+        assert!(
+            disk_cache.verification_key_path().exists(),
+            "the verifying key should be recomputed and written to disk"
         );
         fs::remove_dir_all(&base_dir).ok();
     }

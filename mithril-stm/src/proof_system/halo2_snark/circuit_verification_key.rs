@@ -1,7 +1,9 @@
 use midnight_zk_stdlib::MidnightVK;
 use serde::{Deserialize, Serialize};
 
-use crate::{StmResult, circuits::key_serialization::CircuitKeySerialization};
+#[cfg(test)]
+use crate::codec::TryToBytes;
+use crate::{StmResult, codec::TryFromBytes};
 
 /// Wrapper type of MidnightVK, the circuit verification key
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,16 +24,15 @@ impl CircuitVerificationKey {
 
     /// Convert the CircuitVerificationKey into bytes using the underlying
     /// MidnightVK functionalities
-    // TODO: remove this once the 'to_bytes' function is used.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn to_bytes(&self) -> StmResult<Vec<u8>> {
-        self.0.serialize_key()
+        self.0.to_bytes_vec()
     }
 
     /// Converts bytes into a CircuitVerificationKey by using the MidnightVK
     /// read function
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        Ok(Self(MidnightVK::deserialize_key(bytes)?))
+        Ok(Self(MidnightVK::try_from_bytes(bytes)?))
     }
 }
 

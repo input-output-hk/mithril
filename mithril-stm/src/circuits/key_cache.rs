@@ -13,27 +13,17 @@ use std::{
 
 use anyhow::Context;
 
-use crate::StmResult;
+use crate::{StmResult, codec::TryFromBytes};
 
 use super::{
     MITHRIL_CIRCUIT_CACHE_FOLDER, halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
     halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-    key_serialization::CircuitKeySerialization,
 };
-
-/// Outcome of [`CircuitKeyCache::validate`].
-pub enum CacheState {
-    /// No VK on disk, or the cache was stale and has been cleared.
-    Empty,
-    /// On-disk VK matches the expected bytes, but the PK file is absent (partial cache).
-    VerificationKeyOnly,
-    /// On-disk VK matches the expected bytes and the PK file is also present.
-    ValidKeyPair,
-}
 
 /// Owns the disk paths and expected VK bytes for one circuit's key cache.
 ///
-/// See [`CircuitKeyCache::validate`] for the decision logic.
+/// The on-disk verifying key is compared against the expected bytes to detect a stale cache after a
+/// circuit rotation; see `get_verification_key` and `get_proving_key`.
 pub struct CircuitKeyCache {
     /// Path to the on-disk verification key file.
     verification_key_path: PathBuf,
@@ -66,69 +56,42 @@ impl CircuitKeyCache {
         }
     }
 
-    /// Inspect the on-disk VK and decide whether the cache is usable.
-    ///
-    /// - **No VK file** → [`CacheState::Empty`] (first run or cache was cleared).
-    /// - **VK matches expected bytes, PK present** → [`CacheState::ValidKeyPair`].
-    /// - **VK matches expected bytes, PK missing** → [`CacheState::VerificationKeyOnly`].
-    /// - **VK does not match** → both files are removed (stale cache after a key rotation) and
-    ///   [`CacheState::Empty`] is returned. Both removals are idempotent.
-    pub fn validate(&self) -> StmResult<CacheState> {
+    /// Returns the cached verifying key when it is present and fresh, deserialized via
+    /// [`TryFromBytes`]. Returns `None` when the verifying key is absent, or stale after a circuit
+    /// rotation — in which case the stale files are removed so the caller recomputes. Returns an
+    /// error when the stored bytes fail to deserialize.
+    pub(crate) fn get_verification_key<K: TryFromBytes>(&self) -> StmResult<Option<K>> {
         let Some(bytes) = self.read_verification_key_bytes()? else {
-            return Ok(CacheState::Empty);
+            return Ok(None);
         };
-
-        if bytes.as_slice() == self.expected_verification_key_bytes.as_ref() {
-            return Ok(if self.proving_key_file_exists()? {
-                CacheState::ValidKeyPair
-            } else {
-                CacheState::VerificationKeyOnly
-            });
+        if bytes.as_slice() != self.expected_verification_key_bytes.as_ref() {
+            self.clear_stale_files()?;
+            return Ok(None);
         }
-
-        self.clear_stale_files()?;
-        Ok(CacheState::Empty)
+        Ok(Some(K::try_from_bytes(&bytes)?))
     }
 
-    /// Returns the cached verifying key when the VK file is present and matches the expected
-    /// bytes (whether or not the PK is present), deserialized via [`CircuitKeySerialization`].
-    /// Returns `None` when the cache is empty or stale.
-    pub(crate) fn get_verification_key<K: CircuitKeySerialization>(&self) -> StmResult<Option<K>> {
-        match self.validate()? {
-            CacheState::Empty => Ok(None),
-            CacheState::VerificationKeyOnly | CacheState::ValidKeyPair => {
-                let Some(bytes) = self.read_verification_key_bytes()? else {
-                    return Ok(None);
-                };
-                Ok(Some(K::deserialize_key(&bytes)?))
-            }
-        }
-    }
-
-    /// Returns the cached proving key only when the cache holds a fresh, complete key pair
-    /// ([`CacheState::ValidKeyPair`]), deserialized via [`CircuitKeySerialization`]. Returns
-    /// `None` otherwise (so the caller recomputes).
-    pub(crate) fn get_proving_key<K: CircuitKeySerialization>(&self) -> StmResult<Option<K>> {
-        match self.validate()? {
-            CacheState::ValidKeyPair => {
-                let bytes = match fs::read(&self.proving_key_path) {
-                    Ok(bytes) => bytes,
-                    // The PK vanished between validation and read; treat as a cache miss.
-                    Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
-                    Err(e) => return Err(e.into()),
-                };
-                Ok(Some(K::deserialize_key(&bytes)?))
-            }
-            CacheState::Empty | CacheState::VerificationKeyOnly => Ok(None),
-        }
+    /// Returns the cached proving key, deserialized via [`TryFromBytes`]. Returns `None` when the
+    /// proving key file is absent, and an error when the stored bytes fail to deserialize.
+    ///
+    /// Callers must read this only after [`Self::get_verification_key`] has returned `Some`: a failed
+    /// [`Self::store_key_pair`] can leave an orphan proving key with no verifying key, and reading it
+    /// here would surface a deserialization error instead of a recomputable cache miss.
+    pub(crate) fn get_proving_key<K: TryFromBytes>(&self) -> StmResult<Option<K>> {
+        let proving_key_bytes = match fs::read(&self.proving_key_path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        Ok(Some(K::try_from_bytes(&proving_key_bytes)?))
     }
 
     /// Writes the verifying and proving key bytes to disk as a pair. If the proving-key write
     /// fails, removal of the just-written verifying key is attempted (best-effort; a cleanup
-    /// error is ignored) so the next [`validate`](Self::validate) recomputes rather than trusting
-    /// a VK-matches-but-PK-broken state.
+    /// error is ignored) so the next read recomputes rather than trusting a VK-matches-but-PK-broken
+    /// state.
     ///
-    /// The caller serializes the keys via [`CircuitKeySerialization::serialize_key`].
+    /// The caller serializes the keys via [`TryToBytes::to_bytes_vec`].
     pub(crate) fn store_key_pair(
         &self,
         verification_key_bytes: &[u8],
@@ -152,15 +115,6 @@ impl CircuitKeyCache {
         match fs::read(&self.verification_key_path) {
             Ok(b) => Ok(Some(b)),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    /// Return `true` if the PK file is present on disk.
-    fn proving_key_file_exists(&self) -> StmResult<bool> {
-        match fs::metadata(&self.proving_key_path) {
-            Ok(_) => Ok(true),
-            Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
             Err(e) => Err(e.into()),
         }
     }
@@ -204,10 +158,12 @@ impl CircuitKeyCache {
 mod tests {
     use std::{env, fs, path::PathBuf};
 
-    use midnight_zk_stdlib::MidnightVK;
+    use midnight_zk_stdlib::{MidnightPK, MidnightVK};
 
     use crate::circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
+    use crate::circuits::halo2::circuit::StmCertificateCircuit;
     use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
+    use crate::proof_system::ivc_halo2_snark::PlonkVerifyingKey;
 
     use super::*;
 
@@ -219,39 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_returns_empty_when_vk_absent() {
-        let (base_dir, cache) = make_test_cache(current_function!());
-        assert!(matches!(cache.validate().unwrap(), CacheState::Empty));
-        fs::remove_dir_all(&base_dir).ok();
-    }
-
-    #[test]
-    fn validate_returns_valid_key_pair_when_vk_and_pk_present() {
-        let (base_dir, cache) = make_test_cache(current_function!());
-        fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(cache.verification_key_path(), b"expected-vk-bytes").unwrap();
-        fs::write(cache.proving_key_path(), b"some-pk-bytes").unwrap();
-        assert!(matches!(
-            cache.validate().unwrap(),
-            CacheState::ValidKeyPair
-        ));
-        fs::remove_dir_all(&base_dir).ok();
-    }
-
-    #[test]
-    fn validate_returns_verification_key_only_when_pk_absent() {
-        let (base_dir, cache) = make_test_cache(current_function!());
-        fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(cache.verification_key_path(), b"expected-vk-bytes").unwrap();
-        assert!(matches!(
-            cache.validate().unwrap(),
-            CacheState::VerificationKeyOnly
-        ));
-        fs::remove_dir_all(&base_dir).ok();
-    }
-
-    #[test]
-    fn validate_removes_stale_files_and_returns_empty() {
+    fn get_verification_key_clears_stale_files_and_returns_none() {
         let (base_dir, cache) = make_test_cache(current_function!());
         let vk_path = cache.verification_key_path().to_path_buf();
         let pk_path = cache.proving_key_path().to_path_buf();
@@ -259,28 +183,31 @@ mod tests {
         fs::write(&vk_path, b"stale-bytes").unwrap();
         fs::write(&pk_path, b"stale-pk").unwrap();
 
-        assert!(matches!(cache.validate().unwrap(), CacheState::Empty));
+        let result: Option<MidnightVK> = cache.get_verification_key().unwrap();
+        assert!(result.is_none(), "a stale cache must be a miss");
         assert!(!vk_path.exists(), "stale VK should be removed");
         assert!(!pk_path.exists(), "stale PK should be removed");
         fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn validate_handles_absent_pk_during_stale_cleanup() {
+    fn get_verification_key_surfaces_deserialization_error() {
+        // The on-disk VK matches the expected bytes (fresh) but is not a valid serialized key, so
+        // the deserialization error is surfaced rather than masked as a miss.
         let (base_dir, cache) = make_test_cache(current_function!());
-        let vk_path = cache.verification_key_path().to_path_buf();
-        let pk_path = cache.proving_key_path().to_path_buf();
-        fs::create_dir_all(vk_path.parent().unwrap()).unwrap();
-        fs::write(&vk_path, b"stale-bytes").unwrap();
+        fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(cache.verification_key_path(), b"expected-vk-bytes").unwrap();
 
-        assert!(matches!(cache.validate().unwrap(), CacheState::Empty));
-        assert!(!vk_path.exists());
-        assert!(!pk_path.exists());
+        let result: StmResult<Option<MidnightVK>> = cache.get_verification_key();
+        assert!(
+            result.is_err(),
+            "corrupt but fresh verifying key bytes must surface a deserialization error"
+        );
         fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn store_key_pair_writes_both_files_and_validates_as_pair() {
+    fn store_key_pair_writes_both_files() {
         let (base_dir, cache) = make_test_cache(current_function!());
         cache.store_key_pair(b"expected-vk-bytes", b"some-pk-bytes").unwrap();
         assert_eq!(
@@ -291,10 +218,6 @@ mod tests {
             fs::read(cache.proving_key_path()).unwrap(),
             b"some-pk-bytes"
         );
-        assert!(matches!(
-            cache.validate().unwrap(),
-            CacheState::ValidKeyPair
-        ));
         fs::remove_dir_all(&base_dir).ok();
     }
 
@@ -331,25 +254,27 @@ mod tests {
     }
 
     #[test]
-    fn get_proving_key_returns_none_without_full_pair() {
-        // VK present and matching but no PK → VerificationKeyOnly → get_proving_key returns None.
-        // The type parameter is only a witness here; no deserialization runs.
-        let base_dir = env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        let cache = CircuitKeyCache::new(
-            base_dir.clone(),
-            "test-circuit",
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        );
-        fs::create_dir_all(cache.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(
-            cache.verification_key_path(),
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        )
-        .unwrap();
-
-        let proving_key: Option<MidnightVK> = cache.get_proving_key().unwrap();
+    fn get_proving_key_returns_none_when_proving_key_absent() {
+        let (base_dir, cache) = make_test_cache(current_function!());
+        let proving_key: Option<MidnightPK<StmCertificateCircuit>> =
+            cache.get_proving_key().unwrap();
         assert!(proving_key.is_none());
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn get_proving_key_surfaces_deserialization_error() {
+        // A present proving key whose bytes are not a valid serialized key surfaces the
+        // deserialization error.
+        let (base_dir, cache) = make_test_cache(current_function!());
+        fs::create_dir_all(cache.proving_key_path().parent().unwrap()).unwrap();
+        fs::write(cache.proving_key_path(), b"not-a-valid-proving-key").unwrap();
+
+        let result: StmResult<Option<MidnightPK<StmCertificateCircuit>>> = cache.get_proving_key();
+        assert!(
+            result.is_err(),
+            "corrupt proving key bytes must surface a deserialization error"
+        );
         fs::remove_dir_all(&base_dir).ok();
     }
 
@@ -383,9 +308,10 @@ mod tests {
                 b"any-pk-bytes",
             )
             .unwrap();
+        let verifying_key: Option<MidnightVK> = isolated_cache.get_verification_key().unwrap();
         assert!(
-            matches!(isolated_cache.validate().unwrap(), CacheState::ValidKeyPair),
-            "validate() should return ValidKeyPair when production VK bytes are on disk"
+            verifying_key.is_some(),
+            "production VK bytes on disk should deserialize as the verifying key"
         );
         fs::remove_dir_all(&base_dir).ok();
     }
@@ -420,9 +346,11 @@ mod tests {
                 b"any-pk-bytes",
             )
             .unwrap();
+        let verifying_key: Option<PlonkVerifyingKey> =
+            isolated_cache.get_verification_key().unwrap();
         assert!(
-            matches!(isolated_cache.validate().unwrap(), CacheState::ValidKeyPair),
-            "validate() should return ValidKeyPair when production VK bytes are on disk"
+            verifying_key.is_some(),
+            "production VK bytes on disk should deserialize as the verifying key"
         );
         fs::remove_dir_all(&base_dir).ok();
     }

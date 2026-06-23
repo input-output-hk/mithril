@@ -1,4 +1,6 @@
 use std::marker::PhantomData;
+#[cfg(test)]
+use std::path::PathBuf;
 
 use anyhow::Context;
 use midnight_circuits::hash::poseidon::PoseidonState;
@@ -76,7 +78,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// caller-supplied SRS instead of the trusted production SRS, so a proof can be reconstructed
     /// against the same unsafe SRS it was generated with.
     #[cfg(test)]
-    pub(crate) fn try_new_with_srs<T: Into<std::path::PathBuf>>(
+    pub(crate) fn try_new_with_srs<T: Into<PathBuf>>(
         folder_path: T,
         circuit_proof: Vec<u8>,
         params: Parameters,
