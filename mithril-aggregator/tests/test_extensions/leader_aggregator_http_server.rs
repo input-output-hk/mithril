@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -11,9 +12,13 @@ use axum_test::TestServer;
 use reqwest::Url;
 
 use mithril_aggregator::services::MessageService;
-use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
-use mithril_common::logging::LoggerExtensions;
-use mithril_common::{StdError, StdResult};
+use mithril_common::{
+    StdError, StdResult,
+    entities::{Epoch, SignedEntityTypeDiscriminants},
+    logging::LoggerExtensions,
+    messages::SignedEntityTypeDiscriminantsMessage,
+    test::messages_extensions::SignedEntityTypeDiscriminantsMessageTestExtension,
+};
 
 use crate::test_extensions::RuntimeTester;
 
@@ -23,10 +28,63 @@ pub struct LeaderAggregatorHttpServer {
 }
 
 impl LeaderAggregatorHttpServer {
+    pub fn builder() -> LeaderAggregatorHttpServerBuilder {
+        LeaderAggregatorHttpServerBuilder::default()
+    }
+
     pub fn spawn(runtime_tester: &RuntimeTester) -> StdResult<Self> {
+        Self::builder()
+            .with_message_service(runtime_tester.dependencies.message_service.clone())
+            .spawn()
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+}
+
+#[derive(Clone)]
+struct LeaderAggregatorRoutesState {
+    message_service: Arc<dyn MessageService>,
+    protocol_configuration_route_settings: ProtocolConfigurationRouteSettings,
+    logger: slog::Logger,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProtocolConfigurationRouteSettings {
+    send_unknown_signed_entities: bool,
+    send_discontinued_signed_entities: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct LeaderAggregatorHttpServerBuilder {
+    message_service: Option<Arc<dyn MessageService>>,
+    protocol_configuration_route_settings: ProtocolConfigurationRouteSettings,
+}
+
+impl LeaderAggregatorHttpServerBuilder {
+    pub fn with_message_service(mut self, message_service: Arc<dyn MessageService>) -> Self {
+        self.message_service = Some(message_service);
+        self
+    }
+
+    pub fn with_unknown_signed_entities_in_protocol_configuration(mut self) -> Self {
+        self.protocol_configuration_route_settings
+            .send_unknown_signed_entities = true;
+        self
+    }
+
+    pub fn with_discontinued_signed_entities_in_protocol_configuration(mut self) -> Self {
+        self.protocol_configuration_route_settings
+            .send_discontinued_signed_entities = true;
+        self
+    }
+
+    pub fn spawn(self) -> StdResult<LeaderAggregatorHttpServer> {
         let state = LeaderAggregatorRoutesState {
-            message_service: runtime_tester.dependencies.message_service.clone(),
-            logger: slog_scope::logger().new_with_component_name::<Self>(),
+            message_service: self.message_service.with_context(|| "Message service is required")?,
+            protocol_configuration_route_settings: self.protocol_configuration_route_settings,
+            logger: slog_scope::logger().new_with_component_name::<LeaderAggregatorHttpServer>(),
         };
         let router = Router::new()
             .route("/epoch-settings", get(epoch_settings))
@@ -42,18 +100,8 @@ impl LeaderAggregatorHttpServer {
         let server = TestServer::builder().http_transport().build(router);
         let url = server.server_address().unwrap();
 
-        Ok(Self { server, url })
+        Ok(LeaderAggregatorHttpServer { server, url })
     }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-}
-
-#[derive(Clone)]
-struct LeaderAggregatorRoutesState {
-    message_service: Arc<dyn MessageService>,
-    logger: slog::Logger,
 }
 
 fn internal_server_error(err: StdError) -> impl IntoResponse {
@@ -113,7 +161,31 @@ async fn protocol_configuration_by_epoch(
         .get_protocol_configuration_message(Epoch(epoch), SignedEntityTypeDiscriminants::all())
         .await
     {
-        Ok(Some(message)) => (StatusCode::OK, Json(message)).into_response(),
+        Ok(Some(mut message)) => {
+            if state
+                .protocol_configuration_route_settings
+                .send_unknown_signed_entities
+            {
+                message
+                    .available_signed_entity_types
+                    .insert(SignedEntityTypeDiscriminantsMessage::Unknown);
+            }
+
+            if state
+                .protocol_configuration_route_settings
+                .send_discontinued_signed_entities
+            {
+                message
+                    .available_signed_entity_types
+                    .append(&mut SignedEntityTypeDiscriminantsMessage::all_discontinued());
+            }
+
+            slog::debug!(
+                state.logger, "/protocol-configuration/{epoch}";
+                "json" => &serde_json::to_string(&message).unwrap()
+            );
+            (StatusCode::OK, Json(message)).into_response()
+        }
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => internal_server_error(err).into_response(),
     }

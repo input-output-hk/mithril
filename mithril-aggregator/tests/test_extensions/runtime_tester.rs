@@ -37,7 +37,9 @@ use mithril_common::{
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 
-use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
+use crate::test_extensions::leader_aggregator_http_server::{
+    LeaderAggregatorHttpServer, LeaderAggregatorHttpServerBuilder,
+};
 use crate::test_extensions::utilities::{async_wait, block_hash, tx_hash};
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
@@ -280,6 +282,11 @@ impl RuntimeTester {
             })?;
 
         Ok(())
+    }
+
+    pub fn build_leader_aggregator_http_server(&self) -> LeaderAggregatorHttpServerBuilder {
+        LeaderAggregatorHttpServer::builder()
+            .with_message_service(self.dependencies.message_service.clone())
     }
 
     pub async fn spawn_leader_aggregator_http_server(
