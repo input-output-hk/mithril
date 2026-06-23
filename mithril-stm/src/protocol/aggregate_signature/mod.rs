@@ -32,6 +32,7 @@ impl TryInto<MessageHash> for &MessagePreimage {
     }
 }
 
+#[cfg(feature = "future_snark")]
 impl MessagePreimage {
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.clone()

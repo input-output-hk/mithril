@@ -21,6 +21,7 @@ use crate::{
     codec,
     proof_system::{
         KZG_VERIFIER_PARAMS,
+        halo2_snark::midnight_certificate_verification_key_serde,
         ivc_halo2_snark::{CircuitVerifyingKey, prover_setup::IvcProverSetup},
     },
 };
@@ -42,8 +43,6 @@ use crate::{
 /// [`Global`]: crate::circuits::halo2_ivc::state::Global
 /// [`IvcProof::verify`]: crate::proof_system::ivc_halo2_snark::proof::IvcProof::verify
 /// [`IvcProofError::KzgOpeningFailed`]: crate::proof_system::ivc_halo2_snark::errors::IvcProofError::KzgOpeningFailed
-// TODO: remove this allow dead_code directive when IvcVerifierSetup is wired into STM
-#[allow(dead_code)]
 pub(crate) struct IvcVerifierSetup {
     /// Stabilized KZG verifier parameters (embedded constant, no SRS load required).
     verifier_params: ParamsVerifierKZG<Bls12>,
@@ -171,6 +170,8 @@ impl IvcVerifierSetup {
     }
 }
 
+/// Represent the data needed by the verifier in order to verify an IVC proof. It contains
+/// genesis information and circuit verification keys.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IvcVerifierData {
     genesis_message: MessageHash,
@@ -236,35 +237,6 @@ impl IvcVerifierData {
     /// Returns a copy of the ivc circuit verification key stored in the IvcVerifierData
     pub(crate) fn ivc_circuit_verification_key(&self) -> &CircuitVerifyingKey {
         &self.ivc_circuit_verification_key
-    }
-}
-
-/// Serialize and deserialize functions for the certificate circuit [MidnightVK].
-///
-/// [MidnightVK] serialization carries the circuit architecture, so deserialization rebuilds the
-/// correct constraint system and round-trips byte-for-byte.
-mod midnight_certificate_verification_key_serde {
-    use midnight_proofs::utils::SerdeFormat;
-    use midnight_zk_stdlib::MidnightVK;
-    use serde::{Deserializer, Serializer};
-
-    /// Serialization based on the write function of the [MidnightVK].
-    pub fn serialize<S: Serializer>(
-        verification_key: &MidnightVK,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        verification_key
-            .write(&mut buf, SerdeFormat::RawBytes)
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_bytes(&buf)
-    }
-
-    /// Deserialization based on the read function of the [MidnightVK].
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<MidnightVK, D::Error> {
-        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        MidnightVK::read(&mut bytes.as_slice(), SerdeFormat::RawBytes)
-            .map_err(serde::de::Error::custom)
     }
 }
 

@@ -6,7 +6,9 @@ use crate::StmResult;
 
 /// Wrapper type of MidnightVK, the circuit verification key
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CircuitVerificationKey(#[serde(with = "midnight_vk_serde")] MidnightVK);
+pub struct CircuitVerificationKey(
+    #[serde(with = "midnight_certificate_verification_key_serde")] MidnightVK,
+);
 
 impl CircuitVerificationKey {
     /// Creates a new CircuitVerificationKey from a MidnightVK
@@ -39,9 +41,11 @@ impl CircuitVerificationKey {
     }
 }
 
-/// Module implementing serialize and deserialize functions
-/// for the MidnightVK struct
-pub mod midnight_vk_serde {
+/// Serialize and deserialize functions for the certificate circuit [MidnightVK].
+///
+/// [MidnightVK] serialization carries the circuit architecture, so deserialization rebuilds the
+/// correct constraint system and round-trips byte-for-byte.
+pub(crate) mod midnight_certificate_verification_key_serde {
     use midnight_proofs::utils::SerdeFormat;
     use midnight_zk_stdlib::MidnightVK;
     use serde::{Deserializer, Serializer};

@@ -22,7 +22,7 @@ use crate::{
     SnarkProof,
     circuits::halo2_ivc::{ProtocolMessagePreimage, state::Global},
     proof_system::{
-        IvcRollingState, MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver,
+        MERKLE_TREE_DEPTH_FOR_SNARK, SnarkClerk, SnarkProver,
         ivc_halo2_snark::{
             proof::{IvcProof, IvcProver},
             verifier_setup::IvcVerifierData,
@@ -147,6 +147,7 @@ impl<D: MembershipDigest> Clerk<D> {
                     )
                 })?;
 
+                // ancillary_prover_data is Some() when moving to the next epoch and None otherwise
                 let (ivc_proof, ancillary_prover_data, ancillary_verifier_data) =
                     ivc_prover_input_preparation_and_prove(
                         snark_proof,
@@ -157,10 +158,7 @@ impl<D: MembershipDigest> Clerk<D> {
 
                 Ok((
                     AggregateSignature::IvcSnark(Box::new(ivc_proof)),
-                    AncillaryProofOutput::new(
-                        Some(ancillary_prover_data),
-                        Some(ancillary_verifier_data),
-                    ),
+                    AncillaryProofOutput::new(ancillary_prover_data, Some(ancillary_verifier_data)),
                 ))
             }
         }
@@ -219,8 +217,7 @@ impl<D: MembershipDigest> Clerk<D> {
 /// builds the [`Global`] chain constants, and runs [`IvcProver::prove`].
 ///
 /// Returns `(proof, next_rolling_state, verifier_data)`. `next_rolling_state` is `Some` when
-/// the step advances the epoch and `None` for same-epoch steps — in that case the caller
-/// carries the previous rolling state forward.
+/// the step advances the epoch and `None` for same-epoch steps.
 ///
 /// # Errors
 /// Fails if the genesis Schnorr verifying key is absent, the message preimage is not PREIMAGE_SIZE bytes,
@@ -233,7 +230,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     ancillary_input: &AncillaryProofInput,
 ) -> StmResult<(
     IvcProof<blake2b_simd::State>,
-    AncillaryProverData,
+    Option<AncillaryProverData>,
     AncillaryVerifierData,
 )> {
     let protocol_message_preimage_bytes: [u8; PREIMAGE_SIZE] =
@@ -253,10 +250,11 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let certificate_circuit_verifying_key = certificate_midnight_verifying_key.vk().clone();
     let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
 
-    let prover_data = ancillary_input.prover_data();
     // Get a rolling state if there is some ancillary prover data and some rolling state
     // otherwise get None
-    let rolling_state = prover_data.and_then(|prover_data| prover_data.as_ivc_rolling_state());
+    let rolling_state = ancillary_input
+        .prover_data()
+        .and_then(|prover_data| prover_data.as_ivc_rolling_state());
 
     let genesis_bootstrap = &genesis_data.try_into()?;
 
@@ -287,8 +285,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     // A same-epoch step does not advance the rolling state, so the prover returns
     // none: carry the input rolling state forward so the next certificate keeps
     // building on it.
-    let ancillary_prover_data =
-        resolve_ivc_ancillary_prover_data(next_rolling_state, prover_data.cloned())?;
+    let ancillary_prover_data = next_rolling_state.map(AncillaryProverData::IvcSnark);
 
     let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
         genesis_message,
@@ -298,65 +295,4 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     ));
 
     Ok((ivc_proof, ancillary_prover_data, ancillary_verifier_data))
-}
-
-/// Resolve the prover data to store on a new IVC certificate.
-///
-/// A next-epoch step advances the rolling state, which is stored as is. A same-epoch step does not
-/// advance it (the prover returns none), so the input rolling state carried from the parent
-/// certificate is reused for the next certificate.
-#[cfg(feature = "future_snark")]
-fn resolve_ivc_ancillary_prover_data(
-    next_rolling_state: Option<IvcRollingState>,
-    previous_prover_data: Option<AncillaryProverData>,
-) -> StmResult<AncillaryProverData> {
-    match next_rolling_state {
-        Some(rolling_state) => Ok(AncillaryProverData::IvcSnark(rolling_state)),
-        None => previous_prover_data
-            .ok_or_else(|| AggregateSignatureError::MissingRollingStateForNextCertificate.into()),
-    }
-}
-
-#[cfg(all(test, feature = "future_snark"))]
-mod tests {
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-
-    use crate::AncillaryProverData;
-    use crate::proof_system::IvcRollingState;
-    use crate::signature_scheme::{BaseFieldElement, SchnorrSigningKey};
-
-    use super::resolve_ivc_ancillary_prover_data;
-
-    fn build_rolling_state() -> IvcRollingState {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let signing_key = SchnorrSigningKey::generate(&mut rng);
-        let message = vec![BaseFieldElement::from(1u64)];
-        let genesis_signature = signing_key.sign_standard(&message, &mut rng).unwrap();
-        IvcRollingState::genesis(genesis_signature, &[])
-    }
-
-    #[test]
-    fn next_epoch_step_stores_the_advanced_rolling_state() {
-        let prover_data =
-            resolve_ivc_ancillary_prover_data(Some(build_rolling_state()), None).unwrap();
-
-        assert!(matches!(prover_data, AncillaryProverData::IvcSnark(_)));
-    }
-
-    #[test]
-    fn same_epoch_step_carries_the_previous_rolling_state_forward() {
-        let previous = AncillaryProverData::IvcSnark(build_rolling_state());
-
-        let prover_data = resolve_ivc_ancillary_prover_data(None, Some(previous)).unwrap();
-
-        assert!(matches!(prover_data, AncillaryProverData::IvcSnark(_)));
-    }
-
-    #[test]
-    fn fails_when_neither_an_advanced_nor_a_previous_rolling_state_is_available() {
-        let error = resolve_ivc_ancillary_prover_data(None, None).unwrap_err();
-
-        assert!(error.to_string().contains("missing rolling state"));
-    }
 }

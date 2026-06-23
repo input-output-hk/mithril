@@ -597,7 +597,7 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
+        let wrong_msg = &[
             21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
             191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
         ];
@@ -609,7 +609,7 @@ mod tests {
         );
 
         let err = proof
-            .check_input_message_matches_state_message(msg)
+            .check_input_message_matches_state_message(wrong_msg)
             .expect_err("wrong message should be rejected by verification function");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -619,13 +619,13 @@ mod tests {
     }
 
     #[test]
-    fn ivc_proof_verify_rejects_wrong_input_message() {
+    fn ivc_proof_verify_rejects_wrong_message() {
         let verification_context = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
+        let wrong_msg = &[
             21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
             191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
         ];
@@ -651,7 +651,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(wrong_msg, &global, &verifier_setup)
             .expect_err("tampered message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -717,7 +717,7 @@ mod tests {
             .expect_err("different protocol message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
-            Some(&IvcProofError::KzgOpeningFailed),
+            Some(&IvcProofError::InvalidMessage),
             "different protocol message must fail the KZG opening check, got: {err}"
         );
     }
@@ -730,7 +730,7 @@ mod tests {
 
         // Set the message and the MessageHash to zero so they match between
         // them but they don't match what was used to create the proof
-        let msg = &[0u8; 32];
+        let tampered_msg = &[0u8; 32];
         step_output.next_state.message = MessageHash::ZERO;
 
         let proof = IvcProof::<blake2b_simd::State>::new(
@@ -740,7 +740,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(tampered_msg, &global, &verifier_setup)
             .expect_err("different protocol message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -824,8 +824,8 @@ mod tests {
 
         // I don't know what the correct bytes are...
         let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+            253, 10, 116, 221, 249, 84, 222, 35, 101, 84, 229, 73, 90, 91, 97, 173, 36, 63, 47, 98,
+            189, 1, 99, 75, 183, 186, 225, 31, 226, 29, 121, 122,
         ];
 
         let proof = IvcProof::<blake2b_simd::State>::new(

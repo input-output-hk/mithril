@@ -468,9 +468,9 @@ mod tests {
 
         #[cfg(feature = "future_snark")]
         use crate::{
-            AggregateSignature, MithrilMembershipDigest,
+            AggregateSignature, AggregateSignatureError, MithrilMembershipDigest,
             circuits::halo2_ivc::tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
-            proof_system::ivc_halo2_snark::{errors::IvcProofError, proof::IvcProof},
+            proof_system::ivc_halo2_snark::proof::IvcProof,
         };
 
         #[cfg(feature = "future_snark")]
@@ -505,8 +505,8 @@ mod tests {
                 .verify(msg, &avk, &params, None)
                 .expect_err("Should fail without ancillary verifier data.");
             assert_eq!(
-                err.downcast_ref::<IvcProofError>(),
-                Some(&IvcProofError::InvalidMessage),
+                err.downcast_ref::<AggregateSignatureError>(),
+                Some(&AggregateSignatureError::MissingAncillaryVerifierData),
                 "missing ancillary verifier data must be rejected, got: {err}"
             );
         }

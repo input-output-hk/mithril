@@ -26,7 +26,7 @@ pub enum AggregationError {
 }
 
 /// Errors which can be output by Mithril aggregate verification.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum AggregateSignatureError {
     /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]
