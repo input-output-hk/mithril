@@ -3,7 +3,7 @@ use crate::SignerIndex;
 use super::AggregateSignatureType;
 
 /// Error types for aggregation.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq)]
 pub enum AggregationError {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
@@ -23,6 +23,18 @@ pub enum AggregationError {
     /// A signature selected for witness assembly is missing its SNARK component.
     #[error("Missing SNARK signature for lottery index {0}.")]
     MissingSnarkSignature(SignerIndex),
+
+    /// Missing the rolling state to pass along the next certificate
+    #[error("Missing the rolling state to pass along the next certificate.")]
+    MissingRollingStateForNextCertificate,
+
+    /// Missing the genesis verification key in the ancillary verifier data
+    #[error("Missing the genesis verification key in the ancillary verifier data.")]
+    MissingGenesisVerificationKey,
+
+    /// Missing IVC rolling state in the ancillary prover data
+    #[error("Missing IVC rolling state in the ancillary prover data.")]
+    MissingIvcRollingStateInAncillaryProverData,
 }
 
 /// Errors which can be output by Mithril aggregate verification.
@@ -61,8 +73,4 @@ pub enum AggregateSignatureError {
     /// Missing IVC verifier data from the AncillaryVerifierData
     #[error("Missing IVC verifier data from the AncillaryVerifierData.")]
     MissingIvcVerifierData,
-
-    /// Missing the rolling state to pass along the next certificate
-    #[error("Missing the rolling state to pass along the next certificate.")]
-    MissingRollingStateForNextCertificate,
 }

@@ -2,6 +2,8 @@ mod aggregate_key;
 mod ancillary_data;
 mod clerk;
 mod error;
+#[cfg(feature = "future_snark")]
+mod preimage;
 mod signature;
 
 pub use aggregate_key::AggregateVerificationKey;
@@ -11,33 +13,10 @@ pub use ancillary_data::{
 };
 pub use clerk::Clerk;
 pub use error::{AggregateSignatureError, AggregationError};
+
 #[cfg(feature = "future_snark")]
-use sha2::{Digest, Sha256};
+pub use preimage::GenesisMessagePreimage;
 pub use signature::{AggregateSignature, AggregateSignatureType};
-
-#[cfg(feature = "future_snark")]
-use crate::{BaseFieldElement, StmResult, circuits::halo2_ivc::types::MessageHash};
-
-#[cfg(feature = "future_snark")]
-#[derive(Clone, Debug)]
-pub struct MessagePreimage(pub Vec<u8>);
-
-#[cfg(feature = "future_snark")]
-impl TryInto<MessageHash> for &MessagePreimage {
-    type Error = anyhow::Error;
-    fn try_into(self) -> StmResult<MessageHash> {
-        let genesis_preimage_hash: [u8; 32] = Sha256::digest(self.0.clone()).into();
-        let genesis_message_field_elem = BaseFieldElement::from_raw(&genesis_preimage_hash)?.0;
-        Ok(MessageHash::from_field(genesis_message_field_elem))
-    }
-}
-
-#[cfg(feature = "future_snark")]
-impl MessagePreimage {
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.0.clone()
-    }
-}
 
 #[cfg(test)]
 mod tests {

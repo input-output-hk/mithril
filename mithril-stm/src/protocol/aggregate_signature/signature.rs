@@ -463,17 +463,16 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "future_snark")]
     mod ivc_proof {
         use crate::{Clerk, Parameters, protocol::aggregate_signature::tests::setup_equal_parties};
 
-        #[cfg(feature = "future_snark")]
         use crate::{
             AggregateSignature, AggregateSignatureError, MithrilMembershipDigest,
             circuits::halo2_ivc::tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
             proof_system::ivc_halo2_snark::proof::IvcProof,
         };
 
-        #[cfg(feature = "future_snark")]
         #[test]
         fn ivc_verify_fails_without_ancillary_verifier_data() {
             let step_output = load_embedded_next_epoch_step_output_asset()

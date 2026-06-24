@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Clerk::aggregate_signatures_with_type` IVC variant is completed.
 - `AggregateSignature::verify` IVC variant is completed.
 - `IvcProof::verify` now also checks that the input message is the same as the one used to create the proof.
-- More fixed the how the circuit verification keys are handled and computed.
+- More fixes: downsizing the srs properly for the ivc keys, proper deserialization of `VerifyingKey`, carrying the `AncillaryVerifierData` in the certificate.
 
 ## 0.10.38 (06-17-2026)
 

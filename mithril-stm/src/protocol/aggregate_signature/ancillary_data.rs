@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     SchnorrVerificationKey, StandardSchnorrSignature,
     proof_system::{IvcRollingState, ivc_halo2_snark::verifier_setup::IvcVerifierData},
-    protocol::aggregate_signature::MessagePreimage,
+    protocol::aggregate_signature::GenesisMessagePreimage,
 };
 use crate::{StmResult, codec};
 
@@ -22,6 +22,8 @@ use crate::{StmResult, codec};
 pub enum AncillaryProverData {
     #[cfg(feature = "future_snark")]
     IvcSnark(IvcRollingState),
+    #[cfg(all(feature = "future_snark", test))]
+    FutureVariant,
 }
 
 impl AncillaryProverData {
@@ -43,11 +45,13 @@ impl AncillaryProverData {
         }
     }
 
-    /// Returns the wrapped IvcRollingState of an AncillaryProverData.
+    /// Returns the wrapped IvcRollingState of an AncillaryProverData if it exists.
     #[cfg(feature = "future_snark")]
     pub fn as_ivc_rolling_state(&self) -> Option<&IvcRollingState> {
         match self {
             Self::IvcSnark(state) => Some(state),
+            #[cfg(test)]
+            Self::FutureVariant => None,
         }
     }
 }
@@ -99,7 +103,7 @@ impl AncillaryVerifierData {
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
     #[cfg(feature = "future_snark")]
-    genesis_message_preimage: MessagePreimage,
+    genesis_message_preimage: GenesisMessagePreimage,
     #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
     #[cfg(feature = "future_snark")]
@@ -122,7 +126,7 @@ impl AncillaryGenesisData {
     ) -> Self {
         Self {
             #[cfg(feature = "future_snark")]
-            genesis_message_preimage: MessagePreimage(genesis_message_preimage),
+            genesis_message_preimage: GenesisMessagePreimage(genesis_message_preimage),
             #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
             #[cfg(feature = "future_snark")]
@@ -132,7 +136,7 @@ impl AncillaryGenesisData {
 
     /// Return the genesis message preimage.
     #[cfg(feature = "future_snark")]
-    pub fn genesis_message_preimage(&self) -> &MessagePreimage {
+    pub fn genesis_message_preimage(&self) -> &GenesisMessagePreimage {
         &self.genesis_message_preimage
     }
 
@@ -258,7 +262,9 @@ impl AncillaryProofOutput {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "future_snark")]
     use rand_chacha::ChaCha20Rng;
+    #[cfg(feature = "future_snark")]
     use rand_core::SeedableRng;
 
     use crate::codec::CODEC_VERSION_CBOR_V1;

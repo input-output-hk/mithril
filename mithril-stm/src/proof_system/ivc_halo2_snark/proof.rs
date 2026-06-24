@@ -492,6 +492,21 @@ mod tests {
 
     use super::IvcProof;
 
+    const STEP_OUTPUT_MSG: [u8; 32] = [
+        22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+        191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+    ];
+
+    const SAME_EPOCH_MSG: [u8; 32] = [
+        147, 84, 244, 74, 250, 60, 153, 155, 8, 94, 236, 150, 53, 39, 132, 61, 99, 153, 192, 207,
+        20, 90, 16, 130, 216, 12, 87, 134, 230, 4, 190, 175,
+    ];
+
+    const CHAIN_STATE_MSG: [u8; 32] = [
+        253, 10, 116, 221, 249, 84, 222, 35, 101, 84, 229, 73, 90, 91, 97, 173, 36, 63, 47, 98,
+        189, 1, 99, 75, 183, 186, 225, 31, 226, 29, 121, 122,
+    ];
+
     fn build_proof_verifier_context() -> (Global, IvcVerifierSetup) {
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
@@ -520,11 +535,6 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
-
         let setup = build_asset_generation_setup();
         let global = build_recursive_global(
             &setup,
@@ -546,7 +556,7 @@ mod tests {
         );
 
         proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
             .expect("stored recursive step output should pass IvcProof::verify");
     }
 
@@ -576,11 +586,6 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
-
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
             step_output.next_state,
@@ -588,7 +593,7 @@ mod tests {
         );
 
         proof
-            .check_input_message_matches_state_message(msg)
+            .check_input_message_matches_state_message(&STEP_OUTPUT_MSG)
             .expect("Correct message should be accepted by verification function");
     }
 
@@ -597,10 +602,8 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let wrong_msg = &[
-            21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
+        let mut wrong_msg = STEP_OUTPUT_MSG;
+        wrong_msg[0] ^= 0xff;
 
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
@@ -609,7 +612,7 @@ mod tests {
         );
 
         let err = proof
-            .check_input_message_matches_state_message(wrong_msg)
+            .check_input_message_matches_state_message(&wrong_msg)
             .expect_err("wrong message should be rejected by verification function");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -625,10 +628,8 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let wrong_msg = &[
-            21, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
+        let mut wrong_msg = STEP_OUTPUT_MSG;
+        wrong_msg[0] ^= 0xff;
 
         let setup = build_asset_generation_setup();
         let global = build_recursive_global(
@@ -651,7 +652,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(wrong_msg, &global, &verifier_setup)
+            .verify(&wrong_msg, &global, &verifier_setup)
             .expect_err("tampered message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -669,11 +670,6 @@ mod tests {
         let step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
-
         let mut tampered_bytes = step_output.ivc_proof.as_bytes().to_vec();
         let mid = tampered_bytes.len() / 2;
         tampered_bytes[mid] ^= 0xff;
@@ -685,7 +681,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
             .expect_err("tampered proof bytes should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -700,10 +696,6 @@ mod tests {
         let mut step_output = load_embedded_next_epoch_step_output_asset()
             .expect("recursive step output asset should load");
 
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
         step_output.next_state.message = MessageHash::ZERO;
 
         let proof = IvcProof::<blake2b_simd::State>::new(
@@ -713,7 +705,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
             .expect_err("different protocol message should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -760,11 +752,6 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let msg = &[
-            147, 84, 244, 74, 250, 60, 153, 155, 8, 94, 236, 150, 53, 39, 132, 61, 99, 153, 192,
-            207, 20, 90, 16, 130, 216, 12, 87, 134, 230, 4, 190, 175,
-        ];
-
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
             same_epoch.next_state,
@@ -772,7 +759,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&SAME_EPOCH_MSG, &global, &verifier_setup)
             .expect_err("state from a different proof should be rejected by IvcProof::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -792,18 +779,13 @@ mod tests {
         let same_epoch = load_embedded_following_certificate_in_epoch_asset()
             .expect("same-epoch step output asset should load");
 
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
-
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
             step_output.next_state,
             same_epoch.next_accumulator,
         );
 
-        let err = proof.verify(msg, &global, &verifier_setup).expect_err(
+        let err = proof.verify(&STEP_OUTPUT_MSG, &global, &verifier_setup).expect_err(
             "accumulator from a different proof should be rejected by IvcProof::verify",
         );
         assert_eq!(
@@ -822,12 +804,6 @@ mod tests {
         let chain_state = load_embedded_recursive_chain_state_asset()
             .expect("recursive chain state asset should load");
 
-        // I don't know what the correct bytes are...
-        let msg = &[
-            253, 10, 116, 221, 249, 84, 222, 35, 101, 84, 229, 73, 90, 91, 97, 173, 36, 63, 47, 98,
-            189, 1, 99, 75, 183, 186, 225, 31, 226, 29, 121, 122,
-        ];
-
         let proof = IvcProof::<blake2b_simd::State>::new(
             chain_state.ivc_proof,
             chain_state.state,
@@ -835,7 +811,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&CHAIN_STATE_MSG, &global, &verifier_setup)
             .expect_err("Poseidon proof bytes should be rejected by IvcProof::<Blake2b>::verify");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
@@ -865,10 +841,6 @@ mod tests {
             ctx.recursive_verifying_key,
             ctx.combined_fixed_bases,
         );
-        let msg = &[
-            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
-            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-        ];
 
         let proof = IvcProof::<blake2b_simd::State>::new(
             step_output.ivc_proof,
@@ -877,7 +849,7 @@ mod tests {
         );
 
         let err = proof
-            .verify(msg, &global, &verifier_setup)
+            .verify(&STEP_OUTPUT_MSG, &global, &verifier_setup)
             .expect_err("wrong tau_g2 should cause the accumulator pairing check to fail");
         assert_eq!(
             err.downcast_ref::<IvcProofError>(),
