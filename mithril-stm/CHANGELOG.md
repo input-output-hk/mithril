@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.39 (06-24-2026)
+
+### Added
+
+- Added wiring of the IVC prover and verifier in the `Clerk` and `AggregateSignature`.
+
+### Changed
+
+- `Clerk::aggregate_signatures_with_type` IVC variant is completed.
+- `AggregateSignature::verify` IVC variant is completed.
+- `IvcProof::verify` now also checks that the input message is the same as the one used to create the proof.
+- More fixed the how the circuit verification keys are handled and computed.
+
 ## 0.10.38 (06-17-2026)
 
 ### Added
