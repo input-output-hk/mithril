@@ -4,16 +4,21 @@ set +a -u -o pipefail
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
 display_help() {
-    echo "Check crates, js packages, and openapi changes against 'origin/main' and update their versions"
+    local -r default_diff_ref=$1
+    local -r resources_to_check=$2
+
+    echo "Check crates, js packages, and openapi changes against '$default_diff_ref' (default) and update their versions"
     echo
     echo "By default, no changes are made (dry-run mode), use '--run' to apply the changes."
     echo "At the end of the script, the commit message to used is displayed, use '--commit' to commit the changes."
+    echo "Check crates will look for this pattern '$resources_to_check'."
     echo
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
     echo "  --run: to apply the changes (default is dry-run)"
     echo "  --commit: to commit the changes"
+    echo "  --ref: to specify the reference branch/commit (default is '$default_diff_ref')"
     echo
     echo "Prerequisites:"
     echo " 'cargo-get' needs to be installed ('cargo install cargo-get')."
@@ -51,6 +56,9 @@ readonly BENCHMARK_VERSION_FILE=mithril-test-lab/benchmark/aggregator-prover/VER
 declare BENCHMARK_UPDATE=""
 declare BENCHMARK_UPDATE_MESSAGE=""
 
+readonly DEFAULT_DIFF_REF="origin/main"
+readonly RESOURCES_TO_CHECK="(src/|tests/|benches/|Cargo.toml)"
+
 update_crate_versions() {
     # NOTE
     # `cargo get workspace.members` display the list of path to crates in the workspace.
@@ -70,7 +78,7 @@ update_crate_versions() {
 
     for member in $members
     do
-        nb_files_modify=$(echo "$files_modify" | grep -c "^$member/")
+        nb_files_modify=$(echo "$files_modify" | grep -E -c "^$member/$RESOURCES_TO_CHECK")
         if [[ $nb_files_modify -gt 0 ]]
         then
             package_name=${member##*/}
@@ -180,17 +188,19 @@ check_requirements
 
 declare DRY_RUN=true
 declare COMMIT=false
+declare COMPARE_AGAINST=$DEFAULT_DIFF_REF
 readonly COMMIT_REF="HEAD"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -h|--help) display_help ;;
+        -h|--help) display_help $DEFAULT_DIFF_REF $RESOURCES_TO_CHECK ;;
         --run) DRY_RUN=false ;;
         --commit) COMMIT=true ;;
+        --ref) [[ -n "${2-}" ]] || error "--ref requires a reference (branch/commit)."; COMPARE_AGAINST="$2"; shift ;;
     esac
     shift
 done
 
-FILES_MODIFY="$(git diff "$COMMIT_REF" --name-only origin/main)"
+FILES_MODIFY="$(git diff --name-only "$COMPARE_AGAINST" "$COMMIT_REF")"
 readonly -a FILES_MODIFY
 PACKAGE_JSON_FILES="$(find -- * -name package.json | grep -v -e "/node_modules/" -e "/pkg/" -e "/dist/" -e "/.next/" -e "docs/website/")"
 readonly -a PACKAGE_JSON_FILES
