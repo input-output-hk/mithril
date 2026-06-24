@@ -318,7 +318,7 @@ impl From<(OpCertWithoutColdVerificationKey, EdVerificationKey)> for OpCert {
 mod tests {
     use super::*;
     use crate::crypto_helper::cardano::ColdKeyGenerator;
-    use crate::test::TempDir;
+    use crate::test::{TempDir, crypto_helper::SerDeShelleyFileFormatTestExtension};
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use std::path::PathBuf;

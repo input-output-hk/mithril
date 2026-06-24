@@ -3,14 +3,11 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use crate::{
-    crypto_helper::{
-        ColdKeyGenerator, KesPeriod, OpCert, ProtocolStakeDistribution, SerDeShelleyFileFormat,
-        Sum6KesBytes,
-    },
+    crypto_helper::{ColdKeyGenerator, KesPeriod, OpCert, ProtocolStakeDistribution, Sum6KesBytes},
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
     test::{
         builder::MithrilFixture,
-        crypto_helper,
+        crypto_helper::{self, SerDeShelleyFileFormatTestExtension},
         double::{fake_data, precomputed_kes_key},
     },
 };
