@@ -21,6 +21,7 @@ use serde_with::{As, Bytes};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::process;
 use thiserror::Error;
 
 use crate::StdError;
@@ -85,6 +86,9 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
             cbor_hex: cbor_string,
         };
 
+        // let path_ref = path.as_ref();
+        // let temp_path = path_ref.with_added_extension(format!("{}.tmp", process::id()));
+
         let mut file = fs::File::create(path)
             .with_context(|| "SerDeShelleyFileFormat can not create file")
             .map_err(CodecParseError)?;
@@ -94,6 +98,26 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
 
         write!(file, "{json_str}")
             .with_context(|| "SerDeShelleyFileFormat can not write data to file")
+            .map_err(CodecParseError)?;
+
+        // fs::rename(&temp_path, path_ref)
+        //     .with_context(|| "SerDeShelleyFileFormat can not rename temporary file")
+        //     .map_err(CodecParseError)?;
+        Ok(())
+    }
+
+    /// Serialize a type `T: Serialize + DeserializeOwned` to file following Cardano
+    /// Shelley file format.
+    /// It First create a temporary file with content at given path and then rename it.
+    fn to_atomic_file<P: AsRef<Path>>(&self, path: P) -> Result<(), CodecParseError> {
+        let path_ref = path.as_ref();
+        let temp_path = path_ref.with_added_extension(format!("{}.tmp", process::id()));
+
+        self.to_file(temp_path.clone())
+            .expect("KES secret key file export should not fail");
+
+        fs::rename(&temp_path, path_ref)
+            .with_context(|| "SerDeShelleyFileFormat can not rename temporary file")
             .map_err(CodecParseError)?;
         Ok(())
     }
@@ -205,5 +229,20 @@ mod test {
             Sum6KesBytes::from_file(&sk_dir).expect("Failure parsing Shelley file format.");
 
         assert!(Sum6Kes::try_from(&mut kes_sk_bytes).is_ok());
+    }
+
+    #[test]
+    fn to_file_must_create_a_file() {
+        let temp_dir = TempDir::create("crypto_helper", "to_file_must_create_a_file");
+        let cbor_hex_string = "590264fe77acdfa56281e4b05198f5136018057a65f425411f0990cac4aca0f2917aa00a3d51e191f6f425d870aca3c6a2a41833621f5729d7bc0e3dfc3ae77d057e5e1253b71def7a54157b9f98973ca3c49edd9f311e5f4b23ac268b56a6ac040c14c6d2217925492e42f00dc89a2a01ff363571df0ca0db5ba37001cee56790cc01cd69c6aa760fca55a65a110305ea3c11da0a27be345a589329a584ebfc499c43c55e8c6db5d9c0b014692533ee78abd7ac1e79f7ec9335c7551d31668369b4d5111db78072f010043e35e5ca7f11acc3c05b26b9c7fe56f02aa41544f00cb7685e87f34c73b617260ade3c7b8d8c4df46693694998f85ad80d2cbab0b575b6ccd65d90574e84368169578bff57f751bc94f7eec5c0d7055ec88891a69545eedbfbd3c5f1b1c1fe09c14099f6b052aa215efdc5cb6cdc84aa810db41dbe8cb7d28f7c4beb75cc53915d3ac75fc9d0bf1c734a46e401e15150c147d013a938b7e07cc4f25a582b914e94783d15896530409b8acbe31ef471de8a1988ac78dfb7510729eff008084885f07df870b65e4f382ca15908e1dcda77384b5c724350de90cec22b1dcbb1cdaed88da08bb4772a82266ec154f5887f89860d0920dba705c45957ef6d93e42f6c9509c966277d368dd0eefa67c8147aa15d40a222f7953a4f34616500b310d00aa1b5b73eb237dc4f76c0c16813d321b2fc5ac97039be25b22509d1201d61f4ccc11cd4ff40fffe39f0e937b4722074d8e073a775d7283b715d46f79ce128e3f1362f35615fa72364d20b6db841193d96e58d9d8e86b516bbd1f05e45b39823a93f6e9f29d9e01acf2c12c072d1c64e0afbbabf6903ef542e00000000";
+        let kes_bytes = Sum6KesBytes::from_cbor_hex(cbor_hex_string).unwrap();
+        let kes_file_path = temp_dir.join("kes.sk");
+
+        kes_bytes
+            .to_atomic_file(kes_file_path.clone())
+            .expect("Sum6KesBytes to_file should not fail");
+
+        assert!(kes_file_path.exists(), "KES file should be created");
+        assert_eq!(fs::read_dir(&temp_dir).unwrap().count(), 1)
     }
 }
