@@ -6,7 +6,7 @@ use thiserror::Error;
 pub enum IvcCircuitError {
     /// Off-circuit verifier rejected a certificate proof.
     #[error("Certificate proof verification rejected")]
-    CertificateProofRejected,
+    CertificateProofRejected { context: String },
 
     /// IVC verification key degree does not match the IVC circuit degree constant K.
     #[error(

@@ -22,3 +22,9 @@ impl Deref for GenesisMessagePreimage {
         &self.0
     }
 }
+
+impl PartialEq<[u8]> for GenesisMessagePreimage {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.0 == other
+    }
+}

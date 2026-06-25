@@ -328,6 +328,7 @@ mod tests {
 
     use crate::{
         AncillaryGenesisData, AncillaryProofInput, MithrilMembershipDigest, Parameters,
+        SchnorrVerificationKey,
         circuits::halo2::circuit::StmCertificateCircuit,
         circuits::halo2_ivc::PREIMAGE_SIZE,
         proof_system::{CircuitVerificationKey, SnarkClerk},
@@ -373,8 +374,6 @@ mod tests {
 
     #[test]
     fn ivc_prover_input_preparation_fails_when_prover_data_carries_no_ivc_rolling_state() {
-        use crate::SchnorrVerificationKey;
-
         let tiny_params = Parameters {
             k: 1,
             m: 10,
@@ -393,7 +392,7 @@ mod tests {
         );
 
         let ancillary_input = AncillaryProofInput::new(
-            Some(AncillaryProverData::FutureVariant),
+            Some(AncillaryProverData::Future),
             AncillaryGenesisData::new(vec![0u8; 32], None, Some(SchnorrVerificationKey::default())),
             vec![0u8; PREIMAGE_SIZE],
         );

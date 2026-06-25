@@ -520,7 +520,12 @@ mod tests {
                 .expect_err("prepare should reject a corrupted certificate proof")
                 .downcast::<IvcCircuitError>()
                 .expect("error should downcast to IvcCircuitError");
-            assert_eq!(err, IvcCircuitError::CertificateProofRejected);
+            assert_eq!(
+                err,
+                IvcCircuitError::CertificateProofRejected {
+                    context: "Error from plonk verifier prepare function: Transcript error: Invalid BLS12-381 point encoding in proof".to_string()
+                }
+            );
         }
 
         #[test]
