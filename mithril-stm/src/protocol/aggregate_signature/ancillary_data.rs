@@ -18,6 +18,7 @@ use crate::{StmResult, codec};
 /// Holds the prover-side state needed to produce the next certificate. Carried in the certificate,
 /// hashed into the certificate hash and transmitted in the certificate message. Variants map to the
 /// aggregate signature types that require prover data.
+#[cfg_attr(test, allow(clippy::large_enum_variant))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AncillaryProverData {
     #[cfg(feature = "future_snark")]
