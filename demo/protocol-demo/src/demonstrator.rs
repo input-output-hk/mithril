@@ -217,6 +217,7 @@ impl Party {
                 &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
                 &self.params.unwrap(),
                 None,
+                None,
             ) {
                 Ok(_) => {
                     println!(
@@ -320,6 +321,7 @@ impl Verifier {
             message,
             &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
             &self.params.unwrap(),
+            None,
             None,
         ) {
             Ok(_) => {
