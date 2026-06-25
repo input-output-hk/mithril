@@ -159,7 +159,8 @@ fn main() {
                 &msg,
                 &clerk.compute_aggregate_verification_key(),
                 &params,
-                None
+                None,
+                None,
             )
             .is_ok()
     );
@@ -194,7 +195,8 @@ fn main() {
                 &msg,
                 &clerk.compute_aggregate_verification_key(),
                 &params,
-                None
+                None,
+                None,
             )
             .is_ok()
     );

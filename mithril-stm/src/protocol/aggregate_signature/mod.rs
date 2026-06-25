@@ -2,6 +2,7 @@ mod aggregate_key;
 mod ancillary_data;
 mod clerk;
 mod error;
+mod genesis;
 #[cfg(feature = "future_snark")]
 mod preimage;
 mod signature;
@@ -13,6 +14,7 @@ pub use ancillary_data::{
 };
 pub use clerk::Clerk;
 pub use error::{AggregateSignatureError, AggregationError};
+pub use genesis::GenesisVerificationKeyBundle;
 
 #[cfg(feature = "future_snark")]
 pub use preimage::GenesisMessagePreimage;
@@ -217,7 +219,8 @@ mod tests {
                         &tc.msg,
                         &tc.clerk.compute_aggregate_verification_key(),
                         &tc.clerk.get_concatenation_clerk().parameters,
-                        ancillary_proof_output.verifier_data().cloned()
+                        ancillary_proof_output.verifier_data().cloned(),
+                        None,
                     )
                     .is_err()
                 )
@@ -248,7 +251,7 @@ mod tests {
             match msig {
                 Ok((aggr, ancillary_proof_output)) => {
                     println!("Aggregate ok");
-                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
+                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned(), None).is_ok());
                 }
                 Err(error) => match error.downcast_ref::<AggregationError>() {
                     Some(AggregationError::NotEnoughSignatures(n, k)) => {
@@ -333,7 +336,7 @@ mod tests {
             if let Ok((aggr, ancillary_proof_output)) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes().expect("AggregateSignature serialization should not fail");
                     let aggr2: AggregateSignature<D> = AggregateSignature::from_bytes(&bytes).unwrap();
-                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
+                    assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned(), None).is_ok());
             }
         }
     }
@@ -414,6 +417,7 @@ mod tests {
                 let mut batch_msgs = Vec::new();
                 let mut batch_params = Vec::new();
                 let mut batch_ancillary_verifier_datas = Vec::new();
+                let mut batch_genesis_verification_key_bundles = Vec::new();
                 for _ in 0..batch_size {
                     let mut msg = [0u8; 32];
                     rng.fill_bytes(&mut msg);
@@ -432,6 +436,7 @@ mod tests {
                             batch_msgs.push(msg.to_vec());
                             batch_params.push(params);
                             batch_ancillary_verifier_datas.push(ancillary_proof_output.verifier_data().cloned());
+                            batch_genesis_verification_key_bundles.push(None);
                         }
                         Err(error) => { assert!(
                             matches!(
@@ -443,13 +448,13 @@ mod tests {
                     }
                 }
 
-                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_ok());
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas, &batch_genesis_verification_key_bundles).is_ok());
 
                 if aggr_stms.len() >= 2 {
                     let mut swapped_msgs = batch_msgs.clone();
                     swapped_msgs.swap(0, 1);
                     assert!(
-                        AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_err(),
+                        AggregateSignature::batch_verify(&aggr_stms, &swapped_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas, &batch_genesis_verification_key_bundles).is_err(),
                         "Batch verify should reject swapped messages"
                     );
 
@@ -466,7 +471,7 @@ mod tests {
                     let mut wrong_avks = aggr_avks.clone();
                     wrong_avks[0] = wrong_avk;
                     assert!(
-                        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params, &batch_ancillary_verifier_datas).is_err(),
+                        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &wrong_avks, &batch_params, &batch_ancillary_verifier_datas, &batch_genesis_verification_key_bundles).is_err(),
                         "Batch verify should reject a wrong avk"
                     );
                 }
@@ -482,7 +487,7 @@ mod tests {
                 let (fake_msig, _ancillary_proof_output) = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type, AncillaryProofInput::dummy()).unwrap();
 
                 aggr_stms[0] = fake_msig;
-                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas).is_err());
+                assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params, &batch_ancillary_verifier_datas, &batch_genesis_verification_key_bundles).is_err());
             }
         }
 

@@ -73,4 +73,8 @@ pub enum AggregateSignatureError {
     /// Missing IVC verifier data from the AncillaryVerifierData
     #[error("Missing IVC verifier data from the AncillaryVerifierData.")]
     MissingIvcVerifierData,
+
+    /// Missing genesis verification key bundle to verify the aggregate signature
+    #[error("Missing genesis verification key bundle to verify the aggregate signature.")]
+    MissingGenesisVerificationKeyBundle,
 }
