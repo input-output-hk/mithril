@@ -24,10 +24,6 @@ pub enum AggregationError {
     #[error("Missing SNARK signature for lottery index {0}.")]
     MissingSnarkSignature(SignerIndex),
 
-    /// Missing the rolling state to pass along the next certificate
-    #[error("Missing the rolling state to pass along the next certificate.")]
-    MissingRollingStateForNextCertificate,
-
     /// Missing the genesis verification key in the ancillary verifier data
     #[error("Missing the genesis verification key in the ancillary verifier data.")]
     MissingGenesisVerificationKey,
