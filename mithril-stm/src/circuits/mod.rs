@@ -8,9 +8,7 @@
 pub(crate) mod common;
 pub mod halo2;
 pub mod halo2_ivc;
-#[cfg(not(target_family = "wasm"))]
 pub mod key_cache;
-#[cfg(not(target_family = "wasm"))]
 pub mod trusted_setup;
 
 #[cfg(test)]
@@ -21,7 +19,6 @@ pub(crate) use halo2::witness::{
 };
 
 /// Constant holding the current path of the cached values related to the circuits
-#[cfg(not(target_family = "wasm"))]
 const MITHRIL_CIRCUIT_CACHE_FOLDER: &str = "mithril-circuit";
 
 #[cfg(all(
