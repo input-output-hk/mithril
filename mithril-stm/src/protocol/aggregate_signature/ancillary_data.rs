@@ -5,18 +5,27 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
-use crate::codec;
 #[cfg(feature = "future_snark")]
-use crate::{SchnorrVerificationKey, StandardSchnorrSignature};
+use crate::{
+    SchnorrVerificationKey, StandardSchnorrSignature,
+    proof_system::{IvcRollingState, ivc_halo2_snark::verifier_setup::IvcVerifierData},
+    protocol::aggregate_signature::GenesisMessagePreimage,
+};
+use crate::{StmResult, codec};
 
 /// Ancillary data carried by a certificate for the prover.
 ///
 /// Holds the prover-side state needed to produce the next certificate. Carried in the certificate,
 /// hashed into the certificate hash and transmitted in the certificate message. Variants map to the
-/// aggregate signature types that require prover data; none exist yet.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AncillaryProverData {}
+/// aggregate signature types that require prover data.
+#[cfg_attr(test, allow(clippy::large_enum_variant))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AncillaryProverData {
+    #[cfg(feature = "future_snark")]
+    IvcSnark(IvcRollingState),
+    #[cfg(all(feature = "future_snark", test))]
+    FutureVariant,
+}
 
 impl AncillaryProverData {
     /// Serialize to versioned CBOR bytes, following `CODEC.md`.
@@ -36,15 +45,28 @@ impl AncillaryProverData {
             ))
         }
     }
+
+    /// Returns the wrapped IvcRollingState of an AncillaryProverData if it exists.
+    #[cfg(feature = "future_snark")]
+    pub fn as_ivc_rolling_state(&self) -> Option<&IvcRollingState> {
+        match self {
+            Self::IvcSnark(state) => Some(state),
+            #[cfg(test)]
+            Self::FutureVariant => None,
+        }
+    }
 }
 
 /// Ancillary data carried by a certificate for the verifier.
 ///
 /// Holds the data a verifier needs to verify the certificate. Stored and transmitted in the
 /// certificate message. Variants map to the aggregate signature types that require verifier
-/// data; none exist yet.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AncillaryVerifierData {}
+/// data.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AncillaryVerifierData {
+    #[cfg(feature = "future_snark")]
+    IvcSnark(IvcVerifierData),
+}
 
 impl AncillaryVerifierData {
     /// Serialize to versioned CBOR bytes, following `CODEC.md`.
@@ -64,6 +86,14 @@ impl AncillaryVerifierData {
             ))
         }
     }
+
+    /// Returns the wrapped IvcVerifierData of an AncillaryVerifierData.
+    #[cfg(feature = "future_snark")]
+    pub fn as_ivc_verifier_data(&self) -> Option<&IvcVerifierData> {
+        match self {
+            Self::IvcSnark(state) => Some(state),
+        }
+    }
 }
 
 /// Genesis-related data carried into aggregate signature creation.
@@ -74,7 +104,7 @@ impl AncillaryVerifierData {
 #[derive(Clone, Debug)]
 pub struct AncillaryGenesisData {
     #[cfg(feature = "future_snark")]
-    genesis_message_preimage: Vec<u8>,
+    genesis_message_preimage: GenesisMessagePreimage,
     #[cfg(feature = "future_snark")]
     genesis_schnorr_signature: Option<StandardSchnorrSignature>,
     #[cfg(feature = "future_snark")]
@@ -97,7 +127,7 @@ impl AncillaryGenesisData {
     ) -> Self {
         Self {
             #[cfg(feature = "future_snark")]
-            genesis_message_preimage,
+            genesis_message_preimage: GenesisMessagePreimage(genesis_message_preimage),
             #[cfg(feature = "future_snark")]
             genesis_schnorr_signature,
             #[cfg(feature = "future_snark")]
@@ -107,7 +137,7 @@ impl AncillaryGenesisData {
 
     /// Return the genesis message preimage.
     #[cfg(feature = "future_snark")]
-    pub fn genesis_message_preimage(&self) -> &[u8] {
+    pub fn genesis_message_preimage(&self) -> &GenesisMessagePreimage {
         &self.genesis_message_preimage
     }
 
@@ -233,9 +263,31 @@ impl AncillaryProofOutput {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "future_snark")]
+    use rand_chacha::ChaCha20Rng;
+    #[cfg(feature = "future_snark")]
+    use rand_core::SeedableRng;
+
     use crate::codec::CODEC_VERSION_CBOR_V1;
+    #[cfg(feature = "future_snark")]
+    use crate::{
+        BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey,
+        circuits::halo2_ivc::{
+            tests::common::asset_readers::load_embedded_verification_context_asset,
+            types::MessageHash,
+        },
+    };
 
     use super::*;
+
+    // Duplicate from rolling_state.rs tests
+    #[cfg(feature = "future_snark")]
+    fn build_genesis_signature() -> StandardSchnorrSignature {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let signing_key = SchnorrSigningKey::generate(&mut rng);
+        let message = vec![BaseFieldElement::from(1u64)];
+        signing_key.sign_standard(&message, &mut rng).unwrap()
+    }
 
     #[test]
     fn prover_data_from_bytes_rejects_every_input() {
@@ -266,7 +318,10 @@ mod tests {
 
         let genesis_data = AncillaryGenesisData::new(preimage.clone(), None, None);
 
-        assert_eq!(genesis_data.genesis_message_preimage(), preimage.as_slice());
+        assert_eq!(
+            genesis_data.genesis_message_preimage().0,
+            preimage.as_slice()
+        );
         assert!(genesis_data.genesis_schnorr_signature().is_none());
         assert!(genesis_data.genesis_schnorr_verification_key().is_none());
     }
@@ -283,5 +338,38 @@ mod tests {
         );
 
         assert_eq!(proof_input.message_preimage(), message_preimage.as_slice());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn ancillary_prover_data_to_from_bytes_round_trip() {
+        let genesis_signature = build_genesis_signature();
+        let fixed_base_names = vec!["base_one".to_string(), "base_two".to_string()];
+        let rolling_state = IvcRollingState::genesis(genesis_signature, &fixed_base_names);
+        let ancillary_prover_data = AncillaryProverData::IvcSnark(rolling_state);
+
+        let bytes = ancillary_prover_data.to_bytes().unwrap();
+        let reconstructed = AncillaryProverData::from_bytes(&bytes).unwrap();
+
+        assert_eq!(bytes, reconstructed.to_bytes().unwrap());
+    }
+
+    #[cfg(feature = "future_snark")]
+    #[test]
+    fn ancillary_verifier_data_to_from_bytes_round_trip() {
+        let context = load_embedded_verification_context_asset()
+            .expect("verification context asset should load");
+        let verifier_data = IvcVerifierData::new(
+            MessageHash::ZERO,
+            SchnorrVerificationKey::default(),
+            context.certificate_verifying_key,
+            context.recursive_verifying_key,
+        );
+        let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(verifier_data);
+
+        let bytes = ancillary_verifier_data.to_bytes().unwrap();
+        let reconstructed = AncillaryVerifierData::from_bytes(&bytes).unwrap();
+
+        assert_eq!(bytes, reconstructed.to_bytes().unwrap());
     }
 }

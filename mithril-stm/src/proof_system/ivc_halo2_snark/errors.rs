@@ -32,4 +32,10 @@ pub(crate) enum IvcProofError {
         "IVC prover called with invalid context: rolling_state must not be a genesis (step_counter == 0) state; pass None to bootstrap from genesis"
     )]
     InvalidProvingContext,
+
+    /// Mismatch between the messages
+    #[error(
+        "IVC proof rejected: the message used to create the proof is different from the input message"
+    )]
+    InvalidMessage,
 }

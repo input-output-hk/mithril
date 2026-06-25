@@ -14,6 +14,7 @@ pub use aggregate_key::AggregateVerificationKeyForSnark;
 pub(crate) use aggregate_key::RIGID_SLOT_BYTES;
 #[cfg(test)]
 pub(crate) use circuit_verification_key::CircuitVerificationKey;
+pub(crate) use circuit_verification_key::midnight_certificate_verification_key_serde;
 pub(crate) use clerk::SnarkClerk;
 pub(crate) use eligibility::{
     compute_target_value_for_snark_lottery, compute_winning_lottery_indices,

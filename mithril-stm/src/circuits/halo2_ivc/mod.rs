@@ -53,7 +53,6 @@ pub(crate) mod circuit;
 pub(crate) mod config;
 pub(crate) mod errors;
 pub(crate) mod gadget;
-#[cfg(test)]
 pub(crate) mod io;
 #[cfg(test)]
 pub(crate) mod protocol_message;
@@ -62,6 +61,8 @@ pub(crate) mod types;
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+pub(crate) use types::ProtocolMessagePreimage;
 
 type S = BlstrsEmulation;
 type F = <S as SelfEmulation>::F;

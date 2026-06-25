@@ -4,6 +4,7 @@
 //! elements or bytes at lower circuit/gadget boundaries.
 
 use ff::Field;
+use serde::{Deserialize, Serialize};
 
 use super::{
     F, PREIMAGE_CURRENT_EPOCH_BYTES, PREIMAGE_NEXT_MERKLE_TREE_COMMITMENT_BYTES,
@@ -13,7 +14,7 @@ use crate::BaseFieldElement;
 
 macro_rules! field_wrapper {
     ($name:ident, zero) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
         pub(crate) struct $name(F);
 
         impl $name {
@@ -52,7 +53,7 @@ field_wrapper!(IvcCircuitVerificationKeyRepresentation);
 
 macro_rules! u64_wrapper {
     ($name:ident) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
         pub(crate) struct $name(u64);
 
         impl $name {
@@ -86,7 +87,7 @@ u64_wrapper!(EpochNumber);
 u64_wrapper!(StepCounter);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ProtocolMessagePreimage([u8; PREIMAGE_SIZE]);
+pub(crate) struct ProtocolMessagePreimage(pub(crate) [u8; PREIMAGE_SIZE]);
 
 impl ProtocolMessagePreimage {
     #[cfg(test)]
@@ -232,7 +233,7 @@ impl CertificateProofBytes {
 }
 
 /// Provisional recursive proof-byte wrapper until `IvcProof` is wired end-to-end.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct IvcProofBytes(Vec<u8>);
 
 impl IvcProofBytes {

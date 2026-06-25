@@ -4,6 +4,7 @@ use midnight_circuits::{
     types::Instantiable,
     verifier::{Accumulator, BlstrsEmulation},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     StmResult,
@@ -20,22 +21,19 @@ use crate::{
 };
 
 /// Caller-owned bridge between consecutive IVC proving steps.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this rolling state
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct IvcRollingState {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IvcRollingState {
     /// Last committed chain state.
     state: State,
     /// Bytes of the last IVC proof under the Poseidon transcript
     ivc_proof: IvcProofBytes,
     /// Folded accumulator the new step will build on top of
+    #[serde(with = "midnight_accumulator_serde")]
     accumulator: Accumulator<BlstrsEmulation>,
     /// Chain-specific Schnorr signature over the genesis message
     genesis_signature: StandardSchnorrSignature,
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover uses this rolling state
-#[allow(dead_code)]
 impl IvcRollingState {
     /// Builds a rolling state from the four fields produced by an IVC proving step.
     pub(crate) fn new(
@@ -131,6 +129,35 @@ impl IvcRollingState {
     pub(crate) fn is_next_epoch(&self, certificate_epoch: EpochNumber) -> bool {
         certificate_epoch.as_field()
             == self.state.current_epoch.as_field() + EpochNumber::new(1).as_field()
+    }
+}
+
+pub(crate) mod midnight_accumulator_serde {
+    use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
+    use midnight_proofs::utils::SerdeFormat;
+    use serde::{Deserializer, Serializer};
+
+    use crate::circuits::halo2_ivc::io::{Read, Write};
+
+    /// Serialization function based on the write function of Midnight's Accumulator
+    pub fn serialize<S: Serializer>(
+        accumulator: &Accumulator<BlstrsEmulation>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut buf = Vec::new();
+        accumulator
+            .write(&mut buf, SerdeFormat::RawBytesUnchecked)
+            .map_err(serde::ser::Error::custom)?;
+        serializer.serialize_bytes(&buf)
+    }
+
+    /// Deserialization function based on the read function of Midnight's Accumulator
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Accumulator<BlstrsEmulation>, D::Error> {
+        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
+        Accumulator::<BlstrsEmulation>::read(&mut bytes.as_slice(), SerdeFormat::RawBytesUnchecked)
+            .map_err(serde::de::Error::custom)
     }
 }
 

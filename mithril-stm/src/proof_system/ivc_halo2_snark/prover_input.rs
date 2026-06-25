@@ -22,8 +22,6 @@ use crate::{
 };
 
 /// Pre-circuit inputs consumed by the IVC prover's circuit-construction and proof-generation steps.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this input
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct IvcProverInput {
     /// In-circuit witness for the new step.
@@ -34,8 +32,6 @@ pub(crate) struct IvcProverInput {
     pub(crate) next_accumulator: Accumulator<BlstrsEmulation>,
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover consumes this input
-#[allow(dead_code)]
 impl IvcProverInput {
     /// Advances the chain state by one step and bundles the in-circuit witness, the
     /// new state, and the new folded accumulator.

@@ -58,7 +58,7 @@ pub use halo2_snark::AggregateVerificationKeyForSnark;
 pub use halo2_snark::{MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProof};
 
 #[cfg(all(test, feature = "future_snark"))]
-pub(crate) use halo2_snark::SnarkSetup;
+pub(crate) use halo2_snark::{CircuitVerificationKey, SnarkSetup};
 #[cfg(feature = "future_snark")]
 pub(crate) use halo2_snark::{
     SingleSignatureForSnark, SnarkClerk, SnarkProofSigner, SnarkProver, SnarkVerifierSetup,
@@ -69,4 +69,4 @@ pub(crate) use halo2_snark::{
 pub(crate) use halo2_snark::RIGID_SLOT_BYTES as SNARK_AGGREGATE_VERIFICATION_KEY_RIGID_SLOT_BYTES;
 
 #[cfg(feature = "future_snark")]
-pub(crate) use ivc_halo2_snark::CircuitVerifyingKey;
+pub(crate) use ivc_halo2_snark::{CircuitVerifyingKey, rolling_state::IvcRollingState};

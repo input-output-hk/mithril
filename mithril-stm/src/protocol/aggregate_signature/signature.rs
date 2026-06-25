@@ -7,9 +7,14 @@ use crate::{
     MembershipDigest, Parameters, StmError, StmResult, codec,
     membership_commitment::MerkleBatchPath, proof_system::ConcatenationProof,
 };
-
 #[cfg(feature = "future_snark")]
-use crate::proof_system::{SnarkProof, SnarkVerifierSetup};
+use crate::{
+    circuits::halo2_ivc::state::Global,
+    proof_system::{
+        SnarkProof, SnarkVerifierSetup,
+        ivc_halo2_snark::{proof::IvcProof, verifier_setup::IvcVerifierSetup},
+    },
+};
 
 use super::{AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData};
 
@@ -22,6 +27,9 @@ pub enum AggregateSignatureType {
     /// SNARK proof system.
     #[cfg(feature = "future_snark")]
     Snark,
+    /// IVC SNARK proof system.
+    #[cfg(feature = "future_snark")]
+    IvcSnark,
 }
 
 impl AggregateSignatureType {
@@ -33,6 +41,8 @@ impl AggregateSignatureType {
             AggregateSignatureType::Concatenation => 0,
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => 1,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => 2,
         }
     }
 
@@ -44,6 +54,8 @@ impl AggregateSignatureType {
             0 => Some(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
             1 => Some(AggregateSignatureType::Snark),
+            #[cfg(feature = "future_snark")]
+            2 => Some(AggregateSignatureType::IvcSnark),
             _ => None,
         }
     }
@@ -59,6 +71,8 @@ impl AggregateSignatureType {
             AggregateSignatureType::Concatenation => false,
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => false,
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => true,
         }
     }
 }
@@ -69,6 +83,8 @@ impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureTyp
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(_) => AggregateSignatureType::Snark,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(_) => AggregateSignatureType::IvcSnark,
         }
     }
 }
@@ -81,6 +97,8 @@ impl FromStr for AggregateSignatureType {
             "Concatenation" => Ok(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_snark")]
             "Snark" => Ok(AggregateSignatureType::Snark),
+            #[cfg(feature = "future_snark")]
+            "IvcSnark" => Ok(AggregateSignatureType::IvcSnark),
             _ => Err(anyhow!(AggregateSignatureError::UnknownProofSystem(
                 s.to_string()
             ))),
@@ -94,6 +112,8 @@ impl Display for AggregateSignatureType {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => write!(f, "Snark"),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => write!(f, "IvcSnark"),
         }
     }
 }
@@ -119,6 +139,10 @@ pub enum AggregateSignature<D: MembershipDigest> {
     #[cfg(feature = "future_snark")]
     Snark(Box<SnarkProof<D>>),
 
+    /// IVC SNARK proof system.
+    #[cfg(feature = "future_snark")]
+    IvcSnark(Box<IvcProof<blake2b_simd::State>>),
+
     /// Concatenation proof system.
     // The 'untagged' attribute is required for backward compatibility.
     // It implies that this variant is placed at the end of the enum.
@@ -136,7 +160,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         parameters: &Parameters,
         ancillary_verifier_data: Option<AncillaryVerifierData>,
     ) -> StmResult<()> {
-        let _ = ancillary_verifier_data;
+        let _ = &ancillary_verifier_data;
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
                 msg,
@@ -150,6 +174,28 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                 })?;
                 let verifier_setup = SnarkVerifierSetup::try_new()?;
                 snark_proof.verify(msg, snark_avk, &verifier_setup.verifier_params)
+            }
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(ivc_proof) => {
+                let ivc_verifier_data = ancillary_verifier_data
+                    .as_ref()
+                    .ok_or_else(|| anyhow!(AggregateSignatureError::MissingAncillaryVerifierData))?
+                    .as_ivc_verifier_data()
+                    .ok_or_else(|| anyhow!(AggregateSignatureError::MissingIvcVerifierData))?;
+
+                let global = Global::new(
+                    ivc_verifier_data.genesis_message(),
+                    ivc_verifier_data.genesis_schnorr_verification_key(),
+                    ivc_verifier_data.certificate_circuit_verification_key(),
+                    ivc_verifier_data.ivc_circuit_verification_key(),
+                );
+
+                let verifier_setup = IvcVerifierSetup::try_new(
+                    ivc_verifier_data.certificate_circuit_verification_key(),
+                    ivc_verifier_data.ivc_circuit_verification_key(),
+                )?;
+
+                ivc_proof.verify(msg, &global, &verifier_setup)
             }
         }
     }
@@ -275,6 +321,21 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 
                         Ok(())
                     }
+                    #[cfg(feature = "future_snark")]
+                    AggregateSignatureType::IvcSnark => {
+                        for (aggregate_signature, avk, msg, parameters, ancillary_verifier_data) in
+                            aggregate_entries
+                        {
+                            aggregate_signature.verify(
+                                &msg,
+                                &avk,
+                                &parameters,
+                                ancillary_verifier_data,
+                            )?;
+                        }
+
+                        Ok(())
+                    }
                 }
             })
     }
@@ -291,6 +352,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             }
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(snark_proof) => snark_proof.to_bytes()?,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(ivc_proof) => ivc_proof.to_bytes()?,
         };
         let envelope = AggregateSignatureCborEnvelope {
             signature_type: aggregate_signature_type.get_byte_encoding_prefix(),
@@ -336,6 +399,10 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(Box::new(
                 SnarkProof::from_bytes(&envelope.proof_bytes)?,
             ))),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => Ok(AggregateSignature::IvcSnark(Box::new(
+                IvcProof::from_bytes(&envelope.proof_bytes)?,
+            ))),
         }
     }
 
@@ -353,6 +420,10 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignatureType::Snark => Ok(AggregateSignature::Snark(Box::new(
                 SnarkProof::from_bytes(proof_bytes)?,
             ))),
+            #[cfg(feature = "future_snark")]
+            AggregateSignatureType::IvcSnark => Ok(AggregateSignature::IvcSnark(Box::new(
+                IvcProof::from_bytes(proof_bytes)?,
+            ))),
         }
     }
 
@@ -362,6 +433,8 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             AggregateSignature::Concatenation(proof) => Some(proof),
             #[cfg(feature = "future_snark")]
             AggregateSignature::Snark(_) => None,
+            #[cfg(feature = "future_snark")]
+            AggregateSignature::IvcSnark(_) => None,
         }
     }
 
@@ -371,6 +444,17 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         match self {
             AggregateSignature::Snark(proof) => Some(proof),
             AggregateSignature::Concatenation(_) => None,
+            AggregateSignature::IvcSnark(_) => None,
+        }
+    }
+
+    /// If the aggregate signature is an IVC proof, return it.
+    #[cfg(feature = "future_snark")]
+    pub fn get_ivc_proof(&self) -> Option<&IvcProof<blake2b_simd::State>> {
+        match self {
+            AggregateSignature::IvcSnark(proof) => Some(proof),
+            AggregateSignature::Concatenation(_) => None,
+            AggregateSignature::Snark(_) => None,
         }
     }
 }
@@ -378,6 +462,54 @@ impl<D: MembershipDigest> AggregateSignature<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "future_snark")]
+    mod ivc_proof {
+        use crate::{Clerk, Parameters, protocol::aggregate_signature::tests::setup_equal_parties};
+
+        use crate::{
+            AggregateSignature, AggregateSignatureError, MithrilMembershipDigest,
+            circuits::halo2_ivc::tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
+            proof_system::ivc_halo2_snark::proof::IvcProof,
+        };
+
+        #[test]
+        fn ivc_verify_fails_without_ancillary_verifier_data() {
+            let step_output = load_embedded_next_epoch_step_output_asset()
+                .expect("recursive step output asset should load");
+
+            let nparties = 5;
+            let m = 10;
+            let k = 3;
+            let params = Parameters { m, k, phi_f: 0.9 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+            let avk = clerk.compute_aggregate_verification_key();
+
+            let msg = &[
+                22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158,
+                211, 191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+            ];
+
+            let proof = IvcProof::<blake2b_simd::State>::new(
+                step_output.ivc_proof,
+                step_output.next_state,
+                step_output.next_accumulator,
+            );
+
+            let ivc_proof =
+                AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
+
+            let err = ivc_proof
+                .verify(msg, &avk, &params, None)
+                .expect_err("Should fail without ancillary verifier data.");
+            assert_eq!(
+                err.downcast_ref::<AggregateSignatureError>(),
+                Some(&AggregateSignatureError::MissingAncillaryVerifierData),
+                "missing ancillary verifier data must be rejected, got: {err}"
+            );
+        }
+    }
 
     mod envelope_compatibility {
         use super::*;

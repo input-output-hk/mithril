@@ -11,9 +11,8 @@ use crate::{
     circuits::{
         halo2::types::CircuitBase,
         halo2_ivc::{
-            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME,
-            certificate_proof::verify_and_prepare_accumulator,
-            state::{fixed_bases_and_names, trivial_acc},
+            CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, K,
+            certificate_proof::verify_and_prepare_accumulator, state::fixed_bases_and_names,
         },
         trusted_setup::TrustedSetupProvider,
     },
@@ -34,14 +33,12 @@ use crate::{
 /// and values must agree across the three maps for any shared key. The in-circuit IVC
 /// verifier gadget builds a single merged fixed-base list from these names; any mismatch
 /// here produces folded accumulators the circuit will reject.
-// TODO: remove this allow dead_code directive when the IVC prover consumes this setup
-#[allow(dead_code)]
 pub(crate) struct IvcProverSetup {
-    /// Full KZG parameters used during proof generation.
+    /// KZG parameters used during proof generation, downsized to the IVC circuit degree `K`.
     ///
-    /// Stored in full to support `create_proof`, which requires the prover-side
-    /// commitment material. Verifier params are derived on demand via
-    /// `self.srs.verifier_params()`.
+    /// `create_proof` commits in the Lagrange basis of the circuit domain, so the SRS must match
+    /// that domain: a larger SRS carries a different basis and yields an unverifiable proof.
+    /// Verifier params are derived on demand via `self.srs.verifier_params()`.
     pub(crate) srs: ParamsKZG<Bls12>,
     /// Verifying key of the certificate circuit.
     pub(crate) certificate_verifying_key: CircuitVerifyingKey,
@@ -58,8 +55,6 @@ pub(crate) struct IvcProverSetup {
     pub(crate) combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
 
-// TODO: remove this allow dead_code directive when the IVC prover uses this setup
-#[allow(dead_code)]
 impl IvcProverSetup {
     /// Derives the full IVC setup by orchestrating the key providers.
     ///
@@ -89,7 +84,8 @@ impl IvcProverSetup {
         certificate_key_provider: &TempCertificateKeyProvider,
         ivc_key_provider: &TempIvcKeyProvider,
     ) -> StmResult<Self> {
-        let srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
+        srs.downsize(K);
 
         let certificate_verifying_key = certificate_key_provider.get_verifying_key()?;
         let ivc_verifying_key = ivc_key_provider.get_verifying_key()?;
@@ -125,18 +121,6 @@ impl IvcProverSetup {
         accumulator.extract_fixed_bases(&self.certificate_fixed_bases);
         accumulator.collapse();
         accumulator
-    }
-
-    /// Trivial previous-IVC-proof collapsed accumulator used at genesis. The in-circuit
-    /// gadget zeros the prepared accumulator via `scale_by_bit(is_not_genesis, ...)`;
-    /// off-circuit we construct a fresh trivial accumulator over the combined fixed-base
-    /// names.
-    pub(crate) fn trivial_previous_ivc_proof_collapsed_accumulator(
-        &self,
-    ) -> Accumulator<BlstrsEmulation> {
-        let combined_fixed_base_names: Vec<String> =
-            self.combined_fixed_bases.keys().cloned().collect();
-        trivial_acc(&combined_fixed_base_names)
     }
 
     /// Off-circuit verify of the previous step's IVC proof, returning the collapsed
