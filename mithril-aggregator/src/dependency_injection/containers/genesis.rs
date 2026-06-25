@@ -3,9 +3,7 @@ use std::sync::Arc;
 use slog::Logger;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
-use mithril_common::{
-    CardanoNetwork, certificate_chain::CertificateVerifier, entities::SupportedEra,
-};
+use mithril_common::{CardanoNetwork, entities::SupportedEra};
 
 use crate::database::repository::CertificateRepository;
 use crate::{ProtocolParametersRetriever, VerificationKeyStorer};
@@ -20,9 +18,6 @@ pub struct GenesisCommandDependenciesContainer {
 
     /// Chain observer
     pub chain_observer: Arc<dyn ChainObserver>,
-
-    /// Certificate verifier service.
-    pub certificate_verifier: Arc<dyn CertificateVerifier>,
 
     /// Protocol parameters retriever service.
     pub protocol_parameters_retriever: Arc<dyn ProtocolParametersRetriever>,

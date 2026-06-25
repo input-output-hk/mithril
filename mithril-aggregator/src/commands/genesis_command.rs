@@ -9,7 +9,6 @@ use slog::{Logger, debug};
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 #[cfg(not(feature = "future_snark"))]
 use mithril_common::crypto_helper::GenesisEd25519VerificationKey;
-#[cfg(feature = "future_snark")]
 use mithril_common::crypto_helper::GenesisVerifier;
 use mithril_common::{
     StdResult,
@@ -312,10 +311,11 @@ impl ImportGenesisSubCommand {
         genesis_tools: &GenesisTools,
         _mithril_era: SupportedEra,
     ) -> StdResult<()> {
-        let verification_key =
-            GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?;
+        let genesis_verifier = GenesisVerifier::from_ed25519(
+            GenesisEd25519VerificationKey::from_json_hex(&self.genesis_verification_key)?,
+        );
         genesis_tools
-            .import_payload_signature(&self.signed_payload_path, &verification_key)
+            .import_payload_signature(&self.signed_payload_path, &genesis_verifier)
             .await
             .with_context(|| "genesis-tools: import error")
     }
@@ -333,10 +333,7 @@ impl ImportGenesisSubCommand {
                 .await
                 .with_context(|| "genesis-tools: import error"),
             _ => genesis_tools
-                .import_payload_signature(
-                    &self.signed_payload_path,
-                    &verifier.ed25519.to_verification_key(),
-                )
+                .import_payload_signature(&self.signed_payload_path, &verifier)
                 .await
                 .with_context(|| "genesis-tools: import error"),
         }

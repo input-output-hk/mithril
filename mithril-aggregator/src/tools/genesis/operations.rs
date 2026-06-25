@@ -10,10 +10,12 @@ use slog::Logger;
 
 use mithril_common::{
     CardanoNetwork, StdResult,
-    certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
+    certificate_chain::{
+        CertificateGenesisProducer, CertificateVerifier, MithrilCertificateVerifier,
+    },
     crypto_helper::{
-        GenesisEd25519Signature, GenesisEd25519Signer, GenesisEd25519VerificationKey,
-        GenesisSigner, GenesisVerifier, ProtocolAggregateVerificationKey,
+        GenesisEd25519Signature, GenesisEd25519Signer, GenesisSigner, GenesisVerifier,
+        ProtocolAggregateVerificationKey,
     },
     entities::{CertificateSignature, Epoch, ProtocolParameters, SupportedEra},
     protocol::SignerBuilder,
@@ -52,7 +54,6 @@ pub struct GenesisToolsConfiguration {
 /// Genesis tools for creating and managing genesis certificates.
 pub struct GenesisTools {
     configuration: GenesisToolsConfiguration,
-    certificate_verifier: Arc<dyn CertificateVerifier>,
     certificate_repository: Arc<CertificateRepository>,
     logger: Logger,
 }
@@ -61,16 +62,27 @@ impl GenesisTools {
     /// GenesisTools factory
     pub fn new(
         configuration: GenesisToolsConfiguration,
-        certificate_verifier: Arc<dyn CertificateVerifier>,
         certificate_repository: Arc<CertificateRepository>,
         logger: Logger,
     ) -> Self {
         Self {
             configuration,
-            certificate_verifier,
             certificate_repository,
             logger,
         }
+    }
+
+    /// Build a certificate verifier that checks genesis certificates against the supplied genesis
+    /// verifier.
+    fn build_certificate_verifier(
+        &self,
+        genesis_verifier: &GenesisVerifier,
+    ) -> MithrilCertificateVerifier {
+        MithrilCertificateVerifier::new(
+            self.logger.clone(),
+            self.certificate_repository.clone(),
+            Arc::new(genesis_verifier.clone()),
+        )
     }
 
     pub async fn from_dependencies(
@@ -81,7 +93,6 @@ impl GenesisTools {
             .get_current_epoch()
             .await?
             .with_context(|| "Chain observer can not retrieve current epoch")?;
-        let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
         let protocol_parameters_retriever = dependencies.protocol_parameters_retriever.clone();
         let genesis_avk_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -113,7 +124,6 @@ impl GenesisTools {
 
         Ok(Self::new(
             configuration,
-            certificate_verifier,
             certificate_repository,
             dependencies.logger,
         ))
@@ -149,11 +159,11 @@ impl GenesisTools {
     pub async fn import_payload_signature(
         &self,
         signed_payload_path: &Path,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
+        genesis_verifier: &GenesisVerifier,
     ) -> StdResult<()> {
         let signed_payload_buffer = std::fs::read(signed_payload_path)?;
         let genesis_signature = GenesisEd25519Signature::from_bytes(&signed_payload_buffer)?;
-        self.create_and_save_genesis_certificate(genesis_signature, genesis_verification_key)
+        self.create_and_save_genesis_certificate(genesis_signature, genesis_verifier)
             .await
     }
 
@@ -180,11 +190,8 @@ impl GenesisTools {
             envelope.schnorr,
             SupportedEra::Lagrange,
         )?;
-        self.certificate_verifier
-            .verify_genesis_certificate(
-                &certificate,
-                &genesis_verifier.to_ed25519_verification_key(),
-            )
+        self.build_certificate_verifier(genesis_verifier)
+            .verify_genesis_certificate(&certificate)
             .await?;
         let digest = sha256_digest(&certificate.protocol_message.rigid_preimage());
         genesis_verifier.verify_schnorr(&digest, &envelope.schnorr)?;
@@ -264,11 +271,8 @@ impl GenesisTools {
             )),
             None => GenesisVerifier::from_ed25519(ed25519_verification_key),
         };
-        self.certificate_verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &genesis_verifier.to_ed25519_verification_key(),
-            )
+        self.build_certificate_verifier(&genesis_verifier)
+            .verify_genesis_certificate(&genesis_certificate)
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate)
@@ -325,7 +329,7 @@ impl GenesisTools {
     async fn create_and_save_genesis_certificate(
         &self,
         genesis_signature: GenesisEd25519Signature,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
+        genesis_verifier: &GenesisVerifier,
     ) -> StdResult<()> {
         let genesis_producer = CertificateGenesisProducer::new().with_logger(self.logger.clone());
         let genesis_certificate = genesis_producer.create_legacy_genesis_certificate(
@@ -336,8 +340,8 @@ impl GenesisTools {
             genesis_signature,
             self.configuration.mithril_era,
         )?;
-        self.certificate_verifier
-            .verify_genesis_certificate(&genesis_certificate, genesis_verification_key)
+        self.build_certificate_verifier(genesis_verifier)
+            .verify_genesis_certificate(&genesis_certificate)
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate.clone())
@@ -454,7 +458,6 @@ mod tests {
     #[cfg(feature = "future_snark")]
     use mithril_common::crypto_helper::{
         BUNDLE_FIRST_HEX_CHAR, GenesisSchnorrSigner, GenesisSigningKeyBundle,
-        GenesisVerificationKeyBundle,
     };
     #[cfg(feature = "future_snark")]
     use mithril_common::entities::Certificate;
@@ -462,7 +465,6 @@ mod tests {
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{
             GenesisEd25519SecretKey, GenesisEd25519Signer, GenesisEd25519VerificationKey,
-            GenesisEd25519Verifier,
         },
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
@@ -482,12 +484,13 @@ mod tests {
         fixture.compute_aggregate_verification_key()
     }
 
+    #[cfg(not(feature = "future_snark"))]
     fn build_tools(
         genesis_signer: &GenesisEd25519Signer,
     ) -> (
         GenesisTools,
         Arc<CertificateRepository>,
-        Arc<GenesisEd25519Verifier>,
+        Arc<GenesisVerifier>,
         Arc<dyn CertificateVerifier>,
     ) {
         build_tools_for_era(genesis_signer, SupportedEra::Pythagoras)
@@ -499,17 +502,20 @@ mod tests {
     ) -> (
         GenesisTools,
         Arc<CertificateRepository>,
-        Arc<GenesisEd25519Verifier>,
+        Arc<GenesisVerifier>,
         Arc<dyn CertificateVerifier>,
     ) {
         let connection = main_db_connection().unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
+        let genesis_avk = create_fake_genesis_avk();
+        let genesis_verifier = Arc::new(GenesisVerifier::from_ed25519(
+            genesis_signer.verification_key(),
+        ));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(
             TestLogger::stdout(),
             certificate_store.clone(),
+            genesis_verifier.clone(),
         ));
-        let genesis_avk = create_fake_genesis_avk();
-        let genesis_verifier = Arc::new(genesis_signer.create_verifier());
         let configuration = GenesisToolsConfiguration {
             network: fake_data::network(),
             epoch: Epoch(10),
@@ -519,7 +525,6 @@ mod tests {
         };
         let genesis_tools = GenesisTools::new(
             configuration,
-            certificate_verifier.clone(),
             certificate_store.clone(),
             TestLogger::stdout(),
         );
@@ -532,6 +537,7 @@ mod tests {
         )
     }
 
+    #[cfg(not(feature = "future_snark"))]
     #[tokio::test]
     async fn export_sign_then_import_genesis_payload() {
         let test_dir = get_temp_dir("export_payload_to_sign");
@@ -561,10 +567,7 @@ mod tests {
         .await
         .expect("sign_genesis_certificate should not fail");
         genesis_tools
-            .import_payload_signature(
-                &signed_payload_path,
-                &genesis_verifier.to_verification_key(),
-            )
+            .import_payload_signature(&signed_payload_path, &genesis_verifier)
             .await
             .expect("import_payload_signature should not fail");
 
@@ -572,20 +575,18 @@ mod tests {
 
         assert_eq!(1, last_certificates.len());
         certificate_verifier
-            .verify_genesis_certificate(
-                &last_certificates[0],
-                &genesis_verifier.to_verification_key(),
-            )
+            .verify_genesis_certificate(&last_certificates[0])
             .await
             .expect(
                 "verify_genesis_certificate should successfully validate the genesis certificate",
             );
     }
 
+    #[cfg(not(feature = "future_snark"))]
     #[tokio::test]
     async fn bootstrap_test_genesis_certificate_works() {
         let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
-        let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
+        let (genesis_tools, certificate_store, _genesis_verifier, certificate_verifier) =
             build_tools(&ed25519_signer);
 
         genesis_tools
@@ -597,10 +598,7 @@ mod tests {
 
         assert_eq!(1, last_certificates.len());
         certificate_verifier
-            .verify_genesis_certificate(
-                &last_certificates[0],
-                &genesis_verifier.to_verification_key(),
-            )
+            .verify_genesis_certificate(&last_certificates[0])
             .await
             .expect(
                 "verify_genesis_certificate should successfully validate the genesis certificate",
@@ -673,9 +671,8 @@ mod tests {
         #[tokio::test]
         async fn pythagoras_accepts_dual_signing_bundle() {
             let (ed25519_signer, signer) = build_dual_signer();
-            let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
+            let (genesis_tools, certificate_store, _genesis_verifier, certificate_verifier) =
                 build_tools_for_era(&ed25519_signer, SupportedEra::Pythagoras);
-
             genesis_tools
                 .bootstrap_test_genesis_certificate(signer)
                 .await
@@ -684,7 +681,7 @@ mod tests {
             let last = certificate_store.get_latest_certificates(10).await.unwrap();
             assert_eq!(1, last.len());
             certificate_verifier
-                .verify_genesis_certificate(&last[0], &genesis_verifier.to_verification_key())
+                .verify_genesis_certificate(&last[0])
                 .await
                 .expect("Ed25519 verification must pass");
         }
@@ -692,9 +689,8 @@ mod tests {
         #[tokio::test]
         async fn lagrange_runs_dual_ceremony() {
             let (ed25519_signer, signer) = build_dual_signer();
-            let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
+            let (genesis_tools, certificate_store, _genesis_verifier, certificate_verifier) =
                 build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
-
             genesis_tools
                 .bootstrap_test_genesis_certificate(signer)
                 .await
@@ -703,7 +699,7 @@ mod tests {
             let last = certificate_store.get_latest_certificates(10).await.unwrap();
             assert_eq!(1, last.len());
             certificate_verifier
-                .verify_genesis_certificate(&last[0], &genesis_verifier.to_verification_key())
+                .verify_genesis_certificate(&last[0])
                 .await
                 .expect("Ed25519 verification must pass on the dual variant");
         }
