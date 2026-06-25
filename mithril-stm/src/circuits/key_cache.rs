@@ -6,9 +6,12 @@
 // removed so the caller recomputes fresh keys from the SRS.
 use std::{
     fs,
-    io::ErrorKind,
+    io::{ErrorKind, Write},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use anyhow::Context;
@@ -43,6 +46,38 @@ fn remove_if_exists(path: &Path) -> StmResult<()> {
             Err(e.into())
         }
     })
+}
+
+/// Writes `bytes` to a uniquely-named temporary sibling of `final_path`, fsyncing before returning
+/// its path so the subsequent rename is atomic.
+fn write_temporary_sibling(final_path: &Path, bytes: &[u8]) -> StmResult<PathBuf> {
+    let temp_path = unique_temporary_path(final_path);
+    let mut file = fs::File::create(&temp_path)
+        .with_context(|| format!("Failed to create the temporary key file at {temp_path:?}"))?;
+    file.write_all(bytes)?;
+    file.sync_all()
+        .with_context(|| "Failed to fsync the temporary key file before rename")?;
+    Ok(temp_path)
+}
+
+/// A temporary sibling path unique to this writer, so concurrent cold-miss writers never collide.
+fn unique_temporary_path(final_path: &Path) -> PathBuf {
+    static WRITE_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let sequence = WRITE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let process_id = std::process::id();
+    let mut file_name = final_path.file_name().unwrap_or_default().to_os_string();
+    file_name.push(format!(".{process_id}.{sequence}.temp"));
+    final_path.with_file_name(file_name)
+}
+
+/// Fsyncs the directory containing `path` so the renames are durable.
+fn sync_directory_of(path: &Path) -> StmResult<()> {
+    if let Some(parent) = path.parent() {
+        fs::File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .with_context(|| "Failed to fsync the cache directory after rename")?;
+    }
+    Ok(())
 }
 
 impl CircuitKeyCache {
@@ -86,10 +121,13 @@ impl CircuitKeyCache {
         Ok(Some(K::try_from_bytes(&proving_key_bytes)?))
     }
 
-    /// Writes the verifying and proving key bytes to disk as a pair. If the proving-key write
-    /// fails, removal of the just-written verifying key is attempted (best-effort; a cleanup
-    /// error is ignored) so the next read recomputes rather than trusting a VK-matches-but-PK-broken
-    /// state.
+    /// Writes the verifying and proving key bytes to disk as a pair: each to a per-writer-unique
+    /// temporary sibling, fsynced, then renamed (the proving key first, the verifying key last),
+    /// with a final directory fsync. A partial or interrupted store — including a crash whose
+    /// rename metadata persists out of order — can leave an orphan key on disk; readers require
+    /// both keys present and recompute otherwise, so correctness does not depend on the rename
+    /// order or on crash durability. Unique temporary names let concurrent lock-free writers
+    /// proceed without clobbering each other.
     ///
     /// The caller serializes the keys via [`TryToBytes::to_bytes_vec`].
     pub(crate) fn store_key_pair(
@@ -101,13 +139,27 @@ impl CircuitKeyCache {
             fs::create_dir_all(parent)
                 .with_context(|| "Failed to create the circuit key cache directory")?;
         }
-        fs::write(&self.verification_key_path, verification_key_bytes)
-            .with_context(|| "Failed to write the verification key to the cache")?;
-        if let Err(error) = fs::write(&self.proving_key_path, proving_key_bytes) {
-            let _ = fs::remove_file(&self.verification_key_path);
-            return Err(error).with_context(|| "Failed to write the proving key to the cache");
+
+        let proving_key_temp = write_temporary_sibling(&self.proving_key_path, proving_key_bytes)?;
+        let verification_key_temp =
+            match write_temporary_sibling(&self.verification_key_path, verification_key_bytes) {
+                Ok(path) => path,
+                Err(error) => {
+                    let _ = fs::remove_file(&proving_key_temp);
+                    return Err(error);
+                }
+            };
+
+        if let Err(error) = fs::rename(&proving_key_temp, &self.proving_key_path) {
+            let _ = fs::remove_file(&proving_key_temp);
+            let _ = fs::remove_file(&verification_key_temp);
+            return Err(error).with_context(|| "Failed to store the proving key in the cache");
         }
-        Ok(())
+        if let Err(error) = fs::rename(&verification_key_temp, &self.verification_key_path) {
+            let _ = fs::remove_file(&verification_key_temp);
+            return Err(error).with_context(|| "Failed to store the verification key in the cache");
+        }
+        sync_directory_of(&self.verification_key_path)
     }
 
     /// Read the on-disk VK bytes, returning `None` if the file does not exist.
@@ -222,10 +274,10 @@ mod tests {
     }
 
     #[test]
-    fn store_key_pair_rolls_back_verification_key_when_proving_key_write_fails() {
+    fn store_key_pair_leaves_no_verification_key_when_proving_key_store_fails() {
         let (base_dir, cache) = make_test_cache(current_function!());
-        // A directory at the proving-key path makes the proving-key write fail after the
-        // verification key has already been written, exercising the rollback.
+        // A directory at the proving-key path makes the proving-key rename fail. Because the
+        // verifying key is renamed last (only after the proving key), it is never written.
         fs::create_dir_all(cache.proving_key_path()).unwrap();
 
         let result = cache.store_key_pair(b"vk-bytes", b"pk-bytes");
@@ -236,7 +288,7 @@ mod tests {
         );
         assert!(
             !cache.verification_key_path().exists(),
-            "the verification key must be rolled back when the proving key write fails"
+            "no verification key must be left behind when the proving key store fails"
         );
         fs::remove_dir_all(&base_dir).ok();
     }
