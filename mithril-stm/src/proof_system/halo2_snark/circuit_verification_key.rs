@@ -5,12 +5,17 @@ use serde::{Deserialize, Serialize};
 use crate::codec::TryToBytes;
 use crate::{StmResult, codec::TryFromBytes};
 
-/// Wrapper type of MidnightVK, the circuit verification key
+/// Wrapper type of MidnightVK, the circuit verification key.
+///
+/// The wrapper itself is currently unused; it is retained alongside its serde module, which the IVC
+/// verifier data still relies on to (de)serialize the certificate verifying key.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct CircuitVerificationKey(
     #[serde(with = "midnight_certificate_verification_key_serde")] MidnightVK,
 );
 
+#[allow(dead_code)]
 impl CircuitVerificationKey {
     /// Creates a new CircuitVerificationKey from a MidnightVK
     pub fn new(midnight_vk: MidnightVK) -> Self {

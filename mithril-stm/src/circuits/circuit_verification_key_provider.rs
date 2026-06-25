@@ -22,9 +22,10 @@ pub(crate) struct CircuitVerificationKeyProvider<C: CircuitKeyGenerator> {
 
 #[allow(dead_code)] // consumed by the certificate and recursive setups in the following steps
 impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
-    /// Builds a provider rooted at `base_dir`. The cached verifying key is compared against
-    /// `expected_verification_key_bytes`; empty bytes skip the comparison and trust the cache
-    /// directory (used by content-keyed test caches). Keys are computed from `circuit` on a miss.
+    /// Builds a provider rooted at `base_dir`. On read, the cached verifying key is compared against
+    /// `expected_verification_key_bytes` and recomputed on a mismatch; empty expected bytes
+    /// therefore always recompute (no real key matches them). Keys are computed from `circuit` on a
+    /// miss.
     pub(crate) fn new(
         base_dir: PathBuf,
         circuit_name: &str,
@@ -82,8 +83,12 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
 
 #[cfg(test)]
 impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
-    fn verification_key_path(&self) -> &std::path::Path {
+    pub(crate) fn verification_key_path(&self) -> &std::path::Path {
         self.cache.verification_key_path()
+    }
+
+    pub(crate) fn proving_key_path(&self) -> &std::path::Path {
+        self.cache.proving_key_path()
     }
 }
 

@@ -94,7 +94,7 @@ impl IvcProverInput {
         // would not match the one the in-circuit verifier produces.
         if snark_proof
             .circuit_verification_key()
-            .get_midnight_vk()
+            .midnight_vk()
             .vk()
             .transcript_repr()
             != setup.certificate_verifying_key.transcript_repr()
@@ -203,6 +203,7 @@ mod tests {
 
         use crate::{
             MithrilMembershipDigest, Parameters,
+            circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
             circuits::{
                 halo2_ivc::{
                     RECURSIVE_CIRCUIT_DEGREE,
@@ -230,11 +231,8 @@ mod tests {
                 },
                 trusted_setup::build_provider_with_unsafe_srs,
             },
-            proof_system::{
-                halo2_snark::CircuitVerificationKey,
-                ivc_halo2_snark::unsafe_setup_helpers::{
-                    TempCertificateKeyProvider, TempIvcKeyProvider,
-                },
+            proof_system::ivc_halo2_snark::unsafe_setup_helpers::{
+                TempCertificateKeyProvider, TempIvcKeyProvider,
             },
             signature_scheme::{SchnorrSignatureError, StandardSchnorrSignature},
         };
@@ -306,7 +304,7 @@ mod tests {
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
             let circuit_verification_key =
-                CircuitVerificationKey::new(ctx.certificate_verifying_key.clone());
+                NonRecursiveCircuitVerifyingKey::new(ctx.certificate_verifying_key.clone());
             SnarkProof::from_parts(
                 certificate_proof_bytes,
                 parameters,

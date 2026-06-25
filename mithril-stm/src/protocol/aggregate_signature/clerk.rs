@@ -330,8 +330,9 @@ mod tests {
         AncillaryGenesisData, AncillaryProofInput, MithrilMembershipDigest, Parameters,
         SchnorrVerificationKey,
         circuits::halo2::circuit::StmCertificateCircuit,
+        circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
         circuits::halo2_ivc::PREIMAGE_SIZE,
-        proof_system::{CircuitVerificationKey, SnarkClerk},
+        proof_system::SnarkClerk,
         proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, ivc_halo2_snark::IvcProverSetup},
         protocol::aggregate_signature::tests::setup_equal_parties,
         {AggregationError, AncillaryProverData, SnarkProof},
@@ -388,7 +389,7 @@ mod tests {
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            CircuitVerificationKey::new(certificate_midnight_verifying_key.clone()),
+            NonRecursiveCircuitVerifyingKey::new(certificate_midnight_verifying_key.clone()),
         );
 
         let ancillary_input = AncillaryProofInput::new(
@@ -430,7 +431,7 @@ mod tests {
             vec![],
             tiny_params,
             MERKLE_TREE_DEPTH_FOR_SNARK,
-            CircuitVerificationKey::new(certificate_midnight_verifying_key.clone()),
+            NonRecursiveCircuitVerifyingKey::new(certificate_midnight_verifying_key.clone()),
         );
 
         let ancillary_input = AncillaryProofInput::new(

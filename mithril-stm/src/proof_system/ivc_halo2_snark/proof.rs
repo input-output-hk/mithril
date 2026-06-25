@@ -924,6 +924,7 @@ mod tests {
 
         use crate::{
             AggregateVerificationKeyForSnark, MithrilMembershipDigest, Parameters, SnarkProof,
+            circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
             circuits::{
                 halo2::types::CircuitBase,
                 halo2_ivc::{
@@ -949,14 +950,11 @@ mod tests {
                 },
                 trusted_setup::build_provider_with_unsafe_srs,
             },
-            proof_system::{
-                halo2_snark::CircuitVerificationKey,
-                ivc_halo2_snark::{
-                    prover_setup::IvcProverSetup,
-                    rolling_state::IvcRollingState,
-                    unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
-                    verifier_setup::IvcVerifierSetup,
-                },
+            proof_system::ivc_halo2_snark::{
+                prover_setup::IvcProverSetup,
+                rolling_state::IvcRollingState,
+                unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
+                verifier_setup::IvcVerifierSetup,
             },
         };
 
@@ -984,7 +982,9 @@ mod tests {
                 certificate_proof_bytes,
                 parameters,
                 merkle_tree_depth,
-                CircuitVerificationKey::new(verification_context.certificate_verifying_key.clone()),
+                NonRecursiveCircuitVerifyingKey::new(
+                    verification_context.certificate_verifying_key.clone(),
+                ),
             )
         }
 

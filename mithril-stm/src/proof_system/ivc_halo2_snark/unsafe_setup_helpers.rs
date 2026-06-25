@@ -119,7 +119,8 @@ impl TempIvcKeyProvider {
         let ivc_circuit_data = IvcCircuitData::unknown(&self.certificate_verifying_key)?;
         let mut ivc_srs = (*self.srs).clone();
         ivc_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        let ivc_verifying_key = keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, RECURSIVE_CIRCUIT_DEGREE)?;
+        let ivc_verifying_key =
+            keygen_vk_with_k(&ivc_srs, &ivc_circuit_data, RECURSIVE_CIRCUIT_DEGREE)?;
         Ok(keygen_pk(ivc_verifying_key, &ivc_circuit_data)?)
     }
 }
