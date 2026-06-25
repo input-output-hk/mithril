@@ -7,6 +7,7 @@
 //! proof, so it can be wrapped into a certificate accumulator for IVC
 //! aggregation.
 
+use anyhow::Context;
 use group::Group;
 
 use midnight_circuits::hash::poseidon::PoseidonState;
@@ -55,14 +56,17 @@ pub(crate) fn verify_and_prepare_accumulator(
         &[&[public_inputs]],
         &mut transcript,
     )
-    .map_err(|_| IvcCircuitError::CertificateProofRejected)?;
+    .map_err(|_| IvcCircuitError::CertificateProofRejected)
+    .with_context(|| "Error during the preparation of the dual msm.")?;
 
     transcript
         .assert_empty()
-        .map_err(|_| IvcCircuitError::CertificateProofRejected)?;
+        .map_err(|_| IvcCircuitError::CertificateProofRejected)
+        .with_context(|| "Transcript is not empty after the dual msm prepare.")?;
 
     if !dual_msm.clone().check(verifier_params) {
-        return Err(IvcCircuitError::CertificateProofRejected.into());
+        return Err(IvcCircuitError::CertificateProofRejected)
+            .with_context(|| "Dual msm check failed");
     }
 
     Ok(dual_msm)
