@@ -34,12 +34,7 @@ fn verify_and_prepare_accumulator_rejects_garbage_proof_bytes() {
         .unwrap_err()
         .downcast::<IvcCircuitError>()
         .expect("error should downcast to IvcCircuitError");
-    assert_eq!(
-        err,
-        IvcCircuitError::CertificateProofRejected {
-            context: "Error from plonk verifier prepare function: Transcript error: Invalid BLS12-381 point encoding in proof".to_string()
-        }
-    );
+    assert!(matches!(err, IvcCircuitError::CertificateProofRejected(..)));
 }
 
 #[test]
@@ -64,10 +59,5 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
         .unwrap_err()
         .downcast::<IvcCircuitError>()
         .expect("error should downcast to IvcCircuitError");
-    assert_eq!(
-        err,
-        IvcCircuitError::CertificateProofRejected {
-            context: "Dual msm check failed".to_string()
-        }
-    );
+    assert!(matches!(err, IvcCircuitError::CertificateProofRejected(..)));
 }

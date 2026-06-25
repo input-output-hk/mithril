@@ -55,24 +55,24 @@ pub(crate) fn verify_and_prepare_accumulator(
         &[&[public_inputs]],
         &mut transcript,
     )
-    .map_err(|err| IvcCircuitError::CertificateProofRejected {
-        context: format!("Error from plonk verifier prepare function: {}", err),
+    .map_err(|err| {
+        IvcCircuitError::CertificateProofRejected(format!(
+            "Error from plonk verifier prepare function: {}",
+            err
+        ))
     })?;
 
-    transcript
-        .assert_empty()
-        .map_err(|err| IvcCircuitError::CertificateProofRejected {
-            context: format!(
-                "Transcript is not empty after the dual msm prepare: {}",
-                err
-            ),
-        })?;
+    transcript.assert_empty().map_err(|err| {
+        IvcCircuitError::CertificateProofRejected(format!(
+            "Transcript is not empty after the dual msm prepare: {}",
+            err
+        ))
+    })?;
 
     if !dual_msm.clone().check(verifier_params) {
-        return Err(IvcCircuitError::CertificateProofRejected {
-            context: "Dual msm check failed".to_string(),
-        }
-        .into());
+        return Err(
+            IvcCircuitError::CertificateProofRejected("Dual msm check failed".to_string()).into(),
+        );
     }
 
     Ok(dual_msm)
