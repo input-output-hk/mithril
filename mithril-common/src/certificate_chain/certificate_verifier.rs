@@ -13,13 +13,15 @@ use crate::StdResult;
 #[cfg(feature = "future_snark")]
 use crate::crypto_helper::ProtocolAggregateVerificationKeyForSnark;
 use crate::crypto_helper::{
-    GenesisEd25519Error, GenesisEd25519VerificationKey, ProtocolAggregateVerificationKey,
+    GenesisEd25519Error, GenesisVerifier, ProtocolAggregateVerificationKey,
     ProtocolAggregateVerificationKeyForConcatenation, ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
 };
 use crate::logging::LoggerExtensions;
+#[cfg(feature = "future_snark")]
+use mithril_stm::GenesisVerificationKeyBundle as StmGenesisVerificationKeyBundle;
 
 use super::CertificateRetriever;
 
@@ -97,11 +99,7 @@ pub enum CertificateVerifierError {
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateVerifier: Send + Sync {
     /// Verify Genesis certificate
-    async fn verify_genesis_certificate(
-        &self,
-        genesis_certificate: &Certificate,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
-    ) -> StdResult<()>;
+    async fn verify_genesis_certificate(&self, genesis_certificate: &Certificate) -> StdResult<()>;
 
     /// Verify Standard certificate
     async fn verify_standard_certificate(
@@ -111,23 +109,13 @@ pub trait CertificateVerifier: Send + Sync {
     ) -> StdResult<()>;
 
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
-    async fn verify_certificate(
-        &self,
-        certificate: &Certificate,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
-    ) -> StdResult<Option<Certificate>>;
+    async fn verify_certificate(&self, certificate: &Certificate)
+    -> StdResult<Option<Certificate>>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
-    async fn verify_certificate_chain(
-        &self,
-        certificate: Certificate,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
-    ) -> StdResult<()> {
+    async fn verify_certificate_chain(&self, certificate: Certificate) -> StdResult<()> {
         let mut certificate = certificate;
-        while let Some(previous_certificate) = self
-            .verify_certificate(&certificate, genesis_verification_key)
-            .await?
-        {
+        while let Some(previous_certificate) = self.verify_certificate(&certificate).await? {
             certificate = previous_certificate;
         }
 
@@ -139,15 +127,21 @@ pub trait CertificateVerifier: Send + Sync {
 pub struct MithrilCertificateVerifier {
     logger: Logger,
     certificate_retriever: Arc<dyn CertificateRetriever>,
+    genesis_verifier: Arc<GenesisVerifier>,
 }
 
 impl MithrilCertificateVerifier {
     /// MithrilCertificateVerifier factory
-    pub fn new(logger: Logger, certificate_retriever: Arc<dyn CertificateRetriever>) -> Self {
+    pub fn new(
+        logger: Logger,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
+        genesis_verifier: Arc<GenesisVerifier>,
+    ) -> Self {
         debug!(logger, "New MithrilCertificateVerifier created");
         Self {
             logger: logger.new_with_component_name::<Self>(),
             certificate_retriever,
+            genesis_verifier,
         }
     }
 
@@ -175,12 +169,21 @@ impl MithrilCertificateVerifier {
             message.encode_hex::<String>()
         );
 
+        #[cfg(not(feature = "future_snark"))]
+        let genesis_verification_key_bundle = None;
+        #[cfg(feature = "future_snark")]
+        let genesis_verification_key_bundle = self
+            .genesis_verifier
+            .to_schnorr_verification_key()
+            .map(StmGenesisVerificationKeyBundle::new);
+
         multi_signature
             .verify(
                 message,
                 aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
                 ancillary_verifier_data,
+                genesis_verification_key_bundle,
             )
             .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
     }
@@ -430,11 +433,7 @@ impl MithrilCertificateVerifier {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
-    async fn verify_genesis_certificate(
-        &self,
-        genesis_certificate: &Certificate,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
-    ) -> StdResult<()> {
+    async fn verify_genesis_certificate(&self, genesis_certificate: &Certificate) -> StdResult<()> {
         let genesis_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
             // The Schnorr half is intentionally not verified here as it is needed for IVC SNARK only
@@ -446,7 +445,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         }?;
         self.verify_hash_matches_content(genesis_certificate)?;
         self.verify_signed_message_matches_hashed_protocol_message(genesis_certificate)?;
-        genesis_verification_key
+        self.genesis_verifier
+            .to_ed25519_verification_key()
             .verify(
                 genesis_certificate.signed_message.as_bytes(),
                 genesis_signature,
@@ -478,7 +478,6 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
-        genesis_verification_key: &GenesisEd25519VerificationKey,
     ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger, "Verifying certificate";
@@ -489,8 +488,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         );
 
         if certificate.is_genesis() {
-            self.verify_genesis_certificate(certificate, genesis_verification_key)
-                .await?;
+            self.verify_genesis_certificate(certificate).await?;
 
             return Ok(None);
         }
@@ -567,12 +565,21 @@ mod tests {
             }
         }
 
-        fn build_certificate_verifier(self) -> MithrilCertificateVerifier {
+        fn build_certificate_verifier(
+            self,
+            genesis_verifier: Arc<GenesisVerifier>,
+        ) -> MithrilCertificateVerifier {
             MithrilCertificateVerifier::new(
                 TestLogger::stdout(),
                 Arc::new(self.mock_certificate_retriever),
+                genesis_verifier,
             )
         }
+    }
+
+    #[cfg(feature = "future_snark")]
+    fn fake_genesis_verifier() -> Arc<GenesisVerifier> {
+        Arc::new(setup_certificate_chain(1, 1).genesis_verifier)
     }
 
     #[test]
@@ -603,10 +610,12 @@ mod tests {
             .unwrap();
         let ancillary_verifier_data = ancillary_proof_output.verifier_data().cloned();
         let multi_signature = aggregate_signature.into();
+        let genesis_verifier = setup_certificate_chain(1, 1).genesis_verifier;
 
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
             Arc::new(MockCertificateRetriever::new()),
+            Arc::new(genesis_verifier),
         );
         let message_tampered = message_hash[1..].to_vec();
         assert!(
@@ -636,15 +645,11 @@ mod tests {
     async fn verify_genesis_certificate_success() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let genesis_certificate = fake_certificates.genesis_certificate();
 
-        let verify = verifier
-            .verify_genesis_certificate(
-                genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await;
+        let verify = verifier.verify_genesis_certificate(genesis_certificate).await;
 
         verify.expect("verify_genesis_certificate should not fail");
     }
@@ -654,9 +659,8 @@ mod tests {
     async fn verify_genesis_certificate_ignores_the_schnorr_half_of_a_dual_signature() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
-        let genesis_verification_key =
-            fake_certificates.genesis_verifier.to_ed25519_verification_key();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let ed_signature = match &fake_certificates.genesis_certificate().signature {
             CertificateSignature::GenesisSignature(signature) => *signature,
             other => panic!("expected a legacy genesis signature, got {other:?}"),
@@ -673,7 +677,7 @@ mod tests {
             genesis_certificate.hash = genesis_certificate.try_compute_hash().unwrap();
 
             verifier
-                .verify_genesis_certificate(&genesis_certificate, &genesis_verification_key)
+                .verify_genesis_certificate(&genesis_certificate)
                 .await
                 .expect("the Schnorr half is intentionally not verified, so this must succeed");
         }
@@ -683,17 +687,15 @@ mod tests {
     async fn verify_genesis_certificate_fails_if_is_not_genesis() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let standard_certificate = fake_certificates[0].clone();
         let mut genesis_certificate = fake_certificates.genesis_certificate().clone();
         genesis_certificate.signature = standard_certificate.signature.clone();
         genesis_certificate.hash = genesis_certificate.try_compute_hash().unwrap();
 
         let error = verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_genesis_certificate(&genesis_certificate)
             .await
             .expect_err("verify_genesis_certificate should fail");
 
@@ -707,15 +709,13 @@ mod tests {
     async fn verify_genesis_certificate_fails_if_hash_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut genesis_certificate = fake_certificates.genesis_certificate().clone();
         genesis_certificate.hash = "another-hash".to_string();
 
         let error = verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_genesis_certificate(&genesis_certificate)
             .await
             .expect_err("verify_genesis_certificate should fail");
 
@@ -726,7 +726,8 @@ mod tests {
     async fn verify_genesis_certificate_fails_if_protocol_message_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut genesis_certificate = fake_certificates.genesis_certificate().clone();
         genesis_certificate.protocol_message.set_message_part(
             ProtocolMessagePartKey::CurrentEpoch,
@@ -735,10 +736,7 @@ mod tests {
         genesis_certificate.hash = genesis_certificate.try_compute_hash().unwrap();
 
         let error = verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_genesis_certificate(&genesis_certificate)
             .await
             .expect_err("verify_genesis_certificate should fail");
 
@@ -752,16 +750,14 @@ mod tests {
     async fn verify_genesis_certificate_fails_if_epoch_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut genesis_certificate = fake_certificates.genesis_certificate().clone();
         genesis_certificate.epoch -= 1;
         genesis_certificate.hash = genesis_certificate.try_compute_hash().unwrap();
 
         let error = verifier
-            .verify_genesis_certificate(
-                &genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_genesis_certificate(&genesis_certificate)
             .await
             .expect_err("verify_genesis_certificate should fail");
 
@@ -772,7 +768,8 @@ mod tests {
     async fn verify_standard_certificate_success_with_different_epochs_as_previous() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let certificate = fake_certificates[0].clone();
         let previous_certificate = fake_certificates[1].clone();
 
@@ -787,7 +784,8 @@ mod tests {
     async fn verify_standard_certificate_success_with_same_epoch_as_previous() {
         let (total_certificates, certificates_per_epoch) = (5, 2);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let certificate = fake_certificates[0].clone();
         let previous_certificate = fake_certificates[1].clone();
 
@@ -802,7 +800,8 @@ mod tests {
     fn verify_certificate_integrity_succeeds_for_a_valid_standard_certificate() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let certificate = fake_certificates[0].clone();
 
         verifier
@@ -814,7 +813,8 @@ mod tests {
     fn verify_certificate_integrity_fails_for_a_tampered_certificate() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         certificate.hash = "another-hash".to_string();
 
@@ -829,7 +829,8 @@ mod tests {
     fn verify_certificate_integrity_does_not_check_the_previous_certificate_link() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
 
         // Break the link to the previous certificate while keeping the certificate self-consistent.
@@ -847,7 +848,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_is_not_genesis() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let genesis_certificate = fake_certificates.genesis_certificate();
         let mut standard_certificate = fake_certificates[0].clone();
         standard_certificate.signature = genesis_certificate.signature.clone();
@@ -869,7 +871,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_infinite_loop() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         certificate.previous_hash = certificate.hash.clone();
         let previous_certificate = fake_certificates[1].clone();
@@ -889,7 +892,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_hash_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         certificate.hash = "another-hash".to_string();
         let previous_certificate = fake_certificates[1].clone();
@@ -906,7 +910,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_protocol_message_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         certificate.protocol_message.set_message_part(
             ProtocolMessagePartKey::CurrentEpoch,
@@ -930,7 +935,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_epoch_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         certificate.epoch -= 1;
         certificate.hash = certificate.try_compute_hash().unwrap();
@@ -997,7 +1003,8 @@ mod tests {
                 }
             })
             .build();
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let certificate = fake_certificates[0].clone();
         let previous_certificate = fake_certificates[1].clone();
 
@@ -1016,7 +1023,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_certificate_previous_hash_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let certificate = fake_certificates[0].clone();
         let mut previous_certificate = fake_certificates[1].clone();
         previous_certificate.previous_hash = "another-hash".to_string();
@@ -1037,7 +1045,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_certificate_chain_avk_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         let mut previous_certificate = fake_certificates[1].clone();
         previous_certificate.protocol_message.set_message_part(
@@ -1060,7 +1069,8 @@ mod tests {
     async fn verify_standard_certificate_fails_if_certificate_chain_protocol_parameters_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let verifier = MockDependencyInjector::new()
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         let mut certificate = fake_certificates[0].clone();
         let mut previous_certificate = fake_certificates[1].clone();
         previous_certificate.protocol_message.set_message_part(
@@ -1088,14 +1098,10 @@ mod tests {
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let genesis_certificate = fake_certificates.genesis_certificate();
         let mock_container = MockDependencyInjector::new();
-        let verifier = mock_container.build_certificate_verifier();
+        let verifier = mock_container
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
 
-        let verify = verifier
-            .verify_certificate(
-                genesis_certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await;
+        let verify = verifier.verify_certificate(genesis_certificate).await;
 
         verify.expect("verify_certificate should not fail");
     }
@@ -1112,14 +1118,10 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(previous_certificate.clone()))
             .times(1);
-        let verifier = mock_container.build_certificate_verifier();
+        let verifier = mock_container
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
 
-        let verify = verifier
-            .verify_certificate(
-                &certificate,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await;
+        let verify = verifier.verify_certificate(&certificate).await;
 
         verify.expect("verify_certificate should not fail");
     }
@@ -1149,7 +1151,6 @@ mod tests {
             async fn verify_genesis_certificate(
                 &self,
                 _genesis_certificate: &Certificate,
-                _genesis_verification_key: &GenesisEd25519VerificationKey,
             ) -> StdResult<()> {
                 unimplemented!()
             }
@@ -1165,7 +1166,6 @@ mod tests {
             async fn verify_certificate(
                 &self,
                 certificate: &Certificate,
-                _genesis_verification_key: &GenesisEd25519VerificationKey,
             ) -> StdResult<Option<Certificate>> {
                 let mut certificates_unverified = self.certificates_unverified.lock().await;
                 let _verified_certificate = (*certificates_unverified).remove(&certificate.hash);
@@ -1182,12 +1182,7 @@ mod tests {
         let verifier = CertificateVerifierTest::from_certificates(&fake_certificates);
         assert!(verifier.has_unverified_certificates().await);
 
-        let verify = verifier
-            .verify_certificate_chain(
-                fake_certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await;
+        let verify = verifier.verify_certificate_chain(fake_certificate_to_verify).await;
 
         verify.expect("verify_certificate_chain should not fail");
         assert!(!verifier.has_unverified_certificates().await);
@@ -1199,16 +1194,14 @@ mod tests {
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let certificate_retriever =
             FakeCertificaterRetriever::from_certificates(&fake_certificates);
-        let verifier =
-            MithrilCertificateVerifier::new(TestLogger::stdout(), Arc::new(certificate_retriever));
+        let verifier = MithrilCertificateVerifier::new(
+            TestLogger::stdout(),
+            Arc::new(certificate_retriever),
+            Arc::new(fake_certificates.genesis_verifier.clone()),
+        );
         let certificate_to_verify = fake_certificates[0].clone();
 
-        let verify = verifier
-            .verify_certificate_chain(
-                certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await;
+        let verify = verifier.verify_certificate_chain(certificate_to_verify).await;
         verify.expect("verify_certificate_chain should not fail");
     }
 
@@ -1221,15 +1214,15 @@ mod tests {
         fake_certificates[index_certificate_fail].signed_message = "tampered-message".to_string();
         let certificate_retriever =
             FakeCertificaterRetriever::from_certificates(&fake_certificates);
-        let verifier =
-            MithrilCertificateVerifier::new(TestLogger::stdout(), Arc::new(certificate_retriever));
+        let verifier = MithrilCertificateVerifier::new(
+            TestLogger::stdout(),
+            Arc::new(certificate_retriever),
+            Arc::new(fake_certificates.genesis_verifier.clone()),
+        );
         let certificate_to_verify = fake_certificates[0].clone();
 
         let error = verifier
-            .verify_certificate_chain(
-                certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_certificate_chain(certificate_to_verify)
             .await
             .expect_err("verify_certificate_chain should fail");
 
@@ -1309,16 +1302,14 @@ mod tests {
             .build();
         let certificate_to_verify = fake_certificates[0].clone();
         let mock_container = MockDependencyInjector::new();
-        let mut verifier = mock_container.build_certificate_verifier();
+        let mut verifier = mock_container
+            .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
         verifier.certificate_retriever = Arc::new(FakeCertificaterRetriever::from_certificates(
             &fake_certificates,
         ));
 
         let error = verifier
-            .verify_certificate(
-                &certificate_to_verify,
-                &fake_certificates.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_certificate(&certificate_to_verify)
             .await
             .expect_err("verify_certificate_chain should fail");
 
@@ -1369,7 +1360,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
             certificate.previous_hash.clone_from(&previous_certificate.hash);
@@ -1390,7 +1382,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
 
@@ -1410,7 +1403,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
             previous_certificate.aggregate_verification_key_snark = None;
@@ -1433,7 +1427,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             certificate.aggregate_verification_key_snark = None;
             certificate.hash = certificate.try_compute_hash().unwrap();
@@ -1456,7 +1451,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             certificate.aggregate_verification_key_snark = None;
             certificate.hash = certificate.try_compute_hash().unwrap();
@@ -1480,7 +1476,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
             previous_certificate.protocol_message.set_message_part(
@@ -1505,7 +1502,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let certificate = with_snark_proof_type(fake_certificates[0].clone());
             let mut previous_certificate = fake_certificates[1].clone();
             previous_certificate
@@ -1530,7 +1528,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let mut certificate = with_snark_proof_type(fake_certificates[0].clone());
             let previous_certificate = fake_certificates[1].clone();
             certificate.previous_hash.clone_from(&previous_certificate.hash);
@@ -1550,7 +1549,8 @@ mod tests {
                 total_certificates,
                 certificates_per_epoch,
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier = MockDependencyInjector::new()
+                .build_certificate_verifier(Arc::new(fake_certificates.genesis_verifier.clone()));
             let genesis_certificate = fake_certificates.genesis_certificate().clone();
             let mut certificate = with_snark_proof_type(fake_certificates[3].clone());
             certificate.previous_hash.clone_from(&genesis_certificate.hash);
@@ -1606,7 +1606,8 @@ mod tests {
                 epoch,
                 rigid_protocol_message_for_epoch(epoch, &protocol_parameters),
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_epoch_matches_protocol_message(&certificate)
@@ -1620,7 +1621,8 @@ mod tests {
                 Epoch(43),
                 rigid_protocol_message_for_epoch(Epoch(42), &protocol_parameters),
             );
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             let error = verifier
                 .verify_epoch_matches_protocol_message(&certificate)
@@ -1638,7 +1640,8 @@ mod tests {
                 &current_certificate.metadata.protocol_parameters,
             );
             let previous_certificate = build_certificate(previous_epoch, rigid);
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_protocol_parameters_chaining(&current_certificate, &previous_certificate)
@@ -1658,7 +1661,8 @@ mod tests {
                 hex::encode([0u8; 32]),
             );
             let previous_certificate = build_certificate(previous_epoch, rigid);
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             let error = verifier
                 .verify_protocol_parameters_chaining(&current_certificate, &previous_certificate)
@@ -1721,7 +1725,8 @@ mod tests {
         #[test]
         fn concatenation_aggregate_verification_key_chains_at_era_transition() {
             let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_concatenation_aggregate_verification_key_chaining(
@@ -1736,7 +1741,8 @@ mod tests {
         #[test]
         fn protocol_parameters_chain_at_era_transition() {
             let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_protocol_parameters_chaining(&successor, &predecessor)
@@ -1748,7 +1754,8 @@ mod tests {
         #[test]
         fn epoch_chain_at_era_transition() {
             let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier.verify_epoch_chaining(&successor, &predecessor).expect(
                 "epoch chaining must hold across the Pythagoras to Lagrange era transition",
@@ -1758,7 +1765,8 @@ mod tests {
         #[test]
         fn previous_hash_chain_at_era_transition() {
             let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_previous_hash_matches_previous_certificate_hash(&successor, &predecessor)
@@ -1770,7 +1778,8 @@ mod tests {
         #[test]
         fn aggregate_verification_key_chain_dispatches_to_concatenation_at_era_transition() {
             let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
-            let verifier = MockDependencyInjector::new().build_certificate_verifier();
+            let verifier =
+                MockDependencyInjector::new().build_certificate_verifier(fake_genesis_verifier());
 
             verifier
                 .verify_aggregate_verification_key_chaining(&successor, &predecessor)
@@ -1801,7 +1810,8 @@ mod tests {
             fn snark_aggregate_verification_key_chains_at_era_transition() {
                 let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
                 let successor = promote_to_snark_aggregate_signature(successor);
-                let verifier = MockDependencyInjector::new().build_certificate_verifier();
+                let verifier = MockDependencyInjector::new()
+                    .build_certificate_verifier(fake_genesis_verifier());
 
                 verifier
                     .verify_snark_aggregate_verification_key_chaining(&successor, &predecessor)
@@ -1814,7 +1824,8 @@ mod tests {
             fn aggregate_verification_key_chain_dispatches_to_snark_at_era_transition() {
                 let (predecessor, successor) = pythagoras_to_lagrange_era_transition_pair();
                 let successor = promote_to_snark_aggregate_signature(successor);
-                let verifier = MockDependencyInjector::new().build_certificate_verifier();
+                let verifier = MockDependencyInjector::new()
+                    .build_certificate_verifier(fake_genesis_verifier());
 
                 verifier
                     .verify_aggregate_verification_key_chaining(&successor, &predecessor)
