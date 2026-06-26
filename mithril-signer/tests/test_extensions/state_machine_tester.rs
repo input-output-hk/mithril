@@ -26,23 +26,21 @@ use mithril_common::{
     api_version::APIVersionProvider,
     crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
-        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityType,
-        SignedEntityTypeDiscriminants, Signer, SignerWithStake, SlotNumber, SupportedEra,
-        TimePoint,
+        BlockNumber, ChainPoint, Epoch, SignedEntityType, Signer, SignerWithStake, SlotNumber,
+        SupportedEra, TimePoint,
     },
     signable_builder::{
         CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
         MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
     },
-    test::double::{Dummy, fake_data},
+    test::double::Dummy,
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_persistence::store::StakeStorer;
 use mithril_protocol_config::{
-    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
+    http::HttpMithrilNetworkConfigurationProvider, model::MithrilNetworkConfigurationForEpoch,
     test::double::FakeMithrilNetworkConfigurationProviderWithEpochMarkers,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
@@ -89,7 +87,6 @@ pub struct StateMachineTester {
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeChainObserver>,
     fake_aggregator: Arc<FakeAggregatorHttpServer>,
-    network_configuration_service: Arc<FakeMithrilNetworkConfigurationProviderWithEpochMarkers>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
     era_checker: Arc<EraChecker>,
@@ -144,36 +141,10 @@ impl StateMachineTester {
             chain_observer.clone(),
             immutable_observer.clone(),
         ));
-        // Todo: remove, each tests should set the initial marker instead
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumberOffset(0),
-            step: BlockNumber(30),
-        };
-        let cardano_blocks_transactions_signing_config = CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumberOffset(0),
-            step: BlockNumber(30),
-        };
 
-        let initial_network_config = MithrilNetworkConfigurationForEpoch {
-            protocol_parameters: fake_data::protocol_parameters(),
-            signed_entity_types_config: SignedEntityTypeConfiguration {
-                cardano_transactions: Some(cardano_transactions_signing_config.clone()),
-                cardano_blocks_transactions: Some(
-                    cardano_blocks_transactions_signing_config.clone(),
-                ),
-            },
-            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
-        };
-
-        let network_configuration_service = Arc::new(
-            FakeMithrilNetworkConfigurationProviderWithEpochMarkers::from([(
-                Epoch(0),
-                initial_network_config,
-            )]),
-        );
         let fake_aggregator = Arc::new(FakeAggregatorHttpServer::spawn(
             ticker_service.clone(),
-            network_configuration_service.clone(),
+            Arc::new(FakeMithrilNetworkConfigurationProviderWithEpochMarkers::default()),
             logger.clone(),
         )?);
 
@@ -299,6 +270,10 @@ impl StateMachineTester {
             .build()
             .map(Arc::new)?;
 
+        let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
+            aggregator_client.clone(),
+            logger.clone(),
+        ));
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository.clone(),
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
@@ -352,7 +327,6 @@ impl StateMachineTester {
             immutable_observer,
             chain_observer,
             fake_aggregator,
-            network_configuration_service,
             protocol_initializer_store,
             stake_store,
             era_checker,
@@ -479,8 +453,8 @@ impl StateMachineTester {
         marker_epoch: Epoch,
         marker: MithrilNetworkConfigurationForEpoch,
     ) -> &mut Self {
-        self.network_configuration_service
-            .insert_marker(marker_epoch, marker)
+        self.fake_aggregator
+            .set_network_configuration_marker(marker_epoch, marker)
             .await;
         self
     }
