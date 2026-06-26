@@ -21,7 +21,7 @@ use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
-async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled() {
+async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled_including_unknown_and_discontinued() {
     let protocol_parameters = fake_data::protocol_parameters();
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(10)
@@ -65,6 +65,7 @@ async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled() {
                 },
             },
         ).await
+        .send_unknown_and_discontinued_signed_entities_in_network_configuration().await
 
         .cycle_unregistered().await.unwrap()
 

@@ -459,6 +459,18 @@ impl StateMachineTester {
         self
     }
 
+    pub async fn send_unknown_and_discontinued_signed_entities_in_network_configuration(
+        &mut self,
+    ) -> &mut Self {
+        self.fake_aggregator
+            .protocol_config_send_unknown_signed_entities()
+            .await;
+        self.fake_aggregator
+            .protocol_config_send_discontinued_signed_entities()
+            .await;
+        self
+    }
+
     /// check there is a protocol initializer for the given Epoch
     pub async fn check_protocol_initializer(&mut self, epoch: Epoch) -> Result<&mut Self> {
         let maybe_protocol_initializer = self
