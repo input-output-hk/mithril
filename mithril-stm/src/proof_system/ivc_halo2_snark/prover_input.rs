@@ -17,7 +17,7 @@ use crate::{
     },
     proof_system::{
         halo2_snark::build_snark_message,
-        ivc_halo2_snark::{prover_setup::IvcProverSetup, rolling_state::IvcRollingState},
+        ivc_halo2_snark::{prover_setup::IvcSnarkProverSetup, rolling_state::IvcRollingState},
     },
 };
 
@@ -48,7 +48,7 @@ impl IvcProverInput {
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
-        setup: &IvcProverSetup,
+        setup: &IvcSnarkProverSetup,
     ) -> StmResult<Self> {
         let chain_epoch = rolling_state.state().current_epoch;
         let certificate_epoch = protocol_message_preimage.current_epoch();
@@ -97,7 +97,7 @@ impl IvcProverInput {
             .midnight_vk()
             .vk()
             .transcript_repr()
-            != setup.certificate_verifying_key.transcript_repr()
+            != setup.certificate_verifying_key.midnight_vk().vk().transcript_repr()
         {
             return Err(IvcCircuitError::CertificateVerifyingKeyMismatch.into());
         }
@@ -196,77 +196,52 @@ mod tests {
     use super::*;
 
     mod slow {
-        use std::sync::{Arc, OnceLock};
+        use std::sync::OnceLock;
 
         use midnight_proofs::utils::SerdeFormat;
-        use tempfile::tempdir;
 
         use crate::{
             MithrilMembershipDigest, Parameters,
             circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
-            circuits::{
-                halo2_ivc::{
-                    RECURSIVE_CIRCUIT_DEGREE,
-                    errors::{EpochTransitionErrorKind, IvcCircuitError},
-                    io::Write as IvcWrite,
-                    tests::common::{
-                        asset_readers::{
-                            VerificationContextAsset,
-                            load_embedded_first_certificate_in_epoch_asset,
-                            load_embedded_following_certificate_in_epoch_asset,
-                            load_embedded_next_epoch_step_output_asset,
-                            load_embedded_recursive_chain_state_asset,
-                            load_embedded_verification_context_asset,
-                        },
-                        generators::{
-                            build_asset_generation_setup, build_genesis_base_case_next_state,
-                            build_genesis_base_case_witness,
-                            build_genesis_protocol_message_preimage, build_recursive_global,
-                            setup::{
-                                AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE, SIGNER_COUNT,
-                                TOTAL_STAKE,
-                            },
+            circuits::halo2_ivc::{
+                errors::{EpochTransitionErrorKind, IvcCircuitError},
+                io::Write as IvcWrite,
+                tests::common::{
+                    asset_readers::{
+                        VerificationContextAsset, load_embedded_first_certificate_in_epoch_asset,
+                        load_embedded_following_certificate_in_epoch_asset,
+                        load_embedded_next_epoch_step_output_asset,
+                        load_embedded_recursive_chain_state_asset,
+                        load_embedded_verification_context_asset,
+                    },
+                    generators::{
+                        build_asset_generation_setup, build_genesis_base_case_next_state,
+                        build_genesis_base_case_witness, build_genesis_protocol_message_preimage,
+                        build_recursive_global,
+                        setup::{
+                            AssetGenerationSetup, GENESIS_EPOCH, QUORUM_SIZE, SIGNER_COUNT,
+                            TOTAL_STAKE,
                         },
                     },
                 },
-                trusted_setup::build_provider_with_unsafe_srs,
             },
-            proof_system::ivc_halo2_snark::unsafe_setup_helpers::{
-                TempCertificateKeyProvider, TempIvcKeyProvider,
-            },
+            proof_system::ivc_halo2_snark::prover_setup::build_unsafe_ivc_setup,
             signature_scheme::{SchnorrSignatureError, StandardSchnorrSignature},
         };
 
         use super::*;
 
-        fn shared_ivc_setup() -> &'static IvcProverSetup {
-            static CELL: OnceLock<IvcProverSetup> = OnceLock::new();
+        fn shared_ivc_setup() -> &'static IvcSnarkProverSetup {
+            static CELL: OnceLock<IvcSnarkProverSetup> = OnceLock::new();
             CELL.get_or_init(|| {
-                let temp_dir = tempdir().expect("temp dir creation should succeed");
-                let trusted_setup_provider =
-                    build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE);
-                let srs = Arc::new(
-                    trusted_setup_provider
-                        .get_trusted_setup_parameters()
-                        .expect("unsafe SRS should load"),
-                );
                 let parameters = Parameters {
                     k: QUORUM_SIZE as u64,
                     m: (QUORUM_SIZE * 10) as u64,
                     phi_f: 0.2,
                 };
                 let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-                let cert_provider = TempCertificateKeyProvider::new(
-                    Arc::clone(&srs),
-                    parameters,
-                    merkle_tree_depth,
-                );
-                let cert_vk = cert_provider
-                    .get_verifying_key()
-                    .expect("certificate verifying key keygen should succeed");
-                let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
-                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcProverSetup::load should succeed under the unsafe SRS")
+                build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+                    .expect("IvcSnarkProverSetup::load should succeed under the unsafe SRS")
             })
         }
 

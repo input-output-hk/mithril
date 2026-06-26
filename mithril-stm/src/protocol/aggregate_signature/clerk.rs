@@ -19,7 +19,7 @@ use crate::{
 use crate::{
     AggregationError,
     circuits::halo2_ivc::PREIMAGE_SIZE,
-    proof_system::ivc_halo2_snark::{IvcProverSetup, load_ivc_prover_setup},
+    proof_system::ivc_halo2_snark::{IvcSnarkProverSetup, load_ivc_prover_setup},
 };
 
 #[cfg(feature = "future_snark")]
@@ -241,7 +241,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     msg: &[u8],
     clerk: &SnarkClerk,
     ancillary_input: &AncillaryProofInput,
-    ivc_prover_setup: Arc<IvcProverSetup>,
+    ivc_prover_setup: Arc<IvcSnarkProverSetup>,
     certificate_midnight_verifying_key: MidnightVK,
 ) -> StmResult<(
     IvcProof<blake2b_simd::State>,
@@ -261,7 +261,7 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
     let genesis_message = genesis_data.genesis_message_preimage().try_into()?;
 
     let certificate_circuit_verifying_key = certificate_midnight_verifying_key.vk().clone();
-    let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.clone();
+    let ivc_circuit_verifying_key = ivc_prover_setup.ivc_verifying_key.verifying_key().clone();
 
     let current_rolling_state = ancillary_input
         .prover_data()
@@ -332,8 +332,9 @@ mod tests {
         circuits::halo2::circuit::StmCertificateCircuit,
         circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
         circuits::halo2_ivc::PREIMAGE_SIZE,
+        circuits::halo2_ivc::keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey},
         proof_system::SnarkClerk,
-        proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, ivc_halo2_snark::IvcProverSetup},
+        proof_system::{MERKLE_TREE_DEPTH_FOR_SNARK, ivc_halo2_snark::IvcSnarkProverSetup},
         protocol::aggregate_signature::tests::setup_equal_parties,
         {AggregationError, AncillaryProverData, SnarkProof},
     };
@@ -343,7 +344,7 @@ mod tests {
     fn build_fast_dummy_ivc_setup(
         params: Parameters,
         depth: u32,
-    ) -> (Arc<IvcProverSetup>, MidnightVK) {
+    ) -> (Arc<IvcSnarkProverSetup>, MidnightVK) {
         let srs: Arc<ParamsKZG<Bls12>> = Arc::new(ParamsKZG::<Bls12>::unsafe_setup(
             12,
             ChaCha20Rng::from_seed([42u8; 32]),
@@ -360,11 +361,11 @@ mod tests {
         // Not the correct key but we only need a dummy
         let cert_pk = midnight_pk.pk().clone();
 
-        let ivc_setup = Arc::new(IvcProverSetup {
+        let ivc_setup = Arc::new(IvcSnarkProverSetup {
             srs: cert_srs,
-            certificate_verifying_key: cert_vk.clone(),
-            ivc_verifying_key: cert_vk,
-            ivc_proving_key: cert_pk,
+            certificate_verifying_key: NonRecursiveCircuitVerifyingKey::new(midnight_vk.clone()),
+            ivc_verifying_key: RecursiveCircuitVerifyingKey::new(cert_vk),
+            ivc_proving_key: RecursiveCircuitProvingKey::new(cert_pk),
             certificate_fixed_bases: BTreeMap::new(),
             ivc_fixed_bases: BTreeMap::new(),
             combined_fixed_bases: BTreeMap::new(),

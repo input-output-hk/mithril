@@ -39,7 +39,7 @@ use crate::{
         PlonkProvingKey,
         errors::IvcProofError,
         prover_input::IvcProverInput,
-        prover_setup::IvcProverSetup,
+        prover_setup::IvcSnarkProverSetup,
         rolling_state::{IvcRollingState, midnight_accumulator_serde},
         verifier_setup::IvcVerifierSetup,
     },
@@ -49,7 +49,7 @@ use crate::{
 /// Per-session IVC prover handle.
 pub(crate) struct IvcProver<R: RngCore + CryptoRng> {
     /// Shared, cached setup (SRS, verifying keys, proving key, fixed-base maps).
-    pub(crate) ivc_setup: Arc<IvcProverSetup>,
+    pub(crate) ivc_setup: Arc<IvcSnarkProverSetup>,
     /// Randomness source used during proof generation.
     pub(crate) rng: R,
 }
@@ -354,8 +354,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             certificate_proof_bytes,
             effective_rolling_state.ivc_proof().clone(),
             effective_rolling_state.accumulator().clone(),
-            &self.ivc_setup.certificate_verifying_key,
-            &self.ivc_setup.ivc_verifying_key,
+            self.ivc_setup.certificate_verifying_key.midnight_vk().vk(),
+            self.ivc_setup.ivc_verifying_key.verifying_key(),
         )?;
 
         // Public inputs for the new step: [global | next_state | next_accumulator].
@@ -371,7 +371,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         let next_rolling_state = if is_next_epoch {
             let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
                 &self.ivc_setup.srs,
-                &self.ivc_setup.ivc_proving_key,
+                self.ivc_setup.ivc_proving_key.proving_key(),
                 &circuit_data,
                 &public_inputs,
                 &mut self.rng,
@@ -388,7 +388,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
             &self.ivc_setup.srs,
-            &self.ivc_setup.ivc_proving_key,
+            self.ivc_setup.ivc_proving_key.proving_key(),
             &circuit_data,
             &public_inputs,
             &mut self.rng,
@@ -441,8 +441,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             CertificateProofBytes::empty(),
             genesis_rolling_state.ivc_proof().clone(),
             genesis_rolling_state.accumulator().clone(),
-            &self.ivc_setup.certificate_verifying_key,
-            &self.ivc_setup.ivc_verifying_key,
+            self.ivc_setup.certificate_verifying_key.midnight_vk().vk(),
+            self.ivc_setup.ivc_verifying_key.verifying_key(),
         )?;
 
         let genesis_public_inputs: Vec<CircuitBase> = [
@@ -454,7 +454,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
             &self.ivc_setup.srs,
-            &self.ivc_setup.ivc_proving_key,
+            self.ivc_setup.ivc_proving_key.proving_key(),
             &genesis_circuit_data,
             &genesis_public_inputs,
             &mut self.rng,
@@ -860,7 +860,7 @@ mod tests {
 
     // The context guard is the first thing `IvcProver::prove` runs. It is tested directly here
     // rather than through `prove` so the test stays fast: reaching `prove` would require building
-    // an `IvcProverSetup` (full keygen). With `genesis_bootstrap` now always supplied, a genesis
+    // an `IvcSnarkProverSetup` (full keygen). With `genesis_bootstrap` now always supplied, a genesis
     // `rolling_state` is the only remaining invalid context; both-`Some`/both-`None` are
     // unrepresentable.
     #[test]
@@ -920,7 +920,6 @@ mod tests {
         };
         use midnight_proofs::utils::SerdeFormat;
         use rand_core::OsRng;
-        use tempfile::tempdir;
 
         use crate::{
             AggregateVerificationKeyForSnark, MithrilMembershipDigest, Parameters, SnarkProof,
@@ -928,7 +927,6 @@ mod tests {
             circuits::{
                 halo2::types::CircuitBase,
                 halo2_ivc::{
-                    RECURSIVE_CIRCUIT_DEGREE,
                     io::Write as IvcWrite,
                     state::Global,
                     tests::common::{
@@ -948,12 +946,10 @@ mod tests {
                     },
                     types::ProtocolMessagePreimage,
                 },
-                trusted_setup::build_provider_with_unsafe_srs,
             },
             proof_system::ivc_halo2_snark::{
-                prover_setup::IvcProverSetup,
+                prover_setup::{IvcSnarkProverSetup, build_unsafe_ivc_setup},
                 rolling_state::IvcRollingState,
-                unsafe_setup_helpers::{TempCertificateKeyProvider, TempIvcKeyProvider},
                 verifier_setup::IvcVerifierSetup,
             },
         };
@@ -961,7 +957,7 @@ mod tests {
         use super::super::{IvcGenesisBootstrapInput, IvcProof, IvcProver};
 
         struct SlowTestContext {
-            ivc_setup: Arc<IvcProverSetup>,
+            ivc_setup: Arc<IvcSnarkProverSetup>,
             global: Global,
             verifier_setup: IvcVerifierSetup,
             asset_setup: AssetGenerationSetup,
@@ -1211,29 +1207,15 @@ mod tests {
         #[test]
         fn prove_all_scenarios() {
             let t_setup = Instant::now();
-            let temp_dir = tempdir().expect("temp dir creation should succeed");
-            let trusted_setup_provider =
-                build_provider_with_unsafe_srs(temp_dir.path(), RECURSIVE_CIRCUIT_DEGREE);
-            let srs = Arc::new(
-                trusted_setup_provider
-                    .get_trusted_setup_parameters()
-                    .expect("unsafe SRS should load"),
-            );
             let parameters = Parameters {
                 k: QUORUM_SIZE as u64,
                 m: (QUORUM_SIZE * 10) as u64,
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let cert_provider =
-                TempCertificateKeyProvider::new(Arc::clone(&srs), parameters, merkle_tree_depth);
-            let cert_vk = cert_provider
-                .get_verifying_key()
-                .expect("certificate verifying key keygen should succeed");
-            let ivc_provider = TempIvcKeyProvider::new(srs, cert_vk);
             let ivc_setup = Arc::new(
-                IvcProverSetup::load(&trusted_setup_provider, &cert_provider, &ivc_provider)
-                    .expect("IvcProverSetup::load should succeed"),
+                build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+                    .expect("IvcSnarkProverSetup::load should succeed"),
             );
 
             let verification_context = load_embedded_verification_context_asset()
@@ -1242,12 +1224,16 @@ mod tests {
 
             assert_eq!(
                 verification_context.certificate_verifying_key.vk().transcript_repr(),
-                ivc_setup.certificate_verifying_key.transcript_repr(),
+                ivc_setup
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
                 "stored verification context cert VK must match freshly generated cert VK"
             );
             assert_eq!(
                 verification_context.recursive_verifying_key.transcript_repr(),
-                ivc_setup.ivc_verifying_key.transcript_repr(),
+                ivc_setup.ivc_verifying_key.verifying_key().transcript_repr(),
                 "stored verification context IVC VK must match freshly generated IVC VK"
             );
 
