@@ -6,7 +6,6 @@ use mithril_protocol_config::{
     test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
 };
 use prometheus_parse::Value;
-use slog::Drain;
 use slog_scope::debug;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -69,7 +68,7 @@ use mithril_signer::{
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
 };
 
-use super::FakeAggregator;
+use super::{FakeAggregator, stdout_logger};
 
 type Result<T> = std::result::Result<T, TestError>;
 
@@ -112,13 +111,6 @@ impl Debug for StateMachineTester {
         debug!("Debug called after comment N°{}.", self.comment_no);
         write!(f, "DEBUG")
     }
-}
-
-fn stdout_logger() -> slog::Logger {
-    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    slog::Logger::root(Arc::new(drain), slog::o!())
 }
 
 impl StateMachineTester {
