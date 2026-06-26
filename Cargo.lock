@@ -4661,6 +4661,7 @@ dependencies = [
  "criterion",
  "digest 0.10.7",
  "ff",
+ "fs2",
  "group",
  "hex",
  "httpmock",

@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
-#[cfg(test)]
-use std::path::PathBuf;
 
 use anyhow::Context;
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
+#[cfg(test)]
+use midnight_proofs::poly::commitment::Params;
 #[cfg(test)]
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsVerifierKZG};
@@ -29,7 +29,11 @@ use crate::{
 };
 
 #[cfg(test)]
-use crate::circuits::circuit_verification_key_provider::CircuitVerificationKeyProvider;
+use crate::circuits::{
+    circuit_verification_key_provider::CircuitVerificationKeyProvider,
+    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    test_utils::key_cache::with_shared_key_cache, trusted_setup::UNSAFE_SRS_SEED,
+};
 
 use super::{SnarkClerk, SnarkProverSetup};
 use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
@@ -77,17 +81,38 @@ impl<D: MembershipDigest> SnarkProof<D> {
     /// caller-supplied SRS instead of the trusted production SRS, so a proof can be reconstructed
     /// against the same unsafe SRS it was generated with.
     #[cfg(test)]
-    pub(crate) fn try_new_with_srs<T: Into<PathBuf>>(
-        folder_path: T,
+    pub(crate) fn try_new_with_srs(
         circuit_proof: Vec<u8>,
         params: Parameters,
         merkle_tree_depth: u32,
         srs: ParamsKZG<Bls12>,
     ) -> StmResult<Self> {
-        let base_dir = std::env::temp_dir().join(folder_path.into());
-        let circuit = StmCertificateCircuit::try_new(&params, merkle_tree_depth)?;
-        let provider = CircuitVerificationKeyProvider::new(base_dir, "non-recursive", &[], circuit);
-        let snark_setup = SnarkProverSetup::try_new_with_srs(srs, &provider)?;
+        let parameters_bytes = params.to_bytes()?;
+        let depth_bytes = merkle_tree_depth.to_le_bytes();
+        // Identify the supplied SRS by its degree and the unsafe seed it is built from, so a different
+        // SRS never reuses keys cached for another under the empty-golden skip.
+        let degree_bytes = srs.max_k().to_le_bytes();
+        let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+        let snark_setup = with_shared_key_cache(
+            "non-recursive",
+            &[
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                &parameters_bytes,
+                &depth_bytes,
+                &degree_bytes,
+                &seed_bytes,
+            ],
+            |cache_directory| {
+                let circuit = StmCertificateCircuit::try_new(&params, merkle_tree_depth)?;
+                let provider = CircuitVerificationKeyProvider::new(
+                    cache_directory.to_path_buf(),
+                    "non-recursive",
+                    &[],
+                    circuit,
+                );
+                SnarkProverSetup::try_new_with_srs(srs, &provider)
+            },
+        )?;
         Ok(Self {
             circuit_proof,
             circuit_verification_key: snark_setup.verification_key,
@@ -339,7 +364,6 @@ impl<R: RngCore + CryptoRng> SnarkProver<R> {
 #[cfg(feature = "future_snark")]
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
@@ -348,8 +372,13 @@ mod tests {
         Initializer, KeyRegistration, MithrilMembershipDigest, Signer, SingleSignature,
         circuits::{
             circuit_verification_key_provider::CircuitVerificationKeyProvider,
-            halo2::circuit::StmCertificateCircuit, halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
-            trusted_setup::build_provider_with_unsafe_srs,
+            halo2::{
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                circuit::StmCertificateCircuit,
+            },
+            halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
+            test_utils::key_cache::with_shared_key_cache,
+            trusted_setup::{UNSAFE_SRS_SEED, build_provider_with_unsafe_srs},
         },
         proof_system::{
             SnarkClerk,
@@ -397,19 +426,34 @@ mod tests {
             .collect()
     }
 
-    fn create_prover<T: Into<PathBuf>>(
-        folder_path: T,
-        params: Parameters,
-        seed: [u8; 32],
-    ) -> SnarkProver<ChaCha20Rng> {
-        let base_dir = std::env::temp_dir().join(folder_path.into());
-        let srs = build_provider_with_unsafe_srs(&base_dir, RECURSIVE_CIRCUIT_DEGREE)
-            .get_trusted_setup_parameters()
-            .unwrap();
-        let circuit = StmCertificateCircuit::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
-        let provider =
-            CircuitVerificationKeyProvider::new(base_dir.clone(), "non-recursive", &[], circuit);
-        let snark_setup = SnarkProverSetup::try_new_with_srs(srs, &provider).unwrap();
+    fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
+        let parameters_bytes = params.to_bytes().unwrap();
+        let depth_bytes = MERKLE_TREE_DEPTH_FOR_SNARK.to_le_bytes();
+        let degree_bytes = RECURSIVE_CIRCUIT_DEGREE.to_le_bytes();
+        let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+        let snark_setup = with_shared_key_cache(
+            "non-recursive",
+            &[
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                &parameters_bytes,
+                &depth_bytes,
+                &degree_bytes,
+                &seed_bytes,
+            ],
+            |cache_directory| {
+                let srs = build_provider_with_unsafe_srs(cache_directory, RECURSIVE_CIRCUIT_DEGREE)
+                    .get_trusted_setup_parameters()?;
+                let circuit = StmCertificateCircuit::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK)?;
+                let provider = CircuitVerificationKeyProvider::new(
+                    cache_directory.to_path_buf(),
+                    "non-recursive",
+                    &[],
+                    circuit,
+                );
+                SnarkProverSetup::try_new_with_srs(srs, &provider)
+            },
+        )
+        .unwrap();
 
         SnarkProver::try_new_deterministic(seed, snark_setup).unwrap()
     }
@@ -430,7 +474,7 @@ mod tests {
             let nparties = 5;
 
             let (_, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
-            let mut prover = create_prover(current_function!(), params, [2u8; 32]);
+            let mut prover = create_prover(params, [2u8; 32]);
 
             let result = prover.aggregate_signatures::<D>(&clerk, &[], &[3u8; 32]);
             assert!(result.is_err(), "Expected failure with empty signatures");
@@ -449,7 +493,7 @@ mod tests {
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
-            let mut prover = create_prover(current_function!(), params, [1u8; 32]);
+            let mut prover = create_prover(params, [1u8; 32]);
 
             let result = prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
             assert!(
@@ -471,7 +515,7 @@ mod tests {
 
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let result: Result<SnarkProof<MithrilMembershipDigest>, anyhow::Error> =
                 prover.aggregate_signatures::<D>(&clerk, &signatures, &message);
@@ -506,7 +550,7 @@ mod tests {
                 .number_of_registered_parties()
                 .next_power_of_two()
                 .trailing_zeros();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let prover_prep =
                 SnarkProverInput::prepare_prover_input::<D>(&clerk, &signatures, &message).unwrap();
@@ -540,7 +584,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -568,14 +612,13 @@ mod tests {
             let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
                 clerk.compute_aggregate_verification_key_for_snark();
 
-            let mut prover = create_prover(current_function!(), forged_params, [0u8; 32]);
+            let mut prover = create_prover(forged_params, [0u8; 32]);
 
             let forged_snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
 
             let snark_proof = SnarkProof::try_new_with_srs(
-                current_function!(),
                 forged_snark_proof.circuit_proof,
                 params,
                 merkle_tree_depth,
@@ -601,7 +644,7 @@ mod tests {
             let signatures = collect_signatures(&signers, &message);
             let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
                 clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
@@ -609,7 +652,6 @@ mod tests {
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
             let random_proof = SnarkProof::try_new_with_srs(
-                current_function!(),
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -623,7 +665,6 @@ mod tests {
             let not_enough_bytes =
                 &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
             let small_proof = SnarkProof::try_new_with_srs(
-                current_function!(),
                 not_enough_bytes.to_vec(),
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -640,7 +681,6 @@ mod tests {
             let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
             let large_proof = SnarkProof::try_new_with_srs(
-                current_function!(),
                 too_many_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -669,7 +709,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -693,7 +733,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -721,7 +761,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
 
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -745,7 +785,7 @@ mod tests {
             let signatures = collect_signatures(&signers, &message);
             let avk: AggregateVerificationKeyForSnark<MithrilMembershipDigest> =
                 clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
@@ -753,7 +793,6 @@ mod tests {
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
             let random_proof = SnarkProof::try_new_with_srs(
-                current_function!(),
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -780,7 +819,7 @@ mod tests {
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
 
-            let mut prover_1 = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover_1 = create_prover(params, [0u8; 32]);
 
             let snark_proof_1 = prover_1
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
@@ -818,7 +857,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
             let snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
@@ -854,7 +893,7 @@ mod tests {
             let (signers, clerk) = setup_signers_and_clerk(params, nparties, &mut rng);
             let signatures = collect_signatures(&signers, &message);
             let avk = clerk.compute_aggregate_verification_key_for_snark();
-            let mut prover = create_prover(current_function!(), params, [0u8; 32]);
+            let mut prover = create_prover(params, [0u8; 32]);
             let mut snark_proof = prover
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();

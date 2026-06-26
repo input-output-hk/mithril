@@ -140,39 +140,58 @@ impl IvcSnarkProverSetup {
     }
 }
 
-/// Builds an [`IvcSnarkProverSetup`] from a deterministic, oversized unsafe SRS, with each provider
-/// rooted at its own temporary cache directory and empty golden bytes (so every call recomputes).
-/// Shared by the slow IVC tests so they exercise the real `load` path without the production SRS.
+/// Builds an [`IvcSnarkProverSetup`] from a deterministic, oversized unsafe SRS, exercising the real
+/// `load` path without the production SRS. Shared by the slow IVC tests through a content-keyed cache
+/// keyed by the protocol parameters, Merkle-tree depth, the unsafe SRS identity (degree and seed), and
+/// the production verifying keys as a circuit-version salt, so the recursive keys — the dominant cost —
+/// are computed once and reused across tests and runs.
 #[cfg(test)]
 pub(crate) fn build_unsafe_ivc_setup(
     parameters: crate::Parameters,
     merkle_tree_depth: u32,
 ) -> StmResult<IvcSnarkProverSetup> {
-    use tempfile::tempdir;
+    use crate::circuits::{
+        halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        test_utils::key_cache::with_shared_key_cache,
+        trusted_setup::{UNSAFE_SRS_SEED, build_provider_with_unsafe_srs},
+    };
 
-    use crate::circuits::trusted_setup::build_provider_with_unsafe_srs;
-
-    let srs_dir = tempdir().unwrap();
-    let trusted_setup_provider =
-        build_provider_with_unsafe_srs(srs_dir.path(), RECURSIVE_CIRCUIT_DEGREE + 1);
-    let certificate_cache_dir = tempdir().unwrap();
-    let certificate_provider = CircuitVerificationKeyProvider::new(
-        certificate_cache_dir.path().to_path_buf(),
-        "non-recursive",
-        &[],
-        StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)?,
-    );
-    let recursive_cache_dir = tempdir().unwrap();
-    IvcSnarkProverSetup::load(
-        &trusted_setup_provider,
-        &certificate_provider,
-        |certificate_verifying_key| {
-            Ok(CircuitVerificationKeyProvider::new(
-                recursive_cache_dir.path().to_path_buf(),
-                "recursive",
+    let parameters_bytes = parameters.to_bytes()?;
+    let depth_bytes = merkle_tree_depth.to_le_bytes();
+    let degree_bytes = (RECURSIVE_CIRCUIT_DEGREE + 1).to_le_bytes();
+    let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+    with_shared_key_cache(
+        "ivc-setup",
+        &[
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            &parameters_bytes,
+            &depth_bytes,
+            &degree_bytes,
+            &seed_bytes,
+        ],
+        |cache_directory| {
+            let trusted_setup_provider =
+                build_provider_with_unsafe_srs(cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
+            let certificate_provider = CircuitVerificationKeyProvider::new(
+                cache_directory.join("certificate"),
+                "non-recursive",
                 &[],
-                IvcCircuitData::unknown(certificate_verifying_key.midnight_vk().vk())?,
-            ))
+                StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)?,
+            );
+            IvcSnarkProverSetup::load(
+                &trusted_setup_provider,
+                &certificate_provider,
+                |certificate_verifying_key| {
+                    Ok(CircuitVerificationKeyProvider::new(
+                        cache_directory.join("recursive"),
+                        "recursive",
+                        &[],
+                        IvcCircuitData::unknown(certificate_verifying_key.midnight_vk().vk())?,
+                    ))
+                },
+            )
         },
     )
 }

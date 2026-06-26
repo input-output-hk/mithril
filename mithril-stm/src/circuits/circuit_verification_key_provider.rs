@@ -87,8 +87,8 @@ fn sync_directory_of(path: &Path) -> StmResult<()> {
 impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
     /// Builds a provider rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`. On read,
     /// the cached verifying key is compared against `expected_verification_key_bytes` and recomputed
-    /// on a mismatch; empty expected bytes therefore always recompute (no real key matches them).
-    /// Keys are computed from `circuit` on a miss.
+    /// on a mismatch; empty expected bytes skip the comparison and trust the cached key. Keys are
+    /// computed from `circuit` on a miss.
     pub(crate) fn new(
         base_dir: PathBuf,
         circuit_name: &str,
@@ -150,11 +150,17 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
     /// Returns `None` when absent, or stale after a circuit rotation — in which case the stale files
     /// are removed so the caller recomputes. Returns an error when the stored bytes fail to
     /// deserialize.
+    ///
+    /// When no expected bytes are supplied there is nothing to compare against, so the cached key is
+    /// trusted as-is. Production always supplies the embedded verifying key; only the tests omit it,
+    /// relying on a cache directory keyed by the key-derivation inputs to keep configurations apart.
     fn get_verification_key<K: TryFromBytes>(&self) -> StmResult<Option<K>> {
         let Some(bytes) = self.read_verification_key_bytes()? else {
             return Ok(None);
         };
-        if bytes.as_slice() != self.expected_verification_key_bytes.as_ref() {
+        if !self.expected_verification_key_bytes.is_empty()
+            && bytes.as_slice() != self.expected_verification_key_bytes.as_ref()
+        {
             self.clear_stale_files()?;
             return Ok(None);
         }
@@ -369,6 +375,30 @@ mod tests {
             provider.circuit().calls.get(),
             1,
             "the second call must hit the cache"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn empty_golden_trusts_the_cached_key() {
+        let base_dir = env::temp_dir().join(current_function!());
+        fs::remove_dir_all(&base_dir).ok();
+        // With no expected bytes there is nothing to compare against, so a present cached key is
+        // trusted rather than treated as stale and recomputed.
+        let provider = CircuitVerificationKeyProvider::new(
+            base_dir.clone(),
+            "counting",
+            &[],
+            CountingGenerator::new(b"vk", b"pk"),
+        );
+
+        provider.key_pair(&negligible_srs()).unwrap();
+        provider.key_pair(&negligible_srs()).unwrap();
+
+        assert_eq!(
+            provider.circuit().calls.get(),
+            1,
+            "with empty golden bytes a warm cache must be trusted, not recomputed"
         );
         fs::remove_dir_all(&base_dir).ok();
     }
