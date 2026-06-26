@@ -4,8 +4,6 @@ use anyhow::Context;
 use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 #[cfg(test)]
-use midnight_proofs::poly::commitment::Params;
-#[cfg(test)]
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsVerifierKZG};
 use midnight_zk_stdlib::{self as zk};
@@ -77,11 +75,12 @@ impl<D: MembershipDigest> SnarkProof<D> {
         })
     }
 
-    /// Test-only variant of [`Self::try_new`] that derives the circuit verification key from a
-    /// caller-supplied SRS instead of the trusted production SRS, so a proof can be reconstructed
-    /// against the same unsafe SRS it was generated with.
+    /// Test-only variant of [`Self::try_new`] that derives the circuit verification key from the
+    /// deterministic unsafe SRS the proof was generated with, instead of the trusted production SRS.
+    /// It is only for that seed-pinned unsafe SRS: the shared key cache identifies the SRS by its
+    /// fixed seed, not by inspecting the supplied SRS object, so an unrelated SRS would mis-key it.
     #[cfg(test)]
-    pub(crate) fn try_new_with_srs(
+    pub(crate) fn try_new_with_unsafe_srs(
         circuit_proof: Vec<u8>,
         params: Parameters,
         merkle_tree_depth: u32,
@@ -89,9 +88,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
     ) -> StmResult<Self> {
         let parameters_bytes = params.to_bytes()?;
         let depth_bytes = merkle_tree_depth.to_le_bytes();
-        // Identify the supplied SRS by its degree and the unsafe seed it is built from, so a different
-        // SRS never reuses keys cached for another under the empty-golden skip.
-        let degree_bytes = srs.max_k().to_le_bytes();
         let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
         let snark_setup = with_shared_key_cache(
             "non-recursive",
@@ -99,7 +95,6 @@ impl<D: MembershipDigest> SnarkProof<D> {
                 NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
                 &parameters_bytes,
                 &depth_bytes,
-                &degree_bytes,
                 &seed_bytes,
             ],
             |cache_directory| {
@@ -124,7 +119,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
 
     /// Test-only constructor that takes an already-derived `NonRecursiveCircuitVerifyingKey` directly.
     ///
-    /// Unlike [`Self::try_new`] and [`Self::try_new_with_srs`], this skips keygen entirely.
+    /// Unlike [`Self::try_new`] and [`Self::try_new_with_unsafe_srs`], this skips keygen entirely.
     /// Used by asset-driven tests that load both the proof bytes and the verifying key from
     /// committed fixtures.
     #[cfg(test)]
@@ -429,15 +424,16 @@ mod tests {
     fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
         let parameters_bytes = params.to_bytes().unwrap();
         let depth_bytes = MERKLE_TREE_DEPTH_FOR_SNARK.to_le_bytes();
-        let degree_bytes = RECURSIVE_CIRCUIT_DEGREE.to_le_bytes();
         let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+        // The certificate key depends on the circuit and the unsafe seed, not on the SRS degree (the
+        // generator downsizes to the circuit's own degree), so the fingerprint omits the degree and
+        // this prover shares its key with `try_new_with_unsafe_srs` for the same parameters.
         let snark_setup = with_shared_key_cache(
             "non-recursive",
             &[
                 NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
                 &parameters_bytes,
                 &depth_bytes,
-                &degree_bytes,
                 &seed_bytes,
             ],
             |cache_directory| {
@@ -618,7 +614,7 @@ mod tests {
                 .aggregate_signatures::<D>(&clerk, &signatures, &message)
                 .unwrap();
 
-            let snark_proof = SnarkProof::try_new_with_srs(
+            let snark_proof = SnarkProof::try_new_with_unsafe_srs(
                 forged_snark_proof.circuit_proof,
                 params,
                 merkle_tree_depth,
@@ -651,7 +647,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof = SnarkProof::try_new_with_srs(
+            let random_proof = SnarkProof::try_new_with_unsafe_srs(
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -664,7 +660,7 @@ mod tests {
 
             let not_enough_bytes =
                 &snark_proof.circuit_proof[0..snark_proof.circuit_proof.len() - 1];
-            let small_proof = SnarkProof::try_new_with_srs(
+            let small_proof = SnarkProof::try_new_with_unsafe_srs(
                 not_enough_bytes.to_vec(),
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -680,7 +676,7 @@ mod tests {
 
             let mut too_many_bytes = snark_proof.circuit_proof.to_vec();
             too_many_bytes.push(0u8);
-            let large_proof = SnarkProof::try_new_with_srs(
+            let large_proof = SnarkProof::try_new_with_unsafe_srs(
                 too_many_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,
@@ -792,7 +788,7 @@ mod tests {
 
             let mut random_bytes = vec![0u8; snark_proof.circuit_proof.len()];
             rng.fill_bytes(&mut random_bytes);
-            let random_proof = SnarkProof::try_new_with_srs(
+            let random_proof = SnarkProof::try_new_with_unsafe_srs(
                 random_bytes,
                 params,
                 MERKLE_TREE_DEPTH_FOR_SNARK,

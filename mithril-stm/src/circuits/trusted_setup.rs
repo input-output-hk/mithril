@@ -189,8 +189,10 @@ impl Default for TrustedSetupProvider {
     }
 }
 
-/// Seed for the deterministic unsafe SRS used by the tests. Identifies that SRS together with its
-/// degree, so test key caches keyed by the SRS identity stay correct if either ever changes.
+/// Seed for the deterministic unsafe SRS used by the tests; it pins the SRS's tau. Test key caches
+/// fold in this seed so they stay correct if it ever changes. The IVC setup cache also folds in the
+/// SRS degree; the certificate-key cache omits it, since keygen downsizes the seed-pinned SRS to the
+/// certificate circuit's own degree, so the oversized degree never affects the certificate key.
 #[cfg(test)]
 pub(crate) const UNSAFE_SRS_SEED: u64 = 42;
 

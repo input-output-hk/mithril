@@ -84,34 +84,35 @@ mod tests {
 
     #[test]
     fn a_change_in_any_input_maps_to_a_different_directory() {
-        // Every fingerprint component a call site passes — protocol parameters, Merkle-tree depth,
-        // and the SRS identity (its degree and seed) — must change the directory when it changes, so
-        // keys derived against one configuration are never reused for another under the skip.
-        let baseline = shared_cache_directory(
-            "non-recursive",
-            &[b"parameters-a", b"depth-4", b"srs-19-42"],
-        );
-        let other_parameters = shared_cache_directory(
-            "non-recursive",
-            &[b"parameters-b", b"depth-4", b"srs-19-42"],
-        );
-        let other_depth = shared_cache_directory(
-            "non-recursive",
-            &[b"parameters-a", b"depth-5", b"srs-19-42"],
-        );
-        let other_srs = shared_cache_directory(
-            "non-recursive",
-            &[b"parameters-a", b"depth-4", b"srs-20-42"],
-        );
+        // The certificate-key cache keys on protocol parameters, Merkle-tree depth, and the unsafe
+        // seed (no SRS degree); each must change the directory when it changes.
+        let baseline =
+            shared_cache_directory("non-recursive", &[b"parameters-a", b"depth-4", b"seed-42"]);
+        let other_parameters =
+            shared_cache_directory("non-recursive", &[b"parameters-b", b"depth-4", b"seed-42"]);
+        let other_depth =
+            shared_cache_directory("non-recursive", &[b"parameters-a", b"depth-5", b"seed-42"]);
+        let other_seed =
+            shared_cache_directory("non-recursive", &[b"parameters-a", b"depth-4", b"seed-7"]);
         assert_ne!(baseline, other_parameters);
         assert_ne!(baseline, other_depth);
-        assert_ne!(baseline, other_srs);
+        assert_ne!(baseline, other_seed);
 
-        // The IVC cache key folds in both production verifying keys as a circuit-version salt, so a
-        // circuit change resolves to a different directory rather than reusing keys built for another.
-        let circuit_version = shared_cache_directory("ivc-setup", &[b"shared", b"circuit-vk-1"]);
-        let changed_circuit_version =
-            shared_cache_directory("ivc-setup", &[b"shared", b"circuit-vk-2"]);
-        assert_ne!(circuit_version, changed_circuit_version);
+        // The IVC setup cache additionally folds in the SRS degree and both production verifying keys
+        // as a circuit-version salt; a change in either must also resolve to a different directory.
+        let ivc_baseline = shared_cache_directory(
+            "ivc-setup",
+            &[b"parameters-a", b"depth-4", b"degree-19", b"circuit-vk-1"],
+        );
+        let other_degree = shared_cache_directory(
+            "ivc-setup",
+            &[b"parameters-a", b"depth-4", b"degree-20", b"circuit-vk-1"],
+        );
+        let other_circuit_version = shared_cache_directory(
+            "ivc-setup",
+            &[b"parameters-a", b"depth-4", b"degree-19", b"circuit-vk-2"],
+        );
+        assert_ne!(ivc_baseline, other_degree);
+        assert_ne!(ivc_baseline, other_circuit_version);
     }
 }
