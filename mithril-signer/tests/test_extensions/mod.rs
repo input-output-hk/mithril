@@ -1,8 +1,7 @@
-mod fake_aggregator;
 mod fake_aggregator_http;
 mod state_machine_tester;
 
-pub use fake_aggregator::FakeAggregator;
+pub use fake_aggregator_http::FakeAggregatorHttpServer;
 pub use state_machine_tester::StateMachineTester;
 
 use mithril_common::test::TempDir;

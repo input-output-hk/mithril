@@ -1,21 +1,27 @@
 mod test_extensions;
 
-use mithril_common::entities::SignedEntityType::{
-    CardanoDatabase, CardanoStakeDistribution, MithrilStakeDistribution,
-};
-use mithril_common::entities::{CardanoDbBeacon, SignedEntityTypeDiscriminants};
+use std::collections::BTreeSet;
+
 use mithril_common::{
     current_function,
-    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, TimePoint},
-    test::{builder::MithrilFixtureBuilder, crypto_helper},
+    entities::{
+        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch,
+        SignedEntityType::{CardanoDatabase, CardanoStakeDistribution, MithrilStakeDistribution},
+        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
+    },
+    test::{builder::MithrilFixtureBuilder, double::fake_data},
 };
+use mithril_protocol_config::model::{
+    MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
+};
+
 use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
-async fn test_create_immutable_files_full_single_signature() {
-    let protocol_parameters = crypto_helper::setup_protocol_parameters();
-    let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
+async fn test_create_cardano_database_single_signature() {
+    let protocol_parameters = fake_data::protocol_parameters();
+    let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.clone()).build();
     let signers_with_stake = fixture.signers_with_stake();
     let initial_time_point = TimePoint {
         epoch: Epoch(1),
@@ -35,13 +41,24 @@ async fn test_create_immutable_files_full_single_signature() {
     tester
         .comment("state machine starts in Init and transit to Unregistered state.")
         .is_init().await.unwrap()
-        .aggregator_allow_signed_entities(
-            &[
-                SignedEntityTypeDiscriminants::CardanoDatabase,
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-            ]).await
+        .set_network_configuration_marker(
+            Epoch(0),
+            MithrilNetworkConfigurationForEpoch {
+                protocol_parameters,
+                enabled_signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ]),
+                signed_entity_types_config: SignedEntityTypeConfiguration {
+                    cardano_transactions: None,
+                    cardano_blocks_transactions: None,
+                },
+            },
+        ).await
         .cycle_unregistered().await.unwrap()
+        // Note: changing to the fake aggregator http means that epoch settings withholding now returns an error, making the scenario fail at this step
+        // Do withhold epoch settings still make sense?
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()
 
