@@ -39,8 +39,9 @@ async fn test_create_cardano_database_single_signature() {
     let total_signature_registrations_expected = 5;
 
     tester
-        .comment("state machine starts in Init and transit to Unregistered state.")
+        .comment("state machine starts in Init and transit to RegisteredNotAbleToSign state.")
         .is_init().await.unwrap()
+        .aggregator_send_epoch_settings().await
         .set_network_configuration_marker(
             Epoch(0),
             MithrilNetworkConfigurationForEpoch {
@@ -57,43 +58,27 @@ async fn test_create_cardano_database_single_signature() {
             },
         ).await
         .cycle_unregistered().await.unwrap()
-        // Note: changing to the fake aggregator http means that epoch settings withholding now returns an error, making the scenario fail at this step
-        // Do withhold epoch settings still make sense?
-        .cycle_unregistered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()
 
-        .comment("increasing immutable files does not change the state = Unregistered")
+        .comment("increasing immutable files does not change the state = RegisteredNotAbleToSign")
         .increase_immutable(1, 2).await.unwrap()
-        .cycle_unregistered().await.unwrap()
-
-        .comment("changing the epoch does not change the state = Unregistered")
-        .increase_epoch(2).await.unwrap()
-        .cycle_unregistered().await.unwrap()
-        .check_era_checker_last_updated_at(Epoch(2)).await.unwrap()
-
-        .comment("getting an epoch settings changes the state → RegisteredNotAbleToSign")
-        .aggregator_send_epoch_settings().await
-        .cycle_registered_not_able_to_sign().await.unwrap()
-        .register_signers(&signers_with_stake[..2]).await.unwrap()
-        .check_protocol_initializer(Epoch(3)).await.unwrap()
-        .check_stake_store(Epoch(3)).await.unwrap()
-
-        .comment("more cycles does not change the state = RegisteredNotAbleToSign")
         .cycle_registered_not_able_to_sign().await.unwrap()
 
         .comment("changing immutable does not change the state = RegisteredNotAbleToSign")
         .increase_immutable(1, 3).await.unwrap()
         .cycle_registered_not_able_to_sign().await.unwrap()
 
-        .comment("changing Epoch changes the state → Unregistered")
-        .increase_epoch(3).await.unwrap()
+        .comment("changing epoch changes the state → Unregistered")
+        .increase_epoch(2).await.unwrap()
         .cycle_unregistered().await.unwrap()
-        .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(2)).await.unwrap()
 
         .comment("registration made at the previous epoch will only be available next epoch → RegisteredNotAbleToSign")
         .cycle_registered_not_able_to_sign().await.unwrap()
-        .check_protocol_initializer(Epoch(4)).await.unwrap()
-        .check_stake_store(Epoch(4)).await.unwrap()
+        .register_signers(&signers_with_stake[..2]).await.unwrap()
+        .check_protocol_initializer(Epoch(2)).await.unwrap()
+        .check_stake_store(Epoch(2)).await.unwrap()
 
         .comment("more cycles do not change the state → RegisteredNotAbleToSign")
         .cycle_registered_not_able_to_sign().await.unwrap()
@@ -104,40 +89,40 @@ async fn test_create_cardano_database_single_signature() {
         .cycle_registered_not_able_to_sign().await.unwrap()
 
         .comment("changing epoch changes the state → Unregistered")
-        .increase_epoch(4).await.unwrap()
+        .increase_epoch(3).await.unwrap()
         .cycle_unregistered().await.unwrap()
-        .check_era_checker_last_updated_at(Epoch(4)).await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
 
         .comment("signer can now create a single signature → ReadyToSign")
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
-        .check_protocol_initializer(Epoch(4)).await.unwrap()
+        .check_protocol_initializer(Epoch(3)).await.unwrap()
         
         .comment("signer signs a single signature for MithrilStakeDistribution = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(4))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(3))).await.unwrap()
 
         .comment("signer signs a single signature for CardanoStakeDistribution = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(CardanoStakeDistribution(Epoch(3))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoStakeDistribution(Epoch(2))).await.unwrap()
 
         .comment("signer signs a single signature for CardanoDatabase = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(CardanoDatabase(CardanoDbBeacon::new(4, 8))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoDatabase(CardanoDbBeacon::new(3, 8))).await.unwrap()
 
         .comment("more cycles do not change the state = ReadyToSign")
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
 
         .comment("new immutable means a new signature with the same stake distribution → ReadyToSign")
         .increase_immutable(1, 9).await.unwrap()
-        .cycle_ready_to_sign_with_signature_registration(CardanoDatabase(CardanoDbBeacon::new(4, 9))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoDatabase(CardanoDbBeacon::new(3, 9))).await.unwrap()
 
         .comment("changing epoch changes the state → Unregistered")
-        .increase_epoch(5).await.unwrap()
+        .increase_epoch(4).await.unwrap()
         .cycle_unregistered().await.unwrap()
-        .check_era_checker_last_updated_at(Epoch(5)).await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(4)).await.unwrap()
         .comment("signer should be able to create a single signature → ReadyToSign")
 
         .check_total_signature_registrations_metrics(4).unwrap()
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
-        .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(5))).await.unwrap()
-        .check_protocol_initializer(Epoch(5)).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(4))).await.unwrap()
+        .check_protocol_initializer(Epoch(4)).await.unwrap()
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected, total_signature_registrations_expected).await.unwrap()
