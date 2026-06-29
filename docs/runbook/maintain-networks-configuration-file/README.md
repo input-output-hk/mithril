@@ -17,8 +17,9 @@ The [networks.json](../../../networks.json) file provides essential information 
 ### Update policy by network:
 
 Here are the recommended update policies by Cardano network:
-| Network | Status | Policy
-|------------|------------|------------
-`preview` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
-`preprod` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
-`mainnet` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
+
+| Network   | Status     | Policy                                                                                                                     |
+| --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `preview` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version. |
+| `preprod` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version. |
+| `mainnet` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version. |

@@ -58,10 +58,11 @@ Terraform will perform the following actions:
 ## Deployment of the new protocol parameters
 
 The update of the new protocol parameters will take place as detailed in the following table:
-| Workflow | Deployed at | Effective at
-|------------|------------|------------
-| [`.github/workflows/ci.yml`](../../github/workflows/ci.yml) | Merge on `main` branch | Immediately
-| [`.github/workflows/pre-release.yml`](../../github/workflows/pre-release.yml) | Pre-release of a distribution | Immediately
-| [`.github/workflows/release.yml`](../../github/workflows/release.yml) | Release of a distribution | Immediately
+
+| Workflow                                                                      | Deployed at                   | Effective at |
+| ----------------------------------------------------------------------------- | ----------------------------- | ------------ |
+| [`.github/workflows/ci.yml`](../../github/workflows/ci.yml)                   | Merge on `main` branch        | Immediately  |
+| [`.github/workflows/pre-release.yml`](../../github/workflows/pre-release.yml) | Pre-release of a distribution | Immediately  |
+| [`.github/workflows/release.yml`](../../github/workflows/release.yml)         | Release of a distribution     | Immediately  |
 
 For more information about the CD, please refer to [Release process and versioning](https://mithril.network/doc/adr/3).
