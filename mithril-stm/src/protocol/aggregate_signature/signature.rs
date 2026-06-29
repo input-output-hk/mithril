@@ -229,33 +229,32 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         );
 
         fn check_input_lengths(
-            proofs_length: usize,
-            msgs_length: usize,
-            avks_length: usize,
-            parameters_length: usize,
+            expected_length: usize,
+            labeled_lengths: &[(&str, usize)],
         ) -> StmResult<()> {
-            if proofs_length != msgs_length
-                || proofs_length != avks_length
-                || proofs_length != parameters_length
-            {
-                Err(anyhow!(AggregateSignatureError::BatchInvalid))
-            } else {
-                Ok(())
+            for (name, length) in labeled_lengths {
+                if *length != expected_length {
+                    return Err(anyhow!(AggregateSignatureError::BatchInvalid).context(format!(
+                        "the number of {name} ({length}) does not match the number of aggregate signatures ({expected_length})"
+                    )));
+                }
             }
+            Ok(())
         }
 
         check_input_lengths(
             aggregate_signatures.len(),
-            msgs.len(),
-            avks.len(),
-            parameters.len(),
+            &[
+                ("messages", msgs.len()),
+                ("aggregate verification keys", avks.len()),
+                ("parameters", parameters.len()),
+                ("ancillary verifier data", ancillary_verifier_datas.len()),
+                (
+                    "genesis verification key bundles",
+                    genesis_verification_key_bundles.len(),
+                ),
+            ],
         )?;
-        if aggregate_signatures.len() != ancillary_verifier_datas.len() {
-            return Err(anyhow!(AggregateSignatureError::BatchInvalid));
-        }
-        if aggregate_signatures.len() != genesis_verification_key_bundles.len() {
-            return Err(anyhow!(AggregateSignatureError::BatchInvalid));
-        }
 
         let aggregate_entries_by_aggregate_signature_type: HashMap<
             AggregateSignatureType,
@@ -315,9 +314,11 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                             .collect::<Vec<_>>();
                         check_input_lengths(
                             concatenation_proofs.len(),
-                            msgs.len(),
-                            avks.len(),
-                            parameters.len(),
+                            &[
+                                ("messages", msgs.len()),
+                                ("aggregate verification keys", avks.len()),
+                                ("parameters", parameters.len()),
+                            ],
                         )?;
                         ConcatenationProof::batch_verify(
                             &concatenation_proofs,
