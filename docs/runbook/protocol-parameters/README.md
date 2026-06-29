@@ -34,10 +34,10 @@ When setting up a Mithril network with a `terraform` deployment, the protocol pa
 
 Currently, the following [Mithril networks](https://mithril.network/doc/manual/developer-docs/references#mithril-networks) are generally available, and deployed with `terraform`:
 
-- `testing-preview`: with the workflow [`.github/workflows/ci.yml`](../../github/workflows/ci.yml)
-- `pre-release-preview`: with the workflow [`.github/workflows/pre-release.yml`](../../github/workflows/pre-release.yml)
-- `release-preprod`: with the workflow [`.github/workflows/release.yml`](../../github/workflows/release.yml)
-- `release-mainnet`: with the workflow [`.github/workflows/release.yml`](../../github/workflows/release.yml)
+- `testing-preview`: with the workflow [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)
+- `pre-release-preview`: with the workflow [`.github/workflows/pre-release.yml`](../../../.github/workflows/pre-release.yml)
+- `release-preprod`: with the workflow [`.github/workflows/release.yml`](../../../.github/workflows/release.yml)
+- `release-mainnet`: with the workflow [`.github/workflows/release.yml`](../../../.github/workflows/release.yml)
 
 ## Update the protocol parameters
 
@@ -68,10 +68,11 @@ The modifications should be created in a dedicated PR, and the result of the **P
 ## Deployment of the new protocol parameters
 
 The update of the new protocol parameters will take place as detailed in the following table:
-| Workflow | Deployed at | Effective at
-|------------|------------|------------
-| [`.github/workflows/ci.yml`](../../github/workflows/ci.yml) | Merge on `main` branch | **3** epochs later
-| [`.github/workflows/pre-release.yml`](../../github/workflows/pre-release.yml) | Pre-release of a distribution | **3** epochs later
-| [`.github/workflows/release.yml`](../../github/workflows/release.yml) | Release of a distribution | **3** epochs later
+
+| Workflow                                                                          | Deployed at                   | Effective at       |
+| --------------------------------------------------------------------------------- | ----------------------------- | ------------------ |
+| [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)                   | Merge on `main` branch        | **3** epochs later |
+| [`.github/workflows/pre-release.yml`](../../../.github/workflows/pre-release.yml) | Pre-release of a distribution | **3** epochs later |
+| [`.github/workflows/release.yml`](../../../.github/workflows/release.yml)         | Release of a distribution     | **3** epochs later |
 
 For more information about the CD, please refer to [Release process and versioning](https://mithril.network/doc/adr/3).
