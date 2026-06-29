@@ -923,6 +923,7 @@ The DMQ node supports the implementation of a **Decentralized Message Queue** (D
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
   - `**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**`: replace with the path to the Shelley genesis file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
+  - `**YOUR_DMQ_NETWORK_MAGIC**`: replace with the network magic number of your DMQ network (the value can be found in the [Mithril networks](../getting-started/network-configurations.md) table)
   - `**YOUR_DMQ_NODE_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node
   - `**YOUR_DMQ_NODE_PORT**`: replace with the listening port of your DMQ node
   - `**YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**`: replace with the IP address of your DMQ bootstrap peer (the address can be found in the [Mithril networks](../getting-started/network-configurations.md) table)
@@ -938,6 +939,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 - **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
 - **YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**: `/cardano/config/shelley-genesis.json`
 - **YOUR_CARDANO_NETWORK_MAGIC**: `2`
+- **YOUR_DMQ_NETWORK_MAGIC**: `2147483650`
 - **YOUR_DMQ_NODE_PUBLIC_ADDRESS**: `34.14.65.160`
 - **YOUR_DMQ_NODE_PORT**: `6161`
 - **YOUR_DMQ_BOOTSTRAP_PEER_ADDRESS**: `34.76.22.193`
@@ -1021,6 +1023,7 @@ Create a `/opt/dmq/config.json` configuration file:
 ```bash
 bash -c 'cat > /opt/dmq/config.json << EOF
 {
+  "NetworkMagic": **YOUR_DMQ_NETWORK_MAGIC**,
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "ShelleyGenesisFile": "**YOUR_CARDANO_SHELLEY_GENESIS_FILE_PATH**",
@@ -1046,6 +1049,7 @@ Here is an example of the aforementioned command created with the example set fo
 ```bash
 bash -c 'cat > /opt/dmq/config.json << EOF
 {
+  "NetworkMagic": 2147483650,
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "ShelleyGenesisFile": "/cardano/config/shelley-genesis.json",

@@ -942,6 +942,7 @@ The Mithril signer must connect to the DMQ node socket that is on the **same mac
   - `**YOUR_DMQ_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the DMQ node
   - `**YOUR_CARDANO_NODE_SOCKET_PATH**`: replace with the path to the IPC file of the Cardano node
   - `**YOUR_CARDANO_NETWORK_MAGIC**`: replace with the network magic number of your Cardano network
+  - `**YOUR_DMQ_NETWORK_MAGIC**`: replace with the network magic number of your DMQ network (the value can be found in the [Mithril networks](../getting-started/network-configurations.md) table)
   - `**YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**`: replace with the **internal** IP address of your DMQ node on the relay machine
   - `**YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**`: replace with the **public** IP address of your DMQ node on the relay machine
   - `**YOUR_DMQ_NODE_RELAY_PORT**`: replace with the listening port of your DMQ node on the relay machine
@@ -959,6 +960,7 @@ Here is an **example** set of values for **pre-release-preview** that will be us
 - **YOUR_DMQ_NODE_SOCKET_PATH**: `/dmq/ipc/node.socket`
 - **YOUR_CARDANO_NODE_SOCKET_PATH**: `/cardano/ipc/node.socket`
 - **YOUR_CARDANO_NETWORK_MAGIC**: `2`
+- **YOUR_DMQ_NETWORK_MAGIC**: `2147483650`
 - **YOUR_DMQ_NODE_RELAY_INTERNAL_ADDRESS**: `192.168.1.30`
 - **YOUR_DMQ_NODE_RELAY_PUBLIC_ADDRESS**: `34.14.65.160`
 - **YOUR_DMQ_NODE_RELAY_PORT**: `6161`
@@ -1045,6 +1047,7 @@ sudo chown cardano:cardano $(dirname /dmq/ipc/node.socket)
 ```bash
 bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
+  "NetworkMagic": **YOUR_DMQ_NETWORK_MAGIC**,
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": true,
@@ -1069,6 +1072,7 @@ Here is an example of the aforementioned command created with the example set fo
 ```bash
 bash -c 'cat > /opt/dmq/config-relay.json << EOF
 {
+  "NetworkMagic": 2147483650,
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": true,
@@ -1093,6 +1097,7 @@ EOF'
 ```bash
 bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
+  "NetworkMagic": **YOUR_DMQ_NETWORK_MAGIC**,
   "CardanoNetworkMagic": **YOUR_CARDANO_NETWORK_MAGIC**,
   "CardanoNodeSocket": "**YOUR_CARDANO_NODE_SOCKET_PATH**",
   "PeerSharing": false,
@@ -1117,6 +1122,7 @@ Here is an example of the aforementioned command created with the example set fo
 ```bash
 bash -c 'cat > /opt/dmq/config-bp.json << EOF
 {
+  "NetworkMagic": 2147483650,
   "CardanoNetworkMagic": 2,
   "CardanoNodeSocket": "/cardano/ipc/node.socket",
   "PeerSharing": false,
