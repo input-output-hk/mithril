@@ -9,7 +9,6 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use midnight_curves::{Bls12, G1Projective, G2Affine};
 use midnight_proofs::{poly::kzg::params::ParamsVerifierKZG, utils::SerdeFormat};
-use midnight_zk_stdlib::MidnightVK;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -22,11 +21,12 @@ use crate::{
         },
     },
     codec,
-    proof_system::{
-        KZG_VERIFIER_PARAMS,
-        ivc_halo2_snark::{PlonkVerifyingKey, prover_setup::IvcSnarkProverSetup},
-    },
+    proof_system::{KZG_VERIFIER_PARAMS, ivc_halo2_snark::prover_setup::IvcSnarkProverSetup},
 };
+// The raw PLONK verifying key is only needed by the test-only `from_parts`, which bridges the
+// stored (raw) verification-context asset into the newtype-typed setup.
+#[cfg(test)]
+use crate::circuits::halo2_ivc::PlonkVerifyingKey;
 
 /// Minimal setup artifacts needed to verify IVC proofs without loading the full SRS.
 ///
@@ -51,7 +51,7 @@ pub(crate) struct IvcVerifierSetup {
     /// `s_g2` (tau·G2) extracted from the embedded params; passed to the accumulator check.
     tau_g2: G2Affine,
     /// Verifying key of the IVC circuit.
-    ivc_verifying_key: PlonkVerifyingKey,
+    ivc_verifying_key: RecursiveCircuitVerifyingKey,
     /// Combined fixed-base map (certificate ∪ IVC) used by the accumulator check.
     combined_fixed_bases: BTreeMap<String, G1Projective>,
 }
@@ -63,15 +63,17 @@ impl IvcVerifierSetup {
     /// deserialized from `RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION`. No SRS needed.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn try_new(
-        certificate_verifying_key: &PlonkVerifyingKey,
-        ivc_verifying_key: &PlonkVerifyingKey,
+        certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
+        ivc_verifying_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
-        let (certificate_fixed_bases, _) =
-            fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
+        let (certificate_fixed_bases, _) = fixed_bases_and_names(
+            CERTIFICATE_VERIFICATION_KEY_NAME,
+            certificate_verifying_key.midnight_vk().vk(),
+        );
         let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key);
+            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key.verifying_key());
         let mut combined_fixed_bases = certificate_fixed_bases;
         combined_fixed_bases.extend(ivc_fixed_bases);
 
@@ -92,7 +94,7 @@ impl IvcVerifierSetup {
         Ok(Self {
             verifier_params,
             tau_g2,
-            ivc_verifying_key: ivc_setup.ivc_verifying_key.verifying_key().clone(),
+            ivc_verifying_key: ivc_setup.ivc_verifying_key.clone(),
             combined_fixed_bases: ivc_setup.combined_fixed_bases.clone(),
         })
     }
@@ -108,7 +110,7 @@ impl IvcVerifierSetup {
         Self {
             verifier_params,
             tau_g2,
-            ivc_verifying_key: ivc_setup.ivc_verifying_key.verifying_key().clone(),
+            ivc_verifying_key: ivc_setup.ivc_verifying_key.clone(),
             combined_fixed_bases: ivc_setup.combined_fixed_bases.clone(),
         }
     }
@@ -127,7 +129,7 @@ impl IvcVerifierSetup {
         Self {
             verifier_params,
             tau_g2,
-            ivc_verifying_key,
+            ivc_verifying_key: RecursiveCircuitVerifyingKey::new(ivc_verifying_key),
             combined_fixed_bases,
         }
     }
@@ -162,7 +164,7 @@ impl IvcVerifierSetup {
     }
 
     /// Returns the IVC circuit verifying key.
-    pub(crate) fn ivc_verifying_key(&self) -> &PlonkVerifyingKey {
+    pub(crate) fn ivc_verifying_key(&self) -> &RecursiveCircuitVerifyingKey {
         &self.ivc_verifying_key
     }
 
@@ -186,24 +188,19 @@ impl IvcVerifierData {
     /// Build the verifier data from the genesis message, the genesis Schnorr verification key and
     /// the certificate and IVC circuit verifying keys used to produce the proof.
     ///
-    /// The certificate verifying key is wrapped as a [`NonRecursiveCircuitVerifyingKey`] (carrying its
-    /// [MidnightVK]) so its serialization preserves the circuit architecture needed to deserialize it
-    /// against the correct constraint system.
+    /// The verifying keys are the per-circuit newtypes so their serialization preserves the circuit
+    /// architecture needed to deserialize them against the correct constraint system.
     pub(crate) fn new(
         genesis_message: MessageHash,
         genesis_schnorr_verification_key: SchnorrVerificationKey,
-        certificate_circuit_verification_key: MidnightVK,
-        ivc_circuit_verification_key: PlonkVerifyingKey,
+        certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
+        ivc_circuit_verification_key: RecursiveCircuitVerifyingKey,
     ) -> Self {
         Self {
             genesis_message,
             genesis_schnorr_verification_key,
-            certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey::new(
-                certificate_circuit_verification_key,
-            ),
-            ivc_circuit_verification_key: RecursiveCircuitVerifyingKey::new(
-                ivc_circuit_verification_key,
-            ),
+            certificate_circuit_verification_key,
+            ivc_circuit_verification_key,
         }
     }
 
@@ -234,14 +231,14 @@ impl IvcVerifierData {
         self.genesis_schnorr_verification_key
     }
 
-    /// Returns a copy of the certificate circuit verification key stored in the IvcVerifierData
-    pub(crate) fn certificate_circuit_verification_key(&self) -> &PlonkVerifyingKey {
-        self.certificate_circuit_verification_key.midnight_vk().vk()
+    /// Returns the certificate circuit verifying key stored in the IvcVerifierData
+    pub(crate) fn certificate_circuit_verification_key(&self) -> &NonRecursiveCircuitVerifyingKey {
+        &self.certificate_circuit_verification_key
     }
 
-    /// Returns a copy of the ivc circuit verification key stored in the IvcVerifierData
-    pub(crate) fn ivc_circuit_verification_key(&self) -> &PlonkVerifyingKey {
-        self.ivc_circuit_verification_key.verifying_key()
+    /// Returns the ivc circuit verifying key stored in the IvcVerifierData
+    pub(crate) fn ivc_circuit_verification_key(&self) -> &RecursiveCircuitVerifyingKey {
+        &self.ivc_circuit_verification_key
     }
 }
 
@@ -261,8 +258,8 @@ mod tests {
         let verifier_data = IvcVerifierData::new(
             MessageHash::ZERO,
             SchnorrVerificationKey::default(),
-            context.certificate_verifying_key,
-            context.recursive_verifying_key,
+            NonRecursiveCircuitVerifyingKey::new(context.certificate_verifying_key),
+            RecursiveCircuitVerifyingKey::new(context.recursive_verifying_key),
         );
 
         let bytes = verifier_data.to_bytes().expect("serialization should not fail");
@@ -383,11 +380,12 @@ mod tests {
     fn try_new_merges_certificate_and_ivc_fixed_bases() {
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
-        let setup = IvcVerifierSetup::try_new(
-            ctx.certificate_verifying_key.vk(),
-            &ctx.recursive_verifying_key,
-        )
-        .expect("try_new must succeed with valid verifying keys");
+        let certificate_verifying_key =
+            NonRecursiveCircuitVerifyingKey::new(ctx.certificate_verifying_key);
+        let recursive_verifying_key =
+            RecursiveCircuitVerifyingKey::new(ctx.recursive_verifying_key);
+        let setup = IvcVerifierSetup::try_new(&certificate_verifying_key, &recursive_verifying_key)
+            .expect("try_new must succeed with valid verifying keys");
         assert_eq!(
             setup.combined_fixed_bases.keys().collect::<Vec<_>>(),
             ctx.combined_fixed_bases.keys().collect::<Vec<_>>(),

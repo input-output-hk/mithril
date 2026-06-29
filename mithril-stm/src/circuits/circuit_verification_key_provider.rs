@@ -184,10 +184,12 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
 
     /// Writes the verifying and proving key bytes to disk as a pair: each to a per-writer-unique
     /// temporary sibling, fsynced, then renamed (the proving key first, the verifying key last),
-    /// with a final directory fsync. A partial or interrupted store can leave an orphan key on disk;
-    /// readers require both keys present and recompute otherwise, so correctness does not depend on
-    /// the rename order or on crash durability. Unique temporary names let concurrent lock-free
-    /// writers proceed without clobbering each other.
+    /// with a final directory fsync. On a failed verifying-key rename it best-effort removes the
+    /// proving-key path it just wrote (which a concurrent lock-free writer may already have replaced),
+    /// and a crash between the two renames runs no cleanup at all — so a proving key can still be left
+    /// without a verifying key. Readers require both keys present and recompute otherwise, so
+    /// correctness depends on neither the rename order nor crash durability. Unique temporary names let
+    /// concurrent lock-free writers proceed without clobbering each other.
     fn store_key_pair(
         &self,
         verification_key_bytes: &[u8],
@@ -215,6 +217,9 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
         }
         if let Err(error) = fs::rename(&verification_key_temp, &self.verification_key_path) {
             let _ = fs::remove_file(&verification_key_temp);
+            // Best-effort removal of the proving key just written, so a failed store does not leave it
+            // orphaned (a concurrent lock-free writer may already have replaced the final path).
+            let _ = fs::remove_file(&self.proving_key_path);
             return Err(error).with_context(|| "Failed to store the verification key in the cache");
         }
         sync_directory_of(&self.verification_key_path)
@@ -493,6 +498,26 @@ mod tests {
         assert!(
             !provider.verification_key_path().exists(),
             "no verification key must be left behind when the proving key store fails"
+        );
+        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn store_key_pair_rolls_back_the_proving_key_when_the_verifying_key_store_fails() {
+        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
+        // A directory at the verifying-key path makes its rename fail; the proving key is renamed
+        // first (and succeeds), so it must then be rolled back.
+        fs::create_dir_all(provider.verification_key_path()).unwrap();
+
+        let result = provider.store_key_pair(b"vk-bytes", b"pk-bytes");
+
+        assert!(
+            result.is_err(),
+            "store should fail when the verifying key cannot be written"
+        );
+        assert!(
+            !provider.proving_key_path().exists(),
+            "the committed proving key must be rolled back when the verifying key store fails"
         );
         fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
     }

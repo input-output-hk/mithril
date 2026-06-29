@@ -15,8 +15,9 @@ pub(crate) trait CircuitKeyGenerator {
     /// Proving key; round-trips through bytes.
     type ProvingKey: TryFromBytes + TryToBytes;
 
-    /// Derives the verifying and proving keys from `srs`, downsizing a clone of `srs` to the
-    /// circuit's own relation degree and never mutating the caller's SRS.
+    /// Derives the verifying and proving keys from a sufficiently sized `srs`: it uses `srs` directly
+    /// when already at the circuit's relation degree, and otherwise downsizes a clone to that degree,
+    /// never mutating the caller's SRS.
     fn generate_key_pair(
         &self,
         srs: &ParamsKZG<Bls12>,

@@ -178,7 +178,7 @@ where
         let mut transcript = CircuitTranscript::<H>::init_from_bytes(self.proof_bytes.as_bytes());
 
         let dual_msm = prepare::<CircuitBase, KZGCommitmentScheme<Bls12>, CircuitTranscript<H>>(
-            verifier_setup.ivc_verifying_key(),
+            verifier_setup.ivc_verifying_key().verifying_key(),
             &[&[G1Projective::identity()]],
             &[&[&public_inputs]],
             &mut transcript,

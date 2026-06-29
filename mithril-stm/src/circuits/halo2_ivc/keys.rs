@@ -4,6 +4,7 @@
 // `circuits::halo2_ivc`, where Halo2's keygen APIs require them.
 use midnight_curves::Bls12;
 use midnight_proofs::plonk::{keygen_pk, keygen_vk_with_k};
+use midnight_proofs::poly::commitment::Params;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use serde::{Deserialize, Serialize};
 
@@ -124,11 +125,21 @@ impl CircuitKeyGenerator for IvcCircuitData {
         &self,
         srs: &ParamsKZG<Bls12>,
     ) -> StmResult<(Self::VerifyingKey, Self::ProvingKey)> {
-        // Keygen and the stored proving SRS must share the IVC circuit's domain, so downsize a
-        // clone to the circuit degree before keygen and leave the caller's SRS untouched.
-        let mut recursive_srs = srs.clone();
-        recursive_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        let verifying_key = keygen_vk_with_k(&recursive_srs, self, RECURSIVE_CIRCUIT_DEGREE)?;
+        // Keygen needs the SRS at the IVC circuit's degree. The SRS must be at least that large: when
+        // it is exactly RECURSIVE_CIRCUIT_DEGREE it is used directly, and when it is larger it is
+        // downsized on a clone so the caller's SRS (which may be reused at a different degree) is left
+        // untouched.
+        debug_assert!(
+            srs.max_k() >= RECURSIVE_CIRCUIT_DEGREE,
+            "the SRS must be at least the recursive circuit degree"
+        );
+        let verifying_key = if srs.max_k() == RECURSIVE_CIRCUIT_DEGREE {
+            keygen_vk_with_k(srs, self, RECURSIVE_CIRCUIT_DEGREE)?
+        } else {
+            let mut recursive_srs = srs.clone();
+            recursive_srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
+            keygen_vk_with_k(&recursive_srs, self, RECURSIVE_CIRCUIT_DEGREE)?
+        };
         let proving_key = keygen_pk(verifying_key.clone(), self)?;
         Ok((
             RecursiveCircuitVerifyingKey(verifying_key),

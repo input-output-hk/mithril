@@ -9,6 +9,7 @@ pub(crate) mod verifier_setup;
 pub(crate) use ivc_prover_setup_cache::load_ivc_prover_setup;
 pub(crate) use prover_setup::IvcSnarkProverSetup;
 
-// The recursive circuit's PLONK key aliases are defined in `circuits::halo2_ivc` (the circuit
-// layer) and re-exported here so the proof-system modules keep their existing import paths.
-pub(crate) use crate::circuits::halo2_ivc::{PlonkProvingKey, PlonkVerifyingKey};
+// The recursive circuit's raw PLONK proving key is defined in `circuits::halo2_ivc` (the circuit
+// layer) and re-exported here so the proof-system prover keeps its existing import path. It is needed
+// raw at the `create_proof` boundary; the setup and verifier types carry the key newtypes instead.
+pub(crate) use crate::circuits::halo2_ivc::PlonkProvingKey;

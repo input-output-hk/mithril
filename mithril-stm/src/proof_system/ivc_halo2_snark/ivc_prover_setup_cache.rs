@@ -6,15 +6,13 @@ use std::{
 
 #[cfg(feature = "future_snark")]
 use anyhow::anyhow;
-#[cfg(feature = "future_snark")]
-use midnight_zk_stdlib::MidnightVK;
 
 #[cfg(feature = "future_snark")]
 use crate::{
     Parameters, StmResult,
     circuits::{
         circuit_verification_key_provider::CircuitVerificationKeyProvider,
-        trusted_setup::TrustedSetupProvider,
+        halo2::keys::NonRecursiveCircuitVerifyingKey, trusted_setup::TrustedSetupProvider,
     },
     proof_system::ivc_halo2_snark::IvcSnarkProverSetup,
 };
@@ -23,27 +21,28 @@ use crate::{
 ///
 /// The setup (SRS plus the certificate and IVC circuit keys) only depends on the protocol
 /// parameters and the Merkle tree depth, so it is computed once per shape and reused across
-/// certificates instead of being rebuilt on every proof. The certificate [MidnightVK] is cached
+/// certificates instead of being rebuilt on every proof. The certificate verifying key is cached
 /// alongside it because it is needed to expose the verifier data.
 #[cfg(feature = "future_snark")]
-type IvcSnarkProverSetupCache = HashMap<(Vec<u8>, u32), (Arc<IvcSnarkProverSetup>, MidnightVK)>;
+type IvcSnarkProverSetupCache =
+    HashMap<(Vec<u8>, u32), (Arc<IvcSnarkProverSetup>, NonRecursiveCircuitVerifyingKey)>;
 
 #[cfg(feature = "future_snark")]
 static IVC_PROVER_SETUP_CACHE: LazyLock<Mutex<IvcSnarkProverSetupCache>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Load the IVC prover setup and the certificate [MidnightVK] for the given certificate circuit
+/// Load the IVC prover setup and the certificate verifying key for the given certificate circuit
 /// shape, building them on the first call and serving cached clones afterwards.
 ///
 /// The per-circuit keys are themselves disk-cached by the certificate and recursive
 /// [`CircuitVerificationKeyProvider`]s; this cache memoizes the assembled, in-memory setup (and the
-/// certificate [MidnightVK]) so the clerk reuses it across certificates instead of re-deriving the
+/// certificate verifying key) so the clerk reuses it across certificates instead of re-deriving the
 /// fixed bases and re-reading the keys on every proof.
 #[cfg(feature = "future_snark")]
 pub(crate) fn load_ivc_prover_setup(
     parameters: Parameters,
     merkle_tree_depth: u32,
-) -> StmResult<(Arc<IvcSnarkProverSetup>, MidnightVK)> {
+) -> StmResult<(Arc<IvcSnarkProverSetup>, NonRecursiveCircuitVerifyingKey)> {
     let cache_key = (parameters.to_bytes()?, merkle_tree_depth);
 
     if let Some(cached) = IVC_PROVER_SETUP_CACHE
@@ -62,10 +61,9 @@ pub(crate) fn load_ivc_prover_setup(
         &certificate_provider,
         CircuitVerificationKeyProvider::for_recursive_circuit,
     )?);
-    let certificate_midnight_verifying_key =
-        ivc_setup.certificate_verifying_key.midnight_vk().clone();
+    let certificate_verifying_key = ivc_setup.certificate_verifying_key.clone();
 
-    let cached = (ivc_setup, certificate_midnight_verifying_key);
+    let cached = (ivc_setup, certificate_verifying_key);
     IVC_PROVER_SETUP_CACHE
         .lock()
         .map_err(|_| anyhow!("IVC prover setup cache lock poisoned."))?
