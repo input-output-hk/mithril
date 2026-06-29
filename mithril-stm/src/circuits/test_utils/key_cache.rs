@@ -55,7 +55,7 @@ pub(crate) fn shared_cache_directory(label: &str, fingerprint: &[&[u8]]) -> Path
 }
 
 /// Runs `derive` under an exclusive lock on the content-keyed directory for `(label, fingerprint)`,
-/// passing that directory so the closure can root a `CircuitVerificationKeyProvider` there and run
+/// passing that directory so the closure can root a `KeyProvider` there and run
 /// the actual key derivation under the lock.
 pub(crate) fn with_shared_key_cache<T>(
     label: &str,

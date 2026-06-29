@@ -1,5 +1,5 @@
 // Per-circuit key newtypes for the non-recursive (certificate) circuit, and the circuit's
-// implementation of [`CircuitKeyGenerator`]. The newtypes wrap Midnight's self-describing
+// implementation of [`KeyGenerator`]. The newtypes wrap Midnight's self-describing
 // `MidnightVK` / `MidnightPK` and delegate their byte (de)serialization to the impls in
 // `key_serialization`.
 use midnight_curves::Bls12;
@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::circuits::AsPlonkVerifyingKey;
-use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
-use crate::circuits::halo2_ivc::PlonkVerifyingKey;
+use crate::circuits::halo2_ivc::{E, F, KZGCommitmentScheme, VerifyingKey};
+use crate::circuits::key_generator::KeyGenerator;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::circuit::StmCertificateCircuit;
@@ -39,7 +39,7 @@ impl NonRecursiveCircuitVerifyingKey {
 }
 
 impl AsPlonkVerifyingKey for NonRecursiveCircuitVerifyingKey {
-    fn plonk_verifying_key(&self) -> &PlonkVerifyingKey {
+    fn plonk_verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
         self.0.vk()
     }
 }
@@ -109,7 +109,7 @@ impl TryFromBytes for NonRecursiveCircuitProvingKey {
     }
 }
 
-impl CircuitKeyGenerator for StmCertificateCircuit {
+impl KeyGenerator for StmCertificateCircuit {
     type VerifyingKey = NonRecursiveCircuitVerifyingKey;
     type ProvingKey = NonRecursiveCircuitProvingKey;
 
@@ -150,8 +150,8 @@ mod tests {
 
     use super::{NonRecursiveCircuitProvingKey, NonRecursiveCircuitVerifyingKey};
     use crate::Parameters;
-    use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
     use crate::circuits::halo2::circuit::StmCertificateCircuit;
+    use crate::circuits::key_generator::KeyGenerator;
     use crate::codec::{TryFromBytes, TryToBytes};
 
     #[test]

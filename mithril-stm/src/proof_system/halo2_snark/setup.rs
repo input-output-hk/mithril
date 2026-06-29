@@ -1,7 +1,7 @@
 //! SNARK setup for the STM certificate circuit.
 //!
 //! Bundles circuit compilation and key derivation into [`SnarkProverSetup`], backed by the on-disk
-//! [`CircuitVerificationKeyProvider`] so derived keys are reused across process restarts.
+//! [`KeyProvider`] so derived keys are reused across process restarts.
 use anyhow::Context;
 use midnight_curves::Bls12;
 use midnight_proofs::{
@@ -13,11 +13,11 @@ use midnight_zk_stdlib as zk;
 use crate::{
     Parameters, StmResult,
     circuits::{
-        circuit_verification_key_provider::CircuitVerificationKeyProvider,
         halo2::{
             circuit::StmCertificateCircuit,
             keys::{NonRecursiveCircuitProvingKey, NonRecursiveCircuitVerifyingKey},
         },
+        key_provider::KeyProvider,
         trusted_setup::TrustedSetupProvider,
     },
     proof_system::KZG_VERIFIER_PARAMS,
@@ -43,8 +43,7 @@ impl SnarkProverSetup {
     /// verification key provider, and delegates to [`Self::try_new_with_srs`].
     pub(crate) fn try_new(params: &Parameters, merkle_tree_depth: u32) -> StmResult<Self> {
         let srs = TrustedSetupProvider::default().get_trusted_setup_parameters()?;
-        let provider =
-            CircuitVerificationKeyProvider::for_non_recursive_circuit(params, merkle_tree_depth)?;
+        let provider = KeyProvider::for_non_recursive_circuit(params, merkle_tree_depth)?;
         Self::try_new_with_srs(srs, &provider)
     }
 
@@ -54,7 +53,7 @@ impl SnarkProverSetup {
     /// the key pair is read from, or derived through, the provider.
     pub(crate) fn try_new_with_srs(
         mut srs: ParamsKZG<Bls12>,
-        provider: &CircuitVerificationKeyProvider<StmCertificateCircuit>,
+        provider: &KeyProvider<StmCertificateCircuit>,
     ) -> StmResult<Self> {
         let circuit = provider.circuit().clone();
         zk::downsize_srs_for_relation(&mut srs, &circuit);
@@ -98,8 +97,8 @@ mod test {
     use rand_core::SeedableRng;
 
     use crate::{
-        Parameters, circuits::circuit_verification_key_provider::CircuitVerificationKeyProvider,
-        circuits::halo2::circuit::StmCertificateCircuit, codec::TryToBytes,
+        Parameters, circuits::halo2::circuit::StmCertificateCircuit,
+        circuits::key_provider::KeyProvider, codec::TryToBytes,
         proof_system::halo2_snark::SnarkProverSetup,
     };
 
@@ -119,12 +118,7 @@ mod test {
         let srs = ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
         let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "non-recursive",
-            b"test-vk",
-            circuit,
-        );
+        let provider = KeyProvider::new(base_dir.clone(), "non-recursive", b"test-vk", circuit);
         let result = SnarkProverSetup::try_new_with_srs(srs, &provider);
         assert!(result.is_ok());
         fs::remove_dir_all(&base_dir).ok();
@@ -138,12 +132,7 @@ mod test {
         let make_srs = || ParamsKZG::unsafe_setup(degree, ChaCha20Rng::seed_from_u64(42));
         let base_dir = std::env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "non-recursive",
-            b"test-vk",
-            circuit,
-        );
+        let provider = KeyProvider::new(base_dir.clone(), "non-recursive", b"test-vk", circuit);
         let setup1 = SnarkProverSetup::try_new_with_srs(make_srs(), &provider).unwrap();
         let setup2 = SnarkProverSetup::try_new_with_srs(make_srs(), &provider).unwrap();
 

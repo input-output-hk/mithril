@@ -3,9 +3,9 @@
 //! The raw PLONK `read` is generic over the circuit type and takes its `Params`, so these impls
 //! pin [`IvcCircuitData`] and its `()` params. Production keys use [`SerdeFormat::RawBytes`].
 //!
-//! Note: `PlonkVerifyingKey` / `PlonkProvingKey` are the shared raw PLONK key types, but only the
-//! IVC circuit's keys are ever deserialized raw here (the certificate keys round-trip as the
-//! high-level `MidnightVK` / `MidnightPK`), so pinning `IvcCircuitData` is correct.
+//! Note: only the IVC circuit's keys are ever deserialized raw here (the certificate keys
+//! round-trip as the high-level `MidnightVK` / `MidnightPK`), so pinning `IvcCircuitData` is
+//! correct.
 
 use anyhow::Context;
 use midnight_proofs::utils::SerdeFormat;
@@ -13,17 +13,14 @@ use midnight_proofs::utils::SerdeFormat;
 use crate::StmResult;
 use crate::codec::{TryFromBytes, TryToBytes};
 
-use super::{
-    E, F, KZGCommitmentScheme, PlonkProvingKey, PlonkVerifyingKey, ProvingKey, VerifyingKey,
-    circuit::IvcCircuitData,
-};
+use super::{E, F, KZGCommitmentScheme, ProvingKey, VerifyingKey, circuit::IvcCircuitData};
 
 /// Serde format used for the on-disk / in-cache production keys.
 const KEY_SERDE_FORMAT: SerdeFormat = SerdeFormat::RawBytes;
 
 // Recursive (IVC) circuit verifying key. The raw PLONK `read` is generic over the circuit and
 // takes its `Params`, so it is pinned to `IvcCircuitData` with its `()` params below.
-impl TryToBytes for PlonkVerifyingKey {
+impl TryToBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
     fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
@@ -32,7 +29,7 @@ impl TryToBytes for PlonkVerifyingKey {
     }
 }
 
-impl TryFromBytes for PlonkVerifyingKey {
+impl TryFromBytes for VerifyingKey<F, KZGCommitmentScheme<E>> {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
         VerifyingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
@@ -45,7 +42,7 @@ impl TryFromBytes for PlonkVerifyingKey {
 }
 
 // Recursive (IVC) circuit proving key.
-impl TryToBytes for PlonkProvingKey {
+impl TryToBytes for ProvingKey<F, KZGCommitmentScheme<E>> {
     fn to_bytes_vec(&self) -> StmResult<Vec<u8>> {
         let mut bytes = Vec::new();
         self.write(&mut bytes, KEY_SERDE_FORMAT)
@@ -54,7 +51,7 @@ impl TryToBytes for PlonkProvingKey {
     }
 }
 
-impl TryFromBytes for PlonkProvingKey {
+impl TryFromBytes for ProvingKey<F, KZGCommitmentScheme<E>> {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut reader = bytes;
         ProvingKey::<F, KZGCommitmentScheme<E>>::read::<_, IvcCircuitData>(
@@ -73,12 +70,13 @@ mod tests {
 
     #[test]
     fn verifying_key_round_trips_through_bytes() {
-        let verifying_key =
-            PlonkVerifyingKey::try_from_bytes(RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
-                .expect("production recursive verifying key bytes should deserialize");
+        let verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .expect("production recursive verifying key bytes should deserialize");
         let first = verifying_key.to_bytes_vec().expect("serialize should succeed");
-        let restored =
-            PlonkVerifyingKey::try_from_bytes(&first).expect("re-deserialize should succeed");
+        let restored = VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(&first)
+            .expect("re-deserialize should succeed");
         let second = restored.to_bytes_vec().expect("re-serialize should succeed");
         assert_eq!(
             first, second,
@@ -88,9 +86,10 @@ mod tests {
 
     #[test]
     fn production_verifying_key_serializes_to_the_embedded_bytes() {
-        let verifying_key =
-            PlonkVerifyingKey::try_from_bytes(RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
-                .expect("production recursive verifying key bytes should deserialize");
+        let verifying_key = VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        )
+        .expect("production recursive verifying key bytes should deserialize");
         assert_eq!(
             verifying_key.to_bytes_vec().expect("serialize should succeed"),
             RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,

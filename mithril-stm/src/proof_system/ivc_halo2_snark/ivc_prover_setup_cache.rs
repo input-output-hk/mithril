@@ -11,8 +11,8 @@ use anyhow::anyhow;
 use crate::{
     Parameters, StmResult,
     circuits::{
-        circuit_verification_key_provider::CircuitVerificationKeyProvider,
-        halo2::keys::NonRecursiveCircuitVerifyingKey, trusted_setup::TrustedSetupProvider,
+        halo2::keys::NonRecursiveCircuitVerifyingKey, key_provider::KeyProvider,
+        trusted_setup::TrustedSetupProvider,
     },
     proof_system::ivc_halo2_snark::IvcSnarkProverSetup,
 };
@@ -35,7 +35,7 @@ static IVC_PROVER_SETUP_CACHE: LazyLock<Mutex<IvcSnarkProverSetupCache>> =
 /// shape, building them on the first call and serving cached clones afterwards.
 ///
 /// The per-circuit keys are themselves disk-cached by the certificate and recursive
-/// [`CircuitVerificationKeyProvider`]s; this cache memoizes the assembled, in-memory setup (and the
+/// [`KeyProvider`]s; this cache memoizes the assembled, in-memory setup (and the
 /// certificate verifying key) so the clerk reuses it across certificates instead of re-deriving the
 /// fixed bases and re-reading the keys on every proof.
 #[cfg(feature = "future_snark")]
@@ -55,11 +55,11 @@ pub(crate) fn load_ivc_prover_setup(
 
     let trusted_setup_provider = TrustedSetupProvider::default();
     let certificate_provider =
-        CircuitVerificationKeyProvider::for_non_recursive_circuit(&parameters, merkle_tree_depth)?;
+        KeyProvider::for_non_recursive_circuit(&parameters, merkle_tree_depth)?;
     let ivc_setup = Arc::new(IvcSnarkProverSetup::load(
         &trusted_setup_provider,
         &certificate_provider,
-        CircuitVerificationKeyProvider::for_recursive_circuit,
+        KeyProvider::for_recursive_circuit,
     )?);
     let certificate_verifying_key = ivc_setup.certificate_verifying_key.clone();
 

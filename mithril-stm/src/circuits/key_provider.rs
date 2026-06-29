@@ -1,8 +1,8 @@
 //! Compute-on-miss verification key provider for one circuit.
 //!
-//! [`CircuitVerificationKeyProvider`] owns the on-disk key cache (the verifying/proving key file
+//! [`KeyProvider`] owns the on-disk key cache (the verifying/proving key file
 //! paths and the expected verifying-key bytes for staleness detection) together with a
-//! [`CircuitKeyGenerator`] circuit. [`CircuitVerificationKeyProvider::key_pair`] inspects the cache
+//! [`KeyGenerator`] circuit. [`KeyProvider::key_pair`] inspects the cache
 //! through a single [`CacheState`] state machine: a fresh, complete pair is returned from disk,
 //! anything else (absent, stale, or partially written) is recomputed from the SRS and stored
 //! atomically.
@@ -20,10 +20,10 @@ use rand_core::{OsRng, RngCore};
 use crate::codec::{TryFromBytes, TryToBytes};
 use crate::{Parameters, StmResult};
 
-use super::circuit_key_generator::CircuitKeyGenerator;
 use super::halo2::circuit::StmCertificateCircuit;
 use super::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use super::halo2_ivc::circuit::IvcCircuitData;
+use super::key_generator::KeyGenerator;
 use super::{
     MITHRIL_CIRCUIT_CACHE_FOLDER, halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
     halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -44,8 +44,8 @@ enum CacheState {
 }
 
 /// Provides a circuit's verifying and proving keys: an on-disk cache (with staleness detection) plus
-/// the [`CircuitKeyGenerator`] circuit that computes them on a miss.
-pub(crate) struct CircuitVerificationKeyProvider<C: CircuitKeyGenerator> {
+/// the [`KeyGenerator`] circuit that computes them on a miss.
+pub(crate) struct KeyProvider<C: KeyGenerator> {
     /// Path to the on-disk verification key file.
     verification_key_path: PathBuf,
     /// Path to the on-disk proving key file.
@@ -58,7 +58,7 @@ pub(crate) struct CircuitVerificationKeyProvider<C: CircuitKeyGenerator> {
     circuit: C,
 }
 
-impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
+impl<C: KeyGenerator> KeyProvider<C> {
     /// Builds a provider rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`. On read,
     /// the cached verifying key is compared against `expected_verification_key` and recomputed on a
     /// mismatch; an empty slice skips the comparison and trusts the cached key. Keys are computed from
@@ -233,7 +233,7 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
     }
 }
 
-impl CircuitVerificationKeyProvider<StmCertificateCircuit> {
+impl KeyProvider<StmCertificateCircuit> {
     /// Production certificate-circuit provider: builds the circuit from `parameters`, roots the
     /// cache at the temporary directory, and validates against the embedded production verifying key.
     pub(crate) fn for_non_recursive_circuit(
@@ -250,7 +250,7 @@ impl CircuitVerificationKeyProvider<StmCertificateCircuit> {
     }
 }
 
-impl CircuitVerificationKeyProvider<IvcCircuitData> {
+impl KeyProvider<IvcCircuitData> {
     /// Production recursive-circuit provider: builds the recursive circuit from the certificate
     /// verifying key it recursively verifies, roots the cache at the temporary directory, and
     /// validates against the embedded production verifying key.
@@ -268,7 +268,7 @@ impl CircuitVerificationKeyProvider<IvcCircuitData> {
 }
 
 #[cfg(test)]
-impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
+impl<C: KeyGenerator> KeyProvider<C> {
     pub(crate) fn verification_key_path(&self) -> &Path {
         &self.verification_key_path
     }
@@ -288,7 +288,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use super::{CacheState, CircuitKeyGenerator, CircuitVerificationKeyProvider};
+    use super::{CacheState, KeyGenerator, KeyProvider};
     use crate::Parameters;
     use crate::StmResult;
     use crate::circuits::halo2::circuit::StmCertificateCircuit;
@@ -327,7 +327,7 @@ mod tests {
         }
     }
 
-    impl CircuitKeyGenerator for CountingGenerator {
+    impl KeyGenerator for CountingGenerator {
         type VerifyingKey = ByteKey;
         type ProvingKey = ByteKey;
 
@@ -352,10 +352,10 @@ mod tests {
         expected_verification_key: &[u8],
         verification_key: &[u8],
         proving_key: &[u8],
-    ) -> (PathBuf, CircuitVerificationKeyProvider<CountingGenerator>) {
+    ) -> (PathBuf, KeyProvider<CountingGenerator>) {
         let base_dir = env::temp_dir().join(name);
         fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
+        let provider = KeyProvider::new(
             base_dir.clone(),
             "test-circuit",
             expected_verification_key,
@@ -589,12 +589,7 @@ mod tests {
         let circuit = StmCertificateCircuit::try_new(&parameters, 4).unwrap();
         let base_dir = env::temp_dir().join(current_function!());
         fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "non-recursive",
-            b"corrupt-vk",
-            circuit,
-        );
+        let provider = KeyProvider::new(base_dir.clone(), "non-recursive", b"corrupt-vk", circuit);
         fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
         fs::write(provider.verification_key_path(), b"corrupt-vk").unwrap();
         fs::write(provider.proving_key_path(), b"corrupt-pk").unwrap();

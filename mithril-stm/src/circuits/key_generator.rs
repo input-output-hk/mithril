@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// A circuit that can generate its verifying and proving keys from a sufficiently sized SRS.
-pub(crate) trait CircuitKeyGenerator {
+pub(crate) trait KeyGenerator {
     /// Verifying key; round-trips through bytes and is cloneable for caching.
     type VerifyingKey: TryFromBytes + TryToBytes + Clone;
     /// Proving key; round-trips through bytes.

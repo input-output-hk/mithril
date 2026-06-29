@@ -5,15 +5,11 @@
 //
 // Currently, we expose the Halo2-based prototype under `circuits::halo2`.
 
-#[cfg(not(target_family = "wasm"))]
-pub(crate) mod circuit_key_generator;
-#[cfg(not(target_family = "wasm"))]
-pub(crate) mod circuit_verification_key_provider;
 pub(crate) mod common;
 pub mod halo2;
 pub mod halo2_ivc;
-pub mod key_cache;
-pub(crate) mod key_serialization;
+pub(crate) mod key_generator;
+pub(crate) mod key_provider;
 pub mod trusted_setup;
 
 #[cfg(test)]
@@ -22,13 +18,14 @@ pub(crate) mod test_utils;
 pub(crate) use halo2::witness::{
     CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
 };
+use halo2_ivc::{E, F, KZGCommitmentScheme, VerifyingKey};
 
 /// Exposes the raw PLONK verifying key wrapped by a per-circuit verifying-key newtype, for the Halo2
 /// verification APIs (proof preparation, fixed-base extraction) that operate on the underlying key.
 /// Lets helpers shared by the certificate and recursive circuits take the newtypes rather than the
 /// raw key.
 pub(crate) trait AsPlonkVerifyingKey {
-    fn plonk_verifying_key(&self) -> &halo2_ivc::PlonkVerifyingKey;
+    fn plonk_verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>>;
 }
 
 /// Constant holding the current path of the cached values related to the circuits

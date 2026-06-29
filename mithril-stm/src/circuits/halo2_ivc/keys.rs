@@ -1,5 +1,5 @@
 // Per-circuit key newtypes for the recursive (IVC) circuit, and the circuit's implementation of
-// [`CircuitKeyGenerator`]. The newtypes wrap the raw PLONK keys and delegate their byte
+// [`KeyGenerator`]. The newtypes wrap the raw PLONK keys and delegate their byte
 // (de)serialization to the impls in `key_serialization`; the raw keys stay internal to
 // `circuits::halo2_ivc`, where Halo2's keygen APIs require them.
 use midnight_curves::Bls12;
@@ -10,48 +10,49 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::circuits::AsPlonkVerifyingKey;
-use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
+use crate::circuits::key_generator::KeyGenerator;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::{
-    PlonkProvingKey, PlonkVerifyingKey, RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData,
+    E, F, KZGCommitmentScheme, ProvingKey, RECURSIVE_CIRCUIT_DEGREE, VerifyingKey,
+    circuit::IvcCircuitData,
 };
 
 /// Verifying key of the recursive (IVC) circuit.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RecursiveCircuitVerifyingKey(
-    #[serde(with = "recursive_verifying_key_serde")] PlonkVerifyingKey,
+    #[serde(with = "recursive_verifying_key_serde")] VerifyingKey<F, KZGCommitmentScheme<E>>,
 );
 
 /// Proving key of the recursive (IVC) circuit.
-pub(crate) struct RecursiveCircuitProvingKey(PlonkProvingKey);
+pub(crate) struct RecursiveCircuitProvingKey(ProvingKey<F, KZGCommitmentScheme<E>>);
 
 impl RecursiveCircuitVerifyingKey {
     /// Wraps a raw recursive verifying key.
-    pub(crate) fn new(verifying_key: PlonkVerifyingKey) -> Self {
+    pub(crate) fn new(verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>) -> Self {
         Self(verifying_key)
     }
 
     /// Borrows the wrapped raw verifying key, for the prover/verifier and fixed-base construction.
-    pub(crate) fn verifying_key(&self) -> &PlonkVerifyingKey {
+    pub(crate) fn verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
         &self.0
     }
 }
 
 impl AsPlonkVerifyingKey for RecursiveCircuitVerifyingKey {
-    fn plonk_verifying_key(&self) -> &PlonkVerifyingKey {
+    fn plonk_verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
         &self.0
     }
 }
 
 impl RecursiveCircuitProvingKey {
     /// Wraps a raw recursive proving key.
-    pub(crate) fn new(proving_key: PlonkProvingKey) -> Self {
+    pub(crate) fn new(proving_key: ProvingKey<F, KZGCommitmentScheme<E>>) -> Self {
         Self(proving_key)
     }
 
     /// Borrows the wrapped raw proving key, for proof generation.
-    pub(crate) fn proving_key(&self) -> &PlonkProvingKey {
+    pub(crate) fn proving_key(&self) -> &ProvingKey<F, KZGCommitmentScheme<E>> {
         &self.0
     }
 }
@@ -64,7 +65,9 @@ impl TryToBytes for RecursiveCircuitVerifyingKey {
 
 impl TryFromBytes for RecursiveCircuitVerifyingKey {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        Ok(Self(PlonkVerifyingKey::try_from_bytes(bytes)?))
+        Ok(Self(
+            VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(bytes)?,
+        ))
     }
 }
 
@@ -76,7 +79,9 @@ impl TryToBytes for RecursiveCircuitProvingKey {
 
 impl TryFromBytes for RecursiveCircuitProvingKey {
     fn try_from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        Ok(Self(PlonkProvingKey::try_from_bytes(bytes)?))
+        Ok(Self(
+            ProvingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(bytes)?,
+        ))
     }
 }
 
@@ -85,11 +90,11 @@ impl TryFromBytes for RecursiveCircuitProvingKey {
 mod recursive_verifying_key_serde {
     use serde::{Deserializer, Serializer};
 
-    use super::PlonkVerifyingKey;
+    use super::{E, F, KZGCommitmentScheme, VerifyingKey};
     use crate::codec::{TryFromBytes, TryToBytes};
 
     pub(super) fn serialize<S: Serializer>(
-        verifying_key: &PlonkVerifyingKey,
+        verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         let bytes = verifying_key.to_bytes_vec().map_err(serde::ser::Error::custom)?;
@@ -98,13 +103,14 @@ mod recursive_verifying_key_serde {
 
     pub(super) fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
-    ) -> Result<PlonkVerifyingKey, D::Error> {
+    ) -> Result<VerifyingKey<F, KZGCommitmentScheme<E>>, D::Error> {
         let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
-        PlonkVerifyingKey::try_from_bytes(&bytes).map_err(serde::de::Error::custom)
+        VerifyingKey::<F, KZGCommitmentScheme<E>>::try_from_bytes(&bytes)
+            .map_err(serde::de::Error::custom)
     }
 }
 
-impl CircuitKeyGenerator for IvcCircuitData {
+impl KeyGenerator for IvcCircuitData {
     type VerifyingKey = RecursiveCircuitVerifyingKey;
     type ProvingKey = RecursiveCircuitProvingKey;
 

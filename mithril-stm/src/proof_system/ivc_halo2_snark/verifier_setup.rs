@@ -268,7 +268,7 @@ mod tests {
     }
 
     /// The verifying-key newtypes must not change the `IvcVerifierData` wire format. This mirrors the
-    /// bare-key shape (a `MidnightVK` and a `PlonkVerifyingKey`, each via a raw-bytes `#[serde(with)]`
+    /// bare-key shape (a `MidnightVK` and a raw `VerifyingKey`, each via a raw-bytes `#[serde(with)]`
     /// module), serializes it through the same codec, then asserts the current struct decodes those
     /// bytes and re-encodes them byte-for-byte.
     mod wire_format_compatibility {

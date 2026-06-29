@@ -9,7 +9,6 @@ use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsKZG};
 use crate::{
     StmResult,
     circuits::{
-        circuit_verification_key_provider::CircuitVerificationKeyProvider,
         halo2::{
             circuit::StmCertificateCircuit, keys::NonRecursiveCircuitVerifyingKey,
             types::CircuitBase,
@@ -21,6 +20,7 @@ use crate::{
             keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey},
             state::fixed_bases_and_names,
         },
+        key_provider::KeyProvider,
         trusted_setup::TrustedSetupProvider,
     },
 };
@@ -70,15 +70,13 @@ impl IvcSnarkProverSetup {
     /// keys.
     ///
     /// `recursive_provider_factory` builds the recursive provider once the certificate verifying key
-    /// is known; production passes [`CircuitVerificationKeyProvider::for_recursive_circuit`].
+    /// is known; production passes [`KeyProvider::for_recursive_circuit`].
     pub(crate) fn load(
         trusted_setup_provider: &TrustedSetupProvider,
-        certificate_provider: &CircuitVerificationKeyProvider<StmCertificateCircuit>,
+        certificate_provider: &KeyProvider<StmCertificateCircuit>,
         recursive_provider_factory: impl FnOnce(
             &NonRecursiveCircuitVerifyingKey,
-        ) -> StmResult<
-            CircuitVerificationKeyProvider<IvcCircuitData>,
-        >,
+        ) -> StmResult<KeyProvider<IvcCircuitData>>,
     ) -> StmResult<Self> {
         let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
         let certificate_verifying_key = certificate_provider.verification_key(&srs)?;
@@ -174,7 +172,7 @@ pub(crate) fn build_unsafe_ivc_setup(
         |cache_directory| {
             let trusted_setup_provider =
                 build_provider_with_unsafe_srs(cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
-            let certificate_provider = CircuitVerificationKeyProvider::new(
+            let certificate_provider = KeyProvider::new(
                 cache_directory.join("certificate"),
                 "non-recursive",
                 &[],
@@ -184,7 +182,7 @@ pub(crate) fn build_unsafe_ivc_setup(
                 &trusted_setup_provider,
                 &certificate_provider,
                 |certificate_verifying_key| {
-                    Ok(CircuitVerificationKeyProvider::new(
+                    Ok(KeyProvider::new(
                         cache_directory.join("recursive"),
                         "recursive",
                         &[],
