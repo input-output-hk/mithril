@@ -520,7 +520,7 @@ mod tests {
                 .expect_err("prepare should reject a corrupted certificate proof")
                 .downcast::<IvcCircuitError>()
                 .expect("error should downcast to IvcCircuitError");
-            assert_eq!(err, IvcCircuitError::CertificateProofRejected);
+            assert!(matches!(err, IvcCircuitError::CertificateProofRejected(..)));
         }
 
         #[test]

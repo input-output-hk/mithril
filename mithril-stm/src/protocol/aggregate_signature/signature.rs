@@ -515,6 +515,11 @@ mod tests {
             proof_system::ivc_halo2_snark::{proof::IvcProof, verifier_setup::IvcVerifierData},
         };
 
+        const LOADED_CONTEXT_MSG: [u8; 32] = [
+            22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158, 211,
+            191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+        ];
+
         #[test]
         fn ivc_verify_fails_without_genesis_verification_key_bundle() {
             let step_output = load_embedded_next_epoch_step_output_asset()
@@ -530,11 +535,6 @@ mod tests {
             let ps = setup_equal_parties(params, 5);
             let avk = Clerk::new_clerk_from_signer(&ps[0]).compute_aggregate_verification_key();
 
-            let msg = &[
-                22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158,
-                211, 191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-            ];
-
             let ancillary = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
                 MessageHash::ZERO,
                 context.certificate_verifying_key,
@@ -549,7 +549,7 @@ mod tests {
                 AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
 
             let error = ivc_proof
-                .verify(msg, &avk, &params, Some(ancillary), None)
+                .verify(&LOADED_CONTEXT_MSG, &avk, &params, Some(ancillary), None)
                 .expect_err(
                     "verification must fail when the genesis verification key bundle is absent",
                 );
@@ -573,11 +573,6 @@ mod tests {
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
             let avk = clerk.compute_aggregate_verification_key();
 
-            let msg = &[
-                22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158,
-                211, 191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
-            ];
-
             let proof = IvcProof::<blake2b_simd::State>::new(
                 step_output.ivc_proof,
                 step_output.next_state,
@@ -588,7 +583,7 @@ mod tests {
                 AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
 
             let err = ivc_proof
-                .verify(msg, &avk, &params, None, None)
+                .verify(&LOADED_CONTEXT_MSG, &avk, &params, None, None)
                 .expect_err("Should fail without ancillary verifier data.");
             assert_eq!(
                 err.downcast_ref::<AggregateSignatureError>(),

@@ -60,8 +60,6 @@ pub fn build_ancillary_proof_input(
 
 #[cfg(all(test, feature = "future_snark"))]
 mod tests {
-    use std::ops::Deref;
-
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -105,7 +103,7 @@ mod tests {
             protocol_message.rigid_preimage().as_slice()
         );
         assert_eq!(
-            genesis_data.genesis_message_preimage().deref(),
+            genesis_data.genesis_message_preimage(),
             genesis.protocol_message.rigid_preimage().as_slice()
         );
         assert!(genesis_data.genesis_schnorr_signature().is_some());

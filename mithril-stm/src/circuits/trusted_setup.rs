@@ -45,8 +45,10 @@ pub struct TrustedSetupProvider {
     /// Expected hash of the downloaded SRS file
     srs_expected_hash: String,
     /// URL where to download the SRS file if it is not present locally
+    #[cfg_attr(target_family = "wasm", allow(dead_code))]
     url_to_download_srs: String,
     /// The timeout limit when trying to download the SRS file
+    #[cfg_attr(target_family = "wasm", allow(dead_code))]
     download_timeout_limit: Duration,
 }
 
@@ -89,6 +91,7 @@ impl TrustedSetupProvider {
     }
 
     /// Fetches the SRS from `self.url_to_download_srs` and returns its bytes.
+    #[cfg(not(target_family = "wasm"))]
     fn download_srs_file(&self) -> StmResult<Vec<u8>> {
         let response = reqwest::blocking::Client::builder()
             .timeout(self.download_timeout_limit)
@@ -100,6 +103,15 @@ impl TrustedSetupProvider {
         let bytes = response.bytes()?;
 
         Ok(bytes.to_vec())
+    }
+
+    /// The SRS download relies on a blocking HTTP client that is unavailable on wasm targets,
+    /// where the prover is never executed.
+    #[cfg(target_family = "wasm")]
+    fn download_srs_file(&self) -> StmResult<Vec<u8>> {
+        Err(anyhow::anyhow!(
+            "SRS download is not supported on wasm targets"
+        ))
     }
 
     /// Saves the given bytes in a temporary file then atomically moves it to the stored path

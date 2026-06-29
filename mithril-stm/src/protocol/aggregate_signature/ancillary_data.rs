@@ -24,7 +24,7 @@ pub enum AncillaryProverData {
     #[cfg(feature = "future_snark")]
     IvcSnark(IvcRollingState),
     #[cfg(all(feature = "future_snark", test))]
-    FutureVariant,
+    Future,
 }
 
 impl AncillaryProverData {
@@ -52,7 +52,7 @@ impl AncillaryProverData {
         match self {
             Self::IvcSnark(state) => Some(state),
             #[cfg(test)]
-            Self::FutureVariant => None,
+            Self::Future => None,
         }
     }
 }

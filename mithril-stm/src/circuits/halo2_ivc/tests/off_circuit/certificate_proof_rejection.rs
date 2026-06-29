@@ -34,7 +34,7 @@ fn verify_and_prepare_accumulator_rejects_garbage_proof_bytes() {
         .unwrap_err()
         .downcast::<IvcCircuitError>()
         .expect("error should downcast to IvcCircuitError");
-    assert_eq!(err, IvcCircuitError::CertificateProofRejected);
+    assert!(matches!(err, IvcCircuitError::CertificateProofRejected(..)));
 }
 
 #[test]
@@ -59,5 +59,5 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
         .unwrap_err()
         .downcast::<IvcCircuitError>()
         .expect("error should downcast to IvcCircuitError");
-    assert_eq!(err, IvcCircuitError::CertificateProofRejected);
+    assert!(matches!(err, IvcCircuitError::CertificateProofRejected(..)));
 }
