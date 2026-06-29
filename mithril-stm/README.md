@@ -142,7 +142,7 @@ let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureT
 match msig {
     Ok((aggr, ancillary_proof_output)) => {
         println!("Aggregate ok");
-        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned()).is_ok());
+        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned(), None).is_ok());
     }
     Err(error) => match error.downcast_ref::<AggregationError>() {
         Some(AggregationError::NotEnoughSignatures(n, k)) => {

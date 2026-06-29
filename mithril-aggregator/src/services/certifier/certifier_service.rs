@@ -5,7 +5,9 @@ use slog::{Logger, debug, info, trace, warn};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{GenesisVerifier, PROTOCOL_VERSION};
+#[cfg(feature = "future_snark")]
+use mithril_common::crypto_helper::GenesisVerifier;
+use mithril_common::crypto_helper::PROTOCOL_VERSION;
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignature, StakeDistributionParty,
@@ -32,6 +34,7 @@ pub struct MithrilCertifierService {
     single_signature_repository: Arc<SingleSignatureRepository>,
     certificate_repository: Arc<CertificateRepository>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
+    #[cfg(feature = "future_snark")]
     genesis_verifier: Arc<GenesisVerifier>,
     multi_signer: Arc<dyn MultiSigner>,
     epoch_service: EpochServiceWrapper,
@@ -47,7 +50,7 @@ impl MithrilCertifierService {
         single_signature_repository: Arc<SingleSignatureRepository>,
         certificate_repository: Arc<CertificateRepository>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<GenesisVerifier>,
+        #[cfg(feature = "future_snark")] genesis_verifier: Arc<GenesisVerifier>,
         multi_signer: Arc<dyn MultiSigner>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,
@@ -59,6 +62,7 @@ impl MithrilCertifierService {
             certificate_repository,
             multi_signer,
             certificate_verifier,
+            #[cfg(feature = "future_snark")]
             genesis_verifier,
             epoch_service,
             logger: logger.new_with_component_name::<Self>(),
@@ -376,10 +380,7 @@ impl CertifierService for MithrilCertifierService {
         )?;
 
         self.certificate_verifier
-            .verify_certificate(
-                &certificate,
-                &self.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_certificate(&certificate)
             .await
             .with_context(|| {
                 format!(
@@ -434,10 +435,7 @@ impl CertifierService for MithrilCertifierService {
             }
 
             self.certificate_verifier
-                .verify_certificate_chain(
-                    certificate.to_owned(),
-                    &self.genesis_verifier.to_ed25519_verification_key(),
-                )
+                .verify_certificate_chain(certificate.to_owned())
                 .await
                 .with_context(|| "CertificateVerifier can not verify certificate chain")?;
 
@@ -482,6 +480,7 @@ mod tests {
                 Arc::new(SingleSignatureRepository::new(connection.clone()));
             let certificate_repository = Arc::new(CertificateRepository::new(connection));
             let certificate_verifier = dependency_builder.get_certificate_verifier().await.unwrap();
+            #[cfg(feature = "future_snark")]
             let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
             let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
             let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
@@ -492,6 +491,7 @@ mod tests {
                 single_signature_repository,
                 certificate_repository,
                 certificate_verifier,
+                #[cfg(feature = "future_snark")]
                 genesis_verifier,
                 multi_signer,
                 epoch_service,
@@ -802,10 +802,7 @@ mod tests {
         let certificate_created = create_certificate_result.unwrap();
         certifier_service
             .certificate_verifier
-            .verify_certificate(
-                &certificate_created,
-                &certifier_service.genesis_verifier.to_ed25519_verification_key(),
-            )
+            .verify_certificate(&certificate_created)
             .await
             .unwrap();
 

@@ -488,7 +488,6 @@ impl DependenciesBuilder {
             network,
             chain_observer: self.get_chain_observer().await?,
             certificate_repository: self.get_certificate_repository().await?,
-            certificate_verifier: self.get_certificate_verifier().await?,
             protocol_parameters_retriever: self.get_protocol_parameters_retriever().await?,
             verification_key_store: self.get_verification_key_store().await?,
             mithril_era,

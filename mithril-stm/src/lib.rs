@@ -101,7 +101,7 @@
 //!     Ok((aggr, ancillary_proof_output)) => {
 //!         println!("Aggregate ok");
 //!         assert!(aggr
-//!             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned())
+//!             .verify(&msg, &clerk.compute_aggregate_verification_key(), &params, ancillary_proof_output.verifier_data().cloned(), None)
 //!             .is_ok());
 //!     }
 //!     Err(error) => assert!(
@@ -152,10 +152,10 @@ pub use protocol::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
     AggregationError, AncillaryGenesisData, AncillaryProofInput, AncillaryProofOutput,
     AncillaryProverData, AncillaryVerifierData, Clerk, ClosedKeyRegistration,
-    ClosedRegistrationEntry, Initializer, KeyRegistration, Parameters, RegisterError,
-    RegistrationEntry, RegistrationEntryForConcatenation, SignatureError, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, VerificationKeyForConcatenation,
-    VerificationKeyProofOfPossessionForConcatenation,
+    ClosedRegistrationEntry, GenesisVerificationKeyBundle, Initializer, KeyRegistration,
+    Parameters, RegisterError, RegistrationEntry, RegistrationEntryForConcatenation,
+    SignatureError, Signer, SingleSignature, SingleSignatureWithRegisteredParty,
+    VerificationKeyForConcatenation, VerificationKeyProofOfPossessionForConcatenation,
 };
 pub use signature_scheme::BlsSignatureError;
 

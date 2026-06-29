@@ -302,7 +302,6 @@ fn ivc_prover_input_preparation_and_prove<D: MembershipDigest>(
 
     let ancillary_verifier_data = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
         genesis_message,
-        genesis_verifying_key,
         certificate_midnight_verifying_key,
         ivc_circuit_verifying_key,
     ));

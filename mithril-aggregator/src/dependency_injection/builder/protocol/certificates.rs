@@ -42,6 +42,7 @@ impl DependenciesBuilder {
             Arc::new(SingleSignatureRepository::new(sqlite_connection.clone()));
         let certificate_repository = self.get_certificate_repository().await?;
         let certificate_verifier = self.get_certificate_verifier().await?;
+        #[cfg(feature = "future_snark")]
         let genesis_verifier = self.get_genesis_verifier().await?;
         let multi_signer = self.get_multi_signer().await?;
         let epoch_service = self.get_epoch_service().await?;
@@ -53,6 +54,7 @@ impl DependenciesBuilder {
             single_signature_repository,
             certificate_repository,
             certificate_verifier,
+            #[cfg(feature = "future_snark")]
             genesis_verifier,
             multi_signer,
             epoch_service,
@@ -95,13 +97,13 @@ impl DependenciesBuilder {
                 let verifier = Arc::new(MithrilCertificateVerifier::new(
                     self.root_logger(),
                     leader_aggregator_client.clone(),
+                    self.get_genesis_verifier().await?,
                 ));
 
                 Arc::new(MithrilCertificateChainSynchronizer::new(
                     leader_aggregator_client,
                     self.get_certificate_repository().await?,
                     verifier,
-                    self.get_genesis_verifier().await?,
                     self.get_open_message_repository().await?,
                     self.get_epoch_settings_store().await?,
                     self.root_logger(),
@@ -124,6 +126,7 @@ impl DependenciesBuilder {
         let verifier = Arc::new(MithrilCertificateVerifier::new(
             self.root_logger(),
             self.get_certificate_repository().await?,
+            self.get_genesis_verifier().await?,
         ));
 
         Ok(verifier)

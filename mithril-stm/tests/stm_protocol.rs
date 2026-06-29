@@ -37,7 +37,8 @@ fn test_full_protocol() {
                     &msg,
                     &avk,
                     &params,
-                    ancillary_proof_output.verifier_data().cloned()
+                    ancillary_proof_output.verifier_data().cloned(),
+                    None,
                 )
                 .is_ok()
             );
@@ -68,6 +69,7 @@ fn test_full_protocol_batch_verify() {
     let mut batch_msgs = Vec::new();
     let mut batch_params = Vec::new();
     let mut batch_ancillary_verifier_datas = Vec::new();
+    let mut batch_genesis_verification_key_bundles = Vec::new();
 
     let params = Parameters {
         k: 357,
@@ -93,6 +95,7 @@ fn test_full_protocol_batch_verify() {
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
         batch_ancillary_verifier_datas.push(ancillary_proof_output.verifier_data().cloned());
+        batch_genesis_verification_key_bundles.push(None);
     }
     assert!(
         AggregateSignature::batch_verify(
@@ -100,7 +103,8 @@ fn test_full_protocol_batch_verify() {
             &batch_msgs,
             &aggr_avks,
             &batch_params,
-            &batch_ancillary_verifier_datas
+            &batch_ancillary_verifier_datas,
+            &batch_genesis_verification_key_bundles
         )
         .is_ok()
     );

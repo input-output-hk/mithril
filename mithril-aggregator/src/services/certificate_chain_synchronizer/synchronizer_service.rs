@@ -29,7 +29,6 @@ use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::GenesisVerifier;
 use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
@@ -46,7 +45,6 @@ pub struct MithrilCertificateChainSynchronizer {
     remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
     certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
-    genesis_verifier: Arc<GenesisVerifier>,
     open_message_storer: Arc<dyn OpenMessageStorer>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     logger: Logger,
@@ -77,7 +75,6 @@ impl MithrilCertificateChainSynchronizer {
         remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
         certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
-        genesis_verifier: Arc<GenesisVerifier>,
         open_message_storer: Arc<dyn OpenMessageStorer>,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         logger: Logger,
@@ -86,7 +83,6 @@ impl MithrilCertificateChainSynchronizer {
             remote_certificate_retriever,
             certificate_storer,
             certificate_verifier,
-            genesis_verifier,
             open_message_storer,
             epoch_settings_storer,
             logger: logger.new_with_component_name::<Self>(),
@@ -129,10 +125,7 @@ impl MithrilCertificateChainSynchronizer {
         loop {
             let parent_certificate = self
                 .certificate_verifier
-                .verify_certificate(
-                    &certificate,
-                    &self.genesis_verifier.to_ed25519_verification_key(),
-                )
+                .verify_certificate(&certificate)
                 .await
                 .with_context(
                     || format!("Failed to verify certificate: `{}`", certificate.hash,),
@@ -252,10 +245,11 @@ mod tests {
     use std::sync::RwLock;
 
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
+    use mithril_common::crypto_helper::GenesisVerifier;
     use mithril_common::entities::Epoch;
     use mithril_common::test::{
         builder::{CertificateChainBuilder, CertificateChainFixture},
-        double::{Dummy, FakeCertificaterRetriever, fake_data, fake_keys},
+        double::{Dummy, FakeCertificaterRetriever, fake_data},
         mock_extensions::MockBuilder,
     };
 
@@ -277,13 +271,10 @@ mod tests {
         fn default_for_test_with_epoch_settings(
             epoch_settings: Vec<(Epoch, AggregatorEpochSettings)>,
         ) -> Self {
-            let genesis_verification_key =
-                fake_keys::genesis_verification_key()[0].try_into().unwrap();
             Self::new(
                 Arc::new(MockRemoteCertificateRetriever::new()),
                 Arc::new(MockSynchronizedCertificateStorer::new()),
                 Arc::new(MockCertificateVerifier::new()),
-                Arc::new(GenesisVerifier::from_ed25519(genesis_verification_key)),
                 Arc::new(MockOpenMessageStorer::new()),
                 Arc::new(FakeEpochSettingsStorer::new(epoch_settings)),
                 TestLogger::stdout(),
@@ -339,7 +330,7 @@ mod tests {
                     |verifier| {
                         verifier
                             .expect_verify_certificate()
-                            .return_once(move |_, _| $verify_certificate_result);
+                            .return_once(move |_| $verify_certificate_result);
                     },
                 ),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
@@ -347,12 +338,16 @@ mod tests {
         };
     }
 
-    fn fake_verifier(remote_certificate_chain: &[Certificate]) -> Arc<dyn CertificateVerifier> {
+    fn fake_verifier(
+        remote_certificate_chain: &[Certificate],
+        genesis_verifier: Arc<GenesisVerifier>,
+    ) -> Arc<dyn CertificateVerifier> {
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
             Arc::new(FakeCertificaterRetriever::from_certificates(
                 remote_certificate_chain,
             )),
+            genesis_verifier,
         );
         Arc::new(verifier)
     }
@@ -494,7 +489,7 @@ mod tests {
     }
 
     mod retrieve_validate_remote_certificate_chain {
-        use mockall::predicate::{always, eq};
+        use mockall::predicate::eq;
 
         use mithril_common::entities::Epoch;
 
@@ -504,8 +499,10 @@ mod tests {
         async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {
             let chain = CertificateChainBuilder::new().with_total_certificates(1).build();
             let synchronizer = MithrilCertificateChainSynchronizer {
-                certificate_verifier: fake_verifier(&chain),
-                genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
+                certificate_verifier: fake_verifier(
+                    &chain,
+                    Arc::new(chain.genesis_verifier.clone()),
+                ),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
@@ -540,8 +537,10 @@ mod tests {
                 .with_certificates_per_epoch(2)
                 .build();
             let synchronizer = MithrilCertificateChainSynchronizer {
-                certificate_verifier: fake_verifier(&chain),
-                genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
+                certificate_verifier: fake_verifier(
+                    &chain,
+                    Arc::new(chain.genesis_verifier.clone()),
+                ),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
@@ -584,15 +583,15 @@ mod tests {
                 certificate_verifier: MockBuilder::<MockCertificateVerifier>::configure(|mock| {
                     let cert_1 = chain[1].clone();
                     mock.expect_verify_certificate()
-                        .with(eq(chain[2].clone()), always())
-                        .return_once(move |_, _| Ok(Some(cert_1)));
+                        .with(eq(chain[2].clone()))
+                        .return_once(move |_| Ok(Some(cert_1)));
                     let genesis = chain[0].clone();
                     mock.expect_verify_certificate()
-                        .with(eq(chain[1].clone()), always())
-                        .return_once(move |_, _| Ok(Some(genesis)));
+                        .with(eq(chain[1].clone()))
+                        .return_once(move |_| Ok(Some(genesis)));
                     mock.expect_verify_certificate()
-                        .with(eq(chain[0].clone()), always())
-                        .return_once(move |_, _| Ok(None));
+                        .with(eq(chain[0].clone()))
+                        .return_once(move |_| Ok(None));
                 }),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
@@ -694,7 +693,10 @@ mod tests {
                         mock.expect_get_latest_certificate_details()
                             .return_once(move || Ok(Some(latest)));
                     }),
-                certificate_verifier: fake_verifier(remote_chain),
+                certificate_verifier: fake_verifier(
+                    remote_chain,
+                    Arc::new(remote_chain.genesis_verifier.clone()),
+                ),
                 open_message_storer: MockBuilder::<MockOpenMessageStorer>::configure(|mock| {
                     if expect_open_message_creation {
                         let expected_msd_epoch = latest_epoch;

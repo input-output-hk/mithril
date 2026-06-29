@@ -47,7 +47,6 @@ pub(super) async fn verify_chain(
 pub struct MithrilCertificateVerifier {
     retriever: Arc<InternalCertificateRetriever>,
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
-    genesis_verifier: GenesisVerifier,
     feedback_sender: FeedbackSender,
     #[cfg(feature = "unstable")]
     verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
@@ -65,17 +64,19 @@ impl MithrilCertificateVerifier {
     ) -> MithrilResult<MithrilCertificateVerifier> {
         let logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever::new(aggregator_requester));
+        let genesis_verifier = Arc::new(
+            GenesisVerifier::try_from_hex(genesis_verification_key)
+                .with_context(|| "Invalid genesis verification key")?,
+        );
         let internal_verifier = Arc::new(CommonMithrilCertificateVerifier::new(
             logger.clone(),
             retriever.clone(),
+            genesis_verifier,
         ));
-        let genesis_verifier = GenesisVerifier::try_from_hex(genesis_verification_key)
-            .with_context(|| "Invalid genesis verification key")?;
 
         Ok(Self {
             retriever,
             internal_verifier,
-            genesis_verifier,
             feedback_sender,
             #[cfg(feature = "unstable")]
             verifier_cache,
@@ -135,13 +136,7 @@ impl MithrilCertificateVerifier {
         certificate_chain_validation_id: &str,
         certificate: Certificate,
     ) -> MithrilResult<Option<Certificate>> {
-        let previous_certificate = self
-            .internal_verifier
-            .verify_certificate(
-                &certificate,
-                &self.genesis_verifier.to_ed25519_verification_key(),
-            )
-            .await?;
+        let previous_certificate = self.internal_verifier.verify_certificate(&certificate).await?;
 
         #[cfg(feature = "unstable")]
         if let Some(cache) = self.verifier_cache.as_ref()

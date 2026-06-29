@@ -118,6 +118,7 @@ fn batch_benches<D>(
         let mut batch_stms: Vec<AggregateSignature<D>> = Vec::with_capacity(nr_batches);
         let mut batch_avks = Vec::with_capacity(nr_batches);
         let mut batch_ancillary_verifier_datas = Vec::with_capacity(nr_batches);
+        let mut batch_genesis_verification_key_bundles = Vec::with_capacity(nr_batches);
 
         for _ in 0..nr_batches {
             let mut msg = [0u8; 32];
@@ -176,6 +177,7 @@ fn batch_benches<D>(
             batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);
             batch_ancillary_verifier_datas.push(ancillary_proof_output.verifier_data().cloned());
+            batch_genesis_verification_key_bundles.push(None);
         }
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
@@ -186,6 +188,7 @@ fn batch_benches<D>(
                     &batch_avks,
                     &batch_params,
                     &batch_ancillary_verifier_datas,
+                    &batch_genesis_verification_key_bundles,
                 )
                 .is_ok()
             })

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.40 (06-29-2026)
+
+### Added
+
+- `GenesisVerificationKeyBundle`, carrying the trusted genesis verification key supplied to aggregate signature verification.
+
+### Changed
+
+- `AggregateSignature::verify` and `AggregateSignature::batch_verify` now take a genesis verification key bundle and source the genesis Schnorr verification key from it (instead of the certificate-carried `IvcVerifierData`), returning `AggregateSignatureError::MissingGenesisVerificationKeyBundle` when it is absent.
+
+### Removed
+
+- The `genesis_schnorr_verification_key` field from `IvcVerifierData`.
+- The unused `AggregationError::MissingRollingStateForNextCertificate` variant.
+
 ## 0.10.39 (06-24-2026)
 
 ### Added

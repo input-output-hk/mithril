@@ -271,7 +271,7 @@ mod tests {
     use crate::codec::CODEC_VERSION_CBOR_V1;
     #[cfg(feature = "future_snark")]
     use crate::{
-        BaseFieldElement, SchnorrSigningKey, SchnorrVerificationKey,
+        BaseFieldElement, SchnorrSigningKey,
         circuits::halo2_ivc::{
             tests::common::asset_readers::load_embedded_verification_context_asset,
             types::MessageHash,
@@ -361,7 +361,6 @@ mod tests {
             .expect("verification context asset should load");
         let verifier_data = IvcVerifierData::new(
             MessageHash::ZERO,
-            SchnorrVerificationKey::default(),
             context.certificate_verifying_key,
             context.recursive_verifying_key,
         );

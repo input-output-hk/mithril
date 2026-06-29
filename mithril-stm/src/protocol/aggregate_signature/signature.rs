@@ -16,7 +16,10 @@ use crate::{
     },
 };
 
-use super::{AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData};
+use super::{
+    AggregateSignatureError, AggregateVerificationKey, AncillaryVerifierData,
+    GenesisVerificationKeyBundle,
+};
 
 /// The type of STM aggregate signature.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -159,8 +162,10 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
         ancillary_verifier_data: Option<AncillaryVerifierData>,
+        genesis_verification_key_bundle: Option<GenesisVerificationKeyBundle>,
     ) -> StmResult<()> {
         let _ = &ancillary_verifier_data;
+        let _ = &genesis_verification_key_bundle;
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => concatenation_proof.verify(
                 msg,
@@ -183,9 +188,14 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     .as_ivc_verifier_data()
                     .ok_or_else(|| anyhow!(AggregateSignatureError::MissingIvcVerifierData))?;
 
+                let genesis_verification_key_bundle =
+                    genesis_verification_key_bundle.ok_or_else(|| {
+                        anyhow!(AggregateSignatureError::MissingGenesisVerificationKeyBundle)
+                    })?;
+
                 let global = Global::new(
                     ivc_verifier_data.genesis_message(),
-                    ivc_verifier_data.genesis_schnorr_verification_key(),
+                    genesis_verification_key_bundle.schnorr,
                     ivc_verifier_data.certificate_circuit_verification_key(),
                     ivc_verifier_data.ivc_circuit_verification_key(),
                 );
@@ -207,6 +217,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
         ancillary_verifier_datas: &[Option<AncillaryVerifierData>],
+        genesis_verification_key_bundles: &[Option<GenesisVerificationKeyBundle>],
     ) -> StmResult<()> {
         type AggregateEntriesForAggregateSignatureType<D> = (
             AggregateSignature<D>,
@@ -214,33 +225,36 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             Vec<u8>,
             Parameters,
             Option<AncillaryVerifierData>,
+            Option<GenesisVerificationKeyBundle>,
         );
 
         fn check_input_lengths(
-            proofs_length: usize,
-            msgs_length: usize,
-            avks_length: usize,
-            parameters_length: usize,
+            expected_length: usize,
+            labeled_lengths: &[(&str, usize)],
         ) -> StmResult<()> {
-            if proofs_length != msgs_length
-                || proofs_length != avks_length
-                || proofs_length != parameters_length
-            {
-                Err(anyhow!(AggregateSignatureError::BatchInvalid))
-            } else {
-                Ok(())
+            for (name, length) in labeled_lengths {
+                if *length != expected_length {
+                    return Err(anyhow!(AggregateSignatureError::BatchInvalid).context(format!(
+                        "the number of {name} ({length}) does not match the number of aggregate signatures ({expected_length})"
+                    )));
+                }
             }
+            Ok(())
         }
 
         check_input_lengths(
             aggregate_signatures.len(),
-            msgs.len(),
-            avks.len(),
-            parameters.len(),
+            &[
+                ("messages", msgs.len()),
+                ("aggregate verification keys", avks.len()),
+                ("parameters", parameters.len()),
+                ("ancillary verifier data", ancillary_verifier_datas.len()),
+                (
+                    "genesis verification key bundles",
+                    genesis_verification_key_bundles.len(),
+                ),
+            ],
         )?;
-        if aggregate_signatures.len() != ancillary_verifier_datas.len() {
-            return Err(anyhow!(AggregateSignatureError::BatchInvalid));
-        }
 
         let aggregate_entries_by_aggregate_signature_type: HashMap<
             AggregateSignatureType,
@@ -251,10 +265,14 @@ impl<D: MembershipDigest> AggregateSignature<D> {
             .zip(avks.iter())
             .zip(parameters.iter())
             .zip(ancillary_verifier_datas.iter())
+            .zip(genesis_verification_key_bundles.iter())
             .fold(
                 HashMap::new(),
                 |mut acc,
-                 ((((aggregate_signature, msg), avk), parameters), ancillary_verifier_data)| {
+                 (
+                    ((((aggregate_signature, msg), avk), parameters), ancillary_verifier_data),
+                    genesis_verification_key_bundle,
+                )| {
                     let signature_type = AggregateSignatureType::from(aggregate_signature);
                     acc.entry(signature_type).or_default().push((
                         aggregate_signature.clone(),
@@ -262,6 +280,7 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                         msg.clone(),
                         *parameters,
                         ancillary_verifier_data.clone(),
+                        genesis_verification_key_bundle.clone(),
                     ));
                     acc
                 },
@@ -274,30 +293,32 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     AggregateSignatureType::Concatenation => {
                         let avks = aggregate_entries
                             .iter()
-                            .map(|(_, avk, _, _, _)| {
+                            .map(|(_, avk, _, _, _, _)| {
                                 avk.to_concatenation_aggregate_verification_key()
                             })
                             .cloned()
                             .collect::<Vec<_>>();
                         let concatenation_proofs = aggregate_entries
                             .iter()
-                            .filter_map(|(aggregate_signature, _, _, _, _)| {
+                            .filter_map(|(aggregate_signature, _, _, _, _, _)| {
                                 aggregate_signature.to_concatenation_proof().cloned()
                             })
                             .collect::<Vec<_>>();
                         let msgs = aggregate_entries
                             .iter()
-                            .map(|(_, _, msg, _, _)| msg.clone())
+                            .map(|(_, _, msg, _, _, _)| msg.clone())
                             .collect::<Vec<_>>();
                         let parameters = aggregate_entries
                             .iter()
-                            .map(|(_, _, _, parameters, _)| *parameters)
+                            .map(|(_, _, _, parameters, _, _)| *parameters)
                             .collect::<Vec<_>>();
                         check_input_lengths(
                             concatenation_proofs.len(),
-                            msgs.len(),
-                            avks.len(),
-                            parameters.len(),
+                            &[
+                                ("messages", msgs.len()),
+                                ("aggregate verification keys", avks.len()),
+                                ("parameters", parameters.len()),
+                            ],
                         )?;
                         ConcatenationProof::batch_verify(
                             &concatenation_proofs,
@@ -308,14 +329,21 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     }
                     #[cfg(feature = "future_snark")]
                     AggregateSignatureType::Snark => {
-                        for (aggregate_signature, avk, msg, parameters, ancillary_verifier_data) in
-                            aggregate_entries
+                        for (
+                            aggregate_signature,
+                            avk,
+                            msg,
+                            parameters,
+                            ancillary_verifier_data,
+                            genesis_verification_key_bundle,
+                        ) in aggregate_entries
                         {
                             aggregate_signature.verify(
                                 &msg,
                                 &avk,
                                 &parameters,
                                 ancillary_verifier_data,
+                                genesis_verification_key_bundle,
                             )?;
                         }
 
@@ -323,14 +351,21 @@ impl<D: MembershipDigest> AggregateSignature<D> {
                     }
                     #[cfg(feature = "future_snark")]
                     AggregateSignatureType::IvcSnark => {
-                        for (aggregate_signature, avk, msg, parameters, ancillary_verifier_data) in
-                            aggregate_entries
+                        for (
+                            aggregate_signature,
+                            avk,
+                            msg,
+                            parameters,
+                            ancillary_verifier_data,
+                            genesis_verification_key_bundle,
+                        ) in aggregate_entries
                         {
                             aggregate_signature.verify(
                                 &msg,
                                 &avk,
                                 &parameters,
                                 ancillary_verifier_data,
+                                genesis_verification_key_bundle,
                             )?;
                         }
 
@@ -468,10 +503,62 @@ mod tests {
         use crate::{Clerk, Parameters, protocol::aggregate_signature::tests::setup_equal_parties};
 
         use crate::{
-            AggregateSignature, AggregateSignatureError, MithrilMembershipDigest,
-            circuits::halo2_ivc::tests::common::asset_readers::load_embedded_next_epoch_step_output_asset,
-            proof_system::ivc_halo2_snark::proof::IvcProof,
+            AggregateSignature, AggregateSignatureError, AncillaryVerifierData,
+            MithrilMembershipDigest,
+            circuits::halo2_ivc::{
+                tests::common::asset_readers::{
+                    load_embedded_next_epoch_step_output_asset,
+                    load_embedded_verification_context_asset,
+                },
+                types::MessageHash,
+            },
+            proof_system::ivc_halo2_snark::{proof::IvcProof, verifier_setup::IvcVerifierData},
         };
+
+        #[test]
+        fn ivc_verify_fails_without_genesis_verification_key_bundle() {
+            let step_output = load_embedded_next_epoch_step_output_asset()
+                .expect("recursive step output asset should load");
+            let context = load_embedded_verification_context_asset()
+                .expect("verification context asset should load");
+
+            let params = Parameters {
+                m: 10,
+                k: 3,
+                phi_f: 0.9,
+            };
+            let ps = setup_equal_parties(params, 5);
+            let avk = Clerk::new_clerk_from_signer(&ps[0]).compute_aggregate_verification_key();
+
+            let msg = &[
+                22, 148, 87, 37, 149, 0, 124, 10, 156, 94, 108, 6, 78, 59, 239, 80, 126, 213, 158,
+                211, 191, 213, 128, 70, 128, 30, 235, 80, 192, 191, 159, 67,
+            ];
+
+            let ancillary = AncillaryVerifierData::IvcSnark(IvcVerifierData::new(
+                MessageHash::ZERO,
+                context.certificate_verifying_key,
+                context.recursive_verifying_key,
+            ));
+            let proof = IvcProof::<blake2b_simd::State>::new(
+                step_output.ivc_proof,
+                step_output.next_state,
+                step_output.next_accumulator,
+            );
+            let ivc_proof =
+                AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
+
+            let error = ivc_proof
+                .verify(msg, &avk, &params, Some(ancillary), None)
+                .expect_err(
+                    "verification must fail when the genesis verification key bundle is absent",
+                );
+            assert_eq!(
+                error.downcast_ref::<AggregateSignatureError>(),
+                Some(&AggregateSignatureError::MissingGenesisVerificationKeyBundle),
+                "an absent genesis verification key bundle must be rejected, got: {error}"
+            );
+        }
 
         #[test]
         fn ivc_verify_fails_without_ancillary_verifier_data() {
@@ -501,7 +588,7 @@ mod tests {
                 AggregateSignature::<MithrilMembershipDigest>::IvcSnark(Box::new(proof));
 
             let err = ivc_proof
-                .verify(msg, &avk, &params, None)
+                .verify(msg, &avk, &params, None, None)
                 .expect_err("Should fail without ancillary verifier data.");
             assert_eq!(
                 err.downcast_ref::<AggregateSignatureError>(),
@@ -599,7 +686,8 @@ mod tests {
 
         #[test]
         fn returns_error_when_messages_length_differs_from_signatures() {
-            let result = AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[], &[]);
+            let result =
+                AggregateSignature::<D>::batch_verify(&[], &[vec![1u8]], &[], &[], &[], &[]);
 
             assert_batch_invalid_error(result);
         }
@@ -607,7 +695,7 @@ mod tests {
         #[test]
         fn returns_error_when_avks_length_differs_from_signatures() {
             let avk = build_aggregate_verification_key();
-            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[avk], &[], &[]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[avk], &[], &[], &[]);
 
             assert_batch_invalid_error(result);
         }
@@ -624,6 +712,7 @@ mod tests {
                     phi_f: 0.2,
                 }],
                 &[],
+                &[],
             );
 
             assert_batch_invalid_error(result);
@@ -631,14 +720,21 @@ mod tests {
 
         #[test]
         fn returns_error_when_ancillary_verifier_datas_length_differs_from_signatures() {
-            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[None]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[None], &[]);
+
+            assert_batch_invalid_error(result);
+        }
+
+        #[test]
+        fn returns_error_when_genesis_verification_key_bundles_length_differs_from_signatures() {
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[], &[None]);
 
             assert_batch_invalid_error(result);
         }
 
         #[test]
         fn succeeds_when_all_inputs_are_empty() {
-            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[]);
+            let result = AggregateSignature::<D>::batch_verify(&[], &[], &[], &[], &[], &[]);
 
             assert!(result.is_ok());
         }
