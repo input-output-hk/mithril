@@ -23,6 +23,14 @@ pub(crate) use halo2::witness::{
     CircuitInstance, CircuitMerkleTreeLeaf, CircuitWitness, MerklePath,
 };
 
+/// Exposes the raw PLONK verifying key wrapped by a per-circuit verifying-key newtype, for the Halo2
+/// verification APIs (proof preparation, fixed-base extraction) that operate on the underlying key.
+/// Lets helpers shared by the certificate and recursive circuits take the newtypes rather than the
+/// raw key.
+pub(crate) trait AsPlonkVerifyingKey {
+    fn plonk_verifying_key(&self) -> &halo2_ivc::PlonkVerifyingKey;
+}
+
 /// Constant holding the current path of the cached values related to the circuits
 const MITHRIL_CIRCUIT_CACHE_FOLDER: &str = "mithril-circuit";
 

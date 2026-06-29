@@ -9,6 +9,7 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
+use crate::circuits::AsPlonkVerifyingKey;
 use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
 use crate::codec::{TryFromBytes, TryToBytes};
 
@@ -33,6 +34,12 @@ impl RecursiveCircuitVerifyingKey {
 
     /// Borrows the wrapped raw verifying key, for the prover/verifier and fixed-base construction.
     pub(crate) fn verifying_key(&self) -> &PlonkVerifyingKey {
+        &self.0
+    }
+}
+
+impl AsPlonkVerifyingKey for RecursiveCircuitVerifyingKey {
+    fn plonk_verifying_key(&self) -> &PlonkVerifyingKey {
         &self.0
     }
 }

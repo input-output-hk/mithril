@@ -23,10 +23,6 @@ use crate::{
     codec,
     proof_system::{KZG_VERIFIER_PARAMS, ivc_halo2_snark::prover_setup::IvcSnarkProverSetup},
 };
-// The raw PLONK verifying key is only needed by the test-only `from_parts`, which bridges the
-// stored (raw) verification-context asset into the newtype-typed setup.
-#[cfg(test)]
-use crate::circuits::halo2_ivc::PlonkVerifyingKey;
 
 /// Minimal setup artifacts needed to verify IVC proofs without loading the full SRS.
 ///
@@ -68,12 +64,10 @@ impl IvcVerifierSetup {
     ) -> StmResult<Self> {
         let (verifier_params, tau_g2) = Self::read_embedded_params()?;
 
-        let (certificate_fixed_bases, _) = fixed_bases_and_names(
-            CERTIFICATE_VERIFICATION_KEY_NAME,
-            certificate_verifying_key.midnight_vk().vk(),
-        );
+        let (certificate_fixed_bases, _) =
+            fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
         let (ivc_fixed_bases, _) =
-            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key.verifying_key());
+            fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, ivc_verifying_key);
         let mut combined_fixed_bases = certificate_fixed_bases;
         combined_fixed_bases.extend(ivc_fixed_bases);
 
@@ -123,13 +117,13 @@ impl IvcVerifierSetup {
     pub(crate) fn from_parts(
         verifier_params: ParamsVerifierKZG<Bls12>,
         tau_g2: G2Affine,
-        ivc_verifying_key: PlonkVerifyingKey,
+        ivc_verifying_key: RecursiveCircuitVerifyingKey,
         combined_fixed_bases: BTreeMap<String, G1Projective>,
     ) -> Self {
         Self {
             verifier_params,
             tau_g2,
-            ivc_verifying_key: RecursiveCircuitVerifyingKey::new(ivc_verifying_key),
+            ivc_verifying_key,
             combined_fixed_bases,
         }
     }
@@ -258,8 +252,8 @@ mod tests {
         let verifier_data = IvcVerifierData::new(
             MessageHash::ZERO,
             SchnorrVerificationKey::default(),
-            NonRecursiveCircuitVerifyingKey::new(context.certificate_verifying_key),
-            RecursiveCircuitVerifyingKey::new(context.recursive_verifying_key),
+            context.certificate_verifying_key,
+            context.recursive_verifying_key,
         );
 
         let bytes = verifier_data.to_bytes().expect("serialization should not fail");
@@ -359,8 +353,14 @@ mod tests {
             let old = BareKeyIvcVerifierData {
                 genesis_message: MessageHash::ZERO,
                 genesis_schnorr_verification_key: SchnorrVerificationKey::default(),
-                certificate_circuit_verification_key: context.certificate_verifying_key.clone(),
-                ivc_circuit_verification_key: context.recursive_verifying_key.clone(),
+                certificate_circuit_verification_key: context
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .clone(),
+                ivc_circuit_verification_key: context
+                    .recursive_verifying_key
+                    .verifying_key()
+                    .clone(),
             };
             let old_bytes =
                 codec::to_cbor_bytes(&old).expect("bare-key-shape serialization should not fail");
@@ -380,12 +380,9 @@ mod tests {
     fn try_new_merges_certificate_and_ivc_fixed_bases() {
         let ctx = load_embedded_verification_context_asset()
             .expect("verification context asset should load");
-        let certificate_verifying_key =
-            NonRecursiveCircuitVerifyingKey::new(ctx.certificate_verifying_key);
-        let recursive_verifying_key =
-            RecursiveCircuitVerifyingKey::new(ctx.recursive_verifying_key);
-        let setup = IvcVerifierSetup::try_new(&certificate_verifying_key, &recursive_verifying_key)
-            .expect("try_new must succeed with valid verifying keys");
+        let setup =
+            IvcVerifierSetup::try_new(&ctx.certificate_verifying_key, &ctx.recursive_verifying_key)
+                .expect("try_new must succeed with valid verifying keys");
         assert_eq!(
             setup.combined_fixed_bases.keys().collect::<Vec<_>>(),
             ctx.combined_fixed_bases.keys().collect::<Vec<_>>(),

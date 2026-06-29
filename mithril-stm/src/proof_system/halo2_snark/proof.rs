@@ -206,7 +206,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         verify_and_prepare_accumulator(
             &self.circuit_proof,
             &public_inputs,
-            self.circuit_verification_key.midnight_vk().vk(),
+            &self.circuit_verification_key,
             verifier_params,
         )
     }

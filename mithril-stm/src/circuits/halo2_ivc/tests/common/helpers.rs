@@ -5,15 +5,13 @@ use midnight_curves::Bls12;
 use midnight_curves::pairing::Engine;
 use midnight_proofs::{
     dev::MockProver,
-    poly::kzg::{
-        KZGCommitmentScheme,
-        params::{ParamsKZG, ParamsVerifierKZG},
-    },
+    poly::kzg::params::{ParamsKZG, ParamsVerifierKZG},
 };
-use midnight_zk_stdlib::MidnightVK;
 
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::{
-    Accumulator, AssignedAccumulator, C, E, F, RECURSIVE_CIRCUIT_DEGREE, S, VerifyingKey,
+    Accumulator, AssignedAccumulator, C, E, F, RECURSIVE_CIRCUIT_DEGREE, S,
     circuit::IvcCircuitData,
     state::{Global, State, Witness, trivial_acc},
     types::{CertificateProofBytes, IvcProofBytes},
@@ -41,9 +39,9 @@ pub(crate) struct MockProverSetup {
     /// Shared recursive global inputs.
     pub(crate) global: Global,
     /// Certificate verifying key loaded from the committed asset.
-    pub(crate) certificate_verifying_key: MidnightVK,
+    pub(crate) certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
     /// Recursive verifying key loaded from the committed asset.
-    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    pub(crate) recursive_verifying_key: RecursiveCircuitVerifyingKey,
     /// Trivial accumulator derived from the loaded VKs.
     pub(crate) trivial_accumulator: Accumulator<S>,
 }
@@ -78,9 +76,9 @@ pub(crate) struct RecursiveMockProverSetup {
     /// Certificate-sized commitment parameters used by the golden checks.
     pub(crate) certificate_commitment_parameters: ParamsKZG<Bls12>,
     /// Certificate verifying key reused by the golden checks.
-    pub(crate) certificate_verifying_key: MidnightVK,
+    pub(crate) certificate_verifying_key: NonRecursiveCircuitVerifyingKey,
     /// Recursive verifying key reused by the golden checks.
-    pub(crate) recursive_verifying_key: VerifyingKey<F, KZGCommitmentScheme<E>>,
+    pub(crate) recursive_verifying_key: RecursiveCircuitVerifyingKey,
     /// Shared recursive global inputs.
     pub(crate) global: Global,
     /// Fixed bases extracted from the certificate verifying key.
@@ -261,7 +259,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
         certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
 
     let certificate_dual_msm = verify_prepare_poseidon_recursive_proof(
-        setup.certificate_verifying_key.vk(),
+        &setup.certificate_verifying_key,
         certificate_proof,
         &certificate_public_inputs,
     );
@@ -295,7 +293,7 @@ pub(crate) fn build_trivial_mock_prover_circuit(
         CertificateProofBytes::empty(),
         IvcProofBytes::empty(),
         setup.trivial_accumulator.clone(),
-        setup.certificate_verifying_key.vk(),
+        &setup.certificate_verifying_key,
         &setup.recursive_verifying_key,
     )
     .expect("valid IvcCircuitData construction")
@@ -340,7 +338,7 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets()
     );
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        verification_context.certificate_verifying_key.vk(),
+        &verification_context.certificate_verifying_key,
         recursive_step_output.certificate_proof.as_bytes(),
         &certificate_public_inputs,
     )

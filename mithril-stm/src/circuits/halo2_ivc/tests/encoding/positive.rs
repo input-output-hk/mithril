@@ -179,11 +179,15 @@ fn vk_serialization_round_trip() {
     let verification_context =
         load_embedded_verification_context_asset().expect("verification context asset should load");
 
-    let original_repr = verification_context.recursive_verifying_key.transcript_repr();
+    let original_repr = verification_context
+        .recursive_verifying_key
+        .verifying_key()
+        .transcript_repr();
 
     let mut bytes = Vec::new();
     verification_context
         .recursive_verifying_key
+        .verifying_key()
         .write(&mut bytes, SerdeFormat::RawBytesUnchecked)
         .expect("verifying key serialization should succeed");
 

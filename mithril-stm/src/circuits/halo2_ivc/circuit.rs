@@ -1,12 +1,14 @@
 use crate::StmResult;
+use crate::circuits::AsPlonkVerifyingKey;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use anyhow::anyhow;
 
 use super::{
-    Accumulator, BinaryInstructions, C, Circuit, ComposableChip, ConstraintSystem, E, Error,
-    EvaluationDomain, F, KZGCommitmentScheme, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS,
-    NB_EDWARDS_COLS, NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS,
-    NB_SHA256_FIXED_COLS, NG, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S,
-    SimpleFloorPlanner, Value, VerifyingKey,
+    Accumulator, BinaryInstructions, C, Circuit, ComposableChip, ConstraintSystem, Error,
+    EvaluationDomain, F, Layouter, NB_ARITH_COLS, NB_ARITH_FIXED_COLS, NB_EDWARDS_COLS,
+    NB_POSEIDON_ADVICE_COLS, NB_POSEIDON_FIXED_COLS, NB_SHA256_ADVICE_COLS, NB_SHA256_FIXED_COLS,
+    NG, PublicInputInstructions, RECURSIVE_CIRCUIT_DEGREE, S, SimpleFloorPlanner, Value,
     config::{IvcConfig, configure_ivc_circuit, ivc_column_pool_sizes},
     errors::IvcCircuitError,
     gadget::IvcGadget,
@@ -45,9 +47,9 @@ impl IvcCircuitData {
     // Kept until the IVC prover validates recursive circuit keys.
     #[allow(dead_code)]
     pub(crate) fn validate_ivc_verification_key_degree(
-        ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<()> {
-        let actual = ivc_verification_key.get_domain().k();
+        let actual = ivc_verification_key.plonk_verifying_key().get_domain().k();
         if actual != RECURSIVE_CIRCUIT_DEGREE {
             return Err(anyhow!(IvcCircuitError::IvcVerificationKeyDegreeMismatch {
                 expected: RECURSIVE_CIRCUIT_DEGREE,
@@ -108,8 +110,8 @@ impl IvcCircuitData {
         certificate_proof: CertificateProofBytes,
         ivc_proof: IvcProofBytes,
         acc: Accumulator<S>,
-        certificate_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-        ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        certificate_verification_key: &NonRecursiveCircuitVerifyingKey,
+        ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
         Self::validate_ivc_verification_key_degree(ivc_verification_key)?;
         Self::validate_column_counts()?;
@@ -121,19 +123,22 @@ impl IvcCircuitData {
             ivc_proof: Value::known(ivc_proof.into_vec()),
             acc: Value::known(acc),
             certificate_circuit_domain_and_constraint_system: (
-                certificate_verification_key.get_domain().clone(),
-                certificate_verification_key.cs().clone(),
+                certificate_verification_key
+                    .plonk_verifying_key()
+                    .get_domain()
+                    .clone(),
+                certificate_verification_key.plonk_verifying_key().cs().clone(),
             ),
             ivc_circuit_domain_and_constraint_system: (
-                ivc_verification_key.get_domain().clone(),
-                ivc_verification_key.cs().clone(),
+                ivc_verification_key.plonk_verifying_key().get_domain().clone(),
+                ivc_verification_key.plonk_verifying_key().cs().clone(),
             ),
         })
     }
 
     /// Creates a default IVC circuit for generating the proving and verifying keys.
     pub fn unknown(
-        certificate_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        certificate_verification_key: &NonRecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
         Self::validate_column_counts()?;
         let mut ivc_circuit_constraint_system = ConstraintSystem::default();
@@ -151,8 +156,11 @@ impl IvcCircuitData {
             ivc_proof: Value::unknown(),
             acc: Value::unknown(),
             certificate_circuit_domain_and_constraint_system: (
-                certificate_verification_key.get_domain().clone(),
-                certificate_verification_key.cs().clone(),
+                certificate_verification_key
+                    .plonk_verifying_key()
+                    .get_domain()
+                    .clone(),
+                certificate_verification_key.plonk_verifying_key().cs().clone(),
             ),
             ivc_circuit_domain_and_constraint_system: (
                 ivc_circuit_domain,

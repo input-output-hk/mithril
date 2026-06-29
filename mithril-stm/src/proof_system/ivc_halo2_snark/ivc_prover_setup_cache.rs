@@ -108,7 +108,11 @@ mod tests {
                 .expect("verification context asset should load");
 
             assert_eq!(
-                verification_context.certificate_verifying_key.vk().transcript_repr(),
+                verification_context
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
                 ivc_setup
                     .certificate_verifying_key
                     .midnight_vk()
@@ -117,7 +121,10 @@ mod tests {
                 "cert VK must be independent of the SRS degree (downsized at keygen)"
             );
             assert_eq!(
-                verification_context.recursive_verifying_key.transcript_repr(),
+                verification_context
+                    .recursive_verifying_key
+                    .verifying_key()
+                    .transcript_repr(),
                 ivc_setup.ivc_verifying_key.verifying_key().transcript_repr(),
                 "IVC VK must be independent of the SRS degree (downsized at keygen)"
             );

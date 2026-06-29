@@ -30,13 +30,13 @@ use crate::{
         halo2_ivc::{
             PREIMAGE_SIZE,
             circuit::IvcCircuitData,
+            keys::RecursiveCircuitProvingKey,
             state::{Global, State},
             types::{CertificateProofBytes, IvcProofBytes, MessageHash, ProtocolMessagePreimage},
         },
     },
     codec,
     proof_system::ivc_halo2_snark::{
-        PlonkProvingKey,
         errors::IvcProofError,
         prover_input::IvcProverInput,
         prover_setup::IvcSnarkProverSetup,
@@ -243,7 +243,7 @@ where
     /// bytes on success.
     fn prove_with_transcript(
         srs: &ParamsKZG<Bls12>,
-        proving_key: &PlonkProvingKey,
+        proving_key: &RecursiveCircuitProvingKey,
         circuit_data: &IvcCircuitData,
         public_inputs: &[CircuitBase],
         rng: &mut (impl RngCore + CryptoRng),
@@ -256,7 +256,7 @@ where
             IvcCircuitData,
         >(
             srs,
-            proving_key,
+            proving_key.proving_key(),
             std::slice::from_ref(circuit_data),
             1,
             &[&[&[], public_inputs]],
@@ -354,8 +354,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             certificate_proof_bytes,
             effective_rolling_state.ivc_proof().clone(),
             effective_rolling_state.accumulator().clone(),
-            self.ivc_setup.certificate_verifying_key.midnight_vk().vk(),
-            self.ivc_setup.ivc_verifying_key.verifying_key(),
+            &self.ivc_setup.certificate_verifying_key,
+            &self.ivc_setup.ivc_verifying_key,
         )?;
 
         // Public inputs for the new step: [global | next_state | next_accumulator].
@@ -371,7 +371,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         let next_rolling_state = if is_next_epoch {
             let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
                 &self.ivc_setup.srs,
-                self.ivc_setup.ivc_proving_key.proving_key(),
+                &self.ivc_setup.ivc_proving_key,
                 &circuit_data,
                 &public_inputs,
                 &mut self.rng,
@@ -388,7 +388,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         let blake2b_bytes = IvcProof::<blake2b_simd::State>::prove_with_transcript(
             &self.ivc_setup.srs,
-            self.ivc_setup.ivc_proving_key.proving_key(),
+            &self.ivc_setup.ivc_proving_key,
             &circuit_data,
             &public_inputs,
             &mut self.rng,
@@ -441,8 +441,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
             CertificateProofBytes::empty(),
             genesis_rolling_state.ivc_proof().clone(),
             genesis_rolling_state.accumulator().clone(),
-            self.ivc_setup.certificate_verifying_key.midnight_vk().vk(),
-            self.ivc_setup.ivc_verifying_key.verifying_key(),
+            &self.ivc_setup.certificate_verifying_key,
+            &self.ivc_setup.ivc_verifying_key,
         )?;
 
         let genesis_public_inputs: Vec<CircuitBase> = [
@@ -454,7 +454,7 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
 
         let poseidon_bytes = IvcProof::<PoseidonState<CircuitBase>>::prove_with_transcript(
             &self.ivc_setup.srs,
-            self.ivc_setup.ivc_proving_key.proving_key(),
+            &self.ivc_setup.ivc_proving_key,
             &genesis_circuit_data,
             &genesis_public_inputs,
             &mut self.rng,
@@ -923,7 +923,6 @@ mod tests {
 
         use crate::{
             AggregateVerificationKeyForSnark, MithrilMembershipDigest, Parameters, SnarkProof,
-            circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
             circuits::{
                 halo2::types::CircuitBase,
                 halo2_ivc::{
@@ -978,9 +977,7 @@ mod tests {
                 certificate_proof_bytes,
                 parameters,
                 merkle_tree_depth,
-                NonRecursiveCircuitVerifyingKey::new(
-                    verification_context.certificate_verifying_key.clone(),
-                ),
+                verification_context.certificate_verifying_key.clone(),
             )
         }
 
@@ -1223,7 +1220,11 @@ mod tests {
             let asset_setup = build_asset_generation_setup();
 
             assert_eq!(
-                verification_context.certificate_verifying_key.vk().transcript_repr(),
+                verification_context
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
                 ivc_setup
                     .certificate_verifying_key
                     .midnight_vk()
@@ -1232,7 +1233,10 @@ mod tests {
                 "stored verification context cert VK must match freshly generated cert VK"
             );
             assert_eq!(
-                verification_context.recursive_verifying_key.transcript_repr(),
+                verification_context
+                    .recursive_verifying_key
+                    .verifying_key()
+                    .transcript_repr(),
                 ivc_setup.ivc_verifying_key.verifying_key().transcript_repr(),
                 "stored verification context IVC VK must match freshly generated IVC VK"
             );

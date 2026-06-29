@@ -2,12 +2,13 @@ use midnight_circuits::hash::poseidon::PoseidonState;
 use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib as zk_lib;
-use midnight_zk_stdlib::{MidnightVK, Relation};
+use midnight_zk_stdlib::Relation;
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest as Sha2Digest, Sha256};
 
 use crate::circuits::common::merkle::MerklePath;
 use crate::circuits::halo2::circuit::StmCertificateCircuit;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::circuits::halo2::types::CircuitBaseField;
 use crate::circuits::halo2::witness::{CircuitMerkleTreeLeaf, CircuitWitnessEntry};
 use crate::circuits::halo2_ivc::protocol_message::{
@@ -99,7 +100,7 @@ pub(crate) fn build_next_certificate_asset_data(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &StmCertificateCircuit,
-    certificate_verifying_key: &MidnightVK,
+    certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
@@ -125,7 +126,7 @@ pub(crate) fn build_same_epoch_certificate_asset_data(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &StmCertificateCircuit,
-    certificate_verifying_key: &MidnightVK,
+    certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     recursive_chain_state: &State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
@@ -156,18 +157,19 @@ fn build_certificate_asset_data_inner(
     setup: &AssetGenerationSetup,
     certificate_commitment_parameters: &ParamsKZG<Bls12>,
     certificate_relation: &StmCertificateCircuit,
-    certificate_verifying_key: &MidnightVK,
+    certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     merkle_tree_commitment: F,
     message: F,
     message_preimage: Vec<u8>,
     next_state: State,
     random_generator: &mut (impl RngCore + CryptoRng),
 ) -> (CertificateProofBytes, Accumulator<S>, State, Witness) {
-    let certificate_proving_key = zk_lib::setup_pk(certificate_relation, certificate_verifying_key);
-    let (certificate_fixed_bases, _) = fixed_bases_and_names(
-        CERTIFICATE_VERIFICATION_KEY_NAME,
-        certificate_verifying_key.vk(),
+    let certificate_proving_key = zk_lib::setup_pk(
+        certificate_relation,
+        certificate_verifying_key.midnight_vk(),
     );
+    let (certificate_fixed_bases, _) =
+        fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
 
     assert_eq!(
         merkle_tree_commitment, setup.genesis_next_merkle_tree_commitment,
@@ -239,7 +241,7 @@ fn build_certificate_asset_data_inner(
     );
 
     let certificate_dual_msm = verify_prepare_poseidon_ivc(
-        certificate_verifying_key.vk(),
+        certificate_verifying_key,
         certificate_proof.as_bytes(),
         &certificate_instance,
     );

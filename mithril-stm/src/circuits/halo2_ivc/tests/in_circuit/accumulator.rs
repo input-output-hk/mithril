@@ -137,7 +137,7 @@ mod slow {
             certificate_proof,
             recursive_chain_state.ivc_proof.clone(),
             recursive_chain_state.accumulator.clone(),
-            mock_prover_setup.certificate_verifying_key.vk(),
+            &mock_prover_setup.certificate_verifying_key,
             &mock_prover_setup.recursive_verifying_key,
         )
         .expect("valid IvcCircuitData construction");

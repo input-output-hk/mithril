@@ -12,6 +12,7 @@ use crate::{
     Parameters,
     circuits::{
         halo2::circuit::StmCertificateCircuit,
+        halo2::keys::NonRecursiveCircuitVerifyingKey,
         halo2_ivc::{RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData},
     },
 };
@@ -33,11 +34,12 @@ pub(crate) fn golden_recursive_circuit_verification_key_bytes() -> Vec<u8> {
     let mut srs_for_non_recursive_circuit = srs_for_recursive_circuit.clone();
     srs_for_non_recursive_circuit.downsize(circuit_degree);
 
-    let circuit_verification_key =
-        midnight_zk_stdlib::setup_vk(&srs_for_non_recursive_circuit, &circuit);
+    let circuit_verification_key = NonRecursiveCircuitVerifyingKey::new(
+        midnight_zk_stdlib::setup_vk(&srs_for_non_recursive_circuit, &circuit),
+    );
 
-    let default_ivc_circuit = IvcCircuitData::unknown(circuit_verification_key.vk())
-        .expect("valid IvcCircuitData unknown");
+    let default_ivc_circuit =
+        IvcCircuitData::unknown(&circuit_verification_key).expect("valid IvcCircuitData unknown");
     let recursive_verifying_key: VerifyingKey<
         <BlstrsEmulation as SelfEmulation>::F,
         KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,

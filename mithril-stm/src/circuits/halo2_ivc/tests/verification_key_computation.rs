@@ -10,7 +10,10 @@ use midnight_zk_stdlib::MidnightVK;
 use crate::{
     StmResult,
     circuits::{
-        halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+        halo2::{
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            keys::NonRecursiveCircuitVerifyingKey,
+        },
         halo2_ivc::{
             RECURSIVE_CIRCUIT_DEGREE, RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
             circuit::IvcCircuitData,
@@ -30,12 +33,13 @@ fn compute_recursive_circuit_verification_key() -> StmResult<Vec<u8>> {
     recursive_commitment_parameters.downsize(shared_srs_degree);
 
     let mut non_recursive_verification_key = NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
-    let certificate_verifying_key =
+    let certificate_verifying_key = NonRecursiveCircuitVerifyingKey::new(
         MidnightVK::read(&mut non_recursive_verification_key, SerdeFormat::RawBytes)
-            .with_context(|| "Failed to deserialize the circuit verification key.")?;
+            .with_context(|| "Failed to deserialize the circuit verification key.")?,
+    );
 
-    let default_ivc_circuit = IvcCircuitData::unknown(certificate_verifying_key.vk())
-        .expect("valid IvcCircuitData unknown");
+    let default_ivc_circuit =
+        IvcCircuitData::unknown(&certificate_verifying_key).expect("valid IvcCircuitData unknown");
     let recursive_verification_key: VerifyingKey<
         <BlstrsEmulation as SelfEmulation>::F,
         KZGCommitmentScheme<<BlstrsEmulation as SelfEmulation>::Engine>,

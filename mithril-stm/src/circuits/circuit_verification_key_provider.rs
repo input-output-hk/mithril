@@ -257,7 +257,7 @@ impl CircuitVerificationKeyProvider<IvcCircuitData> {
     pub(crate) fn for_recursive_circuit(
         certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
     ) -> StmResult<Self> {
-        let circuit = IvcCircuitData::unknown(certificate_verifying_key.midnight_vk().vk())?;
+        let circuit = IvcCircuitData::unknown(certificate_verifying_key)?;
         Ok(Self::new(
             std::env::temp_dir(),
             "recursive-keys",

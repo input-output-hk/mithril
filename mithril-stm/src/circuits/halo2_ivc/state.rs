@@ -4,12 +4,14 @@ use ff::Field;
 use group::Group;
 use serde::{Deserialize, Serialize};
 
+use crate::circuits::AsPlonkVerifyingKey;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use crate::signature_scheme::{SchnorrVerificationKey, StandardSchnorrSignature};
 
 use super::{
     Accumulator, AssignedByte, AssignedNative, AssignedNativePoint, AssignedScalarOfNativeCurve,
-    AssignedVk, C, ConstraintSystem, E, F, Instantiable, Jubjub, KZGCommitmentScheme, Msm, S,
-    VerifyingKey,
+    AssignedVk, C, ConstraintSystem, F, Instantiable, Jubjub, Msm, S,
     types::{
         CertificateCircuitVerificationKeyRepresentation, EpochNumber,
         IvcCircuitVerificationKeyRepresentation, MerkleTreeCommitment, MessageHash,
@@ -124,19 +126,19 @@ impl Global {
     pub(crate) fn new(
         genesis_message: MessageHash,
         genesis_verification_key: SchnorrVerificationKey,
-        certificate_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
-        ivc_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+        certificate_verification_key: &NonRecursiveCircuitVerifyingKey,
+        ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> Self {
         Global {
             genesis_message,
             genesis_verification_key,
             certificate_circuit_verification_key_representation:
                 CertificateCircuitVerificationKeyRepresentation::from_field(
-                    certificate_verification_key.transcript_repr(),
+                    certificate_verification_key.plonk_verifying_key().transcript_repr(),
                 ),
             ivc_circuit_verification_key_representation:
                 IvcCircuitVerificationKeyRepresentation::from_field(
-                    ivc_verification_key.transcript_repr(),
+                    ivc_verification_key.plonk_verifying_key().transcript_repr(),
                 ),
         }
     }
@@ -216,11 +218,14 @@ pub(crate) fn trivial_acc(fixed_base_names: &[String]) -> Accumulator<S> {
 
 pub(crate) fn fixed_bases_and_names(
     vk_name: &str,
-    vk: &VerifyingKey<F, KZGCommitmentScheme<E>>,
+    vk: &impl AsPlonkVerifyingKey,
 ) -> (BTreeMap<String, C>, Vec<String>) {
     let mut fixed_bases = BTreeMap::new();
     fixed_bases.insert(String::from("com_instance"), C::identity());
-    fixed_bases.extend(verifier::fixed_bases::<S>(vk_name, vk));
+    fixed_bases.extend(verifier::fixed_bases::<S>(
+        vk_name,
+        vk.plonk_verifying_key(),
+    ));
     let fixed_base_names = fixed_bases.keys().cloned().collect::<Vec<_>>();
     (fixed_bases, fixed_base_names)
 }

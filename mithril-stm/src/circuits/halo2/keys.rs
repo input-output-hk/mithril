@@ -9,7 +9,9 @@ use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
+use crate::circuits::AsPlonkVerifyingKey;
 use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
+use crate::circuits::halo2_ivc::PlonkVerifyingKey;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::circuit::StmCertificateCircuit;
@@ -21,6 +23,7 @@ pub(crate) struct NonRecursiveCircuitVerifyingKey(
 );
 
 /// Proving key of the non-recursive certificate circuit.
+#[derive(Clone)]
 pub(crate) struct NonRecursiveCircuitProvingKey(MidnightPK<StmCertificateCircuit>);
 
 impl NonRecursiveCircuitVerifyingKey {
@@ -32,6 +35,12 @@ impl NonRecursiveCircuitVerifyingKey {
     /// Borrows the wrapped Midnight verifying key.
     pub(crate) fn midnight_vk(&self) -> &MidnightVK {
         &self.0
+    }
+}
+
+impl AsPlonkVerifyingKey for NonRecursiveCircuitVerifyingKey {
+    fn plonk_verifying_key(&self) -> &PlonkVerifyingKey {
+        self.0.vk()
     }
 }
 
@@ -63,6 +72,11 @@ mod midnight_verifying_key_serde {
 }
 
 impl NonRecursiveCircuitProvingKey {
+    /// Wraps a Midnight proving key.
+    pub(crate) fn new(midnight_pk: MidnightPK<StmCertificateCircuit>) -> Self {
+        Self(midnight_pk)
+    }
+
     /// Borrows the wrapped Midnight proving key, for proof generation.
     pub(crate) fn midnight_pk(&self) -> &MidnightPK<StmCertificateCircuit> {
         &self.0

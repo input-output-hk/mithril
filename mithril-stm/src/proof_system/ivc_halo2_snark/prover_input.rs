@@ -202,7 +202,6 @@ mod tests {
 
         use crate::{
             MithrilMembershipDigest, Parameters,
-            circuits::halo2::keys::NonRecursiveCircuitVerifyingKey,
             circuits::halo2_ivc::{
                 errors::{EpochTransitionErrorKind, IvcCircuitError},
                 io::Write as IvcWrite,
@@ -278,8 +277,7 @@ mod tests {
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let circuit_verification_key =
-                NonRecursiveCircuitVerifyingKey::new(ctx.certificate_verifying_key.clone());
+            let circuit_verification_key = ctx.certificate_verifying_key.clone();
             SnarkProof::from_parts(
                 certificate_proof_bytes,
                 parameters,
