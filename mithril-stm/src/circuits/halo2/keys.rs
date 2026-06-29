@@ -8,10 +8,9 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
 use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
-use crate::circuits::circuit_verification_key_provider::CircuitVerificationKeyProvider;
 use crate::codec::{TryFromBytes, TryToBytes};
-use crate::{Parameters, StmResult};
 
 use super::circuit::StmCertificateCircuit;
 
@@ -67,23 +66,6 @@ impl NonRecursiveCircuitProvingKey {
     /// Borrows the wrapped Midnight proving key, for proof generation.
     pub(crate) fn midnight_pk(&self) -> &MidnightPK<StmCertificateCircuit> {
         &self.0
-    }
-}
-
-impl CircuitVerificationKeyProvider<StmCertificateCircuit> {
-    /// Production certificate-circuit provider: builds the circuit from `parameters`, roots the
-    /// cache at the temporary directory, and validates against the embedded production verifying key.
-    pub(crate) fn for_non_recursive_circuit(
-        parameters: &Parameters,
-        merkle_tree_depth: u32,
-    ) -> StmResult<Self> {
-        let circuit = StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?;
-        Ok(Self::new(
-            std::env::temp_dir(),
-            "non-recursive-keys",
-            super::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            circuit,
-        ))
     }
 }
 
@@ -146,8 +128,6 @@ impl CircuitKeyGenerator for StmCertificateCircuit {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use midnight_proofs::poly::commitment::Params;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
     use midnight_zk_stdlib::MidnightCircuit;
@@ -157,7 +137,6 @@ mod tests {
     use super::{NonRecursiveCircuitProvingKey, NonRecursiveCircuitVerifyingKey};
     use crate::Parameters;
     use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
-    use crate::circuits::circuit_verification_key_provider::CircuitVerificationKeyProvider;
     use crate::circuits::halo2::circuit::StmCertificateCircuit;
     use crate::codec::{TryFromBytes, TryToBytes};
 
@@ -245,48 +224,5 @@ mod tests {
             circuit_degree,
             "the already-sized SRS must be used directly, untouched"
         );
-    }
-
-    #[test]
-    fn provider_returns_cached_verifying_key_on_hit() {
-        let parameters = Parameters {
-            k: 3,
-            m: 10,
-            phi_f: 0.2,
-        };
-        let merkle_tree_depth = 4;
-        let circuit = StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)
-            .expect("certificate circuit should build");
-        let circuit_degree = MidnightCircuit::from_relation(&circuit).min_k();
-        let srs = ParamsKZG::unsafe_setup(circuit_degree, ChaCha20Rng::seed_from_u64(42));
-
-        // Derive the real key pair and use its verifying-key bytes as the cache golden, so a
-        // pre-populated cache is a fresh hit rather than stale.
-        let (verifying_key, proving_key) = circuit
-            .generate_key_pair(&srs)
-            .expect("key generation should succeed");
-        let verifying_key_bytes = verifying_key.to_bytes_vec().unwrap();
-        let proving_key_bytes = proving_key.to_bytes_vec().unwrap();
-
-        let base_dir = std::env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "non-recursive",
-            &verifying_key_bytes,
-            circuit,
-        );
-        fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(provider.verification_key_path(), &verifying_key_bytes).unwrap();
-        fs::write(provider.proving_key_path(), &proving_key_bytes).unwrap();
-
-        let (hit_verifying_key, _) = provider.key_pair(&srs).expect("cache hit should succeed");
-
-        assert_eq!(
-            hit_verifying_key.to_bytes_vec().unwrap(),
-            verifying_key_bytes,
-            "the provider must return the real verifying key read from the populated cache"
-        );
-        fs::remove_dir_all(&base_dir).ok();
     }
 }

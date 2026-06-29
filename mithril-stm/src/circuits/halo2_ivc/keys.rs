@@ -10,13 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::circuits::circuit_key_generator::CircuitKeyGenerator;
-use crate::circuits::circuit_verification_key_provider::CircuitVerificationKeyProvider;
-use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::{
-    PlonkProvingKey, PlonkVerifyingKey, RECURSIVE_CIRCUIT_DEGREE,
-    RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::IvcCircuitData,
+    PlonkProvingKey, PlonkVerifyingKey, RECURSIVE_CIRCUIT_DEGREE, circuit::IvcCircuitData,
 };
 
 /// Verifying key of the recursive (IVC) circuit.
@@ -100,23 +97,6 @@ mod recursive_verifying_key_serde {
     }
 }
 
-impl CircuitVerificationKeyProvider<IvcCircuitData> {
-    /// Production recursive-circuit provider: builds the recursive circuit from the certificate
-    /// verifying key it recursively verifies, roots the cache at the temporary directory, and
-    /// validates against the embedded production verifying key.
-    pub(crate) fn for_recursive_circuit(
-        certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
-    ) -> StmResult<Self> {
-        let circuit = IvcCircuitData::unknown(certificate_verifying_key.midnight_vk().vk())?;
-        Ok(Self::new(
-            std::env::temp_dir(),
-            "recursive-keys",
-            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            circuit,
-        ))
-    }
-}
-
 impl CircuitKeyGenerator for IvcCircuitData {
     type VerifyingKey = RecursiveCircuitVerifyingKey;
     type ProvingKey = RecursiveCircuitProvingKey;
@@ -151,6 +131,7 @@ impl CircuitKeyGenerator for IvcCircuitData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::circuits::halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
 
     #[test]
     fn recursive_verifying_key_newtype_round_trips_through_bytes() {

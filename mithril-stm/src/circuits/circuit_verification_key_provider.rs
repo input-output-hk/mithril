@@ -17,11 +17,17 @@ use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 use rand_core::{OsRng, RngCore};
 
-use crate::StmResult;
 use crate::codec::{TryFromBytes, TryToBytes};
+use crate::{Parameters, StmResult};
 
-use super::MITHRIL_CIRCUIT_CACHE_FOLDER;
 use super::circuit_key_generator::CircuitKeyGenerator;
+use super::halo2::circuit::StmCertificateCircuit;
+use super::halo2::keys::NonRecursiveCircuitVerifyingKey;
+use super::halo2_ivc::circuit::IvcCircuitData;
+use super::{
+    MITHRIL_CIRCUIT_CACHE_FOLDER, halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+};
 
 /// Outcome of inspecting the on-disk key cache for a complete, fresh key pair.
 enum CacheState {
@@ -224,6 +230,40 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
                 .with_context(|| "Failed to fsync the cache directory after rename")?;
         }
         Ok(())
+    }
+}
+
+impl CircuitVerificationKeyProvider<StmCertificateCircuit> {
+    /// Production certificate-circuit provider: builds the circuit from `parameters`, roots the
+    /// cache at the temporary directory, and validates against the embedded production verifying key.
+    pub(crate) fn for_non_recursive_circuit(
+        parameters: &Parameters,
+        merkle_tree_depth: u32,
+    ) -> StmResult<Self> {
+        let circuit = StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?;
+        Ok(Self::new(
+            std::env::temp_dir(),
+            "non-recursive-keys",
+            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            circuit,
+        ))
+    }
+}
+
+impl CircuitVerificationKeyProvider<IvcCircuitData> {
+    /// Production recursive-circuit provider: builds the recursive circuit from the certificate
+    /// verifying key it recursively verifies, roots the cache at the temporary directory, and
+    /// validates against the embedded production verifying key.
+    pub(crate) fn for_recursive_circuit(
+        certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
+    ) -> StmResult<Self> {
+        let circuit = IvcCircuitData::unknown(certificate_verifying_key.midnight_vk().vk())?;
+        Ok(Self::new(
+            std::env::temp_dir(),
+            "recursive-keys",
+            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+            circuit,
+        ))
     }
 }
 
