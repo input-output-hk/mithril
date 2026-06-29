@@ -3,9 +3,8 @@ use std::{fs, path::PathBuf};
 use kes_summed_ed25519::kes::Sum6Kes;
 use kes_summed_ed25519::traits::KesSk;
 
-use crate::crypto_helper::{
-    ColdKeyGenerator, KesPeriod, OpCert, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes,
-};
+use crate::crypto_helper::{ColdKeyGenerator, KesPeriod, OpCert, ProtocolPartyId, Sum6KesBytes};
+use crate::test::crypto_helper::SerDeShelleyFileFormatTestExtension;
 
 /// A type alias for the party index used in KES cryptographic material.
 pub type KesPartyIndexForTest = u64;

@@ -13,10 +13,10 @@ mod types;
 pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{
-    KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard,
-    KesVerifyError, OpCert, OpCertWithoutColdVerificationKey, ProtocolInitializerErrorWrapper,
-    ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat, SignerRegistrationParameters,
-    Sum6KesBytes,
+    CodecParseError, KesEvolutions, KesPeriod, KesSigner, KesSignerStandard, KesVerifier,
+    KesVerifierStandard, KesVerifyError, OpCert, OpCertWithoutColdVerificationKey,
+    ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat,
+    SignerRegistrationParameters, Sum6KesBytes,
 };
 pub use codec::*;
 pub use ed25519_alias::{era::*, manifest::*};
