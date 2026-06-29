@@ -1,23 +1,21 @@
-// Compute-on-miss verification key provider for one circuit.
-//
-// Owns the on-disk cache (the VK/PK file paths and the expected VK bytes for staleness detection)
-// together with a [`CircuitKeyGenerator`] circuit. On read it compares the on-disk verifying key
-// against the expected bytes — a mismatch means the circuit was rotated, so the stale files are
-// removed and the caller recomputes. On a miss it derives the key pair from the SRS via the circuit
-// and stores it atomically.
+//! Compute-on-miss verification key provider for one circuit.
+//!
+//! [`CircuitVerificationKeyProvider`] owns the on-disk key cache (the verifying/proving key file
+//! paths and the expected verifying-key bytes for staleness detection) together with a
+//! [`CircuitKeyGenerator`] circuit. [`CircuitVerificationKeyProvider::key_pair`] inspects the cache
+//! through a single [`CacheState`] state machine: a fresh, complete pair is returned from disk,
+//! anything else (absent, stale, or partially written) is recomputed from the SRS and stored
+//! atomically.
 use std::{
     fs,
     io::{ErrorKind, Write},
     path::{Path, PathBuf},
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
 };
 
 use anyhow::Context;
 use midnight_curves::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
+use rand_core::{OsRng, RngCore};
 
 use crate::StmResult;
 use crate::codec::{TryFromBytes, TryToBytes};
@@ -25,81 +23,51 @@ use crate::codec::{TryFromBytes, TryToBytes};
 use super::MITHRIL_CIRCUIT_CACHE_FOLDER;
 use super::circuit_key_generator::CircuitKeyGenerator;
 
-/// Provides a circuit's verifying and proving keys: an on-disk cache (with staleness detection)
-/// plus the [`CircuitKeyGenerator`] circuit that computes them on a miss.
-#[allow(dead_code)] // consumed by the certificate and recursive setups
+/// Outcome of inspecting the on-disk key cache for a complete, fresh key pair.
+enum CacheState {
+    /// Both key files are present and the verifying key matches the expected bytes; carries the raw
+    /// key-pair bytes ready for deserialization.
+    Valid {
+        /// Raw verifying-key bytes read from the cache.
+        verification_key: Vec<u8>,
+        /// Raw proving-key bytes read from the cache.
+        proving_key: Vec<u8>,
+    },
+    /// Nothing usable on disk: absent, stale, or a partial write.
+    Empty,
+}
+
+/// Provides a circuit's verifying and proving keys: an on-disk cache (with staleness detection) plus
+/// the [`CircuitKeyGenerator`] circuit that computes them on a miss.
 pub(crate) struct CircuitVerificationKeyProvider<C: CircuitKeyGenerator> {
     /// Path to the on-disk verification key file.
     verification_key_path: PathBuf,
     /// Path to the on-disk proving key file.
     proving_key_path: PathBuf,
-    /// Expected VK bytes used for staleness detection. Owned (`Arc<[u8]>`) so it can hold either the
-    /// embedded production constants or runtime-derived bytes (e.g. a deterministic test SRS),
-    /// without leaking the latter to `'static`.
-    expected_verification_key_bytes: Arc<[u8]>,
+    /// Expected verifying-key bytes for staleness detection; an empty slice skips the check and
+    /// trusts the cached key (used by the content-keyed test caches, which isolate configurations by
+    /// directory).
+    expected_verification_key: Vec<u8>,
     /// Circuit that derives the key pair on a cache miss.
     circuit: C,
 }
 
-fn remove_if_exists(path: &Path) -> StmResult<()> {
-    fs::remove_file(path).or_else(|e| {
-        if e.kind() == ErrorKind::NotFound {
-            Ok(())
-        } else {
-            Err(e.into())
-        }
-    })
-}
-
-/// Writes `bytes` to a uniquely-named temporary sibling of `final_path`, fsyncing before returning
-/// its path so the subsequent rename is atomic.
-fn write_temporary_sibling(final_path: &Path, bytes: &[u8]) -> StmResult<PathBuf> {
-    let temp_path = unique_temporary_path(final_path);
-    let mut file = fs::File::create(&temp_path)
-        .with_context(|| format!("Failed to create the temporary key file at {temp_path:?}"))?;
-    file.write_all(bytes)?;
-    file.sync_all()
-        .with_context(|| "Failed to fsync the temporary key file before rename")?;
-    Ok(temp_path)
-}
-
-/// A temporary sibling path unique to this writer, so concurrent cold-miss writers never collide.
-fn unique_temporary_path(final_path: &Path) -> PathBuf {
-    static WRITE_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let sequence = WRITE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let process_id = std::process::id();
-    let mut file_name = final_path.file_name().unwrap_or_default().to_os_string();
-    file_name.push(format!(".{process_id}.{sequence}.temp"));
-    final_path.with_file_name(file_name)
-}
-
-/// Fsyncs the directory containing `path` so the renames are durable.
-fn sync_directory_of(path: &Path) -> StmResult<()> {
-    if let Some(parent) = path.parent() {
-        fs::File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .with_context(|| "Failed to fsync the cache directory after rename")?;
-    }
-    Ok(())
-}
-
-#[allow(dead_code)] // consumed by the certificate and recursive setups
 impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
     /// Builds a provider rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`. On read,
-    /// the cached verifying key is compared against `expected_verification_key_bytes` and recomputed
-    /// on a mismatch; empty expected bytes skip the comparison and trust the cached key. Keys are
-    /// computed from `circuit` on a miss.
+    /// the cached verifying key is compared against `expected_verification_key` and recomputed on a
+    /// mismatch; an empty slice skips the comparison and trusts the cached key. Keys are computed from
+    /// `circuit` on a miss.
     pub(crate) fn new(
         base_dir: PathBuf,
         circuit_name: &str,
-        expected_verification_key_bytes: &[u8],
+        expected_verification_key: &[u8],
         circuit: C,
     ) -> Self {
         let circuit_dir = base_dir.join(MITHRIL_CIRCUIT_CACHE_FOLDER).join(circuit_name);
         Self {
             verification_key_path: circuit_dir.join("verification-key"),
             proving_key_path: circuit_dir.join("proving-key"),
-            expected_verification_key_bytes: Arc::from(expected_verification_key_bytes),
+            expected_verification_key: expected_verification_key.to_vec(),
             circuit,
         }
     }
@@ -109,28 +77,56 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
         &self.circuit
     }
 
-    /// Returns the verifying key, computing and caching the key pair from `srs` on a miss.
-    pub(crate) fn verification_key(&self, srs: &ParamsKZG<Bls12>) -> StmResult<C::VerifyingKey> {
-        if let Some(verification_key) = self.get_verification_key::<C::VerifyingKey>()? {
-            return Ok(verification_key);
-        }
-        let (verification_key, _proving_key) = self.compute_and_store(srs)?;
-        Ok(verification_key)
-    }
-
-    /// Returns the verifying and proving key pair, computing and caching it from `srs` on a miss.
+    /// Returns the key pair, computing and caching it from `srs` on a miss.
     pub(crate) fn key_pair(
         &self,
         srs: &ParamsKZG<Bls12>,
     ) -> StmResult<(C::VerifyingKey, C::ProvingKey)> {
-        // The proving key is read only once the verifying key is present, so an orphan proving key
-        // left by an interrupted store is recomputed instead of surfacing a deserialization error.
-        if let Some(verification_key) = self.get_verification_key::<C::VerifyingKey>()?
-            && let Some(proving_key) = self.get_proving_key::<C::ProvingKey>()?
-        {
-            return Ok((verification_key, proving_key));
+        match self.cache_state()? {
+            CacheState::Valid {
+                verification_key,
+                proving_key,
+            } => Ok((
+                C::VerifyingKey::try_from_bytes(&verification_key)?,
+                C::ProvingKey::try_from_bytes(&proving_key)?,
+            )),
+            CacheState::Empty => self.compute_and_store(srs),
         }
-        self.compute_and_store(srs)
+    }
+
+    /// Returns the verifying key, computing and caching the pair from `srs` on a miss.
+    ///
+    /// A cache hit requires the complete pair: a verifying key present without its proving key (an
+    /// interrupted store) is treated as a miss and the pair is recomputed, rather than returning the
+    /// lone verifying key. This is intentional — "cache hit" always means a complete, consistent pair.
+    pub(crate) fn verification_key(&self, srs: &ParamsKZG<Bls12>) -> StmResult<C::VerifyingKey> {
+        match self.cache_state()? {
+            CacheState::Valid {
+                verification_key, ..
+            } => C::VerifyingKey::try_from_bytes(&verification_key),
+            CacheState::Empty => Ok(self.compute_and_store(srs)?.0),
+        }
+    }
+
+    /// Reads the cache and returns the fresh key-pair bytes, or [`CacheState::Empty`] when nothing
+    /// usable is on disk (absent, partially written, or stale). A stale entry is left in place: the
+    /// next store overwrites both key files atomically. The proving key is read only once the
+    /// verifying key is present and fresh, so an orphan proving key left by an interrupted store is
+    /// reported as `Empty` rather than surfaced as a deserialization error.
+    fn cache_state(&self) -> StmResult<CacheState> {
+        let Some(verification_key) = Self::read_optional(&self.verification_key_path)? else {
+            return Ok(CacheState::Empty);
+        };
+        if self.is_stale(&verification_key) {
+            return Ok(CacheState::Empty);
+        }
+        let Some(proving_key) = Self::read_optional(&self.proving_key_path)? else {
+            return Ok(CacheState::Empty);
+        };
+        Ok(CacheState::Valid {
+            verification_key,
+            proving_key,
+        })
     }
 
     /// Derives the key pair from `srs` via the circuit and stores it in the cache.
@@ -139,70 +135,36 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
         srs: &ParamsKZG<Bls12>,
     ) -> StmResult<(C::VerifyingKey, C::ProvingKey)> {
         let (verification_key, proving_key) = self.circuit.generate_key_pair(srs)?;
-        self.store_key_pair(
+        self.store(
             &verification_key.to_bytes_vec()?,
             &proving_key.to_bytes_vec()?,
         )?;
         Ok((verification_key, proving_key))
     }
 
-    /// Returns the cached verifying key when present and fresh, deserialized via [`TryFromBytes`].
-    /// Returns `None` when absent, or stale after a circuit rotation — in which case the stale files
-    /// are removed so the caller recomputes. Returns an error when the stored bytes fail to
-    /// deserialize.
-    ///
-    /// When no expected bytes are supplied there is nothing to compare against, so the cached key is
-    /// trusted as-is. Production always supplies the embedded verifying key; only the tests omit it,
-    /// relying on a cache directory keyed by the key-derivation inputs to keep configurations apart.
-    fn get_verification_key<K: TryFromBytes>(&self) -> StmResult<Option<K>> {
-        let Some(bytes) = self.read_verification_key_bytes()? else {
-            return Ok(None);
-        };
-        if !self.expected_verification_key_bytes.is_empty()
-            && bytes.as_slice() != self.expected_verification_key_bytes.as_ref()
-        {
-            self.clear_stale_files()?;
-            return Ok(None);
-        }
-        Ok(Some(K::try_from_bytes(&bytes)?))
-    }
-
-    /// Returns the cached proving key, deserialized via [`TryFromBytes`]. Returns `None` when the
-    /// proving key file is absent, and an error when the stored bytes fail to deserialize.
-    ///
-    /// Callers must read this only after [`Self::get_verification_key`] has returned `Some`: a failed
-    /// [`Self::store_key_pair`] can leave an orphan proving key with no verifying key, and reading it
-    /// here would surface a deserialization error instead of a recomputable cache miss.
-    fn get_proving_key<K: TryFromBytes>(&self) -> StmResult<Option<K>> {
-        let proving_key_bytes = match fs::read(&self.proving_key_path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-            Err(error) => return Err(error.into()),
-        };
-        Ok(Some(K::try_from_bytes(&proving_key_bytes)?))
+    /// `true` when an expected verifying key is configured and the cached bytes do not match it.
+    fn is_stale(&self, verification_key: &[u8]) -> bool {
+        !self.expected_verification_key.is_empty()
+            && verification_key != self.expected_verification_key.as_slice()
     }
 
     /// Writes the verifying and proving key bytes to disk as a pair: each to a per-writer-unique
-    /// temporary sibling, fsynced, then renamed (the proving key first, the verifying key last),
-    /// with a final directory fsync. On a failed verifying-key rename it best-effort removes the
-    /// proving-key path it just wrote (which a concurrent lock-free writer may already have replaced),
-    /// and a crash between the two renames runs no cleanup at all — so a proving key can still be left
-    /// without a verifying key. Readers require both keys present and recompute otherwise, so
-    /// correctness depends on neither the rename order nor crash durability. Unique temporary names let
-    /// concurrent lock-free writers proceed without clobbering each other.
-    fn store_key_pair(
-        &self,
-        verification_key_bytes: &[u8],
-        proving_key_bytes: &[u8],
-    ) -> StmResult<()> {
+    /// temporary sibling, fsynced, then renamed (the proving key first, the verifying key last), with
+    /// a final directory fsync. On a failed verifying-key rename it best-effort removes the
+    /// proving-key path it just wrote (which a concurrent lock-free writer may already have replaced);
+    /// a crash between the two renames runs no cleanup, so an orphan key can still remain.
+    /// [`Self::cache_state`] requires both keys present and recomputes otherwise, so correctness does
+    /// not depend on the rename order or on crash durability. Unique temporary names let concurrent
+    /// lock-free writers proceed without clobbering each other.
+    fn store(&self, verification_key: &[u8], proving_key: &[u8]) -> StmResult<()> {
         if let Some(parent) = self.verification_key_path.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| "Failed to create the circuit key cache directory")?;
         }
 
-        let proving_key_temp = write_temporary_sibling(&self.proving_key_path, proving_key_bytes)?;
+        let proving_key_temp = Self::write_temporary_sibling(&self.proving_key_path, proving_key)?;
         let verification_key_temp =
-            match write_temporary_sibling(&self.verification_key_path, verification_key_bytes) {
+            match Self::write_temporary_sibling(&self.verification_key_path, verification_key) {
                 Ok(path) => path,
                 Err(error) => {
                     let _ = fs::remove_file(&proving_key_temp);
@@ -222,22 +184,46 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
             let _ = fs::remove_file(&self.proving_key_path);
             return Err(error).with_context(|| "Failed to store the verification key in the cache");
         }
-        sync_directory_of(&self.verification_key_path)
+        Self::sync_directory_of(&self.verification_key_path)
     }
 
-    /// Read the on-disk VK bytes, returning `None` if the file does not exist.
-    fn read_verification_key_bytes(&self) -> StmResult<Option<Vec<u8>>> {
-        match fs::read(&self.verification_key_path) {
-            Ok(b) => Ok(Some(b)),
-            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
+    /// Reads the bytes at `path`, returning `None` when the file does not exist.
+    fn read_optional(path: &Path) -> StmResult<Option<Vec<u8>>> {
+        match fs::read(path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.into()),
         }
     }
 
-    /// Remove both key files, ignoring not-found errors (idempotent).
-    fn clear_stale_files(&self) -> StmResult<()> {
-        remove_if_exists(&self.verification_key_path)?;
-        remove_if_exists(&self.proving_key_path)
+    /// Writes `bytes` to a uniquely-named temporary sibling of `final_path`, fsyncing before
+    /// returning its path so the subsequent rename is atomic.
+    fn write_temporary_sibling(final_path: &Path, bytes: &[u8]) -> StmResult<PathBuf> {
+        let temp_path = Self::unique_temporary_path(final_path);
+        let mut file = fs::File::create(&temp_path)
+            .with_context(|| format!("Failed to create the temporary key file at {temp_path:?}"))?;
+        file.write_all(bytes)?;
+        file.sync_all()
+            .with_context(|| "Failed to fsync the temporary key file before rename")?;
+        Ok(temp_path)
+    }
+
+    /// A temporary sibling path with a random suffix, so concurrent cold-miss writers never collide.
+    fn unique_temporary_path(final_path: &Path) -> PathBuf {
+        let nonce = OsRng.next_u64();
+        let mut file_name = final_path.file_name().unwrap_or_default().to_os_string();
+        file_name.push(format!(".{nonce:016x}.temp"));
+        final_path.with_file_name(file_name)
+    }
+
+    /// Fsyncs the directory containing `path` so the renames are durable.
+    fn sync_directory_of(path: &Path) -> StmResult<()> {
+        if let Some(parent) = path.parent() {
+            fs::File::open(parent)
+                .and_then(|directory| directory.sync_all())
+                .with_context(|| "Failed to fsync the cache directory after rename")?;
+        }
+        Ok(())
     }
 }
 
@@ -255,17 +241,16 @@ impl<C: CircuitKeyGenerator> CircuitVerificationKeyProvider<C> {
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
-    use std::{env, fs};
+    use std::{env, fs, path::PathBuf};
 
     use midnight_curves::Bls12;
     use midnight_proofs::poly::kzg::params::ParamsKZG;
-    use midnight_zk_stdlib::{MidnightPK, MidnightVK};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use super::{CircuitKeyGenerator, CircuitVerificationKeyProvider};
+    use super::{CacheState, CircuitKeyGenerator, CircuitVerificationKeyProvider};
+    use crate::Parameters;
     use crate::StmResult;
-    use crate::circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
     use crate::circuits::halo2::circuit::StmCertificateCircuit;
     use crate::codec::{TryFromBytes, TryToBytes};
 
@@ -285,8 +270,7 @@ mod tests {
         }
     }
 
-    /// Generator returning fixed key bytes and counting how often it is invoked. Doubles as a stand-in
-    /// circuit for the byte-level cache tests, which never invoke `generate_key_pair`.
+    /// Generator returning fixed key bytes and counting how often it is invoked.
     struct CountingGenerator {
         verification_key: Vec<u8>,
         proving_key: Vec<u8>,
@@ -321,32 +305,28 @@ mod tests {
         ParamsKZG::unsafe_setup(1, ChaCha20Rng::seed_from_u64(0))
     }
 
-    /// A provider over a fresh temporary directory with a dummy counting generator, for the
-    /// byte-level cache tests (staleness, store, deserialize). Removes any prior contents.
-    fn make_test_provider(
+    /// A provider over a fresh temporary directory with a counting generator, returning the base
+    /// directory for cleanup.
+    fn counting_provider(
         name: &str,
-        expected_vk_bytes: &[u8],
-    ) -> CircuitVerificationKeyProvider<CountingGenerator> {
+        expected_verification_key: &[u8],
+        verification_key: &[u8],
+        proving_key: &[u8],
+    ) -> (PathBuf, CircuitVerificationKeyProvider<CountingGenerator>) {
         let base_dir = env::temp_dir().join(name);
         fs::remove_dir_all(&base_dir).ok();
-        CircuitVerificationKeyProvider::new(
-            base_dir,
+        let provider = CircuitVerificationKeyProvider::new(
+            base_dir.clone(),
             "test-circuit",
-            expected_vk_bytes,
-            CountingGenerator::new(expected_vk_bytes, b"pk"),
-        )
+            expected_verification_key,
+            CountingGenerator::new(verification_key, proving_key),
+        );
+        (base_dir, provider)
     }
 
     #[test]
     fn cold_miss_generates_stores_and_returns_the_pair() {
-        let base_dir = env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "counting",
-            b"vk",
-            CountingGenerator::new(b"vk", b"pk"),
-        );
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
 
         let (verification_key, proving_key) = provider.key_pair(&negligible_srs()).unwrap();
 
@@ -362,14 +342,7 @@ mod tests {
 
     #[test]
     fn warm_hit_reads_from_cache_without_regenerating() {
-        let base_dir = env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "counting",
-            b"vk",
-            CountingGenerator::new(b"vk", b"pk"),
-        );
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
 
         provider.key_pair(&negligible_srs()).unwrap();
         let (verification_key, proving_key) = provider.key_pair(&negligible_srs()).unwrap();
@@ -385,17 +358,43 @@ mod tests {
     }
 
     #[test]
-    fn empty_golden_trusts_the_cached_key() {
-        let base_dir = env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        // With no expected bytes there is nothing to compare against, so a present cached key is
-        // trusted rather than treated as stale and recomputed.
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "counting",
-            &[],
-            CountingGenerator::new(b"vk", b"pk"),
+    fn verification_key_hits_cache_without_recomputing() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+
+        provider.key_pair(&negligible_srs()).unwrap();
+        let verification_key = provider.verification_key(&negligible_srs()).unwrap();
+
+        assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
+        assert_eq!(
+            provider.circuit().calls.get(),
+            1,
+            "a warm cache must be reused"
         );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn verification_key_recomputes_when_the_proving_key_is_missing() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+        // A present verifying key with no proving key is not a usable cache hit: a hit requires the
+        // complete pair, so verification_key recomputes rather than returning the lone verifying key.
+        fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(provider.verification_key_path(), b"vk").unwrap();
+
+        let verification_key = provider.verification_key(&negligible_srs()).unwrap();
+
+        assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
+        assert_eq!(
+            provider.circuit().calls.get(),
+            1,
+            "a verifying key with no proving key must recompute the pair"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn no_expected_key_trusts_the_cached_key() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"", b"vk", b"pk");
 
         provider.key_pair(&negligible_srs()).unwrap();
         provider.key_pair(&negligible_srs()).unwrap();
@@ -403,25 +402,16 @@ mod tests {
         assert_eq!(
             provider.circuit().calls.get(),
             1,
-            "with empty golden bytes a warm cache must be trusted, not recomputed"
+            "with empty expected bytes a warm cache must be trusted, not recomputed"
         );
         fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn missing_verifying_key_recomputes_the_pair() {
-        let base_dir = env::temp_dir().join(current_function!());
-        fs::remove_dir_all(&base_dir).ok();
-        let provider = CircuitVerificationKeyProvider::new(
-            base_dir.clone(),
-            "counting",
-            b"vk",
-            CountingGenerator::new(b"vk", b"pk"),
-        );
+    fn orphan_proving_key_recomputes_the_pair() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
         provider.key_pair(&negligible_srs()).unwrap();
 
-        // Removing the verifying key leaves an orphan proving key; the next read must recompute
-        // rather than trust the orphan.
         fs::remove_file(provider.verification_key_path()).unwrap();
         provider.key_pair(&negligible_srs()).unwrap();
 
@@ -434,62 +424,89 @@ mod tests {
     }
 
     #[test]
-    fn get_verification_key_clears_stale_files_and_returns_none() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
-        let vk_path = provider.verification_key_path().to_path_buf();
-        let pk_path = provider.proving_key_path().to_path_buf();
-        fs::create_dir_all(vk_path.parent().unwrap()).unwrap();
-        fs::write(&vk_path, b"stale-bytes").unwrap();
-        fs::write(&pk_path, b"stale-pk").unwrap();
-
-        let result: Option<MidnightVK> = provider.get_verification_key().unwrap();
-        assert!(result.is_none(), "a stale cache must be a miss");
-        assert!(!vk_path.exists(), "stale VK should be removed");
-        assert!(!pk_path.exists(), "stale PK should be removed");
-        fs::remove_dir_all(vk_path.parent().unwrap()).ok();
-    }
-
-    #[test]
-    fn get_verification_key_surfaces_deserialization_error() {
-        // The on-disk VK matches the expected bytes (fresh) but is not a valid serialized key, so
-        // the deserialization error is surfaced rather than masked as a miss.
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
+    fn stale_verification_key_is_recomputed() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
         fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(provider.verification_key_path(), b"expected-vk-bytes").unwrap();
+        fs::write(provider.verification_key_path(), b"stale-vk").unwrap();
+        fs::write(provider.proving_key_path(), b"stale-pk").unwrap();
 
-        let result: StmResult<Option<MidnightVK>> = provider.get_verification_key();
-        assert!(
-            result.is_err(),
-            "corrupt but fresh verifying key bytes must surface a deserialization error"
+        let (verification_key, proving_key) = provider.key_pair(&negligible_srs()).unwrap();
+
+        assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
+        assert_eq!(proving_key, ByteKey(b"pk".to_vec()));
+        assert_eq!(
+            provider.circuit().calls.get(),
+            1,
+            "a stale cache must be recomputed once"
         );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn store_key_pair_writes_both_files() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
-        provider
-            .store_key_pair(b"expected-vk-bytes", b"some-pk-bytes")
-            .unwrap();
+    fn cache_state_is_valid_for_a_fresh_full_cache() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+        fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(provider.verification_key_path(), b"vk").unwrap();
+        fs::write(provider.proving_key_path(), b"pk").unwrap();
+
+        let state = provider.cache_state().unwrap();
+
+        assert!(matches!(
+            state,
+            CacheState::Valid { verification_key, proving_key }
+                if verification_key == b"vk" && proving_key == b"pk"
+        ));
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn cache_state_reports_empty_for_a_stale_verification_key() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+        fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
+        fs::write(provider.verification_key_path(), b"stale-vk").unwrap();
+        fs::write(provider.proving_key_path(), b"stale-pk").unwrap();
+
+        let state = provider.cache_state().unwrap();
+
+        assert!(
+            matches!(state, CacheState::Empty),
+            "a stale cache must be a miss"
+        );
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn cache_state_reports_empty_for_an_orphan_proving_key() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+        fs::create_dir_all(provider.proving_key_path().parent().unwrap()).unwrap();
+        fs::write(provider.proving_key_path(), b"orphan-pk").unwrap();
+
+        let state = provider.cache_state().unwrap();
+
+        assert!(matches!(state, CacheState::Empty));
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn store_persists_both_keys() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+
+        provider.store(b"vk-bytes", b"pk-bytes").unwrap();
+
         assert_eq!(
             fs::read(provider.verification_key_path()).unwrap(),
-            b"expected-vk-bytes"
+            b"vk-bytes"
         );
-        assert_eq!(
-            fs::read(provider.proving_key_path()).unwrap(),
-            b"some-pk-bytes"
-        );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+        assert_eq!(fs::read(provider.proving_key_path()).unwrap(), b"pk-bytes");
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn store_key_pair_leaves_no_verification_key_when_proving_key_store_fails() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
-        // A directory at the proving-key path makes the proving-key rename fail. Because the
-        // verifying key is renamed last (only after the proving key), it is never written.
+    fn store_leaves_no_verification_key_when_proving_key_store_fails() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
         fs::create_dir_all(provider.proving_key_path()).unwrap();
 
-        let result = provider.store_key_pair(b"vk-bytes", b"pk-bytes");
+        let result = provider.store(b"vk-bytes", b"pk-bytes");
 
         assert!(
             result.is_err(),
@@ -499,17 +516,17 @@ mod tests {
             !provider.verification_key_path().exists(),
             "no verification key must be left behind when the proving key store fails"
         );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn store_key_pair_rolls_back_the_proving_key_when_the_verifying_key_store_fails() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
+    fn store_rolls_back_the_proving_key_when_the_verifying_key_store_fails() {
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
         // A directory at the verifying-key path makes its rename fail; the proving key is renamed
         // first (and succeeds), so it must then be rolled back.
         fs::create_dir_all(provider.verification_key_path()).unwrap();
 
-        let result = provider.store_key_pair(b"vk-bytes", b"pk-bytes");
+        let result = provider.store(b"vk-bytes", b"pk-bytes");
 
         assert!(
             result.is_err(),
@@ -519,59 +536,42 @@ mod tests {
             !provider.proving_key_path().exists(),
             "the committed proving key must be rolled back when the verifying key store fails"
         );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
-    fn get_proving_key_returns_none_when_proving_key_absent() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
-        let proving_key: Option<MidnightPK<StmCertificateCircuit>> =
-            provider.get_proving_key().unwrap();
-        assert!(proving_key.is_none());
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
-    }
-
-    #[test]
-    fn get_proving_key_surfaces_deserialization_error() {
-        let provider = make_test_provider(current_function!(), b"expected-vk-bytes");
-        fs::create_dir_all(provider.proving_key_path().parent().unwrap()).unwrap();
-        fs::write(provider.proving_key_path(), b"not-a-valid-proving-key").unwrap();
-
-        let result: StmResult<Option<MidnightPK<StmCertificateCircuit>>> =
-            provider.get_proving_key();
-        assert!(
-            result.is_err(),
-            "corrupt proving key bytes must surface a deserialization error"
-        );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
-    }
-
-    #[test]
-    fn get_verification_key_deserializes_present_production_vk() {
-        // A provider whose expected bytes and on-disk VK are the production certificate VK, so
-        // get_verification_key validates (match) and deserializes a real MidnightVK.
-        let provider = make_test_provider(
-            current_function!(),
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    fn key_pair_surfaces_a_deserialization_error_on_a_fresh_corrupt_cache() {
+        let parameters = Parameters {
+            k: 3,
+            m: 10,
+            phi_f: 0.2,
+        };
+        let circuit = StmCertificateCircuit::try_new(&parameters, 4).unwrap();
+        let base_dir = env::temp_dir().join(current_function!());
+        fs::remove_dir_all(&base_dir).ok();
+        let provider = CircuitVerificationKeyProvider::new(
+            base_dir.clone(),
+            "non-recursive",
+            b"corrupt-vk",
+            circuit,
         );
         fs::create_dir_all(provider.verification_key_path().parent().unwrap()).unwrap();
-        fs::write(
-            provider.verification_key_path(),
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        )
-        .unwrap();
+        fs::write(provider.verification_key_path(), b"corrupt-vk").unwrap();
+        fs::write(provider.proving_key_path(), b"corrupt-pk").unwrap();
 
-        let verifying_key: Option<MidnightVK> = provider.get_verification_key().unwrap();
+        let result = provider.key_pair(&negligible_srs());
+
         assert!(
-            verifying_key.is_some(),
-            "production VK bytes on disk should deserialize as the verifying key"
+            result.is_err(),
+            "a fresh but corrupt verifying key must surface a deserialization error"
         );
-        fs::remove_dir_all(provider.verification_key_path().parent().unwrap()).ok();
+        fs::remove_dir_all(&base_dir).ok();
     }
 
     #[test]
     fn new_roots_cache_paths_under_the_circuit_cache_folder() {
-        let provider = make_test_provider(current_function!(), b"vk");
+        let (base_dir, provider) = counting_provider(current_function!(), b"vk", b"vk", b"pk");
+
         assert!(
             provider
                 .verification_key_path()
@@ -584,5 +584,6 @@ mod tests {
                 .ends_with("mithril-circuit/test-circuit/proving-key"),
             "proving key path must be rooted under the circuit cache folder"
         );
+        fs::remove_dir_all(&base_dir).ok();
     }
 }
