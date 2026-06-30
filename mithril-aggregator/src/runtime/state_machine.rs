@@ -37,14 +37,10 @@ pub enum AggregatorState {
 impl Display for AggregatorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AggregatorState::Idle(state) => write!(
-                f,
-                "Idle - {}",
-                match &state.current_time_point {
-                    None => "No TimePoint".to_string(),
-                    Some(time_point) => time_point.to_string(),
-                }
-            ),
+            AggregatorState::Idle(state) => match &state.current_time_point {
+                None => write!(f, "Idle - No TimePoint"),
+                Some(time_point) => write!(f, "Idle - {time_point}"),
+            },
             AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_time_point),
             AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_time_point),
         }
@@ -247,7 +243,7 @@ impl AggregatorRuntime {
         Ok(())
     }
 
-    /// Perform a transition from `IDLE` state to `READY` state when
+    /// Perform a transition from the ` IDLE ` state to the ` READY ADY` state when
     /// the certificate chain is valid.
     async fn try_transition_from_idle_to_ready(
         &mut self,
@@ -256,8 +252,7 @@ impl AggregatorRuntime {
     ) -> Result<(), RuntimeError> {
         trace!(self.logger, "Trying transition from IDLE to READY state");
 
-        if maybe_current_time_point.is_none()
-            || maybe_current_time_point.as_ref().unwrap().epoch < new_time_point.epoch
+        if maybe_current_time_point.is_none_or(|time_point| time_point.epoch < new_time_point.epoch)
         {
             self.runner.close_signer_registration_round().await?;
             self.runner
@@ -295,8 +290,8 @@ impl AggregatorRuntime {
         Ok(())
     }
 
-    /// Perform a transition from `SIGNING` state to `READY` state when a new
-    /// multi-signature is issued.
+    /// Perform a transition from the ` SIGNING ` state to the ` READY ` state when
+    /// a new multi-signature is issued.
     async fn transition_from_signing_to_ready_multisignature(
         &self,
         state: SigningState,
@@ -327,8 +322,8 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Perform a transition from `SIGNING` state to `IDLE` state when a new
-    /// epoch is detected.
+    /// Perform a transition from the ` SIGNING ` state to the ` IDLE ` state when
+    /// a new epoch is detected.
     async fn transition_from_signing_to_idle(
         &self,
         state: SigningState,
@@ -343,8 +338,8 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Perform a transition from `SIGNING` state to `READY` state when a new
-    /// open message is detected.
+    /// Perform a transition from the ` SIGNING ` state to the ` READY ` state when
+    /// a new open message is detected.
     async fn transition_from_signing_to_ready_new_open_message(
         &self,
         state: SigningState,
@@ -359,10 +354,10 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Perform a transition from `READY` state to `SIGNING` state when a new
-    /// open message is opened.
+    /// Perform a transition from the ` READY ` state to the ` SIGNING ` state when
+    /// a new open message is opened.
     async fn transition_from_ready_to_signing(
-        &mut self,
+        &self,
         new_time_point: TimePoint,
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
