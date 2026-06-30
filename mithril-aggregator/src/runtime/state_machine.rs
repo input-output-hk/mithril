@@ -133,114 +133,123 @@ impl AggregatorRuntime {
 
         self.runner.increment_runtime_cycle_total_since_startup_counter();
 
-        match &self.state {
-            AggregatorState::Idle(state) => {
-                let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
-                    || "AggregatorRuntime in the state IDLE can not get current time point from chain",
-                )?;
+        let next_state = match &self.state {
+            AggregatorState::Idle(state) => self.cycle_idle(state).await?,
+            AggregatorState::Ready(state) => self.cycle_ready(state).await?,
+            AggregatorState::Signing(state) => self.cycle_signing(state).await?,
+        };
 
-                info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
-
-                let can_try_transition_from_idle_to_ready = if self.config.is_follower {
-                    self.runner
-                        .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
-                        .await?
-                } else {
-                    true
-                };
-                if can_try_transition_from_idle_to_ready {
-                    self.try_transition_from_idle_to_ready(
-                        state.current_time_point.as_ref(),
-                        &last_time_point,
-                    )
-                    .await?;
-                    self.state = AggregatorState::Ready(ReadyState {
-                        current_time_point: last_time_point,
-                    });
-                }
-            }
-            AggregatorState::Ready(state) => {
-                let last_time_point: TimePoint = self
-                    .runner
-                    .get_time_point_from_chain()
-                    .await
-                    .with_context(|| {
-                        "AggregatorRuntime in the state READY can not get current time point from chain"
-                    })?;
-
-                if state.current_time_point.epoch < last_time_point.epoch {
-                    // transition READY > IDLE
-                    info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
-                    self.state = AggregatorState::Idle(IdleState {
-                        current_time_point: Some(state.current_time_point.clone()),
-                    });
-                } else if let Some(open_message) = self
-                    .runner
-                    .get_current_non_certified_open_message(&last_time_point)
-                    .await
-                    .with_context(|| "AggregatorRuntime can not get the current open message")?
-                {
-                    // transition READY > SIGNING
-                    info!(self.logger, "→ Transitioning to SIGNING");
-                    let new_state = self
-                        .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
-                        .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
-                    self.state = AggregatorState::Signing(new_state);
-                } else {
-                    // READY > READY
-                    info!(
-                        self.logger, " ⋅ No open message to certify, waiting…";
-                        "time_point" => ?state.current_time_point
-                    );
-                    self.state = AggregatorState::Ready(ReadyState {
-                        current_time_point: last_time_point,
-                    });
-                }
-            }
-            AggregatorState::Signing(state) => {
-                let last_time_point: TimePoint =
-                    self.runner.get_time_point_from_chain().await.with_context(|| {
-                        "AggregatorRuntime in the state SIGNING can not get current time point from chain"
-                    })?;
-
-                let is_outdated = self
-                    .runner
-                    .is_open_message_outdated(
-                        state.open_message.signed_entity_type.clone(),
-                        &last_time_point,
-                    )
-                    .await?;
-
-                if state.current_time_point.epoch < last_time_point.epoch {
-                    // SIGNING > IDLE
-                    info!(self.logger, "→ Epoch changed, transitioning to IDLE");
-                    let new_state = self.transition_from_signing_to_idle(state).await?;
-                    self.state = AggregatorState::Idle(new_state);
-                } else if is_outdated {
-                    // SIGNING > READY
-                    info!(
-                        self.logger,
-                        "→ Open message changed, transitioning to READY"
-                    );
-                    let new_state =
-                        self.transition_from_signing_to_ready_new_open_message(state).await?;
-                    self.state = AggregatorState::Ready(new_state);
-                } else {
-                    // SIGNING > READY
-                    let new_state =
-                        self.transition_from_signing_to_ready_multisignature(state).await?;
-                    info!(
-                        self.logger,
-                        "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY"
-                    );
-                    self.state = AggregatorState::Ready(new_state);
-                }
-            }
-        }
-
+        self.state = next_state;
         self.runner.increment_runtime_cycle_success_since_startup_counter();
 
         Ok(())
+    }
+
+    async fn cycle_idle(&self, state: &IdleState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
+            || "AggregatorRuntime in the state IDLE can not get current time point from chain",
+        )?;
+
+        info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
+
+        let can_try_transition_from_idle_to_ready = if self.config.is_follower {
+            self.runner
+                .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
+                .await?
+        } else {
+            true
+        };
+
+        if can_try_transition_from_idle_to_ready {
+            self.try_transition_from_idle_to_ready(
+                state.current_time_point.as_ref(),
+                &last_time_point,
+            )
+            .await?;
+
+            Ok(AggregatorState::Ready(ReadyState {
+                current_time_point: last_time_point,
+            }))
+        } else {
+            Ok(AggregatorState::Idle(state.clone()))
+        }
+    }
+
+    async fn cycle_ready(&self, state: &ReadyState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(
+                || "AggregatorRuntime in the state READY can not get current time point from chain",
+            )?;
+
+        if state.current_time_point.epoch < last_time_point.epoch {
+            // transition READY > IDLE
+            info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
+
+            Ok(AggregatorState::Idle(IdleState {
+                current_time_point: Some(state.current_time_point.clone()),
+            }))
+        } else if let Some(open_message) = self
+            .runner
+            .get_current_non_certified_open_message(&last_time_point)
+            .await
+            .with_context(|| "AggregatorRuntime can not get the current open message")?
+        {
+            // transition READY > SIGNING
+            info!(self.logger, "→ Transitioning to SIGNING");
+            let new_state = self
+                .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
+                .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
+
+            Ok(AggregatorState::Signing(new_state))
+        } else {
+            // READY > READY
+            info!(
+                self.logger, " ⋅ No open message to certify, waiting…";
+                "time_point" => ?state.current_time_point
+            );
+
+            Ok(AggregatorState::Ready(ReadyState {
+                current_time_point: last_time_point,
+            }))
+        }
+    }
+
+    async fn cycle_signing(&self, state: &SigningState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(|| {
+                "AggregatorRuntime in the state SIGNING can not get current time point from chain"
+            })?;
+
+        let is_outdated = self
+            .runner
+            .is_open_message_outdated(
+                state.open_message.signed_entity_type.clone(),
+                &last_time_point,
+            )
+            .await?;
+
+        if state.current_time_point.epoch < last_time_point.epoch {
+            // SIGNING > IDLE
+            info!(self.logger, "→ Epoch changed, transitioning to IDLE");
+            let new_state = self.transition_from_signing_to_idle(state).await?;
+            Ok(AggregatorState::Idle(new_state))
+        } else if is_outdated {
+            // SIGNING > READY
+            info!(
+                self.logger,
+                "→ Open message changed, transitioning to READY"
+            );
+            let new_state = self.transition_from_signing_to_ready_new_open_message(state).await?;
+            Ok(AggregatorState::Ready(new_state))
+        } else {
+            // SIGNING > READY
+            let new_state = self.transition_from_signing_to_ready_multisignature(state).await?;
+            info!(
+                self.logger,
+                "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY"
+            );
+            Ok(AggregatorState::Ready(new_state))
+        }
     }
 
     /// Perform a transition from the ` IDLE ` state to the ` READY ADY` state when
