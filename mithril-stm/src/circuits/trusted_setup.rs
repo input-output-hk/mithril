@@ -196,31 +196,30 @@ impl Default for TrustedSetupProvider {
 #[cfg(test)]
 pub(crate) const UNSAFE_SRS_SEED: u64 = 42;
 
-/// Builds a `TrustedSetupProvider` backed by a freshly generated unsafe SRS of
-/// degree `k`, written to `base_dir/srs/srs-parameters` with a matching SHA256
-/// hash so the provider's hash check passes. For tests only.
 #[cfg(test)]
-pub(crate) fn build_provider_with_unsafe_srs(
-    base_dir: &std::path::Path,
-    k: u32,
-) -> TrustedSetupProvider {
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-    use std::fs::{File, create_dir_all};
+impl TrustedSetupProvider {
+    /// Builds a `TrustedSetupProvider` backed by a freshly generated unsafe SRS of degree `k`, written
+    /// to `base_dir/srs/srs-parameters` with a matching SHA256 hash so the provider's hash check passes.
+    /// For tests only.
+    pub(crate) fn with_unsafe_srs(base_dir: &std::path::Path, k: u32) -> Self {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+        use std::fs::{File, create_dir_all};
 
-    let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(UNSAFE_SRS_SEED));
-    let mut srs_bytes = Vec::new();
-    srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
+        let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(UNSAFE_SRS_SEED));
+        let mut srs_bytes = Vec::new();
+        srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
 
-    let srs_dir = base_dir.join(MITHRIL_CIRCUIT_SRS_FOLDER);
-    create_dir_all(&srs_dir).unwrap();
-    File::create(srs_dir.join(MITHRIL_CIRCUIT_SRS_FILENAME))
-        .unwrap()
-        .write_all(&srs_bytes)
-        .unwrap();
+        let srs_dir = base_dir.join(MITHRIL_CIRCUIT_SRS_FOLDER);
+        create_dir_all(&srs_dir).unwrap();
+        File::create(srs_dir.join(MITHRIL_CIRCUIT_SRS_FILENAME))
+            .unwrap()
+            .write_all(&srs_bytes)
+            .unwrap();
 
-    let expected_hash = hex::encode(Sha256::digest(&srs_bytes));
-    TrustedSetupProvider::new(base_dir, expected_hash, "", Duration::from_secs(600))
+        let expected_hash = hex::encode(Sha256::digest(&srs_bytes));
+        Self::new(base_dir, expected_hash, "", Duration::from_secs(600))
+    }
 }
 
 #[cfg(test)]

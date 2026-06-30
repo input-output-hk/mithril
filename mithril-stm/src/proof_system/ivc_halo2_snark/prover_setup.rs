@@ -152,7 +152,7 @@ pub(crate) fn build_unsafe_ivc_setup(
         halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
-        trusted_setup::{UNSAFE_SRS_SEED, build_provider_with_unsafe_srs},
+        trusted_setup::UNSAFE_SRS_SEED,
     };
 
     let parameters_bytes = parameters.to_bytes()?;
@@ -174,7 +174,7 @@ pub(crate) fn build_unsafe_ivc_setup(
     let _key_cache_lock = FileMutex::new(cache_directory.join(".lock")).lock()?;
 
     let trusted_setup_provider =
-        build_provider_with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
+        TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
     let certificate_provider = KeyProvider::new(
         cache_directory.join("certificate"),
         "non-recursive",
