@@ -6,6 +6,13 @@ use midnight_circuits::verifier::{Accumulator, BlstrsEmulation};
 use midnight_curves::{Bls12, G1Projective};
 use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsKZG};
 
+#[cfg(test)]
+use crate::circuits::{
+    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
+    trusted_setup::UNSAFE_SRS_SEED,
+};
 use crate::{
     StmResult,
     circuits::{
@@ -148,13 +155,6 @@ pub(crate) fn build_unsafe_ivc_setup(
     parameters: crate::Parameters,
     merkle_tree_depth: u32,
 ) -> StmResult<IvcSnarkProverSetup> {
-    use crate::circuits::{
-        halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
-        trusted_setup::UNSAFE_SRS_SEED,
-    };
-
     let parameters_bytes = parameters.to_bytes()?;
     let depth_bytes = merkle_tree_depth.to_le_bytes();
     let degree_bytes = (RECURSIVE_CIRCUIT_DEGREE + 1).to_le_bytes();

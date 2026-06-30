@@ -10,6 +10,13 @@ use midnight_proofs::{
 };
 use midnight_zk_stdlib as zk;
 
+#[cfg(test)]
+use crate::circuits::{
+    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
+    test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
+    trusted_setup::UNSAFE_SRS_SEED,
+};
 use crate::{
     Parameters, StmResult,
     circuits::{
@@ -81,13 +88,6 @@ pub(crate) fn build_unsafe_certificate_setup(
     parameters: &Parameters,
     merkle_tree_depth: u32,
 ) -> StmResult<SnarkProverSetup> {
-    use crate::circuits::{
-        halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
-        test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
-        trusted_setup::UNSAFE_SRS_SEED,
-    };
-
     let parameters_bytes = parameters.to_bytes()?;
     let depth_bytes = merkle_tree_depth.to_le_bytes();
     let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();

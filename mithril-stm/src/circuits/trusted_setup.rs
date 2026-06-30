@@ -11,6 +11,8 @@ use midnight_proofs::{poly::kzg::params::ParamsKZG, utils::SerdeFormat};
 use sha2::{Digest, Sha256};
 
 use crate::{StmResult, circuits::MITHRIL_CIRCUIT_CACHE_FOLDER};
+#[cfg(test)]
+use {rand_chacha::ChaCha20Rng, rand_core::SeedableRng, std::fs::create_dir_all};
 
 /// Constant storing the hash of the SRS of degree 22 used to create proof in production.
 /// This SRS is coming from the trusted setup done by Midnight and available in the following
@@ -202,10 +204,6 @@ impl TrustedSetupProvider {
     /// to `base_dir/srs/srs-parameters` with a matching SHA256 hash so the provider's hash check passes.
     /// For tests only.
     pub(crate) fn with_unsafe_srs(base_dir: &std::path::Path, k: u32) -> Self {
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
-        use std::fs::{File, create_dir_all};
-
         let srs = ParamsKZG::<Bls12>::unsafe_setup(k, ChaCha20Rng::seed_from_u64(UNSAFE_SRS_SEED));
         let mut srs_bytes = Vec::new();
         srs.write_custom(&mut srs_bytes, SerdeFormat::RawBytes).unwrap();
