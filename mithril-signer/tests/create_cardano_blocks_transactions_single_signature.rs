@@ -19,7 +19,7 @@ use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
-async fn test_create_cardano_blocks_transactions_single_signature() {
+async fn can_create_cardano_blocks_transactions_single_signature() {
     let protocol_parameters = fake_data::protocol_parameters();
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(10)
