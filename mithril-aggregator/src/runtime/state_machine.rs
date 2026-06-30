@@ -133,7 +133,7 @@ impl AggregatorRuntime {
 
         self.runner.increment_runtime_cycle_total_since_startup_counter();
 
-        match self.state.clone() {
+        match &self.state {
             AggregatorState::Idle(state) => {
                 let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
                     || "AggregatorRuntime in the state IDLE can not get current time point from chain",
@@ -150,8 +150,8 @@ impl AggregatorRuntime {
                 };
                 if can_try_transition_from_idle_to_ready {
                     self.try_transition_from_idle_to_ready(
-                        state.current_time_point,
-                        last_time_point.clone(),
+                        state.current_time_point.as_ref(),
+                        &last_time_point,
                     )
                     .await?;
                     self.state = AggregatorState::Ready(ReadyState {
@@ -172,7 +172,7 @@ impl AggregatorRuntime {
                     // transition READY > IDLE
                     info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
                     self.state = AggregatorState::Idle(IdleState {
-                        current_time_point: Some(state.current_time_point),
+                        current_time_point: Some(state.current_time_point.clone()),
                     });
                 } else if let Some(open_message) = self
                     .runner
@@ -246,9 +246,9 @@ impl AggregatorRuntime {
     /// Perform a transition from the ` IDLE ` state to the ` READY ADY` state when
     /// the certificate chain is valid.
     async fn try_transition_from_idle_to_ready(
-        &mut self,
-        maybe_current_time_point: Option<TimePoint>,
-        new_time_point: TimePoint,
+        &self,
+        maybe_current_time_point: Option<&TimePoint>,
+        new_time_point: &TimePoint,
     ) -> Result<(), RuntimeError> {
         trace!(self.logger, "Trying transition from IDLE to READY state");
 
@@ -259,10 +259,10 @@ impl AggregatorRuntime {
                 .update_era_checker(new_time_point.epoch)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.update_stake_distribution(&new_time_point).await?;
+            self.runner.update_stake_distribution(new_time_point).await?;
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner.upkeep(new_time_point.epoch).await?;
-            self.runner.open_signer_registration_round(&new_time_point).await?;
+            self.runner.open_signer_registration_round(new_time_point).await?;
             if self.config.is_follower {
                 self.runner
                     .synchronize_follower_aggregator_signer_registration()
@@ -273,7 +273,7 @@ impl AggregatorRuntime {
 
         let chain_validity_result = self
             .runner
-            .is_certificate_chain_valid(&new_time_point)
+            .is_certificate_chain_valid(new_time_point)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "certificate chain is invalid".to_string(),
@@ -294,7 +294,7 @@ impl AggregatorRuntime {
     /// a new multi-signature is issued.
     async fn transition_from_signing_to_ready_multisignature(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
@@ -318,7 +318,7 @@ impl AggregatorRuntime {
             })?;
 
         Ok(ReadyState {
-            current_time_point: state.current_time_point,
+            current_time_point: state.current_time_point.clone(),
         })
     }
 
@@ -326,7 +326,7 @@ impl AggregatorRuntime {
     /// a new epoch is detected.
     async fn transition_from_signing_to_idle(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!(
             self.logger,
@@ -334,7 +334,7 @@ impl AggregatorRuntime {
         );
 
         Ok(IdleState {
-            current_time_point: Some(state.current_time_point),
+            current_time_point: Some(state.current_time_point.clone()),
         })
     }
 
@@ -342,7 +342,7 @@ impl AggregatorRuntime {
     /// a new open message is detected.
     async fn transition_from_signing_to_ready_new_open_message(
         &self,
-        state: SigningState,
+        state: &SigningState,
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
@@ -350,7 +350,7 @@ impl AggregatorRuntime {
         );
 
         Ok(ReadyState {
-            current_time_point: state.current_time_point,
+            current_time_point: state.current_time_point.clone(),
         })
     }
 
