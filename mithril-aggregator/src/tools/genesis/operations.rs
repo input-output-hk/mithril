@@ -204,23 +204,20 @@ impl GenesisTools {
 
     /// Automatic bootstrap of the genesis certificate (test only).
     ///
-    /// Pythagoras runs a single Ed25519 ceremony; Lagrange runs the dual ceremony with the SNARK
-    /// signer attached to the producer.
+    /// Pythagoras runs a single Ed25519 ceremony; Lagrange runs the dual ceremony and requires a
+    /// dual signing key, erroring on a legacy single-Ed25519 key.
     pub async fn bootstrap_test_genesis_certificate(
         &self,
         genesis_signer: GenesisSigner,
     ) -> StdResult<()> {
         #[cfg(feature = "future_snark")]
-        let genesis_signer = if matches!(self.configuration.mithril_era, SupportedEra::Lagrange)
+        if matches!(self.configuration.mithril_era, SupportedEra::Lagrange)
             && genesis_signer.schnorr.is_none()
         {
-            GenesisSigner {
-                ed25519: genesis_signer.ed25519,
-                schnorr: Some(GenesisSchnorrSigner::create_non_deterministic_signer()),
-            }
-        } else {
-            genesis_signer
-        };
+            return Err(anyhow::anyhow!(
+                "Lagrange genesis bootstrap requires a dual signing key (Ed25519 + Schnorr), but the provided `GENESIS_SECRET_KEY` is a legacy single-Ed25519 key; generate a dual keypair with `mithril-aggregator genesis generate-keypair --mithril-era lagrange`"
+            ));
+        }
         let ed25519_verification_key = genesis_signer.ed25519.verification_key();
         #[cfg(feature = "future_snark")]
         let schnorr_verification_key =
@@ -705,7 +702,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn lagrange_auto_augments_a_legacy_signer_with_a_fresh_schnorr_signer() {
+        async fn lagrange_rejects_a_legacy_signer() {
             let ed25519_signer = GenesisEd25519Signer::create_deterministic_signer();
             let (genesis_tools, certificate_store, _, _) =
                 build_tools_for_era(&ed25519_signer, SupportedEra::Lagrange);
@@ -713,13 +710,11 @@ mod tests {
             genesis_tools
                 .bootstrap_test_genesis_certificate(GenesisSigner::from_ed25519(ed25519_signer))
                 .await
-                .expect(
-                    "Lagrange bootstrap must auto-augment a legacy signer for test convenience",
-                );
+                .expect_err("Lagrange bootstrap must reject a legacy single-Ed25519 signer");
 
             let last: Vec<Certificate> =
                 certificate_store.get_latest_certificates(10).await.unwrap();
-            assert_eq!(1, last.len());
+            assert!(last.is_empty());
         }
     }
 
