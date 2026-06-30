@@ -12,7 +12,7 @@ use midnight_proofs::{poly::kzg::params::ParamsVerifierKZG, utils::SerdeFormat};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    SchnorrVerificationKey, StmResult,
+    StmResult,
     circuits::{
         halo2::keys::NonRecursiveCircuitVerifyingKey,
         halo2_ivc::{
@@ -173,26 +173,23 @@ impl IvcVerifierSetup {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IvcVerifierData {
     genesis_message: MessageHash,
-    genesis_schnorr_verification_key: SchnorrVerificationKey,
     certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
     ivc_circuit_verification_key: RecursiveCircuitVerifyingKey,
 }
 
 impl IvcVerifierData {
-    /// Build the verifier data from the genesis message, the genesis Schnorr verification key and
-    /// the certificate and IVC circuit verifying keys used to produce the proof.
+    /// Build the verifier data from the genesis message and the certificate and IVC circuit
+    /// verifying keys used to produce the proof.
     ///
     /// The verifying keys are the per-circuit newtypes so their serialization preserves the circuit
     /// architecture needed to deserialize them against the correct constraint system.
     pub(crate) fn new(
         genesis_message: MessageHash,
-        genesis_schnorr_verification_key: SchnorrVerificationKey,
         certificate_circuit_verification_key: NonRecursiveCircuitVerifyingKey,
         ivc_circuit_verification_key: RecursiveCircuitVerifyingKey,
     ) -> Self {
         Self {
             genesis_message,
-            genesis_schnorr_verification_key,
             certificate_circuit_verification_key,
             ivc_circuit_verification_key,
         }
@@ -218,11 +215,6 @@ impl IvcVerifierData {
     /// stored in the IvcVerifierData
     pub(crate) fn genesis_message(&self) -> MessageHash {
         self.genesis_message
-    }
-
-    /// Returns the genesis schnorr verification key stored in the IvcVerifierData
-    pub(crate) fn genesis_schnorr_verification_key(&self) -> SchnorrVerificationKey {
-        self.genesis_schnorr_verification_key
     }
 
     /// Returns the certificate circuit verifying key stored in the IvcVerifierData
@@ -251,7 +243,6 @@ mod tests {
 
         let verifier_data = IvcVerifierData::new(
             MessageHash::ZERO,
-            SchnorrVerificationKey::default(),
             context.certificate_verifying_key,
             context.recursive_verifying_key,
         );
@@ -279,7 +270,6 @@ mod tests {
         use serde::{Deserialize, Serialize};
 
         use super::super::IvcVerifierData;
-        use crate::SchnorrVerificationKey;
         use crate::circuits::halo2::types::CircuitBase;
         use crate::circuits::halo2_ivc::circuit::IvcCircuitData;
         use crate::circuits::halo2_ivc::tests::common::asset_readers::load_embedded_verification_context_asset;
@@ -339,7 +329,6 @@ mod tests {
         #[derive(Serialize, Deserialize)]
         struct BareKeyIvcVerifierData {
             genesis_message: MessageHash,
-            genesis_schnorr_verification_key: SchnorrVerificationKey,
             #[serde(with = "certificate_verifying_key_serde")]
             certificate_circuit_verification_key: MidnightVK,
             #[serde(with = "ivc_verifying_key_serde")]
@@ -352,7 +341,6 @@ mod tests {
                 .expect("verification context asset should load");
             let old = BareKeyIvcVerifierData {
                 genesis_message: MessageHash::ZERO,
-                genesis_schnorr_verification_key: SchnorrVerificationKey::default(),
                 certificate_circuit_verification_key: context
                     .certificate_verifying_key
                     .midnight_vk()
