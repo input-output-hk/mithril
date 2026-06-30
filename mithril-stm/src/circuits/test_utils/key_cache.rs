@@ -1,25 +1,20 @@
-//! Shared, content-keyed key cache for the slow tests.
+//! Content-keyed directory for the shared on-disk key cache used by the slow tests.
 //!
-//! Keygen dominates the slow tier: each test that builds a prover or verifier pays it. This helper
-//! lets the whole suite share one on-disk cache under the Cargo target directory, keyed by the
-//! inputs that determine the keys. The first test to need a given configuration pays keygen; every
-//! later test (and every later run) reuses the cached keys.
+//! Keygen dominates the slow tier: each test that builds a prover or verifier pays it. This maps a
+//! key-derivation fingerprint to a stable directory under the Cargo target directory, so the first
+//! test to need a given configuration computes the keys there and every later test (and run) reuses
+//! them.
 //!
 //! Two properties make this safe alongside the empty-golden cache skip:
 //! - The directory is keyed by the key-derivation inputs, so distinct configurations (for example
 //!   forged protocol parameters) resolve to distinct directories and never reuse one another's keys.
-//! - An exclusive lock per directory serializes cold-start keygen across parallel test processes, so
-//!   a given key pair is computed once rather than races between processes.
+//! - Callers serialize cold-start keygen across the parallel test processes by holding a `FileMutex`
+//!   (`super::file_mutex`) on the directory's `.lock` file, so a given key pair is computed once
+//!   rather than raced between processes.
 
-use std::{
-    fs::{self, File},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use blake2b_simd::Params as Blake2bParams;
-use fs2::FileExt;
-
-use crate::StmResult;
 
 /// Bumped whenever the cache layout or the key-derivation inputs change, so a cache written by an
 /// earlier scheme is never reused.
@@ -52,23 +47,6 @@ pub(crate) fn shared_cache_directory(label: &str, fingerprint: &[&[u8]]) -> Path
         hasher.update(input);
     }
     shared_cache_root().join(format!("{label}-{}", hasher.finalize().to_hex()))
-}
-
-/// Runs `derive` under an exclusive lock on the content-keyed directory for `(label, fingerprint)`,
-/// passing that directory so the closure can root a `KeyProvider` there and run
-/// the actual key derivation under the lock.
-pub(crate) fn with_shared_key_cache<T>(
-    label: &str,
-    fingerprint: &[&[u8]],
-    derive: impl FnOnce(&Path) -> StmResult<T>,
-) -> StmResult<T> {
-    let cache_directory = shared_cache_directory(label, fingerprint);
-    fs::create_dir_all(&cache_directory)?;
-    let lock = File::create(cache_directory.join(".lock"))?;
-    lock.lock_exclusive()?;
-    let result = derive(&cache_directory);
-    let _ = FileExt::unlock(&lock);
-    result
 }
 
 #[cfg(test)]

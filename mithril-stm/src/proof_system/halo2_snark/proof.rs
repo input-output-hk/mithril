@@ -28,8 +28,10 @@ use crate::{
 
 #[cfg(test)]
 use crate::circuits::{
-    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, key_provider::KeyProvider,
-    test_utils::key_cache::with_shared_key_cache, trusted_setup::UNSAFE_SRS_SEED,
+    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    key_provider::KeyProvider,
+    test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
+    trusted_setup::UNSAFE_SRS_SEED,
 };
 
 use super::{SnarkClerk, SnarkProverSetup};
@@ -88,7 +90,7 @@ impl<D: MembershipDigest> SnarkProof<D> {
         let parameters_bytes = params.to_bytes()?;
         let depth_bytes = merkle_tree_depth.to_le_bytes();
         let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
-        let snark_setup = with_shared_key_cache(
+        let cache_directory = shared_cache_directory(
             "non-recursive",
             &[
                 NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -96,13 +98,11 @@ impl<D: MembershipDigest> SnarkProof<D> {
                 &depth_bytes,
                 &seed_bytes,
             ],
-            |cache_directory| {
-                let circuit = StmCertificateCircuit::try_new(&params, merkle_tree_depth)?;
-                let provider =
-                    KeyProvider::new(cache_directory.to_path_buf(), "non-recursive", &[], circuit);
-                SnarkProverSetup::try_new_with_srs(srs, &provider)
-            },
-        )?;
+        );
+        let _key_cache_lock = FileMutex::new(cache_directory.join(".lock")).lock()?;
+        let circuit = StmCertificateCircuit::try_new(&params, merkle_tree_depth)?;
+        let provider = KeyProvider::new(cache_directory, "non-recursive", &[], circuit);
+        let snark_setup = SnarkProverSetup::try_new_with_srs(srs, &provider)?;
         Ok(Self {
             circuit_proof,
             circuit_verification_key: snark_setup.verification_key,
@@ -367,7 +367,7 @@ mod tests {
             },
             halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
             key_provider::KeyProvider,
-            test_utils::key_cache::with_shared_key_cache,
+            test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
             trusted_setup::{UNSAFE_SRS_SEED, build_provider_with_unsafe_srs},
         },
         proof_system::{
@@ -423,7 +423,7 @@ mod tests {
         // The certificate key depends on the circuit and the unsafe seed, not on the SRS degree (the
         // generator downsizes to the circuit's own degree), so the fingerprint omits the degree and
         // this prover shares its key with `try_new_with_srs` for the same parameters.
-        let snark_setup = with_shared_key_cache(
+        let cache_directory = shared_cache_directory(
             "non-recursive",
             &[
                 NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -431,16 +431,14 @@ mod tests {
                 &depth_bytes,
                 &seed_bytes,
             ],
-            |cache_directory| {
-                let srs = build_provider_with_unsafe_srs(cache_directory, RECURSIVE_CIRCUIT_DEGREE)
-                    .get_trusted_setup_parameters()?;
-                let circuit = StmCertificateCircuit::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK)?;
-                let provider =
-                    KeyProvider::new(cache_directory.to_path_buf(), "non-recursive", &[], circuit);
-                SnarkProverSetup::try_new_with_srs(srs, &provider)
-            },
-        )
-        .unwrap();
+        );
+        let _key_cache_lock = FileMutex::new(cache_directory.join(".lock")).lock().unwrap();
+        let srs = build_provider_with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE)
+            .get_trusted_setup_parameters()
+            .unwrap();
+        let circuit = StmCertificateCircuit::try_new(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+        let provider = KeyProvider::new(cache_directory, "non-recursive", &[], circuit);
+        let snark_setup = SnarkProverSetup::try_new_with_srs(srs, &provider).unwrap();
 
         SnarkProver::try_new_deterministic(seed, snark_setup).unwrap()
     }

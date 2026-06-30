@@ -151,7 +151,7 @@ pub(crate) fn build_unsafe_ivc_setup(
     use crate::circuits::{
         halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
         halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-        test_utils::key_cache::with_shared_key_cache,
+        test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
         trusted_setup::{UNSAFE_SRS_SEED, build_provider_with_unsafe_srs},
     };
 
@@ -159,7 +159,7 @@ pub(crate) fn build_unsafe_ivc_setup(
     let depth_bytes = merkle_tree_depth.to_le_bytes();
     let degree_bytes = (RECURSIVE_CIRCUIT_DEGREE + 1).to_le_bytes();
     let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
-    with_shared_key_cache(
+    let cache_directory = shared_cache_directory(
         "ivc-setup",
         &[
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -169,27 +169,28 @@ pub(crate) fn build_unsafe_ivc_setup(
             &degree_bytes,
             &seed_bytes,
         ],
-        |cache_directory| {
-            let trusted_setup_provider =
-                build_provider_with_unsafe_srs(cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
-            let certificate_provider = KeyProvider::new(
-                cache_directory.join("certificate"),
-                "non-recursive",
+    );
+    // Serialize cold-start keygen across the parallel slow-test processes.
+    let _key_cache_lock = FileMutex::new(cache_directory.join(".lock")).lock()?;
+
+    let trusted_setup_provider =
+        build_provider_with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
+    let certificate_provider = KeyProvider::new(
+        cache_directory.join("certificate"),
+        "non-recursive",
+        &[],
+        StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)?,
+    );
+    IvcSnarkProverSetup::load(
+        &trusted_setup_provider,
+        &certificate_provider,
+        |certificate_verifying_key| {
+            Ok(KeyProvider::new(
+                cache_directory.join("recursive"),
+                "recursive",
                 &[],
-                StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)?,
-            );
-            IvcSnarkProverSetup::load(
-                &trusted_setup_provider,
-                &certificate_provider,
-                |certificate_verifying_key| {
-                    Ok(KeyProvider::new(
-                        cache_directory.join("recursive"),
-                        "recursive",
-                        &[],
-                        IvcCircuitData::unknown(certificate_verifying_key)?,
-                    ))
-                },
-            )
+                IvcCircuitData::unknown(certificate_verifying_key)?,
+            ))
         },
     )
 }
