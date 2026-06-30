@@ -1,24 +1,15 @@
 #![allow(dead_code)]
-use anyhow::{Context, anyhow};
-use mithril_metric::{MetricCollector, MetricsServiceExporter};
-use mithril_protocol_config::{
-    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
-    test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
-};
-use prometheus_parse::Value;
-use slog::Drain;
-use slog_scope::debug;
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Debug,
-    ops::RangeInclusive,
-    path::Path,
-    sync::Arc,
-    time::Duration,
+    collections::BTreeMap, fmt::Debug, ops::RangeInclusive, path::Path, sync::Arc, time::Duration,
 };
+
+use anyhow::{Context, anyhow};
+use prometheus_parse::Value;
+use slog_scope::debug;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_importer::CardanoChainDataImporter,
     chain_observer::ChainObserver,
@@ -35,25 +26,27 @@ use mithril_common::{
     api_version::APIVersionProvider,
     crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
-        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityType,
-        SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra, TimePoint,
+        BlockNumber, ChainPoint, Epoch, SignedEntityType, Signer, SignerWithStake, SlotNumber,
+        SupportedEra, TimePoint,
     },
     signable_builder::{
         CardanoBlocksTransactionsSignableBuilder, CardanoStakeDistributionSignableBuilder,
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
         MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
     },
-    test::double::{Dummy, fake_data},
+    test::double::Dummy,
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
+use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_persistence::store::StakeStorer;
+use mithril_protocol_config::{
+    http::HttpMithrilNetworkConfigurationProvider, model::MithrilNetworkConfigurationForEpoch,
+    test::double::FakeMithrilNetworkConfigurationProviderWithEpochMarkers,
+};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
-use mithril_ticker::{MithrilTickerService, TickerService};
-
 use mithril_signer::{
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
     database::repository::{
@@ -63,13 +56,13 @@ use mithril_signer::{
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
         MithrilEpochService, MithrilSingleSigner, SignerCertifierService, SignerChainDataImporter,
-        SignerRegistrationPublisher, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SignerUpkeepService,
+        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
 };
+use mithril_ticker::{MithrilTickerService, TickerService};
 
-use super::FakeAggregator;
+use super::{FakeAggregatorHttpServer, stdout_logger};
 
 type Result<T> = std::result::Result<T, TestError>;
 
@@ -93,8 +86,7 @@ pub struct StateMachineTester {
     state_machine: StateMachine,
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeChainObserver>,
-    fake_aggregator: Arc<FakeAggregator>,
-    network_configuration_service: Arc<FakeMithrilNetworkConfigurationProvider>,
+    fake_aggregator: Arc<FakeAggregatorHttpServer>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
     era_checker: Arc<EraChecker>,
@@ -112,13 +104,6 @@ impl Debug for StateMachineTester {
         debug!("Debug called after comment N°{}.", self.comment_no);
         write!(f, "DEBUG")
     }
-}
-
-fn stdout_logger() -> slog::Logger {
-    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    slog::Logger::root(Arc::new(drain), slog::o!())
 }
 
 impl StateMachineTester {
@@ -156,39 +141,12 @@ impl StateMachineTester {
             chain_observer.clone(),
             immutable_observer.clone(),
         ));
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumberOffset(0),
-            step: BlockNumber(30),
-        };
-        let cardano_blocks_transactions_signing_config = CardanoBlocksTransactionsSigningConfig {
-            security_parameter: BlockNumberOffset(0),
-            step: BlockNumber(30),
-        };
-        let fake_aggregator = Arc::new(FakeAggregator::new(ticker_service.clone()));
 
-        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
-            signed_entity_types_config: SignedEntityTypeConfiguration {
-                cardano_transactions: Some(cardano_transactions_signing_config.clone()),
-                cardano_blocks_transactions: Some(
-                    cardano_blocks_transactions_signing_config.clone(),
-                ),
-            },
-            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
-            ..Dummy::dummy()
-        };
-
-        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
-
-        let configuration_for_registration = MithrilNetworkConfigurationForEpoch {
-            protocol_parameters: fake_data::protocol_parameters(),
-            ..Dummy::dummy()
-        };
-
-        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
-            configuration_for_aggregation,
-            configuration_for_next_aggregation,
-            configuration_for_registration,
-        ));
+        let fake_aggregator = Arc::new(FakeAggregatorHttpServer::spawn(
+            ticker_service.clone(),
+            Arc::new(FakeMithrilNetworkConfigurationProviderWithEpochMarkers::default()),
+            logger.clone(),
+        )?);
 
         let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
@@ -307,12 +265,21 @@ impl StateMachineTester {
         ));
         let signed_beacon_repository =
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None));
+        let aggregator_client = AggregatorHttpClient::builder(fake_aggregator.url().to_string())
+            .with_logger(logger.clone())
+            .build()
+            .map(Arc::new)?;
+
+        let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
+            aggregator_client.clone(),
+            logger.clone(),
+        ));
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository.clone(),
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
-            fake_aggregator.clone(),
+            aggregator_client.clone(),
             logger.clone(),
         ));
         let kes_signer = Some(Arc::new(KesSignerStandard::new(
@@ -321,7 +288,7 @@ impl StateMachineTester {
         )) as Arc<dyn KesSigner>);
 
         let services = SignerDependencyContainer {
-            signers_registration_retriever: fake_aggregator.clone(),
+            signers_registration_retriever: aggregator_client.clone(),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
@@ -338,7 +305,7 @@ impl StateMachineTester {
             upkeep_service,
             epoch_service,
             certifier,
-            signer_registration_publisher: fake_aggregator.clone(),
+            signer_registration_publisher: aggregator_client.clone(),
             kes_signer,
             network_configuration_service: network_configuration_service.clone(),
         };
@@ -360,7 +327,6 @@ impl StateMachineTester {
             immutable_observer,
             chain_observer,
             fake_aggregator,
-            network_configuration_service,
             protocol_initializer_store,
             stake_store,
             era_checker,
@@ -481,39 +447,27 @@ impl StateMachineTester {
         self
     }
 
-    /// change the signed entities allowed by the aggregator
-    pub async fn aggregator_allow_signed_entities(
+    /// Set a network configuration marker for the given epoch.
+    pub async fn set_network_configuration_marker(
         &mut self,
-        discriminants: &[SignedEntityTypeDiscriminants],
+        marker_epoch: Epoch,
+        marker: MithrilNetworkConfigurationForEpoch,
     ) -> &mut Self {
-        let config = MithrilNetworkConfigurationForEpoch {
-            enabled_signed_entity_types: BTreeSet::from_iter(discriminants.iter().cloned()),
-            ..self
-                .network_configuration_service
-                .configuration_for_aggregation
-                .read()
-                .await
-                .clone()
-        };
-        self.network_configuration_service
-            .change_aggregation_configuration(config)
+        self.fake_aggregator
+            .set_network_configuration_marker(marker_epoch, marker)
             .await;
         self
     }
 
-    /// change the signed entities allowed by the aggregator
-    pub async fn change_network_configuration_for_aggregation(
+    pub async fn send_unknown_and_discontinued_signed_entities_in_network_configuration(
         &mut self,
-        alteration: impl FnOnce(&mut MithrilNetworkConfigurationForEpoch),
     ) -> &mut Self {
-        {
-            let mut config = self
-                .network_configuration_service
-                .configuration_for_aggregation
-                .write()
-                .await;
-            alteration(&mut config);
-        }
+        self.fake_aggregator
+            .protocol_config_send_unknown_signed_entities()
+            .await;
+        self.fake_aggregator
+            .protocol_config_send_discontinued_signed_entities()
+            .await;
         self
     }
 
@@ -709,10 +663,8 @@ impl StateMachineTester {
             .unwrap()
             .epoch;
         for signer_with_stake in signers_with_stake {
-            self.fake_aggregator
-                .register_signer(epoch, &signer_with_stake.to_owned().into())
-                .await
-                .map_err(TestError::SubsystemError)?;
+            let signer: Signer = signer_with_stake.clone().into();
+            self.fake_aggregator.register_signer(epoch, signer.into()).await;
         }
 
         Ok(self)

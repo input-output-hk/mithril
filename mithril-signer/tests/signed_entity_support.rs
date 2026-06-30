@@ -3,23 +3,29 @@ mod test_extensions;
 use mithril_common::{
     current_function,
     entities::{
-        BlockNumber, ChainPoint, Epoch, SignedEntityType::MithrilStakeDistribution,
-        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
+        BlockNumber, BlockNumberOffset, CardanoBlocksTransactionsSigningConfig,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        SignedEntityType::MithrilStakeDistribution, SignedEntityTypeDiscriminants, SlotNumber,
+        TimePoint,
     },
     test::{
-        builder::MithrilFixtureBuilder, crypto_helper,
+        builder::MithrilFixtureBuilder, double::fake_data,
         entities_extensions::SignedEntityTypeDiscriminantsTestExtension,
     },
 };
+use mithril_protocol_config::model::{
+    MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
+};
+
 use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
-async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled() {
-    let protocol_parameters = crypto_helper::setup_protocol_parameters();
+async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled_including_unknown_and_discontinued() {
+    let protocol_parameters = fake_data::protocol_parameters();
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(10)
-        .with_protocol_parameters(protocol_parameters.into())
+        .with_protocol_parameters(protocol_parameters.clone())
         .build();
     let signers_with_stake = fixture.signers_with_stake();
     let initial_time_point = TimePoint {
@@ -42,7 +48,25 @@ async fn can_cycle_to_ready_to_sign_with_all_signed_entities_enabled() {
     tester
         .comment("state machine starts in Init and transit to Unregistered state.")
         .is_init().await.unwrap()
-        .aggregator_allow_signed_entities(&SignedEntityTypeDiscriminants::all_with_unstable_vec()).await
+        .set_network_configuration_marker(
+            Epoch(0),
+            MithrilNetworkConfigurationForEpoch {
+                protocol_parameters,
+                enabled_signed_entity_types: SignedEntityTypeDiscriminants::all_with_unstable(),
+                signed_entity_types_config: SignedEntityTypeConfiguration {
+                    cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                        security_parameter: BlockNumberOffset(0),
+                        step: BlockNumber(30),
+                    }),
+                    cardano_blocks_transactions: Some(CardanoBlocksTransactionsSigningConfig {
+                        security_parameter: BlockNumberOffset(0),
+                        step: BlockNumber(30),
+                    }),
+                },
+            },
+        ).await
+        .send_unknown_and_discontinued_signed_entities_in_network_configuration().await
+
         .cycle_unregistered().await.unwrap()
 
         .comment("getting an epoch settings changes the state → RegisteredNotAbleToSign")

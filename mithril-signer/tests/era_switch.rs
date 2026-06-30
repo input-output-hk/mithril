@@ -1,18 +1,27 @@
 mod test_extensions;
 
+use std::collections::BTreeSet;
+
 use mithril_common::{
     current_function,
-    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, SupportedEra, TimePoint},
-    test::{builder::MithrilFixtureBuilder, crypto_helper, double::Dummy},
+    entities::{
+        BlockNumber, ChainPoint, Epoch, SignedEntityTypeDiscriminants, SlotNumber, SupportedEra,
+        TimePoint,
+    },
+    test::{builder::MithrilFixtureBuilder, double::Dummy, double::fake_data},
 };
 use mithril_era::EraMarker;
+use mithril_protocol_config::model::{
+    MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
+};
+
 use test_extensions::{StateMachineTester, get_test_dir};
 
 #[rustfmt::skip]
 #[tokio::test]
 async fn era_fail_at_startup() {
-    let protocol_parameters = crypto_helper::setup_protocol_parameters();
-    let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
+    let protocol_parameters = fake_data::protocol_parameters();
+    let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.clone()).build();
     let signers_with_stake = fixture.signers_with_stake();
     let initial_time_point = TimePoint {
         epoch: Epoch(1),
@@ -26,7 +35,20 @@ async fn era_fail_at_startup() {
     let mut tester =
         StateMachineTester::init(&get_test_dir(current_function!()), &signers_with_stake, initial_time_point)
             .await.expect("state machine tester init should not fail");
-    tester.set_era_markers(vec![EraMarker::new("whatever", Some(Epoch(0)))]);
+
+    tester
+        .set_network_configuration_marker(
+            Epoch(0),
+            MithrilNetworkConfigurationForEpoch {
+                protocol_parameters,
+                enabled_signed_entity_types: BTreeSet::from([SignedEntityTypeDiscriminants::MithrilStakeDistribution]),
+                signed_entity_types_config: SignedEntityTypeConfiguration {
+                    cardano_transactions: None,
+                    cardano_blocks_transactions: None,
+                },
+            },
+        ).await
+        .set_era_markers(vec![EraMarker::new("whatever", Some(Epoch(0)))]);
 
     tester
         .comment("TEST: state machine fails starting when current Era is not supported.")
@@ -52,7 +74,6 @@ async fn era_fail_at_startup() {
         .increase_epoch(3).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
-        .aggregator_send_epoch_settings().await
         .cycle_registered_not_able_to_sign().await.unwrap()
         .increase_epoch(4).await.unwrap()
         .comment("Reaching unsupported Era Epoch")
