@@ -201,7 +201,13 @@ mod tests {
     use crate::Parameters;
 
     mod slow {
+        use midnight_proofs::poly::commitment::Params;
+
         use super::*;
+        use crate::circuits::halo2_ivc::tests::common::{
+            asset_readers::load_embedded_verification_context_asset,
+            generators::setup::{QUORUM_SIZE, SIGNER_COUNT},
+        };
 
         // Runs the real `load` path against an oversized unsafe SRS; runs in the `slow` tier.
         #[test]
@@ -239,6 +245,51 @@ mod tests {
                     "combined map should preserve every IVC base"
                 );
             }
+        }
+
+        // `build_unsafe_ivc_setup` loads from an oversized unsafe SRS that shares the production
+        // SRS's tau, so the keys and stored SRS must both downsize to `RECURSIVE_CIRCUIT_DEGREE` to
+        // reproduce the embedded production assets exactly.
+        #[test]
+        fn ivc_setup_downsizes_keys_and_srs_to_the_circuit_degree() {
+            let parameters = Parameters {
+                k: QUORUM_SIZE as u64,
+                m: (QUORUM_SIZE * 10) as u64,
+                phi_f: 0.2,
+            };
+            let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
+            let ivc_setup = build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+                .expect("IvcSnarkProverSetup::load should succeed");
+
+            let verification_context = load_embedded_verification_context_asset()
+                .expect("verification context asset should load");
+
+            assert_eq!(
+                verification_context
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
+                ivc_setup
+                    .certificate_verifying_key
+                    .midnight_vk()
+                    .vk()
+                    .transcript_repr(),
+                "cert VK must be independent of the SRS degree (downsized at keygen)"
+            );
+            assert_eq!(
+                verification_context
+                    .recursive_verifying_key
+                    .verifying_key()
+                    .transcript_repr(),
+                ivc_setup.ivc_verifying_key.verifying_key().transcript_repr(),
+                "IVC VK must be independent of the SRS degree (downsized at keygen)"
+            );
+            assert_eq!(
+                ivc_setup.srs.max_k(),
+                RECURSIVE_CIRCUIT_DEGREE,
+                "the proving SRS stored in IvcSnarkProverSetup must be downsized to the IVC circuit degree"
+            );
         }
     }
 }

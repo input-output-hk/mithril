@@ -16,8 +16,11 @@ use crate::{
 #[cfg(feature = "future_snark")]
 use crate::{
     AggregationError,
-    circuits::{halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::PREIMAGE_SIZE},
-    proof_system::ivc_halo2_snark::{IvcSnarkProverSetup, load_ivc_prover_setup},
+    circuits::{
+        halo2::keys::NonRecursiveCircuitVerifyingKey, halo2_ivc::PREIMAGE_SIZE,
+        key_provider::KeyProvider, trusted_setup::TrustedSetupProvider,
+    },
+    proof_system::ivc_halo2_snark::IvcSnarkProverSetup,
 };
 
 #[cfg(feature = "future_snark")]
@@ -151,8 +154,17 @@ impl<D: MembershipDigest> Clerk<D> {
                     )
                 })?;
 
-                let (ivc_prover_setup, certificate_verifying_key) =
-                    load_ivc_prover_setup(snark_clerk.parameters, MERKLE_TREE_DEPTH_FOR_SNARK)?;
+                let trusted_setup_provider = TrustedSetupProvider::default();
+                let certificate_provider = KeyProvider::for_non_recursive_circuit(
+                    &snark_clerk.parameters,
+                    MERKLE_TREE_DEPTH_FOR_SNARK,
+                )?;
+                let ivc_prover_setup = Arc::new(IvcSnarkProverSetup::load(
+                    &trusted_setup_provider,
+                    &certificate_provider,
+                    KeyProvider::for_recursive_circuit,
+                )?);
+                let certificate_verifying_key = ivc_prover_setup.certificate_verifying_key.clone();
 
                 let (ivc_proof, next_ancillary_prover_data, ancillary_verifier_data) =
                     ivc_prover_input_preparation_and_prove(
