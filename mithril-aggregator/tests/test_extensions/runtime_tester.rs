@@ -53,7 +53,7 @@ macro_rules! cycle {
             runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
         runtime_tester.cycle().await.unwrap();
-        assert_eq!($expected_state, runtime_tester.runtime.get_state());
+        assert_eq!($expected_state, runtime_tester.runtime.state_label());
 
         assert_metrics_eq!(
             runtime_tester.metrics_verifier,
@@ -78,7 +78,7 @@ macro_rules! cycle_err {
             .await
             .expect_err("cycle tick should have returned an error");
         slog_scope::info!("cycle_err result: {err:?}");
-        assert_eq!($expected_state, runtime_tester.runtime.get_state());
+        assert_eq!($expected_state, runtime_tester.runtime.state_label());
 
         assert_metrics_eq!(
             runtime_tester.metrics_verifier,

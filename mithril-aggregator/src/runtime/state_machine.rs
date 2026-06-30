@@ -88,12 +88,12 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Return the actual state of the state machine.
-    pub fn get_state(&self) -> String {
+    /// Return the label of the actual state of the state machine.
+    pub fn state_label(&self) -> &'static str {
         match self.state {
-            AggregatorState::Idle(_) => "idle".to_string(),
-            AggregatorState::Ready(_) => "ready".to_string(),
-            AggregatorState::Signing(_) => "signing".to_string(),
+            AggregatorState::Idle(_) => "idle",
+            AggregatorState::Ready(_) => "ready",
+            AggregatorState::Signing(_) => "signing",
         }
     }
 
@@ -475,7 +475,7 @@ mod tests {
             let err = runtime.cycle().await.unwrap_err();
             assert!(matches!(err, RuntimeError::KeepState { .. }));
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
@@ -537,7 +537,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
 
         #[tokio::test]
@@ -570,7 +570,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
@@ -608,7 +608,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
             assert_eq!(
                 AggregatorState::Ready(ReadyState {
                     current_time_point: expected_time_point,
@@ -653,7 +653,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
@@ -684,7 +684,7 @@ mod tests {
             let mut runtime = init_runtime(Some(initial_state), runner, false).await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
 
         #[tokio::test]
@@ -722,7 +722,7 @@ mod tests {
                 _ => panic!("KeepState error expected, got {err:?}."),
             };
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
@@ -766,7 +766,7 @@ mod tests {
                 _ => panic!("ReInit error expected, got {err:?}."),
             };
 
-            assert_eq!("signing".to_string(), runtime.get_state());
+            assert_eq!("signing", runtime.state_label());
         }
 
         #[tokio::test]
@@ -801,7 +801,7 @@ mod tests {
                 init_runtime(Some(AggregatorState::Signing(state)), runner, false).await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
 
         #[tokio::test]
@@ -838,7 +838,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap_err();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
     }
 
@@ -881,7 +881,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("idle", runtime.state_label());
         }
 
         #[tokio::test]
@@ -961,7 +961,7 @@ mod tests {
             .await;
             runtime.cycle().await.unwrap();
 
-            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!("ready", runtime.state_label());
         }
     }
 }
