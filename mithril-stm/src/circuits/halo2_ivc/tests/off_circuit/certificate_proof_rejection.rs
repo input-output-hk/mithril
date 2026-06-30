@@ -26,7 +26,7 @@ fn verify_and_prepare_accumulator_rejects_garbage_proof_bytes() {
     let result = verify_and_prepare_accumulator(
         &[0u8; 64],
         &[],
-        &ctx.certificate_verifying_key,
+        ctx.certificate_verifying_key.as_ref(),
         &ctx.verifier_params,
     );
 
@@ -51,7 +51,7 @@ fn verify_and_prepare_accumulator_rejects_valid_proof_with_wrong_public_inputs()
     let result = verify_and_prepare_accumulator(
         step_output.certificate_proof.as_bytes(),
         &wrong_inputs,
-        &ctx.certificate_verifying_key,
+        ctx.certificate_verifying_key.as_ref(),
         &ctx.verifier_params,
     );
 

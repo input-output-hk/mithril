@@ -202,7 +202,7 @@ pub(crate) fn prepare_previous_recursive_proof_accumulator(
     .concat();
 
     let previous_dual_msm = verify_prepare_poseidon_recursive_proof(
-        &setup.recursive_verifying_key,
+        setup.recursive_verifying_key.as_ref(),
         recursive_chain_state.ivc_proof.as_bytes(),
         &previous_public_inputs,
     );
@@ -259,7 +259,7 @@ pub(crate) fn prepare_stored_step_certificate_accumulator(
         certificate_public_inputs_for_step(&recursive_chain_state.state, expected_next_state);
 
     let certificate_dual_msm = verify_prepare_poseidon_recursive_proof(
-        &setup.certificate_verifying_key,
+        setup.certificate_verifying_key.as_ref(),
         certificate_proof,
         &certificate_public_inputs,
     );
@@ -338,7 +338,7 @@ pub(crate) fn build_unextracted_certificate_accumulator_from_assets()
     );
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        &verification_context.certificate_verifying_key,
+        verification_context.certificate_verifying_key.as_ref(),
         recursive_step_output.certificate_proof.as_bytes(),
         &certificate_public_inputs,
     )
@@ -376,7 +376,7 @@ pub(crate) fn build_unextracted_recursive_proof_accumulator_from_assets()
     .concat();
 
     let accumulator: Accumulator<S> = verify_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_chain_state.ivc_proof.as_bytes(),
         &public_inputs,
     )

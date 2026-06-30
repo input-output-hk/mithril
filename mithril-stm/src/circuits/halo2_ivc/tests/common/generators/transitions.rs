@@ -168,8 +168,10 @@ fn build_certificate_asset_data_inner(
         certificate_relation,
         certificate_verifying_key.midnight_vk(),
     );
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
+    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        certificate_verifying_key.as_ref(),
+    );
 
     assert_eq!(
         merkle_tree_commitment, setup.genesis_next_merkle_tree_commitment,
@@ -241,7 +243,7 @@ fn build_certificate_asset_data_inner(
     );
 
     let certificate_dual_msm = verify_prepare_poseidon_ivc(
-        certificate_verifying_key,
+        certificate_verifying_key.as_ref(),
         certificate_proof.as_bytes(),
         &certificate_instance,
     );

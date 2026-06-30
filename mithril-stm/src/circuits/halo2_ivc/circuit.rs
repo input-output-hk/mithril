@@ -1,5 +1,4 @@
 use crate::StmResult;
-use crate::circuits::AsPlonkVerifyingKey;
 use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::circuits::halo2_ivc::keys::RecursiveCircuitVerifyingKey;
 use anyhow::anyhow;
@@ -49,7 +48,7 @@ impl IvcCircuitData {
     pub(crate) fn validate_ivc_verification_key_degree(
         ivc_verification_key: &RecursiveCircuitVerifyingKey,
     ) -> StmResult<()> {
-        let actual = ivc_verification_key.plonk_verifying_key().get_domain().k();
+        let actual = ivc_verification_key.as_ref().get_domain().k();
         if actual != RECURSIVE_CIRCUIT_DEGREE {
             return Err(anyhow!(IvcCircuitError::IvcVerificationKeyDegreeMismatch {
                 expected: RECURSIVE_CIRCUIT_DEGREE,
@@ -123,15 +122,12 @@ impl IvcCircuitData {
             ivc_proof: Value::known(ivc_proof.into_vec()),
             acc: Value::known(acc),
             certificate_circuit_domain_and_constraint_system: (
-                certificate_verification_key
-                    .plonk_verifying_key()
-                    .get_domain()
-                    .clone(),
-                certificate_verification_key.plonk_verifying_key().cs().clone(),
+                certificate_verification_key.as_ref().get_domain().clone(),
+                certificate_verification_key.as_ref().cs().clone(),
             ),
             ivc_circuit_domain_and_constraint_system: (
-                ivc_verification_key.plonk_verifying_key().get_domain().clone(),
-                ivc_verification_key.plonk_verifying_key().cs().clone(),
+                ivc_verification_key.as_ref().get_domain().clone(),
+                ivc_verification_key.as_ref().cs().clone(),
             ),
         })
     }
@@ -156,11 +152,8 @@ impl IvcCircuitData {
             ivc_proof: Value::unknown(),
             acc: Value::unknown(),
             certificate_circuit_domain_and_constraint_system: (
-                certificate_verification_key
-                    .plonk_verifying_key()
-                    .get_domain()
-                    .clone(),
-                certificate_verification_key.plonk_verifying_key().cs().clone(),
+                certificate_verification_key.as_ref().get_domain().clone(),
+                certificate_verification_key.as_ref().cs().clone(),
             ),
             ivc_circuit_domain_and_constraint_system: (
                 ivc_circuit_domain,

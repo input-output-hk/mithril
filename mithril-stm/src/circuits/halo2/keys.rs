@@ -9,7 +9,6 @@ use midnight_zk_stdlib::{self as zk, MidnightCircuit, MidnightPK, MidnightVK};
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
-use crate::circuits::AsPlonkVerifyingKey;
 use crate::circuits::halo2_ivc::{E, F, KZGCommitmentScheme, VerifyingKey};
 use crate::circuits::key_generator::KeyGenerator;
 use crate::codec::{TryFromBytes, TryToBytes};
@@ -38,8 +37,8 @@ impl NonRecursiveCircuitVerifyingKey {
     }
 }
 
-impl AsPlonkVerifyingKey for NonRecursiveCircuitVerifyingKey {
-    fn plonk_verifying_key(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
+impl AsRef<VerifyingKey<F, KZGCommitmentScheme<E>>> for NonRecursiveCircuitVerifyingKey {
+    fn as_ref(&self) -> &VerifyingKey<F, KZGCommitmentScheme<E>> {
         self.0.vk()
     }
 }

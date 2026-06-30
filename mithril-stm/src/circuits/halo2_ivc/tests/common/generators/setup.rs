@@ -251,10 +251,12 @@ pub(crate) fn build_recursive_fixed_bases(
     BTreeMap<String, C>,
     BTreeMap<String, C>,
 ) {
-    let (certificate_fixed_bases, _) =
-        fixed_bases_and_names(CERTIFICATE_VERIFICATION_KEY_NAME, certificate_verifying_key);
+    let (certificate_fixed_bases, _) = fixed_bases_and_names(
+        CERTIFICATE_VERIFICATION_KEY_NAME,
+        certificate_verifying_key.as_ref(),
+    );
     let (recursive_fixed_bases, _) =
-        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key);
+        fixed_bases_and_names(IVC_VERIFICATION_KEY_NAME, recursive_verifying_key.as_ref());
     let mut combined_fixed_bases = certificate_fixed_bases.clone();
     combined_fixed_bases.extend(recursive_fixed_bases.clone());
 

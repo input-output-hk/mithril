@@ -48,7 +48,7 @@ fn recursive_chain_state_asset_proof_and_accumulator_are_valid() {
     .concat();
 
     let dual_msm = verify_prepare_poseidon_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_chain_state.ivc_proof.as_bytes(),
         &public_inputs,
     );
@@ -77,7 +77,7 @@ fn recursive_step_output_asset_proof_and_accumulator_are_valid() {
     .concat();
 
     let dual_msm = verify_prepare_blake2b_recursive_proof(
-        &verification_context.recursive_verifying_key,
+        verification_context.recursive_verifying_key.as_ref(),
         recursive_step_output.ivc_proof.as_bytes(),
         &public_inputs,
     );

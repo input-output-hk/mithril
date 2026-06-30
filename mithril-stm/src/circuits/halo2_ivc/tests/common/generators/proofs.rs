@@ -12,9 +12,8 @@ use midnight_proofs::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::circuits::AsPlonkVerifyingKey;
 use crate::circuits::halo2_ivc::keys::RecursiveCircuitProvingKey;
-use crate::circuits::halo2_ivc::{C, E, F, circuit::IvcCircuitData};
+use crate::circuits::halo2_ivc::{C, E, F, VerifyingKey, circuit::IvcCircuitData};
 
 /// Generates a recursive proof using the chosen transcript hash.
 fn prove_ivc_with_transcript<H: TranscriptHash>(
@@ -45,7 +44,7 @@ where
 
 /// Verifies a recursive proof and returns the prepared MSM.
 fn verify_prepare_ivc_with_transcript<H: TranscriptHash>(
-    verifying_key: &impl AsPlonkVerifyingKey,
+    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
     verification_error: &str,
@@ -57,7 +56,7 @@ where
 {
     let mut transcript = CircuitTranscript::<H>::init_from_bytes(proof);
     let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<H>>(
-        verifying_key.plonk_verifying_key(),
+        verifying_key,
         &[&[C::identity()]],
         &[&[public_inputs]],
         &mut transcript,
@@ -87,7 +86,7 @@ pub(crate) fn prove_poseidon_ivc(
 
 /// Verifies a recursive proof using the Poseidon transcript and returns the prepared MSM.
 pub(crate) fn verify_prepare_poseidon_ivc(
-    verifying_key: &impl AsPlonkVerifyingKey,
+    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {
@@ -128,13 +127,13 @@ pub(crate) fn prove_blake2b_ivc(
 /// Use this instead of `verify_prepare_poseidon_ivc` when testing with tampered
 /// bytes where a panic-on-error would be inappropriate.
 pub(crate) fn try_verify_prepare_poseidon_ivc(
-    verifying_key: &impl AsPlonkVerifyingKey,
+    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
 ) -> Option<DualMSM<E>> {
     let mut transcript = CircuitTranscript::<PoseidonState<F>>::init_from_bytes(proof);
     let dual_msm = prepare::<F, KZGCommitmentScheme<E>, CircuitTranscript<PoseidonState<F>>>(
-        verifying_key.plonk_verifying_key(),
+        verifying_key,
         &[&[C::identity()]],
         &[&[public_inputs]],
         &mut transcript,
@@ -146,7 +145,7 @@ pub(crate) fn try_verify_prepare_poseidon_ivc(
 
 /// Verifies the final recursive proof using the Blake2b transcript.
 pub(crate) fn verify_prepare_blake2b_ivc(
-    verifying_key: &impl AsPlonkVerifyingKey,
+    verifying_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     proof: &[u8],
     public_inputs: &[F],
 ) -> DualMSM<E> {

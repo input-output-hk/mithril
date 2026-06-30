@@ -20,7 +20,8 @@ use midnight_proofs::{
 use crate::{
     StmResult,
     circuits::{
-        AsPlonkVerifyingKey, halo2::types::CircuitBase, halo2_ivc::errors::IvcCircuitError,
+        halo2::types::CircuitBase,
+        halo2_ivc::{E, F, VerifyingKey, errors::IvcCircuitError},
     },
 };
 
@@ -38,7 +39,7 @@ use crate::{
 pub(crate) fn verify_and_prepare_accumulator(
     proof_bytes: &[u8],
     public_inputs: &[CircuitBase],
-    circuit_verification_key: &impl AsPlonkVerifyingKey,
+    circuit_verification_key: &VerifyingKey<F, KZGCommitmentScheme<E>>,
     verifier_params: &ParamsVerifierKZG<Bls12>,
 ) -> StmResult<DualMSM<Bls12>> {
     let mut transcript =
@@ -49,7 +50,7 @@ pub(crate) fn verify_and_prepare_accumulator(
         KZGCommitmentScheme<Bls12>,
         CircuitTranscript<PoseidonState<CircuitBase>>,
     >(
-        circuit_verification_key.plonk_verifying_key(),
+        circuit_verification_key,
         // `committed_instances` slot: identity matches what the in-circuit IVC verifier
         // gadget passes, so the off-circuit `DualMSM` is byte-equivalent to its in-circuit twin.
         &[&[G1Projective::identity()]],
