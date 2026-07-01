@@ -4,7 +4,7 @@ use slog::{Logger, info, trace};
 use std::fmt::Display;
 use std::sync::Arc;
 
-use mithril_common::entities::TimePoint;
+use mithril_common::entities::{Epoch, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 
 use crate::AggregatorConfig;
@@ -14,6 +14,23 @@ use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
     current_time_point: Option<TimePoint>,
+}
+
+/// State when the state machine can't proceed to the next state before the next epoch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockedState {
+    blocked_since_time_point: TimePoint,
+    reason: BlockedReason,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BlockedReason {
+    /// No genesis certificate has been issued yet.
+    NoGenesis,
+    /// The genesis certificate has been issued in the current epoch.
+    GenesisEpoch,
+    /// There's an epoch gap between the current epoch and the one of the last certificate.
+    EpochGap { epoch_of_last_certificate: Epoch },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,6 +47,7 @@ pub struct SigningState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AggregatorState {
     Idle(IdleState),
+    Blocked(BlockedState),
     Ready(ReadyState),
     Signing(SigningState),
 }
@@ -40,6 +58,29 @@ impl Display for AggregatorState {
             AggregatorState::Idle(state) => match &state.current_time_point {
                 None => write!(f, "Idle - No TimePoint"),
                 Some(time_point) => write!(f, "Idle - {time_point}"),
+            },
+            AggregatorState::Blocked(state) => match state.reason {
+                BlockedReason::NoGenesis => {
+                    write!(
+                        f,
+                        "Blocked - No Genesis - {}",
+                        state.blocked_since_time_point
+                    )
+                }
+                BlockedReason::GenesisEpoch => {
+                    write!(
+                        f,
+                        "Blocked - Genesis Epoch - {}",
+                        state.blocked_since_time_point
+                    )
+                }
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate,
+                } => write!(
+                    f,
+                    "Blocked - Epoch Gap [{epoch_of_last_certificate}] - {}",
+                    state.blocked_since_time_point
+                ),
             },
             AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_time_point),
             AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_time_point),
@@ -90,8 +131,13 @@ impl AggregatorRuntime {
 
     /// Return the label of the actual state of the state machine.
     pub fn state_label(&self) -> &'static str {
-        match self.state {
+        match &self.state {
             AggregatorState::Idle(_) => "idle",
+            AggregatorState::Blocked(state) => match state.reason {
+                BlockedReason::NoGenesis => "blocked-no-genesis",
+                BlockedReason::GenesisEpoch => "blocked-genesis-epoch",
+                BlockedReason::EpochGap { .. } => "blocked-epoch-gap",
+            },
             AggregatorState::Ready(_) => "ready",
             AggregatorState::Signing(_) => "signing",
         }
@@ -135,6 +181,7 @@ impl AggregatorRuntime {
 
         let next_state = match &self.state {
             AggregatorState::Idle(state) => self.cycle_idle(state).await?,
+            AggregatorState::Blocked(_state) => todo!(),
             AggregatorState::Ready(state) => self.cycle_ready(state).await?,
             AggregatorState::Signing(state) => self.cycle_signing(state).await?,
         };
@@ -185,6 +232,8 @@ impl AggregatorRuntime {
             // transition READY > IDLE
             info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
 
+            // Keep the time point from the previous epoch so the next IDLE cycle detects
+            // the epoch change and runs epoch initialization tasks.
             Ok(AggregatorState::Idle(IdleState {
                 current_time_point: Some(state.current_time_point.clone()),
             }))
@@ -342,6 +391,8 @@ impl AggregatorRuntime {
             "Launching transition from SIGNING to IDLE state"
         );
 
+        // Keep the time point from the previous epoch so the next IDLE cycle detects
+        // the epoch change and runs epoch initialization tasks.
         Ok(IdleState {
             current_time_point: Some(state.current_time_point.clone()),
         })
