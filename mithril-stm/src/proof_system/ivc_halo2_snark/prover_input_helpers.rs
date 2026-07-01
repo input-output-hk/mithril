@@ -44,13 +44,9 @@ impl IvcTransitionType {
             Some(rs) => rs,
             None => return Ok(Self::Genesis),
         };
+
         let last_committed_epoch = rolling_state.state().current_epoch;
         let incoming_certificate_epoch = protocol_message_preimage.current_epoch();
-
-        if rolling_state.is_genesis() {
-            return Ok(Self::Genesis);
-        }
-
         let is_same_epoch = incoming_certificate_epoch == last_committed_epoch;
         let is_next_epoch = rolling_state.is_next_epoch(incoming_certificate_epoch);
 
@@ -65,15 +61,15 @@ impl IvcTransitionType {
             .into());
         }
 
-        if rolling_state.state().step_counter == StepCounter::new(1) && !is_next_epoch {
-            return Err(IvcCircuitError::InvalidEpochTransition {
-                kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
-                last_committed_epoch: last_committed_epoch.as_u64(),
-            }
-            .into());
-        }
-
         if is_same_epoch {
+            if rolling_state.state().step_counter == StepCounter::new(1) {
+                return Err(IvcCircuitError::InvalidEpochTransition {
+                    kind: EpochTransitionErrorKind::FirstCertificateAfterGenesisMustBeNextEpoch,
+                    last_committed_epoch: last_committed_epoch.as_u64(),
+                }
+                .into());
+            }
+
             let matches_next_merkle_tree_commitment = protocol_message_preimage
                 .next_merkle_tree_commitment()
                 == rolling_state.state().next_merkle_tree_commitment;
