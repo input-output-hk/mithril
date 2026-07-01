@@ -127,9 +127,9 @@ pub(crate) fn verify_certificate_proof<D: MembershipDigest>(
 }
 
 /// Builds the certificate's two-element SNARK public-input message from the AVK Merkle root
-/// and the certificate's message bytes, then decodes it into the typed certificate message
-/// hash and Merkle tree commitment.
-pub(crate) fn build_snark_message_and_decode_fields<D: MembershipDigest>(
+/// and the certificate's message bytes and returns typed versions that can be used to build
+/// a circuit `State`
+pub(crate) fn create_snark_message_for_next_state<D: MembershipDigest>(
     aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
     certificate_message_bytes: &[u8],
 ) -> StmResult<(MessageHash, MerkleTreeCommitment)> {
