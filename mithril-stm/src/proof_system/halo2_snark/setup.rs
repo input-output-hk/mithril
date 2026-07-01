@@ -13,8 +13,7 @@ use midnight_zk_stdlib as zk;
 #[cfg(test)]
 use crate::circuits::{
     halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-    halo2_ivc::RECURSIVE_CIRCUIT_DEGREE,
-    test_utils::{file_mutex::FileMutex, key_cache::shared_cache_directory},
+    halo2_ivc::RECURSIVE_CIRCUIT_DEGREE, test_utils::file_mutex::FileMutex,
     trusted_setup::UNSAFE_SRS_SEED,
 };
 use crate::{
@@ -91,7 +90,7 @@ pub(crate) fn build_unsafe_certificate_setup(
     let parameters_bytes = parameters.to_bytes()?;
     let depth_bytes = merkle_tree_depth.to_le_bytes();
     let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
-    let cache_directory = shared_cache_directory(
+    let cache = FileMutex::for_shared_cache(
         "non-recursive",
         &[
             NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -100,8 +99,9 @@ pub(crate) fn build_unsafe_certificate_setup(
             &seed_bytes,
         ],
     );
+    let cache_directory = cache.directory().to_path_buf();
     // Serialize cold-start keygen across the parallel slow-test processes.
-    let _key_cache_lock = FileMutex::new(cache_directory.join(".lock")).lock()?;
+    let _key_cache_lock = cache.lock()?;
 
     let trusted_setup_provider =
         TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE);
