@@ -181,7 +181,7 @@ impl AggregatorRuntime {
 
         let next_state = match &self.state {
             AggregatorState::Idle(state) => self.cycle_idle(state).await?,
-            AggregatorState::Blocked(_state) => todo!(),
+            AggregatorState::Blocked(state) => self.cycle_blocked(state).await?,
             AggregatorState::Ready(state) => self.cycle_ready(state).await?,
             AggregatorState::Signing(state) => self.cycle_signing(state).await?,
         };
@@ -219,6 +219,24 @@ impl AggregatorRuntime {
             }))
         } else {
             Ok(AggregatorState::Idle(state.clone()))
+        }
+    }
+
+    async fn cycle_blocked(&self, state: &BlockedState) -> Result<AggregatorState, RuntimeError> {
+        let last_time_point: TimePoint =
+            self.runner.get_time_point_from_chain().await.with_context(
+                || "AggregatorRuntime in the state BLOCKED can not get current time point from chain",
+            )?;
+
+        if state.blocked_since_time_point.epoch < last_time_point.epoch {
+            // transition Blocked > IDLE
+            info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
+
+            Ok(AggregatorState::Idle(IdleState {
+                current_time_point: Some(state.blocked_since_time_point.clone()),
+            }))
+        } else {
+            Ok(AggregatorState::Blocked(state.clone()))
         }
     }
 
@@ -589,6 +607,96 @@ mod tests {
             runtime.cycle().await.unwrap();
 
             assert_eq!("ready", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn blocked_new_epoch_detected() {
+            for reason in [
+                BlockedReason::NoGenesis,
+                BlockedReason::GenesisEpoch,
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate: Epoch(999),
+                },
+            ] {
+                let mut runner = MockAggregatorRunner::new();
+                let time_point = TimePoint::dummy();
+                let new_time_point = TimePoint {
+                    epoch: time_point.epoch + 1,
+                    ..time_point.clone()
+                };
+                runner
+                    .expect_get_time_point_from_chain()
+                    .once()
+                    .returning(move || Ok(new_time_point.clone()));
+                runner
+                    .expect_increment_runtime_cycle_total_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+                runner
+                    .expect_increment_runtime_cycle_success_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+
+                let mut runtime = init_runtime(
+                    Some(AggregatorState::Blocked(BlockedState {
+                        current_time_point: time_point,
+                        reason,
+                    })),
+                    runner,
+                    false,
+                )
+                .await;
+                runtime.cycle().await.unwrap();
+
+                assert_eq!("idle", runtime.state_label());
+            }
+        }
+
+        #[tokio::test]
+        pub async fn blocked_state_remains_if_no_epoch_change() {
+            for reason in [
+                BlockedReason::NoGenesis,
+                BlockedReason::GenesisEpoch,
+                BlockedReason::EpochGap {
+                    epoch_of_last_certificate: Epoch(999),
+                },
+            ] {
+                let mut runner = MockAggregatorRunner::new();
+                let time_point = TimePoint::dummy();
+                let new_time_point = TimePoint {
+                    immutable_file_number: time_point.immutable_file_number + 1,
+                    ..time_point.clone()
+                };
+                runner
+                    .expect_get_time_point_from_chain()
+                    .once()
+                    .returning(move || Ok(new_time_point.clone()));
+                runner
+                    .expect_increment_runtime_cycle_total_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+                runner
+                    .expect_increment_runtime_cycle_success_since_startup_counter()
+                    .once()
+                    .returning(|| ());
+
+                let mut runtime = init_runtime(
+                    Some(AggregatorState::Blocked(BlockedState {
+                        blocked_since_time_point: time_point,
+                        reason,
+                    })),
+                    runner,
+                    false,
+                )
+                .await;
+                runtime.cycle().await.unwrap();
+
+                assert!(
+                    runtime.state_label().starts_with("blocked-"),
+                    "state label: {}",
+                    runtime.state_label()
+                );
+            }
         }
 
         #[tokio::test]
