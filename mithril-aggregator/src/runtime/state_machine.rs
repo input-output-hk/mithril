@@ -10,10 +10,19 @@ use mithril_common::logging::LoggerExtensions;
 use crate::AggregatorConfig;
 use crate::entities::OpenMessage;
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
+use crate::services::CertifierServiceError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
     current_time_point: Option<TimePoint>,
+}
+
+impl IdleState {
+    pub fn should_run_epoch_initialization_tasks(&self, new_time_point: &TimePoint) -> bool {
+        self.current_time_point
+            .as_ref()
+            .is_none_or(|time_point| time_point.epoch < new_time_point.epoch)
+    }
 }
 
 /// State when the state machine can't proceed to the next state before the next epoch.
@@ -199,24 +208,43 @@ impl AggregatorRuntime {
 
         info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
-        let can_try_transition_from_idle_to_ready = if self.config.is_follower {
-            self.runner
-                .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
-                .await?
-        } else {
-            true
-        };
+        if self.can_transition_from_idle_to_ready(&last_time_point).await? {
+            if state.should_run_epoch_initialization_tasks(&last_time_point) {
+                self.execute_epoch_initialization_tasks(&last_time_point).await?;
+            }
 
-        if can_try_transition_from_idle_to_ready {
-            self.try_transition_from_idle_to_ready(
-                state.current_time_point.as_ref(),
-                &last_time_point,
-            )
-            .await?;
+            let chain_validity_result =
+                self.runner.is_certificate_chain_valid(&last_time_point).await;
+            if self.config.is_follower {
+                let force_sync = chain_validity_result.is_err();
+                self.runner
+                    .synchronize_follower_aggregator_certificate_chain(force_sync)
+                    .await?;
+            }
 
-            Ok(AggregatorState::Ready(ReadyState {
-                current_time_point: last_time_point,
-            }))
+            if let Err(error) = chain_validity_result {
+                match error.downcast_ref::<CertifierServiceError>() {
+                    Some(CertifierServiceError::CertificateEpochGap {
+                        certificate_epoch, ..
+                    }) => {
+                        info!(self.logger, "→ Epoch gap detected, transitioning to Blocked(epoch-gap)"; "epoch_of_last_certificate" => ?certificate_epoch);
+                        Ok(AggregatorState::Blocked(BlockedState {
+                            blocked_since_time_point: last_time_point,
+                            reason: BlockedReason::EpochGap {
+                                epoch_of_last_certificate: *certificate_epoch,
+                            },
+                        }))
+                    }
+                    _ => Err(RuntimeError::keep_state(
+                        "certificate chain is invalid",
+                        Some(error),
+                    )),
+                }
+            } else {
+                Ok(AggregatorState::Ready(ReadyState {
+                    current_time_point: last_time_point,
+                }))
+            }
         } else {
             Ok(AggregatorState::Idle(state.clone()))
         }
@@ -319,49 +347,41 @@ impl AggregatorRuntime {
         }
     }
 
-    /// Perform a transition from the ` IDLE ` state to the ` READY ADY` state when
-    /// the certificate chain is valid.
-    async fn try_transition_from_idle_to_ready(
+    async fn can_transition_from_idle_to_ready(
         &self,
-        maybe_current_time_point: Option<&TimePoint>,
+        last_time_point: &TimePoint,
+    ) -> Result<bool, RuntimeError> {
+        Ok(if self.config.is_follower {
+            self.runner
+                .is_follower_aggregator_at_same_epoch_as_leader(last_time_point)
+                .await?
+        } else {
+            true
+        })
+    }
+
+    /// Execute tasks that must be run once in an epoch.
+    async fn execute_epoch_initialization_tasks(
+        &self,
         new_time_point: &TimePoint,
     ) -> Result<(), RuntimeError> {
         trace!(self.logger, "Trying transition from IDLE to READY state");
 
-        if maybe_current_time_point.is_none_or(|time_point| time_point.epoch < new_time_point.epoch)
-        {
-            self.runner.close_signer_registration_round().await?;
-            self.runner
-                .update_era_checker(new_time_point.epoch)
-                .await
-                .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.update_stake_distribution(new_time_point).await?;
-            self.runner.inform_new_epoch(new_time_point.epoch).await?;
-            self.runner.upkeep(new_time_point.epoch).await?;
-            self.runner.open_signer_registration_round(new_time_point).await?;
-            if self.config.is_follower {
-                self.runner
-                    .synchronize_follower_aggregator_signer_registration()
-                    .await?;
-            }
-            self.runner.precompute_epoch_data().await?;
-        }
-
-        let chain_validity_result = self
-            .runner
-            .is_certificate_chain_valid(new_time_point)
+        self.runner.close_signer_registration_round().await?;
+        self.runner
+            .update_era_checker(new_time_point.epoch)
             .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: "certificate chain is invalid".to_string(),
-                nested_error: e.into(),
-            });
+            .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
+        self.runner.update_stake_distribution(new_time_point).await?;
+        self.runner.inform_new_epoch(new_time_point.epoch).await?;
+        self.runner.upkeep(new_time_point.epoch).await?;
+        self.runner.open_signer_registration_round(new_time_point).await?;
         if self.config.is_follower {
-            let force_sync = chain_validity_result.is_err();
             self.runner
-                .synchronize_follower_aggregator_certificate_chain(force_sync)
+                .synchronize_follower_aggregator_signer_registration()
                 .await?;
         }
-        chain_validity_result?;
+        self.runner.precompute_epoch_data().await?;
 
         Ok(())
     }
@@ -485,9 +505,7 @@ mod tests {
     mod leader {
         use super::*;
 
-        #[tokio::test]
-        pub async fn idle_check_certificate_chain_is_not_valid() {
-            let mut runner = MockAggregatorRunner::new();
+        fn configure_runner_for_idle_invalid_chain(runner: &mut MockAggregatorRunner) {
             runner
                 .expect_get_time_point_from_chain()
                 .once()
@@ -505,10 +523,6 @@ mod tests {
                 .expect_open_signer_registration_round()
                 .once()
                 .returning(|_| Ok(()));
-            runner
-                .expect_is_certificate_chain_valid()
-                .once()
-                .returning(|_| Err(anyhow!("error")));
             runner
                 .expect_update_era_checker()
                 .with(predicate::eq(TimePoint::dummy().epoch))
@@ -529,6 +543,16 @@ mod tests {
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
                 .returning(|| ());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_certificate_chain_is_not_valid() {
+            let mut runner = MockAggregatorRunner::new();
+            configure_runner_for_idle_invalid_chain(&mut runner);
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Err(anyhow!("error")));
             runner
                 .expect_increment_runtime_cycle_success_since_startup_counter()
                 .never();
@@ -545,6 +569,34 @@ mod tests {
             assert!(matches!(err, RuntimeError::KeepState { .. }));
 
             assert_eq!("idle", runtime.state_label());
+        }
+
+        #[tokio::test]
+        pub async fn idle_check_certificate_chain_epoch_gap() {
+            let mut runner = MockAggregatorRunner::new();
+            configure_runner_for_idle_invalid_chain(&mut runner);
+            runner.expect_is_certificate_chain_valid().once().returning(|_| {
+                Err(anyhow!(CertifierServiceError::CertificateEpochGap {
+                    certificate_epoch: Epoch(999),
+                    current_epoch: Epoch(111),
+                }))
+            });
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("blocked-epoch-gap", runtime.state_label());
         }
 
         #[tokio::test]
@@ -639,7 +691,7 @@ mod tests {
 
                 let mut runtime = init_runtime(
                     Some(AggregatorState::Blocked(BlockedState {
-                        current_time_point: time_point,
+                        blocked_since_time_point: time_point,
                         reason,
                     })),
                     runner,
