@@ -51,10 +51,6 @@ pub enum CertifierServiceError {
         /// Given current epoch
         current_epoch: Epoch,
     },
-
-    /// Could not verify certificate chain because could not find last certificate.
-    #[error("No certificate found.")]
-    CouldNotFindLastCertificate,
 }
 
 /// Status of a successful registration of a single signature.
