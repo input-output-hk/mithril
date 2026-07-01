@@ -124,7 +124,7 @@ impl KeyGenerator for IvcCircuitData {
         // it is exactly RECURSIVE_CIRCUIT_DEGREE it is used directly, and when it is larger it is
         // downsized on a clone so the caller's SRS (which may be reused at a different degree) is left
         // untouched.
-        debug_assert!(
+        anyhow::ensure!(
             srs.max_k() >= RECURSIVE_CIRCUIT_DEGREE,
             "the SRS must be at least the recursive circuit degree"
         );

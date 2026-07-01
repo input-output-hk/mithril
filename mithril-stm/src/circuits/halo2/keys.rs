@@ -120,7 +120,7 @@ impl KeyGenerator for StmCertificateCircuit {
         // is exactly the circuit degree it is used directly, and when it is larger it is downsized on
         // a clone so the caller's SRS (which may be reused at a different degree) is left untouched.
         let circuit_degree = MidnightCircuit::from_relation(self).min_k();
-        debug_assert!(
+        anyhow::ensure!(
             srs.max_k() >= circuit_degree,
             "the SRS must be at least the certificate circuit degree"
         );
