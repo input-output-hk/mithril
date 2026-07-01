@@ -142,18 +142,25 @@ mod tests {
         // (no SRS degree); each must change the directory when it changes.
         let baseline = FileMutex::for_shared_cache(
             "non-recursive",
-            &[b"parameters-a", b"depth-4", b"seed-42"],
+            &[b"circuit-vk-1", b"parameters-a", b"depth-4", b"seed-42"],
+        );
+        let other_circuit_version = FileMutex::for_shared_cache(
+            "non-recursive",
+            &[b"circuit-vk-2", b"parameters-a", b"depth-4", b"seed-42"],
         );
         let other_parameters = FileMutex::for_shared_cache(
             "non-recursive",
-            &[b"parameters-b", b"depth-4", b"seed-42"],
+            &[b"circuit-vk-1", b"parameters-b", b"depth-4", b"seed-42"],
         );
         let other_depth = FileMutex::for_shared_cache(
             "non-recursive",
-            &[b"parameters-a", b"depth-5", b"seed-42"],
+            &[b"circuit-vk-1", b"parameters-a", b"depth-5", b"seed-42"],
         );
-        let other_seed =
-            FileMutex::for_shared_cache("non-recursive", &[b"parameters-a", b"depth-4", b"seed-7"]);
+        let other_seed = FileMutex::for_shared_cache(
+            "non-recursive",
+            &[b"circuit-vk-1", b"parameters-a", b"depth-4", b"seed-7"],
+        );
+        assert_ne!(baseline.directory(), other_circuit_version.directory());
         assert_ne!(baseline.directory(), other_parameters.directory());
         assert_ne!(baseline.directory(), other_depth.directory());
         assert_ne!(baseline.directory(), other_seed.directory());
