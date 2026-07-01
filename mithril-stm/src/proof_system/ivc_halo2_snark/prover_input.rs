@@ -53,32 +53,25 @@ impl IvcProverInput {
     /// folded into the chain's accumulator.
     pub(crate) fn prepare<D: MembershipDigest>(
         certificate_proof: &SnarkProof<D>,
-        certificate_message_bytes: &[u8],
+        message: &[u8],
         aggregate_verification_key_for_snark: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         protocol_message_preimage: &ProtocolMessagePreimage,
         rolling_state: &IvcRollingState,
-        setup: &IvcSnarkProverSetup,
+        prover_setup: &IvcSnarkProverSetup,
     ) -> StmResult<Self> {
         let transition_type =
-            IvcTransitionType::try_compute(rolling_state, protocol_message_preimage)?;
-
-        if matches!(transition_type, IvcTransitionType::Genesis) {
-            return Self::prepare_genesis(rolling_state, protocol_message_preimage, global);
-        }
+            IvcTransitionType::try_compute(Some(rolling_state), protocol_message_preimage)?;
 
         let certificate_dual_msm = verify_certificate_proof(
             certificate_proof,
-            certificate_message_bytes,
+            message,
             aggregate_verification_key_for_snark,
-            setup,
+            prover_setup,
         )?;
 
         let (certificate_message_hash, certificate_merkle_tree_commitment) =
-            build_snark_message_and_decode_fields(
-                aggregate_verification_key_for_snark,
-                certificate_message_bytes,
-            )?;
+            create_snark_message_for_next_state(aggregate_verification_key_for_snark, message)?;
 
         let next_state = build_next_state(
             transition_type,
@@ -89,7 +82,7 @@ impl IvcProverInput {
         )?;
 
         let next_accumulator =
-            build_next_accumulator(certificate_dual_msm, rolling_state, setup, global)?;
+            build_next_accumulator(certificate_dual_msm, rolling_state, prover_setup, global)?;
 
         let witness = Witness::new(
             rolling_state.genesis_signature(),
@@ -110,7 +103,7 @@ impl IvcProverInput {
     /// constructs the base-case state and witness with all certificate-derived fields set
     /// to ZERO and the chain message set to `global.genesis_message`, and passes the
     /// rolling state's trivial accumulator through unchanged.
-    fn prepare_genesis(
+    pub(crate) fn prepare_genesis(
         rolling_state: &IvcRollingState,
         protocol_message_preimage: &ProtocolMessagePreimage,
         global: &Global,
