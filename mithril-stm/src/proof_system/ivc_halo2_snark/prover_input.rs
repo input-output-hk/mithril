@@ -61,7 +61,7 @@ impl IvcProverInput {
         prover_setup: &IvcSnarkProverSetup,
     ) -> StmResult<Self> {
         let transition_type =
-            IvcTransitionType::try_compute(rolling_state, protocol_message_preimage)?;
+            IvcTransitionType::try_compute(Some(rolling_state), protocol_message_preimage)?;
 
         if matches!(transition_type, IvcTransitionType::Genesis) {
             return Self::prepare_genesis(rolling_state, protocol_message_preimage, global);
@@ -107,7 +107,7 @@ impl IvcProverInput {
     /// constructs the base-case state and witness with all certificate-derived fields set
     /// to ZERO and the chain message set to `global.genesis_message`, and passes the
     /// rolling state's trivial accumulator through unchanged.
-    fn prepare_genesis(
+    pub(crate) fn prepare_genesis(
         rolling_state: &IvcRollingState,
         protocol_message_preimage: &ProtocolMessagePreimage,
         global: &Global,

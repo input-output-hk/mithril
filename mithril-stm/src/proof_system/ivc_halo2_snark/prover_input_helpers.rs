@@ -37,9 +37,13 @@ impl IvcTransitionType {
     /// certificate, or when a same-epoch certificate's lookahead does not match the
     /// rolling state.
     pub(crate) fn try_compute(
-        rolling_state: &IvcRollingState,
+        rolling_state: Option<&IvcRollingState>,
         protocol_message_preimage: &ProtocolMessagePreimage,
     ) -> StmResult<Self> {
+        let rolling_state = match rolling_state {
+            Some(rs) => rs,
+            None => return Ok(Self::Genesis),
+        };
         let last_committed_epoch = rolling_state.state().current_epoch;
         let incoming_certificate_epoch = protocol_message_preimage.current_epoch();
 
@@ -451,7 +455,8 @@ mod tests {
         fn returns_genesis_at_step_zero() {
             let rolling_state = build_standard_rolling_state(StepCounter::ZERO, EpochNumber::ZERO);
             let preimage = build_standard_preimage(EpochNumber::ZERO);
-            let transition = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap();
+            let transition =
+                IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap();
             assert!(matches!(transition, IvcTransitionType::Genesis));
         }
 
@@ -460,7 +465,8 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
             let preimage = build_standard_preimage(EpochNumber::new(3));
-            let transition = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap();
+            let transition =
+                IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap();
             assert!(matches!(transition, IvcTransitionType::SameEpoch));
         }
 
@@ -469,7 +475,8 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
             let preimage = build_standard_preimage(EpochNumber::new(4));
-            let transition = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap();
+            let transition =
+                IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap();
             assert!(matches!(transition, IvcTransitionType::NextEpoch));
         }
 
@@ -478,7 +485,7 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
             let preimage = build_standard_preimage(EpochNumber::new(10));
-            let err = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap_err();
+            let err = IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap_err();
             let circuit_error = err
                 .downcast_ref::<IvcCircuitError>()
                 .expect("error chain should carry IvcCircuitError");
@@ -499,7 +506,7 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(1), EpochNumber::ZERO);
             let preimage = build_standard_preimage(EpochNumber::ZERO);
-            let err = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap_err();
+            let err = IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap_err();
             let circuit_error = err
                 .downcast_ref::<IvcCircuitError>()
                 .expect("error chain should carry IvcCircuitError");
@@ -518,7 +525,7 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
             let preimage = build_preimage(EpochNumber::new(3), [0x11; 32], [0u8; 32]);
-            let err = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap_err();
+            let err = IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap_err();
             let circuit_error = err
                 .downcast_ref::<IvcCircuitError>()
                 .expect("error chain should carry IvcCircuitError");
@@ -536,7 +543,7 @@ mod tests {
             let rolling_state =
                 build_standard_rolling_state(StepCounter::new(5), EpochNumber::new(3));
             let preimage = build_preimage(EpochNumber::new(3), [0u8; 32], [0x22; 32]);
-            let err = IvcTransitionType::try_compute(&rolling_state, &preimage).unwrap_err();
+            let err = IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap_err();
             let circuit_error = err
                 .downcast_ref::<IvcCircuitError>()
                 .expect("error chain should carry IvcCircuitError");

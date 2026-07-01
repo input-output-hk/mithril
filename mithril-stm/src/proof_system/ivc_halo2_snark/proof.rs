@@ -316,20 +316,17 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         rolling_state: Option<&IvcRollingState>,
     ) -> StmResult<(IvcProof<blake2b_simd::State>, Option<IvcRollingState>)> {
         ensure_advanceable_rolling_state(rolling_state)?;
+        let transition_type =
+            IvcTransitionType::try_compute(rolling_state, protocol_message_preimage)?;
+
         // `rolling_state = None` is the first certificate: bootstrap from genesis internally,
         // then continue with the seeded state. Otherwise advance from the supplied state.
-        let genesis_seeded_state: Option<IvcRollingState> = match rolling_state {
-            None => Some(self.run_genesis_step(
-                &snark_proof,
-                message,
-                aggregate_verification_key,
-                global,
-                genesis_bootstrap,
-            )?),
-            Some(_) => None,
+        let effective_rolling_state: &IvcRollingState = match transition_type {
+            IvcTransitionType::Genesis => &self.run_genesis_step(global, genesis_bootstrap)?,
+            // if the transition is not Genesis it means that rolling_state is Some
+            // so the unwrap() is safe
+            _ => rolling_state.unwrap(),
         };
-        let effective_rolling_state: &IvcRollingState =
-            genesis_seeded_state.as_ref().or(rolling_state).unwrap();
 
         // Prepare the witness, next state, and folded next accumulator.
         // prepare() borrows snark_proof; snark_proof is still owned afterward.
@@ -410,11 +407,8 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
     ///
     /// `snark_proof`, `message`, and `aggregate_verification_key` are passed through to
     /// `prepare` but are ignored on the genesis path (`step_counter == 0`).
-    fn run_genesis_step<D: MembershipDigest>(
+    fn run_genesis_step(
         &mut self,
-        snark_proof: &SnarkProof<D>,
-        message: &[u8],
-        aggregate_verification_key: &AggregateVerificationKeyForSnark<D>,
         global: &Global,
         bootstrap: &IvcGenesisBootstrapInput,
     ) -> StmResult<IvcRollingState> {
@@ -423,14 +417,10 @@ impl<R: RngCore + CryptoRng> IvcProver<R> {
         let genesis_rolling_state =
             IvcRollingState::genesis(bootstrap.genesis_signature, &combined_fixed_base_names);
 
-        let genesis_prover_input = IvcProverInput::prepare(
-            snark_proof,
-            message,
-            aggregate_verification_key,
-            global,
-            &bootstrap.genesis_protocol_message_preimage,
+        let genesis_prover_input = IvcProverInput::prepare_genesis(
             &genesis_rolling_state,
-            &self.ivc_setup,
+            &bootstrap.genesis_protocol_message_preimage,
+            global,
         )?;
 
         let genesis_circuit_data = IvcCircuitData::try_new(
