@@ -62,20 +62,6 @@ mod tests {
     use crate::circuits::halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION;
 
     #[test]
-    fn verifying_key_round_trips_through_bytes() {
-        let verifying_key =
-            MidnightVK::try_from_bytes(NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
-                .expect("production verifying key bytes should deserialize");
-        let first = verifying_key.to_bytes_vec().expect("serialize should succeed");
-        let restored = MidnightVK::try_from_bytes(&first).expect("re-deserialize should succeed");
-        let second = restored.to_bytes_vec().expect("re-serialize should succeed");
-        assert_eq!(
-            first, second,
-            "certificate verifying key bytes must be stable across a round trip"
-        );
-    }
-
-    #[test]
     fn production_verifying_key_serializes_to_the_embedded_bytes() {
         let verifying_key =
             MidnightVK::try_from_bytes(NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION)
