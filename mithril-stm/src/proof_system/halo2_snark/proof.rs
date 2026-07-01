@@ -24,9 +24,6 @@ use crate::{
     proof_system::halo2_snark::{SnarkError, build_snark_message, prover_input::SnarkProverInput},
 };
 
-#[cfg(test)]
-use crate::proof_system::halo2_snark::setup::build_unsafe_certificate_setup;
-
 use super::{SnarkClerk, SnarkProverSetup};
 use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::codec::TryFromBytes;
@@ -71,14 +68,14 @@ impl<D: MembershipDigest> SnarkProof<D> {
 
     /// Test-only variant of [`Self::try_new`] that derives the circuit verification key from the
     /// deterministic unsafe SRS, instead of the trusted production SRS, via
-    /// [`build_unsafe_certificate_setup`].
+    /// [`SnarkProverSetup::build_for_test`].
     #[cfg(test)]
     pub(crate) fn try_new_with_unsafe_setup(
         circuit_proof: Vec<u8>,
         params: Parameters,
         merkle_tree_depth: u32,
     ) -> StmResult<Self> {
-        let snark_setup = build_unsafe_certificate_setup(&params, merkle_tree_depth)?;
+        let snark_setup = SnarkProverSetup::build_for_test(&params, merkle_tree_depth)?;
         Ok(Self {
             circuit_proof,
             circuit_verification_key: snark_setup.verification_key,
@@ -334,8 +331,8 @@ mod tests {
         proof_system::{
             SnarkClerk,
             halo2_snark::{
-                MERKLE_TREE_DEPTH_FOR_SNARK, SnarkVerifierSetup, proof::SnarkProof,
-                prover_input::SnarkProverInput, setup::build_unsafe_certificate_setup,
+                MERKLE_TREE_DEPTH_FOR_SNARK, SnarkProverSetup, SnarkVerifierSetup,
+                proof::SnarkProof, prover_input::SnarkProverInput,
             },
         },
     };
@@ -379,10 +376,10 @@ mod tests {
 
     fn create_prover(params: Parameters, seed: [u8; 32]) -> SnarkProver<ChaCha20Rng> {
         // Shares its key with `try_new_with_unsafe_setup` for the same parameters: both derive it
-        // through `build_unsafe_certificate_setup`, which keys the shared cache by the parameters,
+        // through `SnarkProverSetup::build_for_test`, which keys the shared cache by the parameters,
         // depth and unsafe seed (not the SRS degree, since keygen downsizes to the circuit's degree).
         let snark_setup =
-            build_unsafe_certificate_setup(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
+            SnarkProverSetup::build_for_test(&params, MERKLE_TREE_DEPTH_FOR_SNARK).unwrap();
 
         SnarkProver::try_new_deterministic(seed, snark_setup).unwrap()
     }

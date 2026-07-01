@@ -75,39 +75,40 @@ impl SnarkProverSetup {
             proving_key,
         })
     }
-}
 
-/// Builds a [`SnarkProverSetup`] from a deterministic, oversized unsafe SRS, exercising the real `load`
-/// path without the production SRS. Mirrors `build_unsafe_ivc_setup` on the recursive side. Shared by
-/// the slow certificate tests through a content-keyed cache keyed by the protocol parameters,
-/// Merkle-tree depth, the unsafe SRS seed, and the production verifying key as a circuit-version salt,
-/// so the certificate key is computed once and reused across tests and runs.
-#[cfg(test)]
-pub(crate) fn build_unsafe_certificate_setup(
-    parameters: &Parameters,
-    merkle_tree_depth: u32,
-) -> StmResult<SnarkProverSetup> {
-    let parameters_bytes = parameters.to_bytes()?;
-    let depth_bytes = merkle_tree_depth.to_le_bytes();
-    let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
-    let cache = FileMutex::for_shared_cache(
-        "non-recursive",
-        &[
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            &parameters_bytes,
-            &depth_bytes,
-            &seed_bytes,
-        ],
-    );
-    let cache_directory = cache.directory().to_path_buf();
-    // Serialize cold-start keygen across the parallel slow-test processes.
-    let _key_cache_lock = cache.lock()?;
+    /// Builds a [`SnarkProverSetup`] from a deterministic, oversized unsafe SRS, exercising the real
+    /// `load` path without the production SRS. Mirrors `IvcSnarkProverSetup::build_for_test` on the
+    /// recursive side. Shared by the slow certificate tests through a content-keyed cache keyed by the
+    /// protocol parameters, Merkle-tree depth, the unsafe SRS seed, and the production verifying key as
+    /// a circuit-version salt, so the certificate key is computed once and reused across tests and
+    /// runs.
+    #[cfg(test)]
+    pub(crate) fn build_for_test(
+        parameters: &Parameters,
+        merkle_tree_depth: u32,
+    ) -> StmResult<Self> {
+        let parameters_bytes = parameters.to_bytes()?;
+        let depth_bytes = merkle_tree_depth.to_le_bytes();
+        let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+        let cache = FileMutex::for_shared_cache(
+            "non-recursive",
+            &[
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                &parameters_bytes,
+                &depth_bytes,
+                &seed_bytes,
+            ],
+        );
+        let cache_directory = cache.directory().to_path_buf();
+        // Serialize cold-start keygen across the parallel slow-test processes.
+        let _key_cache_lock = cache.lock()?;
 
-    let trusted_setup_provider =
-        TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE);
-    let circuit = StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?;
-    let provider = KeyProvider::new(cache_directory, "non-recursive", &[], circuit);
-    SnarkProverSetup::load(&trusted_setup_provider, &provider)
+        let trusted_setup_provider =
+            TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE);
+        let circuit = StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?;
+        let provider = KeyProvider::new(cache_directory, "non-recursive", &[], circuit);
+        Self::load(&trusted_setup_provider, &provider)
+    }
 }
 
 /// Bundles the minimal setup artifacts needed to verify SNARK proofs.

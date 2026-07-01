@@ -947,8 +947,7 @@ mod tests {
                 },
             },
             proof_system::ivc_halo2_snark::{
-                prover_setup::{IvcSnarkProverSetup, build_unsafe_ivc_setup},
-                rolling_state::IvcRollingState,
+                prover_setup::IvcSnarkProverSetup, rolling_state::IvcRollingState,
                 verifier_setup::IvcVerifierSetup,
             },
         };
@@ -1211,7 +1210,7 @@ mod tests {
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
             let ivc_setup = Arc::new(
-                build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+                IvcSnarkProverSetup::build_for_test(&parameters, merkle_tree_depth)
                     .expect("IvcSnarkProverSetup::load should succeed"),
             );
 

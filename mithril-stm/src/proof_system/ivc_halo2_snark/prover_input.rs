@@ -224,7 +224,6 @@ mod tests {
                     },
                 },
             },
-            proof_system::ivc_halo2_snark::prover_setup::build_unsafe_ivc_setup,
             signature_scheme::{SchnorrSignatureError, StandardSchnorrSignature},
         };
 
@@ -239,7 +238,7 @@ mod tests {
                     phi_f: 0.2,
                 };
                 let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-                build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+                IvcSnarkProverSetup::build_for_test(&parameters, merkle_tree_depth)
                     .expect("IvcSnarkProverSetup::load should succeed under the unsafe SRS")
             })
         }

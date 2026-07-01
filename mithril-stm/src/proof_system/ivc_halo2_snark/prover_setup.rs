@@ -142,57 +142,57 @@ impl IvcSnarkProverSetup {
         accumulator.collapse();
         Ok(accumulator)
     }
-}
 
-/// Builds an [`IvcSnarkProverSetup`] from a deterministic, oversized unsafe SRS, exercising the real
-/// `load` path without the production SRS. Shared by the slow IVC tests through a content-keyed cache
-/// keyed by the protocol parameters, Merkle-tree depth, the unsafe SRS identity (degree and seed), and
-/// the production verifying keys as a circuit-version salt, so the recursive keys — the dominant cost —
-/// are computed once and reused across tests and runs.
-#[cfg(test)]
-pub(crate) fn build_unsafe_ivc_setup(
-    parameters: crate::Parameters,
-    merkle_tree_depth: u32,
-) -> StmResult<IvcSnarkProverSetup> {
-    let parameters_bytes = parameters.to_bytes()?;
-    let depth_bytes = merkle_tree_depth.to_le_bytes();
-    let degree_bytes = (RECURSIVE_CIRCUIT_DEGREE + 1).to_le_bytes();
-    let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
-    let cache = FileMutex::for_shared_cache(
-        "ivc-setup",
-        &[
-            NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            &parameters_bytes,
-            &depth_bytes,
-            &degree_bytes,
-            &seed_bytes,
-        ],
-    );
-    let cache_directory = cache.directory().to_path_buf();
-    // Serialize cold-start keygen across the parallel slow-test processes.
-    let _key_cache_lock = cache.lock()?;
+    /// Builds an [`IvcSnarkProverSetup`] from a deterministic, oversized unsafe SRS, exercising the
+    /// real `load` path without the production SRS. Shared by the slow IVC tests through a
+    /// content-keyed cache keyed by the protocol parameters, Merkle-tree depth, the unsafe SRS identity
+    /// (degree and seed), and the production verifying keys as a circuit-version salt, so the recursive
+    /// keys — the dominant cost — are computed once and reused across tests and runs.
+    #[cfg(test)]
+    pub(crate) fn build_for_test(
+        parameters: &crate::Parameters,
+        merkle_tree_depth: u32,
+    ) -> StmResult<Self> {
+        let parameters_bytes = parameters.to_bytes()?;
+        let depth_bytes = merkle_tree_depth.to_le_bytes();
+        let degree_bytes = (RECURSIVE_CIRCUIT_DEGREE + 1).to_le_bytes();
+        let seed_bytes = UNSAFE_SRS_SEED.to_le_bytes();
+        let cache = FileMutex::for_shared_cache(
+            "ivc-setup",
+            &[
+                NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+                &parameters_bytes,
+                &depth_bytes,
+                &degree_bytes,
+                &seed_bytes,
+            ],
+        );
+        let cache_directory = cache.directory().to_path_buf();
+        // Serialize cold-start keygen across the parallel slow-test processes.
+        let _key_cache_lock = cache.lock()?;
 
-    let trusted_setup_provider =
-        TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
-    let certificate_provider = KeyProvider::new(
-        cache_directory.join("certificate"),
-        "non-recursive",
-        &[],
-        StmCertificateCircuit::try_new(&parameters, merkle_tree_depth)?,
-    );
-    IvcSnarkProverSetup::load(
-        &trusted_setup_provider,
-        &certificate_provider,
-        |certificate_verifying_key| {
-            Ok(KeyProvider::new(
-                cache_directory.join("recursive"),
-                "recursive",
-                &[],
-                IvcCircuitData::unknown(certificate_verifying_key)?,
-            ))
-        },
-    )
+        let trusted_setup_provider =
+            TrustedSetupProvider::with_unsafe_srs(&cache_directory, RECURSIVE_CIRCUIT_DEGREE + 1);
+        let certificate_provider = KeyProvider::new(
+            cache_directory.join("certificate"),
+            "non-recursive",
+            &[],
+            StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?,
+        );
+        Self::load(
+            &trusted_setup_provider,
+            &certificate_provider,
+            |certificate_verifying_key| {
+                Ok(KeyProvider::new(
+                    cache_directory.join("recursive"),
+                    "recursive",
+                    &[],
+                    IvcCircuitData::unknown(certificate_verifying_key)?,
+                ))
+            },
+        )
+    }
 }
 
 #[cfg(test)]
@@ -212,8 +212,8 @@ mod tests {
         // Runs the real `load` path against an oversized unsafe SRS; runs in the `slow` tier.
         #[test]
         fn load_succeeds_with_unsafe_srs() {
-            let setup = build_unsafe_ivc_setup(
-                Parameters {
+            let setup = IvcSnarkProverSetup::build_for_test(
+                &Parameters {
                     k: 3,
                     m: 10,
                     phi_f: 0.2,
@@ -247,7 +247,7 @@ mod tests {
             }
         }
 
-        // `build_unsafe_ivc_setup` loads from an oversized unsafe SRS that shares the production
+        // `IvcSnarkProverSetup::build_for_test` loads from an oversized unsafe SRS that shares the production
         // SRS's tau, so the keys and stored SRS must both downsize to `RECURSIVE_CIRCUIT_DEGREE` to
         // reproduce the embedded production assets exactly.
         #[test]
@@ -258,7 +258,7 @@ mod tests {
                 phi_f: 0.2,
             };
             let merkle_tree_depth = SIGNER_COUNT.next_power_of_two().trailing_zeros();
-            let ivc_setup = build_unsafe_ivc_setup(parameters, merkle_tree_depth)
+            let ivc_setup = IvcSnarkProverSetup::build_for_test(&parameters, merkle_tree_depth)
                 .expect("IvcSnarkProverSetup::load should succeed");
 
             let verification_context = load_embedded_verification_context_asset()
