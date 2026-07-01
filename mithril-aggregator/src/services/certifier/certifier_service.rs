@@ -441,7 +441,7 @@ impl CertifierService for MithrilCertifierService {
 
             Ok(())
         } else {
-            Err(CertifierServiceError::CouldNotFindLastCertificate.into())
+            Err(CertifierServiceError::NoGenesisCertificateFound.into())
         }
     }
 }
