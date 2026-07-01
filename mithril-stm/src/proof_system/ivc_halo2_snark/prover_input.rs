@@ -63,10 +63,6 @@ impl IvcProverInput {
         let transition_type =
             IvcTransitionType::try_compute(Some(rolling_state), protocol_message_preimage)?;
 
-        if matches!(transition_type, IvcTransitionType::Genesis) {
-            return Self::prepare_genesis(rolling_state, protocol_message_preimage, global);
-        }
-
         let certificate_dual_msm = verify_certificate_proof(
             certificate_proof,
             message,
