@@ -159,10 +159,11 @@ impl<D: MembershipDigest> Clerk<D> {
                     &snark_clerk.parameters,
                     MERKLE_TREE_DEPTH_FOR_SNARK,
                 )?;
+                let recursive_key_provider =
+                    KeyProvider::for_recursive_circuit(certificate_provider);
                 let ivc_prover_setup = Arc::new(IvcSnarkProverSetup::load(
                     &trusted_setup_provider,
-                    &certificate_provider,
-                    KeyProvider::for_recursive_circuit,
+                    &recursive_key_provider,
                 )?);
                 let certificate_verifying_key = ivc_prover_setup.certificate_verifying_key.clone();
 

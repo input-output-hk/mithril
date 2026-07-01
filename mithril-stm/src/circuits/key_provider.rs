@@ -1,8 +1,8 @@
-//! Compute-on-miss verification key provider for one circuit.
+//! Compute-on-miss verification key provider for one key generator.
 //!
 //! [`KeyProvider`] owns the on-disk key cache (the verifying/proving key file
 //! paths and the expected verifying-key bytes for staleness detection) together with a
-//! [`KeyGenerator`] circuit. [`KeyProvider::key_pair`] inspects the cache
+//! [`KeyGenerator`]. [`KeyProvider::key_pair`] inspects the cache
 //! through a single [`CacheState`] state machine: a fresh, complete pair is returned from disk,
 //! anything else (absent, stale, or partially written) is recomputed from the SRS and stored
 //! atomically.
@@ -21,8 +21,7 @@ use crate::codec::{TryFromBytes, TryToBytes};
 use crate::{Parameters, StmResult};
 
 use super::halo2::circuit::StmCertificateCircuit;
-use super::halo2::keys::NonRecursiveCircuitVerifyingKey;
-use super::halo2_ivc::circuit::IvcCircuitData;
+use super::halo2_ivc::keys::RecursiveCircuitKeyGenerator;
 use super::key_generator::KeyGenerator;
 use super::{
     MITHRIL_CIRCUIT_CACHE_FOLDER, halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
@@ -43,9 +42,9 @@ enum CacheState {
     Empty,
 }
 
-/// Provides a circuit's verifying and proving keys: an on-disk cache (with staleness detection) plus
-/// the [`KeyGenerator`] circuit that computes them on a miss.
-pub(crate) struct KeyProvider<C: KeyGenerator> {
+/// Provides a key generator's verifying and proving keys: an on-disk cache (with staleness detection)
+/// plus the [`KeyGenerator`] that computes them on a miss.
+pub(crate) struct KeyProvider<G: KeyGenerator> {
     /// Path to the on-disk verification key file.
     verification_key_path: PathBuf,
     /// Path to the on-disk proving key file.
@@ -54,47 +53,47 @@ pub(crate) struct KeyProvider<C: KeyGenerator> {
     /// trusts the cached key (used by the content-keyed test caches, which isolate configurations by
     /// directory).
     expected_verification_key: Vec<u8>,
-    /// Circuit that derives the key pair on a cache miss.
-    circuit: C,
+    /// Key generator that derives the key pair on a cache miss.
+    generator: G,
 }
 
-impl<C: KeyGenerator> KeyProvider<C> {
+impl<G: KeyGenerator> KeyProvider<G> {
     /// Builds a provider rooted at `base_dir / MITHRIL_CIRCUIT_CACHE_FOLDER / circuit_name`. On read,
     /// the cached verifying key is compared against `expected_verification_key` and recomputed on a
     /// mismatch; an empty slice skips the comparison and trusts the cached key. Keys are computed from
-    /// `circuit` on a miss.
+    /// `generator` on a miss.
     pub(crate) fn new(
         base_dir: PathBuf,
         circuit_name: &str,
         expected_verification_key: &[u8],
-        circuit: C,
+        generator: G,
     ) -> Self {
         let circuit_dir = base_dir.join(MITHRIL_CIRCUIT_CACHE_FOLDER).join(circuit_name);
         Self {
             verification_key_path: circuit_dir.join("verification-key"),
             proving_key_path: circuit_dir.join("proving-key"),
             expected_verification_key: expected_verification_key.to_vec(),
-            circuit,
+            generator,
         }
     }
 
-    /// The circuit this provider derives keys for.
-    pub(crate) fn circuit(&self) -> &C {
-        &self.circuit
+    /// The key generator this provider derives keys through.
+    pub(crate) fn generator(&self) -> &G {
+        &self.generator
     }
 
     /// Returns the key pair, computing and caching it from `srs` on a miss.
     pub(crate) fn key_pair(
         &self,
         srs: &ParamsKZG<Bls12>,
-    ) -> StmResult<(C::VerifyingKey, C::ProvingKey)> {
+    ) -> StmResult<(G::VerifyingKey, G::ProvingKey)> {
         match self.cache_state()? {
             CacheState::Valid {
                 verification_key,
                 proving_key,
             } => Ok((
-                C::VerifyingKey::try_from_bytes(&verification_key)?,
-                C::ProvingKey::try_from_bytes(&proving_key)?,
+                G::VerifyingKey::try_from_bytes(&verification_key)?,
+                G::ProvingKey::try_from_bytes(&proving_key)?,
             )),
             CacheState::Empty => self.compute_and_store(srs),
         }
@@ -105,11 +104,11 @@ impl<C: KeyGenerator> KeyProvider<C> {
     /// A cache hit requires the complete pair: a verifying key present without its proving key (an
     /// interrupted store) is treated as a miss and the pair is recomputed, rather than returning the
     /// lone verifying key. This is intentional — "cache hit" always means a complete, consistent pair.
-    pub(crate) fn verification_key(&self, srs: &ParamsKZG<Bls12>) -> StmResult<C::VerifyingKey> {
+    pub(crate) fn verification_key(&self, srs: &ParamsKZG<Bls12>) -> StmResult<G::VerifyingKey> {
         match self.cache_state()? {
             CacheState::Valid {
                 verification_key, ..
-            } => C::VerifyingKey::try_from_bytes(&verification_key),
+            } => G::VerifyingKey::try_from_bytes(&verification_key),
             CacheState::Empty => Ok(self.compute_and_store(srs)?.0),
         }
     }
@@ -139,8 +138,8 @@ impl<C: KeyGenerator> KeyProvider<C> {
     fn compute_and_store(
         &self,
         srs: &ParamsKZG<Bls12>,
-    ) -> StmResult<(C::VerifyingKey, C::ProvingKey)> {
-        let (verification_key, proving_key) = self.circuit.generate_key_pair(srs)?;
+    ) -> StmResult<(G::VerifyingKey, G::ProvingKey)> {
+        let (verification_key, proving_key) = self.generator.generate_key_pair(srs)?;
         self.store(
             &verification_key.to_bytes_vec()?,
             &proving_key.to_bytes_vec()?,
@@ -250,25 +249,24 @@ impl KeyProvider<StmCertificateCircuit> {
     }
 }
 
-impl KeyProvider<IvcCircuitData> {
-    /// Production recursive-circuit provider: builds the recursive circuit from the certificate
-    /// verifying key it recursively verifies, roots the cache at the temporary directory, and
-    /// validates against the embedded production verifying key.
+impl KeyProvider<RecursiveCircuitKeyGenerator> {
+    /// Production recursive-circuit provider: wraps the non-recursive key provider the recursive
+    /// circuit is built from, roots the cache at the temporary directory, and validates against the
+    /// embedded production verifying key.
     pub(crate) fn for_recursive_circuit(
-        certificate_verifying_key: &NonRecursiveCircuitVerifyingKey,
-    ) -> StmResult<Self> {
-        let circuit = IvcCircuitData::unknown(certificate_verifying_key)?;
-        Ok(Self::new(
+        non_recursive_key_provider: KeyProvider<StmCertificateCircuit>,
+    ) -> Self {
+        Self::new(
             std::env::temp_dir(),
             "recursive-keys",
             RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-            circuit,
-        ))
+            RecursiveCircuitKeyGenerator::new(non_recursive_key_provider),
+        )
     }
 }
 
 #[cfg(test)]
-impl<C: KeyGenerator> KeyProvider<C> {
+impl<G: KeyGenerator> KeyProvider<G> {
     pub(crate) fn verification_key_path(&self) -> &Path {
         &self.verification_key_path
     }
@@ -373,7 +371,7 @@ mod tests {
         assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
         assert_eq!(proving_key, ByteKey(b"pk".to_vec()));
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "a cold miss must generate exactly once"
         );
@@ -390,7 +388,7 @@ mod tests {
         assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
         assert_eq!(proving_key, ByteKey(b"pk".to_vec()));
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "the second call must hit the cache"
         );
@@ -406,7 +404,7 @@ mod tests {
 
         assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "a warm cache must be reused"
         );
@@ -425,7 +423,7 @@ mod tests {
 
         assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "a verifying key with no proving key must recompute the pair"
         );
@@ -440,7 +438,7 @@ mod tests {
         provider.key_pair(&negligible_srs()).unwrap();
 
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "with empty expected bytes a warm cache must be trusted, not recomputed"
         );
@@ -456,7 +454,7 @@ mod tests {
         provider.key_pair(&negligible_srs()).unwrap();
 
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             2,
             "an orphan proving key must trigger a recompute"
         );
@@ -475,7 +473,7 @@ mod tests {
         assert_eq!(verification_key, ByteKey(b"vk".to_vec()));
         assert_eq!(proving_key, ByteKey(b"pk".to_vec()));
         assert_eq!(
-            provider.circuit().calls.get(),
+            provider.generator().calls.get(),
             1,
             "a stale cache must be recomputed once"
         );

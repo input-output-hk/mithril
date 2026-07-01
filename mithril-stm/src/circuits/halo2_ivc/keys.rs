@@ -9,7 +9,10 @@ use midnight_proofs::poly::kzg::params::ParamsKZG;
 use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
+use crate::circuits::halo2::circuit::StmCertificateCircuit;
+use crate::circuits::halo2::keys::NonRecursiveCircuitVerifyingKey;
 use crate::circuits::key_generator::KeyGenerator;
+use crate::circuits::key_provider::KeyProvider;
 use crate::codec::{TryFromBytes, TryToBytes};
 
 use super::{
@@ -137,6 +140,46 @@ impl KeyGenerator for IvcCircuitData {
             RecursiveCircuitVerifyingKey(verifying_key),
             RecursiveCircuitProvingKey(proving_key),
         ))
+    }
+}
+
+/// Generates the recursive (IVC) circuit's keys, wrapping the non-recursive key provider it needs. The
+/// recursive circuit is built from the certificate verifying key, so its key pair can only be derived
+/// once that verifying key is known; wrapping the non-recursive provider lets the recursive keys be
+/// derived through the same [`KeyProvider`] machinery (and its on-disk cache) as any other circuit,
+/// rather than through a caller-supplied closure.
+pub(crate) struct RecursiveCircuitKeyGenerator {
+    non_recursive_key_provider: KeyProvider<StmCertificateCircuit>,
+}
+
+impl RecursiveCircuitKeyGenerator {
+    /// Wraps the non-recursive key provider the recursive circuit is built from.
+    pub(crate) fn new(non_recursive_key_provider: KeyProvider<StmCertificateCircuit>) -> Self {
+        Self {
+            non_recursive_key_provider,
+        }
+    }
+
+    /// Derives the certificate verifying key the recursive circuit verifies, through the wrapped
+    /// non-recursive provider (and its cache).
+    pub(crate) fn certificate_verifying_key(
+        &self,
+        srs: &ParamsKZG<Bls12>,
+    ) -> StmResult<NonRecursiveCircuitVerifyingKey> {
+        self.non_recursive_key_provider.verification_key(srs)
+    }
+}
+
+impl KeyGenerator for RecursiveCircuitKeyGenerator {
+    type VerifyingKey = RecursiveCircuitVerifyingKey;
+    type ProvingKey = RecursiveCircuitProvingKey;
+
+    fn generate_key_pair(
+        &self,
+        srs: &ParamsKZG<Bls12>,
+    ) -> StmResult<(Self::VerifyingKey, Self::ProvingKey)> {
+        let certificate_verifying_key = self.non_recursive_key_provider.verification_key(srs)?;
+        IvcCircuitData::unknown(&certificate_verifying_key)?.generate_key_pair(srs)
     }
 }
 

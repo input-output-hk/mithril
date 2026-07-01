@@ -8,22 +8,24 @@ use midnight_proofs::poly::kzg::{msm::DualMSM, params::ParamsKZG};
 
 #[cfg(test)]
 use crate::circuits::{
-    halo2::NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
+    halo2::{
+        NON_RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION, circuit::StmCertificateCircuit,
+    },
     halo2_ivc::RECURSIVE_CIRCUIT_VERIFICATION_KEY_FOR_PRODUCTION,
-    test_utils::file_mutex::FileMutex, trusted_setup::UNSAFE_SRS_SEED,
+    test_utils::file_mutex::FileMutex,
+    trusted_setup::UNSAFE_SRS_SEED,
 };
 use crate::{
     StmResult,
     circuits::{
-        halo2::{
-            circuit::StmCertificateCircuit, keys::NonRecursiveCircuitVerifyingKey,
-            types::CircuitBase,
-        },
+        halo2::{keys::NonRecursiveCircuitVerifyingKey, types::CircuitBase},
         halo2_ivc::{
             CERTIFICATE_VERIFICATION_KEY_NAME, IVC_VERIFICATION_KEY_NAME, RECURSIVE_CIRCUIT_DEGREE,
             certificate_proof::verify_and_prepare_accumulator,
-            circuit::IvcCircuitData,
-            keys::{RecursiveCircuitProvingKey, RecursiveCircuitVerifyingKey},
+            keys::{
+                RecursiveCircuitKeyGenerator, RecursiveCircuitProvingKey,
+                RecursiveCircuitVerifyingKey,
+            },
             state::fixed_bases_and_names,
         },
         key_provider::KeyProvider,
@@ -65,30 +67,22 @@ pub(crate) struct IvcSnarkProverSetup {
 }
 
 impl IvcSnarkProverSetup {
-    /// Derives the full IVC setup, orchestrating the certificate and recursive providers around a
-    /// single SRS loaded once.
+    /// Derives the full IVC setup around a single SRS loaded once.
     ///
-    /// Loads the SRS, derives the certificate verifying key from it, downsizes the SRS in place to
-    /// [`RECURSIVE_CIRCUIT_DEGREE`], builds the recursive provider from that certificate verifying
-    /// key (the recursive circuit recursively verifies certificate proofs), derives the IVC
-    /// verifying/proving keys against the downsized SRS, and stores that SRS (used by
-    /// `IvcProver::prove` for `create_proof`). Builds the three fixed-base maps from the verifying
-    /// keys.
-    ///
-    /// `recursive_provider_factory` builds the recursive provider once the certificate verifying key
-    /// is known; production passes [`KeyProvider::for_recursive_circuit`].
+    /// Loads the SRS and downsizes it in place to [`RECURSIVE_CIRCUIT_DEGREE`] (stored for
+    /// `IvcProver::prove`'s `create_proof`). Derives the certificate verifying key through the
+    /// recursive key provider's wrapped non-recursive provider (the recursive circuit recursively
+    /// verifies certificate proofs), derives the IVC verifying/proving keys against the downsized SRS,
+    /// and builds the three fixed-base maps from the two verifying keys.
     pub(crate) fn load(
         trusted_setup_provider: &TrustedSetupProvider,
-        certificate_provider: &KeyProvider<StmCertificateCircuit>,
-        recursive_provider_factory: impl FnOnce(
-            &NonRecursiveCircuitVerifyingKey,
-        ) -> StmResult<KeyProvider<IvcCircuitData>>,
+        recursive_key_provider: &KeyProvider<RecursiveCircuitKeyGenerator>,
     ) -> StmResult<Self> {
         let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
-        let certificate_verifying_key = certificate_provider.verification_key(&srs)?;
         srs.downsize(RECURSIVE_CIRCUIT_DEGREE);
-        let recursive_provider = recursive_provider_factory(&certificate_verifying_key)?;
-        let (ivc_verifying_key, ivc_proving_key) = recursive_provider.key_pair(&srs)?;
+        let certificate_verifying_key =
+            recursive_key_provider.generator().certificate_verifying_key(&srs)?;
+        let (ivc_verifying_key, ivc_proving_key) = recursive_key_provider.key_pair(&srs)?;
 
         let (certificate_fixed_bases, _) = fixed_bases_and_names(
             CERTIFICATE_VERIFICATION_KEY_NAME,
@@ -180,18 +174,13 @@ impl IvcSnarkProverSetup {
             &[],
             StmCertificateCircuit::try_new(parameters, merkle_tree_depth)?,
         );
-        Self::load(
-            &trusted_setup_provider,
-            &certificate_provider,
-            |certificate_verifying_key| {
-                Ok(KeyProvider::new(
-                    cache_directory.join("recursive"),
-                    "recursive",
-                    &[],
-                    IvcCircuitData::unknown(certificate_verifying_key)?,
-                ))
-            },
-        )
+        let recursive_key_provider = KeyProvider::new(
+            cache_directory.join("recursive"),
+            "recursive",
+            &[],
+            RecursiveCircuitKeyGenerator::new(certificate_provider),
+        );
+        Self::load(&trusted_setup_provider, &recursive_key_provider)
     }
 }
 

@@ -64,7 +64,7 @@ impl SnarkProverSetup {
         provider: &KeyProvider<StmCertificateCircuit>,
     ) -> StmResult<Self> {
         let mut srs = trusted_setup_provider.get_trusted_setup_parameters()?;
-        let circuit = provider.circuit().clone();
+        let circuit = provider.generator().clone();
         zk::downsize_srs_for_relation(&mut srs, &circuit);
         let (verification_key, proving_key) = provider.key_pair(&srs)?;
 
