@@ -30,7 +30,18 @@ impl IvcTransitionType {
     /// Categorizes the requested step as genesis, same epoch, or next epoch, and
     /// validates the epoch advance against the rolling chain state.
     ///
-    /// Returns the matching `IvcTransitionType` when the step is valid. Returns
+    /// Returns the matching `IvcTransitionType` when the step is valid.
+    /// A step is valid when:
+    ///  - rolling_state is None => Genesis
+    ///
+    ///  - rolling_state current epoch == protocol message current epoch AND
+    /// the protocol message merkle tree commitment and protocol parameters matches
+    /// the rolling state corresponding fields AND the rolling state step counter is not
+    /// 1 which indicates a Genesis
+    ///
+    ///   - rolling_state current epoch + 1 is the protocol message current epoch AND
+    ///
+    /// Returns
     /// `IvcCircuitError::InvalidEpochTransition` with the specific
     /// `EpochTransitionErrorKind` when the incoming certificate's epoch is out of
     /// range, when the first certificate after genesis is not a next-epoch
@@ -47,6 +58,7 @@ impl IvcTransitionType {
 
         let last_committed_epoch = rolling_state.state().current_epoch;
         let incoming_certificate_epoch = protocol_message_preimage.current_epoch();
+
         let is_same_epoch = incoming_certificate_epoch == last_committed_epoch;
         let is_next_epoch = rolling_state.is_next_epoch(incoming_certificate_epoch);
 
@@ -448,11 +460,9 @@ mod tests {
         use super::*;
 
         #[test]
-        fn returns_genesis_at_step_zero() {
-            let rolling_state = build_standard_rolling_state(StepCounter::ZERO, EpochNumber::ZERO);
+        fn returns_genesis_for_empty_rolling_state() {
             let preimage = build_standard_preimage(EpochNumber::ZERO);
-            let transition =
-                IvcTransitionType::try_compute(Some(&rolling_state), &preimage).unwrap();
+            let transition = IvcTransitionType::try_compute(None, &preimage).unwrap();
             assert!(matches!(transition, IvcTransitionType::Genesis));
         }
 
